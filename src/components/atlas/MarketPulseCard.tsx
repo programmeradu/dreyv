@@ -243,13 +243,13 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
   const norm = (u?: string) => u?.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${u.slice(7)}` : u;
   push(norm(icon));
   if (mint) {
-    push(`https://static.jup.ag/images/${mint}.png`);
+    push(`https://static.jup.ag/tokens/${mint}.png`);
     push(`https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${mint}/logo.png`);
-    push(`https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`);
+    // DexScreener canonical CDN (no redirect)
+    push(`https://cdn.dexscreener.com/tokens/solana/${mint}.png`);
     push(`https://img-v1.raydium.io/icon/${mint}.png`);
   }
   const sym = symbol.toLowerCase();
-  push(`https://assets.coingecko.com/coins/images/search/${sym}.png`);
   // logo.dev — branded fallback (crypto + ticker endpoints)
   push(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
   push(`https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
