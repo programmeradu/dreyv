@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { useNotificationStore, type NotificationType } from '@/lib/notifications';
 
 export interface Toast {
   id: string;
@@ -18,6 +19,12 @@ export interface Toast {
     label: string;
     onClick: () => void;
   };
+  /** When true, also persist to the notification bell history */
+  persist?: boolean;
+  /** Override notification type when persisting (defaults to mapped from toast type) */
+  persistType?: NotificationType;
+  /** Optional href for the persisted notification */
+  href?: string;
 }
 
 interface ToastStore {
@@ -44,18 +51,37 @@ export const useToastStore = create<ToastStore>((set, get) => ({
       duration,
     };
 
+    const wasExisting = !!get().toasts.find(t => t.id === id);
+
     set((state) => {
-      // If id already exists, replace it (dedup)
       const exists = state.toasts.find(t => t.id === id);
       const updated = exists
         ? state.toasts.map(t => t.id === id ? newToast : t)
         : [...state.toasts, newToast];
-      // Cap visible toasts
       const capped = updated.length > MAX_VISIBLE + 3
         ? updated.slice(updated.length - MAX_VISIBLE - 3)
         : updated;
       return { toasts: capped };
     });
+
+    // Bridge to persistent notification bell — only when explicitly opted-in
+    // (via persist: true) or for error toasts (always important). Avoids spam.
+    const shouldPersist = (toast.persist === true || toast.type === 'error') && !wasExisting;
+    if (shouldPersist) {
+      try {
+        const mapped: NotificationType =
+          toast.persistType ||
+          (toast.type === 'error' || toast.type === 'warning' ? 'security' : 'system');
+        useNotificationStore.getState().addNotification({
+          type: mapped,
+          title: toast.title,
+          message: toast.message || '',
+          href: toast.href,
+        });
+      } catch {
+        // never let bell bridge break toast rendering
+      }
+    }
 
     // Auto-dismiss after duration
     if (duration > 0) {
@@ -101,6 +127,10 @@ interface ToastOptions {
   duration?: number;
   badge?: string;
   action?: { label: string; onClick: () => void };
+  /** Also save to the notification bell history */
+  persist?: boolean;
+  persistType?: NotificationType;
+  href?: string;
 }
 
 function createToast(type: Toast['type'], titleOrMsg: string, opts?: ToastOptions): string {
@@ -112,6 +142,9 @@ function createToast(type: Toast['type'], titleOrMsg: string, opts?: ToastOption
     duration: opts?.duration ?? (type === 'error' ? 6000 : 4000),
     badge: opts?.badge,
     action: opts?.action,
+    persist: opts?.persist,
+    persistType: opts?.persistType,
+    href: opts?.href,
   });
 }
 
@@ -182,6 +215,8 @@ export const toastNotifications = {
       title: 'Execution Successful',
       message: `${strategy} completed successfully${details ? ': ' + details : ''}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
@@ -272,6 +307,8 @@ export const toastNotifications = {
       title: 'Confirmed on Blockchain',
       message: `Transaction confirmed${txHash ? ': ' + txHash.slice(0, 8) + '...' : ''}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
@@ -316,11 +353,14 @@ export const toastNotifications = {
   },
 
   mevDetected: (riskLevel: string, estimated: string) => {
+    const risky = riskLevel !== 'low';
     useToastStore.getState().addToast({
-      type: riskLevel === 'low' ? 'success' : 'warning',
+      type: risky ? 'warning' : 'success',
       title: 'MEV Analysis Complete',
       message: `${riskLevel.toUpperCase()} MEV Risk - Est. Loss: ${estimated}`,
       duration: 5000,
+      persist: risky,
+      persistType: 'agent_alert',
     });
   },
 
@@ -333,6 +373,8 @@ export const toastNotifications = {
       title: 'Rebalance Complete',
       message: changes.join(', '),
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
@@ -342,6 +384,8 @@ export const toastNotifications = {
       title: 'DCA Scheduled',
       message: `${amount} into ${token} ${frequency}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
@@ -363,6 +407,8 @@ export const toastNotifications = {
       title: 'Wallet Disconnected',
       message: 'Please reconnect your wallet to continue',
       duration: 0, // Persistent
+      persist: true,
+      persistType: 'security',
     });
   },
 
