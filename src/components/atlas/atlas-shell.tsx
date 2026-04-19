@@ -111,29 +111,58 @@ export function AtlasShell({ children, activeSection }: { children: React.ReactN
               <DropdownMenuContent
                 align="end"
                 sideOffset={8}
-                className="w-auto min-w-0 p-2 bg-transparent border-0 shadow-none flex flex-col gap-1.5"
+                asChild
+                className="w-auto min-w-0 p-2 bg-transparent border-0 shadow-none"
               >
-                <DropdownMenuItem
-                  onClick={async () => { await navigator.clipboard.writeText(publicKey.toBase58()); toast.success("Address copied"); }}
-                  className="rounded-full px-3.5 py-2 bg-white border border-slate-200 shadow-sm hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-violet-50"
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: {},
+                    visible: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+                  }}
+                  className="flex flex-col gap-1.5"
                 >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy address
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => window.open(`https://solscan.io/address/${publicKey.toBase58()}`, "_blank", "noopener,noreferrer")}
-                  className="rounded-full px-3.5 py-2 bg-white border border-slate-200 shadow-sm hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-violet-50"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View on Solscan
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => disconnect?.()}
-                  className="rounded-full px-3.5 py-2 bg-white border border-rose-200 shadow-sm hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 text-rose-600 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-rose-50 focus:text-rose-700"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  Disconnect
-                </DropdownMenuItem>
+                  {[
+                    {
+                      key: "copy",
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      label: "Copy address",
+                      onClick: async () => { await navigator.clipboard.writeText(publicKey.toBase58()); toast.success("Address copied"); },
+                      cls: "border-slate-200 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 focus:bg-violet-50",
+                    },
+                    {
+                      key: "solscan",
+                      icon: <ExternalLink className="h-3.5 w-3.5" />,
+                      label: "View on Solscan",
+                      onClick: () => window.open(`https://solscan.io/address/${publicKey.toBase58()}`, "_blank", "noopener,noreferrer"),
+                      cls: "border-slate-200 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 focus:bg-violet-50",
+                    },
+                    {
+                      key: "disconnect",
+                      icon: <LogOut className="h-3.5 w-3.5" />,
+                      label: "Disconnect",
+                      onClick: () => disconnect?.(),
+                      cls: "border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700",
+                    },
+                  ].map((it) => (
+                    <motion.div
+                      key={it.key}
+                      variants={{
+                        hidden: { opacity: 0, y: -6, scale: 0.92 },
+                        visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 380, damping: 26 } },
+                      }}
+                    >
+                      <DropdownMenuItem
+                        onClick={it.onClick}
+                        className={`rounded-full px-3.5 py-2 bg-white border shadow-sm transition-all cursor-pointer text-xs font-medium gap-2 ${it.cls}`}
+                      >
+                        {it.icon}
+                        {it.label}
+                      </DropdownMenuItem>
+                    </motion.div>
+                  ))}
+                </motion.div>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
