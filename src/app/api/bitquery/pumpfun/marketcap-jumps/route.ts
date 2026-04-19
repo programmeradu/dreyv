@@ -155,13 +155,13 @@ export async function GET(req: NextRequest) {
         }
       });
 
-      ws.on("close", (code: number, reason: Buffer) => {
+      ws.on("close", (code, reason) => {
         sendEvent("close", { code, reason: reason.toString() });
         closeAll("ws_close");
       });
 
-      ws.on("error", (err: Error) => {
-        sendEvent("error", { error: err?.message || String(err) });
+      ws.on("error", (err) => {
+        sendEvent("error", { error: (err as any)?.message || String(err) });
         closeAll("ws_error");
       });
 

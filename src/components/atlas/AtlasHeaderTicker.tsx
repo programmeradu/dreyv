@@ -81,14 +81,13 @@ export function AtlasHeaderTicker() {
     return solBalance * solPrice;
   }, [solBalance, prices]);
 
-  // Build interleaved ticker entries with headlines first so the marquee
-  // immediately reads as news/events, not a duplicate of Market Pulse.
+  // Build interleaved ticker entries
   const entries = useMemo<TickerEntry[]>(() => {
-    const priceEntries: TickerEntry[] = CORE_TOKENS.slice(0, 4).map((t) => ({
+    const priceEntries: TickerEntry[] = CORE_TOKENS.map((t) => ({
       kind: "price",
       symbol: t.symbol,
       price: prices?.[t.id] ?? null,
-      change: null,
+      change: null, // can wire pctChange later
       icon: t.icon,
     }));
 
@@ -115,15 +114,14 @@ export function AtlasHeaderTicker() {
       url: n.url,
     }));
 
-    const out: TickerEntry[] = [];
-    const max = Math.max(newsEntries.length, eventEntries.length, priceEntries.length);
+    // Interleave: prices first, then alternate news/events for variety
+    const out: TickerEntry[] = [...priceEntries];
+    const max = Math.max(newsEntries.length, eventEntries.length);
     for (let i = 0; i < max; i++) {
-      if (newsEntries[i]) out.push(newsEntries[i]);
       if (eventEntries[i]) out.push(eventEntries[i]);
-      if (priceEntries[i]) out.push(priceEntries[i]);
+      if (newsEntries[i]) out.push(newsEntries[i]);
     }
-
-    return out.length > 0 ? out : priceEntries;
+    return out;
   }, [prices, news, health]);
 
   // Black-on-white chip per design; status only conveyed by the tiny dot.

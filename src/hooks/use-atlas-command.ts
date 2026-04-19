@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from "react";
+
+import { create } from 'zustand';
 
 type AtlasCommand = {
   tool_id: string;
@@ -8,40 +9,10 @@ type AtlasCommand = {
 
 type CommandState = {
   lastCommand: AtlasCommand | null;
+  dispatch: (command: Omit<AtlasCommand, 'timestamp'>) => void;
 };
 
-type DispatchCommand = Omit<AtlasCommand, "timestamp">;
-
-let state: CommandState = { lastCommand: null };
-const listeners = new Set<() => void>();
-
-function emitChange() {
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return state;
-}
-
-function dispatch(command: DispatchCommand) {
-  state = {
-    lastCommand: {
-      ...command,
-      timestamp: Date.now(),
-    },
-  };
-  emitChange();
-}
-
-export function useAtlasCommand() {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  return {
-    lastCommand: snapshot.lastCommand,
-    dispatch,
-  };
-}
+export const useAtlasCommand = create<CommandState>((set) => ({
+  lastCommand: null,
+  dispatch: (command) => set({ lastCommand: { ...command, timestamp: Date.now() } }),
+}));
