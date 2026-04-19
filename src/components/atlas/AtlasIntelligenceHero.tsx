@@ -97,15 +97,15 @@ export function AtlasIntelligenceHero() {
         if (!command) command = regexFallbackParse(value);
 
         if (command && command.tool_id) {
-          // Mode flags consumed by downstream tool handlers.
-          const isStrategizing = mode === "plan" || mode === "simulate" || mode === "test";
-          const isDryRun = mode === "test";
-          const isSimulate = mode === "simulate";
-          const isExecute = mode === "execute";
+          // Mode flags consumed by downstream tool handlers (plan handled above via routing).
+          const m = mode as Mode;
+          const isDryRun = m === "test";
+          const isSimulate = m === "simulate";
+          const isExecute = m === "execute";
           command.parameters = {
             ...command.parameters,
-            _mode: mode,
-            _isStrategizing: isStrategizing,
+            _mode: m,
+            _isStrategizing: isDryRun || isSimulate,
             _dryRun: isDryRun,
             _simulate: isSimulate,
             _execute: isExecute,
@@ -122,25 +122,12 @@ export function AtlasIntelligenceHero() {
         setText("");
       }
     },
-    [text, mode, dispatch, activeMode.label]
+    [text, mode, dispatch, router, activeMode.label]
   );
 
   return (
-    <section
-      className="atlas-light relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-b from-slate-50 via-white to-violet-50/40 px-6 py-10 sm:px-10 sm:py-14"
-      style={{ colorScheme: "light" }}
-    >
-      {/* Soft radial glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, rgba(139,92,246,0.10) 0%, rgba(255,255,255,0) 70%)",
-        }}
-      />
-
-      <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+    <section className="atlas-light w-full" style={{ colorScheme: "light" }}>
+      <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Solana Atlas Intelligence
         </h1>
@@ -151,7 +138,7 @@ export function AtlasIntelligenceHero() {
         {/* Pill input */}
         <form onSubmit={handleSubmit} className="mt-6 w-full">
           <div className="group relative flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-4 pr-1.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.15)] transition-shadow focus-within:shadow-[0_12px_32px_-12px_rgba(124,58,237,0.25)] focus-within:border-violet-300">
-            <Sparkles className="h-4 w-4 shrink-0 text-violet-500" aria-hidden />
+            <DreyvStar size={18} className="shrink-0 text-violet-500" aria-hidden />
             <input
               type="text"
               value={text}
