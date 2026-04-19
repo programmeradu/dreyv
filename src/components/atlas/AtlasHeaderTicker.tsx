@@ -151,11 +151,13 @@ export function AtlasHeaderTicker() {
       {/* Marquee */}
       <div className="relative flex-1 min-w-0 overflow-hidden">
         <div
-          className="atlas-ticker-track flex gap-8 whitespace-nowrap py-2"
+          className="atlas-ticker-track flex w-max gap-8 whitespace-nowrap py-2"
           style={{ animation: "atlas-ticker-scroll 30s linear infinite" }}
         >
           {[...entries, ...entries].map((e, i) => (
-            <TickerCell key={i} entry={e} />
+            <div key={i} className="shrink-0">
+              <TickerCell entry={e} />
+            </div>
           ))}
         </div>
         {/* Edge fades */}
