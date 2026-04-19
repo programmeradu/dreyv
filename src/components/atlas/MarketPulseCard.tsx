@@ -228,24 +228,52 @@ function PriceCell({ symbol, icon, mint, price, history }: { symbol: string; ico
   );
 }
 
-// Token icon with graceful fallback to a colored letter avatar
-// when the icon URL fails (e.g. dead IPFS gateways for memecoins).
-function TokenIcon({ icon, symbol, rounded = "md" }: { icon?: string; symbol: string; rounded?: "md" | "full" }) {
-  const [failed, setFailed] = useState(false);
+// Token icon with multi-source fallback chain — tries several reliable
+// CDNs/APIs so a logo always renders. Sources tried in order:
+//   1. Provided icon URL (Jupiter / Moralis / Bitquery)
+//   2. Jupiter strict token list CDN by mint
+//   3. Solana token-list (raw.githubusercontent) by mint
+//   4. DexScreener token image by mint
+//   5. CoinGecko coin image by symbol (best-effort)
+//   6. logo.dev branded fallback by symbol
+function buildIconChain(icon: string | undefined, mint: string | undefined, symbol: string): string[] {
+  const chain: string[] = [];
+  const push = (u?: string) => { if (u && !chain.includes(u)) chain.push(u); };
+  // Normalize ipfs:// → public gateway
+  const norm = (u?: string) => u?.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${u.slice(7)}` : u;
+  push(norm(icon));
+  if (mint) {
+    push(`https://static.jup.ag/images/${mint}.png`);
+    push(`https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${mint}/logo.png`);
+    push(`https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`);
+    push(`https://img-v1.raydium.io/icon/${mint}.png`);
+  }
+  const sym = symbol.toLowerCase();
+  push(`https://assets.coingecko.com/coins/images/search/${sym}.png`);
+  // logo.dev — branded fallback (uses pk_ public key, no auth needed for demo)
+  push(`https://img.logo.dev/ticker/${sym}?token=pk_X-1ZO13ESamOoEeKeLUTVA&size=32&format=png`);
+  return chain;
+}
+
+function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
+  const chain = buildIconChain(icon, mint, symbol);
+  const [idx, setIdx] = useState(0);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
-  if (icon && !failed) {
+  const src = chain[idx];
+  if (src) {
     return (
       <img
-        src={icon}
+        key={src}
+        src={src}
         alt=""
         loading="lazy"
         referrerPolicy="no-referrer"
-        className={`h-4 w-4 ${cls} object-cover bg-muted`}
-        onError={() => setFailed(true)}
+        className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
+        onError={() => setIdx((i) => i + 1)}
       />
     );
   }
-  // Deterministic hue from symbol so each token gets a stable color.
+  // Last resort — deterministic colored letter (should rarely trigger).
   const hue = Array.from(symbol).reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   return (
     <span
