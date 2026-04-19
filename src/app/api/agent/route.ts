@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         console.error("Agent API Error:", error);
         return NextResponse.json(
-            { error: "Failed to process agent request", details: error instanceof Error ? error.message : String(error) },
+            { error: "Failed to process agent request" },
             { status: 500 }
         );
     }
