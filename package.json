@@ -72,8 +72,11 @@
     "@solana/actions": "^1.6.6",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/wallet-adapter-ledger": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-solflare": "^0.6.33",
+    "@solana/wallet-adapter-torus": "^0.11.32",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
     "@sqds/multisig": "^2.1.4",
@@ -133,7 +136,8 @@
     "viem": "^2.37.8",
     "wagmi": "2",
     "ws": "^8.18.3",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
