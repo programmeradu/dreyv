@@ -19,6 +19,12 @@ export interface Toast {
     label: string;
     onClick: () => void;
   };
+  /** When true, also persist to the notification bell history */
+  persist?: boolean;
+  /** Override notification type when persisting (defaults to mapped from toast type) */
+  persistType?: NotificationType;
+  /** Optional href for the persisted notification */
+  href?: string;
 }
 
 interface ToastStore {
