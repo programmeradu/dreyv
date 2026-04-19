@@ -91,16 +91,11 @@ export function MarketPulseCard({
             <div className="flex items-center justify-between px-1 mb-2">
               <div className="text-[11px] opacity-70">Trending</div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="h-5 px-2 text-[10px] rounded-md leading-none">{trendingSource === "moralis" ? "Moralis" : trendingSource === "bitquery" ? "Bitquery" : "Jupiter"}</Badge>
-                {(() => {
-                  const recent = typeof trendingUpdatedAt === "number" && Date.now() - trendingUpdatedAt < 60_000;
-                  return (
-                    <span
-                      aria-label={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                      title={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${recent ? "bg-emerald-500/80" : "bg-amber-500/80"}`} />
-                  );
-                })()}
+              <WidgetInfo
+                source={trendingSource === "moralis" ? "Moralis" : trendingSource === "bitquery" ? "Bitquery" : "Jupiter"}
+                updatedAt={trendingUpdatedAt}
+                methodology="Top Solana tokens by recent volume and momentum from the active data source. Updates every minute."
+              />
               </div>
             </div>
 
