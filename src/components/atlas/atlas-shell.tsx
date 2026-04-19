@@ -190,7 +190,11 @@ export function AtlasShell({ children, activeSection }: { children: React.ReactN
                     {wallet?.adapter?.icon ? (
                       <img src={wallet.adapter.icon} alt={wallet.adapter.name} className="w-6 h-6 rounded-full mr-2 bg-white object-cover shadow-sm" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-violet-600 to-purple-400 mr-2 flex items-center justify-center text-[10px] text-white font-bold">DR</div>
+                      <img
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(publicKey.toBase58())}`}
+                        alt="Wallet avatar"
+                        className="w-6 h-6 rounded-full mr-2 bg-white object-cover shadow-sm ring-1 ring-violet-200"
+                      />
                     )}
                     <span className="font-mono text-xs">{publicKey.toBase58().slice(0, 4)}…{publicKey.toBase58().slice(-4)}</span>
                   </div>
@@ -206,7 +210,11 @@ export function AtlasShell({ children, activeSection }: { children: React.ReactN
           ) : (
             <button onClick={() => setVisible(true)} className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
               <div className="flex items-center">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-violet-600 to-purple-400 mr-2 flex items-center justify-center text-[10px] text-white font-bold">DR</div>
+                <img
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=dreyv-atlas"
+                  alt="Dreyv avatar"
+                  className="w-6 h-6 rounded-full mr-2 bg-white object-cover shadow-sm ring-1 ring-violet-200"
+                />
                 <span>Select Wallet</span>
               </div>
               <ChevronDown className="h-4 w-4" />
