@@ -1489,7 +1489,7 @@ export function AtlasClient() {
   };
   const navIcons: Record<string, React.ReactNode> = {
     overview: <LayoutDashboard className="h-[18px] w-[18px]" />,
-    "market-pulse-card": <TrendingUp className="h-[18px] w-[18px]" />,
+    "market-pulse-card": <IconMarketPulse className="h-[18px] w-[18px]" />,
     "token-intel-section": <Shield className="h-[18px] w-[18px]" />,
     "mev-scanner-card": <Radar className="h-[18px] w-[18px]" />,
     "yield-section": <Compass className="h-[18px] w-[18px]" />,
