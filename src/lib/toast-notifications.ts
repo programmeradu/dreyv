@@ -13,6 +13,7 @@ export interface Toast {
   timestamp: number;
   duration: number; // milliseconds, 0 = permanent
   dismissedAt?: number; // for exit animation timing
+  badge?: string; // optional uppercase category tag, e.g. "ALPHA", "MEV", "YIELD"
   action?: {
     label: string;
     onClick: () => void;
