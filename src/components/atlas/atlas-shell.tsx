@@ -225,39 +225,11 @@ export function AtlasShell({ children, activeSection }: { children: React.ReactN
 
       {/* ── Main ───────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
-        <header className="h-16 flex-shrink-0 flex items-center px-4 sm:px-6 lg:px-8 border-b border-slate-200/50 atlas-header z-20">
-          <button className="md:hidden mr-4 text-slate-500 hover:text-slate-700" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <header className="h-16 flex-shrink-0 flex items-center gap-3 px-4 sm:px-6 lg:px-8 border-b border-slate-200/50 atlas-header z-20">
+          <button className="md:hidden text-slate-500 hover:text-slate-700" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <Menu className="h-6 w-6" />
           </button>
-          <div className="flex-1 flex justify-center max-w-3xl mx-auto">
-            <form onSubmit={handleBottomSubmit} className="w-full relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                <Sparkles className="text-violet-500/70 h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <Input value={cmdText} onChange={(e) => setCmdText(e.target.value)}
-                className="block w-full pl-9 sm:pl-11 pr-12 sm:pr-20 py-2 sm:py-2.5 border border-slate-200 rounded-full leading-5 bg-white/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 text-xs sm:text-sm transition-all shadow-sm group-hover:shadow backdrop-blur-sm"
-                placeholder="Ask Atlas... (e.g., 'Swap 10 SOL')" />
-              <div className="hidden sm:flex absolute inset-y-0 right-12 pr-2 items-center pointer-events-none">
-                <span className="text-xs text-slate-400 border border-slate-200 rounded px-1.5 py-0.5">⌘K</span>
-              </div>
-              <div className="absolute inset-y-0 right-0 pr-1 sm:pr-2 flex items-center">
-                <Button type="submit" size="icon" variant="ghost" disabled={cmdLoading} className="h-7 w-7 sm:h-8 sm:w-8 rounded-full text-slate-400 hover:text-violet-600 hover:bg-violet-100 transition-colors">
-                  {cmdLoading ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />}
-                </Button>
-              </div>
-            </form>
-          </div>
-          <div className="ml-4 flex items-center space-x-3">
-            <div className="hidden sm:flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-              Solana: Live
-            </div>
-            {solBalance != null && publicKey && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                {solBalance.toFixed(3)} SOL
-              </span>
-            )}
-          </div>
+          <AtlasHeaderTicker />
         </header>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-6">
