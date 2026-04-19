@@ -114,13 +114,18 @@ export function AtlasHeaderTicker() {
       url: n.url,
     }));
 
-    // Interleave: prices first, then alternate news/events for variety
-    const out: TickerEntry[] = [...priceEntries];
-    const max = Math.max(newsEntries.length, eventEntries.length);
-    for (let i = 0; i < max; i++) {
-      if (eventEntries[i]) out.push(eventEntries[i]);
-      if (newsEntries[i]) out.push(newsEntries[i]);
-    }
+    // Distribute news throughout prices so headlines appear early and often.
+    // Pattern: insert a news item after every ~3 prices; sprinkle events every ~5.
+    const out: TickerEntry[] = [];
+    let newsIdx = 0;
+    let evtIdx = 0;
+    priceEntries.forEach((p, i) => {
+      out.push(p);
+      if ((i + 1) % 3 === 0 && newsIdx < newsEntries.length) out.push(newsEntries[newsIdx++]);
+      if ((i + 1) % 5 === 0 && evtIdx < eventEntries.length) out.push(eventEntries[evtIdx++]);
+    });
+    while (newsIdx < newsEntries.length) out.push(newsEntries[newsIdx++]);
+    while (evtIdx < eventEntries.length) out.push(eventEntries[evtIdx++]);
     return out;
   }, [prices, news, health]);
 
