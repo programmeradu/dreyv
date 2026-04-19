@@ -107,10 +107,32 @@ export function AtlasShell({ children, activeSection }: { children: React.ReactN
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={async () => { await navigator.clipboard.writeText(publicKey.toBase58()); toast.success("Address copied"); }}>Copy address</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open(`https://solscan.io/address/${publicKey.toBase58()}`, "_blank", "noopener,noreferrer")}>View on Solscan</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => disconnect?.()}>Disconnect</DropdownMenuItem>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-auto min-w-0 p-2 bg-transparent border-0 shadow-none flex flex-col gap-1.5"
+              >
+                <DropdownMenuItem
+                  onClick={async () => { await navigator.clipboard.writeText(publicKey.toBase58()); toast.success("Address copied"); }}
+                  className="rounded-full px-3.5 py-2 bg-white border border-slate-200 shadow-sm hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-violet-50"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy address
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => window.open(`https://solscan.io/address/${publicKey.toBase58()}`, "_blank", "noopener,noreferrer")}
+                  className="rounded-full px-3.5 py-2 bg-white border border-slate-200 shadow-sm hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-violet-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View on Solscan
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => disconnect?.()}
+                  className="rounded-full px-3.5 py-2 bg-white border border-rose-200 shadow-sm hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 text-rose-600 transition-all cursor-pointer text-xs font-medium gap-2 focus:bg-rose-50 focus:text-rose-700"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Disconnect
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
