@@ -241,7 +241,16 @@ export const AgentDashboard = () => {
             <AgentExecutor
               walletPublicKey={publicKey}
               onSuccess={(result) => {
-                toastNotifications.executionSuccess("Strategy", "Execution completed successfully");
+                // Only celebrate when we have a real, confirmed on-chain signature.
+                const sig: string | undefined = (result as any)?.signature || (result as any)?.txSignature;
+                const confirmed: boolean = (result as any)?.confirmed === true;
+                if (sig && confirmed) {
+                  toastNotifications.executionSuccess("Strategy", `Confirmed • ${sig.slice(0, 8)}…`);
+                } else if ((result as any)?.approvalRequired || (result as any)?.status === "approval_required") {
+                  toastNotifications.approvalRequested("Strategy");
+                } else if (sig) {
+                  toastNotifications.executionPending("Strategy", sig);
+                }
                 console.log("Execution successful:", result);
                 // Trigger stats refresh
                 setStats(prev => ({
