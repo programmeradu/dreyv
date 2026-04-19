@@ -257,20 +257,24 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
 }
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  const chain = buildIconChain(icon, mint, symbol);
+  const chain = useMemo(() => buildIconChain(icon, mint, symbol), [icon, mint, symbol]);
   const [idx, setIdx] = useState(0);
+  // Reset idx when the chain identity changes (new token).
+  useEffect(() => { setIdx(0); }, [chain]);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
   const src = chain[idx];
   if (src) {
     return (
       <img
-        key={src}
         src={src}
         alt=""
         loading="lazy"
         referrerPolicy="no-referrer"
         className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
-        onError={() => setIdx((i) => i + 1)}
+        onError={() => {
+          console.debug(`[TokenIcon] ${symbol} failed source ${idx}: ${src}`);
+          setIdx((i) => i + 1);
+        }}
       />
     );
   }
