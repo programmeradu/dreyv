@@ -133,8 +133,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Log full debug info server-side only; never include endpoint URLs (which embed API keys) in the response.
+    console.error("All RPC upstreams failed", { status: lastStatus, attempted: uniqueCandidates.length, lastBody: lastText?.slice(0, 500) });
     return new Response(
-      JSON.stringify({ error: "All RPC upstreams failed after retries", status: lastStatus, debug: uniqueCandidates.slice(0, 3), body: lastText }),
+      JSON.stringify({ error: "All RPC upstreams failed after retries", status: lastStatus }),
       { status: 502, headers: { "Content-Type": "application/json" } }
     );
   } catch (err: any) {
