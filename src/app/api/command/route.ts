@@ -237,8 +237,20 @@ function isSimpleConversation(text: string): boolean {
 
 export async function POST(req: Request) {
   try {
+    // ─── Auth gate: require valid SIWS / Neon-Auth session ───────────
+    const { getAuthUser } = await import('@/lib/auth-utils');
+    const authUser = await getAuthUser(req as any);
+    if (!authUser) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized. Please sign in.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
     const body = await req.json();
-    const { messages, prompt, walletAddress, walletState, vaultState } = body;
+    const { messages, prompt, walletState, vaultState } = body;
+    // Always trust the authenticated session wallet — never the request body.
+    const walletAddress = authUser.walletAddress;
     const strictGroundingGlobal = process.env.STRICT_GROUNDING === "1" || process.env.STRICT_GROUNDING === "true";
     const strictGroundingWallets = (process.env.STRICT_GROUNDING_WALLETS || "")
       .split(",")
