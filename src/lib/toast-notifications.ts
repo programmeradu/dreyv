@@ -373,6 +373,8 @@ export const toastNotifications = {
       title: 'Rebalance Complete',
       message: changes.join(', '),
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
@@ -382,6 +384,8 @@ export const toastNotifications = {
       title: 'DCA Scheduled',
       message: `${amount} into ${token} ${frequency}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
