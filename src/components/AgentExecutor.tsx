@@ -95,16 +95,25 @@ export function AgentExecutor({
     if (!llmPlan || !walletPublicKey) return;
 
     try {
-      // Convert LLM plan to agent input
       let input: any = llmPlan.actions?.[0]?.parameters;
-
       const result = await execute(llmPlan.actions?.[0]?.operation as any, input);
 
       setLlmDialogOpen(false);
       setLlmPlan(null);
       setUserDescription("");
 
-      toastNotifications.executionSuccess("Strategy", `${llmPlan.actions?.[0]?.operation || 'Action'} completed successfully`);
+      // Only celebrate real, confirmed signatures. Otherwise surface
+      // pending/approval state honestly.
+      const sig: string | undefined = (result as any)?.signature || (result as any)?.txSignature;
+      const confirmed: boolean = (result as any)?.confirmed === true;
+      const op = llmPlan.actions?.[0]?.operation || "Action";
+      if (sig && confirmed) {
+        toastNotifications.executionSuccess("Strategy", `${op} confirmed • ${sig.slice(0, 8)}…`);
+      } else if (sig) {
+        toastNotifications.executionPending("Strategy", sig);
+      } else if ((result as any)?.approvalRequired) {
+        toastNotifications.approvalRequested(op);
+      }
       onSuccess?.(result);
     } catch (err: any) {
       const errorExplanation = await explainError(err);
