@@ -6,13 +6,10 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Urbanist } from "next/font/google";
-import { Menu, LayoutDashboard, TrendingUp, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { Menu, LayoutDashboard, TrendingUp, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast-notifications";
-import { useAtlasCommand } from "@/hooks/use-atlas-command";
-import { useAtlasData } from "@/hooks/use-atlas-data";
+import { AtlasHeaderTicker } from "@/components/atlas/AtlasHeaderTicker";
 
 const wordmark = Urbanist({ subsets: ["latin"], weight: "600", display: "swap", adjustFontFallback: true });
 
