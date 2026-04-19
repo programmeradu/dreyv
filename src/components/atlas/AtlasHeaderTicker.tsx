@@ -181,16 +181,14 @@ export function AtlasHeaderTicker() {
         )}
       </div>
 
-      {/* Marquee animation keyframes (scoped to this component) */}
-      <style jsx>{`
+      {/* Marquee animation keyframes */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes atlas-ticker-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(-50%); }
         }
-        .atlas-ticker-track:hover {
-          animation-play-state: paused !important;
-        }
-      `}</style>
+        .atlas-ticker-track:hover { animation-play-state: paused !important; }
+      ` }} />
     </div>
   );
 }
