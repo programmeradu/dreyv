@@ -28,6 +28,7 @@ import {
   DropdownMenuItem } from
 "@/components/ui/dropdown-menu";
 import { AtlasShell } from "./atlas-shell";
+import { AtlasIntelligenceHero } from "./AtlasIntelligenceHero";
 import { useAtlasData, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
 import { useAtlasCommand } from "@/hooks/use-atlas-command";
 import {
@@ -1521,6 +1522,8 @@ export function AtlasClient() {
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-6">
 
+          {/* ── Atlas Intelligence Hero (premium command bar) ─── */}
+          <AtlasIntelligenceHero />
 
           {/* ── Market Pulse ─────────────────────────────────── */}
           <section id="market-pulse-card" className="atlas-glass p-5 overflow-hidden">
