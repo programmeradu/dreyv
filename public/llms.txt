@@ -1,0 +1,34 @@
+# dreyv
+
+> Non-custodial AI treasury workspace for Web3 teams — intent → plan → simulate → sign, Solana-native.
+
+## Site
+
+- Home: /
+- App: /app
+- Atlas (public tools): /atlas
+- Pricing: /pricing
+- Guide — Intent-driven treasury on Solana: /guides/intent-driven-treasury-solana
+
+## Product summary
+
+dreyv helps treasury teams replace fragmented tab-juggling (wallets, DEX aggregators, analytics, chat) with one workspace. Natural-language intent becomes multi-step plans; outcomes are simulated and explained before proposals reach your multisig (e.g. Squads).
+
+## Non-custodial
+
+dreyv does not custody user assets. Users connect wallets and multisig; dreyv coordinates planning, simulation, and signing workflows.
+
+## Social
+
+- X (Twitter): https://x.com/dreyvapp
+- LinkedIn: https://www.linkedin.com/company/dreyv/
+
+## Contact & legal
+
+- Privacy: /legal/privacy
+- Terms: /legal/terms
+- Cookies: /legal/cookies
+
+## Machine-readable context
+
+This file is intended for LLMs and discovery systems. For structured data, see JSON-LD Organization, WebSite, SoftwareApplication, and FAQPage emitted in the root HTML of the deployed site (see the live origin in the browser address bar).
