@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Urbanist } from "next/font/google";
-import { Menu, LayoutDashboard, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown } from "lucide-react";
+import { Menu, LayoutDashboard, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown, Copy, ExternalLink, LogOut } from "lucide-react";
 import { IconMarketPulse } from "@/components/ui/icons";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-notifications";
