@@ -256,59 +256,46 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
   return chain;
 }
 
-// Module-level cache so we only probe each token once per session.
-const ICON_CACHE = new Map<string, string>();
+// Trusted CDN hosts that we know serve real PNGs reliably.
+const TRUSTED_HOSTS = [
+  "static.jup.ag",
+  "raw.githubusercontent.com",
+  "storage.googleapis.com",
+  "legacy.pyth.network",
+  "img.logo.dev",
+  "cdn.dexscreener.com",
+  "img-v1.raydium.io",
+  "arweave.net",
+];
 
-async function resolveIcon(chain: string[], cacheKey: string): Promise<string | null> {
-  if (ICON_CACHE.has(cacheKey)) return ICON_CACHE.get(cacheKey)!;
-  for (const url of chain) {
-    try {
-      // Use Image() to test loadability (HEAD requests often blocked by CORS)
-      const ok = await new Promise<boolean>((resolve) => {
-        const img = new Image();
-        const t = setTimeout(() => resolve(false), 4000);
-        img.onload = () => { clearTimeout(t); resolve(img.naturalWidth > 1); };
-        img.onerror = () => { clearTimeout(t); resolve(false); };
-        img.referrerPolicy = "no-referrer";
-        img.src = url;
-      });
-      if (ok) { ICON_CACHE.set(cacheKey, url); return url; }
-    } catch { /* try next */ }
-  }
-  return null;
+function isTrusted(url: string | undefined): boolean {
+  if (!url) return false;
+  try { return TRUSTED_HOSTS.some((h) => new URL(url).host.endsWith(h)); }
+  catch { return false; }
 }
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  const cacheKey = `${mint || ""}|${symbol}`;
-  const [src, setSrc] = useState<string | null>(() => ICON_CACHE.get(cacheKey) || null);
-  useEffect(() => {
-    if (src) return;
-    let cancelled = false;
-    const chain = buildIconChain(icon, mint, symbol);
-    resolveIcon(chain, cacheKey).then((u) => { if (!cancelled && u) setSrc(u); });
-    return () => { cancelled = true; };
-  }, [icon, mint, symbol, cacheKey, src]);
+  // Decide a single source up-front. If the supplied icon is from a trusted
+  // host, use it. Otherwise fall straight to logo.dev — which returns a real
+  // branded crypto logo for nearly every Solana ticker.
+  const sym = symbol.toLowerCase();
+  const logoDev = `https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`;
+  const initial = isTrusted(icon) ? icon! : logoDev;
+  const [src, setSrc] = useState<string>(initial);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
-      />
-    );
-  }
-  // Loading / unresolved — neutral placeholder.
-  const hue = Array.from(symbol).reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   return (
-    <span
-      aria-hidden
-      className={`h-4 w-4 ${cls} inline-flex items-center justify-center text-[8px] font-bold text-white shrink-0`}
-      style={{ background: `hsl(${hue} 70% 45%)` }}
-    >
-      {symbol.charAt(0).toUpperCase()}
-    </span>
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
+      onError={() => {
+        // Single fallback: try logo.dev /crypto/, then mint-based Jupiter, then give up.
+        if (src === initial && initial !== logoDev) setSrc(logoDev);
+        else if (src === logoDev) setSrc(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
+        else if (mint) setSrc(`https://static.jup.ag/tokens/${mint}.png`);
+      }}
+    />
   );
 }
