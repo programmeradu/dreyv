@@ -99,6 +99,7 @@ interface ToastOptions {
   id?: string;
   description?: string;
   duration?: number;
+  badge?: string;
   action?: { label: string; onClick: () => void };
 }
 
@@ -109,6 +110,7 @@ function createToast(type: Toast['type'], titleOrMsg: string, opts?: ToastOption
     title: titleOrMsg,
     message: opts?.description || '',
     duration: opts?.duration ?? (type === 'error' ? 6000 : 4000),
+    badge: opts?.badge,
     action: opts?.action,
   });
 }
