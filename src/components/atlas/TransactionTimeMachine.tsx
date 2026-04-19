@@ -1,15 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
-import { IconTxExplorer } from "@/components/ui/icons";
 import { formatCurrency } from "@/lib/atlas-utils";
 
 type StrategyType = "stake" | "swap" | "lp";
@@ -148,86 +143,64 @@ export function TransactionTimeMachine() {
 
 
   return (
-    <div className="h-full">
-      <Card className="atlas-card relative overflow-hidden h-full flex flex-col border-border/50 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 transition-colors hover:border-foreground/20 hover:shadow-[0_6px_24px_-12px_rgba(0,0,0,0.25)]">
-        <span className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[radial-gradient(closest-side,var(--color-accent)/35%,transparent_70%)]" />
+    <div className="space-y-3">
+      {/* Strategy Selection */}
+      <div className="space-y-1.5">
+        <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Strategy</div>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5">
+          {(["stake", "swap", "lp"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStrategy(s)}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                strategy === s
+                  ? "bg-violet-600 text-white font-medium shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {s === "stake" ? "Stake 7%" : s === "swap" ? "Swap" : "LP 20%"}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        <CardHeader className="pb-2 flex flex-col gap-2">
-          <div className="flex h-8 items-center justify-between gap-2">
-            <CardTitle className="text-sm leading-none whitespace-nowrap">
-              <span className="flex items-center gap-2">
-                <IconTxExplorer className="h-4 w-4" />
-                <span>Time Machine</span>
-              </span>
-            </CardTitle>
-            <Badge variant="secondary" className="h-5 px-2 text-[10px] rounded-md leading-none">
-              What-If Analysis
-            </Badge>
-          </div>
-          <div className="text-[11px] opacity-60">
-            What returns would you have earned with a past strategy?
-          </div>
-        </CardHeader>
+      {/* Input Fields */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-[11px] text-slate-500">Amount (SOL)</label>
+          <Input type="number" min="0" step="0.1" value={amountSol} onChange={(e) => setAmountSol(e.target.value)} placeholder="10" className="h-9 text-sm bg-white border-slate-200" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] text-slate-500">Days Ago (1-365)</label>
+          <Input type="number" min="1" max="365" value={daysAgo} onChange={(e) => setDaysAgo(e.target.value)} placeholder="30" className="h-9 text-sm bg-white border-slate-200" />
+        </div>
+      </div>
 
-        <CardContent className="atlas-card-content pt-0 space-y-3">
-          {/* Strategy Selection */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-medium opacity-70">Strategy</div>
-            <div className="inline-flex rounded-md border border-border/50 p-0.5 gap-0.5">
-              {(["stake", "swap", "lp"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStrategy(s)}
-                  className={`px-3 py-1 text-[11px] rounded transition-colors ${
-                    strategy === s
-                      ? "bg-foreground/10 font-medium"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  {s === "stake" ? "Stake 7%" : s === "swap" ? "Swap" : "LP 20%"}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Calculate Button — Atlas violet */}
+      <button
+        onClick={handleCalculate}
+        disabled={loading}
+        className="w-full py-2.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Calculating…
+          </>
+        ) : (
+          <>
+            <TrendingUp className="h-4 w-4" />
+            Calculate Returns
+          </>
+        )}
+      </button>
 
-          {/* Input Fields */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-[11px] opacity-60">Amount (SOL)</label>
-              <Input type="number" min="0" step="0.1" value={amountSol} onChange={(e) => setAmountSol(e.target.value)} placeholder="10" className="h-8 text-xs" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] opacity-60">Days Ago (1-365)</label>
-              <Input type="number" min="1" max="365" value={daysAgo} onChange={(e) => setDaysAgo(e.target.value)} placeholder="30" className="h-8 text-xs" />
-            </div>
-          </div>
-
-          {/* Calculate Button */}
-          <Button
-            onClick={handleCalculate}
-            disabled={loading}
-            className="w-full"
-            size="sm"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Calculating...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Calculate Returns
-              </>
-            )}
-          </Button>
-
-          {/* Error Display */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+      {/* Error Display */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
           )}
 
           {/* Results Display */}
