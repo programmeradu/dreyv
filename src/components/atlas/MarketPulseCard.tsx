@@ -250,8 +250,9 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
   }
   const sym = symbol.toLowerCase();
   push(`https://assets.coingecko.com/coins/images/search/${sym}.png`);
-  // logo.dev — branded fallback (uses pk_ public key, no auth needed for demo)
-  push(`https://img.logo.dev/ticker/${sym}?token=pk_X-1ZO13ESamOoEeKeLUTVA&size=32&format=png`);
+  // logo.dev — branded fallback (crypto + ticker endpoints)
+  push(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
+  push(`https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
   return chain;
 }
 
