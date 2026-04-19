@@ -1731,7 +1731,7 @@ export function AtlasClient() {
                 </div>
               </section>
 
-              {/* ── MEV Detector (moved to wide left column for breathing room) ── */}
+              {/* ── MEV Detector ────────────────────────────────── */}
               <section id="mev-scanner-card" className="atlas-glass p-5">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1744,12 +1744,7 @@ export function AtlasClient() {
                 <MEVScanner />
               </section>
 
-            </div>{/* end left column */}
-
-            {/* ── Right column ────────────────────────────────── */}
-            <div className="space-y-6">
-
-              {/* ── Time Machine ────────────────────────────────── */}
+              {/* ── Time Machine (wide column for full backtest UI) ── */}
               <section id="time-machine-section" className="atlas-glass p-5">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1761,6 +1756,11 @@ export function AtlasClient() {
                 <p className="text-sm text-slate-500 mb-4">Backtest strategies: what would you have earned?</p>
                 <TransactionTimeMachine />
               </section>
+
+            </div>{/* end left column */}
+
+            {/* ── Right column ────────────────────────────────── */}
+            <div className="space-y-6">
 
               {/* ── Yield & Airdrops ────────────────────────────── */}
               <section id="yield-section" className="atlas-glass p-5">
