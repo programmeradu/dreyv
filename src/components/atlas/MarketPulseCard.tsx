@@ -1,15 +1,14 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { pctChange } from "@/lib/atlas-utils";
 import { Sparkline, SparklineArea, SparkBars, SparkHeatmap, SparkCandles } from "./Sparkline";
 import { IconMarketPulse } from "@/components/ui/icons";
+import { WidgetInfo } from "./WidgetInfo";
 
 type CoreToken = { id: string; symbol: string; icon: string };
 type TrendingToken = { mint: string; symbol: string; name?: string; icon?: string; logoURI?: string };
@@ -54,29 +53,23 @@ export function MarketPulseCard({
           <CardTitle className="text-sm leading-none">
             <span className="flex items-center gap-2"><IconMarketPulse className="h-4 w-4" /><span>Market Pulse</span></span>
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
               onClick={refreshPrices}
               disabled={pricesLoading}
-              className="h-6 px-2 text-[11px] rounded-md leading-none active:scale-[0.98] transition-transform"
-              title="Refresh prices (R)">
-              {pricesLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
-            </Button>
-            <Badge variant="secondary" className="h-6 px-2 text-[10px] rounded-md leading-none">Jupiter</Badge>
-            {(() => {
-              const recent = typeof pricesUpdatedAt === "number" && Date.now() - pricesUpdatedAt < 60_000;
-              return (
-                <span
-                  aria-label={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                  title={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${recent ? "bg-emerald-500/80" : "bg-amber-500/80"}`} />
-              );
-            })()}
-            {pricesUpdatedAt ? (
-              <span className="text-[10px] opacity-60 ml-1">{`Updated ${new Date(pricesUpdatedAt).toLocaleTimeString()}`}</span>
-            ) : null}
+              aria-label="Refresh prices"
+              title="Refresh prices (R)"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground hover:bg-muted/40 disabled:opacity-50"
+            >
+              {pricesLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            </button>
+            <WidgetInfo
+              source="Jupiter price feed"
+              updatedAt={pricesUpdatedAt}
+              methodology="Mid prices for the 10 core Solana tokens, refreshed every minute. Sparklines show the last hour."
+              methodologyHref="https://station.jup.ag/docs/apis/price-api"
+            />
           </div>
         </CardHeader>
         <CardContent className="atlas-card-content pt-0">
@@ -97,16 +90,11 @@ export function MarketPulseCard({
             <div className="flex items-center justify-between px-1 mb-2">
               <div className="text-[11px] opacity-70">Trending</div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="h-5 px-2 text-[10px] rounded-md leading-none">{trendingSource === "moralis" ? "Moralis" : trendingSource === "bitquery" ? "Bitquery" : "Jupiter"}</Badge>
-                {(() => {
-                  const recent = typeof trendingUpdatedAt === "number" && Date.now() - trendingUpdatedAt < 60_000;
-                  return (
-                    <span
-                      aria-label={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                      title={recent ? "Live – updated < 60s" : "Stale – updated > 60s"}
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${recent ? "bg-emerald-500/80" : "bg-amber-500/80"}`} />
-                  );
-                })()}
+              <WidgetInfo
+                source={trendingSource === "moralis" ? "Moralis" : trendingSource === "bitquery" ? "Bitquery" : "Jupiter"}
+                updatedAt={trendingUpdatedAt}
+                methodology="Top Solana tokens by recent volume and momentum from the active data source. Updates every minute."
+              />
               </div>
             </div>
 
