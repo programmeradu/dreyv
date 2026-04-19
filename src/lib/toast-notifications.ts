@@ -148,7 +148,8 @@ if (typeof window !== 'undefined') {
   (window as any).toast = toast;
 
   // ?toasttest=1 fires a sample of all variants for visual QA
-  if (typeof location !== 'undefined' && location.search.includes('toasttest=1') && !(window as any).__toastTestFired) {
+  const fireTestToasts = () => {
+    if ((window as any).__toastTestFired) return;
     (window as any).__toastTestFired = true;
     setTimeout(() => {
       toast.success('Swap Executed', {
