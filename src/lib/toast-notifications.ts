@@ -407,6 +407,8 @@ export const toastNotifications = {
       title: 'Wallet Disconnected',
       message: 'Please reconnect your wallet to continue',
       duration: 0, // Persistent
+      persist: true,
+      persistType: 'security',
     });
   },
 
