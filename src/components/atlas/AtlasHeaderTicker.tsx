@@ -135,50 +135,52 @@ export function AtlasHeaderTicker() {
 
   return (
     <div className="flex flex-1 items-center gap-3 min-w-0">
+      {/* TPS status dot — left of ticker, replaces full chip */}
+      <div
+        className="hidden sm:inline-flex items-center gap-1.5 shrink-0 text-[11px] text-slate-500"
+        title={health ? `Solana network: ${health.status} · ${health.tps.toLocaleString()} TPS · slot ${health.slot.toLocaleString()}` : "Loading network health…"}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${tpsDotColor}`} />
+      </div>
+
       {/* Marquee */}
-      <div className="relative flex-1 min-w-0 overflow-hidden rounded-full border border-slate-200 bg-white/70 backdrop-blur-sm">
+      <div className="relative flex-1 min-w-0 overflow-hidden">
         <div
-          className="atlas-ticker-track flex gap-6 whitespace-nowrap py-2 pl-3"
-          style={{ animation: "atlas-ticker-scroll 90s linear infinite" }}
+          className="atlas-ticker-track flex gap-8 whitespace-nowrap py-2"
+          style={{ animation: "atlas-ticker-scroll 120s linear infinite" }}
         >
           {[...entries, ...entries].map((e, i) => (
             <TickerCell key={i} entry={e} />
           ))}
         </div>
         {/* Edge fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white/90 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-white to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
       </div>
 
-      {/* Right rail */}
+      {/* Right rail — bell + wallet only */}
       <div className="hidden sm:flex items-center gap-2 shrink-0">
-        {/* TPS chip */}
-        <div className={`inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-900`} title={`Solana TPS — slot ${health?.slot ?? "—"}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${tpsDotColor}`} />
-          <span>{health ? `${(health.tps / 1000).toFixed(1)}k TPS` : "TPS —"}</span>
-        </div>
-
-        {/* Alerts bell */}
         <button
           type="button"
           aria-label="Alerts"
-          className="relative inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-violet-300 hover:text-violet-600"
+          className="relative inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-violet-600 hover:bg-violet-50"
         >
           <Bell className="h-3.5 w-3.5" />
           {alertCount > 0 && (
-            <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+            <span className="absolute -top-0.5 -right-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
               {alertCount}
             </span>
           )}
         </button>
 
-        {/* Wallet portfolio chip */}
         {publicKey && (
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700" title="Wallet value">
-            <span className="font-mono">
-              {portfolioUsd != null ? `$${portfolioUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : solBalance != null ? `${solBalance.toFixed(3)} SOL` : "—"}
-            </span>
-          </div>
+          <span className="text-[11px] font-medium font-mono text-slate-600" title="Wallet value">
+            {portfolioUsd != null
+              ? `$${portfolioUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+              : solBalance != null
+              ? `${solBalance.toFixed(3)} SOL`
+              : "—"}
+          </span>
         )}
       </div>
 
