@@ -22,7 +22,15 @@ const NEON_AUTH_COOKIE_NAMES = [
     'better-auth.session_token',
 ];
 
-function hasNeonAuthSession(request: NextRequest): boolean {
+/**
+ * Middleware-level Neon Auth check is a SOFT signal only — it cannot verify
+ * the session cryptographically without a network call. It is used purely
+ * as a UX redirect hint for HTML pages.
+ *
+ * All protected `/api/*` routes MUST perform their own auth verification
+ * (via getAuthUser or equivalent) — never rely on cookie presence alone.
+ */
+function hasNeonAuthCookieHint(request: NextRequest): boolean {
     return NEON_AUTH_COOKIE_NAMES.some((name) => {
         const cookie = request.cookies.get(name);
         return cookie && cookie.value.length > 0;
@@ -121,13 +129,19 @@ export async function middleware(request: NextRequest) {
     }
 
     // ─── Check both auth systems in parallel ────────────────────────
-    const [siwsPayload, hasNeon] = await Promise.all([
+    // SIWS is cryptographically verified here; Neon cookie is only a UX hint.
+    const [siwsPayload, hasNeonHint] = await Promise.all([
         getSiwsPayload(request),
-        Promise.resolve(hasNeonAuthSession(request)),
+        Promise.resolve(hasNeonAuthCookieHint(request)),
     ]);
 
     const hasSiws = !!siwsPayload;
-    const isAuthenticated = hasSiws || hasNeon;
+    // For HTML page redirects, treat the Neon cookie hint as "maybe signed in"
+    // to avoid a redirect loop while the client finalises OAuth exchange.
+    const isAuthenticatedForPages = hasSiws || hasNeonHint;
+    // For API routes we ONLY trust verified SIWS at the middleware layer;
+    // route handlers MUST do their own Neon Auth verification.
+    const isAuthenticatedForApi = hasSiws;
 
     // ─── Public API routes (no auth required) ───────────────────────
     const publicApiPaths = ['/api/studio/marketplace'];

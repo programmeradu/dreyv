@@ -132,18 +132,23 @@ export async function POST(request: NextRequest) {
         const stateCookie = request.cookies.get(OAUTH_STATE_COOKIE)?.value;
         let initiatedAt: number = Math.floor(Date.now() / 1000) - 600; // default: 10 min ago
 
-        if (stateCookie) {
-            try {
-                const payload = await jwtVerify(stateCookie, getJwtSecret(), {
-                    issuer: 'keystone-treasury-os',
-                });
-                initiatedAt = (payload.payload.iat as number) || initiatedAt;
-                console.log('[Exchange Session] State cookie verified ✓');
-            } catch {
-                console.warn('[Exchange Session] State cookie expired or invalid, continuing with DB verification');
-            }
-        } else {
-            console.warn('[Exchange Session] No state cookie (expected on Cloudflare Workers after cross-origin OAuth redirect)');
+        // Hard-block: state cookie is REQUIRED — proves the OAuth flow originated from our app.
+        if (!stateCookie) {
+            return NextResponse.json(
+                { error: 'Missing OAuth state cookie. Please re-initiate sign-in.' },
+                { status: 401 },
+            );
+        }
+        try {
+            const payload = await jwtVerify(stateCookie, getJwtSecret(), {
+                issuer: 'keystone-treasury-os',
+            });
+            initiatedAt = (payload.payload.iat as number) || initiatedAt;
+        } catch {
+            return NextResponse.json(
+                { error: 'Invalid or expired OAuth state. Please re-initiate sign-in.' },
+                { status: 401 },
+            );
         }
 
         let user: { id: string; email: string; name: string } | null = null;
@@ -173,18 +178,10 @@ export async function POST(request: NextRequest) {
             if (user) console.log('[Exchange Session] Strategy 2 (database) succeeded');
         }
 
-        // ── Strategy 3: User info from request body ─────────────────────
-        if (!user) {
-            const body = await request.json().catch(() => ({}));
-            if (body.neonUserId || body.email) {
-                user = {
-                    id: body.neonUserId || body.email,
-                    email: body.email || '',
-                    name: body.name || '',
-                };
-                console.log('[Exchange Session] Strategy 3 (body) succeeded');
-            }
-        }
+        // ── Strategy 3 REMOVED ──────────────────────────────────────────
+        // Body-supplied identity with no cryptographic verification was an
+        // authentication bypass. Users must re-initiate OAuth if Strategy
+        // 1 (proxy) and Strategy 2 (DB lookup) both fail.
 
         if (!user) {
             console.log('[Exchange Session] All strategies failed');

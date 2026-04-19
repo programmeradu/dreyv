@@ -1,11 +1,12 @@
 /**
  * Atlas Session API — Wallet-Based Session Recovery
- * 
- * GET  ?wallet=<address>  — Recover existing session (conversation history, context)
- * POST { wallet, messages }  — Save new messages to session
- * DELETE ?wallet=<address>  — Clear session history
- * 
- * No account required. Wallet address = identity.
+ *
+ * AUTH: All methods require a valid SIWS/Neon-Auth session, AND the
+ * authenticated session wallet MUST match the requested `wallet`.
+ *
+ * GET     ?wallet=<address>           — Recover session
+ * POST    { wallet, messages, ctx }   — Save messages/context
+ * DELETE  ?wallet=<address>           — Clear session
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,22 +17,32 @@ import {
     updateSessionContext,
     type AtlasMessage,
 } from "@/lib/atlas-session";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
+
+async function authorize(req: NextRequest, requestedWallet: string | null) {
+    if (!requestedWallet) {
+        return { error: NextResponse.json({ error: "wallet is required" }, { status: 400 }) };
+    }
+    const user = await getAuthUser(req);
+    if (!user) {
+        return { error: NextResponse.json({ error: "Unauthorized. Please sign in." }, { status: 401 }) };
+    }
+    if (user.walletAddress.toLowerCase() !== requestedWallet.toLowerCase()) {
+        return { error: NextResponse.json({ error: "Forbidden: wallet mismatch" }, { status: 403 }) };
+    }
+    return { user };
+}
 
 // GET — Recover session for a wallet
 export async function GET(req: NextRequest) {
     try {
         const wallet = req.nextUrl.searchParams.get("wallet");
+        const auth = await authorize(req, wallet);
+        if ("error" in auth) return auth.error;
 
-        if (!wallet) {
-            return NextResponse.json(
-                { error: "wallet query param required" },
-                { status: 400 }
-            );
-        }
-
-        const session = await getOrCreateSession(wallet);
+        const session = await getOrCreateSession(wallet!);
 
         if (!session) {
             return NextResponse.json({
@@ -71,12 +82,8 @@ export async function POST(req: NextRequest) {
             context?: Record<string, unknown>;
         };
 
-        if (!wallet) {
-            return NextResponse.json(
-                { error: "wallet is required" },
-                { status: 400 }
-            );
-        }
+        const auth = await authorize(req, wallet);
+        if ("error" in auth) return auth.error;
 
         let saved = false;
 
@@ -105,15 +112,10 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     try {
         const wallet = req.nextUrl.searchParams.get("wallet");
+        const auth = await authorize(req, wallet);
+        if ("error" in auth) return auth.error;
 
-        if (!wallet) {
-            return NextResponse.json(
-                { error: "wallet query param required" },
-                { status: 400 }
-            );
-        }
-
-        const cleared = await clearSession(wallet);
+        const cleared = await clearSession(wallet!);
 
         return NextResponse.json({
             ok: cleared,
