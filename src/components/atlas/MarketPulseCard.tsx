@@ -226,3 +226,33 @@ function PriceCell({ symbol, icon, price, history }: { symbol: string; icon?: st
     </div>
   );
 }
+
+// Token icon with graceful fallback to a colored letter avatar
+// when the icon URL fails (e.g. dead IPFS gateways for memecoins).
+function TokenIcon({ icon, symbol, rounded = "md" }: { icon?: string; symbol: string; rounded?: "md" | "full" }) {
+  const [failed, setFailed] = useState(false);
+  const cls = rounded === "full" ? "rounded-full" : "rounded";
+  if (icon && !failed) {
+    return (
+      <img
+        src={icon}
+        alt=""
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className={`h-4 w-4 ${cls} object-cover bg-muted`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  // Deterministic hue from symbol so each token gets a stable color.
+  const hue = Array.from(symbol).reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
+  return (
+    <span
+      aria-hidden
+      className={`h-4 w-4 ${cls} inline-flex items-center justify-center text-[8px] font-bold text-white shrink-0`}
+      style={{ background: `hsl(${hue} 70% 45%)` }}
+    >
+      {symbol.charAt(0).toUpperCase()}
+    </span>
+  );
+}
