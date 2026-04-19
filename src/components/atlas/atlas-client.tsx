@@ -621,24 +621,20 @@ export function AtlasClient() {
   // Sparkline price history + price loading state come from useAtlasData() above.
 
 
-  // THEME: light/dark toggle
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved as 'light' | 'dark';
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return prefersDark ? 'dark' : 'light';
-  });
+  // THEME: dark mode disabled entirely on /atlas — force light theme.
+  const theme: 'light' = 'light';
+  const setTheme = (_t: 'light' | 'dark') => {};
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-  const toggleTheme = () => setTheme((t) => t === 'dark' ? 'light' : 'dark');
+    root.classList.remove('dark');
+    // Re-strip on every render in case another surface tries to add it back.
+    const obs = new MutationObserver(() => {
+      if (root.classList.contains('dark')) root.classList.remove('dark');
+    });
+    obs.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+  const toggleTheme = () => {};
 
   // Command states removed - delegating to AtlasShell
 
