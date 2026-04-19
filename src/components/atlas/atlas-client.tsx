@@ -1572,25 +1572,30 @@ export function AtlasClient() {
               {trendingLoading && <div className="flex gap-3">{[...Array(4)].map((_, i) => <div key={i} className="w-40 h-12 rounded-lg bg-slate-100 animate-pulse shrink-0" />)}</div>}
               {trending.map((t) => {
                 const tp = trendingPrices[t.mint];
-                // Build a fallback chain: provided icon -> Jupiter token CDN -> Solana token list -> letter glyph
+                // Multi-source fallback chain — Solana-native CDNs first, then logo.dev branded fallback.
                 const primaryIcon = t.icon || t.logoURI;
                 const jupIcon = `https://static.jup.ag/tokens/${t.mint}.png`;
+                const jupMeta = `https://metadata.jup.ag/token/${t.mint}/logo`;
                 const tlIcon = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${t.mint}/logo.png`;
+                const dexIcon = `https://cdn.dexscreener.com/tokens/solana/${t.mint}.png`;
+                const sym = (t.symbol || "").toLowerCase();
+                const logoDevTicker = `https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`;
+                const logoDevCrypto = `https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`;
+                const chain = [primaryIcon, jupIcon, jupMeta, tlIcon, dexIcon, logoDevTicker, logoDevCrypto].filter(Boolean) as string[];
                 return (
                   <div key={t.mint} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white shrink-0 hover:shadow-sm transition-shadow">
                     <img
-                      src={primaryIcon || jupIcon}
+                      src={chain[0]}
                       alt={t.symbol}
+                      referrerPolicy="no-referrer"
                       className="w-7 h-7 rounded-full object-cover shadow-sm bg-white"
                       onError={(e) => {
                         const img = e.currentTarget as HTMLImageElement;
-                        const tried = img.dataset.tried || "0";
-                        if (tried === "0" && img.src !== jupIcon) {
-                          img.dataset.tried = "1";
-                          img.src = jupIcon;
-                        } else if (tried === "1" && img.src !== tlIcon) {
-                          img.dataset.tried = "2";
-                          img.src = tlIcon;
+                        const idx = Number(img.dataset.idx || "0");
+                        const next = idx + 1;
+                        if (next < chain.length) {
+                          img.dataset.idx = String(next);
+                          img.src = chain[next];
                         } else {
                           img.style.display = "none";
                           img.nextElementSibling?.classList.remove("hidden");
