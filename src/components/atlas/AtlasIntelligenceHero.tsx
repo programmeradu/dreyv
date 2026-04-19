@@ -11,7 +11,9 @@
  */
 
 import React, { useCallback, useState } from "react";
-import { Sparkles, ArrowRight, Loader2, ChevronDown, Beaker, Brain, Activity, Zap, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Loader2, ChevronDown, Beaker, Brain, Activity, Zap, Check } from "lucide-react";
+import { Sparkles as DreyvStar } from "@/components/icons";
 import { toast } from "@/lib/toast-notifications";
 import { useAtlasCommand } from "@/hooks/use-atlas-command";
 
@@ -19,7 +21,7 @@ type Mode = "test" | "plan" | "simulate" | "execute";
 
 const MODES: { id: Mode; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: "test", label: "Test", icon: <Beaker className="h-3.5 w-3.5" />, hint: "Dry-run the command without touching your wallet" },
-  { id: "plan", label: "Plan", icon: <Brain className="h-3.5 w-3.5" />, hint: "Outline the strategy and steps before executing" },
+  { id: "plan", label: "Plan", icon: <Brain className="h-3.5 w-3.5" />, hint: "Open Strategy Lab to design and compare options" },
   { id: "simulate", label: "Simulate", icon: <Activity className="h-3.5 w-3.5" />, hint: "Simulate the transaction against current chain state" },
   { id: "execute", label: "Execute", icon: <Zap className="h-3.5 w-3.5" />, hint: "Send the transaction directly for signing" },
 ];
@@ -54,8 +56,9 @@ function regexFallbackParse(text: string): { tool_id: string; parameters: Record
 
 export function AtlasIntelligenceHero() {
   const { dispatch } = useAtlasCommand();
+  const router = useRouter();
   const [text, setText] = useState("");
-  const [mode, setMode] = useState<Mode>("plan");
+  const [mode, setMode] = useState<Mode>("execute");
   const [modeOpen, setModeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +69,15 @@ export function AtlasIntelligenceHero() {
       e?.preventDefault();
       const value = text.trim();
       if (!value) return;
+
+      // Plan mode: route to Strategy Lab with the prompt as query so it picks up the context.
+      if (mode === "plan") {
+        const qs = new URLSearchParams({ prompt: value, source: "atlas-hero" });
+        router.push(`/atlas/strategy-lab?${qs.toString()}`);
+        toast.success("Opening Strategy Lab…", { description: value });
+        setText("");
+        return;
+      }
 
       setLoading(true);
       try {
