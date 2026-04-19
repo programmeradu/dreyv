@@ -1731,25 +1731,7 @@ export function AtlasClient() {
                 </div>
               </section>
 
-              {/* ── Time Machine (moved here for column balance) ── */}
-              <section id="time-machine-section" className="atlas-glass p-5">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <History className="text-violet-600 h-5 w-5" />
-                    <h2 className="text-base font-bold text-slate-900">Time Machine</h2>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">What-If Analysis</span>
-                </div>
-                <p className="text-sm text-slate-500 mb-4">Backtest strategies: what would you have earned?</p>
-                <TransactionTimeMachine />
-              </section>
-
-            </div>{/* end left column */}
-
-            {/* ── Right column ────────────────────────────────── */}
-            <div className="space-y-6">
-
-              {/* ── MEV Detector ────────────────────────────────── */}
+              {/* ── MEV Detector (moved to wide left column for breathing room) ── */}
               <section id="mev-scanner-card" className="atlas-glass p-5">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -1760,6 +1742,24 @@ export function AtlasClient() {
                 </div>
                 <p className="text-sm text-slate-500 mb-4">Monitoring cross-DEX arbitrage and atomic Jito bundles.</p>
                 <MEVScanner />
+              </section>
+
+            </div>{/* end left column */}
+
+            {/* ── Right column ────────────────────────────────── */}
+            <div className="space-y-6">
+
+              {/* ── Time Machine ────────────────────────────────── */}
+              <section id="time-machine-section" className="atlas-glass p-5">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <History className="text-violet-600 h-5 w-5" />
+                    <h2 className="text-base font-bold text-slate-900">Time Machine</h2>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">What-If</span>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">Backtest strategies: what would you have earned?</p>
+                <TransactionTimeMachine />
               </section>
 
               {/* ── Yield & Airdrops ────────────────────────────── */}
