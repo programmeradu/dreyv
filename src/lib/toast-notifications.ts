@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { useNotificationStore, type NotificationType } from '@/lib/notifications';
 
 export interface Toast {
   id: string;
