@@ -55,7 +55,9 @@ export function AtlasHeaderTicker() {
 
   const [news, setNews] = useState<NewsItem[]>([]);
   const [health, setHealth] = useState<Health | null>(null);
-  const [alertCount] = useState<number>(0); // hook into real alert store later
+  const { notifications, markRead, markAllRead, remove, clearAll, unreadCount } = useNotificationStore();
+  const alertCount = unreadCount();
+  const sortedNotifs = useMemo(() => [...notifications].reverse(), [notifications]);
 
   // Poll network health every 15s
   useEffect(() => {
