@@ -983,8 +983,10 @@ export function AtlasClient() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Execute Jupiter swap happy-path: uses current quote
+  // Execute Jupiter swap happy-path: uses current quote.
+  // Real on-chain confirmation: send → pending toast → confirmTransaction → success/failure.
   async function executeSwap() {
+    let pendingId: string | undefined;
     try {
       if (!publicKey) {
         toast.error("Connect wallet to execute");
@@ -996,7 +998,6 @@ export function AtlasClient() {
       }
       setExecLoading(true);
 
-      // Strip internal _parsed analysis data before sending to Jupiter swap API
       const rawQuote = quote?.data ?? quote;
       const { _parsed, ...quoteResponse } = rawQuote as any;
 
@@ -1015,37 +1016,43 @@ export function AtlasClient() {
         throw new Error(j?.error || "Failed to build swap transaction");
       }
 
-      // Decode base64 -> Uint8Array
-      const b64 = j.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const { sendAndConfirmSigned, solscanUrl, openExternal } = await import("@/lib/solana/send-and-confirm");
+      const bytes = Uint8Array.from(atob(j.swapTransaction as string), (c) => c.charCodeAt(0));
       const vtx = VersionedTransaction.deserialize(bytes);
-
-      // skipPreflight avoids simulation errors from address lookup tables or stale blockhash;
-      // Jupiter already validates the route server-side.
+      const blockhashInfo = await connection.getLatestBlockhash("confirmed");
       const signedTx = await signTransaction!(vtx);
-      const signature = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-      toast.success("Transaction sent", {
-        description: "Opening explorer…"
+
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        blockhashInfo,
+        onPending: (sig) => {
+          pendingId = `pending_${sig}`;
+          toast.info("Swap pending…", {
+            id: pendingId,
+            description: `Awaiting confirmation • ${sig.slice(0, 8)}…`,
+            duration: 0,
+            badge: "PENDING",
+            action: { label: "View", onClick: () => openExternal(solscanUrl(sig)) },
+          });
+        },
       });
 
-      // Optional: link to explorer
-      const url = `https://solscan.io/tx/${signature}`;
-      // In iframe-safe way, just present a toast link
-      toast.message("View on Solscan", {
-        description: url,
-        action: {
-          label: "Open",
-          onClick: () => {
-            const isInIframe = window.self !== window.top;
-            if (isInIframe) {
-              window.parent.postMessage({ type: "OPEN_EXTERNAL_URL", data: { url } }, "*");
-            } else {
-              window.open(url, "_blank", "noopener,noreferrer");
-            }
-          }
-        }
-      });
+      if (pendingId) toast.dismiss(pendingId);
+
+      if (result.confirmed) {
+        toast.success("Swap confirmed", {
+          description: `${result.signature.slice(0, 8)}… landed on-chain`,
+          persist: true,
+          persistType: "system",
+          href: solscanUrl(result.signature),
+          action: { label: "Solscan", onClick: () => openExternal(solscanUrl(result.signature)) },
+        });
+      } else {
+        toast.error("Swap failed on-chain", {
+          description: result.error || "Transaction did not confirm",
+        });
+      }
     } catch (e: any) {
+      if (pendingId) toast.dismiss(pendingId);
       toast.error("Swap failed", { description: e?.message || String(e) });
     } finally {
       setExecLoading(false);
@@ -1055,36 +1062,26 @@ export function AtlasClient() {
   // Execute liquid stake: SOL → mSOL via Jupiter (routes through Marinade/Jito/etc.)
   // Using Jupiter instead of the Marinade SDK for reliability in serverless environments.
   async function executeStake() {
+    let pendingId: string | undefined;
     try {
-      if (!publicKey) {
-        toast.error("Connect wallet to execute");
-        return;
-      }
-      if (kind !== "stake_marinade") {
-        toast.error("Not in staking mode");
-        return;
-      }
+      if (!publicKey) { toast.error("Connect wallet to execute"); return; }
+      if (kind !== "stake_marinade") { toast.error("Not in staking mode"); return; }
       const lamports = Math.floor(Math.max(0, amountSol) * LAMPORTS_PER_SOL);
-      if (!lamports) {
-        toast.error("Enter amount > 0");
-        return;
-      }
+      if (!lamports) { toast.error("Enter amount > 0"); return; }
       setExecLoading(true);
 
-      // Step 1: Get Jupiter quote for SOL → LST (liquid staking)
       const lst = LST_OPTIONS.find(l => l.id === selectedLst) || LST_OPTIONS[0];
       const quoteUrl = new URL("/api/jupiter/quote", window.location.origin);
       quoteUrl.searchParams.set("inputMint", MINTS.SOL);
       quoteUrl.searchParams.set("outputMint", lst.mint);
       quoteUrl.searchParams.set("amount", String(lamports));
-      quoteUrl.searchParams.set("slippageBps", "10"); // tight slippage for staking
+      quoteUrl.searchParams.set("slippageBps", "10");
       const quoteRes = await fetch(quoteUrl.toString(), { cache: "no-store" });
       const quoteData = await quoteRes.json();
       if (!quoteRes.ok || !quoteData) {
         throw new Error(quoteData?.error || "Failed to get staking quote");
       }
 
-      // Step 2: Build swap transaction via Jupiter
       const swapRes = await fetch("/api/jupiter/swap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1100,30 +1097,41 @@ export function AtlasClient() {
         throw new Error(swapData?.error || "Failed to build stake transaction");
       }
 
-      // Step 3: Deserialize and send
-      const b64 = swapData.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const { sendAndConfirmSigned, solscanUrl, openExternal } = await import("@/lib/solana/send-and-confirm");
+      const bytes = Uint8Array.from(atob(swapData.swapTransaction as string), (c) => c.charCodeAt(0));
       const vtx = VersionedTransaction.deserialize(bytes);
-
+      const blockhashInfo = await connection.getLatestBlockhash("confirmed");
       const signedTx = await signTransaction!(vtx);
-      const sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-      toast.success(`Staked via ${lst.name}`, { description: `SOL → ${lst.symbol} sent` });
-      const url = `https://solscan.io/tx/${sig}`;
-      toast.message("View on Solscan", {
-        description: url,
-        action: {
-          label: "Open",
-          onClick: () => {
-            const isInIframe = window.self !== window.top;
-            if (isInIframe) {
-              window.parent.postMessage({ type: "OPEN_EXTERNAL_URL", data: { url } }, "*");
-            } else {
-              window.open(url, "_blank", "noopener,noreferrer");
-            }
-          }
-        }
+
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        blockhashInfo,
+        onPending: (sig) => {
+          pendingId = `pending_${sig}`;
+          toast.info(`Staking via ${lst.name} — pending…`, {
+            id: pendingId,
+            description: `Awaiting confirmation • ${sig.slice(0, 8)}…`,
+            duration: 0,
+            badge: "PENDING",
+            action: { label: "View", onClick: () => openExternal(solscanUrl(sig)) },
+          });
+        },
       });
+
+      if (pendingId) toast.dismiss(pendingId);
+
+      if (result.confirmed) {
+        toast.success(`Staked via ${lst.name}`, {
+          description: `SOL → ${lst.symbol} confirmed`,
+          persist: true,
+          persistType: "system",
+          href: solscanUrl(result.signature),
+          action: { label: "Solscan", onClick: () => openExternal(solscanUrl(result.signature)) },
+        });
+      } else {
+        toast.error("Stake failed on-chain", { description: result.error || "Transaction did not confirm" });
+      }
     } catch (e: any) {
+      if (pendingId) toast.dismiss(pendingId);
       toast.error("Stake failed", { description: e?.message || String(e) });
     } finally {
       setExecLoading(false);
