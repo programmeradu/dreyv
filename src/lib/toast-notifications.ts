@@ -6,6 +6,16 @@
 import { create } from 'zustand';
 import { useNotificationStore, type NotificationType } from '@/lib/notifications';
 
+/**
+ * Detect signatures that came from MOCK_MODE API routes so we can
+ * badge any toast/notification produced from them as SIMULATED.
+ * Mock routes return strings like "mock_signature_…".
+ */
+export function isMockSignature(sig?: string): boolean {
+  if (!sig) return false;
+  return /^mock[_-]?(sig|signature)/i.test(sig);
+}
+
 export interface Toast {
   id: string;
   type: 'info' | 'success' | 'warning' | 'error';
@@ -301,6 +311,28 @@ export const toastNotifications = {
   /**
    * Network & blockchain
    */
+
+  /**
+   * A transaction was broadcast — we have a signature but it has NOT
+   * been confirmed yet. Shows a non-dismissable pending toast that
+   * should be replaced by `blockchainConfirmed` or `executionFailed`
+   * once the on-chain outcome is known. Intentionally NOT persisted
+   * to the bell — only confirmed transactions land in history.
+   *
+   * Returns the toast id so the caller can dismiss/replace it.
+   */
+  executionPending: (strategy: string, signature: string) => {
+    const short = signature.slice(0, 8) + "…";
+    return useToastStore.getState().addToast({
+      id: `pending_${signature}`,
+      type: 'info',
+      title: `${strategy} pending…`,
+      message: `Awaiting on-chain confirmation • ${short}`,
+      duration: 0, // keep until we replace it
+      badge: isMockSignature(signature) ? 'SIMULATED' : 'PENDING',
+    });
+  },
+
   blockchainConfirmed: (txHash?: string) => {
     useToastStore.getState().addToast({
       type: 'success',
