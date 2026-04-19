@@ -51,18 +51,37 @@ export const useToastStore = create<ToastStore>((set, get) => ({
       duration,
     };
 
+    const wasExisting = !!get().toasts.find(t => t.id === id);
+
     set((state) => {
-      // If id already exists, replace it (dedup)
       const exists = state.toasts.find(t => t.id === id);
       const updated = exists
         ? state.toasts.map(t => t.id === id ? newToast : t)
         : [...state.toasts, newToast];
-      // Cap visible toasts
       const capped = updated.length > MAX_VISIBLE + 3
         ? updated.slice(updated.length - MAX_VISIBLE - 3)
         : updated;
       return { toasts: capped };
     });
+
+    // Bridge to persistent notification bell — only when explicitly opted-in
+    // (via persist: true) or for error toasts (always important). Avoids spam.
+    const shouldPersist = (toast.persist === true || toast.type === 'error') && !wasExisting;
+    if (shouldPersist) {
+      try {
+        const mapped: NotificationType =
+          toast.persistType ||
+          (toast.type === 'error' || toast.type === 'warning' ? 'security' : 'system');
+        useNotificationStore.getState().addNotification({
+          type: mapped,
+          title: toast.title,
+          message: toast.message || '',
+          href: toast.href,
+        });
+      } catch {
+        // never let bell bridge break toast rendering
+      }
+    }
 
     // Auto-dismiss after duration
     if (duration > 0) {
