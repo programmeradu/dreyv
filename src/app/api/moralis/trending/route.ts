@@ -125,6 +125,33 @@ export async function GET(req: Request) {
   const EXCLUDE_SYMBOLS = new Set(["SOL", "WSOL", "USDC", "USDT", "MSOL", "JUP", "BONK", "PYTH", "RAY", "ORCA"]);
   items = items.filter((t) => !EXCLUDE_SYMBOLS.has(t.symbol.toUpperCase()));
 
+  // ── Enrich missing icons via Jupiter strict token list ────────────
+  // Moralis sometimes returns no logo. Jupiter's strict list has high-quality
+  // logos for the vast majority of liquid Solana tokens — fill in any gaps so
+  // the client never has to render a placeholder letter.
+  const needsIcon = items.filter((t) => !t.icon).map((t) => t.mint);
+  if (needsIcon.length > 0) {
+    try {
+      const jupRes = await fetch("https://tokens.jup.ag/tokens?tags=verified", {
+        signal: AbortSignal.timeout(4000),
+        next: { revalidate: 3600 },
+      });
+      if (jupRes.ok) {
+        const jupTokens = await jupRes.json();
+        const iconByMint = new Map<string, string>();
+        for (const jt of jupTokens) {
+          if (jt?.address && jt?.logoURI) iconByMint.set(jt.address, jt.logoURI);
+        }
+        items = items.map((t) => t.icon ? t : { ...t, icon: iconByMint.get(t.mint) || `https://static.jup.ag/tokens/${t.mint}.png` });
+      } else {
+        // Even without Jupiter list, point at the Jupiter CDN — it serves most mints.
+        items = items.map((t) => t.icon ? t : { ...t, icon: `https://static.jup.ag/tokens/${t.mint}.png` });
+      }
+    } catch {
+      items = items.map((t) => t.icon ? t : { ...t, icon: `https://static.jup.ag/tokens/${t.mint}.png` });
+    }
+  }
+
   return NextResponse.json(
     { items: items.slice(0, limit), source, ...(warning ? { warning } : {}) },
     { status: 200, headers: { "Cache-Control": "private, max-age=30" } }

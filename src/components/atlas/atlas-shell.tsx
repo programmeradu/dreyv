@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Urbanist } from "next/font/google";
-import { Menu, LayoutDashboard, TrendingUp, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown } from "lucide-react";
+import { Menu, LayoutDashboard, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown } from "lucide-react";
+import { IconMarketPulse } from "@/components/ui/icons";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-notifications";
 import { AtlasHeaderTicker } from "@/components/atlas/AtlasHeaderTicker";
@@ -15,7 +16,7 @@ const wordmark = Urbanist({ subsets: ["latin"], weight: "600", display: "swap", 
 
 const navIcons: Record<string, React.ReactNode> = {
   overview: <LayoutDashboard className="h-[18px] w-[18px]" />,
-  "market-pulse-card": <TrendingUp className="h-[18px] w-[18px]" />,
+  "market-pulse-card": <IconMarketPulse className="h-[18px] w-[18px]" />,
   "token-intel-section": <Shield className="h-[18px] w-[18px]" />,
   "mev-scanner-card": <Radar className="h-[18px] w-[18px]" />,
   "yield-section": <Compass className="h-[18px] w-[18px]" />,

@@ -245,6 +245,7 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
   // Solana-specific high-quality sources
   if (mint) {
     push(`https://static.jup.ag/tokens/${mint}.png`);
+    push(`https://metadata.jup.ag/token/${mint}/logo`);
     push(`https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${mint}/logo.png`);
     push(`https://cdn.dexscreener.com/tokens/solana/${mint}.png`);
     push(`https://img-v1.raydium.io/icon/${mint}.png`);
