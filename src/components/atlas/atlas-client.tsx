@@ -1140,21 +1140,13 @@ export function AtlasClient() {
 
   // Execute LP deposit: swap half SOL → USDC via Jupiter, then open pool for deposit
   async function executeLp() {
+    let pendingId: string | undefined;
     try {
-      if (!publicKey) {
-        toast.error("Connect wallet to execute");
-        return;
-      }
-      if (kind !== "lp_sol_usdc") {
-        toast.error("Not in LP mode");
-        return;
-      }
+      if (!publicKey) { toast.error("Connect wallet to execute"); return; }
+      if (kind !== "lp_sol_usdc") { toast.error("Not in LP mode"); return; }
       const halfSol = amountSol / 2;
       const lamports = Math.floor(Math.max(0, halfSol) * LAMPORTS_PER_SOL);
-      if (!lamports) {
-        toast.error("Enter amount > 0");
-        return;
-      }
+      if (!lamports) { toast.error("Enter amount > 0"); return; }
       setExecLoading(true);
 
       // Step 1: Swap half SOL → USDC to create the LP pair
@@ -1169,7 +1161,6 @@ export function AtlasClient() {
         throw new Error(quoteData?.error || "Failed to get LP swap quote");
       }
 
-      // Step 2: Build swap transaction via Jupiter
       const swapRes = await fetch("/api/jupiter/swap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1185,23 +1176,40 @@ export function AtlasClient() {
         throw new Error(swapData?.error || "Failed to build LP swap transaction");
       }
 
-      // Step 3: Deserialize and send
-      const b64 = swapData.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const { sendAndConfirmSigned, solscanUrl, openExternal } = await import("@/lib/solana/send-and-confirm");
+      const bytes = Uint8Array.from(atob(swapData.swapTransaction as string), (c) => c.charCodeAt(0));
       const vtx = VersionedTransaction.deserialize(bytes);
+      const blockhashInfo = await connection.getLatestBlockhash("confirmed");
       const signedTx = await signTransaction!(vtx);
-      const sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
 
-      const txUrl = `https://solscan.io/tx/${sig}`;
-      toast.success(`Swapped ${halfSol.toFixed(3)} SOL → USDC for LP pair`, {
-        description: "Opening pool deposit…",
-      });
-      toast.message("View swap on Solscan", {
-        description: txUrl,
-        action: {
-          label: "Open",
-          onClick: () => window.open(txUrl, "_blank", "noopener,noreferrer"),
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        blockhashInfo,
+        onPending: (sig) => {
+          pendingId = `pending_${sig}`;
+          toast.info("LP swap pending…", {
+            id: pendingId,
+            description: `Awaiting confirmation • ${sig.slice(0, 8)}…`,
+            duration: 0,
+            badge: "PENDING",
+            action: { label: "View", onClick: () => openExternal(solscanUrl(sig)) },
+          });
         },
+      });
+
+      if (pendingId) toast.dismiss(pendingId);
+
+      if (!result.confirmed) {
+        toast.error("LP swap failed on-chain", { description: result.error || "Transaction did not confirm" });
+        return;
+      }
+
+      const txUrl = solscanUrl(result.signature);
+      toast.success(`Swapped ${halfSol.toFixed(3)} SOL → USDC for LP pair`, {
+        description: "Confirmed — opening pool deposit…",
+        persist: true,
+        persistType: "system",
+        href: txUrl,
+        action: { label: "Solscan", onClick: () => openExternal(txUrl) },
       });
 
       // Step 4: Open the pool deposit page on the best DEX
@@ -1215,17 +1223,17 @@ export function AtlasClient() {
         poolUrl = "https://www.orca.so/?tokenA=SOL&tokenB=USDC";
       }
 
-      // Open pool UI for the deposit step
       setTimeout(() => {
         toast.message("Complete LP deposit", {
           description: `Deposit SOL + USDC on ${bestPool?.dex || "Orca"}`,
           action: {
             label: "Open Pool",
-            onClick: () => window.open(poolUrl, "_blank", "noopener,noreferrer"),
+            onClick: () => openExternal(poolUrl),
           },
         });
       }, 1500);
     } catch (e: any) {
+      if (pendingId) toast.dismiss(pendingId);
       toast.error("LP execution failed", { description: e?.message || String(e) });
     } finally {
       setExecLoading(false);
