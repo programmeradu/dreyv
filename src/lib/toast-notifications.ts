@@ -353,11 +353,14 @@ export const toastNotifications = {
   },
 
   mevDetected: (riskLevel: string, estimated: string) => {
+    const risky = riskLevel !== 'low';
     useToastStore.getState().addToast({
-      type: riskLevel === 'low' ? 'success' : 'warning',
+      type: risky ? 'warning' : 'success',
       title: 'MEV Analysis Complete',
       message: `${riskLevel.toUpperCase()} MEV Risk - Est. Loss: ${estimated}`,
       duration: 5000,
+      persist: risky,
+      persistType: 'agent_alert',
     });
   },
 
