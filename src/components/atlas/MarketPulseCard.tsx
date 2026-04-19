@@ -257,9 +257,9 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
 }
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  // Build chain ONCE per mount — don't rebuild on parent re-renders.
-  // Parent must pass a stable `key` (e.g. mint) so a new token = new TokenIcon.
-  const chain = useMemo(() => buildIconChain(icon, mint, symbol), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Build chain when token identity (symbol+mint) is known. Re-build only if mint
+  // appears later (initial render may have undefined mint).
+  const chain = useMemo(() => buildIconChain(icon, mint, symbol), [mint, symbol]);
   const [idx, setIdx] = useState(0);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
   const src = chain[idx];
