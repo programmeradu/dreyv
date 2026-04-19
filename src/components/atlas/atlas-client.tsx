@@ -28,7 +28,7 @@ import {
   DropdownMenuItem } from
 "@/components/ui/dropdown-menu";
 import { AtlasShell } from "./atlas-shell";
-import { useAtlasData, CORE_TOKENS, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
+import { useAtlasData, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
 import { useAtlasCommand } from "@/hooks/use-atlas-command";
 import {
   IconAirDropScout,
