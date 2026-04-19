@@ -1527,14 +1527,14 @@ export function AtlasClient() {
 
           {/* ── Market Pulse ─────────────────────────────────── */}
           <section id="market-pulse-card" className="atlas-glass p-5 overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-violet-600 text-[20px]">timeline</span>
+                <TrendingUp className="text-violet-600 h-5 w-5" />
                 <h2 className="text-base font-bold text-slate-900">Market Pulse</h2>
               </div>
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center text-xs text-emerald-600"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />Jupiter</span>
-                <span className="text-xs text-slate-400">{pricesUpdatedAt ? `Updated ${new Date(pricesUpdatedAt).toLocaleTimeString()}` : ""}</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">{pricesUpdatedAt ? `Updated ${new Date(pricesUpdatedAt).toLocaleTimeString()}` : ""}</span>
                 <button onClick={refreshPrices} disabled={pricesLoading} className="text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50">
                   {pricesLoading ? "Loading…" : "Refresh"}
                 </button>
