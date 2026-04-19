@@ -178,6 +178,10 @@ if (typeof window !== 'undefined') {
         action: { label: 'Claim Now', onClick: () => {} },
       });
     }, 1900);
+  };
+  (window as any).__fireTestToasts = fireTestToasts;
+  if (typeof location !== 'undefined' && location.search.includes('toasttest=1')) {
+    setTimeout(fireTestToasts, 200);
   }
 }
 
