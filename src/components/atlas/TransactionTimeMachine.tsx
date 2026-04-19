@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { formatCurrency } from "@/lib/atlas-utils";
