@@ -257,11 +257,10 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
 }
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  const chain = useMemo(() => buildIconChain(icon, mint, symbol), [icon, mint, symbol]);
-  const chainKey = chain.join("|");
+  // Build chain ONCE per mount — don't rebuild on parent re-renders.
+  // Parent must pass a stable `key` (e.g. mint) so a new token = new TokenIcon.
+  const chain = useMemo(() => buildIconChain(icon, mint, symbol), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [idx, setIdx] = useState(0);
-  // Reset idx only when chain CONTENT changes (new token), not on every parent re-render.
-  useEffect(() => { setIdx(0); }, [chainKey]);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
   const src = chain[idx];
   if (src) {
@@ -272,10 +271,7 @@ function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symb
         loading="lazy"
         referrerPolicy="no-referrer"
         className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
-        onError={() => {
-          console.warn(`[TokenIcon] ${symbol} fail idx=${idx} chainLen=${chain.length}: ${src}`);
-          setIdx((i) => i + 1);
-        }}
+        onError={() => setIdx((i) => i + 1)}
       />
     );
   }
