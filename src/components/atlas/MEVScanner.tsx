@@ -352,29 +352,18 @@ export function MEVScanner() {
       <Card className="atlas-card relative overflow-hidden h-full flex flex-col border-border/50 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 transition-colors hover:border-foreground/20 hover:shadow-[0_6px_24px_-12px_rgba(0,0,0,0.25)] min-h-[360px]">
         <span className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[radial-gradient(closest-side,var(--color-accent)/35%,transparent_70%)]" />
         <CardHeader className="pb-2 flex flex-col gap-2">
-          <div className="flex h-8 items-center justify-between gap-2">
-            <CardTitle className="text-sm leading-none whitespace-nowrap">
-              <span className="flex items-center gap-2">
-                <IconMEVDetector className="h-4 w-4" />
-                <span>MEV Detector</span>
+          <div className="flex h-8 items-center justify-end gap-2">
+            {lastScan && (
+              <span className="text-[10px] opacity-60">
+                {new Date(lastScan).toLocaleTimeString()}
               </span>
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {lastScan && (
-                <span className="text-[10px] opacity-60">
-                  {new Date(lastScan).toLocaleTimeString()}
-                </span>
-              )}
-              <Badge variant={opportunities.length > 0 ? "default" : "secondary"} className="h-6 px-2 text-[10px] rounded-md leading-none">
-                {opportunities.length} Opp{opportunities.length !== 1 ? "s" : ""}
-              </Badge>
-              <Button size="sm" variant="outline" onClick={scanForMEV} disabled={loading} className="h-6 px-2 text-[11px] rounded-md">
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Scan Now"}
-              </Button>
-            </div>
-          </div>
-          <div className="text-xs opacity-70">
-            Cross-DEX arbitrage — buy cheap, sell expensive, atomic Jito bundles.
+            )}
+            <Badge variant={opportunities.length > 0 ? "default" : "secondary"} className="h-6 px-2 text-[10px] rounded-md leading-none">
+              {opportunities.length} Opp{opportunities.length !== 1 ? "s" : ""}
+            </Badge>
+            <Button size="sm" variant="outline" onClick={scanForMEV} disabled={loading} className="h-6 px-2 text-[11px] rounded-md">
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Scan Now"}
+            </Button>
           </div>
         </CardHeader>
 
