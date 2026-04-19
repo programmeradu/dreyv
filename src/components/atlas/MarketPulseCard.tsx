@@ -185,7 +185,7 @@ const VIZ_MAP: Record<string, "area" | "bars" | "heatmap" | "candles"> = {
 };
 
 // DRY price cell for all core tokens — horizontal spread layout
-function PriceCell({ symbol, icon, price, history }: { symbol: string; icon?: string; price?: number; history: number[] }) {
+function PriceCell({ symbol, icon, mint, price, history }: { symbol: string; icon?: string; mint?: string; price?: number; history: number[] }) {
   const d = pctChange(history);
   const up = d != null && d >= 0;
   const viz = VIZ_MAP[symbol];
@@ -195,7 +195,7 @@ function PriceCell({ symbol, icon, price, history }: { symbol: string; icon?: st
       <span className="pointer-events-none absolute -inset-px rounded-md opacity-0 group-hover:opacity-100 transition-opacity [background:conic-gradient(from_0deg,transparent,theme(colors.accent)/25%,transparent_50%,transparent)] animate-[spin_10s_linear_infinite]" />
       <div className="flex items-center justify-between gap-2">
         <span className="opacity-70 inline-flex items-center gap-1.5 shrink-0">
-          <TokenIcon icon={icon} symbol={symbol} rounded="full" />
+          <TokenIcon icon={icon} symbol={symbol} mint={mint} rounded="full" />
           <span>{symbol}</span>
         </span>
         <div className="flex items-center gap-2 min-w-0">
