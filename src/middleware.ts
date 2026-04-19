@@ -178,8 +178,11 @@ export async function middleware(request: NextRequest) {
     // ─── Protect /app/* and /api/* routes ───────────────────────────
     const protectedPaths = ['/app', '/api/studio', '/api/agent', '/api/dca'];
 
-    if (protectedPaths.some((p) => pathname.startsWith(p)) && !isAuthenticated) {
-        if (pathname.startsWith('/api/')) {
+    const isApiRoute = pathname.startsWith('/api/');
+    const isAuthed = isApiRoute ? isAuthenticatedForApi : isAuthenticatedForPages;
+
+    if (protectedPaths.some((p) => pathname.startsWith(p)) && !isAuthed) {
+        if (isApiRoute) {
             return withSeoHeaders(
                 NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 }),
                 pathname,
@@ -201,7 +204,7 @@ export async function middleware(request: NextRequest) {
 
     // ─── Admin Role Gate ────────────────────────────────────────────
     if (pathname.startsWith('/app/admin')) {
-        if (!isAuthenticated) {
+        if (!isAuthenticatedForPages) {
             const url = request.nextUrl.clone();
             url.pathname = '/auth';
             return withSeoHeaders(NextResponse.redirect(url), pathname);
@@ -210,7 +213,7 @@ export async function middleware(request: NextRequest) {
 
     // ─── Onboarding redirect for authenticated but un-onboarded users ──
     if (
-        isAuthenticated &&
+        isAuthenticatedForPages &&
         pathname.startsWith('/app') &&
         !pathname.startsWith('/app/onboarding') &&
         !pathname.startsWith('/api/') &&
