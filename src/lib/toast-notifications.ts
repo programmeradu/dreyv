@@ -143,6 +143,11 @@ export const toast = Object.assign(
   }
 );
 
+// Expose for quick browser-console testing in dev
+if (typeof window !== 'undefined') {
+  (window as any).toast = toast;
+}
+
 /**
  * Helper functions for common toast scenarios
  */
