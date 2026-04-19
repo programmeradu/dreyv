@@ -28,7 +28,8 @@ import {
   DropdownMenuItem } from
 "@/components/ui/dropdown-menu";
 import { AtlasShell } from "./atlas-shell";
-import { useAtlasData, CORE_TOKENS } from "@/hooks/use-atlas-data";
+import { useAtlasData, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
+import { useAtlasCommand } from "@/hooks/use-atlas-command";
 import {
   IconAirDropScout,
   IconStrategyLab,
@@ -271,6 +272,14 @@ export function AtlasClient() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Leftover state from removed Command/NLP UI — kept as no-op stubs so
+  // existing handlers (executeSwap/executeStake/executeLp/handleParse) compile.
+  const [nlpText, setNlpText] = useState<string>("");
+  const [nlpLoading, setNlpLoading] = useState(false);
+  const [execLoading, setExecLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const nlpInputRef = useRef<HTMLInputElement | null>(null);
 
   // Strategy Lab state
   const [kind, setKind] = useState<StrategyKind>("stake_marinade");
@@ -609,10 +618,8 @@ export function AtlasClient() {
   const [lastCandle, setLastCandle] = useState<any | null>(null);
   const [ohlcvActive, setOhlcvActive] = useState(false);
 
-  // Sparkline price history for all core tokens (keyed by uppercase ID)
-  const [coreHistory, setCoreHistory] = useState<Record<string, number[]>>({});
-  const [pricesLoading, setPricesLoading] = useState(false);
-  const [pricesUpdatedAt, setPricesUpdatedAt] = useState<number | null>(null);
+  // Sparkline price history + price loading state come from useAtlasData() above.
+
 
   // THEME: light/dark toggle
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
