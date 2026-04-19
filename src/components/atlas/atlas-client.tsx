@@ -273,6 +273,14 @@ export function AtlasClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Leftover state from removed Command/NLP UI — kept as no-op stubs so
+  // existing handlers (executeSwap/executeStake/executeLp/handleParse) compile.
+  const [nlpText, setNlpText] = useState<string>("");
+  const [nlpLoading, setNlpLoading] = useState(false);
+  const [execLoading, setExecLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const nlpInputRef = useRef<HTMLInputElement | null>(null);
+
   // Strategy Lab state
   const [kind, setKind] = useState<StrategyKind>("stake_marinade");
   const [amountSol, setAmountSol] = useState<number>(5);
