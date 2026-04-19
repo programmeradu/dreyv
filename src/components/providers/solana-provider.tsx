@@ -3,8 +3,7 @@
 import { ReactNode, useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
+import { SolflareWalletAdapter, LedgerWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 export function SolanaProviders({ children }: { children: ReactNode }) {
