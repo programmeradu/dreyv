@@ -81,6 +81,7 @@ export function MarketPulseCard({
                 key={t.id}
                 symbol={t.symbol}
                 icon={t.icon}
+                mint={t.mint}
                 price={prices[t.id]}
                 history={coreHistory[t.id] || []}
               />
