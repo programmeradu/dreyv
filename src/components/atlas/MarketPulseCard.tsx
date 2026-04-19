@@ -273,7 +273,7 @@ function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symb
         referrerPolicy="no-referrer"
         className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
         onError={() => {
-          console.debug(`[TokenIcon] ${symbol} failed source ${idx}: ${src}`);
+          console.warn(`[TokenIcon] ${symbol} fail idx=${idx} chainLen=${chain.length}: ${src}`);
           setIdx((i) => i + 1);
         }}
       />
