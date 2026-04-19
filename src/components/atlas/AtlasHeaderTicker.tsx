@@ -16,8 +16,24 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Bell, Activity, Newspaper, Radio, ExternalLink } from "lucide-react";
+import { Bell, BellOff, Activity, Newspaper, Radio, ExternalLink, Check, Trash2, ShoppingCart, Store, Download, X, Cpu, Shield, AlertTriangle } from "lucide-react";
 import { useAtlasData, CORE_TOKENS } from "@/hooks/use-atlas-data";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useNotificationStore, type NotificationType } from "@/lib/notifications";
+import { formatDistanceToNow } from "date-fns";
+
+function getNotifIcon(type: NotificationType) {
+  switch (type) {
+    case "purchase": return <ShoppingCart size={14} className="text-emerald-600" />;
+    case "listing": return <Store size={14} className="text-violet-600" />;
+    case "install": return <Download size={14} className="text-blue-600" />;
+    case "delist": return <X size={14} className="text-amber-600" />;
+    case "agent_alert": return <Cpu size={14} className="text-violet-600" />;
+    case "security": return <Shield size={14} className="text-red-600" />;
+    case "system": return <AlertTriangle size={14} className="text-slate-500" />;
+    default: return <Bell size={14} className="text-slate-500" />;
+  }
+}
 
 type NewsItem = { title: string; url: string; source: string; publishedAt: string };
 type Health = { tps: number; slot: number; status: "healthy" | "degraded" | "congested" };
