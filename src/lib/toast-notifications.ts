@@ -127,6 +127,10 @@ interface ToastOptions {
   duration?: number;
   badge?: string;
   action?: { label: string; onClick: () => void };
+  /** Also save to the notification bell history */
+  persist?: boolean;
+  persistType?: NotificationType;
+  href?: string;
 }
 
 function createToast(type: Toast['type'], titleOrMsg: string, opts?: ToastOptions): string {
@@ -138,6 +142,9 @@ function createToast(type: Toast['type'], titleOrMsg: string, opts?: ToastOption
     duration: opts?.duration ?? (type === 'error' ? 6000 : 4000),
     badge: opts?.badge,
     action: opts?.action,
+    persist: opts?.persist,
+    persistType: opts?.persistType,
+    href: opts?.href,
   });
 }
 
