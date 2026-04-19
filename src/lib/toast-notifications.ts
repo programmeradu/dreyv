@@ -146,6 +146,38 @@ export const toast = Object.assign(
 // Expose for quick browser-console testing in dev
 if (typeof window !== 'undefined') {
   (window as any).toast = toast;
+
+  // ?toasttest=1 fires a sample of all variants for visual QA
+  if (typeof location !== 'undefined' && location.search.includes('toasttest=1') && !(window as any).__toastTestFired) {
+    (window as any).__toastTestFired = true;
+    setTimeout(() => {
+      toast.success('Swap Executed', {
+        description: '0.5 SOL → 92.4 USDC via Jupiter aggregator',
+        badge: 'EXEC',
+        action: { label: 'View on Solscan', onClick: () => {} },
+      });
+    }, 400);
+    setTimeout(() => {
+      toast.error('Simulation Failed', {
+        description: 'Insufficient liquidity on Raydium pool',
+        badge: 'SIM',
+      });
+    }, 900);
+    setTimeout(() => {
+      toast.warning('High MEV Risk', {
+        description: 'Sandwich attack detected — est. loss 0.8%',
+        badge: 'MEV',
+        action: { label: 'Reroute', onClick: () => {} },
+      });
+    }, 1400);
+    setTimeout(() => {
+      toast.info('Airdrop Detected', {
+        description: 'JTO airdrop eligible — 142 tokens claimable',
+        badge: 'ALPHA',
+        action: { label: 'Claim Now', onClick: () => {} },
+      });
+    }, 1900);
+  }
 }
 
 /**
