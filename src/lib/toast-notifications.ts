@@ -151,33 +151,29 @@ if (typeof window !== 'undefined') {
   const fireTestToasts = () => {
     if ((window as any).__toastTestFired) return;
     (window as any).__toastTestFired = true;
-    setTimeout(() => {
-      toast.success('Swap Executed', {
-        description: '0.5 SOL → 92.4 USDC via Jupiter aggregator',
-        badge: 'EXEC',
-        action: { label: 'View on Solscan', onClick: () => {} },
-      });
-    }, 400);
-    setTimeout(() => {
-      toast.error('Simulation Failed', {
-        description: 'Insufficient liquidity on Raydium pool',
-        badge: 'SIM',
-      });
-    }, 900);
-    setTimeout(() => {
-      toast.warning('High MEV Risk', {
-        description: 'Sandwich attack detected — est. loss 0.8%',
-        badge: 'MEV',
-        action: { label: 'Reroute', onClick: () => {} },
-      });
-    }, 1400);
-    setTimeout(() => {
-      toast.info('Airdrop Detected', {
-        description: 'JTO airdrop eligible — 142 tokens claimable',
-        badge: 'ALPHA',
-        action: { label: 'Claim Now', onClick: () => {} },
-      });
-    }, 1900);
+    toast.success('Swap Executed', {
+      description: '0.5 SOL → 92.4 USDC via Jupiter aggregator',
+      badge: 'EXEC',
+      duration: 30000,
+      action: { label: 'View on Solscan', onClick: () => {} },
+    });
+    toast.error('Simulation Failed', {
+      description: 'Insufficient liquidity on Raydium pool',
+      badge: 'SIM',
+      duration: 30000,
+    });
+    toast.warning('High MEV Risk', {
+      description: 'Sandwich attack detected — est. loss 0.8%',
+      badge: 'MEV',
+      duration: 30000,
+      action: { label: 'Reroute', onClick: () => {} },
+    });
+    toast.info('Airdrop Detected', {
+      description: 'JTO airdrop eligible — 142 tokens claimable',
+      badge: 'ALPHA',
+      duration: 30000,
+      action: { label: 'Claim Now', onClick: () => {} },
+    });
   };
   (window as any).__fireTestToasts = fireTestToasts;
   if (typeof location !== 'undefined' && location.search.includes('toasttest=1')) {
