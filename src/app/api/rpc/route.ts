@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("RPC proxy error:", err);
     return new Response(
-      JSON.stringify({ error: "RPC proxy error", details: err?.message || String(err) }),
+      JSON.stringify({ error: "RPC proxy error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
