@@ -28,6 +28,7 @@ import {
   DropdownMenuItem } from
 "@/components/ui/dropdown-menu";
 import { AtlasShell } from "./atlas-shell";
+import { AtlasIntelligenceHero } from "./AtlasIntelligenceHero";
 import { useAtlasData, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
 import { useAtlasCommand } from "@/hooks/use-atlas-command";
 import {
