@@ -1772,25 +1772,37 @@ export function AtlasClient() {
                   <span className="text-xs text-slate-400">DYOR</span>
                 </div>
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-slate-200 p-4 bg-white hover:shadow-sm transition-shadow">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm text-slate-900">Marinade Finance</span>
-                      <span className="text-xs font-medium bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">Liquid Staking</span>
+                  <div className="group rounded-xl border border-slate-200 p-4 bg-white hover:border-violet-200 hover:shadow-sm transition-all">
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <span className="font-semibold text-sm text-slate-900 truncate">Marinade Finance</span>
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700 bg-violet-50 ring-1 ring-inset ring-violet-200/70 px-2 py-0.5 rounded-md whitespace-nowrap">
+                        <span className="w-1 h-1 rounded-full bg-violet-500" />
+                        Liquid Staking
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">Earn staking yield plus DeFi composability with mSOL. Potential for ecosystem…</p>
-                    <span className="text-sm font-bold text-emerald-600">~{inflationApy ? (inflationApy + 2.8).toFixed(1) : "7.2"}% APY</span>
+                    <p className="text-xs text-slate-500 mb-2.5 leading-relaxed">Earn staking yield plus DeFi composability with mSOL. Potential for ecosystem…</p>
+                    <span className="text-sm font-bold text-emerald-600 tabular-nums">~{inflationApy ? (inflationApy + 2.8).toFixed(1) : "7.2"}% APY</span>
                   </div>
-                  <div className="rounded-xl border border-slate-200 p-4 bg-white hover:shadow-sm transition-shadow">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm text-slate-900">Kamino Finance</span>
-                      <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Yield Vaults</span>
+                  <div className="group rounded-xl border border-slate-200 p-4 bg-white hover:border-violet-200 hover:shadow-sm transition-all">
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <span className="font-semibold text-sm text-slate-900 truncate">Kamino Finance</span>
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 ring-1 ring-inset ring-emerald-200/70 px-2 py-0.5 rounded-md whitespace-nowrap">
+                        <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                        Yield Vaults
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">Automated liquidity vaults. Active KMNO points program for early participants.</p>
-                    <span className="text-sm font-bold text-violet-600">✦ Point Program</span>
+                    <p className="text-xs text-slate-500 mb-2.5 leading-relaxed">Automated liquidity vaults. Active KMNO points program for early participants.</p>
+                    <span className="inline-flex items-center gap-1 text-sm font-bold text-violet-600">✦ Point Program</span>
                   </div>
                   {specItems.length > 0 && specItems.slice(0, 2).map((it: any, i: number) => (
-                    <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-slate-200 p-4 bg-white hover:shadow-sm transition-shadow">
-                      <div className="font-semibold text-sm text-slate-900 truncate">{it.title || it.project}</div>
+                    <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-slate-200 p-4 bg-white hover:border-violet-200 hover:shadow-sm transition-all">
+                      <div className="flex items-center justify-between gap-3 mb-1">
+                        <div className="font-semibold text-sm text-slate-900 truncate">{it.title || it.project}</div>
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 bg-slate-50 ring-1 ring-inset ring-slate-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+                          <span className="w-1 h-1 rounded-full bg-slate-400" />
+                          Airdrop
+                        </span>
+                      </div>
                       {it.summary && <p className="text-xs text-slate-500 mt-1 truncate">{it.summary}</p>}
                     </a>
                   ))}
