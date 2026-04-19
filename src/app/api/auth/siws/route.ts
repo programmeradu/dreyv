@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[SIWS] Auth error:', msg);
         return NextResponse.json(
-            { error: msg || 'Internal server error' },
+            { error: 'Internal server error' },
             { status: 500 }
         );
     }
