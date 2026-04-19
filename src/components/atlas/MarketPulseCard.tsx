@@ -258,9 +258,10 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
   const chain = useMemo(() => buildIconChain(icon, mint, symbol), [icon, mint, symbol]);
+  const chainKey = chain.join("|");
   const [idx, setIdx] = useState(0);
-  // Reset idx when the chain identity changes (new token).
-  useEffect(() => { setIdx(0); }, [chain]);
+  // Reset idx only when chain CONTENT changes (new token), not on every parent re-render.
+  useEffect(() => { setIdx(0); }, [chainKey]);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
   const src = chain[idx];
   if (src) {
