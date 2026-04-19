@@ -202,59 +202,55 @@ export function TransactionTimeMachine() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-          )}
+      )}
 
-          {/* Results Display */}
-          {loading && (
-            <div className="space-y-1.5">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
+      {/* Results Display */}
+      {loading && (
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      )}
+
+      {result && !loading && (
+        <div className="space-y-2 text-xs">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg p-2.5 bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-500">{result.daysAgo}d ago</div>
+              <div className="font-mono font-medium text-slate-900">{formatCurrency(result.historicalPrice)}</div>
             </div>
-          )}
-
-          {result && !loading && (
-            <div className="space-y-2 text-xs">
-              {/* Price comparison row */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md p-2 bg-card/60">
-                  <div className="text-[10px] opacity-60">{result.daysAgo}d ago</div>
-                  <div className="font-mono font-medium">{formatCurrency(result.historicalPrice)}</div>
-                </div>
-                <div className="rounded-md p-2 bg-card/60">
-                  <div className="text-[10px] opacity-60">Now</div>
-                  <div className="font-mono font-medium">{formatCurrency(result.currentPrice)}</div>
-                </div>
-              </div>
-
-              {/* Returns */}
-              <div className="space-y-1.5 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="opacity-60">Strategy Returns</span>
-                  <span className={`font-mono font-medium ${result.returns >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {formatCurrency(result.returns)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="opacity-60">HODL Returns</span>
-                  <span className={`font-mono font-medium ${result.hodlReturns >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {formatCurrency(result.hodlReturns)}
-                  </span>
-                </div>
-                <div className="h-px bg-border" />
-                <div className="flex justify-between">
-                  <span className="font-medium">vs HODL</span>
-                  <span className={`font-mono font-bold ${result.performanceVsHodl >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {result.performanceVsHodl >= 0 ? '+' : ''}{formatCurrency(result.performanceVsHodl)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[10px] opacity-50 italic">Prices from CoinGecko/Birdeye</div>
+            <div className="rounded-lg p-2.5 bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-500">Now</div>
+              <div className="font-mono font-medium text-slate-900">{formatCurrency(result.currentPrice)}</div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+
+          <div className="space-y-1.5 text-[11px]">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Strategy Returns</span>
+              <span className={`font-mono font-medium ${result.returns >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {formatCurrency(result.returns)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">HODL Returns</span>
+              <span className={`font-mono font-medium ${result.hodlReturns >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {formatCurrency(result.hodlReturns)}
+              </span>
+            </div>
+            <div className="h-px bg-slate-200" />
+            <div className="flex justify-between">
+              <span className="font-medium text-slate-700">vs HODL</span>
+              <span className={`font-mono font-bold ${result.performanceVsHodl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {result.performanceVsHodl >= 0 ? '+' : ''}{formatCurrency(result.performanceVsHodl)}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-slate-400 italic">Prices from CoinGecko/Birdeye</div>
+        </div>
+      )}
     </div>
   );
 }
