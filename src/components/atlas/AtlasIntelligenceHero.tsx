@@ -11,7 +11,9 @@
  */
 
 import React, { useCallback, useState } from "react";
-import { Sparkles, ArrowRight, Loader2, ChevronDown, Beaker, Brain, Activity, Zap, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Loader2, ChevronDown, Beaker, Brain, Activity, Zap, Check } from "lucide-react";
+import { Sparkles as DreyvStar } from "@/components/icons";
 import { toast } from "@/lib/toast-notifications";
 import { useAtlasCommand } from "@/hooks/use-atlas-command";
 
@@ -19,7 +21,7 @@ type Mode = "test" | "plan" | "simulate" | "execute";
 
 const MODES: { id: Mode; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: "test", label: "Test", icon: <Beaker className="h-3.5 w-3.5" />, hint: "Dry-run the command without touching your wallet" },
-  { id: "plan", label: "Plan", icon: <Brain className="h-3.5 w-3.5" />, hint: "Outline the strategy and steps before executing" },
+  { id: "plan", label: "Plan", icon: <Brain className="h-3.5 w-3.5" />, hint: "Open Strategy Lab to design and compare options" },
   { id: "simulate", label: "Simulate", icon: <Activity className="h-3.5 w-3.5" />, hint: "Simulate the transaction against current chain state" },
   { id: "execute", label: "Execute", icon: <Zap className="h-3.5 w-3.5" />, hint: "Send the transaction directly for signing" },
 ];
@@ -54,8 +56,9 @@ function regexFallbackParse(text: string): { tool_id: string; parameters: Record
 
 export function AtlasIntelligenceHero() {
   const { dispatch } = useAtlasCommand();
+  const router = useRouter();
   const [text, setText] = useState("");
-  const [mode, setMode] = useState<Mode>("plan");
+  const [mode, setMode] = useState<Mode>("execute");
   const [modeOpen, setModeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +69,15 @@ export function AtlasIntelligenceHero() {
       e?.preventDefault();
       const value = text.trim();
       if (!value) return;
+
+      // Plan mode: route to Strategy Lab with the prompt as query so it picks up the context.
+      if (mode === "plan") {
+        const qs = new URLSearchParams({ prompt: value, source: "atlas-hero" });
+        router.push(`/atlas/strategy-lab?${qs.toString()}`);
+        toast.success("Opening Strategy Lab…", { description: value });
+        setText("");
+        return;
+      }
 
       setLoading(true);
       try {
@@ -85,15 +97,15 @@ export function AtlasIntelligenceHero() {
         if (!command) command = regexFallbackParse(value);
 
         if (command && command.tool_id) {
-          // Mode flags consumed by downstream tool handlers.
-          const isStrategizing = mode === "plan" || mode === "simulate" || mode === "test";
-          const isDryRun = mode === "test";
-          const isSimulate = mode === "simulate";
-          const isExecute = mode === "execute";
+          // Mode flags consumed by downstream tool handlers (plan handled above via routing).
+          const m = mode as Mode;
+          const isDryRun = m === "test";
+          const isSimulate = m === "simulate";
+          const isExecute = m === "execute";
           command.parameters = {
             ...command.parameters,
-            _mode: mode,
-            _isStrategizing: isStrategizing,
+            _mode: m,
+            _isStrategizing: isDryRun || isSimulate,
             _dryRun: isDryRun,
             _simulate: isSimulate,
             _execute: isExecute,
@@ -110,25 +122,12 @@ export function AtlasIntelligenceHero() {
         setText("");
       }
     },
-    [text, mode, dispatch, activeMode.label]
+    [text, mode, dispatch, router, activeMode.label]
   );
 
   return (
-    <section
-      className="atlas-light relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-b from-slate-50 via-white to-violet-50/40 px-6 py-10 sm:px-10 sm:py-14"
-      style={{ colorScheme: "light" }}
-    >
-      {/* Soft radial glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, rgba(139,92,246,0.10) 0%, rgba(255,255,255,0) 70%)",
-        }}
-      />
-
-      <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+    <section className="atlas-light w-full" style={{ colorScheme: "light" }}>
+      <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Solana Atlas Intelligence
         </h1>
@@ -139,7 +138,7 @@ export function AtlasIntelligenceHero() {
         {/* Pill input */}
         <form onSubmit={handleSubmit} className="mt-6 w-full">
           <div className="group relative flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-4 pr-1.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.15)] transition-shadow focus-within:shadow-[0_12px_32px_-12px_rgba(124,58,237,0.25)] focus-within:border-violet-300">
-            <Sparkles className="h-4 w-4 shrink-0 text-violet-500" aria-hidden />
+            <DreyvStar size={18} className="shrink-0 text-violet-500" aria-hidden />
             <input
               type="text"
               value={text}
