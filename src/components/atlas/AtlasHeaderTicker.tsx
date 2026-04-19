@@ -152,7 +152,7 @@ export function AtlasHeaderTicker() {
       <div className="relative flex-1 min-w-0 overflow-hidden">
         <div
           className="atlas-ticker-track flex gap-8 whitespace-nowrap py-2"
-          style={{ animation: "atlas-ticker-scroll 80s linear infinite" }}
+          style={{ animation: "atlas-ticker-scroll 30s linear infinite" }}
         >
           {[...entries, ...entries].map((e, i) => (
             <TickerCell key={i} entry={e} />
