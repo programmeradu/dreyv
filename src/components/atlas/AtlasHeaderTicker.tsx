@@ -124,13 +124,14 @@ export function AtlasHeaderTicker() {
     return out;
   }, [prices, news, health]);
 
-  const tpsColor = health
+  // Black-on-white chip per design; status only conveyed by the tiny dot.
+  const tpsDotColor = health
     ? health.status === "healthy"
-      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+      ? "bg-emerald-500"
       : health.status === "degraded"
-      ? "text-amber-700 bg-amber-50 border-amber-200"
-      : "text-red-700 bg-red-50 border-red-200"
-    : "text-slate-500 bg-slate-50 border-slate-200";
+      ? "bg-amber-500"
+      : "bg-red-500"
+    : "bg-slate-300";
 
   return (
     <div className="flex flex-1 items-center gap-3 min-w-0">
@@ -152,8 +153,8 @@ export function AtlasHeaderTicker() {
       {/* Right rail */}
       <div className="hidden sm:flex items-center gap-2 shrink-0">
         {/* TPS chip */}
-        <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tpsColor}`} title={`Solana TPS — slot ${health?.slot ?? "—"}`}>
-          <Activity className="h-3 w-3" />
+        <div className={`inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-900`} title={`Solana TPS — slot ${health?.slot ?? "—"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${tpsDotColor}`} />
           <span>{health ? `${(health.tps / 1000).toFixed(1)}k TPS` : "TPS —"}</span>
         </div>
 
