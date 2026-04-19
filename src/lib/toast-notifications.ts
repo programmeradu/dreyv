@@ -307,6 +307,8 @@ export const toastNotifications = {
       title: 'Confirmed on Blockchain',
       message: `Transaction confirmed${txHash ? ': ' + txHash.slice(0, 8) + '...' : ''}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
