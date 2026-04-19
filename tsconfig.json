@@ -40,6 +40,9 @@
     "drizzle.config.ts",
     "scripts",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "mini-apps",
+    "old-atlas.tsx",
+    "packages"
   ]
 }
