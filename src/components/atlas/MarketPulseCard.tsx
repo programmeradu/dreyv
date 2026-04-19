@@ -275,14 +275,14 @@ function isTrusted(url: string | undefined): boolean {
 }
 
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  // Decide a single source up-front. If the supplied icon is from a trusted
-  // host, use it. Otherwise fall straight to logo.dev — which returns a real
-  // branded crypto logo for nearly every Solana ticker.
-  const sym = symbol.toLowerCase();
-  const logoDev = `https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`;
-  const initial = isTrusted(icon) ? icon! : logoDev;
-  const [src, setSrc] = useState<string>(initial);
+  // Build a fallback chain that prioritises Solana-native sources (which
+  // actually have memecoin/longtail logos) before falling back to logo.dev.
+  const chain = useMemo(() => buildIconChain(icon, mint, symbol), [icon, mint, symbol]);
+  const [idx, setIdx] = useState(0);
+  // Reset when the token changes
+  useEffect(() => { setIdx(0); }, [chain[0]]);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
+  const src = chain[idx] || chain[chain.length - 1];
   return (
     <img
       src={src}
@@ -290,12 +290,7 @@ function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symb
       loading="lazy"
       referrerPolicy="no-referrer"
       className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
-      onError={() => {
-        // Single fallback: try logo.dev /crypto/, then mint-based Jupiter, then give up.
-        if (src === initial && initial !== logoDev) setSrc(logoDev);
-        else if (src === logoDev) setSrc(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
-        else if (mint) setSrc(`https://static.jup.ag/tokens/${mint}.png`);
-      }}
+      onError={() => { if (idx < chain.length - 1) setIdx(idx + 1); }}
     />
   );
 }
