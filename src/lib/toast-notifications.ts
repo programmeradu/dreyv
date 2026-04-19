@@ -215,6 +215,8 @@ export const toastNotifications = {
       title: 'Execution Successful',
       message: `${strategy} completed successfully${details ? ': ' + details : ''}`,
       duration: 5000,
+      persist: true,
+      persistType: 'system',
     });
   },
 
