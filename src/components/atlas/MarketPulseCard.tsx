@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -119,7 +119,7 @@ export function MarketPulseCard({
                     <span className="pointer-events-none absolute -inset-px rounded-md opacity-0 group-hover:opacity-100 transition-opacity [background:conic-gradient(from_0deg,transparent,theme(colors.accent)/25%,transparent_50%,transparent)] animate-[spin_10s_linear_infinite]" />
                     <div className="flex items-center justify-between gap-2">
                       <span className="opacity-70 inline-flex items-center gap-1.5 shrink-0">
-                        <TokenIcon icon={t.icon} symbol={t.symbol} mint={t.mint} />
+                        <TokenIcon key={t.mint} icon={t.icon} symbol={t.symbol} mint={t.mint} />
                         <span>{t.symbol}</span>
                       </span>
                       <div className="flex items-center gap-2 min-w-0">
@@ -195,7 +195,7 @@ function PriceCell({ symbol, icon, mint, price, history }: { symbol: string; ico
       <span className="pointer-events-none absolute -inset-px rounded-md opacity-0 group-hover:opacity-100 transition-opacity [background:conic-gradient(from_0deg,transparent,theme(colors.accent)/25%,transparent_50%,transparent)] animate-[spin_10s_linear_infinite]" />
       <div className="flex items-center justify-between gap-2">
         <span className="opacity-70 inline-flex items-center gap-1.5 shrink-0">
-          <TokenIcon icon={icon} symbol={symbol} mint={mint} rounded="full" />
+          <TokenIcon key={symbol} icon={icon} symbol={symbol} mint={mint} rounded="full" />
           <span>{symbol}</span>
         </span>
         <div className="flex items-center gap-2 min-w-0">
@@ -242,47 +242,60 @@ function buildIconChain(icon: string | undefined, mint: string | undefined, symb
   // Normalize ipfs:// → public gateway
   const norm = (u?: string) => u?.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${u.slice(7)}` : u;
   push(norm(icon));
+  // Solana-specific high-quality sources
   if (mint) {
-    push(`https://static.jup.ag/images/${mint}.png`);
+    push(`https://static.jup.ag/tokens/${mint}.png`);
     push(`https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${mint}/logo.png`);
-    push(`https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`);
+    push(`https://cdn.dexscreener.com/tokens/solana/${mint}.png`);
     push(`https://img-v1.raydium.io/icon/${mint}.png`);
   }
+  // logo.dev — branded fallback (crypto + ticker endpoints, virtually always 200)
   const sym = symbol.toLowerCase();
-  push(`https://assets.coingecko.com/coins/images/search/${sym}.png`);
-  // logo.dev — branded fallback (crypto + ticker endpoints)
-  push(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
   push(`https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
+  push(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
   return chain;
 }
 
+// Trusted CDN hosts that we know serve real PNGs reliably.
+const TRUSTED_HOSTS = [
+  "static.jup.ag",
+  "raw.githubusercontent.com",
+  "storage.googleapis.com",
+  "legacy.pyth.network",
+  "img.logo.dev",
+  "cdn.dexscreener.com",
+  "img-v1.raydium.io",
+  "arweave.net",
+];
+
+function isTrusted(url: string | undefined): boolean {
+  if (!url) return false;
+  try { return TRUSTED_HOSTS.some((h) => new URL(url).host.endsWith(h)); }
+  catch { return false; }
+}
+
 function TokenIcon({ icon, symbol, mint, rounded = "md" }: { icon?: string; symbol: string; mint?: string; rounded?: "md" | "full" }) {
-  const chain = buildIconChain(icon, mint, symbol);
-  const [idx, setIdx] = useState(0);
+  // Decide a single source up-front. If the supplied icon is from a trusted
+  // host, use it. Otherwise fall straight to logo.dev — which returns a real
+  // branded crypto logo for nearly every Solana ticker.
+  const sym = symbol.toLowerCase();
+  const logoDev = `https://img.logo.dev/ticker/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`;
+  const initial = isTrusted(icon) ? icon! : logoDev;
+  const [src, setSrc] = useState<string>(initial);
   const cls = rounded === "full" ? "rounded-full" : "rounded";
-  const src = chain[idx];
-  if (src) {
-    return (
-      <img
-        key={src}
-        src={src}
-        alt=""
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
-        onError={() => setIdx((i) => i + 1)}
-      />
-    );
-  }
-  // Last resort — deterministic colored letter (should rarely trigger).
-  const hue = Array.from(symbol).reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   return (
-    <span
-      aria-hidden
-      className={`h-4 w-4 ${cls} inline-flex items-center justify-center text-[8px] font-bold text-white shrink-0`}
-      style={{ background: `hsl(${hue} 70% 45%)` }}
-    >
-      {symbol.charAt(0).toUpperCase()}
-    </span>
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className={`h-4 w-4 ${cls} object-cover bg-muted shrink-0`}
+      onError={() => {
+        // Single fallback: try logo.dev /crypto/, then mint-based Jupiter, then give up.
+        if (src === initial && initial !== logoDev) setSrc(logoDev);
+        else if (src === logoDev) setSrc(`https://img.logo.dev/crypto/${sym}?token=pk_DFEjHHL4QteaMOzcFuSlwg`);
+        else if (mint) setSrc(`https://static.jup.ag/tokens/${mint}.png`);
+      }}
+    />
   );
 }
