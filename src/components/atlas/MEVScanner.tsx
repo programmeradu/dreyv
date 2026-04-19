@@ -346,93 +346,89 @@ export function MEVScanner() {
     return `$${p.toFixed(8)}`;
   };
 
-  // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="h-full">
-      <Card className="atlas-card relative overflow-hidden h-full flex flex-col border-border/50 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 transition-colors hover:border-foreground/20 hover:shadow-[0_6px_24px_-12px_rgba(0,0,0,0.25)] min-h-[360px]">
-        <span className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[radial-gradient(closest-side,var(--color-accent)/35%,transparent_70%)]" />
-        <CardHeader className="pb-2 flex flex-col gap-2">
-          <div className="flex h-8 items-center justify-end gap-2">
-            {lastScan && (
-              <span className="text-[10px] opacity-60">
-                {new Date(lastScan).toLocaleTimeString()}
-              </span>
+    <div className="space-y-3">
+      {/* Inline header (compact, fits inside outer atlas-glass section) */}
+      <div className="flex items-center justify-end gap-2">
+        {lastScan && (
+          <span className="text-[10px] text-slate-400">
+            {new Date(lastScan).toLocaleTimeString()}
+          </span>
+        )}
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${opportunities.length > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+          {opportunities.length} Opp{opportunities.length !== 1 ? "s" : ""}
+        </span>
+        <button
+          onClick={scanForMEV}
+          disabled={loading}
+          className="px-3 py-1 rounded-lg border border-violet-200 bg-white text-xs font-medium text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          Scan Now
+        </button>
+      </div>
+
+      {loading && opportunities.length === 0 && (
+        <div className="space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-20 w-full" /></div>
+      )}
+
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+      <div ref={scrollRef} className="space-y-2 max-h-72 overflow-y-auto pr-1">
+        {opportunities.map((opp) => (
+          <div key={opp.id} className="rounded-xl p-3 bg-white border border-slate-200 hover:shadow-sm transition-shadow">
+            {opp.type === "arbitrage" ? (
+              <>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-xs text-slate-900 flex items-center gap-2">
+                      <TrendingUp className="h-3 w-3 text-emerald-500" />
+                      {opp.token}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Buy on {opp.buyDex} @ {fmtPrice(opp.buyPrice)} → Sell on {opp.sellDex} @ {fmtPrice(opp.sellPrice)}
+                    </div>
+                  </div>
+                  <Badge className={`text-[10px] ${confidenceColor(opp.confidence)}`}>{opp.confidence}</Badge>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[11px] mb-2">
+                  <div><span className="text-slate-500">Spread:</span>{" "}<span className="font-mono text-emerald-600 font-semibold">+{opp.profitPercent}%</span></div>
+                  <div><span className="text-slate-500">Est:</span>{" "}<span className="font-mono text-slate-900">${opp.profitUsd}</span></div>
+                  <div><span className="text-slate-500">Size:</span>{" "}<span className="font-mono text-slate-900">${opp.tradeSize}</span></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] text-slate-500">~{opp.expiresIn}s · Liq: ${((opp.liquidity || 0) / 1000).toFixed(0)}k</div>
+                  <button
+                    className="px-2.5 py-1 rounded-lg bg-violet-600 text-white text-[10px] font-medium hover:bg-violet-700 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                    disabled={!publicKey || !signAllTransactions || executingId === opp.id}
+                    onClick={() => executeMevArbitrage(opp)}
+                  >
+                    {executingId === opp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : !publicKey ? "Connect" : "Arb Execute"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="font-semibold text-xs text-slate-900">{opp.token}</span>
+                  <Badge variant="secondary" className="text-[10px]">Risk Alert</Badge>
+                </div>
+                <div className="text-[11px] text-slate-600">{opp.warning}</div>
+                {opp.frontrunProfit && <div className="text-[10px] text-slate-500 mt-1">Potential profit: ${opp.frontrunProfit}</div>}
+              </>
             )}
-            <Badge variant={opportunities.length > 0 ? "default" : "secondary"} className="h-6 px-2 text-[10px] rounded-md leading-none">
-              {opportunities.length} Opp{opportunities.length !== 1 ? "s" : ""}
-            </Badge>
-            <Button size="sm" variant="outline" onClick={scanForMEV} disabled={loading} className="h-6 px-2 text-[11px] rounded-md">
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Scan Now"}
-            </Button>
           </div>
-        </CardHeader>
+        ))}
+      </div>
 
-        <CardContent className="atlas-card-content pt-0 space-y-3">
-          {loading && opportunities.length === 0 && (
-            <div className="space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-20 w-full" /></div>
-          )}
+      {!loading && opportunities.length === 0 && !error && (
+        <div className="text-xs text-slate-500 text-center py-4">No MEV opportunities right now. Market is efficient!</div>
+      )}
 
-          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-
-          <div ref={scrollRef} className="space-y-2 max-h-72 overflow-y-auto scrollbar-modern scrollbar-autohide overflow-shadows pr-1">
-            {opportunities.map((opp) => (
-              <div key={opp.id} className="relative overflow-hidden rounded-md p-3 bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/40 transition-colors hover:shadow-[0_6px_18px_-12px_rgba(0,0,0,0.3)]">
-                <span className="pointer-events-none absolute -top-8 -right-8 h-16 w-16 rounded-full bg-[radial-gradient(closest-side,var(--color-accent)/25%,transparent_70%)]" />
-                {opp.type === "arbitrage" ? (
-                  <>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-xs flex items-center gap-2">
-                          <TrendingUp className="h-3 w-3 text-emerald-500" />
-                          {opp.token}
-                        </div>
-                        <div className="text-[11px] opacity-70 mt-0.5">
-                          Buy on {opp.buyDex} @ {fmtPrice(opp.buyPrice)} → Sell on {opp.sellDex} @ {fmtPrice(opp.sellPrice)}
-                        </div>
-                      </div>
-                      <Badge className={`text-[10px] ${confidenceColor(opp.confidence)}`}>{opp.confidence}</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-[11px] mb-2">
-                      <div><span className="opacity-70">Spread:</span>{" "}<span className="font-mono text-emerald-500 font-semibold">+{opp.profitPercent}%</span></div>
-                      <div><span className="opacity-70">Est:</span>{" "}<span className="font-mono">${opp.profitUsd}</span></div>
-                      <div><span className="opacity-70">Size:</span>{" "}<span className="font-mono">${opp.tradeSize}</span></div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-[10px] opacity-70">~{opp.expiresIn}s · Liq: ${((opp.liquidity || 0) / 1000).toFixed(0)}k</div>
-                      <Button
-                        size="sm"
-                        className="h-6 px-2 text-[10px]"
-                        disabled={!publicKey || !signAllTransactions || executingId === opp.id}
-                        onClick={() => executeMevArbitrage(opp)}
-                      >
-                        {executingId === opp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : !publicKey ? "Connect" : "Arb Execute"}
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <span className="font-medium text-xs">{opp.token}</span>
-                      <Badge variant="secondary" className="text-[10px]">Risk Alert</Badge>
-                    </div>
-                    <div className="text-[11px] opacity-80">{opp.warning}</div>
-                    {opp.frontrunProfit && <div className="text-[10px] opacity-70 mt-1">Potential profit: ${opp.frontrunProfit}</div>}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {!loading && opportunities.length === 0 && !error && (
-            <div className="text-xs opacity-70 text-center py-4">No MEV opportunities right now. Market is efficient!</div>
-          )}
-
-          <div className="text-[10px] opacity-60 text-center mt-2">
-            Atomic Jito bundle: Buy + Sell + Tip in one slot. Profitability verified before execution.
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-[10px] text-slate-400 text-center mt-2">
+        Atomic Jito bundle: Buy + Sell + Tip in one slot. Profitability verified before execution.
+      </div>
     </div>
   );
 }
