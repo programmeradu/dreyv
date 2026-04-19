@@ -244,10 +244,10 @@ function TickerCell({ entry }: { entry: TickerEntry }) {
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1.5 text-xs text-slate-700 hover:text-violet-700 transition-colors"
     >
-      <Newspaper className="h-3 w-3 text-violet-500" />
-      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600">{entry.source}</span>
-      <span className="text-slate-700 max-w-[420px] truncate">{entry.title}</span>
-      <ExternalLink className="h-2.5 w-2.5 text-slate-400" />
+      <Newspaper className="h-3 w-3 text-violet-500 shrink-0" />
+      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 shrink-0">{entry.source}</span>
+      <span className="text-slate-700">{entry.title}</span>
+      <ExternalLink className="h-2.5 w-2.5 text-slate-400 shrink-0" />
     </a>
   );
 }
