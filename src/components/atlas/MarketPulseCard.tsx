@@ -116,7 +116,7 @@ export function MarketPulseCard({
                     <span className="pointer-events-none absolute -inset-px rounded-md opacity-0 group-hover:opacity-100 transition-opacity [background:conic-gradient(from_0deg,transparent,theme(colors.accent)/25%,transparent_50%,transparent)] animate-[spin_10s_linear_infinite]" />
                     <div className="flex items-center justify-between gap-2">
                       <span className="opacity-70 inline-flex items-center gap-1.5 shrink-0">
-                        {t.icon ? <img src={t.icon} alt="" className="h-4 w-4 rounded" /> : <span className="h-4 w-4 rounded bg-muted inline-block" />}
+                        <TokenIcon icon={t.icon} symbol={t.symbol} />
                         <span>{t.symbol}</span>
                       </span>
                       <div className="flex items-center gap-2 min-w-0">
