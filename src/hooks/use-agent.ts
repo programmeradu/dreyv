@@ -32,6 +32,75 @@ export function useAgent(options: UseAgentOptions = {}) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<ExecutionStatus | null>(null);
 
+  // Track approval IDs we've already pushed to the bell to avoid duplicates.
+  const notifiedApprovalsRef = useRef<Set<string>>(new Set());
+  // Forward-refs so notification handlers can call approve/reject without
+  // creating a circular useCallback dependency.
+  const approveSignatureRef = useRef<
+    ((approvalId: string, signature: string) => Promise<any>) | null
+  >(null);
+  const rejectSignatureRef = useRef<
+    ((approvalId: string) => Promise<any>) | null
+  >(null);
+
+  /** Sign a serialized transaction with the connected wallet, then approve it. */
+  const signAndApprove = useCallback(
+    async (approvalId: string, serializedTx?: string) => {
+      if (!serializedTx) {
+        return approveSignatureRef.current?.(approvalId, "");
+      }
+      if (!wallet.signTransaction) {
+        throw new Error("Wallet does not support signing");
+      }
+      const buf = Uint8Array.from(atob(serializedTx), (c) => c.charCodeAt(0));
+      const tx = VersionedTransaction.deserialize(buf);
+      const signed = await wallet.signTransaction(tx);
+      const sigB64 = btoa(String.fromCharCode(...signed.serialize()));
+      return approveSignatureRef.current?.(approvalId, sigB64);
+    },
+    [wallet]
+  );
+
+  /** Surface a pending approval to the notification bell with Approve / Reject. */
+  const surfaceApproval = useCallback(
+    (data: AgentExecutionResult) => {
+      if (options.disableApprovalNotifications) return;
+      const approvalId: string | undefined =
+        (data as any).result?.approvalId ?? (data as any).approvalId;
+      if (!approvalId || notifiedApprovalsRef.current.has(approvalId)) return;
+      notifiedApprovalsRef.current.add(approvalId);
+
+      const serializedTx: string | undefined =
+        (data as any).result?.serializedTransaction ??
+        (data as any).result?.transaction;
+      const strategyName: string =
+        (data as any).result?.strategy ?? (data as any).strategy ?? "Strategy";
+      const summary: string =
+        (data as any).result?.summary ??
+        (data as any).result?.description ??
+        "An agent is requesting your signature to proceed.";
+
+      notify.signatureRequest({
+        strategyName,
+        summary,
+        approvalId,
+        onApprove: async (id) => {
+          try {
+            await signAndApprove(id, serializedTx);
+          } catch (err) {
+            // Sign failed / user cancelled → reject so the agent can clean up.
+            await rejectSignatureRef.current?.(id);
+            throw err;
+          }
+        },
+        onReject: async (id) => {
+          await rejectSignatureRef.current?.(id);
+        },
+      });
+    },
+    [options.disableApprovalNotifications, signAndApprove]
+  );
+
   /**
    * Execute a strategy
    */
