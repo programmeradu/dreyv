@@ -291,6 +291,10 @@ export function useAgent(options: UseAgentOptions = {}) {
     }
   }, []);
 
+  // Bind forward-refs so notification action handlers always call the latest version.
+  approveSignatureRef.current = approveSignature;
+  rejectSignatureRef.current = rejectSignature;
+
   return {
     // State
     loading,
