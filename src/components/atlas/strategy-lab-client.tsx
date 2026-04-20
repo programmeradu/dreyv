@@ -344,9 +344,9 @@ export function StrategyLabClient() {
 
       const signedTx = await signTransaction!(vtx);
       const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toast.executionPending("Swap", sig),
-        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
-        onError: (err) => toast.executionFailed("Swap", err.message),
+        onPending: (sig) => toastNotifications.executionPending("Swap", sig),
+        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
+        onError: (err) => toastNotifications.executionFailed("Swap", err.message),
       });
       if (!result.confirmed) throw new Error(result.error || "Swap not confirmed");
     } catch (e: any) {
@@ -393,9 +393,9 @@ export function StrategyLabClient() {
 
       const signedTx = await signTransaction!(vtx);
       const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toast.executionPending(`Stake via ${lst.name}`, sig),
-        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
-        onError: (err) => toast.executionFailed("Stake", err.message),
+        onPending: (sig) => toastNotifications.executionPending(`Stake via ${lst.name}`, sig),
+        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
+        onError: (err) => toastNotifications.executionFailed("Stake", err.message),
       });
       if (!result.confirmed) throw new Error(result.error || "Stake not confirmed");
     } catch (e: any) {
@@ -441,9 +441,9 @@ export function StrategyLabClient() {
       const vtx = VersionedTransaction.deserialize(bytes);
       const signedTx = await signTransaction!(vtx);
       const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toast.executionPending("LP swap", sig),
-        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
-        onError: (err) => toast.executionFailed("LP swap", err.message),
+        onPending: (sig) => toastNotifications.executionPending("LP swap", sig),
+        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
+        onError: (err) => toastNotifications.executionFailed("LP swap", err.message),
       });
       if (!result.confirmed) throw new Error(result.error || "LP swap not confirmed");
 

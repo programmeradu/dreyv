@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, AlertTriangle, TrendingUp } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
+import { sendAndConfirmSigned } from "@/lib/solana/send-and-confirm";
 import { IconMEVDetector } from "@/components/ui/icons";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
