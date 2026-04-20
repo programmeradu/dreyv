@@ -142,6 +142,10 @@ export function useAgent(options: UseAgentOptions = {}) {
         setProgress(100);
         setResult(data.result);
 
+        if (data.status === ExecutionStatus.APPROVAL_REQUIRED) {
+          surfaceApproval(data);
+        }
+
         options.onStatusChange?.(data.status);
 
         return data;
@@ -153,7 +157,7 @@ export function useAgent(options: UseAgentOptions = {}) {
         setLoading(false);
       }
     },
-    [options, wallet]
+    [options, wallet, surfaceApproval]
   );
 
   /**
@@ -180,6 +184,10 @@ export function useAgent(options: UseAgentOptions = {}) {
         setProgress(data.progress);
         setResult(data.result);
 
+        if (data.status === ExecutionStatus.APPROVAL_REQUIRED) {
+          surfaceApproval(data);
+        }
+
         options.onProgress?.(data.progress);
         options.onStatusChange?.(data.status);
 
@@ -201,7 +209,7 @@ export function useAgent(options: UseAgentOptions = {}) {
     };
 
     poll();
-  }, [options]);
+  }, [options, surfaceApproval]);
 
   /**
    * Cancel execution
