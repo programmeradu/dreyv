@@ -145,8 +145,11 @@ function NotificationItem({
         .replace(" year", "y")
         .replace(/\s+/g, "");
 
-    const actions: { label: string; onClick: () => void; variant?: "primary" | "ghost" }[] =
-        item.meta?.actions ?? [];
+    const actions = (item.meta?.actions ?? []) as Array<{
+        label: string;
+        variant?: "primary" | "ghost";
+        onClick: (ctx: { dismiss: () => void; markRead: () => void }) => void | Promise<void>;
+    }>;
 
     const Inner = (
         <div className="flex-1 min-w-0">
@@ -176,7 +179,7 @@ function NotificationItem({
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                a.onClick();
+                                void a.onClick({ dismiss: onRemove, markRead: onRead });
                             }}
                             className={`text-[11.5px] font-semibold px-3 py-1 rounded-full transition-colors ${
                                 a.variant === "ghost"
