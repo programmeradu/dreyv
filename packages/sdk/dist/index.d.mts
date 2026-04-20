@@ -285,6 +285,101 @@ interface UseGaslessTxResult {
 }
 declare function useGaslessTx(): UseGaslessTxResult;
 
+interface PortfolioToken {
+    symbol: string;
+    name: string;
+    balance: number;
+    price: number;
+    mint?: string;
+    logoURI?: string;
+    usdValue: number;
+    percentage: number;
+}
+interface PortfolioData {
+    tokens: PortfolioToken[];
+    totalValue: number;
+    change24h: number;
+    changePercent24h: number;
+}
+interface UsePortfolioResult {
+    data: PortfolioData | null;
+    isLoading: boolean;
+    error: string | null;
+    refetch: () => void;
+}
+/**
+ * Hook to access portfolio data with USD values, percentages, and totals.
+ * Wraps useVault with computed fields for portfolio display.
+ */
+declare function usePortfolio(): UsePortfolioResult;
+
+type ThemeMode = "dark" | "light" | "system";
+interface UseThemeResult {
+    isDark: boolean;
+    theme: ThemeMode;
+    toggleTheme: () => void;
+    setTheme: (theme: ThemeMode) => void;
+}
+/**
+ * Hook for theme management in mini-apps.
+ * Defaults to dark mode (Keystone OS aesthetic).
+ * In the Studio iframe, the host controls the actual theme.
+ */
+declare function useTheme(): UseThemeResult;
+
+interface UseTokenPriceResult {
+    price: number | null;
+    loading: boolean;
+    error: string | null;
+    refetch: () => void;
+}
+/**
+ * Hook to get the current price of a token by mint address.
+ * Uses Jupiter Price API in production, falls back to defaults in dev.
+ */
+declare function useTokenPrice(mint: string): UseTokenPriceResult;
+
+type NotificationType = "info" | "success" | "warning" | "error";
+interface Notification {
+    id: string;
+    type: NotificationType;
+    title: string;
+    message?: string;
+    timestamp: number;
+    read: boolean;
+}
+interface UseNotificationResult {
+    notifications: Notification[];
+    send: (title: string, options?: {
+        type?: NotificationType;
+        message?: string;
+    }) => string;
+    dismiss: (id: string) => void;
+    markRead: (id: string) => void;
+    clearAll: () => void;
+    unreadCount: number;
+}
+/**
+ * Hook for in-app notifications within mini-apps.
+ * Notifications are ephemeral (per session) in the SDK;
+ * the Studio host can persist and relay them.
+ */
+declare function useNotification(): UseNotificationResult;
+
+interface UseStorageResult {
+    get: (key: string) => string | null;
+    set: (key: string, value: string) => void;
+    remove: (key: string) => void;
+    keys: () => string[];
+    clear: () => void;
+}
+/**
+ * Hook for persistent key-value storage scoped to the mini-app.
+ * Uses localStorage under the hood, prefixed to avoid collisions.
+ * In the Studio iframe, the host may intercept and sync storage.
+ */
+declare function useStorage(namespace?: string): UseStorageResult;
+
 /**
  * Bridge interface — host injects implementation (postMessage in Studio, mock in tests)
  */
@@ -358,4 +453,4 @@ interface ZKSPVerifyResult {
  */
 declare function verifyZKSP(params: ZKSPVerifyParams): Promise<ZKSPVerifyResult>;
 
-export { type AgentHandoffPayload, AppEventBus, BridgeMethods, type EventBus, type FetchOptions, type FetchResult, type ImpactReport, type JupiterSwapParams, type JupiterSwapResult, type KeystoneBridge, type ObservabilityConfig, type SIWSState, type Token, type TurnkeyState, type VaultState, type YieldPath, setBridge, toBlink, useACEReport, useAgentHandoff, useEncryptedSecret, useFetch, useGaslessTx, useImpactReport, useJupiterSwap, useMCPClient, useMCPServer, useSIWS, useTaxForensics, useTurnkey, useVault, useYieldOptimizer, verifyZKSP };
+export { type AgentHandoffPayload, AppEventBus, BridgeMethods, type EventBus, type FetchOptions, type FetchResult, type ImpactReport, type JupiterSwapParams, type JupiterSwapResult, type KeystoneBridge, type ObservabilityConfig, type SIWSState, type Token, type TurnkeyState, type VaultState, type YieldPath, setBridge, toBlink, useACEReport, useAgentHandoff, useEncryptedSecret, useFetch, useGaslessTx, useImpactReport, useJupiterSwap, useMCPClient, useMCPServer, useNotification, usePortfolio, useSIWS, useStorage, useTaxForensics, useTheme, useTokenPrice, useTurnkey, useVault, useYieldOptimizer, verifyZKSP };
