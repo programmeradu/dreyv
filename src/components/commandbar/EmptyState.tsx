@@ -32,11 +32,8 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
     <div className="flex flex-col gap-7 px-7 pt-8 pb-6">
       {/* Hero */}
       <div className="flex items-start gap-4">
-        <div className="relative shrink-0">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-400/30 to-fuchsia-300/20 blur-md" />
-          <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
-            <Sparkle size={20} className="text-white" fill="currentColor" />
-          </div>
+        <div className="relative shrink-0 pt-1">
+          <Sparkle size={28} className="text-violet-600" fill="currentColor" />
         </div>
         <div className="flex flex-col gap-1 pt-0.5">
           <h2 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground">
