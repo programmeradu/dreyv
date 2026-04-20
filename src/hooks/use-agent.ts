@@ -1,12 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ExecutionStatus, StrategyType } from "@/lib/agents/types";
+import { notify } from "@/lib/notifications";
 
 interface UseAgentOptions {
   userPublicKey?: PublicKey;
   onProgress?: (progress: number) => void;
   onStatusChange?: (status: ExecutionStatus) => void;
+  /** Disable auto bell notifications for pending signature approvals. */
+  disableApprovalNotifications?: boolean;
 }
 
 interface AgentExecutionResult {
