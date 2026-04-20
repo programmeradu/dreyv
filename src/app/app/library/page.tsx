@@ -104,36 +104,75 @@ export default function LibraryPage() {
                         <span className="text-xs uppercase tracking-widest font-medium">Syncing Library...</span>
                     </div>
                 ) : apps.length === 0 ? (
-                    <div className="relative flex flex-col items-center justify-center h-[60vh] gap-6 border border-dashed border-zinc-800 rounded-[2rem] bg-zinc-900/20 max-w-4xl mx-auto mt-8 overflow-hidden group">
+                    <div className="max-w-5xl mx-auto mt-4 space-y-8">
+                        {/* Hero card */}
+                        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.04] p-12 shadow-sm">
+                            <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-primary/[0.06] rounded-full blur-3xl pointer-events-none" />
 
-                        {/* Watermark Logo */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none transition-transform duration-1000 group-hover:scale-105">
-                            <Logo size={400} fillColor="currentColor" className="text-foreground" />
+                            <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-10 items-center">
+                                <div className="space-y-5 max-w-xl">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.18em]">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                        Your library is ready
+                                    </div>
+                                    <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-[1.05]">
+                                        Build the workspace<br />
+                                        <span className="text-primary">that works for you.</span>
+                                    </h2>
+                                    <p className="text-base text-muted-foreground leading-relaxed">
+                                        Install ready-made apps from the Marketplace, or build your own in Studio.
+                                        Everything you collect lives here — one click away.
+                                    </p>
+                                    <div className="flex flex-wrap gap-3 pt-2">
+                                        <Link href="/app/studio">
+                                            <Button className="h-11 px-6 text-sm font-semibold rounded-xl shadow-sm">
+                                                Create your first app
+                                            </Button>
+                                        </Link>
+                                        <Link href="/app/marketplace">
+                                            <Button variant="outline" className="h-11 px-6 text-sm font-semibold rounded-xl">
+                                                Browse Marketplace
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                <div className="hidden md:flex relative w-48 h-48 items-center justify-center">
+                                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 blur-2xl" />
+                                    <div className="relative w-32 h-32 rounded-3xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-xl shadow-primary/30 rotate-6">
+                                        <Box size={56} strokeWidth={1.5} className="text-primary-foreground -rotate-6" />
+                                    </div>
+                                    <div className="absolute -top-2 -right-2 w-12 h-12 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center">
+                                        <LayoutGrid size={20} className="text-primary" />
+                                    </div>
+                                    <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center">
+                                        <Store size={20} className="text-primary" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="relative z-10 w-20 h-20 rounded-3xl bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-zinc-500 shadow-2xl border border-white/5 ring-1 ring-black/50">
-                            <Box size={36} strokeWidth={1.5} />
-                        </div>
-
-                        <div className="relative z-10 text-center space-y-2">
-                            <h3 className="text-2xl font-black text-foreground tracking-tight">Library Empty</h3>
-                            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                                You haven&apos;t installed or created any apps yet. <br />
-                                Visit the Marketplace or Studio to get started.
-                            </p>
-                        </div>
-
-                        <div className="relative z-10 flex gap-4 mt-4">
-                            <Link href="/app/marketplace">
-                                <Button variant="outline" className="h-10 px-6 uppercase tracking-widest text-[10px] font-bold border-white/10 hover:bg-white/5 hover:border-primary/30 hover:text-primary transition-all">
-                                    Browse Marketplace
-                                </Button>
-                            </Link>
-                            <Link href="/app/studio">
-                                <Button className="h-10 px-6 uppercase tracking-widest text-[10px] font-bold shadow-[0_0_20px_rgba(54,226,123,0.2)] hover:shadow-[0_0_30px_rgba(54,226,123,0.4)] transition-all">
-                                    Create App
-                                </Button>
-                            </Link>
+                        {/* Quick paths */}
+                        <div className="grid md:grid-cols-3 gap-4">
+                            {[
+                                { icon: Store, title: "Browse Marketplace", desc: "Discover apps built by the community.", href: "/app/marketplace", cta: "Explore" },
+                                { icon: Box, title: "Open Studio", desc: "Build, test and ship your own apps.", href: "/app/studio", cta: "Start building" },
+                                { icon: Play, title: "View samples", desc: "Try template apps to see what's possible.", href: "/app/marketplace?filter=templates", cta: "See templates" },
+                            ].map((item) => (
+                                <Link key={item.title} href={item.href} className="group">
+                                    <div className="h-full rounded-2xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/15 transition-colors">
+                                            <item.icon size={18} />
+                                        </div>
+                                        <h4 className="text-sm font-semibold text-foreground mb-1">{item.title}</h4>
+                                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{item.desc}</p>
+                                        <span className="text-xs font-semibold text-primary group-hover:underline">
+                                            {item.cta} →
+                                        </span>
+                                    </div>
+                                </Link>
+                            ))}
                         </div>
                     </div>
                 ) : (
