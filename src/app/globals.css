@@ -233,26 +233,26 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
-/* Scoped Theme for /app Dashboard */
+/* Scoped Theme for /app Dashboard — Stripe-inspired (Dreyv violet) */
 .dashboard-theme {
-  --font-sans: 'Spline Sans', sans-serif;
-  --radius: 1rem;
+  --font-sans: 'Inter Tight', 'Spline Sans', sans-serif;
+  --radius: 0.875rem;
 
-  /* Theme-aware variables */
-  --dashboard-bg: #0B0C10;
-  --dashboard-foreground: #ffffff;
-  --dashboard-card: rgba(31, 40, 49, 0.4);
-  --dashboard-card-hover: rgba(45, 55, 66, 0.5);
-  --dashboard-border: rgba(255, 255, 255, 0.08);
-  --dashboard-text-secondary: #9eb7a8;
-  --dashboard-accent: #36e27b;
-  --dashboard-accent-text: #36e27b;
-  --dashboard-accent-muted: rgba(54, 226, 123, 0.1);
-  --dashboard-sidebar: #0f1115;
-  --dashboard-sidebar-active: rgba(54, 226, 123, 0.15);
-  --dashboard-input-bg: rgba(0, 0, 0, 0.4);
+  /* Dark variant — deep slate with violet accents (Stripe-night vibe) */
+  --dashboard-bg: #0A0B1A;
+  --dashboard-foreground: #F5F6FA;
+  --dashboard-card: rgba(30, 27, 56, 0.5);
+  --dashboard-card-hover: rgba(45, 40, 80, 0.6);
+  --dashboard-border: rgba(167, 139, 250, 0.12);
+  --dashboard-text-secondary: #A5A6B8;
+  --dashboard-accent: #7C3AED;            /* Violet 600 — Dreyv brand */
+  --dashboard-accent-text: #A78BFA;       /* Violet 400 */
+  --dashboard-accent-muted: rgba(124, 58, 237, 0.12);
+  --dashboard-sidebar: #0F1024;
+  --dashboard-sidebar-active: rgba(124, 58, 237, 0.18);
+  --dashboard-input-bg: rgba(15, 16, 36, 0.6);
 
-  /* Legacy Mappings for compatibility */
+  /* Legacy mappings */
   --background: var(--dashboard-bg);
   --foreground: var(--dashboard-foreground);
   --card: var(--dashboard-card);
@@ -260,54 +260,47 @@
   --popover: var(--dashboard-bg);
   --popover-foreground: var(--dashboard-foreground);
   --primary: var(--dashboard-accent);
-  --primary-foreground: #0B0C10;
-  --secondary: rgba(255, 255, 255, 0.05);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.05);
+  --primary-foreground: #FFFFFF;
+  --secondary: rgba(255, 255, 255, 0.04);
+  --secondary-foreground: #F5F6FA;
+  --muted: rgba(255, 255, 255, 0.04);
   --muted-foreground: var(--dashboard-text-secondary);
-  --accent: rgba(255, 255, 255, 0.05);
-  --accent-foreground: #ffffff;
-  --destructive: #ff5b39;
-  --destructive-foreground: #ffffff;
+  --accent: rgba(124, 58, 237, 0.10);
+  --accent-foreground: #F5F6FA;
+  --destructive: #FF5B5B;
+  --destructive-foreground: #FFFFFF;
   --border: var(--dashboard-border);
   --input: var(--dashboard-input-bg);
   --ring: var(--dashboard-accent);
   --sidebar: var(--dashboard-sidebar);
-  --sidebar-foreground: #ffffff;
+  --sidebar-foreground: #F5F6FA;
 }
 
-/* Premium Light Mode Overrides */
+/* Stripe-inspired Light Theme (Dreyv violet on off-white) */
 .dashboard-theme[data-theme='light'] {
-  --dashboard-bg: #F8FAFC;
-  /* Slate 50 */
-  --dashboard-foreground: #0F172A;
-  /* Slate 900 */
-  --dashboard-card: #ffffff;
-  --dashboard-card-hover: #F1F5F9;
-  /* Slate 100 */
-  --dashboard-border: #E2E8F0;
-  /* Slate 200 */
-  --dashboard-text-secondary: #64748B;
-  /* Slate 500 */
-  --dashboard-accent: #16A34A;
-  /* Forest Green 600 */
-  --dashboard-accent-text: #15803D;
-  /* Green 700 */
-  --dashboard-accent-muted: rgba(22, 163, 74, 0.1);
+  --dashboard-bg: #FAFAFC;                /* Stripe off-white */
+  --dashboard-foreground: #1A1B25;        /* Near-black */
+  --dashboard-card: #FFFFFF;
+  --dashboard-card-hover: #F4F4F8;
+  --dashboard-border: #E6E8EE;            /* Soft cool gray */
+  --dashboard-text-secondary: #5B5E68;
+  --dashboard-accent: #635BFF;            /* Stripe-style indigo/violet */
+  --dashboard-accent-text: #5A52E5;
+  --dashboard-accent-muted: rgba(99, 91, 255, 0.08);
   --dashboard-sidebar: #FFFFFF;
-  --dashboard-sidebar-active: rgba(22, 163, 74, 0.08);
-  --dashboard-input-bg: #F1F5F9;
+  --dashboard-sidebar-active: rgba(99, 91, 255, 0.10);
+  --dashboard-input-bg: #F4F4F8;
 
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
+  --secondary: #F4F4F8;
+  --secondary-foreground: #1A1B25;
+  --muted: #F4F4F8;
   --muted-foreground: var(--dashboard-text-secondary);
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
-  --sidebar-foreground: #0F172A;
-  --popover: #ffffff;
-  --popover-foreground: #0F172A;
-  --primary-foreground: #ffffff;
+  --accent: rgba(99, 91, 255, 0.06);
+  --accent-foreground: #1A1B25;
+  --sidebar-foreground: #1A1B25;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1B25;
+  --primary-foreground: #FFFFFF;
 }
 
 @layer base {
