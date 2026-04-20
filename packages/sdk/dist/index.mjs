@@ -431,18 +431,181 @@ function useGaslessTx() {
 
 // src/hooks/usePortfolio.ts
 import { useMemo as useMemo3 } from "react";
+function usePortfolio() {
+  const vault = useVault();
+  const data = useMemo3(() => {
+    const totalValue = vault.tokens.reduce(
+      (sum, t) => sum + t.balance * t.price,
+      0
+    );
+    const tokens = vault.tokens.map((t) => ({
+      ...t,
+      usdValue: t.balance * t.price,
+      percentage: totalValue > 0 ? t.balance * t.price / totalValue * 100 : 0
+    }));
+    return {
+      tokens,
+      totalValue,
+      change24h: 0,
+      changePercent24h: 0
+    };
+  }, [vault.tokens]);
+  return {
+    data,
+    isLoading: false,
+    error: null,
+    refetch: () => {
+    }
+  };
+}
 
 // src/hooks/useTheme.ts
 import { useState as useState11, useCallback as useCallback13 } from "react";
+function useTheme() {
+  const [theme, setThemeState] = useState11("dark");
+  const isDark = theme === "dark" || theme === "system" && true;
+  const toggleTheme = useCallback13(() => {
+    setThemeState((prev) => prev === "dark" ? "light" : "dark");
+  }, []);
+  const setTheme = useCallback13((newTheme) => {
+    setThemeState(newTheme);
+  }, []);
+  return { isDark, theme, toggleTheme, setTheme };
+}
 
 // src/hooks/useTokenPrice.ts
 import { useState as useState12, useEffect as useEffect5, useCallback as useCallback14 } from "react";
+var DEFAULT_PRICES = {
+  So11111111111111111111111111111111111111112: 23.4,
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 1,
+  DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 24e-6,
+  JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: 1.12,
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: 26.8
+};
+function useTokenPrice(mint) {
+  const [price, setPrice] = useState12(DEFAULT_PRICES[mint] ?? null);
+  const [loading, setLoading] = useState12(false);
+  const [error, setError] = useState12(null);
+  const refetch = useCallback14(() => {
+    if (!mint) return;
+    setLoading(true);
+    setError(null);
+    fetch(`https://api.jup.ag/price/v2?ids=${mint}`).then((r) => r.json()).then((data) => {
+      const p = data?.data?.[mint]?.price;
+      if (p) setPrice(Number(p));
+      else setPrice(DEFAULT_PRICES[mint] ?? 0);
+    }).catch((e) => {
+      setError(e.message);
+      setPrice(DEFAULT_PRICES[mint] ?? 0);
+    }).finally(() => setLoading(false));
+  }, [mint]);
+  useEffect5(() => {
+    refetch();
+  }, [refetch]);
+  return { price, loading, error, refetch };
+}
 
 // src/hooks/useNotification.ts
 import { useState as useState13, useCallback as useCallback15 } from "react";
+function useNotification() {
+  const [notifications, setNotifications] = useState13([]);
+  const send = useCallback15(
+    (title, options) => {
+      const id = `notif_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      const notif = {
+        id,
+        type: options?.type || "info",
+        title,
+        message: options?.message,
+        timestamp: Date.now(),
+        read: false
+      };
+      setNotifications((prev) => [notif, ...prev]);
+      return id;
+    },
+    []
+  );
+  const dismiss = useCallback15((id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+  const markRead = useCallback15((id) => {
+    setNotifications(
+      (prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n)
+    );
+  }, []);
+  const clearAll = useCallback15(() => {
+    setNotifications([]);
+  }, []);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  return { notifications, send, dismiss, markRead, clearAll, unreadCount };
+}
 
 // src/hooks/useStorage.ts
 import { useState as useState14, useCallback as useCallback16 } from "react";
+var STORAGE_PREFIX = "ks_app_";
+function useStorage(namespace) {
+  const prefix = namespace ? `${STORAGE_PREFIX}${namespace}_` : STORAGE_PREFIX;
+  const [, setTick] = useState14(0);
+  const bump = useCallback16(() => setTick((t) => t + 1), []);
+  const get = useCallback16(
+    (key) => {
+      try {
+        return localStorage.getItem(`${prefix}${key}`);
+      } catch {
+        return null;
+      }
+    },
+    [prefix]
+  );
+  const set = useCallback16(
+    (key, value) => {
+      try {
+        localStorage.setItem(`${prefix}${key}`, value);
+        bump();
+      } catch (e) {
+        console.warn("[useStorage] Failed to set:", e);
+      }
+    },
+    [prefix, bump]
+  );
+  const remove = useCallback16(
+    (key) => {
+      try {
+        localStorage.removeItem(`${prefix}${key}`);
+        bump();
+      } catch {
+      }
+    },
+    [prefix, bump]
+  );
+  const keys = useCallback16(() => {
+    try {
+      const result = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(prefix)) {
+          result.push(k.slice(prefix.length));
+        }
+      }
+      return result;
+    } catch {
+      return [];
+    }
+  }, [prefix]);
+  const clear = useCallback16(() => {
+    try {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(prefix)) toRemove.push(k);
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+      bump();
+    } catch {
+    }
+  }, [prefix, bump]);
+  return { get, set, remove, keys, clear };
+}
 
 // src/utils/toBlink.ts
 async function toBlink(action) {
@@ -479,8 +642,13 @@ export {
   useJupiterSwap,
   useMCPClient,
   useMCPServer,
+  useNotification,
+  usePortfolio,
   useSIWS,
+  useStorage,
   useTaxForensics,
+  useTheme,
+  useTokenPrice,
   useTurnkey,
   useVault,
   useYieldOptimizer,
