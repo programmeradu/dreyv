@@ -47,7 +47,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <div
-            className="flex bg-background font-sans text-foreground overflow-hidden h-screen selection:bg-[#36e27b] selection:text-[#0B0C10] dashboard-theme relative"
+            className="flex bg-background font-sans text-foreground overflow-hidden h-screen selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
         >
             <Suspense fallback={null}>
@@ -90,7 +90,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full relative overflow-hidden">
                 {/* Ambient Bg Glow */}
-                <div className={`absolute top-[-20%] right-[-10%] w-[600px] h-[600px] ${theme === 'light' ? 'bg-green-500/10' : 'bg-[#36e27b]/5'} rounded-full blur-[120px] pointer-events-none`} />
+                <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
                 <Suspense fallback={
