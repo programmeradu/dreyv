@@ -513,11 +513,11 @@ export function CommandBar() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className="relative w-full max-w-[720px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-[720px] bg-card border border-border rounded-2xl shadow-[0_24px_70px_-20px_rgba(76,29,149,0.25)] overflow-hidden"
           >
-            {/* Neon glow */}
-            <div className="absolute inset-0 z-0 pointer-events-none rounded-2xl ring-1 ring-primary/20" />
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-[#25a85c] rounded-2xl blur opacity-20" />
+            {/* Soft violet aura — Stripe-inspired light theme */}
+            <div className="absolute inset-0 z-0 pointer-events-none rounded-2xl ring-1 ring-violet-200/60" />
+            <div className="absolute -inset-1 bg-gradient-to-br from-violet-400/30 via-fuchsia-300/15 to-transparent rounded-3xl blur-2xl opacity-60 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col max-h-[85vh]">
               {/* ── Chat thread or empty state ── */}
