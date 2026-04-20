@@ -5,19 +5,16 @@ import {
     Bell,
     BellOff,
     Check,
-    Trash2,
-    ShoppingCart,
-    Store,
-    Download,
-    AlertTriangle,
-    Shield,
-    Cpu,
     X,
+    ShoppingCart,
+    Tag,
+    Calendar,
+    Smartphone,
+    Cpu,
+    Shield,
+    Download,
     Settings2,
-    Sparkles,
     Inbox,
-    Radio,
-    ArrowUpRight,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -27,88 +24,99 @@ import {
     type NotificationType,
 } from "@/lib/notifications";
 import { AppEventBus } from "@/lib/events";
-import { formatDistanceToNow, isToday, isYesterday } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 
 // ─── Type meta ────────────────────────────────────────────────────────
+// Soft pastel medallions inspired by clean light dashboards.
+// Each pair works in both light and dark themes (low-opacity tints).
 
 type TypeMeta = {
     label: string;
     Icon: React.ComponentType<{ size?: number; className?: string }>;
     iconClass: string;
     medallionBg: string;
-    medallionRing: string;
-    rail: string;
-    /** raw HSL var for glow shadows */
-    glowVar: string;
 };
 
 const TYPE_META: Record<NotificationType, TypeMeta> = {
     purchase: {
         label: "Purchase",
         Icon: ShoppingCart,
-        iconClass: "text-emerald-300",
-        medallionBg: "bg-emerald-500/10",
-        medallionRing: "ring-emerald-400/25",
-        rail: "from-emerald-400/0 via-emerald-400 to-emerald-400/0",
-        glowVar: "16 185 129",
+        iconClass: "text-emerald-600 dark:text-emerald-300",
+        medallionBg: "bg-emerald-100/80 dark:bg-emerald-500/10",
     },
     listing: {
         label: "Listing",
-        Icon: Store,
-        iconClass: "text-primary",
-        medallionBg: "bg-primary/10",
-        medallionRing: "ring-primary/25",
-        rail: "from-primary/0 via-primary to-primary/0",
-        glowVar: "139 92 246",
+        Icon: Tag,
+        iconClass: "text-sky-600 dark:text-sky-300",
+        medallionBg: "bg-sky-100/80 dark:bg-sky-500/10",
     },
     install: {
         label: "Install",
         Icon: Download,
-        iconClass: "text-sky-300",
-        medallionBg: "bg-sky-500/10",
-        medallionRing: "ring-sky-400/25",
-        rail: "from-sky-400/0 via-sky-400 to-sky-400/0",
-        glowVar: "56 189 248",
+        iconClass: "text-indigo-600 dark:text-indigo-300",
+        medallionBg: "bg-indigo-100/80 dark:bg-indigo-500/10",
     },
     delist: {
         label: "Delist",
-        Icon: X,
-        iconClass: "text-amber-300",
-        medallionBg: "bg-amber-500/10",
-        medallionRing: "ring-amber-400/25",
-        rail: "from-amber-400/0 via-amber-400 to-amber-400/0",
-        glowVar: "251 191 36",
+        Icon: Smartphone,
+        iconClass: "text-amber-600 dark:text-amber-300",
+        medallionBg: "bg-amber-100/80 dark:bg-amber-500/10",
     },
     agent_alert: {
         label: "Agent",
         Icon: Cpu,
-        iconClass: "text-violet-300",
-        medallionBg: "bg-violet-500/10",
-        medallionRing: "ring-violet-400/25",
-        rail: "from-violet-400/0 via-violet-400 to-violet-400/0",
-        glowVar: "167 139 250",
+        iconClass: "text-violet-600 dark:text-violet-300",
+        medallionBg: "bg-violet-100/80 dark:bg-violet-500/10",
     },
     security: {
         label: "Security",
         Icon: Shield,
-        iconClass: "text-red-300",
-        medallionBg: "bg-red-500/10",
-        medallionRing: "ring-red-400/30",
-        rail: "from-red-400/0 via-red-400 to-red-400/0",
-        glowVar: "248 113 113",
+        iconClass: "text-rose-600 dark:text-rose-300",
+        medallionBg: "bg-rose-100/80 dark:bg-rose-500/10",
     },
     system: {
         label: "System",
-        Icon: AlertTriangle,
+        Icon: Calendar,
         iconClass: "text-muted-foreground",
-        medallionBg: "bg-muted/40",
-        medallionRing: "ring-border",
-        rail: "from-transparent via-muted-foreground/60 to-transparent",
-        glowVar: "148 163 184",
+        medallionBg: "bg-muted",
     },
 };
 
 type FilterTab = "all" | "unread";
+
+// ─── Avatar / Medallion ───────────────────────────────────────────────
+
+function Avatar({ item }: { item: Notification }) {
+    const meta = TYPE_META[item.type] ?? TYPE_META.system;
+    const { Icon } = meta;
+    const avatarUrl: string | undefined = item.meta?.avatarUrl;
+    const initials: string | undefined = item.meta?.initials;
+
+    if (avatarUrl) {
+        return (
+            <div className="relative size-9 rounded-full overflow-hidden ring-1 ring-border/60 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarUrl} alt="" className="size-full object-cover" />
+            </div>
+        );
+    }
+    if (initials) {
+        return (
+            <div
+                className={`relative size-9 rounded-full ${meta.medallionBg} ${meta.iconClass} flex items-center justify-center text-[11px] font-semibold shrink-0`}
+            >
+                {initials.slice(0, 2).toUpperCase()}
+            </div>
+        );
+    }
+    return (
+        <div
+            className={`relative size-9 rounded-full ${meta.medallionBg} flex items-center justify-center shrink-0`}
+        >
+            <Icon size={16} className={meta.iconClass} />
+        </div>
+    );
+}
 
 // ─── Item row ─────────────────────────────────────────────────────────
 
@@ -121,82 +129,84 @@ function NotificationItem({
     onRead: () => void;
     onRemove: () => void;
 }) {
-    const meta = TYPE_META[item.type] ?? TYPE_META.system;
-    const { Icon } = meta;
     const unread = !item.read;
+    const time = formatDistanceToNowStrict(new Date(item.timestamp), { addSuffix: false })
+        .replace(" minutes", "m")
+        .replace(" minute", "m")
+        .replace(" hours", "h")
+        .replace(" hour", "h")
+        .replace(" days", "d")
+        .replace(" day", "d")
+        .replace(" seconds", "s")
+        .replace(" second", "s")
+        .replace(" months", "mo")
+        .replace(" month", "mo")
+        .replace(" years", "y")
+        .replace(" year", "y")
+        .replace(/\s+/g, "");
 
-    const Body = (
+    const actions: { label: string; onClick: () => void; variant?: "primary" | "ghost" }[] =
+        item.meta?.actions ?? [];
+
+    const Inner = (
         <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-                <span
-                    className={`text-[8.5px] font-black uppercase tracking-[0.18em] ${meta.iconClass}`}
+            <div className="flex items-start gap-2">
+                <p
+                    className={`flex-1 min-w-0 text-[13px] leading-snug ${
+                        unread ? "text-foreground font-semibold" : "text-foreground/90 font-medium"
+                    }`}
                 >
-                    {meta.label}
+                    {item.title}
+                </p>
+                <span className="text-[11px] text-muted-foreground/80 font-normal shrink-0 tabular-nums">
+                    {time}
                 </span>
-                <span className="text-[8px] text-muted-foreground/40 font-mono">·</span>
-                <span className="text-[8.5px] text-muted-foreground/70 font-mono uppercase tracking-wider truncate">
-                    {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
-                </span>
-                {item.href && (
-                    <ArrowUpRight
-                        size={10}
-                        className="text-muted-foreground/40 ml-auto shrink-0"
-                    />
-                )}
             </div>
-            <p
-                className={`text-[12.5px] font-bold leading-tight tracking-tight ${
-                    unread ? "text-foreground" : "text-muted-foreground"
-                }`}
-            >
-                {item.title}
-            </p>
-            <p className="text-[11px] text-muted-foreground/80 leading-snug line-clamp-2 mt-0.5">
-                {item.message}
-            </p>
+            {item.message && (
+                <p className="text-[12.5px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">
+                    {item.message}
+                </p>
+            )}
+            {actions.length > 0 && (
+                <div className="flex items-center gap-2 mt-2.5">
+                    {actions.map((a, i) => (
+                        <button
+                            key={i}
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                a.onClick();
+                            }}
+                            className={`text-[11.5px] font-semibold px-3 py-1 rounded-full transition-colors ${
+                                a.variant === "ghost"
+                                    ? "border border-border text-foreground hover:bg-muted"
+                                    : "bg-primary text-primary-foreground hover:opacity-90"
+                            }`}
+                        >
+                            {a.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 
     return (
         <div
-            className={`group relative flex items-start gap-3 pl-4 pr-2 py-3 rounded-xl border transition-all duration-200 ${
-                unread
-                    ? "bg-gradient-to-br from-card to-card/40 border-border/70 hover:border-border"
-                    : "bg-transparent hover:bg-muted/15 border-transparent"
-            }`}
+            className={`group relative flex items-start gap-3 px-4 py-3 transition-colors ${
+                unread ? "bg-primary/[0.04]" : "bg-transparent"
+            } hover:bg-muted/40`}
         >
-            {/* Vertical accent rail (gradient) */}
-            <span
-                aria-hidden
-                className={`absolute left-1 top-3 bottom-3 w-[2px] rounded-full bg-gradient-to-b ${meta.rail} transition-opacity duration-300 ${
-                    unread ? "opacity-100" : "opacity-0 group-hover:opacity-50"
-                }`}
-            />
+            <Avatar item={item} />
 
-            {/* Medallion with halo when unread */}
-            <div className="relative shrink-0">
-                {unread && (
-                    <span
-                        aria-hidden
-                        className="absolute inset-0 rounded-xl blur-md opacity-60"
-                        style={{ backgroundColor: `rgba(${meta.glowVar}, 0.35)` }}
-                    />
-                )}
-                <div
-                    className={`relative size-9 rounded-xl flex items-center justify-center ring-1 ${meta.medallionBg} ${meta.medallionRing} backdrop-blur-sm`}
-                >
-                    <Icon size={15} className={meta.iconClass} />
-                </div>
-            </div>
-
-            {/* Body */}
             {item.href ? (
                 <a
                     href={item.href}
                     onClick={onRead}
-                    className="flex-1 min-w-0 hover:[&_p:first-of-type]:text-primary transition-colors"
+                    className="flex-1 min-w-0"
                 >
-                    {Body}
+                    {Inner}
                 </a>
             ) : (
                 <button
@@ -204,60 +214,39 @@ function NotificationItem({
                     className="flex-1 min-w-0 text-left cursor-pointer"
                     type="button"
                 >
-                    {Body}
+                    {Inner}
                 </button>
             )}
 
-            {/* Hover actions slide in from the right */}
-            <div className="shrink-0 flex flex-col gap-1 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200">
-                {unread && (
-                    <button
-                        onClick={onRead}
-                        className="text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-md hover:bg-primary/10"
-                        title="Mark as read"
-                        type="button"
-                    >
-                        <Check size={11} />
-                    </button>
-                )}
-                <button
-                    onClick={onRemove}
-                    className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-md hover:bg-red-500/10"
-                    title="Dismiss"
-                    type="button"
-                >
-                    <Trash2 size={11} />
-                </button>
-            </div>
+            {/* Unread dot */}
+            {unread && (
+                <span
+                    aria-hidden
+                    className="absolute right-3 top-3.5 size-2 rounded-full bg-primary"
+                />
+            )}
+
+            {/* Hover dismiss */}
+            <button
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRemove();
+                }}
+                className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="Dismiss"
+                type="button"
+            >
+                <X size={12} />
+            </button>
         </div>
     );
-}
-
-// ─── Day grouping ─────────────────────────────────────────────────────
-
-type Group = { label: string; items: Notification[] };
-
-function groupByDay(items: Notification[]): Group[] {
-    const today: Notification[] = [];
-    const yesterday: Notification[] = [];
-    const earlier: Notification[] = [];
-    for (const n of items) {
-        const d = new Date(n.timestamp);
-        if (isToday(d)) today.push(n);
-        else if (isYesterday(d)) yesterday.push(n);
-        else earlier.push(n);
-    }
-    return [
-        { label: "Today", items: today },
-        { label: "Yesterday", items: yesterday },
-        { label: "Earlier", items: earlier },
-    ].filter((g) => g.items.length > 0);
 }
 
 // ─── Bell ─────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
-    const { notifications, markRead, markAllRead, remove, clearAll, unreadCount } =
+    const { notifications, markRead, markAllRead, remove, unreadCount } =
         useNotificationStore();
     const count = unreadCount();
     const [filter, setFilter] = useState<FilterTab>("all");
@@ -277,7 +266,10 @@ export function NotificationBell() {
         return filter === "unread" ? sorted.filter((n) => !n.read) : sorted;
     }, [notifications, filter]);
 
-    const groups = useMemo(() => groupByDay(visible), [visible]);
+    const tabs: { key: FilterTab; label: string; count: number }[] = [
+        { key: "all", label: "View All", count: notifications.length },
+        { key: "unread", label: "Unread", count },
+    ];
 
     return (
         <Popover>
@@ -288,17 +280,7 @@ export function NotificationBell() {
                 >
                     <Bell size={18} />
                     {count > 0 && (
-                        <>
-                            <span
-                                aria-hidden
-                                className="absolute -top-1 -right-1 size-[20px] rounded-full bg-primary/40 blur-md animate-pulse"
-                            />
-                            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary flex items-center justify-center ring-2 ring-background">
-                                <span className="text-[9px] font-black text-primary-foreground leading-none">
-                                    {count > 99 ? "99+" : count}
-                                </span>
-                            </span>
-                        </>
+                        <span className="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
                     )}
                 </button>
             </PopoverTrigger>
@@ -306,202 +288,116 @@ export function NotificationBell() {
             <PopoverContent
                 align="end"
                 sideOffset={10}
-                className="w-[420px] p-0 max-h-[600px] flex flex-col overflow-hidden border-border/70 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)] rounded-2xl bg-card/95 backdrop-blur-xl"
+                className="w-[380px] p-0 max-h-[560px] flex flex-col overflow-hidden rounded-2xl border border-border/70 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] bg-popover"
             >
-                {/* ─── Ambient header ─────────────────────────────────── */}
-                <div className="relative shrink-0 overflow-hidden border-b border-border/50">
-                    {/* Aurora background */}
-                    <div
-                        aria-hidden
-                        className="absolute inset-0 opacity-70 pointer-events-none"
-                        style={{
-                            background:
-                                "radial-gradient(120% 80% at 0% 0%, hsl(var(--primary)/0.18) 0%, transparent 55%), radial-gradient(80% 60% at 100% 0%, rgba(139,92,246,0.12) 0%, transparent 60%)",
-                        }}
-                    />
-                    <div
-                        aria-hidden
-                        className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
-                    />
+                {/* ─── Header ─────────────────────────────────────────── */}
+                <div className="px-5 pt-4 pb-2 shrink-0">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-[17px] font-semibold tracking-tight text-foreground">
+                            Notifications
+                        </h3>
+                        <a
+                            href="/app/settings"
+                            className="size-8 -mr-1.5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            title="Notification settings"
+                        >
+                            <Settings2 size={15} />
+                        </a>
+                    </div>
 
-                    <div className="relative px-5 pt-4 pb-3">
-                        <div className="flex items-center justify-between mb-3.5">
-                            <div className="flex items-center gap-2.5">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-primary/40 blur-md rounded-lg" />
-                                    <div className="relative size-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30 flex items-center justify-center">
-                                        <Sparkles
-                                            size={14}
-                                            className="text-primary"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-1.5">
-                                        <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-foreground leading-none">
-                                            Signal Inbox
-                                        </h3>
-                                        {count > 0 && (
-                                            <span className="relative flex size-1.5">
-                                                <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-60" />
-                                                <span className="relative rounded-full size-1.5 bg-primary" />
+                    {/* Tabs row */}
+                    <div className="flex items-center justify-between gap-2 mt-3">
+                        <div className="flex items-center gap-4">
+                            {tabs.map((t) => {
+                                const active = filter === t.key;
+                                return (
+                                    <button
+                                        key={t.key}
+                                        onClick={() => setFilter(t.key)}
+                                        type="button"
+                                        className={`relative pb-2 text-[12.5px] font-medium transition-colors flex items-center gap-1.5 ${
+                                            active
+                                                ? "text-foreground"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                    >
+                                        {t.label}
+                                        {t.count > 0 && (
+                                            <span
+                                                className={`text-[10.5px] font-semibold px-1.5 py-px rounded-full leading-none ${
+                                                    active
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-muted text-muted-foreground"
+                                                }`}
+                                            >
+                                                {t.count > 99 ? "99+" : t.count}
                                             </span>
                                         )}
-                                    </div>
-                                    <p className="text-[9px] text-muted-foreground mt-1 font-mono uppercase tracking-[0.15em] flex items-center gap-1.5">
-                                        <Radio size={9} className="text-primary/70" />
-                                        {count > 0
-                                            ? `${count} live signal${count === 1 ? "" : "s"}`
-                                            : "All channels quiet"}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <a
-                                href="/app/settings"
-                                className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                                title="Notification settings"
+                                        {active && (
+                                            <span
+                                                aria-hidden
+                                                className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-foreground"
+                                            />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {count > 0 && (
+                            <button
+                                onClick={markAllRead}
+                                type="button"
+                                className="text-[12px] font-medium text-primary hover:opacity-80 transition-opacity"
                             >
-                                <Settings2 size={13} />
-                            </a>
-                        </div>
-
-                        {/* Filter segmented + actions */}
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-background/60 ring-1 ring-border/60 backdrop-blur">
-                                {(["all", "unread"] as FilterTab[]).map((tab) => {
-                                    const active = filter === tab;
-                                    const tabCount =
-                                        tab === "unread" ? count : notifications.length;
-                                    return (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setFilter(tab)}
-                                            className={`relative flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-[0.14em] transition-all ${
-                                                active
-                                                    ? "bg-primary/15 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.25)]"
-                                                    : "text-muted-foreground hover:text-foreground"
-                                            }`}
-                                            type="button"
-                                        >
-                                            {tab}
-                                            {tabCount > 0 && (
-                                                <span
-                                                    className={`text-[8.5px] font-black px-1.5 py-px rounded-full leading-none ${
-                                                        active
-                                                            ? "bg-primary/25 text-primary"
-                                                            : "bg-muted-foreground/15 text-muted-foreground"
-                                                    }`}
-                                                >
-                                                    {tabCount > 99 ? "99+" : tabCount}
-                                                </span>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                {count > 0 && (
-                                    <button
-                                        onClick={markAllRead}
-                                        className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-                                        type="button"
-                                    >
-                                        <Check size={10} />
-                                        Read all
-                                    </button>
-                                )}
-                                {notifications.length > 0 && (
-                                    <button
-                                        onClick={clearAll}
-                                        className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground/70 hover:text-red-400 transition-colors"
-                                        type="button"
-                                    >
-                                        Clear
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                                Mark all read
+                            </button>
+                        )}
                     </div>
+                    <div className="h-px bg-border/70 -mx-5" />
                 </div>
 
                 {/* ─── List ───────────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin">
+                <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-border/50">
                     {visible.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-4 py-16 px-6 text-center">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full" />
-                                <div
-                                    aria-hidden
-                                    className="absolute inset-[-12px] rounded-full border border-primary/15 animate-pulse"
-                                />
-                                <div
-                                    aria-hidden
-                                    className="absolute inset-[-24px] rounded-full border border-primary/10"
-                                />
-                                <div className="relative size-14 rounded-2xl bg-gradient-to-br from-card to-muted/40 ring-1 ring-border flex items-center justify-center">
-                                    {filter === "unread" ? (
-                                        <Check size={22} className="text-primary" />
-                                    ) : (
-                                        <Inbox size={22} className="text-muted-foreground" />
-                                    )}
-                                </div>
+                        <div className="flex flex-col items-center justify-center gap-3 py-14 px-6 text-center">
+                            <div className="size-12 rounded-full bg-muted flex items-center justify-center">
+                                {filter === "unread" ? (
+                                    <Check size={20} className="text-muted-foreground" />
+                                ) : (
+                                    <Inbox size={20} className="text-muted-foreground" />
+                                )}
                             </div>
                             <div>
-                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-foreground">
-                                    {filter === "unread" ? "Inbox zero" : "No signals yet"}
+                                <p className="text-[13px] font-semibold text-foreground">
+                                    {filter === "unread" ? "You're all caught up" : "No notifications yet"}
                                 </p>
-                                <p className="text-[10.5px] text-muted-foreground mt-1.5 max-w-[240px] leading-relaxed">
+                                <p className="text-[12px] text-muted-foreground mt-1 max-w-[240px] leading-relaxed">
                                     {filter === "unread"
-                                        ? "Every signal is read. Your agents are watching the rest."
-                                        : "Agent activity, marketplace events, and security alerts will surface here in real time."}
+                                        ? "Every signal has been read."
+                                        : "Activity from your agents and the marketplace will show up here."}
                                 </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="px-2 py-2 space-y-3">
-                            {groups.map((group) => (
-                                <div key={group.label} className="space-y-1">
-                                    <div className="sticky top-0 z-10 px-3 py-1.5 backdrop-blur-md bg-card/80">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
-                                                {group.label}
-                                            </span>
-                                            <span className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
-                                            <span className="text-[8.5px] font-mono text-muted-foreground/50 uppercase tracking-wider">
-                                                {group.items.length}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        {group.items.map((item) => (
-                                            <NotificationItem
-                                                key={item.id}
-                                                item={item}
-                                                onRead={() => markRead(item.id)}
-                                                onRemove={() => remove(item.id)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        visible.map((item) => (
+                            <NotificationItem
+                                key={item.id}
+                                item={item}
+                                onRead={() => markRead(item.id)}
+                                onRemove={() => remove(item.id)}
+                            />
+                        ))
                     )}
                 </div>
 
                 {/* ─── Footer ─────────────────────────────────────────── */}
-                <div className="relative border-t border-border/50 px-4 py-2.5 shrink-0 bg-gradient-to-b from-transparent to-muted/10 flex items-center justify-between">
+                <div className="border-t border-border/70 shrink-0">
                     <a
                         href="/app/settings"
-                        className="text-[9px] text-muted-foreground hover:text-primary transition-colors font-black uppercase tracking-[0.18em] flex items-center gap-1.5"
+                        className="block px-5 py-3 text-center text-[12.5px] font-medium text-foreground hover:bg-muted/50 transition-colors"
                     >
-                        <Settings2 size={10} />
-                        Preferences
+                        See all notifications
                     </a>
-                    <span className="text-[9px] text-muted-foreground/50 font-mono uppercase tracking-[0.15em]">
-                        {notifications.length} total · synced
-                    </span>
                 </div>
             </PopoverContent>
         </Popover>
