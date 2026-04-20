@@ -13,6 +13,14 @@ export type NotificationType =
     | "security"
     | "system";
 
+export interface NotificationAction {
+    label: string;
+    /** Visual variant — primary (filled) or ghost (outline). Defaults to primary. */
+    variant?: "primary" | "ghost";
+    /** Called when the user clicks the action. Return value is awaited. */
+    onClick: (ctx: { dismiss: () => void; markRead: () => void }) => void | Promise<void>;
+}
+
 export interface Notification {
     id: string;
     type: NotificationType;
@@ -21,7 +29,11 @@ export interface Notification {
     timestamp: number;
     read: boolean;
     href?: string;          // optional link to navigate to
-    meta?: Record<string, any>;
+    meta?: Record<string, any> & {
+        avatarUrl?: string;
+        initials?: string;
+        actions?: NotificationAction[];
+    };
 }
 
 export interface NotificationPreferences {
