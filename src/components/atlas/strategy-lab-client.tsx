@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { toast } from "@/lib/toast-notifications";
+import { toast, toastNotifications } from "@/lib/toast-notifications";
 import { sendAndConfirmSigned } from "@/lib/solana/send-and-confirm";
 import { Loader2, ArrowRight, FlaskConical } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
