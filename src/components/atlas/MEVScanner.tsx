@@ -265,18 +265,30 @@ export function MEVScanner() {
       const bundleData = await bundleRes.json();
 
       if (!bundleRes.ok || !bundleData.success) {
-        // Jito unavailable → fallback: send legs sequentially via RPC
+        // Jito unavailable → fallback: send legs sequentially via RPC + confirm each
         toast.message("Jito unavailable — submitting direct…");
-        const buySig = await connection.sendRawTransaction(signed[0].serialize(), { skipPreflight: true });
-        const sellSig = await connection.sendRawTransaction(signed[1].serialize(), { skipPreflight: true });
+        const buyResult = await sendAndConfirmSigned(connection, signed[0], {
+          onPending: (sig) => toast.message("Buy leg pending…", { description: sig.slice(0, 8) + "…" }),
+        });
+        if (!buyResult.confirmed) {
+          toast.error("Arb failed on buy leg", { description: buyResult.error });
+          return;
+        }
+        const sellResult = await sendAndConfirmSigned(connection, signed[1], {
+          onPending: (sig) => toast.message("Sell leg pending…", { description: sig.slice(0, 8) + "…" }),
+        });
+        if (!sellResult.confirmed) {
+          toast.error("Arb partially filled — sell leg failed", { description: sellResult.error });
+          return;
+        }
         toast.success(`Arb executed: ${opp.token}`, {
-          description: `Buy → Sell confirmed`,
+          description: `Buy → Sell confirmed on-chain`,
         });
         toast.message("Sell tx on Solscan", {
-          description: `https://solscan.io/tx/${sellSig}`,
+          description: `https://solscan.io/tx/${sellResult.signature}`,
           action: {
             label: "Open",
-            onClick: () => window.open(`https://solscan.io/tx/${sellSig}`, "_blank", "noopener,noreferrer"),
+            onClick: () => window.open(`https://solscan.io/tx/${sellResult.signature}`, "_blank", "noopener,noreferrer"),
           },
         });
         return;

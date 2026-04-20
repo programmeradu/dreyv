@@ -5,6 +5,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { toast } from "@/lib/toast-notifications";
+import { sendAndConfirmSigned } from "@/lib/solana/send-and-confirm";
 import { Loader2, ArrowRight, FlaskConical } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -342,8 +343,12 @@ export function StrategyLabClient() {
       const vtx = VersionedTransaction.deserialize(bytes);
 
       const signedTx = await signTransaction!(vtx);
-      const signature = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-      toast.success("Transaction sent");
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        onPending: (sig) => toast.executionPending("Swap", sig),
+        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
+        onError: (err) => toast.executionFailed("Swap", err.message),
+      });
+      if (!result.confirmed) throw new Error(result.error || "Swap not confirmed");
     } catch (e: any) {
       toast.error("Swap failed", { description: e?.message || String(e) });
     } finally {
@@ -387,8 +392,12 @@ export function StrategyLabClient() {
       const vtx = VersionedTransaction.deserialize(bytes);
 
       const signedTx = await signTransaction!(vtx);
-      await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
-      toast.success(`Staked via ${lst.name}`);
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        onPending: (sig) => toast.executionPending(`Stake via ${lst.name}`, sig),
+        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
+        onError: (err) => toast.executionFailed("Stake", err.message),
+      });
+      if (!result.confirmed) throw new Error(result.error || "Stake not confirmed");
     } catch (e: any) {
       toast.error("Stake failed", { description: e?.message || String(e) });
     } finally {
@@ -431,7 +440,12 @@ export function StrategyLabClient() {
       const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
       const vtx = VersionedTransaction.deserialize(bytes);
       const signedTx = await signTransaction!(vtx);
-      await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true });
+      const result = await sendAndConfirmSigned(connection, signedTx, {
+        onPending: (sig) => toast.executionPending("LP swap", sig),
+        onConfirmed: (sig) => toast.blockchainConfirmed(sig),
+        onError: (err) => toast.executionFailed("LP swap", err.message),
+      });
+      if (!result.confirmed) throw new Error(result.error || "LP swap not confirmed");
 
       toast.success(`Swapped ${halfSol.toFixed(3)} SOL → USDC for LP pair`, {
         description: "Opening pool deposit…",
