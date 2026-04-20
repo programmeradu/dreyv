@@ -1,58 +1,142 @@
 
 
-## Investigation summary
+# Studio Empty-State Flow + Self-Learning Architect
 
-**1. Hardcoded swap tokens (`JupiterSwapCard.tsx`)**
-The Atlas swap widget only seeds Jupiter with two mints — SOL (`So111…`) and USDC (`EPjF…`) — via `formProps.initialInputMint/initialOutputMint`. Jupiter's plugin technically lets users pick any token from its internal list, but we never expose a curated set, never persist the user's last pair, and never accept tokens from URL/portfolio context. So in practice it feels like a 2-token swap.
+Build a Lovable/Bolt-style empty state that **only ships real apps** — no mocks, no stubs. Three-stage AI-guided flow that clarifies intent, picks real integrations, previews a build plan, then hands off to ArchitectEngine with anti-mock guardrails and Firecrawl+Perplexity research enrichment for unknown protocols.
 
-**2. False-positive transactions**
-Several execution paths fire success toasts that don't reflect on-chain reality:
+## What gets built
 
-- `atlas-client.tsx` `executeSwap/executeStake/executeLp` → calls `sendRawTransaction(..., { skipPreflight: true })` then **immediately** toasts "Transaction sent" and shows a Solscan link. It never calls `confirmTransaction`. If the tx silently fails on-chain (insufficient SOL for fees, slippage, expired blockhash, ALT issue), the user sees a green success + a "view on Solscan" link to a dead signature.
-- `AgentExecutor.tsx` and `AgentDashboard.tsx` fire `toastNotifications.executionSuccess(...)` based on the agent API's mock result — no real signature, no chain interaction.
-- A few API routes (`execute-rebalance`, `dca-execute`, `transaction-bundle`, `mev-scan`) have `MOCK_MODE` branches that return `mock_signature_…` strings; safe in dev but the UI doesn't differentiate the two.
-- `useTransactionExecutor.ts` and `working-swap/page.tsx` already do the **right** pattern (sendRaw → confirmTransaction → throw on err). We should standardize on this.
+### 1. Empty-state UI at `/app/studio` (when no project loaded)
+Full-screen prompt box, dreyv violet, replaces the current "drop into App.tsx" behavior.
 
-## Plan
+```text
+┌───────────────────────────────────────────────────────┐
+│                                                       │
+│        What do you want to build?                     │
+│   ┌─────────────────────────────────────────────┐     │
+│   │ A staking dashboard for mSOL holders…       │     │
+│   └─────────────────────────────────────────────┘     │
+│              [ Generate plan → ]                      │
+│                                                       │
+│   Examples: staking dashboard · token-gated chat ·    │
+│   DCA bot UI · Squads multisig viewer                 │
+│                                                       │
+│   ─── or ──                                           │
+│   [Start from template]  [Open recent]                │
+└───────────────────────────────────────────────────────┘
+```
 
-### Phase 1 — Make Atlas swaps actually confirm (fix false positives)
-In `src/components/atlas/atlas-client.tsx`, refactor `executeSwap`, `executeStake`, `executeLp`:
-1. Fetch `getLatestBlockhash` before signing so we have `{ blockhash, lastValidBlockHeight }`.
-2. `sendRawTransaction` with `skipPreflight: false`, `maxRetries: 3`, `preflightCommitment: "confirmed"`.
-3. Show a **pending** toast immediately (with the signature + Solscan link, marked "Pending…").
-4. `await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed")`.
-5. On `confirmation.value.err` → `toast.error("Swap failed on-chain", …)` with the parsed error.
-6. On success → upgrade the toast to confirmed (persist this one to the bell).
-7. Also verify post-confirmation balance changed via `getParsedTransaction` (optional but kills any remaining ambiguity).
+After submit, transitions to a **3-stage stepper** in the same panel:
 
-### Phase 2 — Centralize the confirmation pattern
-Create `src/lib/solana/send-and-confirm.ts` exposing `sendAndConfirmSigned(connection, signedTx, { onPending, onConfirmed, onError })`. Replace ad-hoc `sendRawTransaction` calls in `atlas-client.tsx`, `AgentExecutor.tsx`, agent paths, and `useTransactionExecutor.ts` with this helper so every send path has the same pending → confirmed → error lifecycle and toast pattern.
+- **Stage 1 — Clarify**: AI returns 2–4 targeted questions (network, wallets, read-only vs transactional, target protocol). Rendered as chips/radio groups, no free-text where avoidable.
+- **Stage 2 — Integrations**: AI proposes a real stack. Each integration shown as a toggle with status badge:
+  - `✓ ready` (key in env / connector linked)
+  - `⚙ needs setup` (opens connector flow / secret prompt)
+  - `🔬 researching` (unknown protocol → Firecrawl+Perplexity kicks in)
+- **Stage 3 — Plan preview**: file tree, data sources list, on-chain calls, "real vs needs-your-input" checklist, **[Build it →]** button. On click, hands the enriched context to existing `ArchitectEngine.generate()`.
 
-### Phase 3 — Honest agent execution toasts
-- `AgentExecutor.tsx` / `AgentDashboard.tsx`: stop calling `executionSuccess` unless the result contains a real `signature` that has been confirmed. If the agent only produced a plan / approval request, fire `approvalRequested` or `executionPending` instead.
-- Add a clear `executionPending(strategy, signature)` helper in `toast-notifications.ts` that shows a spinner + Solscan link, and gets upgraded to `executionSuccess` once `confirmTransaction` resolves (or `executionFailed` on error).
-- Mark **only confirmed** transactions as `persist: true` so the bell history reflects real on-chain events, never optimistic ones.
+### 2. New API routes (Next.js App Router, not Supabase functions — matches existing project)
 
-### Phase 4 — Make the swap widget feel like more than 2 tokens
-In `src/components/atlas/JupiterSwapCard.tsx`:
-- Add a small token-pair toolbar above the Jupiter widget with curated chips: `SOL`, `USDC`, `USDT`, `JUP`, `BONK`, `JTO`, `WIF`, `PYTH`, `mSOL`, `JitoSOL` (mints already used elsewhere in the app).
-- Clicking a chip re-initializes the Jupiter plugin with that mint as input (or output, via a small In/Out toggle).
-- Persist last-used pair in `localStorage` (`atlas:swap:lastPair`) and rehydrate on mount.
-- Accept `?in=<mint>&out=<mint>` URL params so deep-links from `TokenIntelCard` / portfolio rows can open the widget pre-filled.
+- **`/api/studio/clarify`** — POST `{ prompt }` → `{ questions: [{id, text, options[], multi}] }`. Uses Lovable AI Gateway (`google/gemini-3-flash-preview`) with tool-calling for structured output.
+- **`/api/studio/plan`** — POST `{ prompt, answers, knownIntegrations }` → `{ integrations: [{id, name, status, requiredSecrets[]}], files: [...], dataSources: [...], onChainCalls: [...], unknownProtocols: [...] }`. Triggers research enrichment for any `unknownProtocols`.
+- **`/api/studio/research`** — POST `{ protocol, prompt }` → fetches docs via **Firecrawl** (scrape protocol docs URL) + **Perplexity** (`sonar-pro` for SDK shape and code examples), returns markdown chunk + extracted SDK signatures, persists to existing `knowledgeEntries` table with `source: "studio_research"`.
 
-### Phase 5 — Mock-mode visual indicator (small but important)
-When `process.env.NEXT_PUBLIC_MOCK_MODE === "true"` (dev only), badge any toast/notification produced from a mock route with a small `SIMULATED` chip so we never confuse mock signatures with real ones during testing.
+All three use existing `checkRouteLimit` middleware and `getAuthUserId` pattern from `src/app/api/runs/route.ts`.
 
-## Files to touch
-- `src/components/atlas/atlas-client.tsx` — proper confirm flow for swap/stake/LP
-- `src/components/atlas/JupiterSwapCard.tsx` — token chips, persistence, URL params
-- `src/lib/solana/send-and-confirm.ts` — **new** shared helper
-- `src/lib/toast-notifications.ts` — `executionPending` helper, upgrade-on-confirm, mock badge
-- `src/components/AgentExecutor.tsx`, `src/components/AgentDashboard.tsx` — only celebrate real signatures
-- `src/lib/hooks/useTransactionExecutor.ts` — route through shared helper for consistent UX
+### 3. Anti-mock guardrails in `ArchitectEngine.analyzeCode`
 
-## Risks / notes
-- `confirmTransaction` can take 10-30s on mainnet; the pending toast must be non-dismissable until resolved (or auto-replaced).
-- `skipPreflight: false` will surface real simulation errors *before* signing — better UX, but some legitimate Jupiter routes with ALTs occasionally fail simulation. Fallback: if preflight fails, retry once with `skipPreflight: true` then **still require `confirmTransaction`**.
-- We should not change wallet adapters or RPC endpoints in this pass.
+Extend the existing `forbiddenPatterns` array with:
+
+```ts
+[/\b(mock|stub|placeholder|dummy|fake|lorem|TODO|FIXME)\w*\s*[:=]/i, "No mocks/stubs allowed — use real data from useFetch()"],
+[/\b0x0{20,}\b/, "Zero-address placeholder detected — use a real address"],
+[/setTimeout\([^)]*(mock|fake|dummy)/i, "Fake-data setTimeout detected"],
+[/const\s+\w+\s*=\s*\[\s*\{\s*(id|name)\s*:\s*['"`](test|sample|example|foo|bar)/i, "Hardcoded sample data — fetch real data instead"],
+```
+
+When triggered → engine enters CORRECTING state with prompt: "Replace mock data with a real `useFetch()` call to {suggested API from researchContext}."
+
+### 4. Research enrichment wired into `ArchitectEngine.generate(...)`
+
+Engine already accepts `researchContext` parameter. The **plan stage** assembles it from:
+- `web3-context.ts` SDK_HOOK_DOCS for known hooks
+- `studio_research` knowledge entries for unknown protocols
+- Recent `studio_runs` outcomes for the same prompt category (re-rank suggestions)
+
+### 5. New telemetry table `studio_runs` (migration)
+
+```ts
+export const studioRuns = pgTable('studio_runs', {
+  id: serial('id').primaryKey(),
+  shortId: text('short_id').notNull().unique(),
+  userId: uuid('user_id').references(() => users.id),
+  prompt: text('prompt').notNull(),
+  promptCategory: text('prompt_category'),       // staking | swap | dao | nft | other (LLM-tagged)
+  clarifyAnswers: jsonb('clarify_answers'),
+  chosenIntegrations: jsonb('chosen_integrations'), // [{id, status}]
+  unknownProtocols: jsonb('unknown_protocols'),     // [protocol names that triggered research]
+  researchSources: jsonb('research_sources'),       // [{url, source: firecrawl|perplexity}]
+  analyzerOutcome: text('analyzer_outcome'),        // CLEAN | CORRECTED | FAILED
+  attempts: integer('attempts'),
+  shipped: boolean('shipped').default(false),
+  errors: jsonb('errors'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('studio_runs_user_idx').on(t.userId),
+  categoryIdx: index('studio_runs_category_idx').on(t.promptCategory),
+  outcomeIdx: index('studio_runs_outcome_idx').on(t.analyzerOutcome),
+}));
+```
+
+Logged at three points: clarify start, plan finalized, build complete.
+
+### 6. Self-learning loop
+
+`/api/studio/plan` queries `studioRuns` for past successful runs in the same `promptCategory` and re-ranks integration suggestions by `success_rate * recency`. Cold start uses a static priority list.
+
+## Files created / edited
+
+**New:**
+- `src/components/studio/EmptyState.tsx` — full-screen prompt box
+- `src/components/studio/PlanStepper.tsx` — 3-stage stepper shell
+- `src/components/studio/stages/ClarifyStage.tsx`
+- `src/components/studio/stages/IntegrationsStage.tsx`
+- `src/components/studio/stages/PlanPreviewStage.tsx`
+- `src/app/api/studio/clarify/route.ts`
+- `src/app/api/studio/plan/route.ts`
+- `src/app/api/studio/research/route.ts`
+- `src/lib/studio/integration-registry.ts` — maps integration ids → required secrets/connectors
+- `src/lib/studio/prompt-categorizer.ts` — Lovable AI tool call to tag category
+- DB migration: `studio_runs` table
+
+**Edited:**
+- `src/app/app/studio/page.tsx` — render `<EmptyState />` when `files === DEFAULT_FILES && !currentAppId`; on Build click, call `engine.generate(prompt, files, [], researchContext)`
+- `src/lib/studio/architect-engine.ts` — extend `analyzeCode` with anti-mock patterns
+- `src/db/schema.ts` — add `studioRuns` export
+
+## Dependencies / secrets needed
+
+- **Lovable AI Gateway** — already wired (`LOVABLE_API_KEY` auto-provisioned). Used for clarify/plan/categorize.
+- **Firecrawl** — link via `standard_connectors--connect` (connector_id: `firecrawl`). Already used in `src/lib/firecrawl.ts`; will reuse.
+- **Perplexity** — link via `standard_connectors--connect` (connector_id: `perplexity`). New.
+
+## Out of scope (call out, don't build now)
+
+- Real-time integration health checks (just check env presence for v1)
+- UI for browsing past `studio_runs` (telemetry collected, dashboard later)
+- Per-user OAuth for end-users of generated apps (uses developer's connectors)
+- Replacing the existing Keystone green theme in the rest of Studio (separate rebrand task)
+
+## Build order
+
+1. Migration: `studio_runs` table + schema export
+2. `integration-registry.ts` (static map)
+3. `/api/studio/clarify` + `/api/studio/plan` + `/api/studio/research` routes
+4. Connect Perplexity connector (Firecrawl already present)
+5. Empty-state UI + 3-stage stepper components
+6. Wire stepper → ArchitectEngine with researchContext
+7. Anti-mock guardrails in `analyzeCode`
+8. Telemetry hooks at clarify/plan/build points
+9. Verify end-to-end with a "build a Marinade staking dashboard" prompt
 
