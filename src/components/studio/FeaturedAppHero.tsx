@@ -10,6 +10,10 @@ interface FeaturedAppHeroProps {
     apps: any[];
 }
 
+function formatCount(value: number) {
+    return new Intl.NumberFormat("en-US").format(value || 0);
+}
+
 export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
     const [idx, setIdx] = useState(0);
     const featured = apps.slice(0, 5);
@@ -31,7 +35,6 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
 
             <div className="relative grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-6 p-5 md:p-7 items-center">
-                {/* Left: Meta */}
                 <div className="flex flex-col gap-3 min-w-0">
                     <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/30 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
@@ -62,7 +65,7 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
                             </span>
                         </div>
                         <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-background/40 border border-border/50 text-muted-foreground">
-                            <Download size={11} /> <span className="text-foreground font-bold">{(app.installs || 0).toLocaleString()}</span> installs
+                            <Download size={11} /> <span className="text-foreground font-bold">{formatCount(app.installs || 0)}</span> installs
                         </span>
                         {audited && (
                             <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 border border-primary/25 text-primary">
@@ -102,13 +105,11 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
                     </div>
                 </div>
 
-                {/* Right: Screenshot */}
                 <Link
                     href={`/app/marketplace/${app.id}`}
                     className="relative aspect-[16/10] rounded-xl border border-border/60 bg-background/40 overflow-hidden group block"
                 >
                     {app.screenshotUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={app.screenshotUrl}
                             alt={app.name}
@@ -126,7 +127,6 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
                 </Link>
             </div>
 
-            {/* Pagination dots */}
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
                 {featured.map((_, i) => (
                     <button

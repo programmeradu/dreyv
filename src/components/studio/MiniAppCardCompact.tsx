@@ -3,7 +3,6 @@ import { Star, Zap, ShieldCheck, Download } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { getAvatarUrl } from "@/lib/avatars";
-import { formatDistanceToNow } from "date-fns";
 
 interface CompactAppProps {
     app: {
@@ -22,10 +21,21 @@ interface CompactAppProps {
     };
 }
 
+function formatUpdatedDate(value?: string | Date | null) {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 10);
+}
+
+function formatCount(value: number) {
+    return new Intl.NumberFormat("en-US").format(value || 0);
+}
+
 export function MiniAppCardCompact({ app }: CompactAppProps) {
     const price = Number(app.priceUsdc) || 0;
     const audited = (app.securityScore ?? 0) >= 80;
-    const updated = app.updatedAt ? new Date(app.updatedAt) : null;
+    const updatedLabel = formatUpdatedDate(app.updatedAt);
 
     return (
         <Link
@@ -50,10 +60,10 @@ export function MiniAppCardCompact({ app }: CompactAppProps) {
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
                         <span className="truncate">{app.category}</span>
-                        {updated && (
+                        {updatedLabel && (
                             <>
                                 <span>·</span>
-                                <span className="truncate">{formatDistanceToNow(updated, { addSuffix: false })}</span>
+                                <span className="truncate">{updatedLabel}</span>
                             </>
                         )}
                     </div>
@@ -87,7 +97,7 @@ export function MiniAppCardCompact({ app }: CompactAppProps) {
                     </span>
                     <span className="flex items-center gap-0.5">
                         <Download size={10} />
-                        <span>{app.installs.toLocaleString()}</span>
+                        <span>{formatCount(app.installs)}</span>
                     </span>
                 </div>
             </div>

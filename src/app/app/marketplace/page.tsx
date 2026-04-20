@@ -46,6 +46,7 @@ export default function MarketplacePage() {
     const [listingApp, setListingApp] = useState<any>(null);
     const [categoryFilter, setCategoryFilter] = useState("All");
     const [loadingApps, setLoadingApps] = useState(true);
+    const [nowTs, setNowTs] = useState<number | null>(null);
 
     const { network, setNetwork } = useNetwork();
     const { publicKey } = useWallet();
@@ -68,6 +69,10 @@ export default function MarketplacePage() {
     }, [loadMarketplaceListings]);
 
     useEffect(() => {
+        setNowTs(Date.now());
+    }, []);
+
+    useEffect(() => {
         if (showPublishPicker) {
             (async () => {
                 try {
@@ -82,7 +87,6 @@ export default function MarketplacePage() {
         }
     }, [showPublishPicker, publicKey]);
 
-    // Apply search + category to base list
     const filtered = useMemo(() => {
         const lower = search.toLowerCase();
         return allApps.filter(app => {
@@ -97,10 +101,9 @@ export default function MarketplacePage() {
 
     const isFiltering = search.length > 0 || categoryFilter !== "All";
 
-    // Curated sections
     const sections: Section[] = useMemo(() => {
-        const now = Date.now();
         const WEEK = 7 * 24 * 60 * 60 * 1000;
+        const currentNow = nowTs;
         return [
             {
                 key: "trending",
@@ -114,9 +117,13 @@ export default function MarketplacePage() {
                 title: "New this week",
                 icon: Sparkles,
                 accent: "text-primary",
-                filter: (a) => a.filter(x => x.createdAt && (now - new Date(x.createdAt).getTime()) < WEEK)
-                    .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
-                    .slice(0, 8),
+                filter: (a) => {
+                    const sorted = [...a].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+                    if (!currentNow) return sorted.slice(0, 8);
+                    return sorted
+                        .filter(x => x.createdAt && (currentNow - new Date(x.createdAt).getTime()) < WEEK)
+                        .slice(0, 8);
+                },
             },
             {
                 key: "staff",
@@ -142,11 +149,10 @@ export default function MarketplacePage() {
                 filter: (a) => [...a].sort((x, y) => (y.installs || 0) - (x.installs || 0)).slice(0, 8),
             },
         ];
-    }, []);
+    }, [nowTs]);
 
     return (
         <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative">
-            {/* Header */}
             <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background/70 backdrop-blur-md z-20 shrink-0">
                 <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
@@ -173,7 +179,6 @@ export default function MarketplacePage() {
                 </div>
             </header>
 
-            {/* Sticky search + category rail */}
             <div className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur-lg shrink-0">
                 <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-3">
                     <div className="relative flex-1 max-w-md">
@@ -215,19 +220,14 @@ export default function MarketplacePage() {
                 </div>
             </div>
 
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto scrollbar-thin">
                 <div className="max-w-[1600px] mx-auto px-6 py-5 space-y-6">
-
-                    {/* Activity Ticker */}
                     {!loadingApps && allApps.length > 0 && <ActivityTicker apps={allApps} />}
 
-                    {/* Featured Hero — only when not actively filtering */}
                     {!isFiltering && !loadingApps && allApps.length > 0 && (
                         <FeaturedAppHero apps={allApps} />
                     )}
 
-                    {/* Loading skeleton */}
                     {loadingApps && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             {Array.from({ length: 8 }).map((_, i) => (
@@ -240,7 +240,6 @@ export default function MarketplacePage() {
                         </div>
                     )}
 
-                    {/* Filtered results view */}
                     {!loadingApps && isFiltering && (
                         <section className="space-y-3">
                             <div className="flex items-baseline justify-between">
@@ -272,7 +271,6 @@ export default function MarketplacePage() {
                         </section>
                     )}
 
-                    {/* Curated sections */}
                     {!loadingApps && !isFiltering && allApps.length > 0 && (
                         <>
                             <BuilderSpotlight apps={allApps} />
@@ -302,7 +300,6 @@ export default function MarketplacePage() {
                         </>
                     )}
 
-                    {/* Empty state */}
                     {!loadingApps && allApps.length === 0 && (
                         <div className="text-center py-32 rounded-2xl border border-dashed border-border/60">
                             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
@@ -321,7 +318,6 @@ export default function MarketplacePage() {
                 </div>
             </div>
 
-            {/* Publish Picker Dialog */}
             <PremiumModal isOpen={showPublishPicker} onClose={() => setShowPublishPicker(false)} className="sm:max-w-[500px]">
                 <PremiumModalHeader>
                     <PremiumModalTitle className="flex items-center gap-2">
@@ -382,7 +378,6 @@ export default function MarketplacePage() {
                 )}
             </PremiumModal>
 
-            {/* Listing Modal */}
             {listingApp && (
                 <ListingModal
                     open={!!listingApp}
