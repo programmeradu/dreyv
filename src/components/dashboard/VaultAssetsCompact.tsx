@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowRight, Copy, ExternalLink, RefreshCw } from "lucide-react";
-import Image from "next/image";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useVault } from "@/lib/contexts/VaultContext";
+import { TokenAvatar } from "@/components/TokenAvatar";
 
 interface TokenAccount {
     mint: string;
@@ -55,30 +55,12 @@ export function VaultAssetsCompact({ tokens }: { tokens: TokenAccount[] }) {
                         {topTokens.map((token) => (
                             <div key={token.mint} className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-colors">
                                 <div className="flex items-center gap-3">
-                                    {token.logo ? (
-                                        <div className="w-8 h-8 rounded-full overflow-hidden border border-border bg-muted shadow-sm">
-                                            <img
-                                                src={token.logo}
-                                                alt={token.symbol || "Token"}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    // Fallback if image fails to load
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.style.display = 'none';
-                                                    target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-primary text-[10px] text-primary-foreground font-bold">' + (token.symbol ? token.symbol[0] : "T") + '</div>';
-                                                }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-lg relative overflow-hidden border border-white/5"
-                                            style={{
-                                                background: `linear-gradient(135deg, var(--dashboard-accent) 0%, #1a1b1e 100%)`,
-                                                boxShadow: `0 0 10px rgba(54, 226, 123, 0.1)`
-                                            }}>
-                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.1),transparent)] opacity-50" />
-                                            {token.symbol ? token.symbol[0] : "T"}
-                                        </div>
-                                    )}
+                                    <TokenAvatar
+                                        symbol={token.symbol}
+                                        mint={token.mint}
+                                        logo={token.logo}
+                                        size={32}
+                                    />
                                     <div>
                                         <div className="text-xs font-bold text-foreground flex items-center gap-2">
                                             {token.symbol || "Unknown"}
