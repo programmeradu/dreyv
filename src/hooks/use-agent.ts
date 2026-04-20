@@ -1,12 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ExecutionStatus, StrategyType } from "@/lib/agents/types";
+import { notify } from "@/lib/notifications";
 
 interface UseAgentOptions {
   userPublicKey?: PublicKey;
   onProgress?: (progress: number) => void;
   onStatusChange?: (status: ExecutionStatus) => void;
+  /** Disable auto bell notifications for pending signature approvals. */
+  disableApprovalNotifications?: boolean;
 }
 
 interface AgentExecutionResult {
@@ -28,6 +31,75 @@ export function useAgent(options: UseAgentOptions = {}) {
   const [result, setResult] = useState<any>(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<ExecutionStatus | null>(null);
+
+  // Track approval IDs we've already pushed to the bell to avoid duplicates.
+  const notifiedApprovalsRef = useRef<Set<string>>(new Set());
+  // Forward-refs so notification handlers can call approve/reject without
+  // creating a circular useCallback dependency.
+  const approveSignatureRef = useRef<
+    ((approvalId: string, signature: string) => Promise<any>) | null
+  >(null);
+  const rejectSignatureRef = useRef<
+    ((approvalId: string) => Promise<any>) | null
+  >(null);
+
+  /** Sign a serialized transaction with the connected wallet, then approve it. */
+  const signAndApprove = useCallback(
+    async (approvalId: string, serializedTx?: string) => {
+      if (!serializedTx) {
+        return approveSignatureRef.current?.(approvalId, "");
+      }
+      if (!wallet.signTransaction) {
+        throw new Error("Wallet does not support signing");
+      }
+      const buf = Uint8Array.from(atob(serializedTx), (c) => c.charCodeAt(0));
+      const tx = VersionedTransaction.deserialize(buf);
+      const signed = await wallet.signTransaction(tx);
+      const sigB64 = btoa(String.fromCharCode(...signed.serialize()));
+      return approveSignatureRef.current?.(approvalId, sigB64);
+    },
+    [wallet]
+  );
+
+  /** Surface a pending approval to the notification bell with Approve / Reject. */
+  const surfaceApproval = useCallback(
+    (data: AgentExecutionResult) => {
+      if (options.disableApprovalNotifications) return;
+      const approvalId: string | undefined =
+        (data as any).result?.approvalId ?? (data as any).approvalId;
+      if (!approvalId || notifiedApprovalsRef.current.has(approvalId)) return;
+      notifiedApprovalsRef.current.add(approvalId);
+
+      const serializedTx: string | undefined =
+        (data as any).result?.serializedTransaction ??
+        (data as any).result?.transaction;
+      const strategyName: string =
+        (data as any).result?.strategy ?? (data as any).strategy ?? "Strategy";
+      const summary: string =
+        (data as any).result?.summary ??
+        (data as any).result?.description ??
+        "An agent is requesting your signature to proceed.";
+
+      notify.signatureRequest({
+        strategyName,
+        summary,
+        approvalId,
+        onApprove: async (id) => {
+          try {
+            await signAndApprove(id, serializedTx);
+          } catch (err) {
+            // Sign failed / user cancelled → reject so the agent can clean up.
+            await rejectSignatureRef.current?.(id);
+            throw err;
+          }
+        },
+        onReject: async (id) => {
+          await rejectSignatureRef.current?.(id);
+        },
+      });
+    },
+    [options.disableApprovalNotifications, signAndApprove]
+  );
 
   /**
    * Execute a strategy
@@ -70,6 +142,10 @@ export function useAgent(options: UseAgentOptions = {}) {
         setProgress(100);
         setResult(data.result);
 
+        if (data.status === ExecutionStatus.APPROVAL_REQUIRED) {
+          surfaceApproval(data);
+        }
+
         options.onStatusChange?.(data.status);
 
         return data;
@@ -81,7 +157,7 @@ export function useAgent(options: UseAgentOptions = {}) {
         setLoading(false);
       }
     },
-    [options, wallet]
+    [options, wallet, surfaceApproval]
   );
 
   /**
@@ -108,6 +184,10 @@ export function useAgent(options: UseAgentOptions = {}) {
         setProgress(data.progress);
         setResult(data.result);
 
+        if (data.status === ExecutionStatus.APPROVAL_REQUIRED) {
+          surfaceApproval(data);
+        }
+
         options.onProgress?.(data.progress);
         options.onStatusChange?.(data.status);
 
@@ -129,7 +209,7 @@ export function useAgent(options: UseAgentOptions = {}) {
     };
 
     poll();
-  }, [options]);
+  }, [options, surfaceApproval]);
 
   /**
    * Cancel execution
@@ -210,6 +290,10 @@ export function useAgent(options: UseAgentOptions = {}) {
       throw err;
     }
   }, []);
+
+  // Bind forward-refs so notification action handlers always call the latest version.
+  approveSignatureRef.current = approveSignature;
+  rejectSignatureRef.current = rejectSignature;
 
   return {
     // State
