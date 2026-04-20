@@ -56,8 +56,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Side Navigation (Slim Rail - Auto-fit, No Scroll) */}
             <nav className="flex flex-col items-center w-20 h-full py-3 border-r border-border bg-sidebar z-50 shrink-0 select-none">
-                <Link href="/" className="mb-2 p-1.5 rounded-xl bg-violet-500/5 border border-violet-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.12)] hover:scale-105 transition-transform group shrink-0">
-                    <DreyvMark size={56} className="group-hover:drop-shadow-[0_0_10px_rgba(139,92,246,0.45)] transition-all" />
+                <Link href="/" className="mb-2 w-[46px] h-[46px] p-1.5 rounded-xl bg-violet-500/5 border border-violet-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.12)] hover:scale-105 transition-transform group shrink-0 overflow-hidden">
+                    <DreyvMark size={56} className="group-hover:drop-shadow-[0_0_10px_rgba(139,92,246,0.45)] transition-all shrink-0" />
                 </Link>
 
                 <TooltipProvider>
