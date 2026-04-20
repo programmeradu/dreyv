@@ -13,6 +13,14 @@ export type NotificationType =
     | "security"
     | "system";
 
+export interface NotificationAction {
+    label: string;
+    /** Visual variant — primary (filled) or ghost (outline). Defaults to primary. */
+    variant?: "primary" | "ghost";
+    /** Called when the user clicks the action. Return value is awaited. */
+    onClick: (ctx: { dismiss: () => void; markRead: () => void }) => void | Promise<void>;
+}
+
 export interface Notification {
     id: string;
     type: NotificationType;
@@ -21,7 +29,11 @@ export interface Notification {
     timestamp: number;
     read: boolean;
     href?: string;          // optional link to navigate to
-    meta?: Record<string, any>;
+    meta?: Record<string, any> & {
+        avatarUrl?: string;
+        initials?: string;
+        actions?: NotificationAction[];
+    };
 }
 
 export interface NotificationPreferences {
@@ -249,6 +261,118 @@ export const notify = {
             type: "system",
             title,
             message,
+        });
+    },
+
+    // ─── Actionable notifications ────────────────────────────────────
+
+    /** Team invite — renders Accept / Decline inline buttons. */
+    teamInvite: (opts: {
+        teamName: string;
+        invitedBy?: string;
+        avatarUrl?: string;
+        onAccept: () => void | Promise<void>;
+        onDecline: () => void | Promise<void>;
+    }) => {
+        useNotificationStore.getState().addNotification({
+            type: "system",
+            title: `${opts.invitedBy ?? "Someone"} invited you to ${opts.teamName}`,
+            message: "Join the workspace to collaborate on vaults, agents, and treasury operations.",
+            meta: {
+                avatarUrl: opts.avatarUrl,
+                initials: opts.invitedBy?.slice(0, 2),
+                actions: [
+                    {
+                        label: "Accept",
+                        variant: "primary",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onAccept();
+                            dismiss();
+                        },
+                    },
+                    {
+                        label: "Decline",
+                        variant: "ghost",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onDecline();
+                            dismiss();
+                        },
+                    },
+                ],
+            },
+        });
+    },
+
+    /** Signature approval request from an agent — Approve / Reject inline. */
+    signatureRequest: (opts: {
+        strategyName: string;
+        summary: string;
+        approvalId: string;
+        onApprove: (approvalId: string) => void | Promise<void>;
+        onReject: (approvalId: string) => void | Promise<void>;
+    }) => {
+        useNotificationStore.getState().addNotification({
+            type: "agent_alert",
+            title: `Approval needed · ${opts.strategyName}`,
+            message: opts.summary,
+            href: "/app",
+            meta: {
+                approvalId: opts.approvalId,
+                actions: [
+                    {
+                        label: "Approve",
+                        variant: "primary",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onApprove(opts.approvalId);
+                            dismiss();
+                        },
+                    },
+                    {
+                        label: "Reject",
+                        variant: "ghost",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onReject(opts.approvalId);
+                            dismiss();
+                        },
+                    },
+                ],
+            },
+        });
+    },
+
+    /** Security confirmation — e.g. "Was this you?" with Yes / Lock account. */
+    securityConfirm: (opts: {
+        title: string;
+        message: string;
+        onConfirm: () => void | Promise<void>;
+        onReject: () => void | Promise<void>;
+        confirmLabel?: string;
+        rejectLabel?: string;
+    }) => {
+        useNotificationStore.getState().addNotification({
+            type: "security",
+            title: opts.title,
+            message: opts.message,
+            meta: {
+                actions: [
+                    {
+                        label: opts.confirmLabel ?? "Yes, it was me",
+                        variant: "ghost",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onConfirm();
+                            dismiss();
+                        },
+                    },
+                    {
+                        label: opts.rejectLabel ?? "Lock account",
+                        variant: "primary",
+                        onClick: async ({ dismiss }) => {
+                            await opts.onReject();
+                            dismiss();
+                        },
+                    },
+                ],
+            },
         });
     },
 };
