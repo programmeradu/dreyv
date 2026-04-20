@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet, base, arbitrum, polygon, bsc } from "viem/chains";
+import { mainnet, base, arbitrum, polygon, bsc } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import "@coinbase/onchainkit/styles.css";
