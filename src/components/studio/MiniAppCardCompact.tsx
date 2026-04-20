@@ -28,6 +28,10 @@ function formatUpdatedDate(value?: string | Date | null) {
     return date.toISOString().slice(0, 10);
 }
 
+function formatCount(value: number) {
+    return new Intl.NumberFormat("en-US").format(value || 0);
+}
+
 export function MiniAppCardCompact({ app }: CompactAppProps) {
     const price = Number(app.priceUsdc) || 0;
     const audited = (app.securityScore ?? 0) >= 80;
@@ -93,7 +97,7 @@ export function MiniAppCardCompact({ app }: CompactAppProps) {
                     </span>
                     <span className="flex items-center gap-0.5">
                         <Download size={10} />
-                        <span>{app.installs.toLocaleString()}</span>
+                        <span>{formatCount(app.installs)}</span>
                     </span>
                 </div>
             </div>

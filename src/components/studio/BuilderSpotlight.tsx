@@ -8,8 +8,11 @@ interface BuilderSpotlightProps {
     apps: any[];
 }
 
+function formatCount(value: number) {
+    return new Intl.NumberFormat("en-US").format(value || 0);
+}
+
 export function BuilderSpotlight({ apps }: BuilderSpotlightProps) {
-    // Aggregate by creator
     const map = new Map<string, { wallet: string; installs: number; apps: number }>();
     apps.forEach(a => {
         const w = a.creatorWallet;
@@ -57,7 +60,7 @@ export function BuilderSpotlight({ apps }: BuilderSpotlightProps) {
                                 {b.wallet.slice(0, 4)}…{b.wallet.slice(-4)}
                             </span>
                             <span className="text-[10px] text-muted-foreground font-mono">
-                                {b.apps} app{b.apps > 1 ? 's' : ''} · {b.installs.toLocaleString()} installs
+                                {b.apps} app{b.apps > 1 ? 's' : ''} · {formatCount(b.installs)} installs
                             </span>
                         </div>
                     </div>
