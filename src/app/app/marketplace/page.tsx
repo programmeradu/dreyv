@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { WalletButton } from "@/components/WalletButton";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
-import { Search, Filter, Plus, Box, ArrowRight, Rocket } from "lucide-react";
-import { Logo } from "@/components/icons";
+import { Search, Plus, Box, ArrowRight, Rocket, Flame, Sparkles, Star, Gift, TrendingUp } from "lucide-react";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
 import { Suspense } from "react";
-import { MiniAppCard } from "@/components/studio/MiniAppCard";
+import { MiniAppCardCompact } from "@/components/studio/MiniAppCardCompact";
+import { FeaturedAppHero } from "@/components/studio/FeaturedAppHero";
+import { ActivityTicker } from "@/components/studio/ActivityTicker";
+import { BuilderSpotlight } from "@/components/studio/BuilderSpotlight";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PremiumModal, PremiumModalHeader, PremiumModalTitle, PremiumModalDescription } from "@/components/ui/PremiumModal";
@@ -16,17 +18,33 @@ import { NotificationBell } from "@/components/NotificationBell";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-const CATEGORIES = ["All", "DeFi", "NFT", "Governance", "Analytics", "Utility", "Trading", "Security", "Social"];
+const CATEGORIES = [
+    { key: "All", icon: Sparkles },
+    { key: "DeFi", icon: TrendingUp },
+    { key: "NFT", icon: Star },
+    { key: "Governance", icon: Box },
+    { key: "Analytics", icon: TrendingUp },
+    { key: "Utility", icon: Box },
+    { key: "Trading", icon: Flame },
+    { key: "Security", icon: Box },
+    { key: "Social", icon: Box },
+];
+
+interface Section {
+    key: string;
+    title: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    accent: string;
+    filter: (apps: any[]) => any[];
+}
 
 export default function MarketplacePage() {
     const [search, setSearch] = useState("");
     const [allApps, setAllApps] = useState<any[]>([]);
-    const [filteredApps, setFilteredApps] = useState<any[]>([]);
     const [showPublishPicker, setShowPublishPicker] = useState(false);
     const [libraryApps, setLibraryApps] = useState<any[]>([]);
     const [listingApp, setListingApp] = useState<any>(null);
     const [categoryFilter, setCategoryFilter] = useState("All");
-    const [showFilters, setShowFilters] = useState(false);
     const [loadingApps, setLoadingApps] = useState(true);
 
     const { network, setNetwork } = useNetwork();
@@ -45,12 +63,10 @@ export default function MarketplacePage() {
         }
     }, []);
 
-    // Load apps on mount
     useEffect(() => {
         loadMarketplaceListings();
     }, [loadMarketplaceListings]);
 
-    // Load library apps when publish picker opens
     useEffect(() => {
         if (showPublishPicker) {
             (async () => {
@@ -66,32 +82,81 @@ export default function MarketplacePage() {
         }
     }, [showPublishPicker, publicKey]);
 
-    useEffect(() => {
+    // Apply search + category to base list
+    const filtered = useMemo(() => {
         const lower = search.toLowerCase();
-        setFilteredApps(allApps.filter(app => {
-            const matchesSearch = app.name.toLowerCase().includes(lower) ||
-                app.description.toLowerCase().includes(lower);
+        return allApps.filter(app => {
+            const matchesSearch = !lower ||
+                app.name?.toLowerCase().includes(lower) ||
+                app.description?.toLowerCase().includes(lower);
             const matchesCategory = categoryFilter === "All" ||
-                app.category.toLowerCase() === categoryFilter.toLowerCase();
+                app.category?.toLowerCase() === categoryFilter.toLowerCase();
             return matchesSearch && matchesCategory;
-        }));
+        });
     }, [search, allApps, categoryFilter]);
+
+    const isFiltering = search.length > 0 || categoryFilter !== "All";
+
+    // Curated sections
+    const sections: Section[] = useMemo(() => {
+        const now = Date.now();
+        const WEEK = 7 * 24 * 60 * 60 * 1000;
+        return [
+            {
+                key: "trending",
+                title: "Trending",
+                icon: Flame,
+                accent: "text-orange-400",
+                filter: (a) => [...a].sort((x, y) => (y.installs || 0) - (x.installs || 0)).slice(0, 8),
+            },
+            {
+                key: "new",
+                title: "New this week",
+                icon: Sparkles,
+                accent: "text-primary",
+                filter: (a) => a.filter(x => x.createdAt && (now - new Date(x.createdAt).getTime()) < WEEK)
+                    .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
+                    .slice(0, 8),
+            },
+            {
+                key: "staff",
+                title: "Staff picks",
+                icon: Star,
+                accent: "text-yellow-400",
+                filter: (a) => [...a]
+                    .filter(x => (x.securityScore ?? 0) >= 80 || (x.rating ?? 0) >= 4.5)
+                    .slice(0, 8),
+            },
+            {
+                key: "free",
+                title: "Free",
+                icon: Gift,
+                accent: "text-emerald-400",
+                filter: (a) => a.filter(x => Number(x.priceUsdc) === 0).slice(0, 8),
+            },
+            {
+                key: "most",
+                title: "Most installed",
+                icon: TrendingUp,
+                accent: "text-blue-400",
+                filter: (a) => [...a].sort((x, y) => (y.installs || 0) - (x.installs || 0)).slice(0, 8),
+            },
+        ];
+    }, []);
 
     return (
         <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative">
-            {/* Standard Dashboard Header */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10 shadow-sm shrink-0">
-                <div className="flex flex-col gap-1">
+            {/* Header */}
+            <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background/70 backdrop-blur-md z-20 shrink-0">
+                <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent)]" />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-70">dreyv OS // App Layer</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-lg font-bold tracking-tight text-foreground uppercase">Marketplace</h1>
-                    </div>
+                    <h1 className="text-base font-bold tracking-tight text-foreground uppercase">Marketplace</h1>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <NotificationBell />
                     <button
                         onClick={() => setNetwork(network === 'mainnet-beta' ? 'devnet' : 'mainnet-beta')}
@@ -100,118 +165,157 @@ export default function MarketplacePage() {
                         <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] ${network === 'mainnet-beta' ? 'bg-primary' : 'bg-orange-500'}`} />
                         <span className="text-xs font-medium text-foreground uppercase">{network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}</span>
                     </button>
-
                     <Suspense fallback={<div className="h-8 w-24 bg-muted animate-pulse rounded-full" />}>
                         <CollaborativeHeader />
                     </Suspense>
-
                     <div className="w-px h-6 bg-border mx-1" />
-
                     <WalletButton />
                 </div>
             </header>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
-                <div className="max-w-[1600px] mx-auto">
-
-                    {/* Hero Section */}
-                    <div className="relative rounded-3xl bg-card border border-border p-8 md:p-12 mb-10 overflow-hidden isolate shadow-2xl">
-                        {/* Abstract Background */}
-                        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/4 pointer-events-none" />
-
-                        {/* dreyv logo watermark */}
-                        <div className="absolute top-1/2 right-12 -translate-y-1/2 opacity-[0.05] pointer-events-none rotate-[-10deg]">
-                            <Logo size={320} fillColor="currentColor" className="text-primary" />
-                        </div>
-
-                        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-                            <div className="max-w-2xl">
-                                <h2 className="text-5xl font-black tracking-tighter mb-4">
-                                    Discover <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">Power Tools</span>
-                                </h2>
-                                <p className="text-lg text-muted-foreground leading-relaxed">
-                                    Browse, install, and deploy audited mini-apps to supercharge your treasury operations.
-                                    Built by the community, secured by dreyv.
-                                </p>
-                            </div>
-                            <Button
-                                size="lg"
-                                onClick={() => setShowPublishPicker(true)}
-                                className="h-12 px-8 text-sm font-black uppercase tracking-widest shadow-[0_0_20px_rgba(54,226,123,0.3)] hover:shadow-[0_0_30px_rgba(54,226,123,0.5)] transition-all bg-primary text-black hover:bg-primary/90"
-                            >
-                                <Plus size={18} className="mr-2" />
-                                Publish App
-                            </Button>
-                        </div>
-
-                        {/* Search Bar Floating Overlay */}
-                        <div className="mt-12 flex gap-4 max-w-xl bg-background/40 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-lg">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                                <Input
-                                    placeholder="Search strategies, bots, automation..."
-                                    className="h-12 pl-12 bg-transparent border-none text-lg focus-visible:ring-0 placeholder:text-muted-foreground/50"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowFilters(f => !f)}
-                                className={`h-12 w-12 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 hover:border-primary/30 ${showFilters ? 'border-primary/40 bg-primary/10' : ''}`}
-                            >
-                                <Filter size={18} />
-                            </Button>
+            {/* Sticky search + category rail */}
+            <div className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur-lg shrink-0">
+                <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-3">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <Input
+                            placeholder="Search apps, builders, strategies…"
+                            className="h-9 pl-9 bg-card/40 border-border/60 text-sm focus-visible:ring-1 focus-visible:ring-primary/40"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1 overflow-x-auto scrollbar-none">
+                        <div className="flex items-center gap-1.5">
+                            {CATEGORIES.map(({ key, icon: Icon }) => {
+                                const active = categoryFilter === key;
+                                return (
+                                    <button
+                                        key={key}
+                                        onClick={() => setCategoryFilter(key)}
+                                        className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all ${active
+                                            ? 'bg-primary/15 border-primary/40 text-primary'
+                                            : 'bg-card/30 border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+                                            }`}
+                                    >
+                                        <Icon size={11} />
+                                        {key}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
+                    <Button
+                        size="sm"
+                        onClick={() => setShowPublishPicker(true)}
+                        className="h-9 px-3 text-[11px] font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90 shrink-0"
+                    >
+                        <Plus size={14} className="mr-1" /> Publish
+                    </Button>
+                </div>
+            </div>
 
-                    {/* Category Filter Pills */}
-                    {showFilters && (
-                        <div className="flex flex-wrap gap-2 mb-8 animate-in fade-in slide-in-from-top-2 duration-200">
-                            {CATEGORIES.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setCategoryFilter(cat)}
-                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-all ${categoryFilter === cat
-                                            ? 'bg-primary/15 border-primary/40 text-primary shadow-[0_0_12px_rgba(54,226,123,0.15)]'
-                                            : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:border-white/20'
-                                        }`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
-                        </div>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
+                <div className="max-w-[1600px] mx-auto px-6 py-5 space-y-6">
+
+                    {/* Activity Ticker */}
+                    {!loadingApps && allApps.length > 0 && <ActivityTicker apps={allApps} />}
+
+                    {/* Featured Hero — only when not actively filtering */}
+                    {!isFiltering && !loadingApps && allApps.length > 0 && (
+                        <FeaturedAppHero apps={allApps} />
                     )}
 
-                    {/* App Grid */}
-                    {loadingApps ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="bg-card border border-border rounded-2xl p-6 animate-pulse">
-                                    <div className="h-4 bg-muted rounded w-3/4 mb-3" />
-                                    <div className="h-3 bg-muted rounded w-full mb-2" />
-                                    <div className="h-3 bg-muted rounded w-2/3 mb-6" />
-                                    <div className="h-8 bg-muted rounded w-1/3" />
+                    {/* Loading skeleton */}
+                    {loadingApps && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {Array.from({ length: 8 }).map((_, i) => (
+                                <div key={i} className="bg-card/40 border border-border/50 rounded-xl p-4 animate-pulse h-[160px]">
+                                    <div className="h-3 bg-muted rounded w-2/3 mb-2" />
+                                    <div className="h-2 bg-muted rounded w-full mb-2" />
+                                    <div className="h-2 bg-muted rounded w-1/2" />
                                 </div>
                             ))}
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {filteredApps.map(app => (
-                                <MiniAppCard key={app.id} app={app} />
-                            ))}
-                        </div>
                     )}
 
-                    {!loadingApps && filteredApps.length === 0 && (
-                        <div className="text-center py-32">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                                <Search className="w-8 h-8 text-muted-foreground" />
+                    {/* Filtered results view */}
+                    {!loadingApps && isFiltering && (
+                        <section className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground">
+                                    Results <span className="text-muted-foreground font-mono ml-1">({filtered.length})</span>
+                                </h3>
+                                <button
+                                    onClick={() => { setSearch(""); setCategoryFilter("All"); }}
+                                    className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                    Clear
+                                </button>
                             </div>
-                            <h3 className="text-xl font-bold mb-2">No apps found</h3>
-                            <p className="text-muted-foreground">Publish your first app or adjust your search.</p>
+                            {filtered.length === 0 ? (
+                                <div className="text-center py-20 rounded-xl border border-dashed border-border/60">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                                        <Search className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                    <p className="text-sm font-bold mb-1">No apps found</p>
+                                    <p className="text-xs text-muted-foreground">Try a different search or category.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {filtered.map(app => (
+                                        <MiniAppCardCompact key={app.id} app={app} />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* Curated sections */}
+                    {!loadingApps && !isFiltering && allApps.length > 0 && (
+                        <>
+                            <BuilderSpotlight apps={allApps} />
+                            {sections.map(section => {
+                                const items = section.filter(allApps);
+                                if (items.length === 0) return null;
+                                const Icon = section.icon;
+                                return (
+                                    <section key={section.key} className="space-y-3">
+                                        <div className="flex items-baseline justify-between">
+                                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground flex items-center gap-2">
+                                                <Icon size={12} className={section.accent} />
+                                                {section.title}
+                                                <span className="text-muted-foreground font-mono ml-1 normal-case tracking-normal">
+                                                    {items.length}
+                                                </span>
+                                            </h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                            {items.map(app => (
+                                                <MiniAppCardCompact key={`${section.key}-${app.id}`} app={app} />
+                                            ))}
+                                        </div>
+                                    </section>
+                                );
+                            })}
+                        </>
+                    )}
+
+                    {/* Empty state */}
+                    {!loadingApps && allApps.length === 0 && (
+                        <div className="text-center py-32 rounded-2xl border border-dashed border-border/60">
+                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
+                                <Rocket className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <h3 className="text-base font-bold mb-1">No apps published yet</h3>
+                            <p className="text-xs text-muted-foreground mb-4">Be the first to ship a mini-app to the marketplace.</p>
+                            <Button
+                                onClick={() => setShowPublishPicker(true)}
+                                className="h-9 px-4 text-xs font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90"
+                            >
+                                <Plus size={14} className="mr-1" /> Publish App
+                            </Button>
                         </div>
                     )}
                 </div>
