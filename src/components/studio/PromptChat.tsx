@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, Sparkles } from "lucide-react";
+import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, Sparkles, MessageSquare, ListTree } from "lucide-react";
 import { ArchitectIcon } from "@/components/icons";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/studio/architect-engine";
 import { loadAIConfig, type AIKeyConfig } from "@/components/studio/APIKeySettings";
 import { ArchitectActivityCard, type ActivityCard } from "@/components/studio/ArchitectActivityCard";
+import { ArchitectTimeline, type TimelineItem } from "@/components/studio/ArchitectTimeline";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -145,6 +146,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const [byokConfig, setByokConfig] = useState<AIKeyConfig | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [collapsedThinking, setCollapsedThinking] = useState<Record<string, boolean>>({});
+    const [viewMode, setViewMode] = useState<"chat" | "timeline">("chat");
 
     useEffect(() => {
         try {
