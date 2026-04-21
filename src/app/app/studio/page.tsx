@@ -19,7 +19,18 @@ import {
     FolderOpen,
     BookOpen,
     Plus,
+    MoreHorizontal,
+    Save as SaveIcon,
+    ChevronDown,
+    Code2,
 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useSelf } from "@/liveblocks.config";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
