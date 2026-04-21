@@ -35,6 +35,7 @@ import { toast } from "@/lib/toast-notifications";
 import { ProjectBrowser } from "@/components/studio/ProjectBrowser";
 import { StudioHeader } from "@/components/studio/StudioHeader";
 import { useStudioCapabilities } from "@/lib/studio/use-capabilities";
+import { buildPreviewHtml } from "@/lib/studio/preview-html";
 import { useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { TemplateGallery } from "@/components/studio/TemplateGallery";
