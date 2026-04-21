@@ -396,6 +396,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         setProgramBuffer(null);
         setActiveTab("preview");
         setShowTemplateGallery(false);
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
         window.history.replaceState({}, "", "/app/studio");
         toast.success(`Loaded template: ${template.name}`);
     };
@@ -451,7 +453,15 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         if (generatedFiles["App.tsx"]) {
             setActiveFile("App.tsx");
         }
+        // Hide empty state once any AI-generated content lands
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
     }, []);
+
+    // Wire the forward ref so the planner callback can call applyGeneratedFiles
+    useEffect(() => {
+        applyFilesRef.current = applyGeneratedFiles;
+    }, [applyGeneratedFiles]);
 
     const handleDiffAccept = useCallback((code: string) => {
         const allFiles = pendingFilesRef.current || {};
