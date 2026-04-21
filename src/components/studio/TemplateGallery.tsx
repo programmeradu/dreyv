@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * TemplateGallery v2 — Two-pane gallery modeled after Vercel/Linear.
+ * TemplateGallery v3 — Light, Stitch-inspired premium gallery.
  *
- * Left rail: search + use-case filter + template list with connection badges.
- * Right pane: large preview of the selected template, requirements, files,
- * and the primary "Use template" CTA.
+ * Two-pane layout (filter rail + preview) on a warm white shell with
+ * violet accents and Manrope display headings to match EmptyState and
+ * the rest of the marketing-aligned Studio chrome.
  *
- * Connection badges are color-coded:
- *   green  = provider already connected
- *   amber  = needs a key (wizard will pop on first run)
- *   sky    = public API, no key required
+ * Connection badges:
+ *   emerald = provider already connected
+ *   sky     = public API, no key required
+ *   amber   = key needed (Wizard pops on first run)
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,7 +19,6 @@ import {
     CheckCircle2,
     ExternalLink,
     FileCode,
-    Filter,
     Plug,
     Search,
     Sparkles,
@@ -35,14 +34,16 @@ interface TemplateGalleryProps {
     onBlank: () => void;
 }
 
-const USE_CASES: { id: TemplateUseCase | "all"; label: string; description: string }[] = [
-    { id: "all", label: "All templates", description: "Every starter in the catalog" },
-    { id: "treasury-monitoring", label: "Treasury monitoring", description: "Watch balances, holdings, and on-chain activity" },
-    { id: "market-data", label: "Market data", description: "Live prices, oracles, and token analytics" },
-    { id: "defi-operations", label: "DeFi operations", description: "Swap, stake, and route on Solana" },
-    { id: "team-comms", label: "Team comms", description: "Notify your team via email, Slack, Telegram" },
-    { id: "ai-agents", label: "AI agents", description: "Autonomous workflows and MCP" },
+const USE_CASES: { id: TemplateUseCase | "all"; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "treasury-monitoring", label: "Treasury" },
+    { id: "market-data", label: "Market data" },
+    { id: "defi-operations", label: "DeFi" },
+    { id: "team-comms", label: "Team comms" },
+    { id: "ai-agents", label: "AI agents" },
 ];
+
+const MANROPE = { fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif" };
 
 export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: TemplateGalleryProps) {
     const { providers, connections } = useDreyvConnections();
@@ -51,7 +52,6 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
     const [search, setSearch] = useState("");
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
-    // Group filtered templates
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return PROJECT_TEMPLATES.filter((t) => {
@@ -61,19 +61,24 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
         });
     }, [activeUseCase, search]);
 
-    // Auto-select first template when filter changes
+    // Group by use-case for the right pane
+    const grouped = useMemo(() => {
+        const map = new Map<TemplateUseCase, ProjectTemplate[]>();
+        for (const t of filtered) {
+            const arr = map.get(t.useCase) ?? [];
+            arr.push(t);
+            map.set(t.useCase, arr);
+        }
+        return Array.from(map.entries());
+    }, [filtered]);
+
     useEffect(() => {
         if (!isOpen) return;
-        if (filtered.length === 0) {
-            setSelectedId(null);
-            return;
-        }
         if (!selectedId || !filtered.find((t) => t.id === selectedId)) {
-            setSelectedId(filtered[0].id);
+            setSelectedId(filtered[0]?.id ?? null);
         }
     }, [isOpen, filtered, selectedId]);
 
-    // Reset on close
     useEffect(() => {
         if (!isOpen) {
             setSearch("");
@@ -91,68 +96,72 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6"
             onClick={onClose}
         >
             <div
-                className="w-full max-w-6xl h-[85vh] bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden flex flex-col"
+                className="w-full max-w-6xl h-[88vh] max-h-[820px] bg-white rounded-2xl shadow-[0_30px_80px_-20px_rgba(76,29,149,0.35)] ring-1 ring-slate-200/80 overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-violet-500/5 via-transparent to-transparent">
-                    <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-violet-500/10 p-2 ring-1 ring-violet-500/20">
-                            <Sparkles className="size-4 text-violet-400" />
+                {/* ─── Header ─────────────────────────────────── */}
+                <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-slate-200/70 bg-gradient-to-r from-violet-50/80 via-white to-white">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="rounded-lg bg-violet-100 p-2 ring-1 ring-violet-200/80">
+                            <Sparkles className="size-4 text-violet-600" />
                         </div>
-                        <div>
-                            <h2 className="text-base font-semibold text-white">New mini-app</h2>
-                            <p className="text-xs text-zinc-500">Pick a starter, or build from a blank canvas</p>
+                        <div className="min-w-0">
+                            <h2
+                                className="text-[15px] font-semibold text-slate-900 truncate"
+                                style={MANROPE}
+                            >
+                                Start a new mini-app
+                            </h2>
+                            <p className="text-[11px] text-slate-500">
+                                Pick a starter or begin from a blank canvas
+                            </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white transition-colors"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                         aria-label="Close"
                     >
                         <X className="size-4" />
                     </button>
                 </div>
 
-                {/* Body — two panes */}
-                <div className="flex-1 flex min-h-0">
-                    {/* ─── Left rail ─────────────────────────── */}
-                    <aside className="w-[320px] flex-shrink-0 border-r border-white/10 flex flex-col bg-zinc-950/60">
-                        {/* Search */}
-                        <div className="p-3 border-b border-white/5">
+                {/* ─── Body ───────────────────────────────────── */}
+                <div className="flex-1 flex flex-col md:flex-row min-h-0">
+                    {/* Left rail */}
+                    <aside className="w-full md:w-[260px] md:flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-200/70 bg-slate-50/50 flex flex-col">
+                        <div className="p-3">
                             <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
                                 <input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Search templates…"
-                                    className="w-full bg-zinc-900/60 border border-white/10 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/40"
+                                    placeholder="Search templates"
+                                    className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 transition"
                                 />
                             </div>
                         </div>
 
-                        {/* Use-case filters */}
-                        <div className="px-2 py-2 border-b border-white/5">
-                            <div className="flex items-center gap-1.5 px-2 mb-1.5">
-                                <Filter className="size-3 text-zinc-600" />
-                                <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-600">Use case</span>
+                        <div className="px-3 pb-2 overflow-x-auto md:overflow-visible">
+                            <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400 mb-2 px-1 hidden md:block">
+                                Use case
                             </div>
-                            <div className="space-y-0.5">
+                            <div className="flex md:flex-col gap-1 md:gap-0.5">
                                 {USE_CASES.map((uc) => {
                                     const active = activeUseCase === uc.id;
                                     return (
                                         <button
                                             key={uc.id}
                                             onClick={() => setActiveUseCase(uc.id)}
-                                            className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                                            className={`whitespace-nowrap text-left px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
                                                 active
-                                                    ? "bg-violet-500/15 text-violet-200"
-                                                    : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                                                    ? "bg-violet-100 text-violet-700"
+                                                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                             }`}
                                         >
                                             {uc.label}
@@ -162,81 +171,64 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
                             </div>
                         </div>
 
-                        {/* Template list */}
-                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {/* Blank project */}
+                        <div className="px-3 pt-2 pb-3 mt-auto border-t border-slate-200/70 hidden md:block">
                             <button
                                 onClick={onBlank}
-                                className="w-full text-left rounded-lg border border-dashed border-white/10 hover:border-violet-500/40 hover:bg-violet-500/5 px-3 py-2.5 transition-colors group"
+                                className="w-full text-left rounded-lg border border-dashed border-slate-300 hover:border-violet-300 hover:bg-violet-50 px-3 py-2.5 transition-colors group"
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="text-lg">📄</span>
+                                    <div className="size-7 rounded-md bg-white ring-1 ring-slate-200 flex items-center justify-center text-slate-500 group-hover:text-violet-600 group-hover:ring-violet-200">
+                                        <FileCode className="size-3.5" />
+                                    </div>
                                     <div className="min-w-0 flex-1">
-                                        <div className="text-xs font-medium text-white">Blank project</div>
-                                        <div className="text-[10px] text-zinc-500">Start from scratch</div>
+                                        <div className="text-[12px] font-semibold text-slate-900 group-hover:text-violet-700">
+                                            Blank project
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">Start from scratch</div>
                                     </div>
                                 </div>
                             </button>
-
-                            {filtered.length === 0 ? (
-                                <div className="px-3 py-8 text-center text-xs text-zinc-600">
-                                    No templates match.
-                                </div>
-                            ) : (
-                                filtered.map((t) => {
-                                    const active = selectedId === t.id;
-                                    return (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => setSelectedId(t.id)}
-                                            className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors border ${
-                                                active
-                                                    ? "border-violet-500/40 bg-violet-500/10"
-                                                    : "border-transparent hover:bg-white/5"
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-base">{t.icon}</span>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="text-xs font-medium text-white truncate">{t.name}</div>
-                                                    <div className="text-[10px] text-zinc-500 truncate">{t.description}</div>
-                                                </div>
-                                            </div>
-                                            {t.requiredProviders.length > 0 && (
-                                                <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                                                    {t.requiredProviders.map((pid) => {
-                                                        const connected = connections.some((c) => c.provider === pid);
-                                                        return (
-                                                            <span
-                                                                key={pid}
-                                                                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                                                    connected
-                                                                        ? "bg-emerald-500/15 text-emerald-300"
-                                                                        : "bg-amber-500/15 text-amber-300"
-                                                                }`}
-                                                            >
-                                                                {connected && <CheckCircle2 className="size-2.5" />}
-                                                                {pid}
-                                                            </span>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
-
-                        <div className="px-3 py-2 border-t border-white/5 text-[10px] text-zinc-600">
-                            {filtered.length} template{filtered.length !== 1 ? "s" : ""} · {connections.length} connection{connections.length !== 1 ? "s" : ""}
                         </div>
                     </aside>
 
-                    {/* ─── Right preview pane ─────────────────── */}
-                    <main className="flex-1 overflow-y-auto">
-                        {selected ? (
-                            <PreviewPane
+                    {/* Right pane — grid + preview */}
+                    <main className="flex-1 min-h-0 overflow-y-auto">
+                        <div className="p-5 sm:p-6">
+                            {filtered.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-slate-200 p-12 text-center text-sm text-slate-500">
+                                    No templates match your filters.
+                                </div>
+                            ) : (
+                                <div className="space-y-7">
+                                    {grouped.map(([useCase, items]) => (
+                                        <section key={useCase}>
+                                            <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400 mb-3">
+                                                {USE_CASES.find((u) => u.id === useCase)?.label ?? useCase}
+                                            </h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {items.map((t) => (
+                                                    <TemplateCard
+                                                        key={t.id}
+                                                        template={t}
+                                                        active={selectedId === t.id}
+                                                        connectedIds={connections.map((c) => c.provider)}
+                                                        providers={providers}
+                                                        onSelect={() => setSelectedId(t.id)}
+                                                        onUse={() => {
+                                                            onSelectTemplate(t);
+                                                            onClose();
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </section>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {selected && (
+                            <PreviewFooter
                                 template={selected}
                                 providers={providers}
                                 connectedIds={connections.map((c) => c.provider)}
@@ -245,10 +237,6 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
                                     onClose();
                                 }}
                             />
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-zinc-600 text-sm">
-                                Select a template to preview
-                            </div>
                         )}
                     </main>
                 </div>
@@ -257,7 +245,84 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
     );
 }
 
-function PreviewPane({
+/* ─── Card ─────────────────────────────────────────── */
+function TemplateCard({
+    template,
+    active,
+    connectedIds,
+    providers,
+    onSelect,
+    onUse,
+}: {
+    template: ProjectTemplate;
+    active: boolean;
+    connectedIds: string[];
+    providers: { id: string; secretFields: { name: string }[] }[];
+    onSelect: () => void;
+    onUse: () => void;
+}) {
+    const fileCount = Object.keys(template.files).length;
+    return (
+        <button
+            onClick={onSelect}
+            onDoubleClick={onUse}
+            className={`group relative text-left rounded-xl border bg-white p-4 transition-all ${
+                active
+                    ? "border-violet-300 ring-2 ring-violet-100 shadow-[0_8px_24px_-12px_rgba(124,58,237,0.35)]"
+                    : "border-slate-200/80 hover:border-violet-200 hover:shadow-sm"
+            }`}
+        >
+            <div className="flex items-start gap-3">
+                <div className="size-10 rounded-lg bg-gradient-to-br from-violet-50 to-white ring-1 ring-violet-100 flex items-center justify-center text-xl flex-shrink-0">
+                    {template.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <h4
+                            className="text-[13px] font-semibold text-slate-900 truncate"
+                            style={MANROPE}
+                        >
+                            {template.name}
+                        </h4>
+                        <span className="text-[10px] text-slate-400 flex-shrink-0 mt-0.5">
+                            {fileCount} file{fileCount !== 1 ? "s" : ""}
+                        </span>
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
+                        {template.description}
+                    </p>
+
+                    {template.requiredProviders.length > 0 && (
+                        <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                            {template.requiredProviders.map((pid) => {
+                                const def = providers.find((p) => p.id === pid);
+                                const connected = connectedIds.includes(pid);
+                                const isPublic = def ? def.secretFields.length === 0 : false;
+                                const cls = connected
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                    : isPublic
+                                    ? "bg-sky-50 text-sky-700 ring-sky-200"
+                                    : "bg-amber-50 text-amber-700 ring-amber-200";
+                                return (
+                                    <span
+                                        key={pid}
+                                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ${cls}`}
+                                    >
+                                        {connected && <CheckCircle2 className="size-2.5" />}
+                                        {pid}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </button>
+    );
+}
+
+/* ─── Sticky preview footer ───────────────────────── */
+function PreviewFooter({
     template,
     providers,
     connectedIds,
@@ -275,119 +340,65 @@ function PreviewPane({
         return { pid, def, connected, isPublic };
     });
 
-    const fileCount = Object.keys(template.files).length;
-    const lineCount = Object.values(template.files).reduce(
-        (sum, content) => sum + content.split("\n").length,
-        0
-    );
-
     return (
-        <div className="p-8 space-y-6">
-            {/* Title row */}
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div className="text-4xl flex-shrink-0">{template.icon}</div>
-                    <div className="min-w-0 flex-1">
-                        <h1 className="text-2xl font-bold text-white">{template.name}</h1>
-                        <p className="mt-1 text-sm text-zinc-400 leading-relaxed">{template.description}</p>
-                        <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-500">
-                            <span className="inline-flex items-center gap-1">
-                                <FileCode className="size-3" /> {fileCount} file{fileCount !== 1 ? "s" : ""}
-                            </span>
-                            <span>·</span>
-                            <span>{lineCount} lines</span>
-                            <span>·</span>
-                            <span className="capitalize">{template.useCase.replace("-", " ")}</span>
+        <div className="sticky bottom-0 border-t border-slate-200/80 bg-white/95 backdrop-blur px-5 sm:px-6 py-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="text-2xl flex-shrink-0">{template.icon}</div>
+                    <div className="min-w-0">
+                        <div
+                            className="text-[13px] font-semibold text-slate-900 truncate"
+                            style={MANROPE}
+                        >
+                            {template.name}
                         </div>
+                        {requirements.length > 0 ? (
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                {requirements.map(({ pid, def, connected, isPublic }) => (
+                                    <span
+                                        key={pid}
+                                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ${
+                                            connected
+                                                ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                                : isPublic
+                                                ? "bg-sky-50 text-sky-700 ring-sky-200"
+                                                : "bg-amber-50 text-amber-700 ring-amber-200"
+                                        }`}
+                                    >
+                                        {connected ? (
+                                            <CheckCircle2 className="size-2.5" />
+                                        ) : (
+                                            <Plug className="size-2.5" />
+                                        )}
+                                        {def?.name ?? pid}
+                                        {def?.docsUrl && !connected && !isPublic && (
+                                            <a
+                                                href={def.docsUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="ml-0.5 hover:text-violet-600"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <ExternalLink className="size-2.5" />
+                                            </a>
+                                        )}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                                No external connections needed
+                            </div>
+                        )}
                     </div>
                 </div>
                 <button
                     onClick={onUse}
-                    className="inline-flex items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-500 px-4 py-2 text-sm font-medium text-white transition-colors flex-shrink-0"
+                    className="inline-flex items-center gap-2 rounded-full bg-violet-600 hover:bg-violet-700 px-4 py-2 text-[13px] font-semibold text-white shadow-[0_8px_20px_-8px_rgba(124,58,237,0.6)] transition-colors flex-shrink-0"
                 >
-                    Use template <ArrowRight className="size-4" />
+                    Use this template <ArrowRight className="size-3.5" />
                 </button>
             </div>
-
-            {/* Requirements */}
-            <section>
-                <h2 className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-3">
-                    Required connections
-                </h2>
-                {requirements.length === 0 ? (
-                    <div className="rounded-xl border border-white/10 bg-zinc-900/40 p-4 text-sm text-zinc-400">
-                        No external connections — this template runs purely on the SDK.
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {requirements.map(({ pid, def, connected, isPublic }) => (
-                            <div
-                                key={pid}
-                                className="flex items-center justify-between rounded-xl border border-white/10 bg-zinc-900/40 px-4 py-3"
-                            >
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div
-                                        className={`size-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                            connected
-                                                ? "bg-emerald-500/15 text-emerald-300"
-                                                : isPublic
-                                                ? "bg-sky-500/15 text-sky-300"
-                                                : "bg-amber-500/15 text-amber-300"
-                                        }`}
-                                    >
-                                        {connected ? <CheckCircle2 className="size-4" /> : <Plug className="size-4" />}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-medium text-white">{def?.name ?? pid}</div>
-                                        <div className="text-[11px] text-zinc-500">
-                                            {connected
-                                                ? "Connected — ready to use"
-                                                : isPublic
-                                                ? "Public API — no key required"
-                                                : "Needs a key — wizard will pop on first run"}
-                                        </div>
-                                    </div>
-                                </div>
-                                {def?.docsUrl && (
-                                    <a
-                                        href={def.docsUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-[11px] text-zinc-500 hover:text-violet-400 inline-flex items-center gap-1 flex-shrink-0"
-                                    >
-                                        Docs <ExternalLink className="size-3" />
-                                    </a>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
-
-            {/* Files */}
-            <section>
-                <h2 className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mb-3">
-                    Starter files
-                </h2>
-                <div className="rounded-xl border border-white/10 bg-zinc-900/40 overflow-hidden">
-                    {Object.entries(template.files).map(([name, content], i) => (
-                        <div
-                            key={name}
-                            className={`px-4 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}
-                        >
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <FileCode className="size-3.5 text-zinc-500" />
-                                    <span className="text-xs font-mono text-zinc-200">{name}</span>
-                                </div>
-                                <span className="text-[10px] text-zinc-600">
-                                    {content.split("\n").length} lines
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
         </div>
     );
 }
