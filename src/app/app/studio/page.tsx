@@ -823,13 +823,22 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                 </div>
                             </div>
                             <div className="flex-1 overflow-hidden min-h-0">
-                                <PromptChat
-                                    onGenerate={handleAIGenerate}
-                                    isGenerating={isGenerating}
-                                    setIsGenerating={setIsGenerating}
-                                    userFiles={files}
-                                    runtimeLogs={runtimeLogs}
-                                />
+                                {showEmptyState && !emptyStatePrompt ? (
+                                    <EmptyState
+                                        inline
+                                        onSubmit={handleEmptyStateSubmit}
+                                        onOpenTemplates={() => setShowTemplateGallery(true)}
+                                        onOpenRecent={() => setShowProjectBrowser(true)}
+                                    />
+                                ) : (
+                                    <PromptChat
+                                        onGenerate={handleAIGenerate}
+                                        isGenerating={isGenerating}
+                                        setIsGenerating={setIsGenerating}
+                                        userFiles={files}
+                                        runtimeLogs={runtimeLogs}
+                                    />
+                                )}
                             </div>
                         </div>
                     </ResizablePanel>
