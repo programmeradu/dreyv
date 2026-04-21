@@ -434,6 +434,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 content: newCode,
             },
         }));
+        setIsDirty(true);
     }, [activeFile]);
 
     const handleAIGenerate = useCallback(async (generatedFiles: Record<string, string>) => {
@@ -527,6 +528,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
             );
 
             setCurrentAppId(appId);
+            setIsDirty(false);
+            setLastSavedAt(Date.now());
             toast.dismiss(toastId);
             toast.success("Project saved!", {
                 description: `"${appName}" saved. Open My Projects to load it later.`,
