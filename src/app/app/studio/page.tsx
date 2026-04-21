@@ -536,6 +536,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         setFiles(loadedFiles);
         const loadedFileNames = Object.keys(loadedFiles);
         setActiveFile(loadedFileNames[0] || "App.tsx");
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
         toast.success(`Loaded "${project.name}"`);
     };
 
