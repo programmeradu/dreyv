@@ -3,6 +3,9 @@
  * SECURITY: Verifies transaction on-chain before recording purchase.
  */
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { purchases, miniApps } from "@/db/schema";
