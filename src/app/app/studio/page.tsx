@@ -798,14 +798,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
             {/* Main Studio Area — two-pane: Chat (42%) + Workbench (58%) */}
             <div className="flex-1 relative overflow-hidden min-h-0 bg-slate-50/30">
-                {/* Empty-state / Plan-stepper overlay */}
-                {showEmptyState && !emptyStatePrompt && (
-                    <EmptyState
-                        onSubmit={handleEmptyStateSubmit}
-                        onOpenTemplates={() => setShowTemplateGallery(true)}
-                        onOpenRecent={() => setShowProjectBrowser(true)}
-                    />
-                )}
+                {/* Plan-stepper overlay (only during plan/build phase, not empty) */}
                 {emptyStatePrompt && (
                     <PlanStepper
                         prompt={emptyStatePrompt}
@@ -830,13 +823,22 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                 </div>
                             </div>
                             <div className="flex-1 overflow-hidden min-h-0">
-                                <PromptChat
-                                    onGenerate={handleAIGenerate}
-                                    isGenerating={isGenerating}
-                                    setIsGenerating={setIsGenerating}
-                                    userFiles={files}
-                                    runtimeLogs={runtimeLogs}
-                                />
+                                {showEmptyState && !emptyStatePrompt ? (
+                                    <EmptyState
+                                        inline
+                                        onSubmit={handleEmptyStateSubmit}
+                                        onOpenTemplates={() => setShowTemplateGallery(true)}
+                                        onOpenRecent={() => setShowProjectBrowser(true)}
+                                    />
+                                ) : (
+                                    <PromptChat
+                                        onGenerate={handleAIGenerate}
+                                        isGenerating={isGenerating}
+                                        setIsGenerating={setIsGenerating}
+                                        userFiles={files}
+                                        runtimeLogs={runtimeLogs}
+                                    />
+                                )}
                             </div>
                         </div>
                     </ResizablePanel>

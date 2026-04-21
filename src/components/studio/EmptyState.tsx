@@ -9,6 +9,8 @@ interface EmptyStateProps {
   onOpenTemplates: () => void;
   onOpenRecent: () => void;
   isSubmitting?: boolean;
+  /** When true, renders inline (fills parent) instead of as a full-screen overlay. */
+  inline?: boolean;
 }
 
 const EXAMPLES = [
@@ -25,7 +27,7 @@ const EXAMPLES = [
  * IDE chrome behind it never bleeds through. Manrope display headline,
  * violet accent, flat chips, single primary CTA.
  */
-export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitting }: EmptyStateProps) {
+export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitting, inline = false }: EmptyStateProps) {
   const [value, setValue] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,7 +39,7 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
 
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto"
+      className={inline ? "h-full w-full relative flex items-center justify-center overflow-y-auto" : "absolute inset-0 z-30 flex items-center justify-center overflow-y-auto"}
       style={{
         // Full-cover marketing-style background so dark editor never leaks.
         background:
@@ -59,7 +61,7 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
         }}
       />
 
-      <div className="relative w-full max-w-2xl px-6 pt-28 md:pt-32 pb-16 mx-auto">
+      <div className={inline ? "relative w-full max-w-md px-5 py-8 mx-auto" : "relative w-full max-w-2xl px-6 pt-28 md:pt-32 pb-16 mx-auto"}>
         {/* Brand chip */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 backdrop-blur border border-violet-200/70 shadow-sm">
