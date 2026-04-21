@@ -10,6 +10,7 @@ import { jwtVerify } from "jose";
 
 // Force Node.js runtime for JWT and heavy aggregations
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Use 60 second revalidation for the dashboard to keep it fresh but avoid DB spam
 export const revalidate = 60; 
@@ -36,6 +37,8 @@ export async function GET(req: NextRequest) {
         if (!db) {
             return NextResponse.json({ error: "Database not configured" }, { status: 500 });
         }
+        // Local non-null alias so the rest of the function type-checks cleanly.
+        const dbx = db;
 
         // verify admin status
         const token = getAdminToken(req);
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
             
             // Check Live DB Role (JWT might be stale)
             const wallet = decoded.wallet || decoded.sub;
-            const liveUser = await db.query.users.findFirst({
+            const liveUser = await dbx.query.users.findFirst({
                 where: (u, { eq }) => eq(u.walletAddress, wallet as string)
             });
             
@@ -119,65 +122,65 @@ export async function GET(req: NextRequest) {
             foresightData,
         ] = await Promise.all([
             // Panel 1: User Growth
-            db.select({ count: sql<number>`count(*)::int` }).from(users),
-            db.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`created_at >= ${oneDayAgo}`),
-            db.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`created_at >= ${sevenDaysAgo}`),
-            db.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`onboarding_completed = true`),
-            db.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`email IS NOT NULL`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(users),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`created_at >= ${oneDayAgo}`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`created_at >= ${sevenDaysAgo}`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`onboarding_completed = true`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(users).where(sql`email IS NOT NULL`),
 
             // Panel 2: Revenue & Tiers
-            db.select({ tier: users.tier, count: sql<number>`count(*)::int` }).from(users).groupBy(users.tier),
-            db.select({ rev: sql<number>`sum(keystone_fee)` }).from(purchases),
-            db.select({ vol: sql<number>`sum(amount_usdc)` }).from(purchases),
-            db.select({ payout: sql<number>`sum(creator_payout)` }).from(purchases),
+            dbx.select({ tier: users.tier, count: sql<number>`count(*)::int` }).from(users).groupBy(users.tier),
+            dbx.select({ rev: sql<number>`sum(keystone_fee)` }).from(purchases),
+            dbx.select({ vol: sql<number>`sum(amount_usdc)` }).from(purchases),
+            dbx.select({ payout: sql<number>`sum(creator_payout)` }).from(purchases),
 
             // Panel 3: AI Agents
-            db.select({ count: sql<number>`count(*)::int` }).from(agentExecutions),
-            db.select({ count: sql<number>`count(*)::int` }).from(agentExecutions).where(sql`created_at >= ${oneDayAgo}`),
-            db.select({ status: agentExecutions.status, count: sql<number>`count(*)::int` }).from(agentExecutions).groupBy(agentExecutions.status),
-            db.select({ gas: sql<number>`sum(actual_gas)` }).from(agentExecutions),
-            db.select({ 
+            dbx.select({ count: sql<number>`count(*)::int` }).from(agentExecutions),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(agentExecutions).where(sql`created_at >= ${oneDayAgo}`),
+            dbx.select({ status: agentExecutions.status, count: sql<number>`count(*)::int` }).from(agentExecutions).groupBy(agentExecutions.status),
+            dbx.select({ gas: sql<number>`sum(actual_gas)` }).from(agentExecutions),
+            dbx.select({ 
                 total: sql<number>`count(*)::int`, 
                 approved: sql<number>`sum(case when approved = true then 1 else 0 end)::int` 
             }).from(agentApprovals),
-            db.select({ count: sql<number>`count(*)::int` }).from(runs),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(runs),
 
             // Panel 4: DCA Bots
-            db.select({ count: sql<number>`count(*)::int` }).from(dcaBots).where(sql`status = 'active'`),
-            db.select({ status: dcaBots.status, count: sql<number>`count(*)::int` }).from(dcaBots).groupBy(dcaBots.status),
-            db.select({ vol: sql<number>`sum(total_invested)` }).from(dcaBots),
-            db.select({ vol: sql<number>`sum(payment_amount)` }).from(dcaExecutions).where(sql`executed_at >= ${oneDayAgo}`),
-            db.select({ count: sql<number>`count(*)::int` }).from(dcaExecutions).where(sql`executed_at >= ${oneDayAgo}`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(dcaBots).where(sql`status = 'active'`),
+            dbx.select({ status: dcaBots.status, count: sql<number>`count(*)::int` }).from(dcaBots).groupBy(dcaBots.status),
+            dbx.select({ vol: sql<number>`sum(total_invested)` }).from(dcaBots),
+            dbx.select({ vol: sql<number>`sum(payment_amount)` }).from(dcaExecutions).where(sql`executed_at >= ${oneDayAgo}`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(dcaExecutions).where(sql`executed_at >= ${oneDayAgo}`),
 
             // Panel 5: Marketplace
-            db.select({ count: sql<number>`count(*)::int` }).from(miniApps),
-            db.select({ count: sql<number>`count(*)::int` }).from(miniApps).where(sql`is_published = true`),
-            db.select({ count: sql<number>`sum(installs)::int` }).from(miniApps),
-            db.select({ count: sql<number>`count(*)::int` }).from(userInstalledApps).where(sql`uninstalled_at IS NULL`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(miniApps),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(miniApps).where(sql`is_published = true`),
+            dbx.select({ count: sql<number>`sum(installs)::int` }).from(miniApps),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(userInstalledApps).where(sql`uninstalled_at IS NULL`),
 
             // Panel 6: Teams
-            db.select({ count: sql<number>`count(*)::int` }).from(teams),
-            db.select({ count: sql<number>`count(*)::int` }).from(teams).where(sql`vault_address IS NOT NULL`),
-            db.select({ 
+            dbx.select({ count: sql<number>`count(*)::int` }).from(teams),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(teams).where(sql`vault_address IS NOT NULL`),
+            dbx.select({ 
                 total: sql<number>`count(*)::int`,
                 accepted: sql<number>`sum(case when accepted_at IS NOT NULL then 1 else 0 end)::int`
             }).from(teamInvitations),
 
             // Panel 7: On-Chain & Analytics
-            db.select({ 
+            dbx.select({ 
                 txCount: sql<number>`count(*)::int`,
                 usdVol: sql<number>`sum(value_usd)`
             }).from(transactionCache),
-            db.select({
+            dbx.select({
                 claims: sql<number>`count(*)::int`,
                 claimedValue: sql<number>`sum(estimated_value)`
             }).from(airdropClaims).where(sql`status = 'claimed'`),
 
             // Panel 8: System Health
-            db.select({ count: sql<number>`count(*)::int` }).from(monitors).where(sql`active = true`),
-            db.select({ hits: sql<number>`sum(count)::int` }).from(rateLimits).where(sql`window_start >= ${oneDayAgo}`),
-            db.select({ count: sql<number>`count(*)::int` }).from(atlasSessions).where(sql`expires_at > ${now}`),
-            db.select({ 
+            dbx.select({ count: sql<number>`count(*)::int` }).from(monitors).where(sql`active = true`),
+            dbx.select({ hits: sql<number>`sum(count)::int` }).from(rateLimits).where(sql`window_start >= ${oneDayAgo}`),
+            dbx.select({ count: sql<number>`count(*)::int` }).from(atlasSessions).where(sql`expires_at > ${now}`),
+            dbx.select({ 
                 total: sql<number>`count(*)::int`,
                 correct: sql<number>`sum(case when correct = true then 1 else 0 end)::int`,
                 resolved: sql<number>`sum(case when resolved = true then 1 else 0 end)::int`
