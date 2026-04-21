@@ -183,7 +183,7 @@ export default function StudioPage() {
     const [activeFile, setActiveFile] = useState("App.tsx");
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCompiling, setIsCompiling] = useState(false);
-    const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
+    const [activeTab, setActiveTab] = useState<"preview" | "code" | "console" | "contract">("preview");
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
