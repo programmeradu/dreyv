@@ -692,32 +692,34 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
     return (
         <div className="h-screen flex flex-col bg-background text-foreground selection:bg-primary/20 overflow-hidden min-h-0">
-            {/* Studio Header — Stitch-style premium top bar */}
-            <header className="h-12 border-b border-slate-200/70 bg-white/90 backdrop-blur flex items-center justify-between px-5 shrink-0 relative z-40">
-                {/* Left: brand + breadcrumb + editable name */}
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex items-center gap-2 pr-4 border-r border-slate-200/60">
-                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
-                        <span
-                            className="text-[12px] font-semibold tracking-tight text-slate-900"
-                            style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
-                        >
-                            dreyv
-                        </span>
-                        <span className="text-slate-300 text-xs">/</span>
-                        <span className="text-[11px] font-medium text-slate-500">Studio</span>
-                        <span className="text-slate-300 text-xs">/</span>
+        <div className="h-screen flex flex-col bg-white text-slate-900 selection:bg-violet-200/50 overflow-hidden min-h-0" style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}>
+            {/* Compact 44px header */}
+            <header className="h-11 border-b border-slate-200/70 bg-white/95 backdrop-blur flex items-center justify-between px-4 shrink-0 relative z-40">
+                {/* Left: brand + breadcrumb + project name */}
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                        <DreyvStar size={14} className="text-violet-600" />
+                        <span className="text-[12px] font-semibold tracking-tight text-slate-900">dreyv</span>
                     </div>
+                    <span className="text-slate-300 text-xs">/</span>
+                    <span className="text-[11px] font-medium text-slate-500">Studio</span>
+                    <span className="text-slate-300 text-xs">/</span>
                     <Input
                         value={appName}
                         onChange={(e) => setAppName(e.target.value)}
-                        className="h-7 w-56 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
+                        className="h-6 w-48 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-1.5 rounded transition-colors"
                         placeholder="Untitled mini-app"
                     />
                 </div>
 
-                {/* Right: vault chip · operator · actions · save · ship */}
-                <div className="flex items-center gap-2">
+                {/* Right: status · wallet · overflow · ship */}
+                <div className="flex items-center gap-1.5">
+                    {/* Status dot */}
+                    <div className="hidden sm:flex items-center gap-1.5 px-2 h-6 rounded-full bg-emerald-50 border border-emerald-200/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-medium text-emerald-700">Live</span>
+                    </div>
+
                     <button
                         onClick={() => setShowWalletModal(true)}
                         className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
@@ -727,60 +729,64 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                         <span>{publicKey ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}` : "Connect"}</span>
                     </button>
 
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-slate-50 transition-colors">
-                        <Avatar className="h-5 w-5 border border-slate-200">
-                            <AvatarImage src={getAvatarUrl(user?.info?.name || "operator")} />
-                            <AvatarFallback className="text-[9px] font-semibold bg-violet-100 text-violet-700">
-                                {user?.info?.name?.charAt(0).toUpperCase() || "U"}
-                            </AvatarFallback>
-                        </Avatar>
-                        <span className="text-[11px] font-medium text-slate-600 hidden sm:inline">
-                            {user?.info?.name || "Operator"}
-                        </span>
-                    </div>
+                    <Avatar className="h-6 w-6 border border-slate-200">
+                        <AvatarImage src={getAvatarUrl(user?.info?.name || "operator")} />
+                        <AvatarFallback className="text-[9px] font-semibold bg-violet-100 text-violet-700">
+                            {user?.info?.name?.charAt(0).toUpperCase() || "U"}
+                        </AvatarFallback>
+                    </Avatar>
 
-                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                    <div className="h-4 w-px bg-slate-200 mx-1" />
 
-                    {/* Quick actions row */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleNewProject}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="New project"
-                    >
-                        <Plus size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowProjectBrowser(true)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="Open projects"
-                    >
-                        <FolderOpen size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowSDKReference((prev) => !prev)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="SDK reference"
-                    >
-                        <BookOpen size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md"
-                    >
-                        {isSaving ? "Saving…" : "Save"}
-                    </Button>
+                    {/* Overflow menu — collapses Save/New/Open/SDK/Test/PDF into one button */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
+                                title="More actions"
+                            >
+                                <MoreHorizontal size={15} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={handleSave} disabled={isSaving}>
+                                <SaveIcon size={13} className="mr-2 text-slate-500" />
+                                {isSaving ? "Saving…" : "Save project"}
+                                <span className="ml-auto text-[10px] text-slate-400">⌘S</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleNewProject}>
+                                <Plus size={13} className="mr-2 text-slate-500" />
+                                New from template
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleNewBlankProject}>
+                                <FileText size={13} className="mr-2 text-slate-500" />
+                                New blank project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowProjectBrowser(true)}>
+                                <FolderOpen size={13} className="mr-2 text-slate-500" />
+                                Open projects
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setShowSDKReference((p) => !p)}>
+                                <BookOpen size={13} className="mr-2 text-slate-500" />
+                                SDK reference
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowCommandPalette(true)}>
+                                <Code2 size={13} className="mr-2 text-slate-500" />
+                                Command palette
+                                <span className="ml-auto text-[10px] text-slate-400">⌘K</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
+                                <Hash size={13} className="mr-2 text-slate-500" />
+                                Search files
+                                <span className="ml-auto text-[10px] text-slate-400">⌘⇧F</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
-                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
-
+                    {/* Single primary CTA */}
                     <StudioToolbar
                         files={files}
                         appName={appName}
@@ -790,9 +796,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 </div>
             </header>
 
-            {/* Main Studio Area */}
-            {/* Main Studio Area */}
-            <div className="flex-1 relative overflow-hidden min-h-0">
+            {/* Main Studio Area — two-pane: Chat (42%) + Workbench (58%) */}
+            <div className="flex-1 relative overflow-hidden min-h-0 bg-slate-50/30">
                 {/* Empty-state / Plan-stepper overlay */}
                 {showEmptyState && !emptyStatePrompt && (
                     <EmptyState
@@ -811,120 +816,124 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 )}
 
                 <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden min-h-0">
-                {/* Left Panel: AI Chat */}
-                <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-                    <div className="h-full flex flex-col bg-slate-50/60 border-r border-slate-200/70 overflow-hidden min-h-0">
-                        <div className="px-4 py-2.5 border-b border-slate-200/70 flex items-center justify-between bg-white shrink-0">
-                            <div className="flex items-center gap-2">
-                                <DreyvStar size={12} className="text-violet-600" />
-                                <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
-                                    AI Architect
-                                </span>
+                    {/* LEFT — Chat (primary) */}
+                    <ResizablePanel defaultSize={42} minSize={28} maxSize={60}>
+                        <div className="h-full flex flex-col bg-white border-r border-slate-200/70 overflow-hidden min-h-0">
+                            <div className="px-4 h-9 border-b border-slate-200/70 flex items-center justify-between bg-white shrink-0">
+                                <div className="flex items-center gap-1.5">
+                                    <DreyvStar size={11} className="text-violet-600" />
+                                    <span className="text-[11px] font-semibold tracking-tight text-slate-700">AI Architect</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                    <span className="text-[9px] font-semibold text-violet-600/80 uppercase tracking-wider">Active</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
-                                <span className="text-[9px] font-semibold text-violet-600/80 tracking-widest uppercase">Active</span>
+                            <div className="flex-1 overflow-hidden min-h-0">
+                                <PromptChat
+                                    onGenerate={handleAIGenerate}
+                                    isGenerating={isGenerating}
+                                    setIsGenerating={setIsGenerating}
+                                    userFiles={files}
+                                    runtimeLogs={runtimeLogs}
+                                />
                             </div>
                         </div>
-                        <div className="flex-1 overflow-hidden min-h-0">
-                            <PromptChat
-                                onGenerate={handleAIGenerate}
-                                isGenerating={isGenerating}
-                                setIsGenerating={setIsGenerating}
-                                userFiles={files}
-                                runtimeLogs={runtimeLogs} // Pass logs to Architect
-                            />
-                        </div>
-                    </div>
-                </ResizablePanel>
+                    </ResizablePanel>
 
-                <ResizableHandle withHandle />
+                    <ResizableHandle />
 
-                {/* Middle Panel: Code Editor */}
-                <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-slate-50/40">
-                        {/* File Tabs — compact light */}
-                        <div className="flex items-center gap-0.5 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0 overflow-x-auto">
-                            {Object.keys(files).map((fileName) => (
-                                <button
-                                    key={fileName}
-                                    onClick={() => setActiveFile(fileName)}
-                                    className={`group flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors relative whitespace-nowrap ${activeFile === fileName
-                                        ? "bg-violet-50 text-violet-700"
-                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                                        }`}
-                                >
-                                    <FileIcon fileName={fileName} active={activeFile === fileName} />
-                                    <span>{fileName}</span>
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">
-                            <CodeEditor
-                                code={files[activeFile]?.content || ""}
-                                language={files[activeFile]?.language || "typescript"}
-                                onChange={handleCodeChange}
-                                fileName={activeFile}
-                                allFiles={files}
-                                isGenerating={isGenerating}
-                            />
-                        </div>
-                    </div>
-                </ResizablePanel>
+                    {/* RIGHT — Workbench (Preview default · Code · Console · Contracts) */}
+                    <ResizablePanel defaultSize={58} minSize={40}>
+                        <div className="h-full flex flex-col bg-white">
+                            {/* Pill tabs row */}
+                            <div className="flex items-center justify-between gap-2 px-3 h-9 border-b border-slate-200/70 bg-white shrink-0">
+                                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100/70 rounded-md">
+                                    {([
+                                        { id: "preview", label: "Preview", icon: Eye },
+                                        { id: "code", label: "Code", icon: FileCode },
+                                        { id: "console", label: "Console", icon: Terminal },
+                                        { id: "contract", label: "Contracts", icon: Cpu },
+                                    ] as const).map((t) => {
+                                        const active = activeTab === (t.id as any);
+                                        const Icon = t.icon;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => setActiveTab(t.id as any)}
+                                                className={`flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded transition-all ${
+                                                    active
+                                                        ? "bg-white text-violet-700 shadow-sm"
+                                                        : "text-slate-500 hover:text-slate-800"
+                                                }`}
+                                            >
+                                                <Icon size={12} strokeWidth={2.2} />
+                                                <span>{t.label}</span>
+                                                {t.id === "console" && runtimeLogs.length > 0 && (
+                                                    <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
 
-                <ResizableHandle withHandle />
+                                {/* File picker — only visible on Code tab */}
+                                {activeTab === "code" && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium text-slate-600 hover:text-violet-700 bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 rounded-md transition-colors">
+                                                <FileIcon fileName={activeFile} active />
+                                                <span className="font-mono">{activeFile}</span>
+                                                <ChevronDown size={11} className="opacity-60" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-52">
+                                            {Object.keys(files).map((fileName) => (
+                                                <DropdownMenuItem
+                                                    key={fileName}
+                                                    onClick={() => setActiveFile(fileName)}
+                                                    className={activeFile === fileName ? "bg-violet-50 text-violet-700" : ""}
+                                                >
+                                                    <span className="mr-2"><FileIcon fileName={fileName} active={activeFile === fileName} /></span>
+                                                    <span className="font-mono text-[11px]">{fileName}</span>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
 
-                {/* Right Panel: Live Preview */}
-                <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-white">
-                        {/* Preview Tabs — compact light */}
-                        <div className="flex items-center gap-1 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0">
-                            {([
-                                { id: "preview", label: "Preview", icon: Eye },
-                                { id: "code", label: "Console", icon: Terminal },
-                                { id: "contract", label: "Contracts", icon: Cpu },
-                            ] as const).map((t) => {
-                                const active = activeTab === t.id;
-                                const Icon = t.icon;
-                                return (
-                                    <button
-                                        key={t.id}
-                                        onClick={() => setActiveTab(t.id)}
-                                        className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-medium rounded-md transition-colors ${
-                                            active
-                                                ? "bg-violet-50 text-violet-700"
-                                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                                        }`}
-                                    >
-                                        <Icon size={13} strokeWidth={2.2} />
-                                        <span>{t.label}</span>
-                                        {t.id === "code" && runtimeLogs.length > 0 && (
-                                            <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                            {/* Active surface */}
+                            <div className="flex-1 relative overflow-hidden bg-white">
+                                {activeTab === "code" ? (
+                                    <CodeEditor
+                                        code={files[activeFile]?.content || ""}
+                                        language={files[activeFile]?.language || "typescript"}
+                                        onChange={handleCodeChange}
+                                        fileName={activeFile}
+                                        allFiles={files}
+                                        isGenerating={isGenerating}
+                                        themeName="keystone-light"
+                                    />
+                                ) : activeTab === "contract" ? (
+                                    <ContractEditor
+                                        files={files}
+                                        onCompile={handleCompile}
+                                        isCompiling={isCompiling}
+                                    />
+                                ) : (
+                                    <LivePreview
+                                        files={files}
+                                        tab={activeTab === "console" ? "code" : "preview"}
+                                        onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
+                                        walletAddress={publicKey?.toBase58() || null}
+                                        appId={currentAppId}
+                                    />
+                                )}
+                            </div>
                         </div>
-                        <div className="flex-1 relative overflow-hidden">
-                            {activeTab === "contract" ? (
-                                <ContractEditor
-                                    files={files}
-                                    onCompile={handleCompile}
-                                    isCompiling={isCompiling}
-                                />
-                            ) : (
-                                <LivePreview
-                                    files={files}
-                                    tab={activeTab as "preview" | "code"}
-                                    onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
-                                    walletAddress={publicKey?.toBase58() || null}
-                                    appId={currentAppId}
-                                />
-                            )}
-                        </div>
-                    </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
             </div>
 
             <PremiumModal isOpen={showWalletModal} onClose={() => setShowWalletModal(false)} className="max-w-sm !bg-transparent !border-none !shadow-none !backdrop-blur-none p-0">
