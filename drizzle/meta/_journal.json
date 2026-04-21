@@ -22,6 +22,20 @@
       "when": 1775484600000,
       "tag": "0002_dca-per-bot-keypair",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775485200000,
+      "tag": "0003_studio_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775487000000,
+      "tag": "0004_dreyv_connections",
+      "breakpoints": true
     }
   ]
 }
