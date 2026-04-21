@@ -59,7 +59,7 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
         }}
       />
 
-      <div className="relative w-full max-w-2xl px-6 py-16 mx-auto">
+      <div className="relative w-full max-w-2xl px-6 pt-28 md:pt-32 pb-16 mx-auto">
         {/* Brand chip */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 backdrop-blur border border-violet-200/70 shadow-sm">

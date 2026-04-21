@@ -21,11 +21,12 @@ import {
     FileCode,
     Plug,
     Search,
-    Sparkles,
     X,
 } from "lucide-react";
 import { PROJECT_TEMPLATES, type ProjectTemplate, type TemplateUseCase } from "@/lib/studio/templates";
 import { useDreyvConnections } from "@/lib/studio/use-dreyv-connections";
+import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TemplateLogo } from "@/components/studio/TemplateLogo";
 
 interface TemplateGalleryProps {
     isOpen: boolean;
@@ -106,8 +107,8 @@ export function TemplateGallery({ isOpen, onClose, onSelectTemplate, onBlank }: 
                 {/* ─── Header ─────────────────────────────────── */}
                 <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-slate-200/70 bg-gradient-to-r from-violet-50/80 via-white to-white">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="rounded-lg bg-violet-100 p-2 ring-1 ring-violet-200/80">
-                            <Sparkles className="size-4 text-violet-600" />
+                        <div className="rounded-lg bg-violet-100 p-2 ring-1 ring-violet-200/80 text-violet-600">
+                            <DreyvStar size={16} />
                         </div>
                         <div className="min-w-0">
                             <h2
@@ -273,9 +274,12 @@ function TemplateCard({
             }`}
         >
             <div className="flex items-start gap-3">
-                <div className="size-10 rounded-lg bg-gradient-to-br from-violet-50 to-white ring-1 ring-violet-100 flex items-center justify-center text-xl flex-shrink-0">
-                    {template.icon}
-                </div>
+                <TemplateLogo
+                    templateId={template.id}
+                    providerId={template.requiredProviders[0]}
+                    name={template.name}
+                    size={40}
+                />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <h4
@@ -344,7 +348,12 @@ function PreviewFooter({
         <div className="sticky bottom-0 border-t border-slate-200/80 bg-white/95 backdrop-blur px-5 sm:px-6 py-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="text-2xl flex-shrink-0">{template.icon}</div>
+                    <TemplateLogo
+                        templateId={template.id}
+                        providerId={template.requiredProviders[0]}
+                        name={template.name}
+                        size={36}
+                    />
                     <div className="min-w-0">
                         <div
                             className="text-[13px] font-semibold text-slate-900 truncate"

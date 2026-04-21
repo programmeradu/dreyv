@@ -46,6 +46,7 @@ import { EmptyState } from "@/components/studio/EmptyState";
 import { PlanStepper } from "@/components/studio/PlanStepper";
 import { ArchitectEngine } from "@/lib/studio/architect-engine";
 import { KeyWizardModal } from "@/components/studio/KeyWizardModal";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface StudioFile {
     name: string;
@@ -803,9 +804,12 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
                     <div className="h-full flex flex-col bg-slate-50/60 border-r border-slate-200/70 overflow-hidden min-h-0">
                         <div className="px-4 py-2.5 border-b border-slate-200/70 flex items-center justify-between bg-white shrink-0">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
-                                AI Architect
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <DreyvStar size={12} className="text-violet-600" />
+                                <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
+                                    AI Architect
+                                </span>
+                            </div>
                             <div className="flex items-center gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
                                 <span className="text-[9px] font-semibold text-violet-600/80 tracking-widest uppercase">Active</span>
