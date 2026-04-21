@@ -32,6 +32,8 @@ export interface ProjectTemplate {
 export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     {
         id: "defi-dashboard",
+        useCase: "market-data",
+        requiredProviders: ["jupiter"],
         name: "DeFi Dashboard",
         description: "Real-time portfolio tracker with live Jupiter prices and auto-refresh",
         category: "Finance",
@@ -151,6 +153,8 @@ export default function App() {
     },
     {
         id: "token-swap",
+        useCase: "defi-operations",
+        requiredProviders: ["jupiter"],
         name: "Token Swap",
         description: "Jupiter-powered swap with real quotes and route visualization",
         category: "DeFi",
@@ -276,6 +280,8 @@ export default function App() {
     },
     {
         id: "vault-manager",
+        useCase: "treasury-monitoring",
+        requiredProviders: ["jupiter"],
         name: "Vault Manager",
         description: "Treasury management with live prices, signing, and impact simulation",
         category: "Treasury",
@@ -389,6 +395,8 @@ export default function App() {
     },
     {
         id: "data-fetcher",
+        useCase: "market-data",
+        requiredProviders: [],
         name: "Live Data App",
         description: "Real-time DexScreener data with auto-refresh and price alerts",
         category: "Data",
@@ -545,6 +553,8 @@ export default function App() {
     },
     {
         id: "mcp-agent",
+        useCase: "ai-agents",
+        requiredProviders: [],
         name: "MCP Agent Hub",
         description: "Connect to MCP servers and orchestrate agent handoffs",
         category: "AI",
@@ -633,6 +643,8 @@ export default function App() {
 
     {
         id: "helius-wallet-inspector",
+        useCase: "treasury-monitoring",
+        requiredProviders: ["helius"],
         name: "Helius Wallet Inspector",
         description: "Inspect any Solana wallet's NFTs and SPL holdings via Helius DAS",
         category: "Dreyv Gateway",
@@ -693,6 +705,8 @@ export default function App() {
 
     {
         id: "jupiter-swap-quote",
+        useCase: "defi-operations",
+        requiredProviders: ["jupiter"],
         name: "Jupiter Swap Quote",
         description: "Get real-time SOL/USDC swap quotes via Jupiter v6 (no key needed)",
         category: "Dreyv Gateway",
@@ -749,6 +763,8 @@ export default function App() {
 
     {
         id: "birdeye-token-dashboard",
+        useCase: "market-data",
+        requiredProviders: ["birdeye"],
         name: "Birdeye Token Dashboard",
         description: "Live token price, market cap, and holder data from Birdeye",
         category: "Dreyv Gateway",
@@ -811,6 +827,8 @@ function Stat({ label, value }: { label: string; value: any }) {
 
     {
         id: "marinade-staking-monitor",
+        useCase: "defi-operations",
+        requiredProviders: ["marinade"],
         name: "Marinade Staking Monitor",
         description: "Track mSOL APY for treasury staking decisions",
         category: "Dreyv Gateway",
@@ -849,6 +867,8 @@ export default function App() {
 
     {
         id: "pyth-oracle-feed",
+        useCase: "market-data",
+        requiredProviders: ["pyth"],
         name: "Pyth Oracle Feed",
         description: "Stream live SOL/BTC/ETH prices from Pyth on-chain oracles",
         category: "Dreyv Gateway",
@@ -909,6 +929,8 @@ export default function App() {
 
     {
         id: "resend-email-blast",
+        useCase: "team-comms",
+        requiredProviders: ["resend"],
         name: "Treasury Email Notifier",
         description: "Send transactional emails to your treasury team via Resend",
         category: "Dreyv Gateway",
@@ -957,6 +979,8 @@ export default function App() {
 
     {
         id: "telegram-price-alert",
+        useCase: "team-comms",
+        requiredProviders: ["telegram"],
         name: "Telegram Price Alert Bot",
         description: "Push live price alerts to your team's Telegram channel",
         category: "Dreyv Gateway",
@@ -1001,6 +1025,8 @@ export default function App() {
 
     {
         id: "slack-treasury-notifier",
+        useCase: "team-comms",
+        requiredProviders: ["slack"],
         name: "Slack Treasury Notifier",
         description: "Post rich treasury updates to a Slack channel",
         category: "Dreyv Gateway",
