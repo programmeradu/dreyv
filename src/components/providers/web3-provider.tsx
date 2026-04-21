@@ -16,6 +16,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { TorusWalletAdapter } from "@solana/wallet-adapter-torus";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo, useCallback } from "react";
 import { VaultProvider } from "@/lib/contexts/VaultContext";
@@ -71,7 +72,9 @@ function Web3ProvidersContent({ children }: { children: ReactNode }) {
   const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
 
   // Memoize wallet adapters to prevent re-instantiation on every render
+  // Phantom adapter explicit; Backpack auto-registers via Wallet Standard inside WalletProvider
   const solanaWallets = useMemo(() => [
+    new PhantomWalletAdapter(),
     new SolflareWalletAdapter(),
     new TorusWalletAdapter(),
   ], []);
