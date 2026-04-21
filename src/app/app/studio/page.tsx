@@ -801,14 +801,14 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden min-h-0">
                 {/* Left Panel: AI Chat */}
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-                    <div className="h-full flex flex-col bg-muted/20 border-r border-border overflow-hidden min-h-0">
-                        <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-muted/10 shrink-0">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/80">
-                                AI ARCHITECT
+                    <div className="h-full flex flex-col bg-slate-50/60 border-r border-slate-200/70 overflow-hidden min-h-0">
+                        <div className="px-4 py-2.5 border-b border-slate-200/70 flex items-center justify-between bg-white shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
+                                AI Architect
                             </span>
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                <span className="text-[8px] font-black text-primary/60 tracking-widest uppercase">NODE ACTIVE</span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                <span className="text-[9px] font-semibold text-violet-600/80 tracking-widest uppercase">Active</span>
                             </div>
                         </div>
                         <div className="flex-1 overflow-hidden min-h-0">
@@ -827,25 +827,20 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
                 {/* Middle Panel: Code Editor */}
                 <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-[#1e1e1e]">
-                        {/* File Tabs */}
-                        <div className="flex items-center gap-0.5 px-1 h-9 border-b border-zinc-800 bg-[#252526] shrink-0">
+                    <div className="h-full flex flex-col bg-slate-50/40">
+                        {/* File Tabs — compact light */}
+                        <div className="flex items-center gap-0.5 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0 overflow-x-auto">
                             {Object.keys(files).map((fileName) => (
                                 <button
                                     key={fileName}
                                     onClick={() => setActiveFile(fileName)}
-                                    className={`group flex items-center gap-2.5 px-4 h-full text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeFile === fileName
-                                        ? "bg-[#1e1e1e] text-white border-x border-zinc-700/50 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.3)]"
-                                        : "text-zinc-500 hover:text-zinc-300 hover:bg-[#2a2d2e]"
+                                    className={`group flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors relative whitespace-nowrap ${activeFile === fileName
+                                        ? "bg-violet-50 text-violet-700"
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                                         }`}
                                 >
-                                    <div className="flex items-center justify-center shrink-0">
-                                        <FileIcon fileName={fileName} active={activeFile === fileName} />
-                                    </div>
-                                    <span className="leading-none mt-[1px]">{fileName}</span>
-                                    {activeFile === fileName && (
-                                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary animate-in fade-in slide-in-from-top-1 duration-300" />
-                                    )}
+                                    <FileIcon fileName={fileName} active={activeFile === fileName} />
+                                    <span>{fileName}</span>
                                 </button>
                             ))}
                         </div>
@@ -866,48 +861,34 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
                 {/* Right Panel: Live Preview */}
                 <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-background">
-                        {/* Preview Tabs */}
-                        <div className="flex items-center gap-2 px-3 h-10 border-b border-border bg-muted/40 shrink-0">
-                            <button
-                                onClick={() => setActiveTab("preview")}
-                                className={`flex items-center gap-2 px-5 h-7 text-[10px] font-black uppercase tracking-[0.2em] rounded transition-all ${activeTab === "preview"
-                                    ? "bg-background text-primary shadow-[0_2px_8px_rgba(0,0,0,0.15)] border border-primary/20 scale-[1.05]"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-center">
-                                    <Eye size={14} strokeWidth={2.5} />
-                                </div>
-                                <span className="leading-none mt-[2px]">Preview</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("code")}
-                                className={`flex items-center gap-2 px-5 h-7 text-[10px] font-black uppercase tracking-[0.2em] rounded transition-all ${activeTab === "code"
-                                    ? "bg-background text-primary shadow-[0_2px_8px_rgba(0,0,0,0.15)] border border-primary/20 scale-[1.05]"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-center">
-                                    <Terminal size={14} strokeWidth={2.5} />
-                                </div>
-                                <span className="leading-none mt-[2px]">Console</span>
-                                {runtimeLogs.length > 0 && (
-                                    <span className="ml-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("contract")}
-                                className={`flex items-center gap-2 px-5 h-7 text-[10px] font-black uppercase tracking-[0.2em] rounded transition-all ${activeTab === "contract"
-                                    ? "bg-background text-primary shadow-[0_2px_8px_rgba(0,0,0,0.15)] border border-primary/20 scale-[1.05]"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-center">
-                                    <Cpu size={14} strokeWidth={2.5} />
-                                </div>
-                                <span className="leading-none mt-[2px]">Contracts</span>
-                            </button>
+                    <div className="h-full flex flex-col bg-white">
+                        {/* Preview Tabs — compact light */}
+                        <div className="flex items-center gap-1 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0">
+                            {([
+                                { id: "preview", label: "Preview", icon: Eye },
+                                { id: "code", label: "Console", icon: Terminal },
+                                { id: "contract", label: "Contracts", icon: Cpu },
+                            ] as const).map((t) => {
+                                const active = activeTab === t.id;
+                                const Icon = t.icon;
+                                return (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setActiveTab(t.id)}
+                                        className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-medium rounded-md transition-colors ${
+                                            active
+                                                ? "bg-violet-50 text-violet-700"
+                                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        <Icon size={13} strokeWidth={2.2} />
+                                        <span>{t.label}</span>
+                                        {t.id === "code" && runtimeLogs.length > 0 && (
+                                            <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                         <div className="flex-1 relative overflow-hidden">
                             {activeTab === "contract" ? (
