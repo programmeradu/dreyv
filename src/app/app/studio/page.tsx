@@ -891,6 +891,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            </div>
 
             <PremiumModal isOpen={showWalletModal} onClose={() => setShowWalletModal(false)} className="max-w-sm !bg-transparent !border-none !shadow-none !backdrop-blur-none p-0">
                 <div className="sr-only">
