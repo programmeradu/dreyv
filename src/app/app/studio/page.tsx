@@ -185,6 +185,16 @@ export default function StudioPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [projectBrowserUserId, setProjectBrowserUserId] = useState("Operator");
 
+    // Header state — dirty tracking, last-save, last-test status
+    const [isDirty, setIsDirty] = useState(false);
+    const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [lastTestStatus, setLastTestStatus] = useState<"none" | "passed" | "failed" | "running">("none");
+    const [lastTestMode, setLastTestMode] = useState<"real" | "static-lint" | null>(null);
+    const { caps } = useStudioCapabilities();
+
     // New component states
     const [showTemplateGallery, setShowTemplateGallery] = useState(false);
     const [showSDKReference, setShowSDKReference] = useState(false);
