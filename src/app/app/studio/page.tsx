@@ -990,6 +990,14 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                     isOpen={true}
                 />
             )}
+
+            {/* Dreyv Connector Key Wizard — auto-popup when a mini-app needs credentials */}
+            <KeyWizardModal
+                open={wizardProvider !== null}
+                onClose={() => setWizardProvider(null)}
+                providerId={wizardProvider}
+                onSaved={(p) => toast.success(`${p} connected — re-run your mini-app.`)}
+            />
         </div>
     );
 }
