@@ -1,7 +1,5 @@
-// Shim for viem/chains to work around package.json exports resolution issue.
+// Shim for viem/chains — works around exports resolution under bundler moduleResolution.
 declare module "viem/chains" {
-  const chains: any;
-  export = chains;
   export const mainnet: any;
   export const base: any;
   export const arbitrum: any;
@@ -12,4 +10,6 @@ declare module "viem/chains" {
   export const baseSepolia: any;
   export const arbitrumSepolia: any;
   export const polygonMumbai: any;
+  const _default: any;
+  export default _default;
 }
