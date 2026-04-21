@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
         if (!db) {
             return NextResponse.json({ error: "Database not configured" }, { status: 500 });
         }
+        // Local non-null alias so the rest of the function type-checks cleanly.
+        const dbx = db;
 
         // verify admin status
         const token = getAdminToken(req);
