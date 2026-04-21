@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Eye, EyeOff, Loader2, ShieldCheck, X } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import {
   PremiumModal,
   PremiumModalDescription,
@@ -94,6 +94,8 @@ export function KeyWizardModal({
     );
   }
 
+  const safeProvider: PublicProvider = provider;
+
   if (allFields.length === 0) {
     return (
       <PremiumModal isOpen={open} onClose={onClose} className="max-w-md">
@@ -153,21 +155,13 @@ export function KeyWizardModal({
 
   return (
     <PremiumModal isOpen={open} onClose={onClose} className="max-w-lg">
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-        aria-label="Close"
-      >
-        <X className="size-4" />
-      </button>
-
       <div className="mb-6 flex items-start gap-3">
         <div className="rounded-lg bg-violet-500/10 p-2 ring-1 ring-violet-500/20">
           <ShieldCheck className="size-5 text-violet-400" />
         </div>
         <div className="flex-1">
-          <PremiumModalTitle>Connect {provider.name}</PremiumModalTitle>
-          <PremiumModalDescription>{provider.description}</PremiumModalDescription>
+          <PremiumModalTitle>Connect {safeProvider.name}</PremiumModalTitle>
+          <PremiumModalDescription>{safeProvider.description}</PremiumModalDescription>
         </div>
       </div>
 
