@@ -45,6 +45,7 @@ import { type ProjectTemplate } from "@/lib/studio/templates";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { PlanStepper } from "@/components/studio/PlanStepper";
 import { ArchitectEngine } from "@/lib/studio/architect-engine";
+import { KeyWizardModal } from "@/components/studio/KeyWizardModal";
 
 interface StudioFile {
     name: string;
