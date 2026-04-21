@@ -94,9 +94,36 @@ export async function POST(req: NextRequest) {
           send({ type: "meta", provider: entry.provider, model: entry.model });
 
           fullResponse = "";
+          // Phase tracking: thinking (pre-fence) → code (inside fence) → summary (post-fence)
+          let phase: "thinking" | "code" | "summary" = "thinking";
+
           for await (const token of streamProvider(entry.provider, entry.key, entry.model, STUDIO_SYSTEM_PROMPT, fullPrompt)) {
             fullResponse += token;
+            // Always send raw token (legacy consumers)
             send({ type: "token", content: token });
+
+            // Phase detection on the accumulated buffer
+            if (phase === "thinking") {
+              const fenceIdx = fullResponse.indexOf("```json");
+              if (fenceIdx === -1) {
+                // Still in thinking — stream the token to the thinking bubble
+                send({ type: "thinking", content: token });
+              } else {
+                // Just crossed into code phase — emit any remaining pre-fence text once
+                phase = "code";
+                send({ type: "thinking_done" });
+              }
+            } else if (phase === "code") {
+              // Look for closing fence after the opening one
+              const openIdx = fullResponse.indexOf("```json");
+              const closeIdx = openIdx >= 0 ? fullResponse.indexOf("```", openIdx + 7) : -1;
+              if (closeIdx !== -1) {
+                phase = "summary";
+                send({ type: "summary_start" });
+              }
+            } else if (phase === "summary") {
+              send({ type: "summary", content: token });
+            }
           }
 
           succeeded = true;
@@ -116,6 +143,16 @@ export async function POST(req: NextRequest) {
       // Parse the accumulated response
       const parsed = parseLLMResponse(fullResponse) || { files: {}, explanation: fullResponse };
 
+      // Extract trailing markdown summary (text after the closing ``` fence)
+      let trailingSummary = "";
+      const openIdx = fullResponse.indexOf("```json");
+      if (openIdx !== -1) {
+        const closeIdx = fullResponse.indexOf("```", openIdx + 7);
+        if (closeIdx !== -1) {
+          trailingSummary = fullResponse.slice(closeIdx + 3).trim();
+        }
+      }
+
       // Detect patch arrays
       let isPatches = false;
       let patches: any[] | null = null;
@@ -131,6 +168,7 @@ export async function POST(req: NextRequest) {
         type: "done",
         files: isPatches ? {} : (parsed.files || {}),
         explanation: parsed.explanation || "Code generated.",
+        summary: trailingSummary || null,
         ...(isPatches && { isPatches: true, patches }),
       });
 
