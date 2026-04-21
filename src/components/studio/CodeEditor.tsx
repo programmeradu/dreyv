@@ -101,7 +101,7 @@ declare module 'lucide-react' {
 }
 `;
 
-// ─── Keystone Neon Theme ────────────────────────────────────────────
+// ─── Themes (dark + light) ──────────────────────────────────────────
 
 function defineKeystoneTheme(monaco: any) {
   monaco.editor.defineTheme("keystone-neon", {
@@ -136,6 +136,47 @@ function defineKeystoneTheme(monaco: any) {
       "editor.selectionHighlightBackground": "#36e27b15",
       "editorBracketMatch.background": "#36e27b20",
       "editorBracketMatch.border": "#36e27b50",
+    },
+  });
+
+  // Light, Stitch-aligned theme — warm white bg, violet keywords, slate text
+  monaco.editor.defineTheme("keystone-light", {
+    base: "vs",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: "94a3b8", fontStyle: "italic" },
+      { token: "keyword", foreground: "7c3aed" },
+      { token: "string", foreground: "059669" },
+      { token: "number", foreground: "ea580c" },
+      { token: "type", foreground: "0369a1" },
+      { token: "function", foreground: "1d4ed8" },
+      { token: "variable", foreground: "0f172a" },
+      { token: "constant", foreground: "0e7490" },
+      { token: "tag", foreground: "be185d" },
+      { token: "attribute.name", foreground: "7c3aed" },
+      { token: "attribute.value", foreground: "059669" },
+      { token: "delimiter", foreground: "475569" },
+      { token: "delimiter.bracket", foreground: "ca8a04" },
+    ],
+    colors: {
+      "editor.background": "#fdfcff",
+      "editor.foreground": "#0f172a",
+      "editor.lineHighlightBackground": "#f5f3ff",
+      "editor.selectionBackground": "#ddd6fe88",
+      "editor.inactiveSelectionBackground": "#ede9fe66",
+      "editorCursor.foreground": "#7c3aed",
+      "editorLineNumber.foreground": "#cbd5e1",
+      "editorLineNumber.activeForeground": "#7c3aed",
+      "editorIndentGuide.background": "#f1f5f9",
+      "editorIndentGuide.activeBackground": "#e2e8f0",
+      "editor.selectionHighlightBackground": "#ede9fe55",
+      "editorBracketMatch.background": "#ddd6fe55",
+      "editorBracketMatch.border": "#a78bfa",
+      "editorWidget.background": "#ffffff",
+      "editorWidget.border": "#e2e8f0",
+      "editorSuggestWidget.background": "#ffffff",
+      "editorSuggestWidget.border": "#e2e8f0",
+      "editorSuggestWidget.selectedBackground": "#f5f3ff",
     },
   });
 }
@@ -346,9 +387,10 @@ interface CodeEditorProps {
   fileName: string;
   allFiles?: Record<string, { content: string }>;
   isGenerating?: boolean;
+  themeName?: "keystone-neon" | "keystone-light";
 }
 
-export function CodeEditor({ code, language, onChange, fileName, allFiles = {}, isGenerating = false }: CodeEditorProps) {
+export function CodeEditor({ code, language, onChange, fileName, allFiles = {}, isGenerating = false, themeName = "keystone-light" }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const previousCodeRef = useRef<string>(code);
@@ -527,7 +569,7 @@ export function CodeEditor({ code, language, onChange, fileName, allFiles = {}, 
         path={`file:///${fileName}`}
         value={code}
         onChange={handleEditorChange}
-        theme="keystone-neon"
+        theme={themeName}
         beforeMount={(monaco) => {
           defineKeystoneTheme(monaco);
         }}
