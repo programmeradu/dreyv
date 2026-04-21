@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
         const score = Math.round((passedCount / checks.length) * 100);
         const passed = score >= 50; // Pass if at least half the checks pass
 
-        const result: TestResult = { passed, score, screenshot: screenshotBase64, checks, errors };
+        const result = { passed, score, screenshot: screenshotBase64, checks, errors, mode: "real" as const };
         return NextResponse.json(result);
     } catch (err) {
         console.error("[test-app] Error:", err);
