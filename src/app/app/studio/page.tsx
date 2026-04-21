@@ -593,6 +593,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
             );
 
             setCurrentAppId(appId);
+            setIsDirty(false);
+            setLastSavedAt(Date.now());
 
             toast.dismiss(toastId);
             toast.success("Shipped to Library!", {
