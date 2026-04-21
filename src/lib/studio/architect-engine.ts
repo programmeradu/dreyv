@@ -126,12 +126,21 @@ export class ArchitectEngine {
     contextFiles: Record<string, { content: string }>,
     runtimeLogs?: string[],
     researchContext?: string,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<void> {
     this.reset();
     this.aiConfig = aiConfig || null;
     this.startedAt = Date.now();
     this.transition("STREAMING");
+    this.emitActivity({ kind: "plan_started", prompt });
+    this.emitActivity({ kind: "thinking_started" });
+
+    // Snapshot existing files to compute added vs modified diffs
+    const previousFiles: Record<string, string> = {};
+    for (const [name, file] of Object.entries(contextFiles)) {
+      previousFiles[name] = file.content || "";
+    }
 
     try {
       // ─── Phase 1: Initial Generation ──────────────────
@@ -140,25 +149,48 @@ export class ArchitectEngine {
         contextFiles,
         runtimeLogs,
         researchContext,
-        aiConfig
+        aiConfig,
+        history
       );
 
       if (!files || Object.keys(files).length === 0) {
         this.transition("FAILED");
+        this.emitActivity({ kind: "failed", error: "No files generated" });
         this.callbacks.onError("No files generated");
         return;
       }
 
+      // Emit per-file activity (added vs modified)
+      for (const [name, content] of Object.entries(files)) {
+        const prior = previousFiles[name];
+        const newLines = content.split("\n").length;
+        if (prior == null) {
+          this.emitActivity({ kind: "file_added", file: name, lines: newLines });
+        } else if (prior !== content) {
+          const priorLines = prior.split("\n").length;
+          this.emitActivity({
+            kind: "file_modified",
+            file: name,
+            addedLines: Math.max(0, newLines - priorLines),
+            removedLines: Math.max(0, priorLines - newLines),
+          });
+        }
+      }
+
       // ─── Phase 2: Analyze for Errors ──────────────────
       this.transition("ANALYZING");
+      this.emitActivity({ kind: "analyzing", fileCount: Object.keys(files).length });
       const analysisErrors = this.analyzeCode(files);
 
       if (analysisErrors.length === 0) {
         // Clean on first try
         this.transition("CLEAN");
         this.callbacks.onFilesGenerated(files);
+        this.emitDone(files);
         return;
       }
+
+      this.emitActivity({ kind: "issues_found", count: analysisErrors.length, preview: analysisErrors.slice(0, 3) });
 
       // ─── Phase 3: Self-Correction Loop with Rollback ──
       let currentFiles = files;
@@ -169,6 +201,12 @@ export class ArchitectEngine {
       while (this.attempt < this.maxAttempts && this.errors.length > 0) {
         this.attempt++;
         this.transition("CORRECTING");
+        this.emitActivity({
+          kind: "fixing",
+          attempt: this.attempt,
+          max: this.maxAttempts,
+          issues: this.errors.slice(0, 2),
+        });
 
         const correctedFiles = await this.callCorrectionAPI(
           currentFiles,
@@ -187,6 +225,7 @@ export class ArchitectEngine {
         if (this.errors.length === 0) {
           this.transition("CLEAN");
           this.callbacks.onFilesGenerated(currentFiles);
+          this.emitDone(currentFiles);
           return;
         }
 
@@ -195,21 +234,22 @@ export class ArchitectEngine {
           bestFiles = { ...currentFiles };
           bestErrorCount = this.errors.length;
         } else if (this.errors.length > bestErrorCount) {
-          // Correction regressed — rollback to best state
           currentFiles = { ...bestFiles };
           this.errors = this.analyzeCode(currentFiles);
         }
       }
 
-      // Exhausted attempts — ship the best version we achieved
+      // Exhausted attempts
+      const finalFiles = bestErrorCount <= this.errors.length ? bestFiles : currentFiles;
       if (this.errors.length > 0) {
         this.transition("FAILED");
-        this.callbacks.onError(
-          `Self-correction exhausted (${this.maxAttempts} attempts). Remaining issues:\n${this.errors.join("\n")}`
-        );
+        const errMsg = `Self-correction exhausted (${this.maxAttempts} attempts). Remaining issues:\n${this.errors.join("\n")}`;
+        this.emitActivity({ kind: "failed", error: errMsg });
+        this.callbacks.onError(errMsg);
       }
 
-      this.callbacks.onFilesGenerated(bestErrorCount <= this.errors.length ? bestFiles : currentFiles);
+      this.callbacks.onFilesGenerated(finalFiles);
+      this.emitDone(finalFiles);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("aborted")) {
