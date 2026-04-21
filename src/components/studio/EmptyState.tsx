@@ -9,6 +9,8 @@ interface EmptyStateProps {
   onOpenTemplates: () => void;
   onOpenRecent: () => void;
   isSubmitting?: boolean;
+  /** When true, renders inline (fills parent) instead of as a full-screen overlay. */
+  inline?: boolean;
 }
 
 const EXAMPLES = [
