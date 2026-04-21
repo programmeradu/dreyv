@@ -280,7 +280,6 @@ function TemplateCard({
                     name={template.name}
                     size={40}
                 />
-            </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <h4
