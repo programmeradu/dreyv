@@ -4,6 +4,9 @@
  * The new /api/command route uses ExecutionCoordinator with real agents
  * (LookupAgent, BuilderAgent, TransactionAgent) + Simulation Firewall.
  */
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { planStrategy } from "@/lib/llm/strategy-planner";
 
