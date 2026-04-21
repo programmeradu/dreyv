@@ -1,142 +1,202 @@
 
 
-# Studio Empty-State Flow + Self-Learning Architect
+# Studio Infrastructure Review
 
-Build a Lovable/Bolt-style empty state that **only ships real apps** — no mocks, no stubs. Three-stage AI-guided flow that clarifies intent, picks real integrations, previews a build plan, then hands off to ArchitectEngine with anti-mock guardrails and Firecrawl+Perplexity research enrichment for unknown protocols.
+A complete audit of how Dreyv Studio works today — code generation, runtime, sandbox, connectors, models, wallets, contracts, and shipping — with concrete upgrade recommendations.
 
-## What gets built
+---
 
-### 1. Empty-state UI at `/app/studio` (when no project loaded)
-Full-screen prompt box, dreyv violet, replaces the current "drop into App.tsx" behavior.
+## 1. Code generation pipeline
+
+**How it works today**
+```text
+PromptChat ──► /api/studio/plan ──► PlanStepper (clarify → plan → integrations)
+        │
+        └─► ArchitectEngine ──► /api/studio/generate-stream (SSE)
+                                    │
+                                    ├─► buildProviderChain(aiConfig)  ← BYOK + env fallbacks
+                                    ├─► STUDIO_SYSTEM_PROMPT + Web3Context
+                                    └─► streamProvider() → tokens
+                            ▼
+                   parseLLMResponse → { files, explanation } | { patches }
+                            ▼
+                   analyzeCode (static checks) → CORRECTING loop (≤3 attempts)
+                            ▼
+                   onFilesGenerated → Studio state
+```
+
+**Strengths**
+- Self-correcting state machine (`IDLE → STREAMING → ANALYZING → CORRECTING → CLEAN/FAILED`) with rollback.
+- Multi-provider chain (OpenAI / Groq / Google / Anthropic / Cloudflare / Ollama) with env fallbacks via `buildProviderChain`.
+- Patch-mode (`replace_range`) supported alongside full-file regeneration.
+
+**Gaps**
+- Static analysis is shallow — only checks for default export, sandbox patterns, old import paths, raw `fetch()`. No type-check, no JSX validity, no unused-import detection.
+- Streaming events surface only as raw text in chat — no inline “file added / file modified / fix attempt 2/3” cards like Lovable.
+- Plan, clarify, generate, and correction all live in separate routes with no shared session id → impossible to resume or audit a build.
+
+---
+
+## 2. Sandbox & live preview runtime
+
+**How it works today**
+- `LivePreview.tsx` builds a single `srcDoc` HTML payload containing React 19 + Babel standalone + Tailwind CDN + a console hijack.
+- `compileCode()` (`src/lib/runtime/compiler.ts`) uses **`@babel/standalone`** in-browser to transform TSX → JS with inline source maps.
+- `window.__keystoneSDK` and `window.__ks_require` are injected into the iframe to satisfy `import { useVault } from '@keystone-os/sdk'`.
+- The iframe runs with `sandbox="allow-scripts"` and talks back to the host via `postMessage` through `BridgeController` (registered in `LivePreview.setupBridge`).
+
+**Strengths**
+- Zero-server preview — fully client-side, no container spin-up cost.
+- Bridge protocol (`packages/sdk/src/bridge.ts`) is well-typed: vault, fetch proxy, Lit, ACE, MCP, Jupiter, Yield, Gasless, Dreyv.
+- Live token prices/logos and real wallet holdings are pre-injected so preview reflects production state.
+
+**Gaps**
+- **Babel-in-browser is slow** for multi-file apps; compile cost grows with file count.
+- No HMR — every keystroke recompiles the entire `srcDoc` and reloads the iframe.
+- Multi-file imports rely on a hand-rolled `__ks_require` shim — no proper module graph, no css-modules, no asset imports.
+- Error overlay is just console logs — no source-mapped React error boundary surface in the preview itself.
+- `LivePreview.tsx.bak` still in tree (dead code).
+
+---
+
+## 3. Bridge & SDK (`@keystone-os/sdk`)
+
+- Host-injected `KeystoneBridge` interface with two methods: `call(method, params, timeout)` and `notify(method, params)`.
+- Method registry: `BridgeMethods` (turnkey, proxy, lit, ACE, ZKSP, agent, MCP, SIWS, jupiter, yield, gasless, blink, tax).
+- Hooks live in `packages/sdk/src/hooks/*` and call through `getBridge()` (set via `setBridge()` or `globalThis.keystoneBridge`).
+- In-Studio, hosts use **stubs** (`bridge-stubs.ts`) — Jupiter quotes, ACE reports, etc. are mocked.
+
+**Gap:** stubs and real Dreyv Gateway calls live side-by-side in `LivePreview` with no toggle — devs can’t test against real RPC/Jupiter from preview.
+
+---
+
+## 4. Connectors / Dreyv Gateway
+
+- Frontend hook: `useDreyvConnections` → `/api/dreyv-gateway/connections` (list providers, link, unlink).
+- Server registry: `src/lib/dreyv-gateway/providers.ts` — Helius, Jupiter, Birdeye, Marinade, Pyth, Resend, Telegram, Slack.
+- Each provider has `secretFields`, `publicFields`, and an `operations` map that builds outbound `BuiltRequest`s.
+- Mini-apps invoke connectors via `dreyv.invoke(provider, op, args)` → bridge → `/api/dreyv-gateway/invoke`.
+- KeyWizardModal collects keys; secrets are stored server-side (never reach the iframe).
+
+**Gaps**
+- Provider list is hard-coded — no plugin loader, no per-org provider, no rate-limit/quota visualization.
+- No “test connection” button after save — users discover bad keys at runtime.
+- Operations are typed as raw objects; no schema → no autocomplete in generated code.
+
+---
+
+## 5. Models & BYOK
+
+- `APIKeySettings.tsx` writes to localStorage; `aiConfig` is forwarded to `/api/studio/generate(-stream)`.
+- `buildProviderChain` interleaves user’s BYOK key first, then env fallbacks (`GROQ_API_KEY`, `OPENAI_API_KEY`, etc.) so generation degrades gracefully.
+- Default models per provider are centralized in `getDefaultModel()`.
+
+**Gaps**
+- No per-task routing (e.g. plan → cheap fast model, codegen → reasoning model, fixes → patch-tuned model).
+- No cost/latency telemetry per build — users can’t see “this app cost $0.04 in tokens.”
+- BYOK keys live in localStorage in plain text; should be stored encrypted in the DB (or at least IndexedDB + WebCrypto).
+
+---
+
+## 6. Wallet & treasury integration
+
+- `Web3Providers` stacks: `NetworkProvider` → `ConnectionProvider` (Solana RPC) → `WalletProvider` (Solflare, Torus) → `WalletModalProvider` → `VaultProvider` → wagmi (mainnet/base/arb/polygon/bsc) → RainbowKit → OnchainKit.
+- `useVault()` (SDK) reads tokens from `VaultContext`; LivePreview injects live wallet holdings via Helius DAS (`/api/helius/das/wallet-holdings`) plus Jupiter price API.
+- Squads multisig (`@sqds/multisig`) used in `executeAction` → `createVaultTransaction` (mocked instructions for swap/transfer).
+- Turnkey embedded wallet via bridge `turnkey.signTransaction` (mocked in preview).
+
+**Gaps**
+- **Build error in `web3-provider.tsx`**: `import { mainnet, base, arbitrum, polygon, bsc } from "wagmi/chains"` — wagmi v2 moved chains to `viem/chains`. This is currently breaking your build.
+- Phantom/Backpack adapters not wired (only Solflare + Torus) — flagged in your strategy docs as a coverage gap.
+- No “connect treasury” shortcut from Studio — devs paste wallet addresses manually.
+
+---
+
+## 7. Smart contract compilation
+
+- `ContractEditor.tsx` + `/api/studio/compile-contract` handle `.rs` (Anchor) files.
+- `solana-playground.ts` wraps the playground compile API; `compileProgram()` returns IDL + binary.
+- No local toolchain — compilation is remote.
+
+**Gaps**
+- No deploy-from-Studio path; users still drop into CLI.
+- No anchor-test or simulate-against-localnet UX.
+- IDL not auto-piped into TypeScript bindings for the mini-app.
+
+---
+
+## 8. App build & ship pipeline
 
 ```text
-┌───────────────────────────────────────────────────────┐
-│                                                       │
-│        What do you want to build?                     │
-│   ┌─────────────────────────────────────────────┐     │
-│   │ A staking dashboard for mSOL holders…       │     │
-│   └─────────────────────────────────────────────┘     │
-│              [ Generate plan → ]                      │
-│                                                       │
-│   Examples: staking dashboard · token-gated chat ·    │
-│   DCA bot UI · Squads multisig viewer                 │
-│                                                       │
-│   ─── or ──                                           │
-│   [Start from template]  [Open recent]                │
-└───────────────────────────────────────────────────────┘
+keystone ship  (CLI)
+   │
+   ├─► [1/4] runGatekeeper  → security score (≥ threshold)
+   ├─► [2/4] runBuild        → bundle to .keystone/dist
+   ├─► [3/4] runPublish      → Irys/Arweave upload + sha256 codeHash
+   └─► [4/4] runPublish      → Anchor `initialize_app` on Solana
+                              + POST /api/studio/publish (registry sync)
 ```
 
-After submit, transitions to a **3-stage stepper** in the same panel:
+- Auth modes for `/api/studio/publish`: bearer (CLI token), wallet signature (nonce + tweetnacl), or cookie session.
+- Marketplace listing: `miniApps` table with `creatorShare`, `arweaveTxId`, `codeHash`, `securityScore`.
+- In-Studio “Ship” button currently just calls `saveProject` → no parity with CLI.
 
-- **Stage 1 — Clarify**: AI returns 2–4 targeted questions (network, wallets, read-only vs transactional, target protocol). Rendered as chips/radio groups, no free-text where avoidable.
-- **Stage 2 — Integrations**: AI proposes a real stack. Each integration shown as a toggle with status badge:
-  - `✓ ready` (key in env / connector linked)
-  - `⚙ needs setup` (opens connector flow / secret prompt)
-  - `🔬 researching` (unknown protocol → Firecrawl+Perplexity kicks in)
-- **Stage 3 — Plan preview**: file tree, data sources list, on-chain calls, "real vs needs-your-input" checklist, **[Build it →]** button. On click, hands the enriched context to existing `ArchitectEngine.generate()`.
+**Gaps**
+- Studio `Ship` does not run gatekeeper or upload to Arweave — mismatch with CLI.
+- No build log streaming back into chat (gatekeeper findings, bundle size, cid).
+- `keystone.lock.json` resolution happens at compile time but is not surfaced — devs can’t pin SDK versions from the UI.
 
-### 2. New API routes (Next.js App Router, not Supabase functions — matches existing project)
+---
 
-- **`/api/studio/clarify`** — POST `{ prompt }` → `{ questions: [{id, text, options[], multi}] }`. Uses Lovable AI Gateway (`google/gemini-3-flash-preview`) with tool-calling for structured output.
-- **`/api/studio/plan`** — POST `{ prompt, answers, knownIntegrations }` → `{ integrations: [{id, name, status, requiredSecrets[]}], files: [...], dataSources: [...], onChainCalls: [...], unknownProtocols: [...] }`. Triggers research enrichment for any `unknownProtocols`.
-- **`/api/studio/research`** — POST `{ protocol, prompt }` → fetches docs via **Firecrawl** (scrape protocol docs URL) + **Perplexity** (`sonar-pro` for SDK shape and code examples), returns markdown chunk + extracted SDK signatures, persists to existing `knowledgeEntries` table with `source: "studio_research"`.
+## 9. UI states & animations
 
-All three use existing `checkRouteLimit` middleware and `getAuthUserId` pattern from `src/app/api/runs/route.ts`.
+- ArchitectEngine emits state transitions but the UI only reflects 3 of them (idle / streaming / done).
+- No skeleton for plan stage, no shimmer for file diff, no progress ring for correction attempts.
+- PlanStepper is a full-screen overlay → breaks the new “preview-first” shell. (Already noted last turn.)
 
-### 3. Anti-mock guardrails in `ArchitectEngine.analyzeCode`
+---
 
-Extend the existing `forbiddenPatterns` array with:
+## Recommended improvement plan (phased)
 
-```ts
-[/\b(mock|stub|placeholder|dummy|fake|lorem|TODO|FIXME)\w*\s*[:=]/i, "No mocks/stubs allowed — use real data from useFetch()"],
-[/\b0x0{20,}\b/, "Zero-address placeholder detected — use a real address"],
-[/setTimeout\([^)]*(mock|fake|dummy)/i, "Fake-data setTimeout detected"],
-[/const\s+\w+\s*=\s*\[\s*\{\s*(id|name)\s*:\s*['"`](test|sample|example|foo|bar)/i, "Hardcoded sample data — fetch real data instead"],
-```
+### Phase 1 — Stop the bleeding (1 PR)
+1. **Fix the wagmi import** in `web3-provider.tsx` — switch chains to `viem/chains` or pin `wagmi@^2` and use the right export. Unblocks the build.
+2. Delete `LivePreview.tsx.bak`.
+3. Add Phantom + Backpack wallet adapters.
 
-When triggered → engine enters CORRECTING state with prompt: "Replace mock data with a real `useFetch()` call to {suggested API from researchContext}."
+### Phase 2 — Build transparency (chat as system of record)
+4. Stream ArchitectEngine state transitions into the chat as inline cards: **Planning… / Generating App.tsx / Fixing 2 errors (attempt 2/3) / Done — 12.4 KB, $0.03**.
+5. Inline PlanStepper into chat thread (no overlay).
+6. Move BYOK from localStorage → encrypted DB (per-user), with a token usage chart.
 
-### 4. Research enrichment wired into `ArchitectEngine.generate(...)`
+### Phase 3 — Runtime upgrade
+7. Replace Babel-standalone with **esbuild-wasm** for ~10× faster multi-file compiles.
+8. Add a real React error boundary inside the iframe with source-mapped stack traces.
+9. Implement true HMR by diffing files and only re-evaluating changed modules in the iframe (keep React state).
 
-Engine already accepts `researchContext` parameter. The **plan stage** assembles it from:
-- `web3-context.ts` SDK_HOOK_DOCS for known hooks
-- `studio_research` knowledge entries for unknown protocols
-- Recent `studio_runs` outcomes for the same prompt category (re-rank suggestions)
+### Phase 4 — Connector + ship parity
+10. Add **“Test connection”** action per provider in `KeyWizardModal` (calls a `verify_credentials` op).
+11. Make Studio **Ship** button run the full CLI pipeline server-side (gatekeeper → build → Arweave → publish) with logs streamed into chat.
+12. Per-task model routing + cost telemetry surfaced in the header status pill.
 
-### 5. New telemetry table `studio_runs` (migration)
+### Phase 5 — Smart contracts
+13. Add Anchor test + localnet simulate from `ContractEditor`.
+14. Auto-generate TS bindings from compiled IDL into the mini-app `App.tsx` workspace.
 
-```ts
-export const studioRuns = pgTable('studio_runs', {
-  id: serial('id').primaryKey(),
-  shortId: text('short_id').notNull().unique(),
-  userId: uuid('user_id').references(() => users.id),
-  prompt: text('prompt').notNull(),
-  promptCategory: text('prompt_category'),       // staking | swap | dao | nft | other (LLM-tagged)
-  clarifyAnswers: jsonb('clarify_answers'),
-  chosenIntegrations: jsonb('chosen_integrations'), // [{id, status}]
-  unknownProtocols: jsonb('unknown_protocols'),     // [protocol names that triggered research]
-  researchSources: jsonb('research_sources'),       // [{url, source: firecrawl|perplexity}]
-  analyzerOutcome: text('analyzer_outcome'),        // CLEAN | CORRECTED | FAILED
-  attempts: integer('attempts'),
-  shipped: boolean('shipped').default(false),
-  errors: jsonb('errors'),
-  durationMs: integer('duration_ms'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({
-  userIdx: index('studio_runs_user_idx').on(t.userId),
-  categoryIdx: index('studio_runs_category_idx').on(t.promptCategory),
-  outcomeIdx: index('studio_runs_outcome_idx').on(t.analyzerOutcome),
-}));
-```
+---
 
-Logged at three points: clarify start, plan finalized, build complete.
+## Files most likely to change
 
-### 6. Self-learning loop
+- `src/components/providers/web3-provider.tsx` (fix build)
+- `src/lib/runtime/compiler.ts` (Babel → esbuild-wasm)
+- `src/lib/studio/architect-engine.ts` (richer state events)
+- `src/components/studio/PromptChat.tsx` (inline plan + activity cards)
+- `src/components/studio/PlanStepper.tsx` (de-overlay)
+- `src/components/studio/LivePreview.tsx` (HMR, error boundary, real/stub toggle)
+- `src/components/studio/KeyWizardModal.tsx` (test connection)
+- `src/app/api/studio/publish/route.ts` + new `/api/studio/ship` (UI ship parity)
+- `src/lib/studio/ai-provider.ts` (per-task routing + telemetry)
 
-`/api/studio/plan` queries `studioRuns` for past successful runs in the same `promptCategory` and re-ranks integration suggestions by `success_rate * recency`. Cold start uses a static priority list.
+---
 
-## Files created / edited
-
-**New:**
-- `src/components/studio/EmptyState.tsx` — full-screen prompt box
-- `src/components/studio/PlanStepper.tsx` — 3-stage stepper shell
-- `src/components/studio/stages/ClarifyStage.tsx`
-- `src/components/studio/stages/IntegrationsStage.tsx`
-- `src/components/studio/stages/PlanPreviewStage.tsx`
-- `src/app/api/studio/clarify/route.ts`
-- `src/app/api/studio/plan/route.ts`
-- `src/app/api/studio/research/route.ts`
-- `src/lib/studio/integration-registry.ts` — maps integration ids → required secrets/connectors
-- `src/lib/studio/prompt-categorizer.ts` — Lovable AI tool call to tag category
-- DB migration: `studio_runs` table
-
-**Edited:**
-- `src/app/app/studio/page.tsx` — render `<EmptyState />` when `files === DEFAULT_FILES && !currentAppId`; on Build click, call `engine.generate(prompt, files, [], researchContext)`
-- `src/lib/studio/architect-engine.ts` — extend `analyzeCode` with anti-mock patterns
-- `src/db/schema.ts` — add `studioRuns` export
-
-## Dependencies / secrets needed
-
-- **Lovable AI Gateway** — already wired (`LOVABLE_API_KEY` auto-provisioned). Used for clarify/plan/categorize.
-- **Firecrawl** — link via `standard_connectors--connect` (connector_id: `firecrawl`). Already used in `src/lib/firecrawl.ts`; will reuse.
-- **Perplexity** — link via `standard_connectors--connect` (connector_id: `perplexity`). New.
-
-## Out of scope (call out, don't build now)
-
-- Real-time integration health checks (just check env presence for v1)
-- UI for browsing past `studio_runs` (telemetry collected, dashboard later)
-- Per-user OAuth for end-users of generated apps (uses developer's connectors)
-- Replacing the existing Keystone green theme in the rest of Studio (separate rebrand task)
-
-## Build order
-
-1. Migration: `studio_runs` table + schema export
-2. `integration-registry.ts` (static map)
-3. `/api/studio/clarify` + `/api/studio/plan` + `/api/studio/research` routes
-4. Connect Perplexity connector (Firecrawl already present)
-5. Empty-state UI + 3-stage stepper components
-6. Wire stepper → ArchitectEngine with researchContext
-7. Anti-mock guardrails in `analyzeCode`
-8. Telemetry hooks at clarify/plan/build points
-9. Verify end-to-end with a "build a Marinade staking dashboard" prompt
+**Recommended order to start:** Phase 1 (build fix) immediately, then Phase 2 (chat-as-system-of-record) — that’s the work most aligned with the Lovable-style UX you’ve been pushing toward.
 
