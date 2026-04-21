@@ -33,12 +33,28 @@ export interface ArchitectStatus {
   model: string;
 }
 
+export type ActivityEvent =
+  | { kind: "plan_started"; prompt: string }
+  | { kind: "thinking_started" }
+  | { kind: "thinking_chunk"; content: string }
+  | { kind: "thinking_done" }
+  | { kind: "file_added"; file: string; lines: number }
+  | { kind: "file_modified"; file: string; addedLines: number; removedLines: number }
+  | { kind: "analyzing"; fileCount: number }
+  | { kind: "issues_found"; count: number; preview: string[] }
+  | { kind: "fixing"; attempt: number; max: number; issues: string[] }
+  | { kind: "summary_chunk"; content: string }
+  | { kind: "done"; fileCount: number; bytes: number; elapsedMs: number; model: string; provider: string; tokens: number }
+  | { kind: "failed"; error: string };
+
 export interface ArchitectCallbacks {
   onStateChange: (status: ArchitectStatus) => void;
   onFilesGenerated: (files: Record<string, string>) => void;
   onExplanation: (text: string) => void;
   onError: (error: string) => void;
   onStreamChunk?: (chunk: string) => void;
+  onActivity?: (event: ActivityEvent) => void;
+  onSummary?: (markdown: string) => void;
 }
 
 // ─── Engine ─────────────────────────────────────────────────────────
