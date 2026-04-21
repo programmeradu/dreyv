@@ -42,6 +42,9 @@ import { CommandPalette, type PaletteCommand } from "@/components/studio/Command
 import { GlobalSearch } from "@/components/studio/GlobalSearch";
 import { DiffReview, FileHistory } from "@/components/studio/DiffReview";
 import { type ProjectTemplate } from "@/lib/studio/templates";
+import { EmptyState } from "@/components/studio/EmptyState";
+import { PlanStepper } from "@/components/studio/PlanStepper";
+import { ArchitectEngine } from "@/lib/studio/architect-engine";
 
 interface StudioFile {
     name: string;
@@ -186,6 +189,13 @@ export default function StudioPage() {
     const [showGlobalSearch, setShowGlobalSearch] = useState(false);
     const [pendingDiff, setPendingDiff] = useState<{ fileName: string; original: string; modified: string } | null>(null);
     const fileHistoryRef = useRef(new FileHistory());
+
+    // ─── Empty-state / Plan-stepper flow ─────────────────────────
+    const [emptyStatePrompt, setEmptyStatePrompt] = useState<string | null>(null);
+    const [isPlannerBuilding, setIsPlannerBuilding] = useState(false);
+    const [showEmptyState, setShowEmptyState] = useState(true);
+    const stepperStartRef = useRef<number>(0);
+    const stepperEngineRef = useRef<ArchitectEngine | null>(null);
 
     const searchParams = useSearchParams();
     const hasLoadedFromUrl = useRef(false);
