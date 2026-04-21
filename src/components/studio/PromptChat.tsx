@@ -677,6 +677,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                     )}
                 </div>
             </ScrollArea>
+            )}
 
             {/* Input */}
             <div className="p-3 border-t border-border">
