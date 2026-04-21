@@ -281,6 +281,23 @@ export class ArchitectEngine {
   }
 
   /**
+   * Emit the final "done" activity event with build summary metrics.
+   */
+  private emitDone(files: Record<string, string>): void {
+    const bytes = Object.values(files).reduce((sum, c) => sum + (c?.length || 0), 0);
+    const elapsedMs = this.startedAt ? Date.now() - this.startedAt : 0;
+    this.emitActivity({
+      kind: "done",
+      fileCount: Object.keys(files).length,
+      bytes,
+      elapsedMs,
+      model: this.activeModel,
+      provider: this.activeProvider,
+      tokens: this.tokensGenerated,
+    });
+  }
+
+  /**
    * Call the /api/studio/generate-stream SSE endpoint.
    * Falls back to /api/studio/generate if streaming fails.
    */
@@ -289,7 +306,8 @@ export class ArchitectEngine {
     contextFiles: Record<string, { content: string }>,
     runtimeLogs?: string[],
     researchContext?: string,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<Record<string, string> | null> {
     let fullPrompt = prompt;
 
@@ -308,7 +326,7 @@ export class ArchitectEngine {
 
     // Try streaming first, fall back to non-streaming
     try {
-      return await this.callStreamingAPI(fullPrompt, contextFiles, aiConfig);
+      return await this.callStreamingAPI(fullPrompt, contextFiles, aiConfig, history);
     } catch (streamErr) {
       console.warn("[Architect] Streaming failed, falling back to non-streaming:", streamErr);
       return await this.callNonStreamingAPI(fullPrompt, contextFiles, aiConfig);
@@ -321,7 +339,8 @@ export class ArchitectEngine {
   private async callStreamingAPI(
     fullPrompt: string,
     contextFiles: Record<string, { content: string }>,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<Record<string, string> | null> {
     const response = await fetch("/api/studio/generate-stream", {
       method: "POST",
@@ -330,6 +349,7 @@ export class ArchitectEngine {
         prompt: fullPrompt,
         contextFiles,
         aiConfig: aiConfig || undefined,
+        history: history || undefined,
       }),
       signal: this.abortController?.signal,
     });
