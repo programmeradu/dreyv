@@ -194,7 +194,7 @@ export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
   if (isUser) {
     return (
       <div className="flex justify-end px-2 py-1">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-zinc-700/70 px-3.5 py-2 text-sm text-zinc-100 leading-relaxed">
+        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary/10 border border-primary/20 px-3.5 py-2 text-sm text-foreground leading-relaxed">
           {textContent}
         </div>
       </div>
@@ -206,10 +206,10 @@ export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
     <div className="flex flex-col gap-1.5 px-2 py-1">
       {/* Text content with markdown + token logo injection */}
       {textContent && (
-        <div className="max-w-[90%] text-sm text-zinc-200 leading-relaxed prose prose-invert prose-sm max-w-none">
+        <div className="max-w-[90%] text-sm text-foreground leading-relaxed prose prose-sm max-w-none">
           <MarkdownErrorBoundary
             fallback={
-              <p className="whitespace-pre-wrap break-words text-zinc-200">
+              <p className="whitespace-pre-wrap break-words text-foreground">
                 {textContent}
               </p>
             }
@@ -217,32 +217,32 @@ export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
             <ReactMarkdown
               components={{
                 p: ({ children }: { children?: React.ReactNode }) => (
-                  <p className="mb-1 last:mb-0">
+                  <p className="mb-1 last:mb-0 text-foreground">
                     {processChildren(children, tokenLogos)}
                   </p>
                 ),
                 strong: ({ children }: { children?: React.ReactNode }) => (
-                  <strong className="font-semibold text-zinc-100">
+                  <strong className="font-semibold text-foreground">
                     {processChildren(children, tokenLogos)}
                   </strong>
                 ),
                 em: ({ children }: { children?: React.ReactNode }) => (
-                  <em>{processChildren(children, tokenLogos)}</em>
+                  <em className="text-foreground">{processChildren(children, tokenLogos)}</em>
                 ),
                 li: ({ children }: { children?: React.ReactNode }) => (
-                  <li>{processChildren(children, tokenLogos)}</li>
+                  <li className="text-foreground">{processChildren(children, tokenLogos)}</li>
                 ),
                 code: ({ children, className }: { children?: React.ReactNode; className?: string }) => {
                   const isBlock = className?.includes("language-");
                   if (isBlock) {
                     return (
-                      <code className="block rounded bg-zinc-800 px-2 py-1 text-xs font-mono text-zinc-300 overflow-x-auto">
+                      <code className="block rounded bg-muted px-2 py-1 text-xs font-mono text-foreground overflow-x-auto">
                         {children}
                       </code>
                     );
                   }
                   return (
-                    <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs font-mono text-zinc-300">
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono text-foreground">
                       {children}
                     </code>
                   );
