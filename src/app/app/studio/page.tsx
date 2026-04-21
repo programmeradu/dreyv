@@ -801,14 +801,14 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden min-h-0">
                 {/* Left Panel: AI Chat */}
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-                    <div className="h-full flex flex-col bg-muted/20 border-r border-border overflow-hidden min-h-0">
-                        <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-muted/10 shrink-0">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground/80">
-                                AI ARCHITECT
+                    <div className="h-full flex flex-col bg-slate-50/60 border-r border-slate-200/70 overflow-hidden min-h-0">
+                        <div className="px-4 py-2.5 border-b border-slate-200/70 flex items-center justify-between bg-white shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
+                                AI Architect
                             </span>
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                <span className="text-[8px] font-black text-primary/60 tracking-widest uppercase">NODE ACTIVE</span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                <span className="text-[9px] font-semibold text-violet-600/80 tracking-widest uppercase">Active</span>
                             </div>
                         </div>
                         <div className="flex-1 overflow-hidden min-h-0">

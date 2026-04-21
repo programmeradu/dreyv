@@ -144,17 +144,25 @@ export function PlanStepper({ prompt, onCancel, onBuild, isBuilding }: PlanStepp
     });
   };
 
-  return (
-    <div className="absolute inset-0 z-20 flex items-start justify-center bg-gradient-to-br from-background via-background to-primary/5 overflow-y-auto">
-      <div className="w-full max-w-2xl px-6 py-10 mx-auto">
-        {/* Header w/ prompt + cancel */}
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground font-bold mb-1">
-              Building
-            </p>
-            <p className="text-sm text-foreground line-clamp-2">{prompt}</p>
-          </div>
+    return (
+        <div
+            className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto"
+            style={{
+                background:
+                    "radial-gradient(1200px 600px at 20% -10%, hsl(264 96% 96% / 0.9), transparent 60%)," +
+                    "radial-gradient(800px 500px at 100% 100%, hsl(264 96% 92% / 0.55), transparent 60%)," +
+                    "linear-gradient(180deg, hsl(40 60% 98%) 0%, hsl(40 50% 96%) 100%)",
+            }}
+        >
+            <div className="w-full max-w-2xl px-6 py-10 mx-auto">
+                {/* Header w/ prompt + cancel */}
+                <div className="flex items-start justify-between gap-4 mb-6">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-bold mb-1">
+                            Building
+                        </p>
+                        <p className="text-sm text-slate-900 line-clamp-2" style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}>{prompt}</p>
+                    </div>
           <Button
             variant="ghost"
             size="sm"
