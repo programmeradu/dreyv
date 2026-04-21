@@ -695,3 +695,26 @@ export const vaults = pgTable('vaults', {
   userIdx: index('vaults_user_idx').on(table.userId),
   addressIdx: index('vaults_address_idx').on(table.address),
 }));
+
+// ─── Dreyv Connector Gateway ──────────────────────────────────────────
+// Per-user encrypted credentials for third-party providers (Helius,
+// Jupiter, Birdeye, Marinade, Pyth, Resend, Telegram, Slack, ...).
+// Secrets are encrypted at rest with AES-256-GCM via keypair-envelope.
+export const dreyvConnections = pgTable('dreyv_connections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  provider: text('provider').notNull(), // 'helius' | 'jupiter' | 'resend' | ...
+  label: text('label'),                  // optional user-supplied label
+  authType: text('auth_type').notNull().default('api_key'), // api_key | oauth
+  // Encrypted blob — JSON object of { keyName: ciphertext, ... }
+  encryptedSecrets: text('encrypted_secrets').notNull(),
+  // Public, non-secret config (workspace id, channel id, from-address, etc.)
+  publicConfig: jsonb('public_config'),
+  status: text('status').notNull().default('active'), // active | revoked | error
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  userProviderIdx: index('dreyv_conn_user_provider_idx').on(t.userId, t.provider),
+  providerIdx: index('dreyv_conn_provider_idx').on(t.provider),
+}));

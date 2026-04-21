@@ -452,6 +452,27 @@ export function LivePreview({
 
             window.__keystoneSDK = Object.assign({}, exportsObj, { default: exportsObj });
             window.__keystoneSDK.__esModule = true;
+
+            // ─── Dreyv Connector Gateway ─────────────────────
+            // Lets templates call third-party APIs (Helius, Jupiter, Resend,
+            // Telegram, Slack, ...) through the user's encrypted credentials.
+            var DREYV_PROVIDERS = ['helius','jupiter','birdeye','marinade','pyth','resend','telegram','slack'];
+            var dreyv = {
+                invoke: function(provider, operation, params) {
+                    return keystoneBridge.call('dreyv.invoke', { provider: provider, operation: operation, params: params || {} });
+                },
+                listConnections: function() {
+                    return keystoneBridge.call('dreyv.listConnections', {});
+                }
+            };
+            DREYV_PROVIDERS.forEach(function(p) {
+                dreyv[p] = new Proxy({}, {
+                    get: function(_t, op) {
+                        return function(params) { return dreyv.invoke(p, String(op), params || {}); };
+                    }
+                });
+            });
+            window.dreyv = dreyv;
         })();
     </script>
     <script>
@@ -741,6 +762,32 @@ export function LivePreview({
             const params = p as { since?: string };
             setLogs(prev => [...prev.slice(-500), `[tax] forensics requested`]);
             return stubTaxForensics(params);
+        });
+
+        // ─── Dreyv Connector Gateway ─────────────────────
+        bridge.on("dreyv.invoke", async (p) => {
+            const { provider, operation, params } = p as {
+                provider: string;
+                operation: string;
+                params?: Record<string, unknown>;
+            };
+            setLogs(prev => [...prev.slice(-500), `[dreyv] ${provider}.${operation}`]);
+            const res = await fetch(`/api/dreyv-gateway/${encodeURIComponent(provider)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ operation, params }),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                setLogs(prev => [...prev.slice(-500), `[dreyv] error ${res.status}: ${json?.error || "unknown"}`]);
+                throw new Error(json?.message || json?.error || `Gateway ${res.status}`);
+            }
+            return json.data;
+        });
+        bridge.on("dreyv.listConnections", async () => {
+            const res = await fetch("/api/dreyv-gateway/connections");
+            const json = await res.json();
+            return json.connections || [];
         });
 
         bridge.start();
