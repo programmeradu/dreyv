@@ -10,6 +10,7 @@ import { jwtVerify } from "jose";
 
 // Force Node.js runtime for JWT and heavy aggregations
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Use 60 second revalidation for the dashboard to keep it fresh but avoid DB spam
 export const revalidate = 60; 
