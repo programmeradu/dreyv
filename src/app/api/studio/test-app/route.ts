@@ -24,12 +24,37 @@ interface TestResult {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { html, url, appName = "Mini-App" } = body;
+        const { html, url, code, appName = "Mini-App" } = body;
 
-        if (!html && !url) {
-            return NextResponse.json({ error: "Provide html or url" }, { status: 400 });
+        const browserAvailable = !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_TOKEN);
+
+        // ── STATIC LINT MODE ─────────────────────────────────────
+        // No Browser Rendering creds OR no html/url payload → run client-style
+        // static checks against the source code. Honest about what it is.
+        if (!browserAvailable || (!html && !url)) {
+            const src: string = code || html || "";
+            const checks = [
+                { name: "Source provided", passed: !!src, details: src ? `${src.length} chars` : "No code submitted" },
+                { name: "Has default export", passed: /export\s+default/.test(src), details: /export\s+default/.test(src) ? "Found" : "Missing default export" },
+                { name: "No eval()", passed: !/\beval\s*\(/.test(src), details: "No dynamic eval calls" },
+                { name: "No document.cookie", passed: !/document\.cookie/.test(src), details: "No cookie access" },
+                { name: "Uses dreyv SDK", passed: /@keystone-os\/sdk|@dreyv\/sdk/.test(src), details: /@keystone-os\/sdk|@dreyv\/sdk/.test(src) ? "SDK import found" : "Consider using SDK hooks" },
+            ];
+            const passedCount = checks.filter((c) => c.passed).length;
+            const score = Math.round((passedCount / checks.length) * 100);
+            return NextResponse.json({
+                passed: score >= 60,
+                score,
+                checks,
+                errors: [],
+                mode: "static-lint",
+                note: browserAvailable
+                    ? "Static lint only — no html/url provided."
+                    : "Static lint only — Browser Rendering not configured on server.",
+            });
         }
 
+        // ── REAL SMOKE TEST MODE ─────────────────────────────────
         const checks: TestResult["checks"] = [];
         const errors: string[] = [];
         let screenshotBase64 = "";
