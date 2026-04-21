@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useOthers, useSelf, useBroadcastEvent, useEventListener, useStatus } from "@/liveblocks.config";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
