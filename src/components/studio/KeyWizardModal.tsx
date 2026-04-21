@@ -140,11 +140,11 @@ export function KeyWizardModal({
         else publicConfig[f.name] = v;
       }
       await save({
-        provider: provider.id,
+        provider: safeProvider.id,
         secrets,
         publicConfig,
       });
-      onSaved?.(provider.id);
+      onSaved?.(safeProvider.id);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
