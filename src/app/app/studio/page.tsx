@@ -45,6 +45,7 @@ import { type ProjectTemplate } from "@/lib/studio/templates";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { PlanStepper } from "@/components/studio/PlanStepper";
 import { ArchitectEngine } from "@/lib/studio/architect-engine";
+import { KeyWizardModal } from "@/components/studio/KeyWizardModal";
 
 interface StudioFile {
     name: string;
@@ -196,6 +197,17 @@ export default function StudioPage() {
     const [showEmptyState, setShowEmptyState] = useState(true);
     const stepperStartRef = useRef<number>(0);
     const stepperEngineRef = useRef<ArchitectEngine | null>(null);
+
+    // ─── Dreyv Connector Key Wizard ──────────────────────────────
+    const [wizardProvider, setWizardProvider] = useState<string | null>(null);
+    useEffect(() => {
+        function onConnReq(e: Event) {
+            const detail = (e as CustomEvent).detail as { provider?: string } | undefined;
+            if (detail?.provider) setWizardProvider(detail.provider);
+        }
+        window.addEventListener("dreyv:connection_required", onConnReq);
+        return () => window.removeEventListener("dreyv:connection_required", onConnReq);
+    }, []);
 
     const searchParams = useSearchParams();
     const hasLoadedFromUrl = useRef(false);
@@ -978,6 +990,14 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                     isOpen={true}
                 />
             )}
+
+            {/* Dreyv Connector Key Wizard — auto-popup when a mini-app needs credentials */}
+            <KeyWizardModal
+                open={wizardProvider !== null}
+                onClose={() => setWizardProvider(null)}
+                providerId={wizardProvider}
+                onSaved={(p) => toast.success(`${p} connected — re-run your mini-app.`)}
+            />
         </div>
     );
 }

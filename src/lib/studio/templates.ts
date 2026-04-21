@@ -612,4 +612,426 @@ export default function App() {
 }`,
         },
     },
+
+    // ─────────────────────────────────────────────────────────────────
+    // Dreyv Connector Gateway templates — call third-party APIs through
+    // window.dreyv with the user's encrypted credentials.
+    // ─────────────────────────────────────────────────────────────────
+
+    {
+        id: "helius-wallet-inspector",
+        name: "Helius Wallet Inspector",
+        description: "Inspect any Solana wallet's NFTs and SPL holdings via Helius DAS",
+        category: "Dreyv Gateway",
+        icon: "\u{1F50D}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+
+declare const dreyv: any;
+
+export default function App() {
+  const [addr, setAddr] = useState('');
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function inspect() {
+    if (!addr) return;
+    setLoading(true); setError('');
+    try {
+      const res = await dreyv.helius.getAssetsByOwner({
+        ownerAddress: addr, page: 1, limit: 50,
+      });
+      setAssets(res?.result?.items || []);
+    } catch (e: any) {
+      setError(e.message || 'Failed');
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="p-6 space-y-4 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold text-white">Helius Wallet Inspector</h1>
+      <div className="flex gap-2">
+        <input value={addr} onChange={e => setAddr(e.target.value)}
+          placeholder="Solana wallet address"
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+        <button onClick={inspect} disabled={loading}
+          className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50">
+          {loading ? 'Scanning…' : 'Inspect'}
+        </button>
+      </div>
+      {error && <div className="text-rose-400 text-sm">{error}</div>}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {assets.map((a, i) => (
+          <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+            <div className="text-xs font-mono text-zinc-500 truncate">{a.id}</div>
+            <div className="text-sm text-white mt-1 truncate">{a.content?.metadata?.name || 'Unnamed'}</div>
+          </div>
+        ))}
+      </div>
+      {!loading && assets.length === 0 && addr && !error && (
+        <div className="text-zinc-500 text-sm">No assets found.</div>
+      )}
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "jupiter-swap-quote",
+        name: "Jupiter Swap Quote",
+        description: "Get real-time SOL/USDC swap quotes via Jupiter v6 (no key needed)",
+        category: "Dreyv Gateway",
+        icon: "\u{1F504}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+declare const dreyv: any;
+
+const SOL = 'So11111111111111111111111111111111111111112';
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+export default function App() {
+  const [amount, setAmount] = useState('1');
+  const [quote, setQuote] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function getQuote() {
+    setLoading(true);
+    try {
+      const lamports = Math.floor(parseFloat(amount) * 1e9);
+      const q = await dreyv.jupiter.quote({
+        inputMint: SOL, outputMint: USDC,
+        amount: String(lamports), slippageBps: '50',
+      });
+      setQuote(q);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-4">
+      <h1 className="text-2xl font-bold text-white">Jupiter Quote</h1>
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-3">
+        <label className="text-xs text-zinc-400">SOL amount</label>
+        <input value={amount} onChange={e => setAmount(e.target.value)} type="number"
+          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white" />
+        <button onClick={getQuote} disabled={loading}
+          className="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg text-white font-medium disabled:opacity-50">
+          {loading ? 'Quoting…' : 'Get quote'}
+        </button>
+      </div>
+      {quote && (
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm space-y-2">
+          <div className="flex justify-between"><span className="text-zinc-400">You pay</span><span className="text-white">{amount} SOL</span></div>
+          <div className="flex justify-between"><span className="text-zinc-400">You get</span><span className="text-emerald-400">{(Number(quote.outAmount) / 1e6).toFixed(2)} USDC</span></div>
+          <div className="flex justify-between"><span className="text-zinc-400">Price impact</span><span className="text-white">{(Number(quote.priceImpactPct) * 100).toFixed(3)}%</span></div>
+          <div className="flex justify-between"><span className="text-zinc-400">Route</span><span className="text-white">{quote.routePlan?.length || 0} hops</span></div>
+        </div>
+      )}
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "birdeye-token-dashboard",
+        name: "Birdeye Token Dashboard",
+        description: "Live token price, market cap, and holder data from Birdeye",
+        category: "Dreyv Gateway",
+        icon: "\u{1F426}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+declare const dreyv: any;
+
+export default function App() {
+  const [mint, setMint] = useState('So11111111111111111111111111111111111111112');
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function load() {
+    setLoading(true); setError('');
+    try {
+      const res = await dreyv.birdeye.tokenOverview({ address: mint });
+      setData(res?.data || null);
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto space-y-4">
+      <h1 className="text-2xl font-bold text-white">Token Dashboard</h1>
+      <div className="flex gap-2">
+        <input value={mint} onChange={e => setMint(e.target.value)}
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+        <button onClick={load} disabled={loading}
+          className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50">
+          {loading ? 'Loading…' : 'Load'}
+        </button>
+      </div>
+      {error && <div className="text-rose-400 text-sm">{error}</div>}
+      {data && (
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="Symbol" value={data.symbol} />
+          <Stat label="Price" value={'$' + Number(data.price || 0).toFixed(6)} />
+          <Stat label="Market cap" value={'$' + Number(data.mc || 0).toLocaleString()} />
+          <Stat label="24h volume" value={'$' + Number(data.v24hUSD || 0).toLocaleString()} />
+          <Stat label="Holders" value={Number(data.holder || 0).toLocaleString()} />
+          <Stat label="24h change" value={(Number(data.priceChange24hPercent || 0)).toFixed(2) + '%'} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="text-lg font-semibold text-white mt-1">{value}</div>
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "marinade-staking-monitor",
+        name: "Marinade Staking Monitor",
+        description: "Track mSOL APY for treasury staking decisions",
+        category: "Dreyv Gateway",
+        icon: "\u{1F30A}",
+        files: {
+            "App.tsx": `import { useEffect, useState } from 'react';
+declare const dreyv: any;
+
+export default function App() {
+  const [apy, setApy] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    dreyv.marinade.state({}).then((r: any) => { setApy(r); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-4">
+      <h1 className="text-2xl font-bold text-white">mSOL Staking</h1>
+      {loading && <div className="text-zinc-500">Loading…</div>}
+      {apy && (
+        <div className="bg-gradient-to-br from-violet-500/10 to-emerald-500/10 border border-violet-500/20 rounded-xl p-6">
+          <div className="text-xs text-violet-300 uppercase tracking-wider">30-day APY</div>
+          <div className="text-5xl font-bold text-white mt-2">
+            {(Number(apy.value || apy.apy || 0) * 100).toFixed(2)}%
+          </div>
+          <div className="text-xs text-zinc-400 mt-3">Marinade liquid staking · auto-compounding mSOL</div>
+        </div>
+      )}
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "pyth-oracle-feed",
+        name: "Pyth Oracle Feed",
+        description: "Stream live SOL/BTC/ETH prices from Pyth on-chain oracles",
+        category: "Dreyv Gateway",
+        icon: "\u{1F52E}",
+        files: {
+            "App.tsx": `import { useEffect, useState } from 'react';
+declare const dreyv: any;
+
+const FEEDS = {
+  'SOL/USD': 'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  'BTC/USD': 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+  'ETH/USD': 'ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+};
+
+export default function App() {
+  const [prices, setPrices] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    async function tick() {
+      try {
+        const res = await dreyv.pyth.latest({ ids: Object.values(FEEDS) });
+        const next: Record<string, any> = {};
+        const list = Array.isArray(res) ? res : (res?.parsed || []);
+        for (const [name, id] of Object.entries(FEEDS)) {
+          const m = list.find((p: any) => (p.id || '').endsWith(id) || p.id === id);
+          if (m) next[name] = m;
+        }
+        setPrices(next);
+      } catch {}
+    }
+    tick();
+    const i = setInterval(tick, 5000);
+    return () => clearInterval(i);
+  }, []);
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-3">
+      <h1 className="text-2xl font-bold text-white">Pyth Oracle Feed</h1>
+      <div className="space-y-2">
+        {Object.keys(FEEDS).map(name => {
+          const p = prices[name];
+          const price = p ? Number(p.price?.price || 0) * Math.pow(10, Number(p.price?.expo || 0)) : null;
+          return (
+            <div key={name} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex justify-between items-center">
+              <span className="text-white font-medium">{name}</span>
+              <span className="text-emerald-400 font-mono text-lg">
+                {price !== null ? '$' + price.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '…'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "resend-email-blast",
+        name: "Treasury Email Notifier",
+        description: "Send transactional emails to your treasury team via Resend",
+        category: "Dreyv Gateway",
+        icon: "\u{2709}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+declare const dreyv: any;
+
+export default function App() {
+  const [to, setTo] = useState('');
+  const [subject, setSubject] = useState('Treasury alert');
+  const [body, setBody] = useState('Vault balance threshold crossed.');
+  const [status, setStatus] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    setSending(true); setStatus('');
+    try {
+      const res = await dreyv.resend.send({
+        to: [to], subject, html: '<p>' + body + '</p>',
+      });
+      setStatus(res?.id ? 'Sent ✓ id=' + res.id : 'Sent');
+    } catch (e: any) { setStatus('Error: ' + e.message); }
+    finally { setSending(false); }
+  }
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-3">
+      <h1 className="text-2xl font-bold text-white">Email Notifier</h1>
+      <input value={to} onChange={e => setTo(e.target.value)} placeholder="recipient@team.com"
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <input value={subject} onChange={e => setSubject(e.target.value)}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <textarea value={body} onChange={e => setBody(e.target.value)} rows={5}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <button onClick={send} disabled={sending || !to}
+        className="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg text-white font-medium disabled:opacity-50">
+        {sending ? 'Sending…' : 'Send email'}
+      </button>
+      {status && <div className="text-sm text-zinc-300">{status}</div>}
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "telegram-price-alert",
+        name: "Telegram Price Alert Bot",
+        description: "Push live price alerts to your team's Telegram channel",
+        category: "Dreyv Gateway",
+        icon: "\u{1F4E2}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+declare const dreyv: any;
+
+export default function App() {
+  const [text, setText] = useState('🚀 SOL crossed $250 — review treasury exposure.');
+  const [chatId, setChatId] = useState('');
+  const [status, setStatus] = useState('');
+
+  async function send() {
+    setStatus('Sending…');
+    try {
+      const res = await dreyv.telegram.sendMessage({
+        text, ...(chatId ? { chat_id: chatId } : {}),
+      });
+      setStatus(res?.ok ? '✓ Delivered' : 'Failed: ' + JSON.stringify(res));
+    } catch (e: any) { setStatus('Error: ' + e.message); }
+  }
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-3">
+      <h1 className="text-2xl font-bold text-white">Telegram Alert</h1>
+      <p className="text-xs text-zinc-500">Leave chat ID blank to use the default from your connection.</p>
+      <input value={chatId} onChange={e => setChatId(e.target.value)} placeholder="Chat ID (optional)"
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={5}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <button onClick={send}
+        className="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg text-white font-medium">
+        Send to Telegram
+      </button>
+      {status && <div className="text-sm text-zinc-300">{status}</div>}
+    </div>
+  );
+}`,
+        },
+    },
+
+    {
+        id: "slack-treasury-notifier",
+        name: "Slack Treasury Notifier",
+        description: "Post rich treasury updates to a Slack channel",
+        category: "Dreyv Gateway",
+        icon: "\u{1F4AC}",
+        files: {
+            "App.tsx": `import { useState } from 'react';
+declare const dreyv: any;
+
+export default function App() {
+  const [channel, setChannel] = useState('');
+  const [text, setText] = useState(':bank: Daily treasury summary');
+  const [status, setStatus] = useState('');
+
+  async function post() {
+    setStatus('Posting…');
+    try {
+      const res = await dreyv.slack.postMessage({
+        text,
+        ...(channel ? { channel } : {}),
+        blocks: [
+          { type: 'header', text: { type: 'plain_text', text: 'Treasury Update' } },
+          { type: 'section', text: { type: 'mrkdwn', text: text } },
+          { type: 'context', elements: [{ type: 'mrkdwn', text: 'Posted via Dreyv mini-app' }] },
+        ],
+      });
+      setStatus(res?.ok ? '✓ Posted to ' + (res.channel || 'Slack') : 'Failed: ' + (res?.error || 'unknown'));
+    } catch (e: any) { setStatus('Error: ' + e.message); }
+  }
+
+  return (
+    <div className="p-6 max-w-md mx-auto space-y-3">
+      <h1 className="text-2xl font-bold text-white">Slack Notifier</h1>
+      <input value={channel} onChange={e => setChannel(e.target.value)} placeholder="#treasury (optional)"
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={5}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white" />
+      <button onClick={post}
+        className="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg text-white font-medium">
+        Post to Slack
+      </button>
+      {status && <div className="text-sm text-zinc-300">{status}</div>}
+    </div>
+  );
+}`,
+        },
+    },
 ];

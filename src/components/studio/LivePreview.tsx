@@ -780,6 +780,12 @@ export function LivePreview({
             const json = await res.json();
             if (!res.ok) {
                 setLogs(prev => [...prev.slice(-500), `[dreyv] error ${res.status}: ${json?.error || "unknown"}`]);
+                // 412 = connection_required → tell the Studio to open the Key Wizard.
+                if (res.status === 412 && typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dreyv:connection_required", {
+                        detail: { provider: json?.provider || provider, operation },
+                    }));
+                }
                 throw new Error(json?.message || json?.error || `Gateway ${res.status}`);
             }
             return json.data;
