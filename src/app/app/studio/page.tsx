@@ -668,75 +668,101 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
     return (
         <div className="h-screen flex flex-col bg-background text-foreground selection:bg-primary/20 overflow-hidden min-h-0">
-            {/* Studio Header */}
-            <header className="h-12 border-b border-border bg-muted/40 flex items-center justify-between px-6 shrink-0">
-                <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-3 pr-6 border-r border-border/60">
-                        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_rgba(54,226,123,0.5)]" />
-                        <span className="text-[10px] font-black tracking-[0.2em] text-foreground/90 uppercase">
-                            dreyv OS // Studio Node
+            {/* Studio Header — Stitch-style premium top bar */}
+            <header className="h-12 border-b border-slate-200/70 bg-white/90 backdrop-blur flex items-center justify-between px-5 shrink-0 relative z-40">
+                {/* Left: brand + breadcrumb + editable name */}
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center gap-2 pr-4 border-r border-slate-200/60">
+                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
+                        <span
+                            className="text-[12px] font-semibold tracking-tight text-slate-900"
+                            style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
+                        >
+                            dreyv
                         </span>
+                        <span className="text-slate-300 text-xs">/</span>
+                        <span className="text-[11px] font-medium text-slate-500">Studio</span>
+                        <span className="text-slate-300 text-xs">/</span>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        <Input
-                            value={appName}
-                            onChange={(e) => setAppName(e.target.value)}
-                            className="h-7 w-48 text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 bg-muted/20 border-border/40 focus:border-primary/40 focus:text-foreground px-2 rounded"
-                        />
-                    </div>
+                    <Input
+                        value={appName}
+                        onChange={(e) => setAppName(e.target.value)}
+                        className="h-7 w-56 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
+                        placeholder="Untitled mini-app"
+                    />
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowWalletModal(true)}
-                            className="h-8 gap-2 text-[10px] font-bold uppercase tracking-widest bg-muted/50 border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
-                        >
-                            <Shield size={12} />
-                            <span>Vault Keys</span>
-                        </Button>
-                    </div>
+                {/* Right: vault chip · operator · actions · save · ship */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowWalletModal(true)}
+                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
+                        title="Connected wallet / vault keys"
+                    >
+                        <Shield size={11} className="opacity-70" />
+                        <span>{publicKey ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}` : "Connect"}</span>
+                    </button>
 
-                    <div className="h-4 w-px bg-border/60" />
-
-                    <div className="flex items-center gap-2.5 px-2">
-                        <Avatar className="h-6 w-6 border border-primary/20">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-slate-50 transition-colors">
+                        <Avatar className="h-5 w-5 border border-slate-200">
                             <AvatarImage src={getAvatarUrl(user?.info?.name || "operator")} />
-                            <AvatarFallback className="text-[10px] font-black">
-                                {user?.info?.name?.charAt(0) || "U"}
+                            <AvatarFallback className="text-[9px] font-semibold bg-violet-100 text-violet-700">
+                                {user?.info?.name?.charAt(0).toUpperCase() || "U"}
                             </AvatarFallback>
                         </Avatar>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                        <span className="text-[11px] font-medium text-slate-600 hidden sm:inline">
                             {user?.info?.name || "Operator"}
                         </span>
                     </div>
 
-                    <div className="h-4 w-px bg-border/60" />
+                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
 
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleNewProject} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" title="New Project">
-                            <Plus size={16} />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setShowProjectBrowser(true)} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" title="Open Projects">
-                            <FolderOpen size={16} />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setShowSDKReference(prev => !prev)} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" title="SDK Reference">
-                            <BookOpen size={16} />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleSave} disabled={isSaving} className="h-8 text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">
-                            {isSaving ? "SAVING..." : "SAVE"}
-                        </Button>
-                        <div className="h-4 w-px bg-border/60 mx-1" />
-                        <StudioToolbar
-                            files={files}
-                            appName={appName}
-                            onShip={handleShip}
-                            isShipping={isDeploying}
-                        />
-                    </div>
+                    {/* Quick actions row */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleNewProject}
+                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
+                        title="New project"
+                    >
+                        <Plus size={14} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowProjectBrowser(true)}
+                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
+                        title="Open projects"
+                    >
+                        <FolderOpen size={14} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSDKReference((prev) => !prev)}
+                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
+                        title="SDK reference"
+                    >
+                        <BookOpen size={14} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md"
+                    >
+                        {isSaving ? "Saving…" : "Save"}
+                    </Button>
+
+                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
+
+                    <StudioToolbar
+                        files={files}
+                        appName={appName}
+                        onShip={handleShip}
+                        isShipping={isDeploying}
+                    />
                 </div>
             </header>
 
