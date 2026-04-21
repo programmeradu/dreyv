@@ -33,12 +33,28 @@ export interface ArchitectStatus {
   model: string;
 }
 
+export type ActivityEvent =
+  | { kind: "plan_started"; prompt: string }
+  | { kind: "thinking_started" }
+  | { kind: "thinking_chunk"; content: string }
+  | { kind: "thinking_done" }
+  | { kind: "file_added"; file: string; lines: number }
+  | { kind: "file_modified"; file: string; addedLines: number; removedLines: number }
+  | { kind: "analyzing"; fileCount: number }
+  | { kind: "issues_found"; count: number; preview: string[] }
+  | { kind: "fixing"; attempt: number; max: number; issues: string[] }
+  | { kind: "summary_chunk"; content: string }
+  | { kind: "done"; fileCount: number; bytes: number; elapsedMs: number; model: string; provider: string; tokens: number }
+  | { kind: "failed"; error: string };
+
 export interface ArchitectCallbacks {
   onStateChange: (status: ArchitectStatus) => void;
   onFilesGenerated: (files: Record<string, string>) => void;
   onExplanation: (text: string) => void;
   onError: (error: string) => void;
   onStreamChunk?: (chunk: string) => void;
+  onActivity?: (event: ActivityEvent) => void;
+  onSummary?: (markdown: string) => void;
 }
 
 // ─── Engine ─────────────────────────────────────────────────────────
@@ -69,6 +85,12 @@ export class ArchitectEngine {
     if (cb.onExplanation) this.callbacks.onExplanation = cb.onExplanation;
     if (cb.onError) this.callbacks.onError = cb.onError;
     if (cb.onStreamChunk) this.callbacks.onStreamChunk = cb.onStreamChunk;
+    if (cb.onActivity) this.callbacks.onActivity = cb.onActivity;
+    if (cb.onSummary) this.callbacks.onSummary = cb.onSummary;
+  }
+
+  private emitActivity(event: ActivityEvent): void {
+    this.callbacks.onActivity?.(event);
   }
 
   /**
@@ -104,12 +126,21 @@ export class ArchitectEngine {
     contextFiles: Record<string, { content: string }>,
     runtimeLogs?: string[],
     researchContext?: string,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<void> {
     this.reset();
     this.aiConfig = aiConfig || null;
     this.startedAt = Date.now();
     this.transition("STREAMING");
+    this.emitActivity({ kind: "plan_started", prompt });
+    this.emitActivity({ kind: "thinking_started" });
+
+    // Snapshot existing files to compute added vs modified diffs
+    const previousFiles: Record<string, string> = {};
+    for (const [name, file] of Object.entries(contextFiles)) {
+      previousFiles[name] = file.content || "";
+    }
 
     try {
       // ─── Phase 1: Initial Generation ──────────────────
@@ -118,25 +149,48 @@ export class ArchitectEngine {
         contextFiles,
         runtimeLogs,
         researchContext,
-        aiConfig
+        aiConfig,
+        history
       );
 
       if (!files || Object.keys(files).length === 0) {
         this.transition("FAILED");
+        this.emitActivity({ kind: "failed", error: "No files generated" });
         this.callbacks.onError("No files generated");
         return;
       }
 
+      // Emit per-file activity (added vs modified)
+      for (const [name, content] of Object.entries(files)) {
+        const prior = previousFiles[name];
+        const newLines = content.split("\n").length;
+        if (prior == null) {
+          this.emitActivity({ kind: "file_added", file: name, lines: newLines });
+        } else if (prior !== content) {
+          const priorLines = prior.split("\n").length;
+          this.emitActivity({
+            kind: "file_modified",
+            file: name,
+            addedLines: Math.max(0, newLines - priorLines),
+            removedLines: Math.max(0, priorLines - newLines),
+          });
+        }
+      }
+
       // ─── Phase 2: Analyze for Errors ──────────────────
       this.transition("ANALYZING");
+      this.emitActivity({ kind: "analyzing", fileCount: Object.keys(files).length });
       const analysisErrors = this.analyzeCode(files);
 
       if (analysisErrors.length === 0) {
         // Clean on first try
         this.transition("CLEAN");
         this.callbacks.onFilesGenerated(files);
+        this.emitDone(files);
         return;
       }
+
+      this.emitActivity({ kind: "issues_found", count: analysisErrors.length, preview: analysisErrors.slice(0, 3) });
 
       // ─── Phase 3: Self-Correction Loop with Rollback ──
       let currentFiles = files;
@@ -147,6 +201,12 @@ export class ArchitectEngine {
       while (this.attempt < this.maxAttempts && this.errors.length > 0) {
         this.attempt++;
         this.transition("CORRECTING");
+        this.emitActivity({
+          kind: "fixing",
+          attempt: this.attempt,
+          max: this.maxAttempts,
+          issues: this.errors.slice(0, 2),
+        });
 
         const correctedFiles = await this.callCorrectionAPI(
           currentFiles,
@@ -165,6 +225,7 @@ export class ArchitectEngine {
         if (this.errors.length === 0) {
           this.transition("CLEAN");
           this.callbacks.onFilesGenerated(currentFiles);
+          this.emitDone(currentFiles);
           return;
         }
 
@@ -173,21 +234,22 @@ export class ArchitectEngine {
           bestFiles = { ...currentFiles };
           bestErrorCount = this.errors.length;
         } else if (this.errors.length > bestErrorCount) {
-          // Correction regressed — rollback to best state
           currentFiles = { ...bestFiles };
           this.errors = this.analyzeCode(currentFiles);
         }
       }
 
-      // Exhausted attempts — ship the best version we achieved
+      // Exhausted attempts
+      const finalFiles = bestErrorCount <= this.errors.length ? bestFiles : currentFiles;
       if (this.errors.length > 0) {
         this.transition("FAILED");
-        this.callbacks.onError(
-          `Self-correction exhausted (${this.maxAttempts} attempts). Remaining issues:\n${this.errors.join("\n")}`
-        );
+        const errMsg = `Self-correction exhausted (${this.maxAttempts} attempts). Remaining issues:\n${this.errors.join("\n")}`;
+        this.emitActivity({ kind: "failed", error: errMsg });
+        this.callbacks.onError(errMsg);
       }
 
-      this.callbacks.onFilesGenerated(bestErrorCount <= this.errors.length ? bestFiles : currentFiles);
+      this.callbacks.onFilesGenerated(finalFiles);
+      this.emitDone(finalFiles);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("aborted")) {
@@ -219,6 +281,23 @@ export class ArchitectEngine {
   }
 
   /**
+   * Emit the final "done" activity event with build summary metrics.
+   */
+  private emitDone(files: Record<string, string>): void {
+    const bytes = Object.values(files).reduce((sum, c) => sum + (c?.length || 0), 0);
+    const elapsedMs = this.startedAt ? Date.now() - this.startedAt : 0;
+    this.emitActivity({
+      kind: "done",
+      fileCount: Object.keys(files).length,
+      bytes,
+      elapsedMs,
+      model: this.activeModel,
+      provider: this.activeProvider,
+      tokens: this.tokensGenerated,
+    });
+  }
+
+  /**
    * Call the /api/studio/generate-stream SSE endpoint.
    * Falls back to /api/studio/generate if streaming fails.
    */
@@ -227,7 +306,8 @@ export class ArchitectEngine {
     contextFiles: Record<string, { content: string }>,
     runtimeLogs?: string[],
     researchContext?: string,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<Record<string, string> | null> {
     let fullPrompt = prompt;
 
@@ -246,7 +326,7 @@ export class ArchitectEngine {
 
     // Try streaming first, fall back to non-streaming
     try {
-      return await this.callStreamingAPI(fullPrompt, contextFiles, aiConfig);
+      return await this.callStreamingAPI(fullPrompt, contextFiles, aiConfig, history);
     } catch (streamErr) {
       console.warn("[Architect] Streaming failed, falling back to non-streaming:", streamErr);
       return await this.callNonStreamingAPI(fullPrompt, contextFiles, aiConfig);
@@ -259,7 +339,8 @@ export class ArchitectEngine {
   private async callStreamingAPI(
     fullPrompt: string,
     contextFiles: Record<string, { content: string }>,
-    aiConfig?: { provider: string; apiKey: string; model: string } | null
+    aiConfig?: { provider: string; apiKey: string; model: string } | null,
+    history?: Array<{ role: string; content: string }>
   ): Promise<Record<string, string> | null> {
     const response = await fetch("/api/studio/generate-stream", {
       method: "POST",
@@ -268,6 +349,7 @@ export class ArchitectEngine {
         prompt: fullPrompt,
         contextFiles,
         aiConfig: aiConfig || undefined,
+        history: history || undefined,
       }),
       signal: this.abortController?.signal,
     });
@@ -308,12 +390,23 @@ export class ArchitectEngine {
           } else if (event.type === "token") {
             this.tokensGenerated += Math.ceil((event.content?.length || 0) / 4);
             this.callbacks.onStreamChunk?.(event.content || "");
+          } else if (event.type === "thinking") {
+            this.emitActivity({ kind: "thinking_chunk", content: event.content || "" });
+          } else if (event.type === "thinking_done") {
+            this.emitActivity({ kind: "thinking_done" });
+          } else if (event.type === "summary") {
+            this.emitActivity({ kind: "summary_chunk", content: event.content || "" });
+          } else if (event.type === "summary_start") {
+            // marker only
           } else if (event.type === "done") {
             if (event.error === "no_api_key") {
               throw new Error("NO_API_KEY: " + (event.details || "No AI API key configured."));
             }
             if (event.explanation) {
               this.callbacks.onExplanation(event.explanation);
+            }
+            if (event.summary) {
+              this.callbacks.onSummary?.(event.summary);
             }
             result = event.files || null;
           } else if (event.type === "error" && !event.recoverable) {

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { prompt, contextFiles, aiConfig } = body;
+  const { prompt, contextFiles, aiConfig, history } = body;
 
   if (!prompt) {
     return new Response(JSON.stringify({ error: "Prompt is required" }), {
@@ -39,6 +39,16 @@ export async function POST(req: NextRequest) {
 
   // Build full prompt with context
   let fullPrompt = prompt;
+
+  // Inject conversation history (last 10 turns) for follow-up context
+  if (Array.isArray(history) && history.length > 0) {
+    const recent = history.slice(-10);
+    const historyText = recent
+      .map((m: { role: string; content: string }) => `${m.role.toUpperCase()}: ${m.content}`)
+      .join("\n\n");
+    fullPrompt = `[CONVERSATION HISTORY — previous turns in this session]\n${historyText}\n\n[CURRENT REQUEST]\n${prompt}`;
+  }
+
   if (contextFiles && Object.keys(contextFiles).length > 0) {
     const manifest = Object.entries(contextFiles).map(([name, file]: [string, any]) => {
       const lines = (file.content || "").split("\n").length;
@@ -49,7 +59,7 @@ export async function POST(req: NextRequest) {
       .map(([name, file]: [string, any]) => `--- ${name} ---\n${file.content}\n`)
       .join("\n");
 
-    fullPrompt = `PROJECT MANIFEST:\n${manifest}\n\nCURRENT FILES:\n${fileContext}\n\nUSER REQUEST:\n${prompt}`;
+    fullPrompt = `${fullPrompt}\n\nPROJECT MANIFEST:\n${manifest}\n\nCURRENT FILES:\n${fileContext}`;
   }
 
   // Inject Web3 context
@@ -84,9 +94,36 @@ export async function POST(req: NextRequest) {
           send({ type: "meta", provider: entry.provider, model: entry.model });
 
           fullResponse = "";
+          // Phase tracking: thinking (pre-fence) → code (inside fence) → summary (post-fence)
+          let phase: "thinking" | "code" | "summary" = "thinking";
+
           for await (const token of streamProvider(entry.provider, entry.key, entry.model, STUDIO_SYSTEM_PROMPT, fullPrompt)) {
             fullResponse += token;
+            // Always send raw token (legacy consumers)
             send({ type: "token", content: token });
+
+            // Phase detection on the accumulated buffer
+            if (phase === "thinking") {
+              const fenceIdx = fullResponse.indexOf("```json");
+              if (fenceIdx === -1) {
+                // Still in thinking — stream the token to the thinking bubble
+                send({ type: "thinking", content: token });
+              } else {
+                // Just crossed into code phase — emit any remaining pre-fence text once
+                phase = "code";
+                send({ type: "thinking_done" });
+              }
+            } else if (phase === "code") {
+              // Look for closing fence after the opening one
+              const openIdx = fullResponse.indexOf("```json");
+              const closeIdx = openIdx >= 0 ? fullResponse.indexOf("```", openIdx + 7) : -1;
+              if (closeIdx !== -1) {
+                phase = "summary";
+                send({ type: "summary_start" });
+              }
+            } else if (phase === "summary") {
+              send({ type: "summary", content: token });
+            }
           }
 
           succeeded = true;
@@ -106,6 +143,16 @@ export async function POST(req: NextRequest) {
       // Parse the accumulated response
       const parsed = parseLLMResponse(fullResponse) || { files: {}, explanation: fullResponse };
 
+      // Extract trailing markdown summary (text after the closing ``` fence)
+      let trailingSummary = "";
+      const openIdx = fullResponse.indexOf("```json");
+      if (openIdx !== -1) {
+        const closeIdx = fullResponse.indexOf("```", openIdx + 7);
+        if (closeIdx !== -1) {
+          trailingSummary = fullResponse.slice(closeIdx + 3).trim();
+        }
+      }
+
       // Detect patch arrays
       let isPatches = false;
       let patches: any[] | null = null;
@@ -121,6 +168,7 @@ export async function POST(req: NextRequest) {
         type: "done",
         files: isPatches ? {} : (parsed.files || {}),
         explanation: parsed.explanation || "Code generated.",
+        summary: trailingSummary || null,
         ...(isPatches && { isPatches: true, patches }),
       });
 

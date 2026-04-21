@@ -1,27 +1,38 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, Zap, Shield, AlertTriangle, ChevronDown } from "lucide-react";
-import { DreyvStar } from "@/components/studio/DreyvStar";
+import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, Sparkles } from "lucide-react";
+import { ArchitectIcon } from "@/components/icons";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSelf } from "@/liveblocks.config";
 import { cn } from "@/lib/utils";
-import { ArchitectEngine, type ArchitectStatus, type ArchitectState } from "@/lib/studio/architect-engine";
+import {
+    ArchitectEngine,
+    type ArchitectStatus,
+    type ArchitectState,
+    type ActivityEvent,
+} from "@/lib/studio/architect-engine";
 import { loadAIConfig, type AIKeyConfig } from "@/components/studio/APIKeySettings";
+import { ArchitectActivityCard, type ActivityCard } from "@/components/studio/ArchitectActivityCard";
 
 // ─── Types ──────────────────────────────────────────────────────────
+
+type MessageBlock =
+    | { type: "text"; content: string }
+    | { type: "activity"; card: ActivityCard }
+    | { type: "summary"; markdown: string }
+    | { type: "followups"; chips: string[] };
 
 interface Message {
     id: string;
     role: "user" | "assistant";
-    content: string;
     timestamp: Date;
-    codeGenerated?: boolean;
-    state?: ArchitectState;
+    blocks: MessageBlock[];
 }
 
 interface PromptChatProps {
@@ -31,18 +42,6 @@ interface PromptChatProps {
     userFiles: Record<string, any>;
     runtimeLogs?: string[];
 }
-
-// ─── State Label Map ────────────────────────────────────────────────
-
-const STATE_LABELS: Record<ArchitectState, { label: string; color: string; icon: string }> = {
-    IDLE: { label: "Idle", color: "text-slate-500", icon: "" },
-    STREAMING: { label: "Generating", color: "text-violet-600", icon: "animate-pulse" },
-    ANALYZING: { label: "Analyzing", color: "text-amber-600", icon: "" },
-    CORRECTING: { label: "Self-correcting", color: "text-orange-600", icon: "animate-pulse" },
-    RE_ANALYZING: { label: "Re-analyzing", color: "text-amber-600", icon: "" },
-    CLEAN: { label: "Clean build", color: "text-emerald-600", icon: "" },
-    FAILED: { label: "Errors remain", color: "text-rose-600", icon: "" },
-};
 
 // ─── Available Models ───────────────────────────────────────────────
 
@@ -88,6 +87,35 @@ const BYOK_MODELS: Record<string, ModelOption[]> = {
     ],
 };
 
+// ─── Status Label ───────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<ArchitectState, string | null> = {
+    IDLE: null,
+    STREAMING: "Architect is thinking…",
+    ANALYZING: "Analyzing generated code…",
+    CORRECTING: "Self-correcting issues…",
+    RE_ANALYZING: "Re-analyzing after fix…",
+    CLEAN: null,
+    FAILED: null,
+};
+
+// ─── Follow-up suggestions ──────────────────────────────────────────
+
+function generateFollowUps(prompt: string): string[] {
+    const p = prompt.toLowerCase();
+    const out: string[] = [];
+    if (p.includes("swap") || p.includes("jupiter")) {
+        out.push("Add slippage settings", "Add token search", "Add transaction history");
+    } else if (p.includes("wallet") || p.includes("portfolio")) {
+        out.push("Add token filtering", "Add 24h price chart", "Add export to CSV");
+    } else if (p.includes("nft")) {
+        out.push("Add collection floor price", "Add rarity ranking", "Add listing button");
+    } else {
+        out.push("Make it dark mode", "Add a refresh button", "Add loading states");
+    }
+    return out;
+}
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFiles, runtimeLogs }: PromptChatProps) {
@@ -97,8 +125,14 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         {
             id: "welcome",
             role: "assistant",
-            content: "Hey — I'm the Dreyv Architect. Tell me what you want to build and I'll synthesize the modules, wire them to your treasury, and self-correct any errors before handing them back.",
             timestamp: new Date(),
+            blocks: [
+                {
+                    type: "text",
+                    content:
+                        "Hey 👋 — I'm the Architect. Tell me what you want to build and I'll plan it, write the code, fix any errors, and explain what I shipped. Try something like *\"a Jupiter swap UI for SOL → USDC\"*.",
+                },
+            ],
         },
     ]);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,8 +144,8 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const [showModelDropdown, setShowModelDropdown] = useState(false);
     const [byokConfig, setByokConfig] = useState<AIKeyConfig | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [collapsedThinking, setCollapsedThinking] = useState<Record<string, boolean>>({});
 
-    // Load BYOK config on mount
     useEffect(() => {
         try {
             const config = loadAIConfig();
@@ -119,7 +153,6 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         } catch { /* no config */ }
     }, []);
 
-    // Close model dropdown on outside click
     useEffect(() => {
         if (!showModelDropdown) return;
         const handleClick = (e: MouseEvent) => {
@@ -131,7 +164,6 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         return () => document.removeEventListener("mousedown", handleClick);
     }, [showModelDropdown]);
 
-    // Build dynamic model list: BYOK models first (if configured), then free models
     const availableModels = useMemo(() => {
         const models: ModelOption[] = [];
         if (byokConfig?.apiKey && byokConfig.provider) {
@@ -148,168 +180,274 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     }, [messages]);
 
-    // ─── Architect Engine Setup ─────────────────────────────
     const getEngine = useCallback(() => {
         if (!engineRef.current) {
             engineRef.current = new ArchitectEngine({
-                onStateChange: (status) => {
-                    setArchitectStatus({ ...status });
-                },
-                onFilesGenerated: (files) => {
-                    onGenerate(files);
-                },
-                onExplanation: () => {
-                    // Explanation handled via message update below
-                },
-                onError: (error) => {
-                    console.error("[Architect]", error);
-                },
+                onStateChange: (status) => setArchitectStatus({ ...status }),
+                onFilesGenerated: (files) => onGenerate(files),
+                onExplanation: () => { /* handled via summary block */ },
+                onError: (error) => console.error("[Architect]", error),
             });
         }
         return engineRef.current;
     }, [onGenerate]);
 
+    const toggleThinking = useCallback((id: string) => {
+        setCollapsedThinking((prev) => ({ ...prev, [id]: !prev[id] }));
+    }, []);
+
+    // Build conversation history (text-only, last 10 turns) for context
+    const buildHistory = useCallback((): Array<{ role: string; content: string }> => {
+        const turns: Array<{ role: string; content: string }> = [];
+        for (const m of messages) {
+            if (m.id === "welcome") continue;
+            const text = m.blocks
+                .map((b) => {
+                    if (b.type === "text") return b.content;
+                    if (b.type === "summary") return b.markdown;
+                    return "";
+                })
+                .filter(Boolean)
+                .join("\n");
+            if (text) turns.push({ role: m.role, content: text });
+        }
+        return turns;
+    }, [messages]);
+
     // ─── Submit Handler ─────────────────────────────────────
-    const handleSubmit = async () => {
-        if (!input.trim() || isGenerating) return;
+    const handleSubmit = async (overridePrompt?: string) => {
+        const promptText = (overridePrompt ?? input).trim();
+        if (!promptText || isGenerating) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content: input.trim(),
             timestamp: new Date(),
+            blocks: [{ type: "text", content: promptText }],
         };
+
+        const history = buildHistory();
 
         setMessages((prev) => [...prev, userMessage]);
         setInput("");
         setIsGenerating(true);
 
-        const thinkingId = (Date.now() + 1).toString();
+        const assistantId = (Date.now() + 1).toString();
+        const thinkingCardId = `${assistantId}-thinking`;
+
+        // Seed assistant message with empty thinking card
         setMessages((prev) => [
             ...prev,
             {
-                id: thinkingId,
+                id: assistantId,
                 role: "assistant",
-                content: useDeepResearch
-                    ? "Initiating deep research protocol..."
-                    : "Initializing self-correction pipeline...",
                 timestamp: new Date(),
-                state: "STREAMING",
+                blocks: [
+                    {
+                        type: "activity",
+                        card: { id: thinkingCardId, kind: "thinking", text: "", collapsed: false, done: false },
+                    },
+                ],
             },
         ]);
+
+        // Helpers to mutate the assistant message
+        const updateAssistant = (mutator: (blocks: MessageBlock[]) => MessageBlock[]) => {
+            setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, blocks: mutator(m.blocks) } : m))
+            );
+        };
+
+        const appendBlock = (block: MessageBlock) => {
+            updateAssistant((blocks) => [...blocks, block]);
+        };
+
+        const appendThinking = (chunk: string) => {
+            updateAssistant((blocks) =>
+                blocks.map((b) =>
+                    b.type === "activity" && b.card.id === thinkingCardId && b.card.kind === "thinking"
+                        ? { ...b, card: { ...b.card, text: b.card.text + chunk } }
+                        : b
+                )
+            );
+        };
+
+        const finishThinking = () => {
+            updateAssistant((blocks) =>
+                blocks.map((b) =>
+                    b.type === "activity" && b.card.id === thinkingCardId && b.card.kind === "thinking"
+                        ? { ...b, card: { ...b.card, done: true, collapsed: true } }
+                        : b
+                )
+            );
+            setCollapsedThinking((prev) => ({ ...prev, [thinkingCardId]: true }));
+        };
+
+        let summaryAccumulator = "";
+        let summaryBlockExists = false;
+        const appendSummary = (chunk: string) => {
+            summaryAccumulator += chunk;
+            if (!summaryBlockExists) {
+                summaryBlockExists = true;
+                appendBlock({ type: "summary", markdown: summaryAccumulator });
+            } else {
+                updateAssistant((blocks) =>
+                    blocks.map((b, i) =>
+                        i === blocks.length - 1 && b.type === "summary"
+                            ? { type: "summary", markdown: summaryAccumulator }
+                            : b
+                    )
+                );
+            }
+        };
 
         let researchContext = "";
 
         try {
-            // ─── Deep Research (optional) ───────────────────
             if (useDeepResearch) {
-                setMessages((prev) =>
-                    prev.map((m) =>
-                        m.id === thinkingId
-                            ? { ...m, content: "Scanning decentralized protocols..." }
-                            : m
-                    )
-                );
-
                 try {
                     const researchRes = await fetch("/api/agent/knowledge", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ query: userMessage.content }),
+                        body: JSON.stringify({ query: promptText }),
                     });
-
                     if (researchRes.ok) {
-                        const researchData = await researchRes.json();
-                        researchContext = `\n\n[RESEARCH CONTEXT based on: ${researchData.query}]\nSummary: ${researchData.summary}\nTechnical Reference: ${researchData.rawContent}`;
-
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === thinkingId
-                                    ? {
-                                        ...m,
-                                        content: `Research complete. Synthesizing implementation...`,
-                                    }
-                                    : m
-                            )
-                        );
+                        const data = await researchRes.json();
+                        researchContext = `\n\n[RESEARCH CONTEXT based on: ${data.query}]\nSummary: ${data.summary}\nTechnical Reference: ${data.rawContent}`;
                     }
-                } catch {
-                    // Research failed — continue without it
-                }
+                } catch { /* continue without research */ }
             }
 
-            // ─── Run Architect Engine ───────────────────────
             const engine = getEngine();
 
-            // Update engine callbacks for this generation run
             engine.updateCallbacks({
-                onStateChange: (status: ArchitectStatus) => {
-                    setArchitectStatus({ ...status });
-                    const stateMsg = getStateMessage(status);
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? { ...m, content: stateMsg, state: status.state }
-                                : m
-                        )
-                    );
+                onStateChange: (status) => setArchitectStatus({ ...status }),
+                onActivity: (event: ActivityEvent) => {
+                    switch (event.kind) {
+                        case "thinking_started":
+                            // Already seeded
+                            break;
+                        case "thinking_chunk":
+                            appendThinking(event.content);
+                            break;
+                        case "thinking_done":
+                            finishThinking();
+                            break;
+                        case "file_added":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-${event.file}-add`,
+                                    kind: "file_added",
+                                    file: event.file,
+                                    lines: event.lines,
+                                },
+                            });
+                            break;
+                        case "file_modified":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-${event.file}-mod`,
+                                    kind: "file_modified",
+                                    file: event.file,
+                                    addedLines: event.addedLines,
+                                    removedLines: event.removedLines,
+                                },
+                            });
+                            break;
+                        case "analyzing":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-analyze-${Date.now()}`,
+                                    kind: "analyzing",
+                                    fileCount: event.fileCount,
+                                },
+                            });
+                            break;
+                        case "issues_found":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-issues-${Date.now()}`,
+                                    kind: "issues_found",
+                                    count: event.count,
+                                    preview: event.preview,
+                                },
+                            });
+                            break;
+                        case "fixing":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-fix-${event.attempt}`,
+                                    kind: "fixing",
+                                    attempt: event.attempt,
+                                    max: event.max,
+                                    issues: event.issues,
+                                },
+                            });
+                            break;
+                        case "summary_chunk":
+                            appendSummary(event.content);
+                            break;
+                        case "done":
+                            finishThinking();
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-done`,
+                                    kind: "done",
+                                    fileCount: event.fileCount,
+                                    bytes: event.bytes,
+                                    elapsedMs: event.elapsedMs,
+                                    model: event.model,
+                                    provider: event.provider,
+                                    tokens: event.tokens,
+                                },
+                            });
+                            // Add follow-up chips
+                            appendBlock({ type: "followups", chips: generateFollowUps(promptText) });
+                            break;
+                        case "failed":
+                            finishThinking();
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-error`,
+                                    kind: "error",
+                                    error: event.error,
+                                },
+                            });
+                            break;
+                    }
+                },
+                onSummary: (markdown: string) => {
+                    if (!summaryBlockExists && markdown) {
+                        appendSummary(markdown);
+                    }
                 },
                 onExplanation: (explanation: string) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: `Generation complete.\n\n${explanation}`,
-                                    codeGenerated: true,
-                                    state: "CLEAN",
-                                }
-                                : m
-                        )
-                    );
+                    // Fallback: if model didn't emit a markdown summary, use the JSON `explanation`
+                    if (!summaryBlockExists && explanation) {
+                        appendBlock({ type: "summary", markdown: explanation });
+                        summaryBlockExists = true;
+                    }
                 },
                 onFilesGenerated: (files: Record<string, string>) => {
-                    const status = engine.getStatus();
-                    const fileCount = Object.keys(files).length;
-                    const wasClean = status.state === "CLEAN";
-
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: wasClean
-                                        ? `${fileCount} module(s) synthesized. Clean build.${status.attempt > 0 ? ` (${status.attempt} correction(s) applied)` : ""}`
-                                        : `${fileCount} module(s) generated with ${status.errors.length} remaining issue(s) after ${status.attempt} correction attempt(s).`,
-                                    codeGenerated: true,
-                                    state: status.state,
-                                }
-                                : m
-                        )
-                    );
-
                     onGenerate(files);
                 },
                 onError: (error: string) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: `Generation issue:\n${error}`,
-                                    state: "FAILED",
-                                }
-                                : m
-                        )
-                    );
+                    console.error("[Architect]", error);
                 },
             });
 
-            const selectedModelInfo = availableModels.find(m => m.id === selectedModel);
+            const selectedModelInfo = availableModels.find((m) => m.id === selectedModel);
             const isByok = selectedModelInfo?.byok && byokConfig?.apiKey;
 
             await engine.generate(
-                userMessage.content,
+                promptText,
                 userFiles,
                 runtimeLogs,
                 researchContext || undefined,
@@ -317,21 +455,19 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                     provider: selectedModelInfo?.provider || "groq",
                     apiKey: isByok ? byokConfig!.apiKey : "",
                     model: selectedModel,
-                }
+                },
+                history
             );
         } catch (error) {
             console.error("PromptChat Error:", error);
-            setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === thinkingId
-                        ? {
-                            ...m,
-                            content: `Generation failed.\n\n${error instanceof Error ? error.message : "Unknown error"}`,
-                            state: "FAILED",
-                        }
-                        : m
-                )
-            );
+            appendBlock({
+                type: "activity",
+                card: {
+                    id: `${assistantId}-fatal`,
+                    kind: "error",
+                    error: error instanceof Error ? error.message : "Unknown error",
+                },
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -344,221 +480,219 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     };
 
-    return (
-        <div className="flex flex-col h-full min-h-0 bg-white">
-            {/* Status Bar */}
-            {architectStatus && architectStatus.state !== "IDLE" && (
-                <ArchitectStatusBar status={architectStatus} />
-            )}
+    const liveStatusLabel = architectStatus ? STATUS_LABEL[architectStatus.state] : null;
 
+    return (
+        <div className="flex flex-col h-full min-h-0">
             {/* Messages */}
-            <ScrollArea className="flex-1 px-4 py-5 scrollbar-thin min-h-0" ref={scrollRef}>
-                <div className="space-y-4 max-w-2xl mx-auto">
+            <ScrollArea className="flex-1 p-3 scrollbar-thin min-h-0" ref={scrollRef}>
+                <div className="space-y-4">
                     {messages.map((message) => (
                         <div
                             key={message.id}
                             className={cn(
-                                "flex gap-2.5 items-start",
+                                "flex gap-2",
                                 message.role === "user" ? "justify-end" : "justify-start"
                             )}
                         >
                             {message.role === "assistant" && (
-                                <div className="w-7 h-7 rounded-full bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0 mt-0.5">
-                                    <DreyvStar size={13} className="text-violet-600" />
+                                <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-1">
+                                    <ArchitectIcon size={14} />
                                 </div>
                             )}
-                            <div
-                                className={cn(
-                                    "max-w-[82%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-                                    message.role === "user"
-                                        ? "bg-violet-600 text-white rounded-tr-sm font-medium"
-                                        : "bg-slate-50 text-slate-800 border border-slate-200/70 rounded-tl-sm",
-                                    message.codeGenerated && "border-emerald-200 bg-emerald-50/60 text-emerald-900",
-                                    message.state === "STREAMING" && "border-violet-200 bg-violet-50/60",
-                                    message.state === "CORRECTING" && "border-orange-200 bg-orange-50/60",
-                                    message.state === "FAILED" && "border-rose-200 bg-rose-50/60 text-rose-900"
-                                )}
-                                style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
-                            >
-                                <pre className="whitespace-pre-wrap font-sans m-0">
-                                    {message.content}
-                                </pre>
+
+                            <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "max-w-[92%] flex-1")}>
+                                {message.blocks.map((block, idx) => {
+                                    if (block.type === "text") {
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className={cn(
+                                                    "rounded-xl px-4 py-2.5 text-[13px] leading-relaxed shadow-sm",
+                                                    message.role === "user"
+                                                        ? "bg-primary text-background font-bold tracking-tight"
+                                                        : "bg-muted/20 text-foreground border border-border/40"
+                                                )}
+                                            >
+                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-0 [&_p]:leading-relaxed [&_strong]:text-foreground [&_em]:text-muted-foreground">
+                                                    <ReactMarkdown>{block.content}</ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    if (block.type === "activity") {
+                                        const card =
+                                            block.card.kind === "thinking"
+                                                ? { ...block.card, collapsed: collapsedThinking[block.card.id] ?? block.card.collapsed }
+                                                : block.card;
+                                        return (
+                                            <ArchitectActivityCard
+                                                key={idx}
+                                                card={card}
+                                                onToggleThinking={toggleThinking}
+                                            />
+                                        );
+                                    }
+                                    if (block.type === "summary") {
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="rounded-xl px-4 py-3 text-[13px] leading-relaxed bg-primary/5 border border-primary/30"
+                                            >
+                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1.5 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:text-primary [&_code]:text-primary [&_code]:bg-primary/10 [&_code]:px-1 [&_code]:rounded">
+                                                    <ReactMarkdown>{block.markdown}</ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    if (block.type === "followups") {
+                                        return (
+                                            <div key={idx} className="flex flex-wrap gap-1.5 pt-1">
+                                                {block.chips.map((chip, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => handleSubmit(chip)}
+                                                        disabled={isGenerating}
+                                                        className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/20 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                                    >
+                                                        <Sparkles size={10} />
+                                                        {chip}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })}
                             </div>
+
                             {message.role === "user" && (
-                                <Avatar className="h-7 w-7 shrink-0 border border-slate-200 mt-0.5">
+                                <Avatar className="h-6 w-6 shrink-0 border border-border mt-1">
                                     <AvatarImage src={getAvatarUrl(user?.info?.name || "User")} />
-                                    <AvatarFallback className="text-[9px] font-semibold bg-violet-100 text-violet-700">
+                                    <AvatarFallback className="text-[8px] font-bold">
                                         {user?.info?.name?.charAt(0) || "U"}
                                     </AvatarFallback>
                                 </Avatar>
                             )}
                         </div>
                     ))}
+
+                    {/* Live status row (chat-integrated, replaces status bar) */}
+                    {isGenerating && liveStatusLabel && (
+                        <div className="flex gap-2 justify-start">
+                            <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                                <Loader2 size={12} className="animate-spin text-primary" />
+                            </div>
+                            <div className="text-[12px] text-muted-foreground italic flex items-center">
+                                {liveStatusLabel}
+                                <span className="inline-flex ml-1">
+                                    <span className="animate-pulse">.</span>
+                                    <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>.</span>
+                                    <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>.</span>
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </ScrollArea>
 
-            {/* Sticky composer */}
-            <div className="px-4 pb-4 pt-2 border-t border-slate-200/70 bg-gradient-to-b from-white to-slate-50/40">
-                <div className="max-w-2xl mx-auto">
-                    <div className="relative rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_-8px_rgba(124,58,237,0.15)] focus-within:border-violet-300 focus-within:shadow-[0_4px_24px_-6px_rgba(124,58,237,0.25)] transition-all">
-                        <Textarea
-                            ref={textareaRef}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Describe what you want to build…"
-                            disabled={isGenerating}
-                            className="resize-none border-0 bg-transparent text-[13px] text-slate-800 placeholder:text-slate-400 focus-visible:ring-0 px-3.5 pt-3 pb-12 min-h-[88px] rounded-2xl"
-                            rows={3}
-                            style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
-                        />
+            {/* Input */}
+            <div className="p-3 border-t border-border">
+                <div className="relative">
+                    <Textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Describe what you want to build, or ask a follow-up…"
+                        disabled={isGenerating}
+                        className="resize-none pr-12 min-h-[80px] bg-background/50 pl-12 pb-10"
+                        rows={3}
+                    />
 
-                        {/* Bottom toolbar inside composer */}
-                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                                {/* Model chip */}
-                                <div className="relative" ref={dropdownRef}>
-                                    <button
-                                        onClick={() => setShowModelDropdown(!showModelDropdown)}
-                                        className="flex items-center gap-1 px-2 h-7 rounded-md text-[10px] font-medium text-slate-600 hover:text-violet-700 bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 transition-colors"
-                                    >
-                                        {availableModels.find(m => m.id === selectedModel)?.label || selectedModel}
-                                        <ChevronDown size={10} className={cn("transition-transform", showModelDropdown && "rotate-180")} />
-                                    </button>
-                                    {showModelDropdown && (
-                                        <div className="absolute bottom-full left-0 mb-1.5 w-60 rounded-lg border border-slate-200 bg-white shadow-xl z-50 py-1 max-h-72 overflow-auto">
-                                            {byokConfig?.apiKey && (
-                                                <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-violet-600 border-b border-slate-100">
-                                                    Your models ({byokConfig.provider})
-                                                </div>
-                                            )}
-                                            {availableModels.map((model) => {
-                                                const isFirstFree = model === FREE_MODELS[0] && byokConfig?.apiKey;
-                                                return (
-                                                    <React.Fragment key={model.id + (model.byok ? "-byok" : "")}>
-                                                        {isFirstFree && (
-                                                            <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 border-t border-slate-100 mt-0.5">
-                                                                Free models
-                                                            </div>
-                                                        )}
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedModel(model.id);
-                                                                setShowModelDropdown(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full text-left px-3 py-1.5 text-[11px] transition-colors flex items-center gap-2",
-                                                                selectedModel === model.id
-                                                                    ? "bg-violet-50 text-violet-700 font-medium"
-                                                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                                            )}
-                                                        >
-                                                            <span className="flex-1">{model.label}</span>
-                                                            {model.byok && (
-                                                                <span className="text-[8px] text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">key</span>
-                                                            )}
-                                                        </button>
-                                                    </React.Fragment>
-                                                );
-                                            })}
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className={cn(
+                            "absolute top-2 left-2 h-8 w-8 transition-colors",
+                            useDeepResearch ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                        )}
+                        onClick={() => setUseDeepResearch(!useDeepResearch)}
+                        title="Enable Deep Research"
+                    >
+                        <Cpu size={16} className={cn(useDeepResearch && "animate-pulse")} />
+                    </Button>
+                    <Button
+                        size="icon"
+                        className="absolute bottom-2 right-2 h-8 w-8"
+                        onClick={() => handleSubmit()}
+                        disabled={!input.trim() || isGenerating}
+                    >
+                        {isGenerating ? (
+                            <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                            <ArrowUp size={14} />
+                        )}
+                    </Button>
+
+                    {/* Model selector */}
+                    <div className="absolute bottom-2 left-2 z-10" ref={dropdownRef}>
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowModelDropdown(!showModelDropdown)}
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono text-muted-foreground hover:text-foreground transition-colors bg-muted/40 hover:bg-muted/70 border border-border/30"
+                            >
+                                {availableModels.find((m) => m.id === selectedModel)?.label || selectedModel}
+                                <ChevronDown size={8} className={cn("transition-transform", showModelDropdown && "rotate-180")} />
+                            </button>
+
+                            {showModelDropdown && (
+                                <div className="absolute bottom-full left-0 mb-1 w-56 rounded-md border border-border bg-popover shadow-lg z-50 py-1 max-h-64 overflow-auto">
+                                    {byokConfig?.apiKey && (
+                                        <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-purple-400/60 border-b border-border/30 mb-0.5">
+                                            Your Models ({byokConfig.provider})
                                         </div>
                                     )}
+                                    {availableModels.map((model) => {
+                                        const isFirstFree = model === FREE_MODELS[0] && byokConfig?.apiKey;
+                                        return (
+                                            <React.Fragment key={model.id + (model.byok ? "-byok" : "")}>
+                                                {isFirstFree && (
+                                                    <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500 border-t border-border/30 mt-0.5">
+                                                        Free Models
+                                                    </div>
+                                                )}
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedModel(model.id);
+                                                        setShowModelDropdown(false);
+                                                    }}
+                                                    className={cn(
+                                                        "w-full text-left px-3 py-1.5 text-[11px] font-mono transition-colors flex items-center gap-2",
+                                                        selectedModel === model.id
+                                                            ? "bg-primary/10 text-primary"
+                                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    <span className="flex-1">{model.label}</span>
+                                                    {model.byok && (
+                                                        <span className="text-[8px] text-purple-400 bg-purple-500/10 px-1 py-0.5 rounded uppercase tracking-wider font-bold">key</span>
+                                                    )}
+                                                </button>
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </div>
-
-                                <button
-                                    onClick={() => setUseDeepResearch(!useDeepResearch)}
-                                    title="Deep research"
-                                    className={cn(
-                                        "flex items-center gap-1 px-2 h-7 rounded-md text-[10px] font-medium border transition-colors",
-                                        useDeepResearch
-                                            ? "text-violet-700 bg-violet-50 border-violet-200"
-                                            : "text-slate-500 hover:text-violet-700 bg-slate-50 hover:bg-violet-50 border-slate-200 hover:border-violet-200"
-                                    )}
-                                >
-                                    <Cpu size={11} className={cn(useDeepResearch && "animate-pulse")} />
-                                    Research
-                                </button>
-                            </div>
-
-                            <Button
-                                size="icon"
-                                onClick={handleSubmit}
-                                disabled={!input.trim() || isGenerating}
-                                className="h-7 w-7 rounded-md bg-violet-600 hover:bg-violet-700 text-white disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                                {isGenerating ? (
-                                    <Loader2 size={13} className="animate-spin" />
-                                ) : (
-                                    <ArrowUp size={13} />
-                                )}
-                            </Button>
+                            )}
                         </div>
                     </div>
-
-                    <p className="text-[10px] text-slate-400 mt-2 text-center font-medium">
-                        <Activity size={9} className="inline mr-1.5 text-violet-500" />
-                        Architect Engine v2 · Self-correcting
-                    </p>
                 </div>
+
+                <p className="text-[9px] text-muted-foreground mt-2 text-center font-bold tracking-[0.1em] uppercase opacity-40">
+                    <Activity size={10} className="inline mr-2 text-primary" />
+                    Architect Engine v2.0 — Self-Correction Active
+                </p>
             </div>
         </div>
     );
-}
-
-// ─── Status Bar Sub-Component ───────────────────────────────────────
-
-function ArchitectStatusBar({ status }: { status: ArchitectStatus }) {
-    const info = STATE_LABELS[status.state];
-    const elapsed = Math.round(status.elapsedMs / 1000);
-
-    return (
-        <div className="px-4 py-2 border-b border-slate-200/70 bg-gradient-to-r from-violet-50/40 via-white to-white flex items-center gap-3 text-[10px] font-medium shrink-0">
-            <div className={cn("flex items-center gap-1.5", info.color)}>
-                {(status.state === "STREAMING" || status.state === "CORRECTING") && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                )}
-                {status.state === "CLEAN" && <Zap size={10} />}
-                {status.state === "FAILED" && <AlertTriangle size={10} />}
-                {(status.state === "ANALYZING" || status.state === "RE_ANALYZING") && <Shield size={10} />}
-                <span>{info.label}</span>
-            </div>
-
-            <div className="h-3 w-px bg-slate-200" />
-
-            {status.attempt > 0 && (
-                <>
-                    <span className="text-orange-600">
-                        Fix {status.attempt}/{status.maxAttempts}
-                    </span>
-                    <div className="h-3 w-px bg-slate-200" />
-                </>
-            )}
-
-            <span className="text-slate-500">~{status.tokensGenerated.toLocaleString()} tok</span>
-            <div className="h-3 w-px bg-slate-200" />
-            <span className="text-slate-500">{elapsed}s</span>
-            <span className="ml-auto text-slate-400 font-mono text-[9px]">{status.model}</span>
-        </div>
-    );
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function getStateMessage(status: ArchitectStatus): string {
-    switch (status.state) {
-        case "STREAMING":
-            return "Generating code...";
-        case "ANALYZING":
-            return "Analyzing generated code for errors...";
-        case "CORRECTING":
-            return `Self-correction attempt ${status.attempt}/${status.maxAttempts}...\nFixing: ${status.errors.slice(0, 2).join("; ")}`;
-        case "RE_ANALYZING":
-            return `Re-analyzing after correction ${status.attempt}...`;
-        case "CLEAN":
-            return "Clean build achieved.";
-        case "FAILED":
-            return `Self-correction exhausted. ${status.errors.length} issue(s) remain.`;
-        default:
-            return "Processing...";
-    }
 }
