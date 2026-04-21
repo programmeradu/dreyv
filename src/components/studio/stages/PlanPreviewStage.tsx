@@ -104,14 +104,14 @@ export function PlanPreviewStage({
 
       {/* Needs your input */}
       {needsUserInput.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-amber-500">
+        <div className="space-y-2 rounded-lg border border-[hsl(var(--warning,38_92%_50%))/30] bg-[hsl(var(--warning,38_92%_50%))/5] p-3">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-[hsl(var(--warning,38_92%_50%))]">
             <AlertCircle size={12} /> Needs your input
           </div>
           <ul className="space-y-1 text-xs text-foreground/90">
             {needsUserInput.map((n, i) => (
               <li key={i} className="flex gap-2">
-                <span className="text-amber-500">›</span>
+                <span className="text-[hsl(var(--warning,38_92%_50%))]">›</span>
                 <span>{n}</span>
               </li>
             ))}

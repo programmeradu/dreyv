@@ -81,11 +81,11 @@ export function IntegrationsStage({ integrations, unknownProtocols, isLoading, o
                 <Check size={10} /> Ready
               </span>
             ) : it.status === "needs_setup" ? (
-              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-amber-500">
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-[hsl(var(--warning,38_92%_50%))]">
                 <Settings2 size={10} /> Needs setup
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-blue-400">
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-[hsl(var(--info,217_91%_60%))]">
                 <FlaskConical size={10} /> Researching
               </span>
             );
@@ -109,7 +109,7 @@ export function IntegrationsStage({ integrations, unknownProtocols, isLoading, o
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">{it.description}</p>
                   {it.requiredEnv.length > 0 && it.status === "needs_setup" && (
-                    <p className="text-[10px] text-amber-500 mt-1 font-mono">
+                    <p className="text-[10px] text-[hsl(var(--warning,38_92%_50%))] mt-1 font-mono">
                       requires: {it.requiredEnv.join(", ")}
                     </p>
                   )}
