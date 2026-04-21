@@ -741,7 +741,26 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
             </header>
 
             {/* Main Studio Area */}
-            <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden min-h-0">
+            {/* Main Studio Area */}
+            <div className="flex-1 relative overflow-hidden min-h-0">
+                {/* Empty-state / Plan-stepper overlay */}
+                {showEmptyState && !emptyStatePrompt && (
+                    <EmptyState
+                        onSubmit={handleEmptyStateSubmit}
+                        onOpenTemplates={() => setShowTemplateGallery(true)}
+                        onOpenRecent={() => setShowProjectBrowser(true)}
+                    />
+                )}
+                {emptyStatePrompt && (
+                    <PlanStepper
+                        prompt={emptyStatePrompt}
+                        onCancel={handleStepperCancel}
+                        onBuild={handlePlannerBuild}
+                        isBuilding={isPlannerBuilding}
+                    />
+                )}
+
+                <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden min-h-0">
                 {/* Left Panel: AI Chat */}
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
                     <div className="h-full flex flex-col bg-muted/20 border-r border-border overflow-hidden min-h-0">
