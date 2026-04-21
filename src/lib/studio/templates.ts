@@ -7,11 +7,24 @@
  * [P3] — Project Templates Gallery
  */
 
+/** Use cases group templates by treasury intent in the gallery sidebar. */
+export type TemplateUseCase =
+    | "treasury-monitoring"
+    | "market-data"
+    | "team-comms"
+    | "defi-operations"
+    | "ai-agents";
+
 export interface ProjectTemplate {
     id: string;
     name: string;
     description: string;
+    /** Free-form label, kept for backwards compat. */
     category: string;
+    /** New — drives the gallery left-rail grouping. */
+    useCase: TemplateUseCase;
+    /** Provider IDs from the Dreyv gateway this template calls (e.g. ["helius","slack"]). */
+    requiredProviders: string[];
     icon: string;
     files: Record<string, string>;
 }
