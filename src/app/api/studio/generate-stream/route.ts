@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { prompt, contextFiles, aiConfig } = body;
+  const { prompt, contextFiles, aiConfig, history } = body;
 
   if (!prompt) {
     return new Response(JSON.stringify({ error: "Prompt is required" }), {
@@ -39,6 +39,16 @@ export async function POST(req: NextRequest) {
 
   // Build full prompt with context
   let fullPrompt = prompt;
+
+  // Inject conversation history (last 10 turns) for follow-up context
+  if (Array.isArray(history) && history.length > 0) {
+    const recent = history.slice(-10);
+    const historyText = recent
+      .map((m: { role: string; content: string }) => `${m.role.toUpperCase()}: ${m.content}`)
+      .join("\n\n");
+    fullPrompt = `[CONVERSATION HISTORY — previous turns in this session]\n${historyText}\n\n[CURRENT REQUEST]\n${prompt}`;
+  }
+
   if (contextFiles && Object.keys(contextFiles).length > 0) {
     const manifest = Object.entries(contextFiles).map(([name, file]: [string, any]) => {
       const lines = (file.content || "").split("\n").length;
@@ -49,7 +59,7 @@ export async function POST(req: NextRequest) {
       .map(([name, file]: [string, any]) => `--- ${name} ---\n${file.content}\n`)
       .join("\n");
 
-    fullPrompt = `PROJECT MANIFEST:\n${manifest}\n\nCURRENT FILES:\n${fileContext}\n\nUSER REQUEST:\n${prompt}`;
+    fullPrompt = `${fullPrompt}\n\nPROJECT MANIFEST:\n${manifest}\n\nCURRENT FILES:\n${fileContext}`;
   }
 
   // Inject Web3 context
