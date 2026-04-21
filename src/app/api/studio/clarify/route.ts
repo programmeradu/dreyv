@@ -28,9 +28,9 @@ Respond with ONLY a JSON object — no prose, no markdown:
 
 export async function POST(req: NextRequest) {
   const limit = await checkRouteLimit(req, "ai_architect_runs");
-  if (!limit.success) {
+  if (!limit.allowed) {
     return NextResponse.json(
-      { error: "Rate limited", retryAfter: limit.retryAfter },
+      { error: "Rate limited", retryAfter: Math.ceil((limit.resetAt.getTime() - Date.now()) / 1000) },
       { status: 429 }
     );
   }
