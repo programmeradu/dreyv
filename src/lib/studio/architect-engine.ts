@@ -536,7 +536,7 @@ Do NOT return the standard JSON file format. Do not return markdown code blocks.
       );
     }
 
-    // Check for forbidden APIs
+    // Check for forbidden APIs + anti-mock guardrails
     const forbiddenPatterns: [RegExp, string][] = [
       [/\blocalStorage\b/, "localStorage is blocked by sandbox (no allow-same-origin)"],
       [/\bsessionStorage\b/, "sessionStorage is blocked by sandbox"],
@@ -545,6 +545,12 @@ Do NOT return the standard JSON file format. Do not return markdown code blocks.
       [/\brequire\s*\(/, "require() is not available — use ESM imports"],
       [/\b__dirname\b/, "__dirname is a Node.js API, not available in browser"],
       [/\bprocess\.env\b/, "process.env is not available in the iframe runtime"],
+      // ─── Anti-mock guardrails (Studio empty-state flow) ──────────
+      [/\b(mock|stub|placeholder|dummy|fake|lorem)\w*\s*[:=]/i, "No mocks/stubs allowed — use real data via useFetch() or SDK hooks"],
+      [/\b0x0{20,}\b/, "Zero-address placeholder detected — use a real address or accept it as a prop"],
+      [/setTimeout\s*\([^)]*(mock|fake|dummy|placeholder)/i, "Fake-data setTimeout detected — fetch real data instead"],
+      [/const\s+\w+\s*=\s*\[\s*\{\s*(id|name)\s*:\s*['"`](test|sample|example|foo|bar|lorem)/i, "Hardcoded sample data — fetch real data via useFetch() instead"],
+      [/\/\/\s*(TODO|FIXME):\s*(replace|implement|add).*(real|api|fetch)/i, "TODO/FIXME placeholder for real data — implement the real call now"],
     ];
 
     for (const [pattern, message] of forbiddenPatterns) {

@@ -659,6 +659,29 @@ export const orgVaults = pgTable('org_vaults', {
   vaultIdx: index('org_vaults_vault_idx').on(table.vaultAddress),
 }));
 
+// ─── Studio Runs (telemetry + self-learning loop for AI Architect) ───
+export const studioRuns = pgTable('studio_runs', {
+  id: serial('id').primaryKey(),
+  shortId: text('short_id').notNull().unique(),
+  userId: uuid('user_id').references(() => users.id),
+  prompt: text('prompt').notNull(),
+  promptCategory: text('prompt_category'),
+  clarifyAnswers: jsonb('clarify_answers'),
+  chosenIntegrations: jsonb('chosen_integrations'),
+  unknownProtocols: jsonb('unknown_protocols'),
+  researchSources: jsonb('research_sources'),
+  analyzerOutcome: text('analyzer_outcome'),
+  attempts: integer('attempts'),
+  shipped: boolean('shipped').default(false),
+  errors: jsonb('errors'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('studio_runs_user_idx').on(t.userId),
+  categoryIdx: index('studio_runs_category_idx').on(t.promptCategory),
+  outcomeIdx: index('studio_runs_outcome_idx').on(t.analyzerOutcome),
+}));
+
 // ─── Vaults (User-level vault registry with tier enforcement) ─────────
 export const vaults = pgTable('vaults', {
   id: uuid('id').defaultRandom().primaryKey(),

@@ -42,6 +42,9 @@ import { CommandPalette, type PaletteCommand } from "@/components/studio/Command
 import { GlobalSearch } from "@/components/studio/GlobalSearch";
 import { DiffReview, FileHistory } from "@/components/studio/DiffReview";
 import { type ProjectTemplate } from "@/lib/studio/templates";
+import { EmptyState } from "@/components/studio/EmptyState";
+import { PlanStepper } from "@/components/studio/PlanStepper";
+import { ArchitectEngine } from "@/lib/studio/architect-engine";
 
 interface StudioFile {
     name: string;
@@ -187,6 +190,13 @@ export default function StudioPage() {
     const [pendingDiff, setPendingDiff] = useState<{ fileName: string; original: string; modified: string } | null>(null);
     const fileHistoryRef = useRef(new FileHistory());
 
+    // ─── Empty-state / Plan-stepper flow ─────────────────────────
+    const [emptyStatePrompt, setEmptyStatePrompt] = useState<string | null>(null);
+    const [isPlannerBuilding, setIsPlannerBuilding] = useState(false);
+    const [showEmptyState, setShowEmptyState] = useState(true);
+    const stepperStartRef = useRef<number>(0);
+    const stepperEngineRef = useRef<ArchitectEngine | null>(null);
+
     const searchParams = useSearchParams();
     const hasLoadedFromUrl = useRef(false);
 
@@ -226,8 +236,140 @@ export default function StudioPage() {
         setActiveTab("preview");
         window.history.replaceState({}, "", "/app/studio");
         setShowTemplateGallery(false);
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
         toast.info("New project created.");
     };
+
+    // ─── Empty-state / Plan-stepper handlers ────────────────────
+    const handleEmptyStateSubmit = useCallback((prompt: string) => {
+        setEmptyStatePrompt(prompt);
+    }, []);
+
+    const handleStepperCancel = useCallback(() => {
+        setEmptyStatePrompt(null);
+        setIsPlannerBuilding(false);
+        stepperEngineRef.current?.abort();
+    }, []);
+
+    const logStudioRun = useCallback(
+        async (payload: Record<string, unknown>) => {
+            try {
+                await fetch("/api/studio/log-run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+            } catch {
+                // best-effort telemetry
+            }
+        },
+        []
+    );
+
+    const handlePlannerBuild = useCallback(
+        async (payload: {
+            prompt: string;
+            answers: Record<string, string | string[]>;
+            chosenIntegrations: Array<{ id: string; name: string; status: string }>;
+            researchContext: string;
+            category: string;
+            unknownProtocols: string[];
+        }) => {
+            setIsPlannerBuilding(true);
+            stepperStartRef.current = Date.now();
+
+            const enrichedPrompt = `${payload.prompt}
+
+[CLARIFYING ANSWERS]
+${Object.entries(payload.answers)
+                    .map(([k, v]) => `- ${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+                    .join("\n")}
+
+[CHOSEN INTEGRATIONS]
+${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none specified)"}
+
+[HARD RULES]
+- No mocks, stubs, placeholders, lorem text, or dummy/fake data.
+- All data must come from useFetch() or @keystone-os/sdk hooks.
+- If a value isn't known, accept it as a prop or input — never hardcode a fake.`;
+
+            const contextFiles: Record<string, { content: string }> = {};
+            for (const [name, file] of Object.entries(files)) {
+                contextFiles[name] = { content: file.content };
+            }
+
+            let analyzerOutcome: "CLEAN" | "CORRECTED" | "FAILED" = "FAILED";
+            let attempts = 0;
+            let resultErrors: string[] = [];
+
+            const engine = new ArchitectEngine({
+                onStateChange: (s) => {
+                    attempts = s.attempt;
+                    if (s.state === "CLEAN") analyzerOutcome = s.attempt > 0 ? "CORRECTED" : "CLEAN";
+                    if (s.state === "FAILED") analyzerOutcome = "FAILED";
+                },
+                onFilesGenerated: (gen) => {
+                    applyFilesRef.current?.(gen);
+                    setShowEmptyState(false);
+                    setEmptyStatePrompt(null);
+                    setIsPlannerBuilding(false);
+                    toast.success("Build complete!", {
+                        description: `Generated ${Object.keys(gen).length} file(s).`,
+                    });
+                    logStudioRun({
+                        prompt: payload.prompt,
+                        promptCategory: payload.category,
+                        clarifyAnswers: payload.answers,
+                        chosenIntegrations: payload.chosenIntegrations,
+                        unknownProtocols: payload.unknownProtocols,
+                        analyzerOutcome,
+                        attempts,
+                        shipped: false,
+                        errors: resultErrors,
+                        durationMs: Date.now() - stepperStartRef.current,
+                    });
+                },
+                onExplanation: () => { /* no-op for stepper flow */ },
+                onError: (err) => {
+                    resultErrors = [err];
+                    setIsPlannerBuilding(false);
+                    toast.error("Build failed", { description: err.slice(0, 200) });
+                    logStudioRun({
+                        prompt: payload.prompt,
+                        promptCategory: payload.category,
+                        clarifyAnswers: payload.answers,
+                        chosenIntegrations: payload.chosenIntegrations,
+                        unknownProtocols: payload.unknownProtocols,
+                        analyzerOutcome: "FAILED",
+                        attempts,
+                        shipped: false,
+                        errors: [err],
+                        durationMs: Date.now() - stepperStartRef.current,
+                    });
+                },
+            });
+
+            stepperEngineRef.current = engine;
+
+            try {
+                await engine.generate(
+                    enrichedPrompt,
+                    contextFiles,
+                    [],
+                    payload.researchContext || undefined
+                );
+            } catch (err) {
+                console.error("[Studio] Planner build failed:", err);
+                setIsPlannerBuilding(false);
+            }
+        },
+        [files, logStudioRun]
+    );
+
+    // Forward ref to applyGeneratedFiles (declared below) so the planner callback
+    // can call it without forward-reference TS errors.
+    const applyFilesRef = useRef<((files: Record<string, string>) => void) | null>(null);
 
     const handleSelectTemplate = (template: ProjectTemplate) => {
         const newFiles: Record<string, StudioFile> = {};
@@ -254,6 +396,8 @@ export default function StudioPage() {
         setProgramBuffer(null);
         setActiveTab("preview");
         setShowTemplateGallery(false);
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
         window.history.replaceState({}, "", "/app/studio");
         toast.success(`Loaded template: ${template.name}`);
     };
@@ -309,7 +453,15 @@ export default function StudioPage() {
         if (generatedFiles["App.tsx"]) {
             setActiveFile("App.tsx");
         }
+        // Hide empty state once any AI-generated content lands
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
     }, []);
+
+    // Wire the forward ref so the planner callback can call applyGeneratedFiles
+    useEffect(() => {
+        applyFilesRef.current = applyGeneratedFiles;
+    }, [applyGeneratedFiles]);
 
     const handleDiffAccept = useCallback((code: string) => {
         const allFiles = pendingFilesRef.current || {};
@@ -384,6 +536,8 @@ export default function StudioPage() {
         setFiles(loadedFiles);
         const loadedFileNames = Object.keys(loadedFiles);
         setActiveFile(loadedFileNames[0] || "App.tsx");
+        setShowEmptyState(false);
+        setEmptyStatePrompt(null);
         toast.success(`Loaded "${project.name}"`);
     };
 
@@ -587,7 +741,26 @@ export default function StudioPage() {
             </header>
 
             {/* Main Studio Area */}
-            <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden min-h-0">
+            {/* Main Studio Area */}
+            <div className="flex-1 relative overflow-hidden min-h-0">
+                {/* Empty-state / Plan-stepper overlay */}
+                {showEmptyState && !emptyStatePrompt && (
+                    <EmptyState
+                        onSubmit={handleEmptyStateSubmit}
+                        onOpenTemplates={() => setShowTemplateGallery(true)}
+                        onOpenRecent={() => setShowProjectBrowser(true)}
+                    />
+                )}
+                {emptyStatePrompt && (
+                    <PlanStepper
+                        prompt={emptyStatePrompt}
+                        onCancel={handleStepperCancel}
+                        onBuild={handlePlannerBuild}
+                        isBuilding={isPlannerBuilding}
+                    />
+                )}
+
+                <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden min-h-0">
                 {/* Left Panel: AI Chat */}
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
                     <div className="h-full flex flex-col bg-muted/20 border-r border-border overflow-hidden min-h-0">
@@ -718,6 +891,7 @@ export default function StudioPage() {
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            </div>
 
             <PremiumModal isOpen={showWalletModal} onClose={() => setShowWalletModal(false)} className="max-w-sm !bg-transparent !border-none !shadow-none !backdrop-blur-none p-0">
                 <div className="sr-only">
