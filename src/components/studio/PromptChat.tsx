@@ -484,9 +484,89 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
 
     const liveStatusLabel = architectStatus ? STATUS_LABEL[architectStatus.state] : null;
 
+    // Derive timeline items from messages (flatten user prompts + activity cards in chronological order)
+    const timelineItems: TimelineItem[] = useMemo(() => {
+        const items: TimelineItem[] = [];
+        for (const m of messages) {
+            if (m.id === "welcome") continue;
+            const baseTs = m.timestamp.getTime();
+            m.blocks.forEach((block, i) => {
+                const ts = baseTs + i;
+                if (block.type === "text") {
+                    items.push({
+                        id: `${m.id}-text-${i}`,
+                        kind: "narration",
+                        role: m.role,
+                        text: block.content,
+                        timestamp: ts,
+                    });
+                } else if (block.type === "summary") {
+                    items.push({
+                        id: `${m.id}-sum-${i}`,
+                        kind: "narration",
+                        role: "assistant",
+                        text: block.markdown,
+                        timestamp: ts,
+                    });
+                } else if (block.type === "activity") {
+                    items.push({
+                        id: `${m.id}-act-${i}`,
+                        kind: "activity",
+                        card: block.card,
+                        timestamp: ts,
+                    });
+                }
+            });
+        }
+        return items;
+    }, [messages]);
+
     return (
         <div className="flex flex-col h-full min-h-0">
-            {/* Messages */}
+            {/* View mode toggle */}
+            <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border/40 shrink-0">
+                <button
+                    onClick={() => setViewMode("chat")}
+                    className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                        viewMode === "chat"
+                            ? "bg-primary/15 text-primary"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    )}
+                >
+                    <MessageSquare size={11} />
+                    Chat
+                </button>
+                <button
+                    onClick={() => setViewMode("timeline")}
+                    className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                        viewMode === "timeline"
+                            ? "bg-primary/15 text-primary"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    )}
+                >
+                    <ListTree size={11} />
+                    Timeline
+                </button>
+                {isGenerating && (
+                    <span className="ml-auto flex items-center gap-1.5 text-[10px] text-primary">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        <span className="font-mono">{liveStatusLabel || "Working"}</span>
+                    </span>
+                )}
+            </div>
+
+            {viewMode === "timeline" ? (
+                <div className="flex-1 min-h-0">
+                    <ArchitectTimeline
+                        items={timelineItems}
+                        isLive={isGenerating}
+                        currentAction={liveStatusLabel}
+                    />
+                </div>
+            ) : (
+            /* Messages */
             <ScrollArea className="flex-1 p-3 scrollbar-thin min-h-0" ref={scrollRef}>
                 <div className="space-y-4">
                     {messages.map((message) => (
