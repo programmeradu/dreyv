@@ -85,6 +85,12 @@ export class ArchitectEngine {
     if (cb.onExplanation) this.callbacks.onExplanation = cb.onExplanation;
     if (cb.onError) this.callbacks.onError = cb.onError;
     if (cb.onStreamChunk) this.callbacks.onStreamChunk = cb.onStreamChunk;
+    if (cb.onActivity) this.callbacks.onActivity = cb.onActivity;
+    if (cb.onSummary) this.callbacks.onSummary = cb.onSummary;
+  }
+
+  private emitActivity(event: ActivityEvent): void {
+    this.callbacks.onActivity?.(event);
   }
 
   /**
