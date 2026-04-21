@@ -302,6 +302,9 @@ export default function StudioPage() {
         }) => {
             setIsPlannerBuilding(true);
             stepperStartRef.current = Date.now();
+            // Hand off to chat+preview view immediately — preview/chat stream as files generate
+            setShowEmptyState(false);
+            setEmptyStatePrompt(null);
 
             const enrichedPrompt = `${payload.prompt}
 
