@@ -198,6 +198,17 @@ export default function StudioPage() {
     const stepperStartRef = useRef<number>(0);
     const stepperEngineRef = useRef<ArchitectEngine | null>(null);
 
+    // ─── Dreyv Connector Key Wizard ──────────────────────────────
+    const [wizardProvider, setWizardProvider] = useState<string | null>(null);
+    useEffect(() => {
+        function onConnReq(e: Event) {
+            const detail = (e as CustomEvent).detail as { provider?: string } | undefined;
+            if (detail?.provider) setWizardProvider(detail.provider);
+        }
+        window.addEventListener("dreyv:connection_required", onConnReq);
+        return () => window.removeEventListener("dreyv:connection_required", onConnReq);
+    }, []);
+
     const searchParams = useSearchParams();
     const hasLoadedFromUrl = useRef(false);
 
