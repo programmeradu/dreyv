@@ -390,12 +390,23 @@ export class ArchitectEngine {
           } else if (event.type === "token") {
             this.tokensGenerated += Math.ceil((event.content?.length || 0) / 4);
             this.callbacks.onStreamChunk?.(event.content || "");
+          } else if (event.type === "thinking") {
+            this.emitActivity({ kind: "thinking_chunk", content: event.content || "" });
+          } else if (event.type === "thinking_done") {
+            this.emitActivity({ kind: "thinking_done" });
+          } else if (event.type === "summary") {
+            this.emitActivity({ kind: "summary_chunk", content: event.content || "" });
+          } else if (event.type === "summary_start") {
+            // marker only
           } else if (event.type === "done") {
             if (event.error === "no_api_key") {
               throw new Error("NO_API_KEY: " + (event.details || "No AI API key configured."));
             }
             if (event.explanation) {
               this.callbacks.onExplanation(event.explanation);
+            }
+            if (event.summary) {
+              this.callbacks.onSummary?.(event.summary);
             }
             result = event.files || null;
           } else if (event.type === "error" && !event.recoverable) {
