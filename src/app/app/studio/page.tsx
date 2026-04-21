@@ -310,7 +310,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                     if (s.state === "FAILED") analyzerOutcome = "FAILED";
                 },
                 onFilesGenerated: (gen) => {
-                    applyGeneratedFiles(gen);
+                    applyFilesRef.current?.(gen);
                     setShowEmptyState(false);
                     setEmptyStatePrompt(null);
                     setIsPlannerBuilding(false);
@@ -364,8 +364,12 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 setIsPlannerBuilding(false);
             }
         },
-        [files, applyGeneratedFiles, logStudioRun]
+        [files, logStudioRun]
     );
+
+    // Forward ref to applyGeneratedFiles (declared below) so the planner callback
+    // can call it without forward-reference TS errors.
+    const applyFilesRef = useRef<((files: Record<string, string>) => void) | null>(null);
 
     const handleSelectTemplate = (template: ProjectTemplate) => {
         const newFiles: Record<string, StudioFile> = {};
