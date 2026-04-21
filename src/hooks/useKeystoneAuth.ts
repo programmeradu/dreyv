@@ -45,6 +45,17 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
     const [step, setStep] = useState<AuthStep>("idle");
     const [error, setError] = useState<string | null>(null);
 
+    const parseJsonSafe = useCallback(async (res: Response) => {
+        const text = await res.text();
+        if (!text) return null;
+
+        try {
+            return JSON.parse(text);
+        } catch {
+            return null;
+        }
+    }, []);
+
     // ─── Check existing session on mount ─────────────────────────────
     const checkSession = useCallback(async () => {
         try {
@@ -58,7 +69,7 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
             });
             clearTimeout(timeoutId);
 
-            const data = await res.json();
+            const data = await parseJsonSafe(res);
             if (data.user) {
                 setUser(data.user);
             } else {
@@ -73,7 +84,7 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [parseJsonSafe]);
 
     useEffect(() => {
         checkSession();
@@ -93,7 +104,8 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
             // Step 1: Fetch nonce
             setStep("connecting");
             const nonceRes = await fetch("/api/auth/nonce");
-            const { nonce } = await nonceRes.json();
+            const nonceData = await parseJsonSafe(nonceRes);
+            const nonce = nonceData?.nonce;
 
             if (!nonce) {
                 throw new Error("Failed to fetch nonce from server.");
@@ -125,10 +137,17 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
                 body: JSON.stringify({ message, signature, walletAddress }),
             });
 
-            const authData = await authRes.json();
+            const authData = await parseJsonSafe(authRes);
 
             if (!authRes.ok) {
-                throw new Error(authData.error || "Authentication failed.");
+                const serverError = authData && typeof authData.error === "string"
+                    ? authData.error
+                    : null;
+                throw new Error(serverError || `Authentication failed (HTTP ${authRes.status}).`);
+            }
+
+            if (!authData?.user) {
+                throw new Error("Authentication response was empty. Please try again.");
             }
 
             setUser(authData.user);
@@ -152,7 +171,7 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
             setError(err.message || "Authentication failed. Please try again.");
             setStep("error");
         }
-    }, [publicKey, signMessage]);
+    }, [publicKey, signMessage, parseJsonSafe]);
 
     // ─── Sign Out ─────────────────────────────────────────────────────
     const signOut = useCallback(async () => {

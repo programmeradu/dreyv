@@ -185,12 +185,23 @@ function ProgressIndicator({ step }: { step: number }) {
 function LinuxTerminal() {
     const { lines } = useTelemetry();
     const scrollRef = React.useRef<HTMLDivElement>(null);
+    const [lastLoginDate, setLastLoginDate] = useState<string>("");
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [lines]);
+
+    useEffect(() => {
+        setLastLoginDate(
+            new Date().toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+            })
+        );
+    }, []);
 
     return (
         <div className="absolute bottom-12 left-12 z-20 hidden lg:flex flex-col w-[480px] rounded-xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(124,58,237,0.2)] border border-violet-200/45 bg-white/95 backdrop-blur-xl">
@@ -214,7 +225,7 @@ function LinuxTerminal() {
                 }} />
 
                 <div ref={scrollRef} className="p-4 pb-2 font-mono text-[11.5px] leading-[1.7] h-[200px] overflow-y-auto scrollbar-none relative z-10">
-                    <div className="text-slate-400 mb-3 text-[10px]">Last login: {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} on ttys001</div>
+                    <div className="text-slate-400 mb-3 text-[10px]">Last login: {lastLoginDate || "..."} on ttys001</div>
                     <AnimatePresence initial={false}>
                         {lines.map((line, idx) => (
                             <motion.div
