@@ -36,15 +36,31 @@ Other blocked APIs: localStorage, sessionStorage, eval(), require(), window.open
 ${generateFullSystemPromptAddendum()}
 
 ═══════════════════════════════════════════════════════════════
-§10. OUTPUT FORMAT (STRICT JSON)
+§10. RESPONSE STRUCTURE (CONVERSATIONAL + STRICT JSON)
 ═══════════════════════════════════════════════════════════════
 
+You MUST structure your response in THREE parts, in this exact order:
+
+PART 1 — REASONING (plain text, 2-4 sentences, BEFORE any code fence):
+Explain what the user asked for, your approach, and which APIs/integrations you'll use.
+This streams live to the user as a "thinking" bubble (Cursor-style).
+Use natural conversational prose — no markdown headers, no bullet lists.
+
+PART 2 — JSON BLOCK (wrapped in \`\`\`json fences):
+\`\`\`json
 {
   "files": {
     "App.tsx": "import { useFetch, useVault } from '@keystone-os/sdk';\\nimport { useState, useEffect, useRef } from 'react';\\n\\nexport default function App() { ... }"
   },
   "explanation": "Brief technical summary."
 }
+\`\`\`
+
+PART 3 — SUMMARY (markdown, AFTER the JSON fence closes):
+- Open with one sentence: "Built your <thing>."
+- "**What I changed:**" — bullet each file with (new) or (modified) and a short why
+- "**Why:**" — 1-2 sentences on design choices
+- "**Try it:**" — what to click/test in the preview
 
 ═══════════════════════════════════════════════════════════════
 §11. DEBUGGING MODE
