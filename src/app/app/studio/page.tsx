@@ -644,7 +644,98 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         }
     };
 
-    // ─── Keyboard Shortcuts ─────────────────────────────────────
+    // ─── Preview / PDF / Test handlers (moved from StudioToolbar) ───
+    const handlePreview = useCallback(async () => {
+        if (!caps.browserRendering) {
+            toast.error("Preview unavailable", { description: "Browser Rendering is not configured on the server." });
+            return;
+        }
+        setIsPreviewing(true);
+        try {
+            const code = files["App.tsx"]?.content || "";
+            const res = await fetch("/api/studio/screenshot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ html: buildPreviewHtml(code), width: 800, height: 600 }),
+            });
+            if (!res.ok) throw new Error(`Screenshot failed: ${res.status}`);
+            const data = await res.json();
+            if (data.dataUrl) {
+                const w = window.open("", "_blank");
+                if (w) w.document.write(`<title>Preview — ${appName}</title><img src="${data.dataUrl}" style="max-width:100%"/>`);
+            }
+            toast.success("Preview captured");
+        } catch (err: any) {
+            toast.error("Preview failed", { description: err.message });
+        } finally {
+            setIsPreviewing(false);
+        }
+    }, [caps.browserRendering, files, appName]);
+
+    const handleExportPdf = useCallback(async () => {
+        if (!caps.browserRendering) {
+            toast.error("PDF export unavailable", { description: "Browser Rendering is not configured on the server." });
+            return;
+        }
+        setIsExporting(true);
+        const toastId = toast.loading("Generating PDF...");
+        try {
+            const code = files["App.tsx"]?.content || "";
+            const res = await fetch("/api/studio/export-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ html: buildPreviewHtml(code), format: "A4", title: appName }),
+            });
+            if (!res.ok) throw new Error(`PDF export failed: ${res.status}`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${appName.toLowerCase().replace(/\s+/g, "-")}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.dismiss(toastId);
+            toast.success("PDF exported");
+        } catch (err: any) {
+            toast.dismiss(toastId);
+            toast.error("PDF export failed", { description: err.message });
+        } finally {
+            setIsExporting(false);
+        }
+    }, [caps.browserRendering, files, appName]);
+
+    const handleTest = useCallback(async () => {
+        setIsTesting(true);
+        setLastTestStatus("running");
+        try {
+            const code = files["App.tsx"]?.content || "";
+            const payload = caps.browserRendering
+                ? { html: buildPreviewHtml(code), code, appName }
+                : { code, appName };
+            const res = await fetch("/api/studio/test-app", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            const passed = data.passed ?? false;
+            setLastTestStatus(passed ? "passed" : "failed");
+            setLastTestMode(data.mode === "real" ? "real" : "static-lint");
+            const label = data.mode === "real" ? "Smoke test" : "Lint check";
+            if (passed) toast.success(`${label} passed`, { description: `Score: ${data.score}/100` });
+            else toast.error(`${label} failed`, { description: `Score: ${data.score}/100` });
+        } catch (err: any) {
+            setLastTestStatus("failed");
+            setLastTestMode("static-lint");
+            toast.error("Test failed", { description: err.message });
+        } finally {
+            setIsTesting(false);
+        }
+    }, [caps.browserRendering, files, appName]);
+
+
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const mod = e.metaKey || e.ctrlKey;
@@ -697,103 +788,34 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
     return (
         <div className="h-screen flex flex-col bg-background text-foreground selection:bg-primary/20 overflow-hidden min-h-0">
-            {/* Studio Header — Stitch-style premium top bar */}
-            <header className="h-12 border-b border-slate-200/70 bg-white/90 backdrop-blur flex items-center justify-between px-5 shrink-0 relative z-40">
-                {/* Left: brand + breadcrumb + editable name */}
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex items-center gap-2 pr-4 border-r border-slate-200/60">
-                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
-                        <span
-                            className="text-[12px] font-semibold tracking-tight text-slate-900"
-                            style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
-                        >
-                            dreyv
-                        </span>
-                        <span className="text-slate-300 text-xs">/</span>
-                        <span className="text-[11px] font-medium text-slate-500">Studio</span>
-                        <span className="text-slate-300 text-xs">/</span>
-                    </div>
-                    <Input
-                        value={appName}
-                        onChange={(e) => setAppName(e.target.value)}
-                        className="h-7 w-56 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
-                        placeholder="Untitled mini-app"
-                    />
-                </div>
+            {/* Studio Header v2 — capabilities-aware status bar */}
+            <StudioHeader
+                appName={appName}
+                onAppNameChange={(v) => { setAppName(v); setIsDirty(true); }}
+                isDirty={isDirty}
+                isSaving={isSaving}
+                lastSavedAt={lastSavedAt}
+                onSave={handleSave}
+                fileCount={Object.keys(files).length}
+                onOpenFiles={() => setShowProjectBrowser(true)}
+                lastTestStatus={lastTestStatus}
+                lastTestMode={lastTestMode}
+                onRunTest={handleTest}
+                isTesting={isTesting}
+                walletLabel={publicKey ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}` : "Connect"}
+                onWalletClick={() => setShowWalletModal(true)}
+                onNewProject={handleNewProject}
+                onOpenProjects={() => setShowProjectBrowser(true)}
+                onToggleSDK={() => setShowSDKReference((prev) => !prev)}
+                onPreview={handlePreview}
+                isPreviewing={isPreviewing}
+                onExportPdf={handleExportPdf}
+                isExporting={isExporting}
+                onShip={handleShip}
+                isShipping={isDeploying}
+                caps={caps}
+            />
 
-                {/* Right: vault chip · operator · actions · save · ship */}
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowWalletModal(true)}
-                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
-                        title="Connected wallet / vault keys"
-                    >
-                        <Shield size={11} className="opacity-70" />
-                        <span>{publicKey ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}` : "Connect"}</span>
-                    </button>
-
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full hover:bg-slate-50 transition-colors">
-                        <Avatar className="h-5 w-5 border border-slate-200">
-                            <AvatarImage src={getAvatarUrl(user?.info?.name || "operator")} />
-                            <AvatarFallback className="text-[9px] font-semibold bg-violet-100 text-violet-700">
-                                {user?.info?.name?.charAt(0).toUpperCase() || "U"}
-                            </AvatarFallback>
-                        </Avatar>
-                        <span className="text-[11px] font-medium text-slate-600 hidden sm:inline">
-                            {user?.info?.name || "Operator"}
-                        </span>
-                    </div>
-
-                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
-
-                    {/* Quick actions row */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleNewProject}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="New project"
-                    >
-                        <Plus size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowProjectBrowser(true)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="Open projects"
-                    >
-                        <FolderOpen size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowSDKReference((prev) => !prev)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-md"
-                        title="SDK reference"
-                    >
-                        <BookOpen size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md"
-                    >
-                        {isSaving ? "Saving…" : "Save"}
-                    </Button>
-
-                    <div className="h-4 w-px bg-slate-200 mx-0.5" />
-
-                    <StudioToolbar
-                        files={files}
-                        appName={appName}
-                        onShip={handleShip}
-                        isShipping={isDeploying}
-                    />
-                </div>
-            </header>
 
             {/* Main Studio Area */}
             {/* Main Studio Area */}
