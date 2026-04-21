@@ -1,27 +1,38 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, Zap, Shield, AlertTriangle, ChevronDown } from "lucide-react";
+import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, Sparkles } from "lucide-react";
 import { ArchitectIcon } from "@/components/icons";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSelf } from "@/liveblocks.config";
 import { cn } from "@/lib/utils";
-import { ArchitectEngine, type ArchitectStatus, type ArchitectState } from "@/lib/studio/architect-engine";
+import {
+    ArchitectEngine,
+    type ArchitectStatus,
+    type ArchitectState,
+    type ActivityEvent,
+} from "@/lib/studio/architect-engine";
 import { loadAIConfig, type AIKeyConfig } from "@/components/studio/APIKeySettings";
+import { ArchitectActivityCard, type ActivityCard } from "@/components/studio/ArchitectActivityCard";
 
 // ─── Types ──────────────────────────────────────────────────────────
+
+type MessageBlock =
+    | { type: "text"; content: string }
+    | { type: "activity"; card: ActivityCard }
+    | { type: "summary"; markdown: string }
+    | { type: "followups"; chips: string[] };
 
 interface Message {
     id: string;
     role: "user" | "assistant";
-    content: string;
     timestamp: Date;
-    codeGenerated?: boolean;
-    state?: ArchitectState;
+    blocks: MessageBlock[];
 }
 
 interface PromptChatProps {
@@ -31,18 +42,6 @@ interface PromptChatProps {
     userFiles: Record<string, any>;
     runtimeLogs?: string[];
 }
-
-// ─── State Label Map ────────────────────────────────────────────────
-
-const STATE_LABELS: Record<ArchitectState, { label: string; color: string; icon: string }> = {
-    IDLE: { label: "IDLE", color: "text-zinc-500", icon: "" },
-    STREAMING: { label: "GENERATING", color: "text-cyan-400", icon: "animate-pulse" },
-    ANALYZING: { label: "ANALYZING", color: "text-yellow-400", icon: "" },
-    CORRECTING: { label: "SELF-CORRECTING", color: "text-orange-400", icon: "animate-pulse" },
-    RE_ANALYZING: { label: "RE-ANALYZING", color: "text-yellow-400", icon: "" },
-    CLEAN: { label: "CLEAN BUILD", color: "text-emerald-400", icon: "" },
-    FAILED: { label: "ERRORS REMAIN", color: "text-red-400", icon: "" },
-};
 
 // ─── Available Models ───────────────────────────────────────────────
 
@@ -88,6 +87,35 @@ const BYOK_MODELS: Record<string, ModelOption[]> = {
     ],
 };
 
+// ─── Status Label ───────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<ArchitectState, string | null> = {
+    IDLE: null,
+    STREAMING: "Architect is thinking…",
+    ANALYZING: "Analyzing generated code…",
+    CORRECTING: "Self-correcting issues…",
+    RE_ANALYZING: "Re-analyzing after fix…",
+    CLEAN: null,
+    FAILED: null,
+};
+
+// ─── Follow-up suggestions ──────────────────────────────────────────
+
+function generateFollowUps(prompt: string): string[] {
+    const p = prompt.toLowerCase();
+    const out: string[] = [];
+    if (p.includes("swap") || p.includes("jupiter")) {
+        out.push("Add slippage settings", "Add token search", "Add transaction history");
+    } else if (p.includes("wallet") || p.includes("portfolio")) {
+        out.push("Add token filtering", "Add 24h price chart", "Add export to CSV");
+    } else if (p.includes("nft")) {
+        out.push("Add collection floor price", "Add rarity ranking", "Add listing button");
+    } else {
+        out.push("Make it dark mode", "Add a refresh button", "Add loading states");
+    }
+    return out;
+}
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFiles, runtimeLogs }: PromptChatProps) {
@@ -97,8 +125,14 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         {
             id: "welcome",
             role: "assistant",
-            content: "Architect initialized. Self-correction engine online.\n\nCapabilities:\n\u2022 Protocol Synthesizer\n\u2022 Treasury Logic Constructor\n\u2022 Auto Error Detection & Fix (3 attempts)\n\nAwaiting specifications...",
             timestamp: new Date(),
+            blocks: [
+                {
+                    type: "text",
+                    content:
+                        "Hey 👋 — I'm the Architect. Tell me what you want to build and I'll plan it, write the code, fix any errors, and explain what I shipped. Try something like *\"a Jupiter swap UI for SOL → USDC\"*.",
+                },
+            ],
         },
     ]);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,8 +144,8 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const [showModelDropdown, setShowModelDropdown] = useState(false);
     const [byokConfig, setByokConfig] = useState<AIKeyConfig | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [collapsedThinking, setCollapsedThinking] = useState<Record<string, boolean>>({});
 
-    // Load BYOK config on mount
     useEffect(() => {
         try {
             const config = loadAIConfig();
@@ -119,7 +153,6 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         } catch { /* no config */ }
     }, []);
 
-    // Close model dropdown on outside click
     useEffect(() => {
         if (!showModelDropdown) return;
         const handleClick = (e: MouseEvent) => {
@@ -131,7 +164,6 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         return () => document.removeEventListener("mousedown", handleClick);
     }, [showModelDropdown]);
 
-    // Build dynamic model list: BYOK models first (if configured), then free models
     const availableModels = useMemo(() => {
         const models: ModelOption[] = [];
         if (byokConfig?.apiKey && byokConfig.provider) {
@@ -148,168 +180,274 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     }, [messages]);
 
-    // ─── Architect Engine Setup ─────────────────────────────
     const getEngine = useCallback(() => {
         if (!engineRef.current) {
             engineRef.current = new ArchitectEngine({
-                onStateChange: (status) => {
-                    setArchitectStatus({ ...status });
-                },
-                onFilesGenerated: (files) => {
-                    onGenerate(files);
-                },
-                onExplanation: () => {
-                    // Explanation handled via message update below
-                },
-                onError: (error) => {
-                    console.error("[Architect]", error);
-                },
+                onStateChange: (status) => setArchitectStatus({ ...status }),
+                onFilesGenerated: (files) => onGenerate(files),
+                onExplanation: () => { /* handled via summary block */ },
+                onError: (error) => console.error("[Architect]", error),
             });
         }
         return engineRef.current;
     }, [onGenerate]);
 
+    const toggleThinking = useCallback((id: string) => {
+        setCollapsedThinking((prev) => ({ ...prev, [id]: !prev[id] }));
+    }, []);
+
+    // Build conversation history (text-only, last 10 turns) for context
+    const buildHistory = useCallback((): Array<{ role: string; content: string }> => {
+        const turns: Array<{ role: string; content: string }> = [];
+        for (const m of messages) {
+            if (m.id === "welcome") continue;
+            const text = m.blocks
+                .map((b) => {
+                    if (b.type === "text") return b.content;
+                    if (b.type === "summary") return b.markdown;
+                    return "";
+                })
+                .filter(Boolean)
+                .join("\n");
+            if (text) turns.push({ role: m.role, content: text });
+        }
+        return turns;
+    }, [messages]);
+
     // ─── Submit Handler ─────────────────────────────────────
-    const handleSubmit = async () => {
-        if (!input.trim() || isGenerating) return;
+    const handleSubmit = async (overridePrompt?: string) => {
+        const promptText = (overridePrompt ?? input).trim();
+        if (!promptText || isGenerating) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content: input.trim(),
             timestamp: new Date(),
+            blocks: [{ type: "text", content: promptText }],
         };
+
+        const history = buildHistory();
 
         setMessages((prev) => [...prev, userMessage]);
         setInput("");
         setIsGenerating(true);
 
-        const thinkingId = (Date.now() + 1).toString();
+        const assistantId = (Date.now() + 1).toString();
+        const thinkingCardId = `${assistantId}-thinking`;
+
+        // Seed assistant message with empty thinking card
         setMessages((prev) => [
             ...prev,
             {
-                id: thinkingId,
+                id: assistantId,
                 role: "assistant",
-                content: useDeepResearch
-                    ? "Initiating deep research protocol..."
-                    : "Initializing self-correction pipeline...",
                 timestamp: new Date(),
-                state: "STREAMING",
+                blocks: [
+                    {
+                        type: "activity",
+                        card: { id: thinkingCardId, kind: "thinking", text: "", collapsed: false, done: false },
+                    },
+                ],
             },
         ]);
+
+        // Helpers to mutate the assistant message
+        const updateAssistant = (mutator: (blocks: MessageBlock[]) => MessageBlock[]) => {
+            setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, blocks: mutator(m.blocks) } : m))
+            );
+        };
+
+        const appendBlock = (block: MessageBlock) => {
+            updateAssistant((blocks) => [...blocks, block]);
+        };
+
+        const appendThinking = (chunk: string) => {
+            updateAssistant((blocks) =>
+                blocks.map((b) =>
+                    b.type === "activity" && b.card.id === thinkingCardId && b.card.kind === "thinking"
+                        ? { ...b, card: { ...b.card, text: b.card.text + chunk } }
+                        : b
+                )
+            );
+        };
+
+        const finishThinking = () => {
+            updateAssistant((blocks) =>
+                blocks.map((b) =>
+                    b.type === "activity" && b.card.id === thinkingCardId && b.card.kind === "thinking"
+                        ? { ...b, card: { ...b.card, done: true, collapsed: true } }
+                        : b
+                )
+            );
+            setCollapsedThinking((prev) => ({ ...prev, [thinkingCardId]: true }));
+        };
+
+        let summaryAccumulator = "";
+        let summaryBlockExists = false;
+        const appendSummary = (chunk: string) => {
+            summaryAccumulator += chunk;
+            if (!summaryBlockExists) {
+                summaryBlockExists = true;
+                appendBlock({ type: "summary", markdown: summaryAccumulator });
+            } else {
+                updateAssistant((blocks) =>
+                    blocks.map((b, i) =>
+                        i === blocks.length - 1 && b.type === "summary"
+                            ? { type: "summary", markdown: summaryAccumulator }
+                            : b
+                    )
+                );
+            }
+        };
 
         let researchContext = "";
 
         try {
-            // ─── Deep Research (optional) ───────────────────
             if (useDeepResearch) {
-                setMessages((prev) =>
-                    prev.map((m) =>
-                        m.id === thinkingId
-                            ? { ...m, content: "Scanning decentralized protocols..." }
-                            : m
-                    )
-                );
-
                 try {
                     const researchRes = await fetch("/api/agent/knowledge", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ query: userMessage.content }),
+                        body: JSON.stringify({ query: promptText }),
                     });
-
                     if (researchRes.ok) {
-                        const researchData = await researchRes.json();
-                        researchContext = `\n\n[RESEARCH CONTEXT based on: ${researchData.query}]\nSummary: ${researchData.summary}\nTechnical Reference: ${researchData.rawContent}`;
-
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === thinkingId
-                                    ? {
-                                        ...m,
-                                        content: `Research complete. Synthesizing implementation...`,
-                                    }
-                                    : m
-                            )
-                        );
+                        const data = await researchRes.json();
+                        researchContext = `\n\n[RESEARCH CONTEXT based on: ${data.query}]\nSummary: ${data.summary}\nTechnical Reference: ${data.rawContent}`;
                     }
-                } catch {
-                    // Research failed — continue without it
-                }
+                } catch { /* continue without research */ }
             }
 
-            // ─── Run Architect Engine ───────────────────────
             const engine = getEngine();
 
-            // Update engine callbacks for this generation run
             engine.updateCallbacks({
-                onStateChange: (status: ArchitectStatus) => {
-                    setArchitectStatus({ ...status });
-                    const stateMsg = getStateMessage(status);
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? { ...m, content: stateMsg, state: status.state }
-                                : m
-                        )
-                    );
+                onStateChange: (status) => setArchitectStatus({ ...status }),
+                onActivity: (event: ActivityEvent) => {
+                    switch (event.kind) {
+                        case "thinking_started":
+                            // Already seeded
+                            break;
+                        case "thinking_chunk":
+                            appendThinking(event.content);
+                            break;
+                        case "thinking_done":
+                            finishThinking();
+                            break;
+                        case "file_added":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-${event.file}-add`,
+                                    kind: "file_added",
+                                    file: event.file,
+                                    lines: event.lines,
+                                },
+                            });
+                            break;
+                        case "file_modified":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-${event.file}-mod`,
+                                    kind: "file_modified",
+                                    file: event.file,
+                                    addedLines: event.addedLines,
+                                    removedLines: event.removedLines,
+                                },
+                            });
+                            break;
+                        case "analyzing":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-analyze-${Date.now()}`,
+                                    kind: "analyzing",
+                                    fileCount: event.fileCount,
+                                },
+                            });
+                            break;
+                        case "issues_found":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-issues-${Date.now()}`,
+                                    kind: "issues_found",
+                                    count: event.count,
+                                    preview: event.preview,
+                                },
+                            });
+                            break;
+                        case "fixing":
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-fix-${event.attempt}`,
+                                    kind: "fixing",
+                                    attempt: event.attempt,
+                                    max: event.max,
+                                    issues: event.issues,
+                                },
+                            });
+                            break;
+                        case "summary_chunk":
+                            appendSummary(event.content);
+                            break;
+                        case "done":
+                            finishThinking();
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-done`,
+                                    kind: "done",
+                                    fileCount: event.fileCount,
+                                    bytes: event.bytes,
+                                    elapsedMs: event.elapsedMs,
+                                    model: event.model,
+                                    provider: event.provider,
+                                    tokens: event.tokens,
+                                },
+                            });
+                            // Add follow-up chips
+                            appendBlock({ type: "followups", chips: generateFollowUps(promptText) });
+                            break;
+                        case "failed":
+                            finishThinking();
+                            appendBlock({
+                                type: "activity",
+                                card: {
+                                    id: `${assistantId}-error`,
+                                    kind: "error",
+                                    error: event.error,
+                                },
+                            });
+                            break;
+                    }
+                },
+                onSummary: (markdown: string) => {
+                    if (!summaryBlockExists && markdown) {
+                        appendSummary(markdown);
+                    }
                 },
                 onExplanation: (explanation: string) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: `Generation complete.\n\n${explanation}`,
-                                    codeGenerated: true,
-                                    state: "CLEAN",
-                                }
-                                : m
-                        )
-                    );
+                    // Fallback: if model didn't emit a markdown summary, use the JSON `explanation`
+                    if (!summaryBlockExists && explanation) {
+                        appendBlock({ type: "summary", markdown: explanation });
+                        summaryBlockExists = true;
+                    }
                 },
                 onFilesGenerated: (files: Record<string, string>) => {
-                    const status = engine.getStatus();
-                    const fileCount = Object.keys(files).length;
-                    const wasClean = status.state === "CLEAN";
-
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: wasClean
-                                        ? `${fileCount} module(s) synthesized. Clean build.${status.attempt > 0 ? ` (${status.attempt} correction(s) applied)` : ""}`
-                                        : `${fileCount} module(s) generated with ${status.errors.length} remaining issue(s) after ${status.attempt} correction attempt(s).`,
-                                    codeGenerated: true,
-                                    state: status.state,
-                                }
-                                : m
-                        )
-                    );
-
                     onGenerate(files);
                 },
                 onError: (error: string) => {
-                    setMessages((prev) =>
-                        prev.map((m) =>
-                            m.id === thinkingId
-                                ? {
-                                    ...m,
-                                    content: `Generation issue:\n${error}`,
-                                    state: "FAILED",
-                                }
-                                : m
-                        )
-                    );
+                    console.error("[Architect]", error);
                 },
             });
 
-            const selectedModelInfo = availableModels.find(m => m.id === selectedModel);
+            const selectedModelInfo = availableModels.find((m) => m.id === selectedModel);
             const isByok = selectedModelInfo?.byok && byokConfig?.apiKey;
 
             await engine.generate(
-                userMessage.content,
+                promptText,
                 userFiles,
                 runtimeLogs,
                 researchContext || undefined,
@@ -317,21 +455,19 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                     provider: selectedModelInfo?.provider || "groq",
                     apiKey: isByok ? byokConfig!.apiKey : "",
                     model: selectedModel,
-                }
+                },
+                history
             );
         } catch (error) {
             console.error("PromptChat Error:", error);
-            setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === thinkingId
-                        ? {
-                            ...m,
-                            content: `Generation failed.\n\n${error instanceof Error ? error.message : "Unknown error"}`,
-                            state: "FAILED",
-                        }
-                        : m
-                )
-            );
+            appendBlock({
+                type: "activity",
+                card: {
+                    id: `${assistantId}-fatal`,
+                    kind: "error",
+                    error: error instanceof Error ? error.message : "Unknown error",
+                },
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -344,13 +480,10 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     };
 
+    const liveStatusLabel = architectStatus ? STATUS_LABEL[architectStatus.state] : null;
+
     return (
         <div className="flex flex-col h-full min-h-0">
-            {/* Status Bar */}
-            {architectStatus && architectStatus.state !== "IDLE" && (
-                <ArchitectStatusBar status={architectStatus} />
-            )}
-
             {/* Messages */}
             <ScrollArea className="flex-1 p-3 scrollbar-thin min-h-0" ref={scrollRef}>
                 <div className="space-y-4">
@@ -363,28 +496,78 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             )}
                         >
                             {message.role === "assistant" && (
-                                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                                <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-1">
                                     <ArchitectIcon size={14} />
                                 </div>
                             )}
-                            <div
-                                className={cn(
-                                    "max-w-[88%] rounded-xl px-4 py-3 text-[13px] leading-relaxed shadow-sm",
-                                    message.role === "user"
-                                        ? "bg-primary text-background font-bold tracking-tight"
-                                        : "bg-muted/20 text-foreground border border-border/40 font-medium",
-                                    message.codeGenerated && "border-primary/40 bg-primary/5 text-primary shadow-[0_0_20px_rgba(54,226,123,0.05)] font-bold tracking-tight",
-                                    message.state === "STREAMING" && "border-cyan-400/30 bg-cyan-400/5",
-                                    message.state === "CORRECTING" && "border-orange-400/30 bg-orange-400/5",
-                                    message.state === "FAILED" && "border-red-400/30 bg-red-400/5"
-                                )}
-                            >
-                                <pre className="whitespace-pre-wrap font-sans">
-                                    {message.content}
-                                </pre>
+
+                            <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "max-w-[92%] flex-1")}>
+                                {message.blocks.map((block, idx) => {
+                                    if (block.type === "text") {
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className={cn(
+                                                    "rounded-xl px-4 py-2.5 text-[13px] leading-relaxed shadow-sm",
+                                                    message.role === "user"
+                                                        ? "bg-primary text-background font-bold tracking-tight"
+                                                        : "bg-muted/20 text-foreground border border-border/40"
+                                                )}
+                                            >
+                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-0 [&_p]:leading-relaxed [&_strong]:text-foreground [&_em]:text-muted-foreground">
+                                                    <ReactMarkdown>{block.content}</ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    if (block.type === "activity") {
+                                        const card =
+                                            block.card.kind === "thinking"
+                                                ? { ...block.card, collapsed: collapsedThinking[block.card.id] ?? block.card.collapsed }
+                                                : block.card;
+                                        return (
+                                            <ArchitectActivityCard
+                                                key={idx}
+                                                card={card}
+                                                onToggleThinking={toggleThinking}
+                                            />
+                                        );
+                                    }
+                                    if (block.type === "summary") {
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="rounded-xl px-4 py-3 text-[13px] leading-relaxed bg-primary/5 border border-primary/30"
+                                            >
+                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1.5 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:text-primary [&_code]:text-primary [&_code]:bg-primary/10 [&_code]:px-1 [&_code]:rounded">
+                                                    <ReactMarkdown>{block.markdown}</ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    if (block.type === "followups") {
+                                        return (
+                                            <div key={idx} className="flex flex-wrap gap-1.5 pt-1">
+                                                {block.chips.map((chip, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => handleSubmit(chip)}
+                                                        disabled={isGenerating}
+                                                        className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/20 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                                    >
+                                                        <Sparkles size={10} />
+                                                        {chip}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })}
                             </div>
+
                             {message.role === "user" && (
-                                <Avatar className="h-6 w-6 shrink-0 border border-border">
+                                <Avatar className="h-6 w-6 shrink-0 border border-border mt-1">
                                     <AvatarImage src={getAvatarUrl(user?.info?.name || "User")} />
                                     <AvatarFallback className="text-[8px] font-bold">
                                         {user?.info?.name?.charAt(0) || "U"}
@@ -393,6 +576,23 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             )}
                         </div>
                     ))}
+
+                    {/* Live status row (chat-integrated, replaces status bar) */}
+                    {isGenerating && liveStatusLabel && (
+                        <div className="flex gap-2 justify-start">
+                            <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                                <Loader2 size={12} className="animate-spin text-primary" />
+                            </div>
+                            <div className="text-[12px] text-muted-foreground italic flex items-center">
+                                {liveStatusLabel}
+                                <span className="inline-flex ml-1">
+                                    <span className="animate-pulse">.</span>
+                                    <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>.</span>
+                                    <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>.</span>
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </ScrollArea>
 
@@ -404,7 +604,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Describe what you want to build..."
+                        placeholder="Describe what you want to build, or ask a follow-up…"
                         disabled={isGenerating}
                         className="resize-none pr-12 min-h-[80px] bg-background/50 pl-12 pb-10"
                         rows={3}
@@ -425,7 +625,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                     <Button
                         size="icon"
                         className="absolute bottom-2 right-2 h-8 w-8"
-                        onClick={handleSubmit}
+                        onClick={() => handleSubmit()}
                         disabled={!input.trim() || isGenerating}
                     >
                         {isGenerating ? (
@@ -435,14 +635,14 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                         )}
                     </Button>
 
-                    {/* Model selector — inside textbox, bottom-left */}
+                    {/* Model selector */}
                     <div className="absolute bottom-2 left-2 z-10" ref={dropdownRef}>
                         <div className="relative">
                             <button
                                 onClick={() => setShowModelDropdown(!showModelDropdown)}
                                 className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono text-muted-foreground hover:text-foreground transition-colors bg-muted/40 hover:bg-muted/70 border border-border/30"
                             >
-                                {availableModels.find(m => m.id === selectedModel)?.label || selectedModel}
+                                {availableModels.find((m) => m.id === selectedModel)?.label || selectedModel}
                                 <ChevronDown size={8} className={cn("transition-transform", showModelDropdown && "rotate-180")} />
                             </button>
 
@@ -453,7 +653,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                                             Your Models ({byokConfig.provider})
                                         </div>
                                     )}
-                                    {availableModels.map((model, i) => {
+                                    {availableModels.map((model) => {
                                         const isFirstFree = model === FREE_MODELS[0] && byokConfig?.apiKey;
                                         return (
                                             <React.Fragment key={model.id + (model.byok ? "-byok" : "")}>
@@ -495,74 +695,4 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
             </div>
         </div>
     );
-}
-
-// ─── Status Bar Sub-Component ───────────────────────────────────────
-
-function ArchitectStatusBar({ status }: { status: ArchitectStatus }) {
-    const info = STATE_LABELS[status.state];
-    const elapsed = Math.round(status.elapsedMs / 1000);
-
-    return (
-        <div className="px-4 py-2 border-b border-border bg-muted/10 flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest shrink-0">
-            {/* State */}
-            <div className={cn("flex items-center gap-1.5", info.color)}>
-                {(status.state === "STREAMING" || status.state === "CORRECTING") && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                )}
-                {status.state === "CLEAN" && <Zap size={10} />}
-                {status.state === "FAILED" && <AlertTriangle size={10} />}
-                {status.state === "ANALYZING" || status.state === "RE_ANALYZING" ? (
-                    <Shield size={10} />
-                ) : null}
-                <span>{info.label}</span>
-            </div>
-
-            <div className="h-3 w-px bg-border/60" />
-
-            {/* Attempts */}
-            {status.attempt > 0 && (
-                <>
-                    <span className="text-orange-400">
-                        FIX {status.attempt}/{status.maxAttempts}
-                    </span>
-                    <div className="h-3 w-px bg-border/60" />
-                </>
-            )}
-
-            {/* Tokens */}
-            <span className="text-zinc-500">
-                ~{status.tokensGenerated.toLocaleString()} tok
-            </span>
-
-            <div className="h-3 w-px bg-border/60" />
-
-            {/* Elapsed */}
-            <span className="text-zinc-500">{elapsed}s</span>
-
-            {/* Model */}
-            <span className="ml-auto text-zinc-600">{status.model}</span>
-        </div>
-    );
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function getStateMessage(status: ArchitectStatus): string {
-    switch (status.state) {
-        case "STREAMING":
-            return "Generating code...";
-        case "ANALYZING":
-            return "Analyzing generated code for errors...";
-        case "CORRECTING":
-            return `Self-correction attempt ${status.attempt}/${status.maxAttempts}...\nFixing: ${status.errors.slice(0, 2).join("; ")}`;
-        case "RE_ANALYZING":
-            return `Re-analyzing after correction ${status.attempt}...`;
-        case "CLEAN":
-            return "Clean build achieved.";
-        case "FAILED":
-            return `Self-correction exhausted. ${status.errors.length} issue(s) remain.`;
-        default:
-            return "Processing...";
-    }
 }
