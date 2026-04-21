@@ -691,7 +691,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
     }, []);
 
     return (
-        <div className="h-screen flex flex-col bg-background text-foreground selection:bg-primary/20 overflow-hidden min-h-0">
+        
         <div className="h-screen flex flex-col bg-white text-slate-900 selection:bg-violet-200/50 overflow-hidden min-h-0" style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}>
             {/* Compact 44px header */}
             <header className="h-11 border-b border-slate-200/70 bg-white/95 backdrop-blur flex items-center justify-between px-4 shrink-0 relative z-40">
