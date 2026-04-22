@@ -2,11 +2,26 @@ import { TavilyClient } from "@/lib/tavily";
 import { JinaClient } from "@/lib/jina";
 import { FirecrawlClient } from "@/lib/firecrawl";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
+import {
+    startCrawl,
+    waitForCrawl,
+    type CrawlStartOptions,
+    type CrawlRecord,
+} from "@/lib/cloudflare/cf-browser";
 
 export interface KnowledgeResult {
     query: string;
     summary: string;
     sources: Array<{ title: string; url: string }>;
+    rawContent: string;
+}
+
+export interface CrawlSiteResult {
+    rootUrl: string;
+    jobId: string;
+    status: string;
+    pagesCollected: number;
+    records: CrawlRecord[];
     rawContent: string;
 }
 
@@ -88,6 +103,85 @@ ${secondaryContent}
         }
 
         return result;
+    }
+
+    /**
+     * Multi-page crawl via Cloudflare Browser Rendering /crawl.
+     * Starts the job, polls until terminal, paginates records, and stores
+     * each page in knowledgeMemory for GraphRAG-style recall.
+     *
+     * Defaults are tuned for docs sites: render=false, markdown format,
+     * limit 25, depth 3, same-domain only.
+     */
+    async crawlSite(
+        rootUrl: string,
+        opts: Partial<CrawlStartOptions> & {
+            tags?: string[];
+            maxAttempts?: number;
+            delayMs?: number;
+            persist?: boolean;
+        } = {}
+    ): Promise<CrawlSiteResult> {
+        const startOpts: CrawlStartOptions = {
+            url: rootUrl,
+            limit: opts.limit ?? 25,
+            depth: opts.depth ?? 3,
+            formats: opts.formats ?? ["markdown"],
+            render: opts.render ?? false,
+            source: opts.source ?? "all",
+            crawlPurposes: opts.crawlPurposes ?? ["search", "ai-input"],
+            options: opts.options,
+            maxAge: opts.maxAge,
+            modifiedSince: opts.modifiedSince,
+            jsonOptions: opts.jsonOptions,
+        };
+
+        const { result: jobId } = await startCrawl(startOpts);
+        console.log(`[KnowledgeBase] CF /crawl started job=${jobId} root=${rootUrl}`);
+
+        const job = await waitForCrawl(jobId, {
+            maxAttempts: opts.maxAttempts ?? 60,
+            delayMs: opts.delayMs ?? 5000,
+        });
+
+        const records = job.records ?? [];
+        const rawContent = records
+            .filter((r) => r.markdown || r.html)
+            .map(
+                (r) =>
+                    `### ${r.metadata?.title || r.url}\n` +
+                    `URL: ${r.url}\n\n${r.markdown ?? r.html ?? ""}`
+            )
+            .join("\n\n---\n\n");
+
+        // Persist each successful page individually so embeddings/recall work per-URL
+        if (opts.persist !== false) {
+            const tags = ["cf_crawl", ...(opts.tags ?? [])];
+            await Promise.allSettled(
+                records
+                    .filter((r) => r.status === "completed" && (r.markdown || r.html))
+                    .map((r) =>
+                        knowledgeMemory.store({
+                            source: "cf_crawl",
+                            sourceUrl: r.url,
+                            title: r.metadata?.title || r.url,
+                            summary: (r.markdown ?? r.html ?? "").slice(0, 500),
+                            content: r.markdown ?? r.html ?? "",
+                            contentType: r.markdown ? "markdown" : "html",
+                            tags,
+                        })
+                    )
+            );
+        }
+
+        return {
+            rootUrl,
+            jobId,
+            status: job.status,
+            pagesCollected: records.filter((r) => r.status === "completed").length,
+            records,
+            rawContent: rawContent.slice(0, 60000),
+        };
     }
 }
 

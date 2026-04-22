@@ -122,6 +122,64 @@ Wallet State: ${JSON.stringify(walletState || {})}
             };
           }
         } as any),
+
+        cf_crawl: tool({
+          description:
+            "Multi-page Cloudflare crawl of a documentation site or sitemap. Use for protocol docs, knowledge bases, or whole-site sweeps. Persists each page to long-term knowledge memory. Slow (10s–5min) — only call when single-page research is insufficient.",
+          parameters: z.object({
+            rootUrl: z.string().url().describe("The starting URL to crawl from."),
+            limit: z.number().int().min(1).max(200).optional().describe("Max pages (default 25)."),
+            depth: z.number().int().min(1).max(10).optional().describe("Max link depth (default 3)."),
+            includePatterns: z
+              .array(z.string())
+              .optional()
+              .describe("Wildcard URL patterns to include (e.g. 'https://docs.example.com/api/**')."),
+            excludePatterns: z.array(z.string()).optional(),
+            render: z
+              .boolean()
+              .optional()
+              .describe("Execute JS via headless browser. Default false (fast static fetch)."),
+            tags: z.array(z.string()).optional(),
+          }),
+          execute: async ({
+            rootUrl,
+            limit,
+            depth,
+            includePatterns,
+            excludePatterns,
+            render,
+            tags,
+          }: any) => {
+            console.log(`[CF Crawl] Starting crawl root=${rootUrl} limit=${limit ?? 25}`);
+            try {
+              const out = await knowledgeBase.crawlSite(rootUrl, {
+                limit,
+                depth,
+                render,
+                tags,
+                options:
+                  includePatterns || excludePatterns
+                    ? { includePatterns, excludePatterns }
+                    : undefined,
+              });
+              return {
+                status: out.status,
+                jobId: out.jobId,
+                rootUrl: out.rootUrl,
+                pagesCollected: out.pagesCollected,
+                synthesized_intelligence:
+                  out.rawContent.slice(0, 20000) ||
+                  "Crawl completed but returned no readable content.",
+              };
+            } catch (err) {
+              console.error("[CF Crawl] Failed:", err);
+              return {
+                status: "errored",
+                error: err instanceof Error ? err.message : String(err),
+              };
+            }
+          },
+        } as any),
       },
     });
 
