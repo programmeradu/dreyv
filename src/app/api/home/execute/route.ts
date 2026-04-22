@@ -512,10 +512,24 @@ async function execute(origin: string, tool_id: string, p: any) {
     case "audit_token": {
       const sym = (p.token || "").toUpperCase();
       if (!sym) {
-        return clarifyExposure({
+        const items = await suggestChips({
+          forTool: "audit_token",
+          missing: "token",
+          context: `User wants to audit/rug-check a Solana token. Suggest 3-4 currently-relevant tokens worth auditing (mix of major + speculative). Use ticker symbols only.`,
+          paramKey: "token",
+          paramType: "string",
+          fallback: [
+            { label: "BONK", value: "BONK" },
+            { label: "JUP", value: "JUP" },
+            { label: "WIF", value: "WIF" },
+            { label: "JTO", value: "JTO" },
+          ],
+        });
+        return buildClarify({
           forTool: "audit_token",
           title: "Which token should I audit?",
-          question: "Tell me a symbol or mint address — e.g. BONK, JUP, or a full mint.",
+          question: "Pick a token or type a symbol / mint address.",
+          items,
         });
       }
       const t = tok(sym);
