@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { GUIDES } from "@/lib/seo/guides";
-import { ArrowUpRight, BookOpen, Sparkles } from "lucide-react";
 import { marketingPrimaryCta } from "@/components/home/marketing-styles";
+import guidesCrystal from "@/assets/guides-crystal.png";
+import guidesBook from "@/assets/guides-book.png";
 
 const TITLE = "Guides — dreyv";
 const DESCRIPTION =
@@ -24,6 +26,25 @@ const TOPIC_TAG: Record<string, string> = {
   "dca-on-solana-guide": "DCA",
 };
 
+// Custom hand-drawn arrow mark (not a stock icon)
+function ArrowMark({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M4 12 L12 4" />
+      <path d="M6 4 L12 4 L12 10" />
+    </svg>
+  );
+}
+
 export default function GuidesIndexPage() {
   const sorted = [...GUIDES].sort((a, b) =>
     b.publishedAt.localeCompare(a.publishedAt),
@@ -32,11 +53,10 @@ export default function GuidesIndexPage() {
 
   return (
     <div className="relative min-h-dvh w-full bg-marketing-bg-low text-slate-900 antialiased">
-      {/* Soft ambient violet wash to match home aesthetic */}
+      {/* Solid violet ambient wash — no gradients between colors, single hue */}
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
-        <div className="absolute -top-40 -left-40 h-[640px] w-[640px] rounded-full bg-violet-300/20 blur-[140px]" />
-        <div className="absolute top-[10%] -right-24 h-[520px] w-[520px] rounded-full bg-fuchsia-200/25 blur-[130px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(139,92,246,0.08),transparent_60%)]" />
+        <div className="absolute -top-40 -left-40 h-[640px] w-[640px] rounded-full bg-violet-400/20 blur-[140px]" />
+        <div className="absolute top-[10%] -right-24 h-[520px] w-[520px] rounded-full bg-violet-300/25 blur-[130px]" />
       </div>
 
       <SiteHeader />
@@ -44,23 +64,33 @@ export default function GuidesIndexPage() {
       <main className="relative z-10 pt-28 md:pt-32 pb-20">
         {/* Hero */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/70 backdrop-blur-sm px-3 py-1 mb-6 shadow-sm">
-              <Sparkles className="h-3 w-3 text-violet-600" />
-              <span className="text-[11px] font-semibold text-violet-700 uppercase tracking-wider">
-                dreyv guides
-              </span>
+          <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 backdrop-blur-sm px-3 py-1 mb-6 shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+                <span className="text-[11px] font-semibold text-violet-700 uppercase tracking-wider">
+                  dreyv guides
+                </span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-[1.05] mb-6">
+                Practical guides for{" "}
+                <span className="text-violet-600">Solana treasury teams</span>
+              </h1>
+              <p className="text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl">
+                Multisig setup, treasury structure, DCA programs, and the case for
+                intent-driven workflows. Written for operators, not maximalists.
+              </p>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-[1.05] mb-6">
-              Practical guides for{" "}
-              <span className="bg-gradient-to-r from-violet-600 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent">
-                Solana treasury teams
-              </span>
-            </h1>
-            <p className="text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl">
-              Multisig setup, treasury structure, DCA programs, and the case for
-              intent-driven workflows. Written for operators, not maximalists.
-            </p>
+            <div className="hidden md:block">
+              <Image
+                src={guidesCrystal}
+                alt=""
+                width={220}
+                height={220}
+                priority
+                className="drop-shadow-[0_20px_40px_rgba(124,58,237,0.35)]"
+              />
+            </div>
           </div>
         </section>
 
@@ -69,14 +99,23 @@ export default function GuidesIndexPage() {
           <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-12 md:mt-16">
             <Link
               href={`/guides/${featured.slug}`}
-              className="group relative block overflow-hidden rounded-3xl border border-violet-200/60 bg-gradient-to-br from-white via-violet-50/40 to-fuchsia-50/30 p-8 md:p-12 shadow-[0_8px_40px_-12px_rgba(91,33,182,0.18)] hover:shadow-[0_12px_50px_-12px_rgba(91,33,182,0.28)] transition-all"
+              className="group relative block overflow-hidden rounded-3xl border border-violet-200 bg-white p-8 md:p-12 shadow-[0_8px_40px_-12px_rgba(124,58,237,0.18)] hover:shadow-[0_12px_50px_-12px_rgba(124,58,237,0.28)] hover:border-violet-300 transition-all"
             >
-              <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/30 blur-3xl pointer-events-none" />
+              <div className="absolute -top-16 -right-10 opacity-90 pointer-events-none">
+                <Image
+                  src={guidesBook}
+                  alt=""
+                  width={220}
+                  height={220}
+                  loading="lazy"
+                  className="drop-shadow-[0_15px_30px_rgba(124,58,237,0.25)]"
+                />
+              </div>
               <div className="relative grid md:grid-cols-[1fr_auto] gap-6 items-end">
-                <div>
+                <div className="max-w-2xl">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-600/10 border border-violet-300/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700">
-                      <BookOpen className="h-3 w-3" /> Featured
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                      Featured
                     </span>
                     <span className="text-[11px] text-slate-500">
                       {featured.publishedAt} · {featured.readMinutes} min read
@@ -85,14 +124,14 @@ export default function GuidesIndexPage() {
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 leading-tight mb-3">
                     {featured.title}
                   </h2>
-                  <p className="text-base text-slate-600 leading-relaxed max-w-2xl">
+                  <p className="text-base text-slate-600 leading-relaxed">
                     {featured.teaser}
                   </p>
                 </div>
                 <div className="flex md:justify-end">
                   <span className={marketingPrimaryCta}>
                     Read guide
-                    <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowMark className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                 </div>
               </div>
@@ -116,13 +155,13 @@ export default function GuidesIndexPage() {
                 <li key={guide.slug}>
                   <Link
                     href={`/guides/${guide.slug}`}
-                    className="group flex flex-col h-full rounded-2xl border border-violet-100/80 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-violet-300/70 hover:shadow-[0_8px_30px_-12px_rgba(91,33,182,0.22)] p-6 transition-all"
+                    className="group flex flex-col h-full rounded-2xl border border-violet-100 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-violet-300 hover:shadow-[0_8px_30px_-12px_rgba(124,58,237,0.22)] p-6 transition-all"
                   >
                     <div className="flex items-start justify-between mb-5">
-                      <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700">
+                      <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700">
                         {TOPIC_TAG[guide.slug] ?? "Guide"}
                       </span>
-                      <ArrowUpRight className="h-4 w-4 text-slate-300 group-hover:text-violet-600 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all" />
+                      <ArrowMark className="h-4 w-4 text-slate-300 group-hover:text-violet-600 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all" />
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-2 leading-snug group-hover:text-violet-700 transition-colors">
                       {guide.title}
@@ -141,9 +180,9 @@ export default function GuidesIndexPage() {
           </section>
         )}
 
-        {/* CTA strip */}
+        {/* CTA strip — solid violet, no gradient */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-20">
-          <div className="rounded-3xl border border-violet-200/60 bg-gradient-to-r from-violet-600 to-fuchsia-600 p-8 md:p-12 text-white shadow-[0_12px_40px_-12px_rgba(91,33,182,0.45)]">
+          <div className="rounded-3xl bg-violet-600 p-8 md:p-12 text-white shadow-[0_12px_40px_-12px_rgba(124,58,237,0.45)]">
             <div className="grid md:grid-cols-[1fr_auto] gap-6 items-center">
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">
@@ -159,7 +198,7 @@ export default function GuidesIndexPage() {
                 className="group inline-flex items-center gap-2 font-semibold text-sm px-6 py-3 rounded-xl bg-white text-violet-700 hover:bg-violet-50 transition-colors active:scale-[0.98] justify-self-start md:justify-self-end"
               >
                 Open dreyv
-                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowMark className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
             </div>
           </div>
