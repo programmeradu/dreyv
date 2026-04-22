@@ -119,12 +119,37 @@ async function llmJson(system: string, user: string, schema?: any): Promise<any 
 }
 
 /**
- * Build a `clarify` result that asks the user how to model their exposure.
- * Universal — used by every tool that would otherwise need a fake number.
- *
- * `forTool` is the tool we'll re-execute once the user picks a chip, and
- * `extras` is merged into the next call's parameters so the original intent
- * (token, targets, scenario, etc.) survives the round-trip.
+ * Generic clarify card builder. Each item is a chip the UI renders.
+ * Chip `action` semantics (handled by the frontend):
+ *   - connect_wallet / enter_address / enter_sol / enter_usd / use_demo
+ *     → drive the exposure flow (wallet sign-in or manual portfolio context)
+ *   - apply_param  → directly set parameters on the next execute call
+ *     (uses item.params object), no prompt
+ *   - (no action)  → append item.reply (or item.symbol) to the original
+ *     command and re-parse
+ */
+function buildClarify(opts: {
+  forTool: string;
+  question: string;
+  title?: string;
+  items: any[];
+  extras?: Record<string, any>;
+  source?: string;
+}) {
+  return {
+    result_type: "clarify",
+    title: opts.title || "Quick question",
+    summary: opts.question,
+    items: opts.items,
+    meta: { source: opts.source || `Need a detail before I run ${opts.forTool}` },
+    for_tool: opts.forTool,
+    extras: opts.extras || {},
+  } as any;
+}
+
+/**
+ * Wallet/USD exposure chips — only for tools that genuinely need to model
+ * a real treasury size (rebalance, what_if, find_airdrops with no input).
  */
 function clarifyExposure(opts: {
   forTool: string;
@@ -142,15 +167,71 @@ function clarifyExposure(opts: {
   if (opts.includeDemo) {
     items.push({ symbol: opts.includeDemo.label, reply: "", action: "use_demo", demo_value: opts.includeDemo.value });
   }
-  return {
-    result_type: "clarify",
+  return buildClarify({
+    forTool: opts.forTool,
     title: opts.title || "How should I model this?",
-    summary: opts.question,
+    question: opts.question,
     items,
-    meta: { source: `Need exposure context · will run ${opts.forTool}` },
-    for_tool: opts.forTool,
-    extras: opts.extras || {},
-  } as any;
+    extras: opts.extras,
+    source: `Need exposure context · will run ${opts.forTool}`,
+  });
+}
+
+/**
+ * Ask the LLM for 3-4 contextual chip suggestions tailored to the missing
+ * parameter. Each chip carries `params` that the frontend will merge into
+ * the next execute call via the `apply_param` action. Falls back to a
+ * single "type a value" hint chip if the LLM is unavailable.
+ */
+async function suggestChips(args: {
+  forTool: string;
+  missing: string;            // e.g. "amount", "frequency", "targets", "token"
+  context: string;            // human-readable description of what we already know
+  paramKey: string;           // which key on the next params object to fill
+  paramType: "number" | "string" | "object";
+  fallback: { label: string; value: any }[];
+}): Promise<any[]> {
+  const schema = {
+    name: "suggest_chips",
+    description: "Return 3-4 short chip suggestions for a missing command parameter.",
+    parameters: {
+      type: "object",
+      properties: {
+        chips: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "Short chip label (≤4 words)" },
+              value: { description: "Concrete value to fill the missing parameter" },
+            },
+            required: ["label", "value"],
+          },
+        },
+      },
+      required: ["chips"],
+    },
+  };
+  const out = await llmJson(
+    `You are Dreyv's command-bar assistant. The user gave a command that is missing the "${args.missing}" parameter for the "${args.forTool}" tool. Suggest 3-4 SHORT, realistic chip options the user could pick to fill it. Values must be concrete and immediately usable (e.g. real SOL amounts a retail user would type, real cadences, real allocation splits). No fake assumptions. Tailor to the context.`,
+    `Context: ${args.context}\nMissing parameter: ${args.missing} (${args.paramType})`,
+    schema
+  );
+  const chips = Array.isArray(out?.chips) ? out.chips.slice(0, 4) : [];
+  if (chips.length === 0) {
+    return args.fallback.map((f) => ({
+      symbol: f.label,
+      reply: "",
+      action: "apply_param",
+      params: { [args.paramKey]: f.value },
+    }));
+  }
+  return chips.map((c: any) => ({
+    symbol: String(c.label).slice(0, 32),
+    reply: "",
+    action: "apply_param",
+    params: { [args.paramKey]: c.value },
+  }));
 }
 
 async function execute(origin: string, tool_id: string, p: any) {
