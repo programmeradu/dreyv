@@ -7,10 +7,6 @@ import { marketingSectionDivider } from "./marketing-styles";
 
 const productLinks = [
   { label: "Pricing", href: "/pricing" },
-  {
-    label: "Guide: Intent-driven treasury",
-    href: "/guides/intent-driven-treasury-solana",
-  },
   { label: "Get started (free)", href: "/auth?redirect=/app" },
   { label: "App dashboard", href: "/app" },
   { label: "Treasury Hub", href: "/app/treasury" },
@@ -21,9 +17,27 @@ const productLinks = [
 
 const toolLinks = [
   { label: "Solana Atlas", href: "/atlas" },
-  { label: "Strategy Lab", href: "/atlas" },
+  { label: "Token intelligence", href: "/atlas/tokens" },
+  { label: "Strategy Lab", href: "/atlas/strategy-lab" },
   { label: "Airdrop Scout", href: "/atlas" },
   { label: "MEV Scanner", href: "/atlas" },
+];
+
+const guideLinks = [
+  { label: "All guides", href: "/guides" },
+  { label: "Intent-driven treasury", href: "/guides/intent-driven-treasury-solana" },
+  { label: "DAO treasury playbook", href: "/guides/solana-dao-treasury-management" },
+  { label: "Squads multisig setup", href: "/guides/squads-multisig-setup-guide" },
+  { label: "DCA on Solana", href: "/guides/dca-on-solana-guide" },
+];
+
+const tokenLinks = [
+  { label: "SOL", href: "/atlas/tokens/sol" },
+  { label: "USDC", href: "/atlas/tokens/usdc" },
+  { label: "JitoSOL", href: "/atlas/tokens/jitosol" },
+  { label: "mSOL", href: "/atlas/tokens/msol" },
+  { label: "JUP", href: "/atlas/tokens/jup" },
+  { label: "BONK", href: "/atlas/tokens/bonk" },
 ];
 
 const companyLinks = [
