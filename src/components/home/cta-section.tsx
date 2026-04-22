@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCta, marketingGhostLink } from "./marketing-styles";
+import ctaKey from "@/assets/cta-key-violet.png";
 
 export function CTASection() {
   const ref = useRef(null);

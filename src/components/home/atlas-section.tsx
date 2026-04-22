@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import vaultChamber from "@/assets/vault-chamber-violet.png";
 
 const tools = [
   {
