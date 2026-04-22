@@ -55,6 +55,41 @@ export function HeroCommandbarDemo() {
           </div>
         </div>
       </div>
+
+      {/* Replaces these tools */}
+      <div className="relative mt-6">
+        <p className="text-center text-[10px] font-mono uppercase tracking-[0.28em] text-slate-400 mb-3">
+          Replaces 10+ tabs
+        </p>
+        <div className="relative flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
+          {[
+            { name: "Squads", logo: "/logos/squads.png" },
+            { name: "Jupiter", logo: "/logos/jup.png" },
+            { name: "Birdeye", logo: "/logos/birdeye.png" },
+            { name: "Helius", logo: "/logos/helius.png" },
+            { name: "Marinade", logo: "/logos/marinade.png" },
+            { name: "Jito", logo: "/logos/jito.png" },
+            { name: "Phantom", logo: "/logos/phantom.png" },
+            { name: "Dune", logo: "/logos/dune.png" },
+          ].map((tool) => (
+            <div
+              key={tool.name}
+              className="group flex items-center gap-1.5 opacity-55 hover:opacity-90 transition-opacity"
+            >
+              <img
+                src={tool.logo}
+                alt=""
+                loading="lazy"
+                className="h-4 w-4 rounded-sm grayscale"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <span className="text-[12px] font-medium text-slate-500 line-through decoration-violet-400/70 decoration-[1.5px]">
+                {tool.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
