@@ -30,9 +30,7 @@ export function CTASection() {
         >
           <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold text-slate-900 tracking-[-0.03em] leading-[0.95]">
             Ready to run treasury{" "}
-            <span className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-violet-500/80 bg-clip-text text-transparent">
-              with clarity?
-            </span>
+            <span className="text-violet-600">with clarity?</span>
           </h2>
 
           <p className="mt-8 text-slate-500 text-lg md:text-xl max-w-xl mx-auto leading-relaxed font-light">
