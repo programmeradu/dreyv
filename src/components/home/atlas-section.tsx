@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import vaultChamber from "@/assets/vault-chamber-violet.png";
+import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 
 const tools = [
   {
