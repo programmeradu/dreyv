@@ -114,11 +114,16 @@ export function AtlasSection() {
   return (
     <section
       id="atlas"
-      className="relative border-t border-violet-200/35 scroll-mt-24"
+      className="relative border-t border-violet-200/35 scroll-mt-24 overflow-hidden"
       aria-labelledby="atlas-heading"
       ref={ref}
     >
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+      {/* Vault chamber accent */}
+      <div className="pointer-events-none absolute -left-24 top-16 w-72 h-72 lg:w-96 lg:h-96 opacity-[0.10] z-0" aria-hidden>
+        <Image src={vaultChamber} alt="" fill sizes="384px" className="object-contain" />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 md:py-32 z-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16">
           <motion.div

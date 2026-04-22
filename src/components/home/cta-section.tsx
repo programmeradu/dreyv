@@ -21,6 +21,17 @@ export function CTASection() {
         <div className="absolute inset-0 grid-pattern-marketing opacity-40" />
       </div>
 
+      {/* Floating violet key accent */}
+      <div className="pointer-events-none absolute right-4 lg:right-16 top-12 lg:top-20 w-40 h-40 lg:w-64 lg:h-64 opacity-90 z-0 rotate-12" aria-hidden>
+        <Image
+          src={ctaKey}
+          alt=""
+          fill
+          sizes="256px"
+          className="object-contain drop-shadow-[0_24px_40px_rgba(124,58,237,0.25)]"
+        />
+      </div>
+
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-28 md:py-40">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
