@@ -72,7 +72,46 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
     if (isPrivateSeoPath(pathname)) {
         response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
+    // RFC 8288 Link headers — agent discovery hints on every public page.
+    // Browsers ignore these; agents (and Cloudflare's agent-ready scanner) read them.
+    if (!isPrivateSeoPath(pathname)) {
+        response.headers.append(
+            'Link',
+            '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+        );
+        response.headers.append(
+            'Link',
+            '</.well-known/acp.json>; rel="service-desc"; type="application/json"; title="ACP discovery"',
+        );
+        response.headers.append(
+            'Link',
+            '</.well-known/ucp>; rel="service-desc"; type="application/json"; title="UCP profile"',
+        );
+        response.headers.append(
+            'Link',
+            '</guides>; rel="service-doc"; type="text/html"; title="dreyv developer guides"',
+        );
+        response.headers.append(
+            'Link',
+            '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+        );
+    }
     return response;
+}
+
+/**
+ * Markdown negotiation for agents (Cloudflare "Markdown for Agents" pattern).
+ *
+ * If a client sends `Accept: text/markdown`, transparently rewrite the request
+ * to our markdown-render endpoint so the response body is markdown while HTML
+ * remains the default for browsers. Only applies to safe GET requests on
+ * indexable HTML pages.
+ */
+function wantsMarkdown(request: NextRequest): boolean {
+    if (request.method !== 'GET') return false;
+    const accept = request.headers.get('accept') || '';
+    // Browsers send `text/html,...` first; agents that want markdown lead with it.
+    return /(^|,\s*)text\/markdown(\s*;|\s*,|$)/i.test(accept);
 }
 
 // Canonical host for SEO consolidation. All alternate domains (dreyv.app,
