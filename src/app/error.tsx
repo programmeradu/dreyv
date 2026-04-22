@@ -1,128 +1,130 @@
 "use client"; // Error boundaries must be client components
 
 import { useEffect } from "react";
-import { AlertTriangle, RefreshCw, MoveLeft } from "lucide-react";
-import { Logo } from "@/components/icons";
-import { DreyvMark } from "@/components/brand/dreyv-mark";
+import Image from "next/image";
 import Link from "next/link";
+import { DreyvMark } from "@/components/brand/dreyv-mark";
+import heroLiquid from "@/assets/hero-liquid-violet.png";
+
+function ArrowMark({ className = "", direction = "right" }: { className?: string; direction?: "right" | "left" | "refresh" }) {
+  if (direction === "refresh") {
+    return (
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+        <path d="M3 8a5 5 0 0 1 8.5-3.5L13 6" />
+        <path d="M13 3 V6 H10" />
+        <path d="M13 8a5 5 0 0 1-8.5 3.5L3 10" />
+        <path d="M3 13 V10 H6" />
+      </svg>
+    );
+  }
+  if (direction === "left") {
+    return (
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+        <path d="M12 8 H4" />
+        <path d="M7 4 L4 8 L7 12" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M4 8 H12" />
+      <path d="M9 4 L12 8 L9 12" />
+    </svg>
+  );
+}
 
 export default function GlobalError({
-    error,
-    reset,
+  error,
+  reset,
 }: {
-    error: Error & { digest?: string };
-    reset: () => void;
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
-    useEffect(() => {
-        // Log the exact error to telemetry
-        console.error("Global Platform Error Intercepted:", error);
-    }, [error]);
+  useEffect(() => {
+    console.error("[Global Error]", error);
+  }, [error]);
 
-    return (
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-zinc-100 dark:bg-[#030305] font-sans selection:bg-primary/30">
-            {/* Premium Background Pipeline - Adapted from Auth Page */}
-            <div className="absolute inset-0 z-0 select-none pointer-events-none">
-                {/* 4K Minimal Arch Image */}
-                <div
-                    className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 dark:opacity-40"
-                    style={{ backgroundImage: `url('/images/auth_bg_minimal_arch_4k.png')` }}
-                />
-                
-                {/* Fade Gradients */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#030305] lg:bg-gradient-to-r lg:from-white/40 lg:via-white/10 lg:to-[#030305] dark:from-black/80 dark:via-black/90 dark:to-[#030305]" />
-                
-                {/* Background grid */}
-                <div
-                    className="absolute inset-0 opacity-[0.03] dark:opacity-10"
-                    style={{
-                        backgroundImage: `linear-gradient(rgba(0,0,0,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.8) 1px, transparent 1px)`,
-                        backgroundSize: "64px 64px",
-                    }}
-                />
-                
-                {/* Fractal Noise Overlay for Texture */}
-                <div 
-                    className="absolute inset-0 opacity-[0.03] mix-blend-overlay" 
-                    style={{ 
-                        backgroundImage: `url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E')` 
-                    }}
-                />
+  return (
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-marketing-bg-low text-slate-900 font-manrope selection:bg-violet-200/70">
+      {/* Ambient violet wash */}
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+        <div className="absolute top-[-14%] left-[-12%] h-[640px] w-[640px] rounded-full bg-violet-400/[0.11] blur-[130px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-[520px] w-[520px] rounded-full bg-violet-400/[0.10] blur-[120px]" />
+        <div className="absolute inset-0 grid-pattern-marketing opacity-[0.45]" />
+      </div>
+
+      {/* Floating liquid violet accent */}
+      <div className="pointer-events-none absolute -top-20 -right-24 w-[440px] h-[440px] opacity-[0.18] z-0" aria-hidden>
+        <Image src={heroLiquid} alt="" fill sizes="440px" priority className="object-contain mix-blend-multiply" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-xl px-6 text-center">
+        {/* Brand mark + status dot */}
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl bg-white ring-1 ring-violet-200/70 marketing-shadow-float flex items-center justify-center">
+              <DreyvMark size={28} />
             </div>
-
-            {/* Error Content Card */}
-            <div className="relative z-10 max-w-xl w-full px-6 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
-                {/* Animated Logo/Warning Icon Cluster */}
-                <div className="flex justify-center mb-6">
-                    <div className="relative group cursor-not-allowed">
-                        <div className="absolute inset-0 bg-destructive/20 blur-2xl rounded-full transition-all duration-500 group-hover:bg-destructive/40 group-hover:blur-xl" />
-                        <div className="w-16 h-16 bg-background/60 backdrop-blur-2xl border border-destructive/20 rounded-2xl flex items-center justify-center shadow-2xl relative transition-transform duration-500 hover:scale-105">
-                            <DreyvMark size={32} className="drop-shadow-md ring-2 ring-destructive/35 rounded-lg" />
-                            <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-xl border-2 border-background">
-                                <AlertTriangle size={12} strokeWidth={3} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-zinc-900 dark:text-white mb-2 drop-shadow-sm">
-                    System Exception
-                </h1>
-                
-                <p className="text-sm md:text-base text-zinc-800/80 dark:text-zinc-300/80 mb-6 max-w-md mx-auto font-medium leading-relaxed">
-                    Something went wrong! An unexpected error occurred. Please try again or hang tight while we investigate the disturbance.
-                </p>
-
-                {/* Crash Report Readout */}
-                <div className="p-4 bg-background/40 backdrop-blur-2xl border border-border rounded-2xl shadow-xl mb-8 text-left overflow-hidden relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-destructive/5 to-transparent pointer-events-none" />
-                    
-                    <div className="flex items-center justify-between mb-3 relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="flex gap-1.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-orange-500/90 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
-                            </div>
-                            <span className="text-[10px] font-mono font-black text-muted-foreground uppercase tracking-[0.2em]">Diagnostic Payload</span>
-                        </div>
-                    </div>
-                    
-                    <code className="block relative z-10 text-[11px] font-mono text-destructive break-words p-3.5 bg-background/50 rounded-xl border border-border/50 shadow-inner">
-                        {error.message || "Unknown Runtime Disturbance"}
-                        {error.digest && (
-                            <span className="block mt-3 pt-3 border-t border-border/50 text-[9px] text-muted-foreground uppercase tracking-widest font-black">
-                                Digest ID: {error.digest}
-                            </span>
-                        )}
-                    </code>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <button
-                        onClick={() => reset()}
-                        className="w-full sm:w-auto px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-wider text-[11px] rounded-xl shadow-[0_0_20px_rgba(var(--primary-glow),0.3)] transition-all flex items-center justify-center gap-2.5 group border border-primary/20"
-                    >
-                        <RefreshCw size={14} strokeWidth={2.5} className="group-hover:rotate-180 transition-transform duration-700" />
-                        <span>Reinitialize Sequence</span>
-                    </button>
-                    <Link
-                        href="/app"
-                        className="w-full sm:w-auto px-6 py-2.5 bg-background/50 hover:bg-muted/80 text-foreground font-black uppercase tracking-wider text-[11px] border border-border/50 hover:border-border rounded-xl transition-all flex items-center justify-center gap-2.5 backdrop-blur-xl shadow-lg group"
-                    >
-                        <MoveLeft size={14} strokeWidth={2.5} className="group-hover:-translate-x-1 transition-transform" />
-                        <span>Return to workspace</span>
-                    </Link>
-                </div>
-            </div>
-            
-            {/* Branding Footer */}
-            <div className="absolute bottom-8 flex items-center justify-center w-full z-10 opacity-40 hover:opacity-100 transition-opacity duration-500">
-                <div className="flex items-center gap-3 cursor-default">
-                    <Logo size={20} fillColor="currentColor" className="text-foreground" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-foreground">dreyv Treasury OS</span>
-                </div>
-            </div>
+            <span
+              className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-violet-600 ring-4 ring-marketing-bg-low"
+              aria-hidden
+            />
+          </div>
         </div>
-    );
+
+        <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-700/90 mb-4">
+          Something interrupted the flow
+        </p>
+        <h1 className="text-3xl md:text-[2.5rem] font-bold tracking-[-0.02em] leading-[1.1] text-slate-900">
+          Let&apos;s try that again.
+        </h1>
+        <p className="mt-5 text-base text-slate-600 max-w-md mx-auto leading-relaxed">
+          A page failed to load. Nothing was signed and no funds moved — your treasury is safe. Reload to pick up where
+          you left off.
+        </p>
+
+        {/* Diagnostic block — quiet, optional */}
+        {(error?.message || error?.digest) && (
+          <details className="mt-8 mx-auto max-w-md text-left rounded-xl border border-violet-200/50 bg-white/80 backdrop-blur-sm overflow-hidden">
+            <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.2em] text-slate-500 hover:text-violet-700 transition-colors">
+              <span>Diagnostic</span>
+              <span className="text-violet-500">↓</span>
+            </summary>
+            <div className="px-4 pb-4">
+              <code className="block text-[11px] font-mono text-slate-700 break-words bg-violet-50/60 rounded-lg p-3 border border-violet-100">
+                {error.message || "Unknown runtime error"}
+                {error.digest && (
+                  <span className="block mt-2 pt-2 border-t border-violet-100 text-[10px] text-slate-400 uppercase tracking-wider">
+                    Digest · {error.digest}
+                  </span>
+                )}
+              </code>
+            </div>
+          </details>
+        )}
+
+        {/* Actions */}
+        <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={() => reset()}
+            className="group inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_-8px_rgba(124,58,237,0.5)] hover:bg-violet-700 transition-colors w-full sm:w-auto"
+          >
+            <ArrowMark direction="refresh" className="h-4 w-4 transition-transform group-hover:rotate-180 duration-500" />
+            <span>Reload page</span>
+          </button>
+          <Link
+            href="/"
+            className="group inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-violet-200/70 hover:ring-violet-400 hover:text-violet-700 transition-all w-full sm:w-auto"
+          >
+            <ArrowMark direction="left" className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <span>Back to home</span>
+          </Link>
+        </div>
+
+        <p className="mt-10 text-[10px] font-mono uppercase tracking-[0.3em] text-slate-400">
+          Non-custodial · Simulation-first · Multisig-native
+        </p>
+      </div>
+    </div>
+  );
 }
