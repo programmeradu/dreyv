@@ -165,6 +165,15 @@ export function HomeCommandbar() {
       executeDirect(forTool, { ...base, portfolio_context: { mode: "demo", value: demoValue } }, label("demo basket"));
       return;
     }
+    if (action === "apply_param") {
+      // Server-suggested chip carries a `params` object that fills the missing field directly.
+      const params = (item?.params && typeof item.params === "object") ? item.params : {};
+      const summary = Object.entries(params)
+        .map(([k, v]) => (typeof v === "object" ? `${k}=${JSON.stringify(v)}` : `${k}=${v}`))
+        .join(" ");
+      executeDirect(forTool, { ...base, ...params }, label(summary || (item?.symbol ?? "")));
+      return;
+    }
     const reply = item?.reply || item?.symbol || "";
     if (reply) run(`${input} ${reply}`.trim());
   }
