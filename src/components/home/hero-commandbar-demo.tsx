@@ -97,22 +97,6 @@ export function HeroCommandbarDemo() {
 
       {/* Card frame */}
       <div className="relative rounded-2xl bg-white ring-1 ring-slate-200/80 marketing-shadow-float overflow-hidden">
-        {/* Window chrome */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-          <div className="flex gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-          </div>
-          <div className="flex-1 text-center text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400">
-            dreyv · command
-          </div>
-          <div className="flex items-center gap-1 text-[10px] font-mono text-violet-600">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
-            online
-          </div>
-        </div>
-
         {/* Command input */}
         <div className="px-5 pt-5">
           <div className="flex items-start gap-3 rounded-xl bg-slate-50/80 ring-1 ring-slate-200/70 px-4 py-3.5">
