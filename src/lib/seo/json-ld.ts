@@ -67,6 +67,20 @@ export function buildRootJsonLd(): Record<string, unknown> {
           "Official site for dreyv — AI treasury workspace and dreyv atlas for Solana DAOs and protocols.",
       },
       {
+        "@type": "WebPage",
+        "@id": `${origin}/#webpage`,
+        url: origin,
+        name: "dreyv — AI treasury command layer for Solana",
+        isPartOf: { "@id": `${origin}/#website` },
+        inLanguage: "en-US",
+        speakable: {
+          "@type": "SpeakableSpecification",
+          cssSelector: ["h1", "[data-speakable]", ".hero-tagline", ".hero-subtitle"],
+          xpath: ["/html/head/title", "/html/head/meta[@name='description']/@content"],
+        },
+        primaryImageOfPage: { "@type": "ImageObject", url: `${origin}/opengraph-image` },
+      },
+      {
         "@type": "SoftwareApplication",
         "@id": `${origin}/#product`,
         name: "dreyv",

@@ -97,6 +97,26 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
         );
         response.headers.append(
             'Link',
+            '</developers>; rel="service-doc"; type="text/html"; title="dreyv developer portal"',
+        );
+        response.headers.append(
+            'Link',
+            '</openapi.json>; rel="describedby"; type="application/json"; title="dreyv OpenAPI 3.1"',
+        );
+        response.headers.append(
+            'Link',
+            '</.well-known/ai-plugin.json>; rel="ai-plugin"; type="application/json"; title="OpenAI ai-plugin manifest"',
+        );
+        response.headers.append(
+            'Link',
+            '</llms.txt>; rel="llms"; type="text/plain"; title="llms.txt"',
+        );
+        response.headers.append(
+            'Link',
+            '</llms-full.txt>; rel="llms-full"; type="text/plain"; title="llms-full.txt"',
+        );
+        response.headers.append(
+            'Link',
             '</sitemap.xml>; rel="sitemap"; type="application/xml"',
         );
     }
