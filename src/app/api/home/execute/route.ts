@@ -712,11 +712,67 @@ async function execute(origin: string, tool_id: string, p: any) {
       const outSym = (p.out_token || "").toUpperCase();
 
       if (!isFinite(amount) || amount <= 0 || !freq || !inSym || !outSym) {
-        return clarifyExposure({
+        // Pick the single most-missing field and ask for it with contextual chips.
+        const missing =
+          !inSym || !outSym ? "pair" : !isFinite(amount) || amount <= 0 ? "amount" : "frequency";
+
+        let items: any[] = [];
+        let title = "Tell me your DCA parameters";
+
+        if (missing === "amount") {
+          items = await suggestChips({
+            forTool: "create_dca",
+            missing: "amount",
+            context: `DCA ${inSym} → ${outSym} ${freq || "(no cadence yet)"}. Suggest realistic per-tick ${inSym} amounts a retail user would DCA.`,
+            paramKey: "amount",
+            paramType: "number",
+            fallback: [
+              { label: `25 ${inSym}`, value: 25 },
+              { label: `100 ${inSym}`, value: 100 },
+              { label: `500 ${inSym}`, value: 500 },
+            ],
+          });
+          title = `How much ${inSym} per tick?`;
+        } else if (missing === "frequency") {
+          items = [
+            { symbol: "Daily", reply: "", action: "apply_param", params: { frequency: "daily" } },
+            { symbol: "Weekly", reply: "", action: "apply_param", params: { frequency: "weekly" } },
+            { symbol: "Monthly", reply: "", action: "apply_param", params: { frequency: "monthly" } },
+          ];
+          title = "How often should the bot run?";
+        } else {
+          items = await suggestChips({
+            forTool: "create_dca",
+            missing: "pair",
+            context: `User wants to DCA on Solana. Suggest 3-4 realistic in→out pairs (each value is an object {"in":"USDC","out":"SOL"}).`,
+            paramKey: "pair",
+            paramType: "object",
+            fallback: [
+              { label: "USDC → SOL", value: { in: "USDC", out: "SOL" } },
+              { label: "USDC → JUP", value: { in: "USDC", out: "JUP" } },
+              { label: "SOL → BONK", value: { in: "SOL", out: "BONK" } },
+            ],
+          }).then((chips) =>
+            // Flatten {pair:{in,out}} chips into {in_token, out_token} so the next call lands cleanly.
+            chips.map((c) => ({
+              ...c,
+              params: { in_token: c.params?.pair?.in, out_token: c.params?.pair?.out },
+            }))
+          );
+          title = "Which token pair?";
+        }
+
+        return buildClarify({
           forTool: "create_dca",
-          title: "Tell me your DCA parameters",
-          question: `I won't guess your strategy. What amount, token pair, and cadence? e.g. "100 USDC into SOL weekly".`,
-          extras: { in_token: inSym || "USDC", out_token: outSym || "SOL", frequency: freq || "weekly" },
+          title,
+          question: "Pick one or type your own — I'll quote real Jupiter fills per tick.",
+          items,
+          extras: {
+            in_token: inSym || undefined,
+            out_token: outSym || undefined,
+            amount: isFinite(amount) ? amount : undefined,
+            frequency: freq || undefined,
+          },
         });
       }
 
