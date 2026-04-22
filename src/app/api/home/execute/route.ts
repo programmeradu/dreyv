@@ -296,23 +296,87 @@ async function execute(origin: string, tool_id: string, p: any) {
     }
 
     case "what_if": {
-      const scenario = String(p.scenario || "SOL drops 40%");
-      // Pull live prices for the major Solana basket so the LLM projects against REAL market data.
+      const scenario = String(p.scenario || "");
+      // Caller can pass an explicit portfolio context after a clarify round-trip.
+      // Shape: { mode: "demo" | "sol_amount" | "usd_amount" | "wallet", value: string|number }
+      const ctx = p.portfolio_context && typeof p.portfolio_context === "object" ? p.portfolio_context : null;
+
+      // Pull live prices for the major Solana basket so any projection uses REAL market data.
       const basket = ["SOL", "USDC", "JUP", "JTO", "BONK", "WIF"];
       const prices = Object.fromEntries(
         await Promise.all(basket.map(async (s) => [s, await getPrice(origin, s)]))
       ) as Record<string, number | null>;
+      const solPrice = prices.SOL || 0;
+
+      // STEP 1 — if no portfolio context yet, ask the LLM to decide whether the
+      // scenario already contains enough info, or whether we should clarify.
+      if (!ctx) {
+        const triage = await llmJson(
+          `You are Dreyv's risk analyst triage. Given a "what-if" scenario, decide whether the user has supplied enough portfolio context to project a meaningful P/L. A scenario like "what if SOL drops 40% to my $50k SOL bag" is enough. A scenario like "what if SOL drops 40%" alone is NOT enough — we don't know how much SOL the user holds. If insufficient, return needs_clarify=true and a SHORT, friendly question.`,
+          `Scenario: "${scenario}"`,
+          {
+            name: "triage_what_if",
+            description: "Decide if we have enough portfolio context",
+            parameters: {
+              type: "object",
+              properties: {
+                needs_clarify: { type: "boolean" },
+                reason: { type: "string" },
+                question: { type: "string", description: "Short question to ask the user if needs_clarify is true" },
+              },
+              required: ["needs_clarify"],
+            },
+          }
+        );
+
+        if (!triage || triage.needs_clarify !== false) {
+          const question =
+            triage?.question ||
+            `To project this accurately I need to know your exposure. How should I model your treasury?`;
+          return {
+            result_type: "clarify",
+            title: "How should I model your treasury?",
+            summary: question,
+            // Each item carries a `reply` (free-text appended) and an optional `action` for special UX.
+            items: [
+              { symbol: "Connect wallet", reply: "", action: "connect_wallet" },
+              { symbol: "Paste a wallet address", reply: "", action: "enter_address" },
+              { symbol: "Tell me your SOL holdings", reply: "", action: "enter_sol" },
+              { symbol: `Use demo basket ($250k · 55% SOL)`, reply: "use demo basket", action: "use_demo" },
+            ],
+            meta: { source: `Need exposure context · scenario: "${scenario}"` },
+            scenario,
+            for_tool: "what_if",
+          } as any;
+        }
+      }
+
+      // STEP 2 — project against the supplied (or demo) context.
+      const portfolioDescription = (() => {
+        if (!ctx) return `Demo basket: $250,000 AUM split 55% SOL, 25% USDC, 10% JTO, 5% JUP, 5% BONK.`;
+        if (ctx.mode === "sol_amount") {
+          const amt = Number(ctx.value) || 0;
+          return `User-supplied: ${amt} SOL (≈ $${(amt * solPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })} at live SOL price). Treat as 100% SOL unless they said otherwise.`;
+        }
+        if (ctx.mode === "usd_amount") {
+          return `User-supplied: $${Number(ctx.value).toLocaleString()} AUM. Use a typical Solana-native split (60% SOL, 30% USDC, 10% other) unless they said otherwise.`;
+        }
+        if (ctx.mode === "wallet") {
+          return `User-supplied wallet address: ${ctx.value}. (Live balance fetch is gated behind sign-in for privacy. For this preview, project against a typical Solana-native treasury of $100k.)`;
+        }
+        return `Demo basket: $250,000 AUM split 55% SOL, 25% USDC, 10% JTO, 5% JUP, 5% BONK.`;
+      })();
 
       const projection = await llmJson(
-        `You are a senior crypto treasury risk analyst. Project the impact of a hypothetical scenario on a representative Solana-native treasury (assume $250k AUM split 55% SOL, 25% USDC, 10% JTO, 5% JUP, 5% other unless the user specifies otherwise). Use the LIVE prices provided. Reason in plain numbers. Be specific, never vague.`,
-        `Scenario: "${scenario}"\n\nLive prices (USD): ${JSON.stringify(prices)}\n\nReturn a structured projection.`,
+        `You are a senior crypto treasury risk analyst. Project the impact of the user's scenario on the EXPLICIT portfolio described. Use the LIVE prices provided. Be specific, never vague — use real numbers from the portfolio. Do NOT invent assets the user did not mention.`,
+        `Scenario: "${scenario}"\n\nPortfolio: ${portfolioDescription}\n\nLive prices (USD): ${JSON.stringify(prices)}\n\nReturn a structured projection.`,
         {
           name: "project_scenario",
-          description: "Structured what-if projection grounded in live prices",
+          description: "Structured what-if projection grounded in live prices and the user's actual exposure",
           parameters: {
             type: "object",
             properties: {
-              headline_pnl_usd: { type: "number", description: "Net P/L in USD across the assumed treasury" },
+              headline_pnl_usd: { type: "number" },
               direction: { type: "string", enum: ["bull", "bear", "neutral"] },
               key_drivers: {
                 type: "array",
@@ -326,9 +390,9 @@ async function execute(origin: string, tool_id: string, p: any) {
                   required: ["label", "value"],
                 },
               },
-              second_order_effects: { type: "array", items: { type: "string" }, description: "2-4 follow-on consequences (liquidation cascades, depeg risk, validator yield drop, etc.)" },
-              recommended_hedges: { type: "array", items: { type: "string" }, description: "2-4 concrete actions a treasury could take in response" },
-              assumptions: { type: "array", items: { type: "string" }, description: "Assumptions made (treasury composition, time horizon, correlation)" },
+              second_order_effects: { type: "array", items: { type: "string" } },
+              recommended_hedges: { type: "array", items: { type: "string" } },
+              assumptions: { type: "array", items: { type: "string" } },
             },
             required: ["headline_pnl_usd", "direction", "key_drivers", "second_order_effects", "recommended_hedges", "assumptions"],
           },
@@ -336,18 +400,14 @@ async function execute(origin: string, tool_id: string, p: any) {
       );
 
       if (!projection) {
-        return {
-          result_type: "error",
-          title: "Scenario engine unavailable",
-          summary: "AI projection failed. Please retry — we don't ship hardcoded what-ifs.",
-        };
+        return { result_type: "error", title: "Scenario engine unavailable", summary: "AI projection failed. Please retry." };
       }
 
       const pnl = Number(projection.headline_pnl_usd || 0);
       return {
         result_type: "what_if",
         title: `What-if · ${scenario}`,
-        summary: `Projected treasury P/L ≈ ${pnl >= 0 ? "+" : "-"}$${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        summary: `Projected P/L ≈ ${pnl >= 0 ? "+" : "-"}$${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
         metrics: (projection.key_drivers || []).slice(0, 6).map((d: any) => ({
           label: d.label,
           value: d.value,
@@ -359,7 +419,7 @@ async function execute(origin: string, tool_id: string, p: any) {
         ],
         flags: (projection.assumptions || []).map((a: string) => ({ message: `Assumption — ${a}` })),
         primary_action: { label: "Sign in to model my real treasury", requires_auth: true, intent: "open_foresight" },
-        meta: { source: "Foresight Simulator · live prices · AI projection" },
+        meta: { source: `Foresight · ${ctx ? `your input (${ctx.mode})` : "demo basket"} · live prices` },
       };
     }
 
