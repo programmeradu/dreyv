@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { ArrowRight, Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2, AlertTriangle, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { marketingPrimaryCtaSm } from "./marketing-styles";
 
@@ -219,7 +219,7 @@ export function HomeCommandbar() {
               animate={{ opacity: 1 }}
               className="mt-6 flex items-center justify-center gap-3 text-sm text-slate-500"
             >
-              <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+              <DreyvStar size={14} className="text-violet-500" />
               You've simulated {runs} commands. Ready to run them for real?
               <a href="/app" className="text-violet-700 font-semibold hover:text-violet-900">
                 Open Dreyv →
