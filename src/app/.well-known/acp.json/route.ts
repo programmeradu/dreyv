@@ -22,6 +22,12 @@ export function GET() {
             api_base_url: `${origin}/api`,
             transports: ["https"],
             capabilities: {
+                payments: {
+                    x402: {
+                        status: "advertised",
+                        discovery: "/.well-known/x402",
+                    },
+                },
                 services: [
                     {
                         name: "marketplace",
