@@ -24,6 +24,16 @@ export function GET() {
                     ],
                     "service-desc": [
                         {
+                            href: `${origin}/openapi.json`,
+                            type: "application/json",
+                            title: "dreyv OpenAPI 3.1 spec",
+                        },
+                        {
+                            href: `${origin}/.well-known/ai-plugin.json`,
+                            type: "application/json",
+                            title: "OpenAI ai-plugin manifest",
+                        },
+                        {
                             href: `${origin}/.well-known/acp.json`,
                             type: "application/json",
                             title: "ACP discovery document",

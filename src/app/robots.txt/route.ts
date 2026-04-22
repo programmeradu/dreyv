@@ -18,6 +18,7 @@ export function GET() {
 # Content Signals: https://contentsignals.org/
 Content-Signal: search=yes, ai-input=yes, ai-train=no
 
+# Default policy — search + live agent retrieval welcome, training disallowed.
 User-agent: *
 Allow: /
 Disallow: /app/
@@ -29,6 +30,50 @@ Disallow: /mobile/
 Disallow: /github-cleanup
 Disallow: /hello
 Disallow: /working-swap
+
+# Search-focused crawlers — full access to public pages.
+User-agent: Googlebot
+Allow: /
+User-agent: Bingbot
+Allow: /
+User-agent: DuckDuckBot
+Allow: /
+
+# Live AI assistants (RAG / answer-the-question-now) — welcome.
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Perplexity-User
+Allow: /
+User-agent: Claude-User
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+# Foundation-model training crawlers — disallowed (no license granted).
+User-agent: GPTBot
+Disallow: /
+User-agent: ClaudeBot
+Disallow: /
+User-agent: anthropic-ai
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: Bytespider
+Disallow: /
+User-agent: Amazonbot
+Disallow: /
+User-agent: Applebot-Extended
+Disallow: /
+User-agent: Meta-ExternalAgent
+Disallow: /
+User-agent: cohere-ai
+Disallow: /
 
 Sitemap: ${origin}/sitemap.xml
 Host: ${new URL(origin).host}

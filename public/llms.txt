@@ -1,22 +1,57 @@
 # dreyv
 
 > Non-custodial AI treasury workspace for Web3 teams — intent → plan → simulate → sign, Solana-native.
+> Replaces the 8+ tools (wallet, DEX UI, analytics, multisig, chat) treasury teams normally juggle.
 
 ## Site
 
 - Home: /
 - App: /app
 - Atlas (public tools): /atlas
-- Pricing: /pricing
+- Pricing: /pricing — machine-readable: /pricing.md
+- Compare vs Squads / Jupiter / Birdeye: /compare
+- Developers: /developers
 - Guide — Intent-driven treasury on Solana: /guides/intent-driven-treasury-solana
 
 ## Product summary
 
-dreyv helps treasury teams replace fragmented tab-juggling (wallets, DEX aggregators, analytics, chat) with one workspace. Natural-language intent becomes multi-step plans; outcomes are simulated and explained before proposals reach your multisig (e.g. Squads).
+dreyv helps treasury teams replace fragmented tab-juggling (wallets, DEX aggregators, analytics, chat) with one workspace. Natural-language intent becomes multi-step plans; outcomes are simulated on a forked state and explained in human-readable form before proposals reach your multisig (e.g. Squads).
 
-## Non-custodial
+## Use cases
 
-dreyv does not custody user assets. Users connect wallets and multisig; dreyv coordinates planning, simulation, and signing workflows.
+- Non-custodial crypto treasury management platform for DAOs, protocols, and Web3 teams
+- Intent-driven DCA, rebalancing, and yield routing on Solana
+- Multisig proposal coordination (Squads) with attached simulation
+- Onchain research, MEV scanning, and rug-pull detection (via dreyv atlas)
+- Building and shipping treasury agents and mini-apps (dreyv Studio + Marketplace)
+
+## Capabilities
+
+- CommandBar — plain-language intent → typed plan
+- Foresight Simulator — fork-based outcome preview
+- Solana Atlas — token pages, MEV scanner, rug detector, DCA, holders
+- dreyv Studio — browser IDE + AI Architect
+- Marketplace — publish/install agents (Anchor program, 80/20 split)
+- Simulation Firewall — policy-gated execution
+- Persistent Knowledge Memory — vector + GraphRAG context
+
+## Constraints
+
+- Non-custodial: dreyv never custodies private keys. Signing happens in user wallets / Squads multisig.
+- Solana-first; EVM read-only via wagmi; Turnkey embedded wallets supported for delegated in-app signing only.
+- Simulation-first: plans must pass Foresight + Simulation Firewall before being eligible to sign.
+
+## API & agent surface
+
+- OpenAPI 3.1: /openapi.json
+- OpenAI plugin manifest: /.well-known/ai-plugin.json
+- ACP descriptor: /.well-known/acp.json
+- UCP profile: /.well-known/ucp
+- API catalog (RFC 9727): /.well-known/api-catalog
+- x402 capability: /.well-known/x402
+- Full agent context: /llms-full.txt
+- Scoped contexts: /api/llms.txt, /developers/llms.txt
+- Markdown homepage: /index.md
 
 ## Social
 
@@ -28,7 +63,10 @@ dreyv does not custody user assets. Users connect wallets and multisig; dreyv co
 - Privacy: /legal/privacy
 - Terms: /legal/terms
 - Cookies: /legal/cookies
+- Refunds: /legal/refunds
+- Security: security@dreyv.com
+- Founders: founders@dreyv.com
 
 ## Machine-readable context
 
-This file is intended for LLMs and discovery systems. For structured data, see JSON-LD Organization, WebSite, SoftwareApplication, and FAQPage emitted in the root HTML of the deployed site (see the live origin in the browser address bar).
+For the full single-request product context, see /llms-full.txt. For structured data, see JSON-LD Organization, WebSite, SoftwareApplication, FAQPage, and Speakable emitted in the root HTML of the deployed site.

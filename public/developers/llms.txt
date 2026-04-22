@@ -1,0 +1,32 @@
+# dreyv — Developers (scoped llms.txt)
+
+> Scoped agent context for building against dreyv. See `/llms-full.txt` for full product context.
+
+## Start here
+- Developer portal: https://dreyv.com/developers
+- OpenAPI 3.1 spec: https://dreyv.com/openapi.json
+- ai-plugin manifest: https://dreyv.com/.well-known/ai-plugin.json
+- ACP descriptor: https://dreyv.com/.well-known/acp.json
+- UCP profile: https://dreyv.com/.well-known/ucp
+- API catalog: https://dreyv.com/.well-known/api-catalog
+- x402 payment capability: https://dreyv.com/.well-known/x402
+
+## SDKs
+- TypeScript SDK: `@dreyv/sdk` (in monorepo `packages/sdk`)
+- CLI: `@dreyv/cli` (in monorepo `packages/cli`)
+
+## Quickstart (curl)
+```bash
+# Public price
+curl https://dreyv.com/api/price?token=SOL
+
+# Authenticated plan
+curl -X POST https://dreyv.com/api/planner \
+  -H "Authorization: Bearer $DREYV_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"intent":"rebalance 25% USDC into mSOL over 5 days"}'
+```
+
+## Sandbox
+- Devnet sandbox available at `/developers#sandbox`.
+- All swap/sign endpoints return unsigned transactions; the client signs.
