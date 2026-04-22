@@ -52,7 +52,7 @@ const tiers: Tier[] = [
   {
     name: "Mini",
     tagline: "Growing squads",
-    price: "$29",
+    price: "$49",
     period: "/mo",
     blurb: "More vaults, more seats, and the AI capacity busy treasuries need.",
     features: [
@@ -71,7 +71,7 @@ const tiers: Tier[] = [
   {
     name: "Max",
     tagline: "Enterprise nexus",
-    price: "$99",
+    price: "$199",
     period: "/mo",
     blurb: "Unlimited capacity, white-glove onboarding, and bespoke RPCs.",
     features: [
