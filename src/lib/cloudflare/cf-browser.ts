@@ -109,6 +109,106 @@ export interface LinksOptions {
     waitForTimeout?: number;
 }
 
+// ─── Crawl types ────────────────────────────────────────────────────
+
+export type CrawlFormat = "html" | "markdown" | "json";
+export type CrawlSource = "all" | "sitemaps" | "links";
+export type CrawlPurpose = "search" | "ai-input" | "ai-train";
+export type CrawlRecordStatus =
+    | "queued"
+    | "completed"
+    | "disallowed"
+    | "skipped"
+    | "errored"
+    | "cancelled";
+export type CrawlJobStatus =
+    | "running"
+    | "completed"
+    | "errored"
+    | "cancelled_by_user"
+    | "cancelled_due_to_timeout"
+    | "cancelled_due_to_limits";
+
+export interface CrawlStartOptions {
+    url: string;
+    /** Max pages (default 10, max 100,000) */
+    limit?: number;
+    /** Max link depth (default 100,000, max 100,000) */
+    depth?: number;
+    /** URL discovery source (default "all") */
+    source?: CrawlSource;
+    /** Response formats (default ["html"]) */
+    formats?: CrawlFormat[];
+    /** Execute JS via headless browser (default true). false = fast HTML fetch. */
+    render?: boolean;
+    jsonOptions?: {
+        prompt?: string;
+        response_format?: { type: "json_schema"; schema: Record<string, any> };
+        custom_ai?: Record<string, any>;
+    };
+    /** Cache TTL seconds (default 86,400, max 604,800) */
+    maxAge?: number;
+    /** Unix seconds — only crawl pages modified after this */
+    modifiedSince?: number;
+    options?: {
+        includeExternalLinks?: boolean;
+        includeSubdomains?: boolean;
+        includePatterns?: string[];
+        excludePatterns?: string[];
+    };
+    /** Declared use of crawled content. Default ["search","ai-input","ai-train"] */
+    crawlPurposes?: CrawlPurpose[];
+    /** Block resource types (only when render=true) */
+    rejectResourceTypes?: string[];
+    rejectRequestPattern?: string[];
+    cookies?: any[];
+    setExtraHTTPHeaders?: Record<string, string>;
+    authenticate?: { username: string; password: string };
+    gotoOptions?: Record<string, any>;
+    waitForSelector?: { selector: string; timeout?: number; visible?: boolean };
+}
+
+export interface CrawlStartResponse {
+    success: boolean;
+    /** Job ID returned by CF */
+    result: string;
+}
+
+export interface CrawlRecord {
+    url: string;
+    status: CrawlRecordStatus | number;
+    markdown?: string;
+    html?: string;
+    json?: any;
+    metadata?: {
+        status?: number;
+        title?: string;
+        url?: string;
+        [k: string]: any;
+    };
+}
+
+export interface CrawlStatusResult {
+    id: string;
+    status: CrawlJobStatus;
+    browserSecondsUsed?: number;
+    total?: number;
+    finished?: number;
+    records?: CrawlRecord[];
+    cursor?: number;
+}
+
+export interface CrawlStatusResponse {
+    success: boolean;
+    result: CrawlStatusResult;
+}
+
+export interface CrawlStatusQuery {
+    cursor?: number;
+    limit?: number;
+    status?: CrawlRecordStatus;
+}
+
 // ─── Client ─────────────────────────────────────────────────────────
 
 function getConfig(): CFBrowserConfig {
@@ -288,4 +388,125 @@ export async function links(opts: LinksOptions): Promise<any> {
     if (opts.waitForTimeout) body.waitForTimeout = opts.waitForTimeout;
 
     return cfFetch("links", body);
+}
+
+// ─── /crawl (async multi-page) ──────────────────────────────────────
+
+/**
+ * Initiate an async crawl job. Returns a job ID — poll with `getCrawlStatus`.
+ */
+export async function startCrawl(opts: CrawlStartOptions): Promise<CrawlStartResponse> {
+    const config = getConfig();
+    const url = `${baseUrl(config)}/crawl`;
+
+    const { url: target, ...rest } = opts;
+    const body: Record<string, any> = { url: target, ...rest };
+
+    const res = await fetch(url, {
+        method: "POST",
+        headers: headers(config),
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`CF Browser /crawl start error (${res.status}): ${errText.slice(0, 400)}`);
+    }
+    return res.json();
+}
+
+/**
+ * Fetch crawl job status and (optionally) its records.
+ * Pass `limit: 1` for lightweight polling.
+ */
+export async function getCrawlStatus(
+    jobId: string,
+    query: CrawlStatusQuery = {}
+): Promise<CrawlStatusResponse> {
+    const config = getConfig();
+    const params = new URLSearchParams();
+    if (query.cursor !== undefined) params.set("cursor", String(query.cursor));
+    if (query.limit !== undefined) params.set("limit", String(query.limit));
+    if (query.status) params.set("status", query.status);
+    const qs = params.toString();
+    const url = `${baseUrl(config)}/crawl/${jobId}${qs ? `?${qs}` : ""}`;
+
+    const res = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${config.apiToken}` },
+    });
+
+    if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`CF Browser /crawl status error (${res.status}): ${errText.slice(0, 400)}`);
+    }
+    return res.json();
+}
+
+/**
+ * Cancel an in-progress crawl job.
+ */
+export async function cancelCrawl(jobId: string): Promise<{ success: boolean }> {
+    const config = getConfig();
+    const url = `${baseUrl(config)}/crawl/${jobId}`;
+
+    const res = await fetch(url, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${config.apiToken}` },
+    });
+
+    if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`CF Browser /crawl cancel error (${res.status}): ${errText.slice(0, 400)}`);
+    }
+    return res.json().catch(() => ({ success: true }));
+}
+
+/**
+ * Poll a crawl job until it reaches a terminal status, then page through
+ * all records and return them concatenated.
+ *
+ * Defaults: 60 attempts × 5s ≈ 5 min. Tune for longer crawls.
+ */
+export async function waitForCrawl(
+    jobId: string,
+    opts: { maxAttempts?: number; delayMs?: number; recordsPerPage?: number } = {}
+): Promise<CrawlStatusResult> {
+    const maxAttempts = opts.maxAttempts ?? 60;
+    const delayMs = opts.delayMs ?? 5000;
+    const recordsPerPage = opts.recordsPerPage ?? 100;
+
+    // 1. Poll until terminal
+    let terminal: CrawlStatusResult | null = null;
+    for (let i = 0; i < maxAttempts; i++) {
+        const { result } = await getCrawlStatus(jobId, { limit: 1 });
+        if (result.status !== "running") {
+            terminal = result;
+            break;
+        }
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    if (!terminal) {
+        throw new Error(`CF Browser /crawl ${jobId} did not finish within ${maxAttempts * delayMs}ms`);
+    }
+
+    if (terminal.status !== "completed") {
+        return terminal;
+    }
+
+    // 2. Page through records
+    const allRecords: CrawlRecord[] = [];
+    let cursor: number | undefined = 0;
+    while (true) {
+        const { result }: CrawlStatusResponse = await getCrawlStatus(jobId, {
+            cursor,
+            limit: recordsPerPage,
+        });
+        if (result.records?.length) allRecords.push(...result.records);
+        if (result.cursor === undefined || result.cursor === null) break;
+        if (result.records && result.records.length < recordsPerPage) break;
+        cursor = result.cursor;
+    }
+
+    return { ...terminal, records: allRecords };
 }
