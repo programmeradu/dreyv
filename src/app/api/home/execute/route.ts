@@ -382,40 +382,56 @@ async function execute(origin: string, tool_id: string, p: any) {
     }
 
     case "audit_token": {
-      const sym = (p.token || "BONK").toUpperCase();
+      const sym = (p.token || "").toUpperCase();
+      if (!sym) {
+        return clarifyExposure({
+          forTool: "audit_token",
+          title: "Which token should I audit?",
+          question: "Tell me a symbol or mint address — e.g. BONK, JUP, or a full mint.",
+        });
+      }
       const t = tok(sym);
-      if (!t) return { result_type: "error", title: "Unknown token", summary: `No mint for ${sym}` };
-      const r = await fetch(`${origin}/api/solana/rug-check?mint=${t.mint}`, { signal: AbortSignal.timeout(8000) });
-      const j = await r.json().catch(() => ({}));
-      return {
-        result_type: "audit",
-        title: `Audit · ${sym}`,
-        summary: `${j.verdict || "Risk score"} · ${j.riskScore ?? "—"}/100`,
-        metrics: [
-          { label: "Risk score", value: `${j.riskScore ?? "—"}/100`, tone: j.riskScore > 60 ? "warn" : "good" },
-          { label: "Social score", value: `${j.socialScore ?? "—"}/100` },
-          { label: "Verdict", value: j.verdict || "—" },
-        ],
-        flags: j.flags || [],
-        meta: { source: "Helius · on-chain checks" },
-      };
+      if (!t) return { result_type: "error", title: "Unknown token", summary: `No mint mapped for ${sym}. Paste a full mint address to audit it.` };
+      try {
+        const r = await fetch(`${origin}/api/solana/rug-check?mint=${t.mint}`, { signal: AbortSignal.timeout(8000) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.riskScore == null) {
+          return { result_type: "error", title: `Audit unavailable for ${sym}`, summary: "Live rug-check feed is offline — I won't fabricate a score. Retry shortly." };
+        }
+        return {
+          result_type: "audit",
+          title: `Audit · ${sym}`,
+          summary: `${j.verdict || "Risk score"} · ${j.riskScore}/100`,
+          metrics: [
+            { label: "Risk score", value: `${j.riskScore}/100`, tone: j.riskScore > 60 ? "warn" : "good" },
+            { label: "Social score", value: `${j.socialScore ?? "—"}/100` },
+            { label: "Verdict", value: j.verdict || "—" },
+          ],
+          flags: j.flags || [],
+          meta: { source: "Helius · live on-chain checks" },
+        };
+      } catch {
+        return { result_type: "error", title: `Audit unavailable for ${sym}`, summary: "Live rug-check feed unreachable — retry shortly." };
+      }
     }
 
     case "find_airdrops": {
-      // Curated registry — same data backs the in-app Atlas airdrop scanner.
-      const items = [
-        { project: "Jupiter", season: "Season 2", criteria: "Active swappers", status: "Snapshot taken" },
-        { project: "Kamino", season: "Genesis", criteria: "Lenders & borrowers", status: "Live" },
-        { project: "Drift", season: "S2", criteria: "Perp traders", status: "Live" },
-        { project: "MarginFi", season: "Points → Token TBD", criteria: "Depositors", status: "Earning" },
-      ];
+      const wallet = String(p.wallet || "").trim();
+      // No wallet → ask. We refuse to show "Airdrops you may qualify for" against thin air.
+      if (!wallet) {
+        return clarifyExposure({
+          forTool: "find_airdrops",
+          title: "Whose wallet should I scan?",
+          question: "I match real on-chain activity against active airdrop programs — paste a Solana address or connect your wallet.",
+        });
+      }
+      // Live wallet read is gated for privacy.
       return {
-        result_type: "airdrops",
-        title: "Airdrops you may qualify for",
-        summary: `${items.length} active programs`,
-        items,
-        primary_action: { label: "Sign in to scan your wallet", requires_auth: true, intent: "scan_wallet" },
-        meta: { source: "Dreyv airdrop registry" },
+        result_type: "info",
+        title: "Sign in to scan this wallet",
+        summary: `For privacy, I read on-chain history of ${wallet.slice(0, 4)}…${wallet.slice(-4)} only after sign-in. You'll get a real, live match against every active program — no canned list.`,
+        primary_action: { label: "Sign in to scan", requires_auth: true, intent: "scan_wallet" },
+        meta: { source: "Privacy gate · live Helius scan after sign-in" },
       };
     }
 
