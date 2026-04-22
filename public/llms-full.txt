@@ -1,0 +1,136 @@
+# dreyv — Full Agent Context
+
+> Non-custodial AI treasury workspace for Web3 teams. Solana-native. Intent → Plan → Simulate → Sign.
+
+This file is the single-request, full-context document for AI agents and LLM crawlers.
+For canonical site map and short overview, see `/llms.txt`. For machine-readable pricing, see `/pricing.md`.
+
+---
+
+## 1. Product overview
+
+**dreyv** is a non-custodial AI treasury command layer for Solana DAOs, protocols, and Web3 teams.
+Treasury teams normally juggle 8+ disconnected tools (wallets, DEX aggregators, analytics dashboards,
+multisigs, chat, spreadsheets). dreyv replaces that fragmented workflow with a single workspace where
+operators express intent in plain language and get an auditable, simulated, signable plan.
+
+Pipeline:
+1. **Intent** — operator types or speaks an intent (e.g. "rebalance 25% of USDC into mSOL over 5 days").
+2. **Plan** — dreyv compiles the intent into a multi-step execution plan with route, fees, and risks.
+3. **Simulate** — each plan runs against a forked state (Foresight Simulator) producing human-readable
+   impact: balance deltas, slippage, MEV exposure, counterparty risk, and approver-friendly summaries.
+4. **Sign** — the plan is proposed to the multisig (e.g. Squads). dreyv never custodies keys.
+
+Operator surface:
+- **CommandBar** — natural-language treasury control (Vercel AI SDK + Groq + Cloudflare Workers AI).
+- **Foresight Simulator** — fork-based "what-if" with explainable outputs.
+- **Solana Atlas** — public intelligence surface: token pages, MEV scanner, rug detector, DCA, holders.
+- **dreyv Studio** — in-browser IDE + AI Architect for building treasury mini-apps and agents.
+- **Marketplace** — publish/install treasury agents and mini-apps (Anchor program on devnet, 80/20 split).
+- **Simulation Firewall** — blocks plans whose simulated outcome violates policy.
+- **Persistent Knowledge Memory** — vector + GraphRAG memory across sessions and teammates.
+
+## 2. Use cases
+
+- **DAO treasury management** — propose, simulate, and execute multisig actions with human-readable diffs.
+- **Non-custodial crypto treasury management platform** — keys stay in user wallets / Squads multisig.
+- **Intent-driven DCA & rebalancing** — recurring buys, glide-path rebalances, with on-chain proof.
+- **Multisig coordination** — Squads-native proposals with simulation attached.
+- **Onchain research & due diligence** — Atlas tokens, rug-pull detector, MEV scanner, holder insights.
+- **Yield routing** — Marinade, Jito, BlazeStake, Orca, Raydium with risk-scored comparisons.
+- **Agent automation** — build and run treasury agents via Studio + Marketplace.
+
+## 3. Key capabilities
+
+| Capability | Description |
+|---|---|
+| Intent → Plan compiler | Plain-language → typed multi-step plan |
+| Foresight simulation | Fork-based outcome preview, human-readable |
+| Multisig-native | Squads (`@sqds/multisig`) proposals with attached sim |
+| Non-custodial | No private-key custody; user/Squads wallets only |
+| Solana Atlas | Public intelligence (MEV, rug, DCA, holders, tokens) |
+| Studio + Architect | Browser IDE + AI to build mini-apps and agents |
+| Marketplace | Publish/install agents (Anchor program, 80/20 split) |
+| Knowledge Memory | Persistent vector + GraphRAG context |
+| Simulation Firewall | Policy-gated execution |
+| Agent-ready surface | `/.well-known/acp.json`, `/.well-known/ucp`, `/.well-known/ai-plugin.json`, `/.well-known/x402`, `/openapi.json`, `/llms.txt`, `/llms-full.txt` |
+
+## 4. Constraints & trust model
+
+- **Non-custodial:** dreyv never holds private keys. Signing happens in user wallets or Squads multisig.
+- **Solana-first:** primary chain Solana mainnet; EVM read-only via wagmi/RainbowKit; Turnkey embedded
+  wallets supported for in-app delegated signing only.
+- **Simulation-first:** plans must pass Foresight + Simulation Firewall before being eligible to sign.
+- **Open standards:** ACP (Agentic Commerce Protocol), UCP (Universal Commerce Protocol), MCP, x402.
+- **Data residency:** Postgres on Neon; vector memory in pgvector; no PII sold to third parties.
+
+## 5. Architecture
+
+- Frontend: Next.js 15.5 (App Router), React 19, Tailwind, shadcn/ui.
+- Backend: ~148 Next.js API routes under `/api/*` (treasury, simulation, swap, yield, atlas, studio, …).
+- DB: Neon Postgres + Drizzle ORM (~30 tables in `src/db/schema.ts`).
+- AI: Vercel AI SDK with Groq, OpenAI, and Cloudflare Workers AI providers.
+- Wallets: Solana wallet adapter; Squads multisig; Turnkey embedded; RainbowKit/wagmi (EVM read).
+- Realtime/collab: Liveblocks.
+- Hosting: Vercel (production), Cloudflare for browser rendering and crawl tooling.
+
+## 6. Pricing (summary — see `/pricing.md` for canonical machine-readable form)
+
+- **Free** — $0/mo. 1 multisig vault, 2 teammates, 3 mini-apps, 10 agent runs/day, 60 API calls/hr, 1 GB.
+- **Mini** — $49/mo. 5 vaults, 10 teammates/vault, more agent capacity, advanced simulation.
+- **Max** — $199/mo. Unlimited vaults, priority models, dedicated firewall policies, SLA support.
+
+Billed via FastSpring (Merchant of Record). Paddle kept as fallback. Taxes shown at checkout.
+
+## 7. API surface (canonical: `/openapi.json`)
+
+Public/agent-relevant endpoint families (require auth via SIWS JWT or API key unless noted public):
+
+- `GET  /api/health` — liveness (public)
+- `GET  /api/price?token=SOL` — token price (public)
+- `GET  /api/atlas/tokens` — token directory (public)
+- `GET  /api/atlas/tokens/{symbol}` — token details (public)
+- `POST /api/command` — natural-language intent → plan (auth)
+- `POST /api/planner` — structured intent → plan (auth)
+- `POST /api/simulate` — simulate a plan; returns human-readable impact (auth)
+- `POST /api/foresight` — long-horizon simulation (auth)
+- `POST /api/swap/quote` — Jupiter route quote (auth)
+- `POST /api/swap/execute` — sign-ready swap tx (auth, non-custodial)
+- `GET  /api/vault/balances` — multisig balances (auth)
+- `POST /api/squads/propose` — create Squads proposal (auth)
+- `POST /api/research` — agent research with Cloudflare /crawl (auth)
+- `POST /api/tools/crawl` — Cloudflare Browser Run /crawl proxy (auth)
+- `POST /api/tools/browser` — single-page browser fetch (auth)
+- `GET  /api/yield/opportunities` — yield routing options (auth)
+- `POST /api/dreyv-gateway/*` — provider-routed AI gateway (auth)
+
+Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at `/developers`.
+
+## 8. Discovery & agent-ready endpoints
+
+- `/.well-known/ai-plugin.json` — OpenAI plugin manifest
+- `/.well-known/acp.json` — Agentic Commerce Protocol descriptor
+- `/.well-known/ucp` — Universal Commerce Protocol profile
+- `/.well-known/api-catalog` — RFC 9727 catalog
+- `/.well-known/x402` — x402 payment capability (advertised)
+- `/openapi.json` — OpenAPI 3.1 spec
+- `/llms.txt` — short canonical context
+- `/llms-full.txt` — this file (full single-request context)
+- `/pricing.md` — machine-readable pricing
+- `/index.md` — markdown homepage fallback
+- `/developers` — developer portal
+- `/compare` — competitive comparison
+
+## 9. Brand & legal
+
+- Brand: **dreyv** (pronounced "DRAVE"). Domains: dreyv.com, dreyv.app, dreyv.finance.
+- Parent: StaUniverse (founded 2025). https://stauniverse.tech
+- Primary deployment: https://dreyv.stauniverse.tech (Vercel).
+- Legal: `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/refunds`.
+- Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
+
+## 10. Contact
+
+- Product: founders@dreyv.com
+- Security: security@dreyv.com
+- Press / partnerships: hello@dreyv.com

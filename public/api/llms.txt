@@ -1,0 +1,37 @@
+# dreyv — API context (scoped llms.txt)
+
+> Scoped agent context for the dreyv REST API surface. For full product context see `/llms-full.txt`.
+
+## Canonical specs
+- OpenAPI 3.1: https://dreyv.com/openapi.json
+- Plugin manifest: https://dreyv.com/.well-known/ai-plugin.json
+- API catalog: https://dreyv.com/.well-known/api-catalog
+- Developer portal: https://dreyv.com/developers
+
+## Auth
+- Bearer JWT (SIWS) — issued via `/api/auth/*`
+- API keys — provisioned at `/developers` (per-org, scoped)
+- OAuth 2.0 (planned, beta) — see `/developers#oauth`
+
+## Public endpoints (no auth)
+- `GET /api/health`
+- `GET /api/price?token=SOL`
+- `GET /api/atlas/tokens`
+- `GET /api/atlas/tokens/{symbol}`
+
+## Authenticated endpoint families
+- `/api/command/*` — natural-language treasury intents
+- `/api/planner/*` — structured intent → plan
+- `/api/simulate/*` and `/api/foresight/*` — fork simulation
+- `/api/swap/*` — Jupiter quotes/execute (non-custodial)
+- `/api/vault/*` — multisig balances and history
+- `/api/squads/*` — proposal creation
+- `/api/yield/*` and `/api/yields/*` — yield routing
+- `/api/research/*`, `/api/tools/crawl`, `/api/tools/browser` — agent research
+- `/api/dreyv-gateway/*` — provider-routed AI gateway
+
+## Conventions
+- All bodies JSON; UTF-8.
+- All responses include `Link` headers (RFC 8288) pointing to api-catalog and service-desc.
+- Errors follow RFC 9457 Problem Details when possible.
+- Non-custodial: signing happens client-side; server returns sign-ready transactions.
