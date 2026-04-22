@@ -2,6 +2,7 @@
 
 import { DreyvLogoLight } from "@/components/brand/dreyv-logo-light";
 import { FaDiscord, FaGithub, FaLinkedin, FaTwitter } from "react-icons/fa6";
+import { SiCrunchbase } from "react-icons/si";
 import { marketingSectionDivider } from "./marketing-styles";
 
 const productLinks = [
@@ -182,6 +183,15 @@ export function SiteFooter() {
               className="text-slate-400 hover:text-violet-600 transition-colors"
             >
               <FaGithub size={14} />
+            </a>
+            <a
+              href="https://www.crunchbase.com/organization/dreyv"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="dreyv on Crunchbase"
+              className="text-slate-400 hover:text-violet-600 transition-colors"
+            >
+              <SiCrunchbase size={14} />
             </a>
           </div>
           </div>
