@@ -291,8 +291,9 @@ export function HomeCommandbar() {
                     onClarify={(item) =>
                       handleClarifyChip(
                         item,
-                        (result as any)?.scenario || input,
-                        (result as any)?.for_tool || "what_if"
+                        (result as any)?.scenario || "",
+                        (result as any)?.for_tool || "what_if",
+                        (result as any)?.extras || {}
                       )
                     }
                   />
