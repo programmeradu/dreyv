@@ -119,12 +119,37 @@ async function llmJson(system: string, user: string, schema?: any): Promise<any 
 }
 
 /**
- * Build a `clarify` result that asks the user how to model their exposure.
- * Universal — used by every tool that would otherwise need a fake number.
- *
- * `forTool` is the tool we'll re-execute once the user picks a chip, and
- * `extras` is merged into the next call's parameters so the original intent
- * (token, targets, scenario, etc.) survives the round-trip.
+ * Generic clarify card builder. Each item is a chip the UI renders.
+ * Chip `action` semantics (handled by the frontend):
+ *   - connect_wallet / enter_address / enter_sol / enter_usd / use_demo
+ *     → drive the exposure flow (wallet sign-in or manual portfolio context)
+ *   - apply_param  → directly set parameters on the next execute call
+ *     (uses item.params object), no prompt
+ *   - (no action)  → append item.reply (or item.symbol) to the original
+ *     command and re-parse
+ */
+function buildClarify(opts: {
+  forTool: string;
+  question: string;
+  title?: string;
+  items: any[];
+  extras?: Record<string, any>;
+  source?: string;
+}) {
+  return {
+    result_type: "clarify",
+    title: opts.title || "Quick question",
+    summary: opts.question,
+    items: opts.items,
+    meta: { source: opts.source || `Need a detail before I run ${opts.forTool}` },
+    for_tool: opts.forTool,
+    extras: opts.extras || {},
+  } as any;
+}
+
+/**
+ * Wallet/USD exposure chips — only for tools that genuinely need to model
+ * a real treasury size (rebalance, what_if, find_airdrops with no input).
  */
 function clarifyExposure(opts: {
   forTool: string;
@@ -142,15 +167,71 @@ function clarifyExposure(opts: {
   if (opts.includeDemo) {
     items.push({ symbol: opts.includeDemo.label, reply: "", action: "use_demo", demo_value: opts.includeDemo.value });
   }
-  return {
-    result_type: "clarify",
+  return buildClarify({
+    forTool: opts.forTool,
     title: opts.title || "How should I model this?",
-    summary: opts.question,
+    question: opts.question,
     items,
-    meta: { source: `Need exposure context · will run ${opts.forTool}` },
-    for_tool: opts.forTool,
-    extras: opts.extras || {},
-  } as any;
+    extras: opts.extras,
+    source: `Need exposure context · will run ${opts.forTool}`,
+  });
+}
+
+/**
+ * Ask the LLM for 3-4 contextual chip suggestions tailored to the missing
+ * parameter. Each chip carries `params` that the frontend will merge into
+ * the next execute call via the `apply_param` action. Falls back to a
+ * single "type a value" hint chip if the LLM is unavailable.
+ */
+async function suggestChips(args: {
+  forTool: string;
+  missing: string;            // e.g. "amount", "frequency", "targets", "token"
+  context: string;            // human-readable description of what we already know
+  paramKey: string;           // which key on the next params object to fill
+  paramType: "number" | "string" | "object";
+  fallback: { label: string; value: any }[];
+}): Promise<any[]> {
+  const schema = {
+    name: "suggest_chips",
+    description: "Return 3-4 short chip suggestions for a missing command parameter.",
+    parameters: {
+      type: "object",
+      properties: {
+        chips: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "Short chip label (≤4 words)" },
+              value: { description: "Concrete value to fill the missing parameter" },
+            },
+            required: ["label", "value"],
+          },
+        },
+      },
+      required: ["chips"],
+    },
+  };
+  const out = await llmJson(
+    `You are Dreyv's command-bar assistant. The user gave a command that is missing the "${args.missing}" parameter for the "${args.forTool}" tool. Suggest 3-4 SHORT, realistic chip options the user could pick to fill it. Values must be concrete and immediately usable (e.g. real SOL amounts a retail user would type, real cadences, real allocation splits). No fake assumptions. Tailor to the context.`,
+    `Context: ${args.context}\nMissing parameter: ${args.missing} (${args.paramType})`,
+    schema
+  );
+  const chips = Array.isArray(out?.chips) ? out.chips.slice(0, 4) : [];
+  if (chips.length === 0) {
+    return args.fallback.map((f) => ({
+      symbol: f.label,
+      reply: "",
+      action: "apply_param",
+      params: { [args.paramKey]: f.value },
+    }));
+  }
+  return chips.map((c: any) => ({
+    symbol: String(c.label).slice(0, 32),
+    reply: "",
+    action: "apply_param",
+    params: { [args.paramKey]: c.value },
+  }));
 }
 
 async function execute(origin: string, tool_id: string, p: any) {
@@ -161,11 +242,32 @@ async function execute(origin: string, tool_id: string, p: any) {
       const amount = Number(p.amount);
 
       if (!inSym || !outSym || !isFinite(amount) || amount <= 0) {
-        return clarifyExposure({
+        const missing = !isFinite(amount) || amount <= 0 ? "amount" : !inSym ? "input_token" : "output_token";
+        const items = await suggestChips({
           forTool: "swap_tokens",
-          title: "How much do you want to swap?",
-          question: `Tell me the amount${inSym ? ` of ${inSym}` : ""} to swap${outSym ? ` into ${outSym}` : ""} — I won't guess for you.`,
-          extras: { input_token: inSym || "SOL", output_token: outSym || "USDC" },
+          missing,
+          context: `Swap ${inSym || "?"} → ${outSym || "?"}, amount=${isFinite(amount) ? amount : "missing"}. Suggest realistic ${missing} values a Solana retail user would actually pick.`,
+          paramKey: missing === "amount" ? "amount" : missing,
+          paramType: missing === "amount" ? "number" : "string",
+          fallback:
+            missing === "amount"
+              ? [
+                  { label: `0.5 ${inSym || "SOL"}`, value: 0.5 },
+                  { label: `2 ${inSym || "SOL"}`, value: 2 },
+                  { label: `10 ${inSym || "SOL"}`, value: 10 },
+                ]
+              : [
+                  { label: "SOL", value: "SOL" },
+                  { label: "USDC", value: "USDC" },
+                  { label: "JUP", value: "JUP" },
+                ],
+        });
+        return buildClarify({
+          forTool: "swap_tokens",
+          title: missing === "amount" ? `How much ${inSym || ""} to swap?` : "Which token?",
+          question: `Pick one or type your own — I won't guess.`,
+          items,
+          extras: { input_token: inSym || undefined, output_token: outSym || undefined, amount: isFinite(amount) ? amount : undefined },
         });
       }
 
@@ -195,10 +297,23 @@ async function execute(origin: string, tool_id: string, p: any) {
       const amount = Number(p.amount);
 
       if (!isFinite(amount) || amount <= 0) {
-        return clarifyExposure({
+        const items = await suggestChips({
           forTool: "stake_sol",
-          title: "How much SOL do you want to stake?",
-          question: `I'll quote real ${provider[0].toUpperCase() + provider.slice(1)} APY against your actual amount. How many SOL?`,
+          missing: "amount",
+          context: `Stake SOL with ${provider}. Suggest realistic SOL amounts a retail user staking with ${provider} would pick (small starter, mid, large).`,
+          paramKey: "amount",
+          paramType: "number",
+          fallback: [
+            { label: "1 SOL", value: 1 },
+            { label: "10 SOL", value: 10 },
+            { label: "100 SOL", value: 100 },
+          ],
+        });
+        return buildClarify({
+          forTool: "stake_sol",
+          title: `How much SOL to stake with ${provider[0].toUpperCase() + provider.slice(1)}?`,
+          question: "Pick a size — I'll quote live APY against it.",
+          items,
           extras: { provider },
         });
       }
@@ -244,10 +359,23 @@ async function execute(origin: string, tool_id: string, p: any) {
       const ctx = p.portfolio_context && typeof p.portfolio_context === "object" ? p.portfolio_context : null;
 
       if (!targets) {
-        return clarifyExposure({
+        const items = await suggestChips({
+          forTool: "rebalance",
+          missing: "targets",
+          context: `User wants to rebalance a Solana treasury. Suggest 3-4 realistic target allocations (each value is an object like {"SOL":60,"USDC":30,"JTO":10}). Cover conservative, balanced, and aggressive profiles.`,
+          paramKey: "targets",
+          paramType: "object",
+          fallback: [
+            { label: "Conservative 30/70", value: { SOL: 30, USDC: 70 } },
+            { label: "Balanced 60/30/10", value: { SOL: 60, USDC: 30, JTO: 10 } },
+            { label: "Aggressive 70/20/10", value: { SOL: 70, JUP: 20, JTO: 10 } },
+          ],
+        });
+        return buildClarify({
           forTool: "rebalance",
           title: "What target allocation?",
-          question: `Tell me the target split — e.g. "60% SOL, 30% USDC, 10% JTO". I won't guess your strategy.`,
+          question: `Pick a profile or type your own (e.g. "rebalance to 60% SOL 30% USDC 10% JTO").`,
+          items,
         });
       }
 
@@ -384,10 +512,24 @@ async function execute(origin: string, tool_id: string, p: any) {
     case "audit_token": {
       const sym = (p.token || "").toUpperCase();
       if (!sym) {
-        return clarifyExposure({
+        const items = await suggestChips({
+          forTool: "audit_token",
+          missing: "token",
+          context: `User wants to audit/rug-check a Solana token. Suggest 3-4 currently-relevant tokens worth auditing (mix of major + speculative). Use ticker symbols only.`,
+          paramKey: "token",
+          paramType: "string",
+          fallback: [
+            { label: "BONK", value: "BONK" },
+            { label: "JUP", value: "JUP" },
+            { label: "WIF", value: "WIF" },
+            { label: "JTO", value: "JTO" },
+          ],
+        });
+        return buildClarify({
           forTool: "audit_token",
           title: "Which token should I audit?",
-          question: "Tell me a symbol or mint address — e.g. BONK, JUP, or a full mint.",
+          question: "Pick a token or type a symbol / mint address.",
+          items,
         });
       }
       const t = tok(sym);
@@ -570,11 +712,67 @@ async function execute(origin: string, tool_id: string, p: any) {
       const outSym = (p.out_token || "").toUpperCase();
 
       if (!isFinite(amount) || amount <= 0 || !freq || !inSym || !outSym) {
-        return clarifyExposure({
+        // Pick the single most-missing field and ask for it with contextual chips.
+        const missing =
+          !inSym || !outSym ? "pair" : !isFinite(amount) || amount <= 0 ? "amount" : "frequency";
+
+        let items: any[] = [];
+        let title = "Tell me your DCA parameters";
+
+        if (missing === "amount") {
+          items = await suggestChips({
+            forTool: "create_dca",
+            missing: "amount",
+            context: `DCA ${inSym} → ${outSym} ${freq || "(no cadence yet)"}. Suggest realistic per-tick ${inSym} amounts a retail user would DCA.`,
+            paramKey: "amount",
+            paramType: "number",
+            fallback: [
+              { label: `25 ${inSym}`, value: 25 },
+              { label: `100 ${inSym}`, value: 100 },
+              { label: `500 ${inSym}`, value: 500 },
+            ],
+          });
+          title = `How much ${inSym} per tick?`;
+        } else if (missing === "frequency") {
+          items = [
+            { symbol: "Daily", reply: "", action: "apply_param", params: { frequency: "daily" } },
+            { symbol: "Weekly", reply: "", action: "apply_param", params: { frequency: "weekly" } },
+            { symbol: "Monthly", reply: "", action: "apply_param", params: { frequency: "monthly" } },
+          ];
+          title = "How often should the bot run?";
+        } else {
+          items = await suggestChips({
+            forTool: "create_dca",
+            missing: "pair",
+            context: `User wants to DCA on Solana. Suggest 3-4 realistic in→out pairs (each value is an object {"in":"USDC","out":"SOL"}).`,
+            paramKey: "pair",
+            paramType: "object",
+            fallback: [
+              { label: "USDC → SOL", value: { in: "USDC", out: "SOL" } },
+              { label: "USDC → JUP", value: { in: "USDC", out: "JUP" } },
+              { label: "SOL → BONK", value: { in: "SOL", out: "BONK" } },
+            ],
+          }).then((chips) =>
+            // Flatten {pair:{in,out}} chips into {in_token, out_token} so the next call lands cleanly.
+            chips.map((c) => ({
+              ...c,
+              params: { in_token: c.params?.pair?.in, out_token: c.params?.pair?.out },
+            }))
+          );
+          title = "Which token pair?";
+        }
+
+        return buildClarify({
           forTool: "create_dca",
-          title: "Tell me your DCA parameters",
-          question: `I won't guess your strategy. What amount, token pair, and cadence? e.g. "100 USDC into SOL weekly".`,
-          extras: { in_token: inSym || "USDC", out_token: outSym || "SOL", frequency: freq || "weekly" },
+          title,
+          question: "Pick one or type your own — I'll quote real Jupiter fills per tick.",
+          items,
+          extras: {
+            in_token: inSym || undefined,
+            out_token: outSym || undefined,
+            amount: isFinite(amount) ? amount : undefined,
+            frequency: freq || undefined,
+          },
         });
       }
 
