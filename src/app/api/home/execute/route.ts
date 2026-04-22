@@ -359,10 +359,23 @@ async function execute(origin: string, tool_id: string, p: any) {
       const ctx = p.portfolio_context && typeof p.portfolio_context === "object" ? p.portfolio_context : null;
 
       if (!targets) {
-        return clarifyExposure({
+        const items = await suggestChips({
+          forTool: "rebalance",
+          missing: "targets",
+          context: `User wants to rebalance a Solana treasury. Suggest 3-4 realistic target allocations (each value is an object like {"SOL":60,"USDC":30,"JTO":10}). Cover conservative, balanced, and aggressive profiles.`,
+          paramKey: "targets",
+          paramType: "object",
+          fallback: [
+            { label: "Conservative 30/70", value: { SOL: 30, USDC: 70 } },
+            { label: "Balanced 60/30/10", value: { SOL: 60, USDC: 30, JTO: 10 } },
+            { label: "Aggressive 70/20/10", value: { SOL: 70, JUP: 20, JTO: 10 } },
+          ],
+        });
+        return buildClarify({
           forTool: "rebalance",
           title: "What target allocation?",
-          question: `Tell me the target split — e.g. "60% SOL, 30% USDC, 10% JTO". I won't guess your strategy.`,
+          question: `Pick a profile or type your own (e.g. "rebalance to 60% SOL 30% USDC 10% JTO").`,
+          items,
         });
       }
 
