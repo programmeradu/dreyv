@@ -121,13 +121,21 @@ export function HomeCommandbar() {
   /**
    * Handle a clarify chip click. Each chip can carry an `action`:
    *  - connect_wallet → open auth gate (treats as soft conversion)
-   *  - enter_address  → prompt for a Solana address, re-run with portfolio_context
-   *  - enter_sol      → prompt for SOL amount, re-run with portfolio_context
-   *  - use_demo       → re-run with the demo basket as portfolio_context
+   *  - enter_address  → prompt for a Solana address
+   *  - enter_sol      → prompt for SOL amount
+   *  - enter_usd      → prompt for USD amount
+   *  - use_demo       → re-run with explicit demo opt-in
    *  - (no action)    → fall back to appending the chip text to the original command
+   *
+   * The follow-up call always re-executes `forTool` directly, merging any
+   * server-supplied `extras` (targets, tokens, scenario, etc.) so the original
+   * intent survives the round-trip.
    */
-  function handleClarifyChip(item: any, originalScenario: string, forTool: string) {
+  function handleClarifyChip(item: any, originalScenario: string, forTool: string, extras: Record<string, any>) {
     const action = item?.action as string | undefined;
+    const base = { scenario: originalScenario, ...extras };
+    const label = (suffix: string) => `${originalScenario || forTool} · ${suffix}`;
+
     if (action === "connect_wallet") {
       setAuthIntent({ label: "Connect wallet", requires_auth: true, intent: "open_app" });
       return;
@@ -135,36 +143,32 @@ export function HomeCommandbar() {
     if (action === "enter_address") {
       const addr = window.prompt("Paste your Solana wallet address:");
       if (!addr) return;
-      executeDirect(
-        forTool,
-        { scenario: originalScenario, portfolio_context: { mode: "wallet", value: addr.trim() } },
-        `${originalScenario} · wallet ${addr.slice(0, 4)}…${addr.slice(-4)}`
-      );
+      executeDirect(forTool, { ...base, portfolio_context: { mode: "wallet", value: addr.trim() } }, label(`wallet ${addr.slice(0, 4)}…${addr.slice(-4)}`));
       return;
     }
     if (action === "enter_sol") {
-      const raw = window.prompt("How much SOL do you hold? (number only)");
+      const raw = window.prompt("How much SOL? (number only)");
       const amt = Number(raw);
       if (!raw || !isFinite(amt) || amt <= 0) return;
-      executeDirect(
-        forTool,
-        { scenario: originalScenario, portfolio_context: { mode: "sol_amount", value: amt } },
-        `${originalScenario} · ${amt} SOL`
-      );
+      executeDirect(forTool, { ...base, portfolio_context: { mode: "sol_amount", value: amt }, amount: amt }, label(`${amt} SOL`));
+      return;
+    }
+    if (action === "enter_usd") {
+      const raw = window.prompt("Enter USD amount (number only):");
+      const amt = Number(raw);
+      if (!raw || !isFinite(amt) || amt <= 0) return;
+      executeDirect(forTool, { ...base, portfolio_context: { mode: "usd_amount", value: amt } }, label(`$${amt.toLocaleString()}`));
       return;
     }
     if (action === "use_demo") {
-      executeDirect(
-        forTool,
-        { scenario: originalScenario, portfolio_context: { mode: "demo" } },
-        `${originalScenario} · demo basket`
-      );
+      const demoValue = item?.demo_value;
+      executeDirect(forTool, { ...base, portfolio_context: { mode: "demo", value: demoValue } }, label("demo basket"));
       return;
     }
-    // Fallback: append the chip text to the original command and re-parse.
     const reply = item?.reply || item?.symbol || "";
     if (reply) run(`${input} ${reply}`.trim());
   }
+
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
