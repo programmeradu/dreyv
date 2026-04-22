@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
 import { HeroCommandbarDemo } from "./hero-commandbar-demo";
-import heroLiquid from "@/assets/hero-liquid-violet.png";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
@@ -38,17 +36,15 @@ export function HeroSection() {
       className="relative min-h-dvh max-h-dvh flex flex-col overflow-hidden"
       aria-labelledby="hero-heading"
     >
-      {/* Ambient liquid violet accent */}
-      <div className="pointer-events-none absolute -top-16 -right-24 lg:-right-12 w-[560px] h-[560px] lg:w-[760px] lg:h-[760px] opacity-[0.45] lg:opacity-[0.55] z-0" aria-hidden>
-        <Image
-          src={heroLiquid}
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 1024px) 560px, 760px"
-          className="object-contain drop-shadow-[0_30px_60px_rgba(124,58,237,0.18)]"
-        />
-      </div>
+      {/* Ambient radial violet glow — subtle, behind headline */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(60% 50% at 30% 35%, rgba(124,58,237,0.10) 0%, rgba(124,58,237,0.04) 40%, transparent 70%), radial-gradient(40% 40% at 80% 70%, rgba(167,139,250,0.08) 0%, transparent 65%)",
+        }}
+      />
 
       <div className="relative flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-24 md:pt-28 pb-8 z-10">
         <motion.p

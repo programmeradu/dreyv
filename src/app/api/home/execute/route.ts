@@ -501,7 +501,7 @@ async function execute(origin: string, tool_id: string, p: any) {
         items: opps.map((o: any) => ({
           token: o.token,
           dex: `${o.buyDex || "—"} → ${o.sellDex || "—"}`,
-          profit: o.profitPercent ? `${o.profitPercent.toFixed(2)}% / $${o.profitUsd ?? "—"}` : o.type,
+          profit: o.profitPercent != null ? `${Number(o.profitPercent).toFixed(2)}% / $${o.profitUsd ?? "—"}` : o.type,
           confidence: o.confidence,
         })),
         primary_action: { label: "Sign in to deploy MEV agent", requires_auth: true, intent: "deploy_agent" },
