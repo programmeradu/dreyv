@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import Image from "next/image";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
+import { HeroCommandbarDemo } from "./hero-commandbar-demo";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
@@ -84,18 +84,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.55 }}
             className="relative hidden lg:flex items-center justify-center"
           >
-            <div className="absolute -inset-10 bg-violet-400/[0.12] blur-[90px] rounded-full pointer-events-none" />
-
-            <div className="relative w-full max-w-lg rounded-2xl bg-white/90 p-1.5 marketing-shadow-float ring-1 ring-violet-200/30">
-              <Image
-                src="/images/hero-command.png"
-                alt="AI Command Interface - Swap 500 SOL to USDC via Jupiter"
-                width={600}
-                height={400}
-                className="w-full h-auto rounded-xl"
-                priority
-              />
-            </div>
+            <HeroCommandbarDemo />
           </motion.div>
         </div>
 
