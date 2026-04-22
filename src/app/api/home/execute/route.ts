@@ -564,12 +564,21 @@ async function execute(origin: string, tool_id: string, p: any) {
     }
 
     case "create_dca": {
-      const amount = Number(p.amount || 100);
-      const freq = p.frequency || "weekly";
-      const inSym = (p.in_token || "USDC").toUpperCase();
-      const outSym = (p.out_token || "SOL").toUpperCase();
+      const amount = Number(p.amount);
+      const freq = p.frequency || "";
+      const inSym = (p.in_token || "").toUpperCase();
+      const outSym = (p.out_token || "").toUpperCase();
+
+      if (!isFinite(amount) || amount <= 0 || !freq || !inSym || !outSym) {
+        return clarifyExposure({
+          forTool: "create_dca",
+          title: "Tell me your DCA parameters",
+          question: `I won't guess your strategy. What amount, token pair, and cadence? e.g. "100 USDC into SOL weekly".`,
+          extras: { in_token: inSym || "USDC", out_token: outSym || "SOL", frequency: freq || "weekly" },
+        });
+      }
+
       const ticks = freq === "daily" ? 365 : freq === "weekly" ? 52 : 12;
-      // Pull a real Jupiter quote for one tick so the user sees a real fill, not a placeholder.
       let perTickOut = "—";
       let impact = "—";
       try {
