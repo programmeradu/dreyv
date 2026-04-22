@@ -120,9 +120,51 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ action: "links", data });
             }
 
+            // ─── /crawl async actions ───────────────────────────────
+            case "crawl.start":
+            case "crawl": {
+                if (!params.url) {
+                    return NextResponse.json(
+                        { error: "crawl.start requires a 'url' field." },
+                        { status: 400 }
+                    );
+                }
+                const data = await startCrawl(params);
+                return NextResponse.json({
+                    action: "crawl.start",
+                    jobId: data.result,
+                    success: data.success,
+                });
+            }
+
+            case "crawl.status": {
+                if (!params.jobId) {
+                    return NextResponse.json(
+                        { error: "crawl.status requires a 'jobId' field." },
+                        { status: 400 }
+                    );
+                }
+                const { jobId, cursor, limit, status } = params;
+                const data = await getCrawlStatus(jobId, { cursor, limit, status });
+                return NextResponse.json({ action: "crawl.status", ...data });
+            }
+
+            case "crawl.cancel": {
+                if (!params.jobId) {
+                    return NextResponse.json(
+                        { error: "crawl.cancel requires a 'jobId' field." },
+                        { status: 400 }
+                    );
+                }
+                const data = await cancelCrawl(params.jobId);
+                return NextResponse.json({ action: "crawl.cancel", ...data });
+            }
+
             default:
                 return NextResponse.json(
-                    { error: `Unknown action '${action}'. Supported: screenshot, pdf, json, markdown, snapshot, scrape, links` },
+                    {
+                        error: `Unknown action '${action}'. Supported: screenshot, pdf, json, markdown, snapshot, scrape, links, crawl.start, crawl.status, crawl.cancel`,
+                    },
                     { status: 400 }
                 );
         }
