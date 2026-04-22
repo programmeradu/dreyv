@@ -7,6 +7,15 @@ const COMMANDS = [
   "Swap 500 SOL to USDC via Jupiter, max 0.5% slippage",
   "Rebalance treasury: 60% SOL, 30% USDC, 10% JTO",
   "Stake idle SOL on Marinade for max yield",
+  "Pay contractor 8,000 USDC, vesting 12 months",
+  "Project runway at $42k/mo burn, alert at 6 months",
+  "DCA 2,000 USDC into JTO weekly for 8 weeks",
+  "Scan treasury for MEV exposure in last 30 days",
+  "Bridge 50k USDC from Ethereum to Solana, cheapest route",
+  "Draft Q2 treasury report for the multisig",
+  "Set guardrail: block any single transfer over $250k",
+  "Close LP position on Kamino, route proceeds to USDC",
+  "Simulate: what if SOL drops 30% overnight?",
 ];
 
 export function HeroCommandbarDemo() {
