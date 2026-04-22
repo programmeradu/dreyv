@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import vaultChamber from "@/assets/vault-chamber-violet.png";
+import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 
 const tools = [
   {
@@ -120,9 +120,9 @@ export function AtlasSection() {
       aria-labelledby="atlas-heading"
       ref={ref}
     >
-      {/* Vault chamber accent */}
-      <div className="pointer-events-none absolute -left-24 top-16 w-72 h-72 lg:w-96 lg:h-96 opacity-[0.10] z-0" aria-hidden>
-        <Image src={vaultChamber} alt="" fill sizes="384px" className="object-contain" />
+      {/* Atlas orbital accent */}
+      <div className="pointer-events-none absolute -left-20 top-20 w-80 h-80 lg:w-[28rem] lg:h-[28rem] opacity-[0.14] z-0" aria-hidden>
+        <Image src={atlasOrbital} alt="" fill sizes="448px" className="object-contain" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 md:py-32 z-10">
