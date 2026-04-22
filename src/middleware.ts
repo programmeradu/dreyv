@@ -75,8 +75,39 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
     return response;
 }
 
+// Canonical host for SEO consolidation. All alternate domains (dreyv.app,
+// dreyv.finance, www.* variants) must 308-redirect to this host in a SINGLE
+// hop so Google Search Console doesn't flag "Redirect error" / long chains.
+const CANONICAL_HOST = 'dreyv.com';
+const ALTERNATE_HOSTS = new Set([
+    'www.dreyv.com',
+    'dreyv.app',
+    'www.dreyv.app',
+    'dreyv.finance',
+    'www.dreyv.finance',
+]);
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+
+    // ─── Canonical-host redirect (single hop, 308) ───────────────────
+    // Skip in non-production (preview deploys, localhost) so they keep working.
+    const hostHeader = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase();
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    if (
+        process.env.NODE_ENV === 'production' &&
+        hostHeader &&
+        ALTERNATE_HOSTS.has(hostHeader) &&
+        // Don't redirect Vercel preview / lovable preview hosts
+        !hostHeader.endsWith('.vercel.app') &&
+        !hostHeader.endsWith('.lovable.app')
+    ) {
+        const target = new URL(
+            pathname + request.nextUrl.search,
+            `https://${CANONICAL_HOST}`,
+        );
+        return NextResponse.redirect(target, 308);
+    }
 
     // ─── Handle Neon Auth OAuth verifier exchange ────────────────────
     // After Google/Discord OAuth, Neon Auth redirects back with
