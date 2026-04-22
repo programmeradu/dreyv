@@ -142,7 +142,7 @@ export function WhatIsDreyvSection() {
             transition={{ duration: reduceMotion ? 0 : 0.5, delay: reduceMotion ? 0 : 0.12 }}
           >
             <div
-              className="absolute -inset-px rounded-2xl bg-gradient-to-br from-violet-200/50 via-transparent to-fuchsia-200/30 blur-sm opacity-70 pointer-events-none"
+              className="absolute -inset-px rounded-2xl bg-violet-200/40 blur-sm opacity-70 pointer-events-none"
               aria-hidden
             />
             <div className="relative rounded-2xl border border-violet-200/45 bg-white/92 p-5 md:p-6 marketing-shadow-float">

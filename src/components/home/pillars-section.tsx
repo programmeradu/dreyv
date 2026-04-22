@@ -160,7 +160,7 @@ export function PillarsSection() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="bg-white/92 p-8"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-fuchsia-600/70 mb-5">
+            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-violet-600/70 mb-5">
               dreyv Studio
             </p>
             <div className="relative rounded-lg border border-violet-200/40 bg-white/[0.015] p-4 mb-4 overflow-hidden">

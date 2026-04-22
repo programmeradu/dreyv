@@ -164,7 +164,7 @@ export function LandingCommandBar() {
                         >
                             {/* Neon Glow Border Effect */}
                             <div className="absolute inset-0 z-0 pointer-events-none rounded-2xl ring-1 ring-violet-300/50" />
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 to-[#25a85c] rounded-2xl blur opacity-20" />
+                            <div className="absolute -inset-0.5 bg-violet-600 rounded-2xl blur opacity-20" />
 
                             <div className="relative z-10 flex flex-col">
                                 {!plan ? (
