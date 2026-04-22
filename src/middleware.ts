@@ -89,6 +89,10 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
         );
         response.headers.append(
             'Link',
+            '</.well-known/x402>; rel="payment"; type="application/json"; title="x402 capability"',
+        );
+        response.headers.append(
+            'Link',
             '</guides>; rel="service-doc"; type="text/html"; title="dreyv developer guides"',
         );
         response.headers.append(

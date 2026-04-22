@@ -30,13 +30,14 @@ export function GET() {
                 },
             ],
             capabilities: {
-                payments: ["fastspring", "paddle"],
+                payments: ["fastspring", "paddle", "x402:advertised"],
                 onchain: ["solana"],
-                discovery: ["acp", "ucp"],
+                discovery: ["acp", "ucp", "x402"],
             },
             endpoints: {
                 api_catalog: `${origin}/.well-known/api-catalog`,
                 acp: `${origin}/.well-known/acp.json`,
+                x402: `${origin}/.well-known/x402`,
                 docs: `${origin}/guides`,
             },
             contact: "support@dreyv.com",

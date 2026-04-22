@@ -33,6 +33,11 @@ export function GET() {
                             type: "application/json",
                             title: "UCP profile",
                         },
+                        {
+                            href: `${origin}/.well-known/x402`,
+                            type: "application/json",
+                            title: "x402 capability",
+                        },
                     ],
                     "status-page": [
                         {
