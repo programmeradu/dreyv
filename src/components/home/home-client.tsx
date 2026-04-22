@@ -5,7 +5,7 @@ import { HeroSection } from "./hero-section";
 import { WhatIsDreyvSection } from "./what-is-dreyv-section";
 import { ProblemSection } from "./problem-section";
 import { PillarsSection } from "./pillars-section";
-import { DemoSection } from "./demo-section";
+import { HomeCommandbar } from "./home-commandbar";
 import { DeepDiveSection } from "./deep-dive-section";
 import { AtlasSection } from "./atlas-section";
 import { HowItWorksSection } from "./how-it-works-section";
@@ -42,7 +42,7 @@ export const HomeClient = () => {
         <WhatIsDreyvSection />
         <ProblemSection />
         <PillarsSection />
-        <DemoSection />
+        <HomeCommandbar />
         <EcosystemSection />
         <DeepDiveSection />
         <AtlasSection />
