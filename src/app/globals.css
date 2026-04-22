@@ -878,6 +878,27 @@ nextjs-portal {
   color: var(--marketing-fg);
 }
 
+/* Premium light legal/long-form prose — solid violet accents, no gradients */
+.legal-prose { color: rgb(51 65 85); font-size: 0.95rem; line-height: 1.75; }
+.legal-prose h1 { font-size: 2.25rem; font-weight: 600; letter-spacing: -0.02em; color: rgb(15 23 42); margin: 0 0 0.5rem; }
+.legal-prose h2 { font-size: 1.25rem; font-weight: 600; color: rgb(15 23 42); margin: 2.25rem 0 0.75rem; padding-left: 0.875rem; border-left: 3px solid rgb(124 58 237); }
+.legal-prose h3 { font-size: 1rem; font-weight: 600; color: rgb(15 23 42); margin: 1.5rem 0 0.5rem; }
+.legal-prose p { margin: 0 0 1rem; }
+.legal-prose a { color: rgb(109 40 217); font-weight: 500; text-decoration: none; }
+.legal-prose a:hover { text-decoration: underline; }
+.legal-prose strong { color: rgb(15 23 42); font-weight: 600; }
+.legal-prose code { background: rgb(245 243 255); color: rgb(91 33 182); padding: 0.1rem 0.4rem; border-radius: 0.35rem; font-size: 0.85em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.legal-prose ul { margin: 0 0 1.25rem; padding: 0; list-style: none; }
+.legal-prose ul li { position: relative; padding-left: 1.25rem; margin: 0.4rem 0; }
+.legal-prose ul li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 6px; height: 6px; border-radius: 9999px; background: rgb(124 58 237); }
+.legal-prose table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1rem 0 1.5rem; border: 1px solid rgb(221 214 254 / 0.6); border-radius: 1rem; overflow: hidden; background: rgb(255 255 255 / 0.85); backdrop-filter: blur(6px); }
+.legal-prose thead th { background: rgb(245 243 255 / 0.7); text-align: left; padding: 0.75rem 1rem; font-size: 0.8rem; font-weight: 600; color: rgb(30 41 59); }
+.legal-prose tbody td { padding: 0.75rem 1rem; font-size: 0.85rem; border-top: 1px solid rgb(241 245 249); vertical-align: top; }
+.legal-prose .legal-meta { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(109 40 217); background: rgb(255 255 255 / 0.7); border: 1px solid rgb(221 214 254); border-radius: 9999px; padding: 0.3rem 0.75rem; margin-bottom: 1.25rem; }
+.legal-prose .legal-card { margin-top: 1.5rem; padding: 1.5rem 1.75rem; border: 1px solid rgb(221 214 254 / 0.6); background: rgb(255 255 255 / 0.85); backdrop-filter: blur(8px); border-radius: 1.5rem; box-shadow: 0 20px 60px -30px rgba(124,58,237,0.20); }
+.legal-prose .legal-card > :first-child { margin-top: 0; }
+.legal-prose .legal-card > :last-child { margin-bottom: 0; }
+
 /* Hero / display gradient — purple brand */
 .text-gradient-dreyv {
   background: linear-gradient(135deg, var(--marketing-violet) 0%, var(--marketing-violet-mid) 100%);
