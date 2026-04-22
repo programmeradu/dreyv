@@ -131,13 +131,13 @@ export function LandingCommandBar() {
             {/* Inline trigger — same style as in-app CommandBar */}
             <button
                 onClick={() => setOpen(true)}
-                className="mt-6 flex items-center gap-3 pl-4 pr-3 py-3 rounded-full bg-white/75 backdrop-blur-xl border border-violet-200/50 shadow-2xl hover:border-violet-400/45 hover:shadow-[0_0_20px_rgba(54,226,123,0.1)] transition-all group"
+                className="mt-6 flex items-center gap-3 px-2 py-2 rounded-full bg-transparent hover:text-slate-700 transition-colors group"
             >
                 <Sparkles size={16} className="text-violet-600" />
-                <span className="text-sm font-medium text-slate-500 group-hover:text-slate-600 transition-colors mr-2">
+                <span className="text-sm font-medium text-slate-500 group-hover:text-slate-700 transition-colors mr-2">
                     Ask dreyv...
                 </span>
-                <div className="flex items-center gap-1 opacity-50 text-[10px] font-mono text-slate-500 border-l border-violet-200/50 pl-3">
+                <div className="flex items-center gap-1 opacity-60 text-[10px] font-mono text-slate-500 border-l border-violet-200/40 pl-3">
                     <span>⌘</span> K
                 </div>
             </button>
