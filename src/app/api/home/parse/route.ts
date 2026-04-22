@@ -53,6 +53,7 @@ const HOME_MANIFEST = `
   { "tool_id": "build_agent", "params": { "kind": "trading|investment|treasury", "rules": "free text" } },
   { "tool_id": "yield_overview", "params": {} },
   { "tool_id": "show_portfolio", "params": {} },
+  { "tool_id": "clarify", "params": { "question": "the follow-up question to ask the user", "suggested_replies": ["short option 1", "short option 2", "short option 3"], "for_tool": "the tool_id we'll run once they answer" } },
   { "tool_id": "unknown", "params": {} }
 ]
 `.trim();
@@ -71,6 +72,8 @@ Rules:
 - "build a trading agent" / "investment agent" => build_agent.
 - "arbitrage opportunities", "find arb" => find_arbitrage.
 - "trending", "market pulse" => market_overview.
+- CLARIFY when the user's intent is clear but a required figure or token is missing or ambiguous (e.g. "swap SOL to USDC" with no amount, "build a dca bot" with no token/amount/cadence, "rebalance" with no targets, "what if" with no concrete % or asset). Return tool_id "clarify" with a SHORT, specific question and 2-4 suggested_replies that, if appended to the original command, would make it executable. Always include "for_tool" so the next turn knows what to run.
+- Do NOT clarify if reasonable defaults exist AND the user gave at least one concrete number — just run it.
 - If unsure, tool_id = "unknown".`;
 
 const TOKEN_RE = /\b(SOL|USDC|USDT|JUP|BONK|JTO|MSOL|JITOSOL|BSOL|WIF|PYTH|RAY|ORCA|DRIFT|TNSR|MNDE)\b/gi;
