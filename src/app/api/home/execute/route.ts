@@ -297,10 +297,23 @@ async function execute(origin: string, tool_id: string, p: any) {
       const amount = Number(p.amount);
 
       if (!isFinite(amount) || amount <= 0) {
-        return clarifyExposure({
+        const items = await suggestChips({
           forTool: "stake_sol",
-          title: "How much SOL do you want to stake?",
-          question: `I'll quote real ${provider[0].toUpperCase() + provider.slice(1)} APY against your actual amount. How many SOL?`,
+          missing: "amount",
+          context: `Stake SOL with ${provider}. Suggest realistic SOL amounts a retail user staking with ${provider} would pick (small starter, mid, large).`,
+          paramKey: "amount",
+          paramType: "number",
+          fallback: [
+            { label: "1 SOL", value: 1 },
+            { label: "10 SOL", value: 10 },
+            { label: "100 SOL", value: 100 },
+          ],
+        });
+        return buildClarify({
+          forTool: "stake_sol",
+          title: `How much SOL to stake with ${provider[0].toUpperCase() + provider.slice(1)}?`,
+          question: "Pick a size — I'll quote live APY against it.",
+          items,
           extras: { provider },
         });
       }
