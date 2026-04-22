@@ -118,6 +118,41 @@ async function llmJson(system: string, user: string, schema?: any): Promise<any 
   }
 }
 
+/**
+ * Build a `clarify` result that asks the user how to model their exposure.
+ * Universal — used by every tool that would otherwise need a fake number.
+ *
+ * `forTool` is the tool we'll re-execute once the user picks a chip, and
+ * `extras` is merged into the next call's parameters so the original intent
+ * (token, targets, scenario, etc.) survives the round-trip.
+ */
+function clarifyExposure(opts: {
+  forTool: string;
+  question: string;
+  title?: string;
+  extras?: Record<string, any>;
+  includeDemo?: { label: string; value: any };
+}) {
+  const items: any[] = [
+    { symbol: "Connect wallet", reply: "", action: "connect_wallet" },
+    { symbol: "Paste a wallet address", reply: "", action: "enter_address" },
+    { symbol: "Tell me your SOL holdings", reply: "", action: "enter_sol" },
+    { symbol: "Enter a USD amount", reply: "", action: "enter_usd" },
+  ];
+  if (opts.includeDemo) {
+    items.push({ symbol: opts.includeDemo.label, reply: "", action: "use_demo", demo_value: opts.includeDemo.value });
+  }
+  return {
+    result_type: "clarify",
+    title: opts.title || "How should I model this?",
+    summary: opts.question,
+    items,
+    meta: { source: `Need exposure context · will run ${opts.forTool}` },
+    for_tool: opts.forTool,
+    extras: opts.extras || {},
+  } as any;
+}
+
 async function execute(origin: string, tool_id: string, p: any) {
   switch (tool_id) {
     case "swap_tokens": {
