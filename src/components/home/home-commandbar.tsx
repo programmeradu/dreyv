@@ -281,7 +281,17 @@ export function HomeCommandbar() {
                 {loading ? (
                   <LoadingCard />
                 ) : result ? (
-                  <ResultCard result={result} onAction={triggerAction} onReply={(reply) => run(`${input} ${reply}`.trim())} />
+                  <ResultCard
+                    result={result}
+                    onAction={triggerAction}
+                    onClarify={(item) =>
+                      handleClarifyChip(
+                        item,
+                        (result as any)?.scenario || input,
+                        (result as any)?.for_tool || "what_if"
+                      )
+                    }
+                  />
                 ) : null}
               </motion.div>
             )}
@@ -333,11 +343,11 @@ function LoadingCard() {
 function ResultCard({
   result,
   onAction,
-  onReply,
+  onClarify,
 }: {
   result: Result;
   onAction: (a: Action) => void;
-  onReply: (reply: string) => void;
+  onClarify: (item: any) => void;
 }) {
   const isClarify = result.result_type === "clarify";
   const accent = result.result_type === "error" ? "rose" : "violet";
@@ -361,7 +371,7 @@ function ResultCard({
           {result.items.map((it: any, i: number) => (
             <button
               key={i}
-              onClick={() => onReply(it.symbol)}
+              onClick={() => onClarify(it)}
               className="text-xs font-medium px-3 py-1.5 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 ring-1 ring-violet-200/70 transition-colors"
             >
               {it.symbol}
