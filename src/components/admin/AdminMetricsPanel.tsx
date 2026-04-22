@@ -9,100 +9,111 @@ interface AdminMetricsPanelProps {
     action?: React.ReactNode;
 }
 
-export function AdminMetricsPanel({ 
-    title, 
-    icon, 
-    children, 
-    status = "healthy", 
+/**
+ * Premium light admin panel — solid violet accents, white frosted card.
+ * No gradients, no fuchsia.
+ */
+export function AdminMetricsPanel({
+    title,
+    icon,
+    children,
+    status = "healthy",
     className = "",
-    action
+    action,
 }: AdminMetricsPanelProps) {
-    // Status color mapping
-    const statusColors = {
-        healthy: "bg-primary text-primary-foreground border-primary",
-        warning: "bg-orange-500 text-white border-orange-500",
-        critical: "bg-destructive text-white border-destructive"
-    };
-
     const statusPip = {
-        healthy: "bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]",
-        warning: "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]",
-        critical: "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-    };
+        healthy: "bg-violet-600",
+        warning: "bg-amber-500",
+        critical: "bg-rose-500",
+    } as const;
+
+    const statusLabel = {
+        healthy: "Healthy",
+        warning: "Watch",
+        critical: "Critical",
+    } as const;
 
     return (
-        <div className={`bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col ${className}`}>
-            <div className="px-5 py-4 border-b border-border bg-muted/10 flex items-center justify-between">
+        <div
+            className={`relative rounded-3xl border border-violet-200/60 bg-white/85 backdrop-blur-md shadow-[0_20px_60px_-30px_rgba(124,58,237,0.18)] overflow-hidden flex flex-col ${className}`}
+        >
+            <div className="px-5 py-4 border-b border-violet-100 bg-violet-50/40 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-foreground border border-border">
+                    <div className="h-9 w-9 rounded-xl bg-violet-100 border border-violet-200 text-violet-700 flex items-center justify-center">
                         {icon}
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-foreground">
-                                {title}
-                            </h3>
-                            {status !== "healthy" && (
-                                <div className={`w-2 h-2 rounded-full ${statusPip[status]} animate-pulse`} title={`Status: ${status}`} />
-                            )}
+                        <h3 className="text-[13px] font-semibold tracking-tight text-slate-900">
+                            {title}
+                        </h3>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                            <span className={`h-1.5 w-1.5 rounded-full ${statusPip[status]} ${status !== "healthy" ? "animate-pulse" : ""}`} />
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                {statusLabel[status]}
+                            </span>
                         </div>
                     </div>
                 </div>
                 {action && <div>{action}</div>}
             </div>
-            
-            <div className="p-5 flex-1 flex flex-col gap-4 bg-background">
+
+            <div className="p-5 flex-1 flex flex-col gap-4 bg-white/60 font-manrope">
                 {children}
             </div>
         </div>
     );
 }
 
-// Sub-components for Panel layouts
-export const MetricGrid = ({ children, cols = 2 }: { children: React.ReactNode, cols?: 1|2|3|4 }) => {
+export const MetricGrid = ({
+    children,
+    cols = 2,
+}: {
+    children: React.ReactNode;
+    cols?: 1 | 2 | 3 | 4;
+}) => {
     const gridCols = {
         1: "grid-cols-1",
         2: "grid-cols-1 sm:grid-cols-2",
         3: "grid-cols-1 sm:grid-cols-3",
         4: "grid-cols-2 sm:grid-cols-4",
     };
-    return (
-        <div className={`grid ${gridCols[cols]} gap-3`}>
-            {children}
-        </div>
-    );
+    return <div className={`grid ${gridCols[cols]} gap-3`}>{children}</div>;
 };
 
-export const BreakdownList = ({ 
-    items, 
-    valueFormatter = (val: any) => val.toLocaleString() 
-}: { 
-    items: { label: string, value: number, color?: string }[],
-    valueFormatter?: (val: any) => string 
+export const BreakdownList = ({
+    items,
+    valueFormatter = (val: any) => val.toLocaleString(),
+}: {
+    items: { label: string; value: number; color?: string }[];
+    valueFormatter?: (val: any) => string;
 }) => {
     const total = items.reduce((sum, item) => sum + item.value, 0);
-    
+
     if (total === 0) {
-        return <div className="text-center py-4 text-[10px] text-muted-foreground uppercase font-black">No data available</div>;
+        return (
+            <div className="text-center py-3 text-[11px] font-medium text-slate-400">
+                No data yet
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
             {items.map((item, i) => {
                 const percent = Math.round((item.value / total) * 100);
                 return (
-                    <div key={i} className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
-                            <span className="text-muted-foreground">{item.label}</span>
-                            <span className="text-foreground">{valueFormatter(item.value)}</span>
+                    <div key={i} className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-medium">
+                            <span className="text-slate-600">{item.label}</span>
+                            <span className="text-slate-900 font-semibold">{valueFormatter(item.value)}</span>
                         </div>
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div 
-                                className="h-full rounded-full transition-all duration-700" 
-                                style={{ 
-                                    width: `${percent}%`, 
-                                    backgroundColor: item.color || "var(--dashboard-accent-muted)" 
-                                }} 
+                        <div className="w-full h-1.5 bg-violet-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{
+                                    width: `${percent}%`,
+                                    backgroundColor: item.color || "#7c3aed",
+                                }}
                             />
                         </div>
                     </div>
