@@ -242,11 +242,32 @@ async function execute(origin: string, tool_id: string, p: any) {
       const amount = Number(p.amount);
 
       if (!inSym || !outSym || !isFinite(amount) || amount <= 0) {
-        return clarifyExposure({
+        const missing = !isFinite(amount) || amount <= 0 ? "amount" : !inSym ? "input_token" : "output_token";
+        const items = await suggestChips({
           forTool: "swap_tokens",
-          title: "How much do you want to swap?",
-          question: `Tell me the amount${inSym ? ` of ${inSym}` : ""} to swap${outSym ? ` into ${outSym}` : ""} — I won't guess for you.`,
-          extras: { input_token: inSym || "SOL", output_token: outSym || "USDC" },
+          missing,
+          context: `Swap ${inSym || "?"} → ${outSym || "?"}, amount=${isFinite(amount) ? amount : "missing"}. Suggest realistic ${missing} values a Solana retail user would actually pick.`,
+          paramKey: missing === "amount" ? "amount" : missing,
+          paramType: missing === "amount" ? "number" : "string",
+          fallback:
+            missing === "amount"
+              ? [
+                  { label: `0.5 ${inSym || "SOL"}`, value: 0.5 },
+                  { label: `2 ${inSym || "SOL"}`, value: 2 },
+                  { label: `10 ${inSym || "SOL"}`, value: 10 },
+                ]
+              : [
+                  { label: "SOL", value: "SOL" },
+                  { label: "USDC", value: "USDC" },
+                  { label: "JUP", value: "JUP" },
+                ],
+        });
+        return buildClarify({
+          forTool: "swap_tokens",
+          title: missing === "amount" ? `How much ${inSym || ""} to swap?` : "Which token?",
+          question: `Pick one or type your own — I won't guess.`,
+          items,
+          extras: { input_token: inSym || undefined, output_token: outSym || undefined, amount: isFinite(amount) ? amount : undefined },
         });
       }
 
