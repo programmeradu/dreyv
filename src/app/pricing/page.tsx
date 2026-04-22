@@ -1,23 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
-import {
-  Check,
-  Sparkles,
-  Rocket,
-  Building2,
-  ArrowRight,
-  ShieldCheck,
-  Zap,
-  Users,
-} from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
+import tierBase from "@/assets/tier-base.png";
+import tierMini from "@/assets/tier-mini.png";
+import tierMax from "@/assets/tier-max.png";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "dreyv pricing — Base, Mini, and Max for non-custodial AI treasury workspaces. Billed via FastSpring; taxes shown at checkout.",
+    "dreyv pricing — Free, Mini, and Max for non-custodial AI treasury workspaces. Billed via FastSpring; taxes shown at checkout.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -30,78 +25,79 @@ type Tier = {
   features: string[];
   cta: { label: string; href: string };
   featured?: boolean;
-  Icon: React.ComponentType<{ className?: string }>;
-  accent: string; // tailwind color hue, e.g. "violet"
+  image: typeof tierBase;
+  imageAlt: string;
 };
 
+// Source of truth: src/lib/tier-config.ts
 const tiers: Tier[] = [
   {
-    name: "Base",
-    tagline: "Free forever",
+    name: "Free",
+    tagline: "Solo operators",
     price: "$0",
     period: "/mo",
     blurb: "Everything a solo operator needs to compose, simulate, and sign.",
     features: [
       "1 multisig vault",
-      "Up to 3 teammates",
-      "Command bar prompts",
-      "Standard security routing",
-      "Community support",
+      "Up to 2 teammates",
+      "3 mini-apps",
+      "10 agent runs / day",
+      "60 API calls / hour",
+      "1 GB storage",
     ],
     cta: { label: "Get started", href: "/auth?redirect=/app" },
-    Icon: Sparkles,
-    accent: "slate",
+    image: tierBase,
+    imageAlt: "Violet crystal shard representing the Free tier",
   },
   {
     name: "Mini",
     tagline: "Growing squads",
-    price: "$49",
+    price: "$29",
     period: "/mo",
     blurb: "More vaults, more seats, and the AI capacity busy treasuries need.",
     features: [
       "Up to 5 multisig vaults",
       "10 teammates per vault",
-      "Advanced DCA & AI agents",
-      "Custom webhooks",
-      "Priority finality lane",
+      "25 mini-apps",
+      "100 agent runs / day",
+      "Advanced analytics & SSE",
+      "PDF export · 10 GB storage",
     ],
     cta: { label: "Upgrade — sign in", href: "/auth?redirect=/app/billing" },
     featured: true,
-    Icon: Rocket,
-    accent: "violet",
+    image: tierMini,
+    imageAlt: "Stack of violet crystal shards representing the Mini tier",
   },
   {
     name: "Max",
     tagline: "Enterprise nexus",
-    price: "$199",
+    price: "$99",
     period: "/mo",
-    blurb: "Dedicated capacity, white-glove onboarding, and bespoke RPCs.",
+    blurb: "Unlimited capacity, white-glove onboarding, and bespoke RPCs.",
     features: [
-      "Unlimited vaults",
-      "Unlimited teammates",
-      "Dedicated AI compute",
-      "White-glove integration",
-      "Dedicated RPC endpoints",
+      "Unlimited vaults & teammates",
+      "Unlimited mini-apps & agent runs",
+      "5,000 API calls / hour",
+      "Custom branding",
+      "Priority support",
+      "100 GB storage",
     ],
     cta: { label: "Upgrade — sign in", href: "/auth?redirect=/app/billing" },
-    Icon: Building2,
-    accent: "fuchsia",
+    image: tierMax,
+    imageAlt: "Violet obelisk monolith representing the Max tier",
   },
 ];
 
 const guarantees = [
   {
-    Icon: ShieldCheck,
     title: "Non-custodial by default",
     body: "Keys stay with your multisig. dreyv never holds funds or co-signs without you.",
   },
   {
-    Icon: Zap,
     title: "Simulate before you sign",
     body: "Every intent runs on a fork first, with readable impact for every approver.",
   },
   {
-    Icon: Users,
     title: "Built for squads",
     body: "Roles, approvals, and audit trails designed for the way real treasuries operate.",
   },
@@ -110,11 +106,10 @@ const guarantees = [
 export default function PricingPage() {
   return (
     <div className="dreyv-marketing-root relative min-h-dvh w-full scroll-smooth font-manrope bg-white text-slate-900">
-      {/* Ambient light background */}
+      {/* Ambient light background — solid violet hues only, no fuchsia */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-[-12%] left-[-10%] h-[620px] w-[620px] rounded-full bg-violet-400/[0.10] blur-[130px]" />
-        <div className="absolute top-[18%] right-[-6%] h-[520px] w-[520px] rounded-full bg-fuchsia-400/[0.08] blur-[120px]" />
-        <div className="absolute top-[55%] left-[40%] h-[380px] w-[380px] rounded-full bg-violet-300/[0.07] blur-[100px]" />
+        <div className="absolute top-[20%] right-[-6%] h-[520px] w-[520px] rounded-full bg-violet-300/[0.08] blur-[120px]" />
         <div className="absolute inset-0 noise-overlay opacity-[0.025]" />
       </div>
 
@@ -124,8 +119,7 @@ export default function PricingPage() {
         {/* Hero */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-28 md:pt-32 pb-12 md:pb-16">
           <div className="text-center max-w-2xl mx-auto">
-            <span className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/70 backdrop-blur px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-              <Sparkles className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 backdrop-blur px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
               dreyv · Pricing
             </span>
             <h1 className="mt-5 text-4xl md:text-5xl font-semibold tracking-tight text-slate-900">
@@ -140,7 +134,7 @@ export default function PricingPage() {
               Paid plans are billed securely through{" "}
               <span className="font-semibold text-slate-700">FastSpring</span> (merchant of
               record). Checkout shows your total including applicable taxes.{" "}
-              <Link href="/legal/refunds" className="text-violet-600 font-medium hover:underline">
+              <Link href="/legal/refunds" className="text-violet-700 font-medium hover:underline">
                 Refund policy
               </Link>
               .
@@ -161,15 +155,13 @@ export default function PricingPage() {
           </p>
         </section>
 
-        {/* Guarantees */}
+        {/* Guarantees — flat solid violet, no gradients */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-24">
-          <div className="rounded-3xl border border-violet-200/60 bg-white/70 backdrop-blur-md p-8 md:p-10 shadow-[0_20px_60px_-30px_rgba(124,58,237,0.25)]">
+          <div className="rounded-3xl border border-violet-200/60 bg-white/70 backdrop-blur-md p-8 md:p-10 shadow-[0_20px_60px_-30px_rgba(124,58,237,0.20)]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {guarantees.map(({ Icon, title, body }) => (
+              {guarantees.map(({ title, body }) => (
                 <div key={title} className="flex flex-col items-start">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50 border border-violet-100">
-                    <Icon className="h-5 w-5 text-violet-600" />
-                  </div>
+                  <span className="h-1.5 w-10 rounded-full bg-violet-600" />
                   <h3 className="mt-4 text-base font-semibold text-slate-900">{title}</h3>
                   <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{body}</p>
                 </div>
@@ -178,14 +170,14 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Mini FAQ / CTA strip */}
+        {/* Sales CTA — flat solid violet */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-24">
-          <div className="rounded-3xl bg-gradient-to-br from-violet-600 to-fuchsia-600 p-8 md:p-10 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-[0_30px_80px_-30px_rgba(124,58,237,0.45)]">
+          <div className="rounded-3xl bg-violet-600 p-8 md:p-10 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-[0_30px_80px_-30px_rgba(124,58,237,0.45)]">
             <div className="max-w-xl">
               <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
                 Need something custom?
               </h2>
-              <p className="mt-2 text-violet-100/90 text-sm md:text-base leading-relaxed">
+              <p className="mt-2 text-violet-100 text-sm md:text-base leading-relaxed">
                 Talk to us about dedicated infrastructure, bespoke integrations, or treasury
                 advisory for funds, DAOs, and protocols.
               </p>
@@ -207,47 +199,32 @@ export default function PricingPage() {
 }
 
 function TierCard({ tier }: { tier: Tier }) {
-  const { Icon, featured } = tier;
+  const isFeatured = tier.featured;
 
-  if (featured) {
-    return (
-      <div className="relative rounded-3xl p-[1.5px] bg-gradient-to-b from-violet-500 via-fuchsia-500 to-violet-500 shadow-[0_30px_70px_-25px_rgba(124,58,237,0.35)]">
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-md">
+  return (
+    <div
+      className={
+        isFeatured
+          ? "relative rounded-3xl border-2 border-violet-600 bg-white p-7 flex flex-col shadow-[0_30px_70px_-25px_rgba(124,58,237,0.30)]"
+          : "rounded-3xl border border-slate-200 bg-white/85 backdrop-blur p-7 flex flex-col shadow-[0_10px_40px_-20px_rgba(15,23,42,0.12)] hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.20)] transition-all"
+      }
+    >
+      {isFeatured && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
           Most popular
         </span>
-        <div className="rounded-[calc(1.5rem-1.5px)] bg-white p-7 flex flex-col h-full">
-          <TierBody tier={tier} Icon={Icon} />
-        </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="rounded-3xl border border-slate-200/80 bg-white/80 backdrop-blur p-7 flex flex-col shadow-[0_10px_40px_-20px_rgba(15,23,42,0.15)] hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.25)] hover:border-violet-200 transition-all">
-      <TierBody tier={tier} Icon={Icon} />
-    </div>
-  );
-}
-
-function TierBody({
-  tier,
-  Icon,
-}: {
-  tier: Tier;
-  Icon: React.ComponentType<{ className?: string }>;
-}) {
-  const isFeatured = tier.featured;
-  const iconWrap = isFeatured
-    ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white border-transparent"
-    : "bg-violet-50 text-violet-600 border-violet-100";
-
-  return (
-    <>
-      <div className="flex items-center gap-3 mb-5">
-        <div
-          className={`h-11 w-11 rounded-xl border flex items-center justify-center ${iconWrap}`}
-        >
-          <Icon className="h-5 w-5" />
+      <div className="flex items-center gap-4 mb-5">
+        <div className="h-16 w-16 shrink-0 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
+          <Image
+            src={tier.image}
+            alt={tier.imageAlt}
+            width={56}
+            height={56}
+            loading="lazy"
+            className="h-14 w-14 object-contain"
+          />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{tier.name}</h2>
@@ -285,12 +262,12 @@ function TierBody({
         className={
           isFeatured
             ? `${marketingPrimaryCtaSm} mt-8 w-full justify-center`
-            : "mt-8 inline-flex w-full justify-center items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-300 hover:text-violet-700 transition-colors"
+            : "mt-8 inline-flex w-full justify-center items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors"
         }
       >
         {tier.cta.label}
         <ArrowRight className="h-3.5 w-3.5" />
       </Link>
-    </>
+    </div>
   );
 }
