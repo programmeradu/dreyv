@@ -91,6 +91,81 @@ export function HomeCommandbar() {
     }
   }
 
+  /**
+   * Bypass the parser and execute a tool directly. Used after a `clarify`
+   * round-trip where the user supplied missing context (wallet address, SOL
+   * amount, demo basket) and we want to feed it straight into the simulator.
+   */
+  async function executeDirect(tool_id: string, parameters: Record<string, any>, displayLabel: string) {
+    setInput(displayLabel);
+    setLoading(true);
+    setResult(null);
+    setParsedTool(tool_id);
+    setAuthIntent(null);
+    try {
+      const er = await fetch("/api/home/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool_id, parameters }),
+      });
+      const j = await er.json();
+      setResult(j.result);
+      setRuns((r) => r + 1);
+    } catch (e: any) {
+      setResult({ result_type: "error", title: "Network error", summary: e?.message || "Try again" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * Handle a clarify chip click. Each chip can carry an `action`:
+   *  - connect_wallet → open auth gate (treats as soft conversion)
+   *  - enter_address  → prompt for a Solana address, re-run with portfolio_context
+   *  - enter_sol      → prompt for SOL amount, re-run with portfolio_context
+   *  - use_demo       → re-run with the demo basket as portfolio_context
+   *  - (no action)    → fall back to appending the chip text to the original command
+   */
+  function handleClarifyChip(item: any, originalScenario: string, forTool: string) {
+    const action = item?.action as string | undefined;
+    if (action === "connect_wallet") {
+      setAuthIntent({ label: "Connect wallet", requires_auth: true, intent: "open_app" });
+      return;
+    }
+    if (action === "enter_address") {
+      const addr = window.prompt("Paste your Solana wallet address:");
+      if (!addr) return;
+      executeDirect(
+        forTool,
+        { scenario: originalScenario, portfolio_context: { mode: "wallet", value: addr.trim() } },
+        `${originalScenario} · wallet ${addr.slice(0, 4)}…${addr.slice(-4)}`
+      );
+      return;
+    }
+    if (action === "enter_sol") {
+      const raw = window.prompt("How much SOL do you hold? (number only)");
+      const amt = Number(raw);
+      if (!raw || !isFinite(amt) || amt <= 0) return;
+      executeDirect(
+        forTool,
+        { scenario: originalScenario, portfolio_context: { mode: "sol_amount", value: amt } },
+        `${originalScenario} · ${amt} SOL`
+      );
+      return;
+    }
+    if (action === "use_demo") {
+      executeDirect(
+        forTool,
+        { scenario: originalScenario, portfolio_context: { mode: "demo" } },
+        `${originalScenario} · demo basket`
+      );
+      return;
+    }
+    // Fallback: append the chip text to the original command and re-parse.
+    const reply = item?.reply || item?.symbol || "";
+    if (reply) run(`${input} ${reply}`.trim());
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     run(input);
