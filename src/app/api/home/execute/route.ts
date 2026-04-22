@@ -502,7 +502,7 @@ async function execute(origin: string, tool_id: string, p: any) {
           return `User-supplied: $${Number(ctx.value).toLocaleString()} AUM. Use a typical Solana-native split (60% SOL, 30% USDC, 10% other) unless they said otherwise.`;
         }
         if (ctx.mode === "wallet") {
-          return `User-supplied wallet address: ${ctx.value}. (Live balance fetch is gated behind sign-in for privacy. For this preview, project against a typical Solana-native treasury of $100k.)`;
+          return `User-supplied wallet address: ${ctx.value}. Live balance fetch is gated behind sign-in for privacy — note in the projection that we cannot read this wallet without auth, and avoid inventing a portfolio size.`;
         }
         return `Demo basket: $250,000 AUM split 55% SOL, 25% USDC, 10% JTO, 5% JUP, 5% BONK.`;
       })();
