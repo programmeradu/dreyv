@@ -175,6 +175,49 @@ export async function middleware(request: NextRequest) {
         return withSeoHeaders(NextResponse.redirect(cleanUrl), pathname);
     }
 
+    // ─── Markdown negotiation for agents ────────────────────────────
+    // Public HTML page + `Accept: text/markdown` → proxy to render-markdown.
+    // Browsers (Accept: text/html,...) are unaffected.
+    if (
+        wantsMarkdown(request) &&
+        !pathname.startsWith('/api/') &&
+        !pathname.startsWith('/_next/') &&
+        !pathname.includes('.') &&
+        !isPrivateSeoPath(pathname)
+    ) {
+        const origin =
+            request.headers.get('x-forwarded-host')
+                ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
+                : request.nextUrl.origin;
+        const target = `${origin}${pathname}${request.nextUrl.search}`;
+        try {
+            const upstream = await fetch(`${origin}/api/studio/render-markdown`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: target }),
+                // Keep latency in check; agents can fall back to HTML on failure.
+                signal: AbortSignal.timeout(10_000),
+            });
+            if (upstream.ok) {
+                const data = (await upstream.json()) as { markdown?: string };
+                const md = data.markdown ?? '';
+                const headers = new Headers({
+                    'Content-Type': 'text/markdown; charset=utf-8',
+                    'Cache-Control': 'public, max-age=300, s-maxage=300',
+                    'Vary': 'Accept',
+                    'X-Markdown-Source': target,
+                });
+                const tokenEstimate = Math.ceil(md.length / 4);
+                headers.set('x-markdown-tokens', String(tokenEstimate));
+                const res = new NextResponse(md, { status: 200, headers });
+                return withSeoHeaders(res, pathname);
+            }
+        } catch (err) {
+            // Fall through to normal HTML response on failure.
+            console.warn('[middleware] markdown negotiation failed:', (err as Error).message);
+        }
+    }
+
     // ─── Skip public routes ─────────────────────────────────────────
     const publicPaths = [
         '/api/auth',
