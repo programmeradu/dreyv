@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCta, marketingGhostLink } from "./marketing-styles";
+import ctaKey from "@/assets/cta-key-violet.png";
 
 export function CTASection() {
   const ref = useRef(null);
@@ -19,6 +21,17 @@ export function CTASection() {
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-violet-500/[0.09] rounded-full blur-[150px]" />
         <div className="absolute inset-0 grid-pattern-marketing opacity-40" />
+      </div>
+
+      {/* Floating violet key accent */}
+      <div className="pointer-events-none absolute right-4 lg:right-16 top-12 lg:top-20 w-40 h-40 lg:w-64 lg:h-64 opacity-90 z-0 rotate-12" aria-hidden>
+        <Image
+          src={ctaKey}
+          alt=""
+          fill
+          sizes="256px"
+          className="object-contain drop-shadow-[0_24px_40px_rgba(124,58,237,0.25)]"
+        />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-28 md:py-40">

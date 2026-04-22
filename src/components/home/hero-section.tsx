@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
 import { HeroCommandbarDemo } from "./hero-commandbar-demo";
+import heroLiquid from "@/assets/hero-liquid-violet.png";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
@@ -36,7 +38,19 @@ export function HeroSection() {
       className="relative min-h-dvh max-h-dvh flex flex-col overflow-hidden"
       aria-labelledby="hero-heading"
     >
-      <div className="relative flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-24 md:pt-28 pb-8">
+      {/* Ambient liquid violet accent */}
+      <div className="pointer-events-none absolute -top-24 -right-32 lg:-right-20 w-[520px] h-[520px] lg:w-[680px] lg:h-[680px] opacity-[0.18] lg:opacity-[0.22] z-0" aria-hidden>
+        <Image
+          src={heroLiquid}
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 1024px) 520px, 680px"
+          className="object-contain mix-blend-multiply"
+        />
+      </div>
+
+      <div className="relative flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-24 md:pt-28 pb-8 z-10">
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

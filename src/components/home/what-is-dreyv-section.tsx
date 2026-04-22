@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Fragment, useRef } from "react";
 import {
@@ -10,6 +11,7 @@ import {
   MessageSquare,
   PenLine,
 } from "lucide-react";
+import commandStar from "@/assets/command-star-violet.png";
 
 const PIPELINE = [
   {
@@ -145,6 +147,16 @@ export function WhatIsDreyvSection() {
               className="absolute -inset-px rounded-2xl bg-violet-200/40 blur-sm opacity-70 pointer-events-none"
               aria-hidden
             />
+            {/* Floating command star accent */}
+            <div className="pointer-events-none absolute -top-10 -right-6 lg:-top-14 lg:-right-10 w-24 h-24 lg:w-32 lg:h-32 z-10" aria-hidden>
+              <Image
+                src={commandStar}
+                alt=""
+                fill
+                sizes="128px"
+                className="object-contain drop-shadow-[0_12px_24px_rgba(124,58,237,0.35)]"
+              />
+            </div>
             <div className="relative rounded-2xl border border-violet-200/45 bg-white/92 p-5 md:p-6 marketing-shadow-float">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-violet-600/90 mb-4">Live preview</p>
 
