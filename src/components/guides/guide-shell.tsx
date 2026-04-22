@@ -3,7 +3,7 @@ import Image from "next/image";
 import { ReactNode } from "react";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
-import { GUIDES, type Guide } from "@/lib/seo/guides";
+import { GUIDES, type GuideEntry } from "@/lib/seo/guides";
 import guidesCrystal from "@/assets/guides-crystal.png";
 
 // Custom hand-drawn arrow mark (no stock icons)
@@ -27,7 +27,7 @@ export function ArrowMark({ className = "" }: { className?: string }) {
 
 interface GuideShellProps {
   topic: string;
-  guide: Pick<Guide, "title" | "description" | "publishedAt" | "readMinutes" | "slug">;
+  guide: Pick<GuideEntry, "title" | "description" | "publishedAt" | "readMinutes" | "slug">;
   children: ReactNode;
 }
 
