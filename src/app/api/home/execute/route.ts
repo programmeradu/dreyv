@@ -73,6 +73,51 @@ async function getPrice(origin: string, sym: string): Promise<number | null> {
   }
 }
 
+/**
+ * Generic Lovable AI Gateway helper used by simulations that need real
+ * reasoning (what_if projections, agent/mini-app blueprints, clarifications).
+ * Returns a parsed JSON object or null if the gateway is unavailable.
+ */
+async function llmJson(system: string, user: string, schema?: any): Promise<any | null> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const body: any = {
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    };
+    if (schema) {
+      body.tools = [{ type: "function", function: schema }];
+      body.tool_choice = { type: "function", function: { name: schema.name } };
+    } else {
+      body.response_format = { type: "json_object" };
+    }
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!r.ok) {
+      console.warn("[home/execute] LLM", r.status);
+      return null;
+    }
+    const j = await r.json();
+    if (schema) {
+      const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      return args ? JSON.parse(args) : null;
+    }
+    const txt = j?.choices?.[0]?.message?.content;
+    return txt ? JSON.parse(txt) : null;
+  } catch (e) {
+    console.warn("[home/execute] LLM error", e);
+    return null;
+  }
+}
+
 async function execute(origin: string, tool_id: string, p: any) {
   switch (tool_id) {
     case "swap_tokens": {
@@ -252,27 +297,69 @@ async function execute(origin: string, tool_id: string, p: any) {
 
     case "what_if": {
       const scenario = String(p.scenario || "SOL drops 40%");
-      const m = scenario.match(/(SOL|USDC|JUP|BONK|JTO)\s*(?:drops?|falls?|rises?|pumps?)?\s*(\d+)\s*%/i);
-      const sym = (m?.[1] || "SOL").toUpperCase();
-      const pct = m ? Number(m[2]) : 40;
-      const direction = /pump|rises?/i.test(scenario) ? 1 : -1;
-      const price = (await getPrice(origin, sym)) || 100;
-      const newPrice = price * (1 + (direction * pct) / 100);
-      const portfolio = 100_000;
-      const exposure = sym === "SOL" ? 0.7 : 0.2;
-      const pnl = portfolio * exposure * (direction * pct) / 100;
+      // Pull live prices for the major Solana basket so the LLM projects against REAL market data.
+      const basket = ["SOL", "USDC", "JUP", "JTO", "BONK", "WIF"];
+      const prices = Object.fromEntries(
+        await Promise.all(basket.map(async (s) => [s, await getPrice(origin, s)]))
+      ) as Record<string, number | null>;
+
+      const projection = await llmJson(
+        `You are a senior crypto treasury risk analyst. Project the impact of a hypothetical scenario on a representative Solana-native treasury (assume $250k AUM split 55% SOL, 25% USDC, 10% JTO, 5% JUP, 5% other unless the user specifies otherwise). Use the LIVE prices provided. Reason in plain numbers. Be specific, never vague.`,
+        `Scenario: "${scenario}"\n\nLive prices (USD): ${JSON.stringify(prices)}\n\nReturn a structured projection.`,
+        {
+          name: "project_scenario",
+          description: "Structured what-if projection grounded in live prices",
+          parameters: {
+            type: "object",
+            properties: {
+              headline_pnl_usd: { type: "number", description: "Net P/L in USD across the assumed treasury" },
+              direction: { type: "string", enum: ["bull", "bear", "neutral"] },
+              key_drivers: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string" },
+                    value: { type: "string" },
+                    tone: { type: "string", enum: ["good", "warn", "neutral"] },
+                  },
+                  required: ["label", "value"],
+                },
+              },
+              second_order_effects: { type: "array", items: { type: "string" }, description: "2-4 follow-on consequences (liquidation cascades, depeg risk, validator yield drop, etc.)" },
+              recommended_hedges: { type: "array", items: { type: "string" }, description: "2-4 concrete actions a treasury could take in response" },
+              assumptions: { type: "array", items: { type: "string" }, description: "Assumptions made (treasury composition, time horizon, correlation)" },
+            },
+            required: ["headline_pnl_usd", "direction", "key_drivers", "second_order_effects", "recommended_hedges", "assumptions"],
+          },
+        }
+      );
+
+      if (!projection) {
+        return {
+          result_type: "error",
+          title: "Scenario engine unavailable",
+          summary: "AI projection failed. Please retry — we don't ship hardcoded what-ifs.",
+        };
+      }
+
+      const pnl = Number(projection.headline_pnl_usd || 0);
       return {
         result_type: "what_if",
         title: `What-if · ${scenario}`,
-        summary: `Portfolio P/L ≈ ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}`,
-        metrics: [
-          { label: `${sym} now`, value: `$${price.toFixed(2)}` },
-          { label: `${sym} after`, value: `$${newPrice.toFixed(2)}`, tone: direction > 0 ? "good" : "warn" },
-          { label: "Assumed exposure", value: `${(exposure * 100).toFixed(0)}%` },
-          { label: "Runway impact", value: pnl < 0 ? `~${Math.round(Math.abs(pnl) / 12000)} mo lost` : `+${Math.round(pnl / 12000)} mo gained`, tone: direction > 0 ? "good" : "warn" },
+        summary: `Projected treasury P/L ≈ ${pnl >= 0 ? "+" : "-"}$${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        metrics: (projection.key_drivers || []).slice(0, 6).map((d: any) => ({
+          label: d.label,
+          value: d.value,
+          tone: d.tone === "neutral" ? undefined : d.tone,
+        })),
+        steps: [
+          ...(projection.second_order_effects || []).map((e: string) => `Second-order: ${e}`),
+          ...(projection.recommended_hedges || []).map((h: string) => `Hedge: ${h}`),
         ],
+        flags: (projection.assumptions || []).map((a: string) => ({ message: `Assumption — ${a}` })),
         primary_action: { label: "Sign in to model my real treasury", requires_auth: true, intent: "open_foresight" },
-        meta: { source: "Foresight Simulator · demo portfolio" },
+        meta: { source: "Foresight Simulator · live prices · AI projection" },
       };
     }
 
@@ -282,33 +369,59 @@ async function execute(origin: string, tool_id: string, p: any) {
       const inSym = (p.in_token || "USDC").toUpperCase();
       const outSym = (p.out_token || "SOL").toUpperCase();
       const ticks = freq === "daily" ? 365 : freq === "weekly" ? 52 : 12;
+      // Pull a real Jupiter quote for one tick so the user sees a real fill, not a placeholder.
+      let perTickOut = "—";
+      let impact = "—";
+      try {
+        const q = await getQuote(origin, inSym, outSym, amount);
+        perTickOut = `${q.outAmount.toFixed(6)} ${outSym}`;
+        impact = `${q.priceImpact.toFixed(3)}%`;
+      } catch {}
       return {
         result_type: "plan",
         title: `DCA bot · ${amount} ${inSym} → ${outSym} ${freq}`,
-        summary: `${ticks} executions/yr · routed via Jupiter`,
+        summary: `${ticks} executions/yr · routed via Jupiter · per-tick fill ≈ ${perTickOut}`,
         metrics: [
           { label: "Per execution", value: `${amount} ${inSym}` },
-          { label: "Cadence", value: freq },
+          { label: "Per-tick fill", value: perTickOut },
+          { label: "Tick price impact", value: impact },
           { label: "Annual deploy", value: `${(amount * ticks).toLocaleString()} ${inSym}` },
-          { label: "Exit", value: "Pause / cancel anytime" },
         ],
         primary_action: { label: "Sign in to deploy bot", requires_auth: true, intent: "deploy_dca" },
-        meta: { source: "Jupiter DCA · simulation" },
+        meta: { source: "Jupiter v6 · live quote per tick" },
       };
     }
 
     case "build_mini_app": {
       const idea = String(p.idea || "Custom widget");
+      const blueprint = await llmJson(
+        `You are Dreyv's AI Architect. Given a one-line mini-app idea, produce a concrete build plan that a developer could ship in Dreyv Studio today using @dreyv/sdk hooks (useJupiterSwap, usePortfolio, useVault, useTokenPrice, useYieldOptimizer, useGaslessTx, useNotification, useStorage, useTurnkey). Be specific to the idea, not generic.`,
+        `Idea: "${idea}"\n\nReturn the blueprint.`,
+        {
+          name: "mini_app_blueprint",
+          description: "Concrete build plan for a Solana mini-app",
+          parameters: {
+            type: "object",
+            properties: {
+              one_liner: { type: "string" },
+              sdk_hooks: { type: "array", items: { type: "string" } },
+              steps: { type: "array", items: { type: "string" }, description: "4-6 concrete build steps" },
+              risks: { type: "array", items: { type: "string" } },
+            },
+            required: ["one_liner", "sdk_hooks", "steps"],
+          },
+        }
+      );
+      if (!blueprint) {
+        return { result_type: "error", title: "Architect offline", summary: "AI blueprint failed — retry." };
+      }
       return {
         result_type: "plan",
         title: "Mini-app blueprint",
-        summary: idea.length > 100 ? idea.slice(0, 100) + "…" : idea,
-        steps: [
-          "Scaffold via Dreyv Studio (Next.js + SDK)",
-          "Wire Jupiter / Helius / Turnkey hooks",
-          "Simulate in Solana Playground",
-          "Publish to Marketplace (80/20 split)",
-        ],
+        summary: blueprint.one_liner,
+        metrics: [{ label: "SDK hooks", value: (blueprint.sdk_hooks || []).slice(0, 4).join(", ") || "—" }],
+        steps: blueprint.steps || [],
+        flags: (blueprint.risks || []).map((r: string) => ({ message: r })),
         primary_action: { label: "Sign in to open Studio", requires_auth: true, intent: "open_studio" },
         meta: { source: "Dreyv Studio · AI Architect" },
       };
@@ -316,18 +429,55 @@ async function execute(origin: string, tool_id: string, p: any) {
 
     case "build_agent": {
       const kind = p.kind || "trading";
+      const rules = String(p.rules || "");
+      const blueprint = await llmJson(
+        `You are Dreyv's Agent Coordinator. Given an agent kind and free-text rules, produce a concrete deployment plan: tools to bind (Jupiter swap, Marinade stake, MEV scan, rug check, Squads multisig, Glass Safety simulation), risk envelope, and a backtest design. Be specific to the rules — never generic.`,
+        `Kind: ${kind}\nRules: "${rules}"`,
+        {
+          name: "agent_blueprint",
+          description: "Concrete agent deployment blueprint",
+          parameters: {
+            type: "object",
+            properties: {
+              one_liner: { type: "string" },
+              bound_tools: { type: "array", items: { type: "string" } },
+              risk_envelope: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { label: { type: "string" }, value: { type: "string" } },
+                  required: ["label", "value"],
+                },
+              },
+              steps: { type: "array", items: { type: "string" } },
+            },
+            required: ["one_liner", "bound_tools", "risk_envelope", "steps"],
+          },
+        }
+      );
+      if (!blueprint) {
+        return { result_type: "error", title: "Coordinator offline", summary: "AI blueprint failed — retry." };
+      }
       return {
         result_type: "plan",
         title: `${kind[0].toUpperCase() + kind.slice(1)} agent blueprint`,
-        summary: "Policy + tool plan ready for review",
-        steps: [
-          "Define risk profile and budget envelope",
-          "Bind tools: Jupiter swap, Marinade stake, MEV scan",
-          "Run 7-day backtest in Foresight",
-          "Deploy under Squads multisig with Glass Safety",
-        ],
+        summary: blueprint.one_liner,
+        metrics: (blueprint.risk_envelope || []).slice(0, 4),
+        steps: blueprint.steps || [],
+        flags: (blueprint.bound_tools || []).map((t: string) => ({ message: `Tool — ${t}` })),
         primary_action: { label: "Sign in to deploy agent", requires_auth: true, intent: "deploy_agent" },
         meta: { source: "Agent Coordinator · v2" },
+      };
+    }
+
+    case "clarify": {
+      // Parser determined we need a follow-up before we can simulate. Pure pass-through.
+      return {
+        result_type: "clarify",
+        title: "Quick question",
+        summary: String(p.question || "Could you give me a bit more detail?"),
+        items: (p.suggested_replies || []).map((r: string) => ({ symbol: r, name: "" })),
+        meta: { source: `Need a detail before I run ${p.for_tool || "this"}` },
       };
     }
 

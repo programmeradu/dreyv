@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { ArrowRight, Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2, AlertTriangle, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { marketingPrimaryCtaSm } from "./marketing-styles";
 
@@ -206,7 +206,7 @@ export function HomeCommandbar() {
                 {loading ? (
                   <LoadingCard />
                 ) : result ? (
-                  <ResultCard result={result} onAction={triggerAction} />
+                  <ResultCard result={result} onAction={triggerAction} onReply={(reply) => run(`${input} ${reply}`.trim())} />
                 ) : null}
               </motion.div>
             )}
@@ -219,7 +219,7 @@ export function HomeCommandbar() {
               animate={{ opacity: 1 }}
               className="mt-6 flex items-center justify-center gap-3 text-sm text-slate-500"
             >
-              <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+              <DreyvStar size={14} className="text-violet-500" />
               You've simulated {runs} commands. Ready to run them for real?
               <a href="/app" className="text-violet-700 font-semibold hover:text-violet-900">
                 Open Dreyv →
@@ -255,20 +255,45 @@ function LoadingCard() {
   );
 }
 
-function ResultCard({ result, onAction }: { result: Result; onAction: (a: Action) => void }) {
+function ResultCard({
+  result,
+  onAction,
+  onReply,
+}: {
+  result: Result;
+  onAction: (a: Action) => void;
+  onReply: (reply: string) => void;
+}) {
+  const isClarify = result.result_type === "clarify";
   const accent = result.result_type === "error" ? "rose" : "violet";
+  const labelText = result.result_type === "error" ? "Error" : isClarify ? "Follow-up" : "Simulation result";
   return (
     <div className="rounded-2xl bg-white ring-1 ring-slate-200/80 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.18)] overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
         <div>
           <p className={`text-[10px] font-mono uppercase tracking-[0.28em] text-${accent}-600 mb-1`}>
-            {result.result_type === "error" ? "Error" : "Simulation result"}
+            {labelText}
           </p>
           <h3 className="text-base font-semibold text-slate-900">{result.title}</h3>
           <p className="mt-0.5 text-sm text-slate-600">{result.summary}</p>
         </div>
-        {result.result_type !== "error" && <CheckCircle2 className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />}
+        {result.result_type !== "error" && !isClarify && <CheckCircle2 className="h-5 w-5 text-violet-500 shrink-0 mt-0.5" />}
+        {isClarify && <DreyvStar size={18} className="text-violet-500 shrink-0 mt-0.5" />}
       </div>
+
+      {isClarify && result.items && result.items.length > 0 && (
+        <div className="px-5 py-4 flex flex-wrap gap-2">
+          {result.items.map((it: any, i: number) => (
+            <button
+              key={i}
+              onClick={() => onReply(it.symbol)}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 ring-1 ring-violet-200/70 transition-colors"
+            >
+              {it.symbol}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="px-5 py-4 space-y-4">
         {result.metrics && result.metrics.length > 0 && (
