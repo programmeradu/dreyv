@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
 import { HeroCommandbarDemo } from "./hero-commandbar-demo";
+import heroLiquid from "@/assets/hero-liquid-violet.png";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
