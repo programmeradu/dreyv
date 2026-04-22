@@ -344,11 +344,10 @@ async function execute(origin: string, tool_id: string, p: any) {
               { symbol: "Tell me your SOL holdings", reply: "", action: "enter_sol" },
               { symbol: `Use demo basket ($250k · 55% SOL)`, reply: "use demo basket", action: "use_demo" },
             ],
-            meta: { source: `Need exposure context · scenario: "${scenario}"` } as any,
-            // @ts-expect-error — extra fields surfaced to the client for the follow-up turn
+            meta: { source: `Need exposure context · scenario: "${scenario}"` },
             scenario,
             for_tool: "what_if",
-          };
+          } as any;
         }
       }
 
