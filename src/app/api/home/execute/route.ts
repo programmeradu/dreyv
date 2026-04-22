@@ -156,9 +156,19 @@ function clarifyExposure(opts: {
 async function execute(origin: string, tool_id: string, p: any) {
   switch (tool_id) {
     case "swap_tokens": {
-      const inSym = (p.input_token || "SOL").toUpperCase();
-      const outSym = (p.output_token || "USDC").toUpperCase();
-      const amount = Number(p.amount || 1);
+      const inSym = (p.input_token || "").toUpperCase();
+      const outSym = (p.output_token || "").toUpperCase();
+      const amount = Number(p.amount);
+
+      if (!inSym || !outSym || !isFinite(amount) || amount <= 0) {
+        return clarifyExposure({
+          forTool: "swap_tokens",
+          title: "How much do you want to swap?",
+          question: `Tell me the amount${inSym ? ` of ${inSym}` : ""} to swap${outSym ? ` into ${outSym}` : ""} — I won't guess for you.`,
+          extras: { input_token: inSym || "SOL", output_token: outSym || "USDC" },
+        });
+      }
+
       const [quote, inPrice] = await Promise.all([
         getQuote(origin, inSym, outSym, amount),
         getPrice(origin, inSym),
@@ -182,9 +192,35 @@ async function execute(origin: string, tool_id: string, p: any) {
 
     case "stake_sol": {
       const provider = (p.provider || "marinade").toLowerCase();
-      const amount = Number(p.amount || 10);
-      const apyMap: Record<string, number> = { marinade: 6.8, jito: 7.4, blazestake: 6.6 };
-      const apy = apyMap[provider] ?? 6.8;
+      const amount = Number(p.amount);
+
+      if (!isFinite(amount) || amount <= 0) {
+        return clarifyExposure({
+          forTool: "stake_sol",
+          title: "How much SOL do you want to stake?",
+          question: `I'll quote real ${provider[0].toUpperCase() + provider.slice(1)} APY against your actual amount. How many SOL?`,
+          extras: { provider },
+        });
+      }
+
+      // Pull live APY from the in-app yield registry rather than hardcoding.
+      let apy = 0;
+      let apySource = "";
+      try {
+        const yr = await fetch(`${origin}/api/yield/registry?provider=${provider}`, { signal: AbortSignal.timeout(5000) });
+        const yj = await yr.json().catch(() => ({}));
+        apy = Number(yj?.apy ?? yj?.providers?.[provider]?.apy ?? 0);
+        apySource = yj?.source || "yield-registry";
+      } catch {}
+
+      if (!apy || apy <= 0) {
+        return {
+          result_type: "error",
+          title: `${provider[0].toUpperCase() + provider.slice(1)} APY unavailable`,
+          summary: "Live APY feed is offline — I won't show you a fake number. Please retry shortly.",
+        };
+      }
+
       const yearly = (amount * apy) / 100;
       const solPrice = await getPrice(origin, "SOL");
       return {
@@ -193,25 +229,78 @@ async function execute(origin: string, tool_id: string, p: any) {
         summary: `≈ ${yearly.toFixed(3)} SOL/yr ${solPrice ? `($${(yearly * solPrice).toFixed(2)})` : ""} at ${apy}% APY`,
         metrics: [
           { label: "Provider", value: provider[0].toUpperCase() + provider.slice(1) },
-          { label: "APY", value: `${apy}%`, tone: "good" },
+          { label: "Live APY", value: `${apy}%`, tone: "good" },
           { label: "Receipt token", value: provider === "jito" ? "jitoSOL" : provider === "blazestake" ? "bSOL" : "mSOL" },
           { label: "Unstake window", value: provider === "marinade" ? "Instant via mSOL" : "Epoch (~2 days)" },
         ],
         primary_action: { label: "Sign in to stake", requires_auth: true, intent: "execute_stake" },
-        meta: { source: `${provider} · live APY` },
+        meta: { source: `${provider} · live · ${apySource}` },
       };
     }
 
     case "rebalance": {
-      const targets: Record<string, number> = p.targets && typeof p.targets === "object" ? p.targets : { SOL: 60, USDC: 30, JTO: 10 };
-      // Assume a $100k mock portfolio currently 100% SOL — quote each non-SOL leg.
-      const portfolio = 100_000;
-      const solPrice = (await getPrice(origin, "SOL")) || 100;
+      const targets: Record<string, number> | null =
+        p.targets && typeof p.targets === "object" && Object.keys(p.targets).length ? p.targets : null;
+      const ctx = p.portfolio_context && typeof p.portfolio_context === "object" ? p.portfolio_context : null;
+
+      if (!targets) {
+        return clarifyExposure({
+          forTool: "rebalance",
+          title: "What target allocation?",
+          question: `Tell me the target split — e.g. "60% SOL, 30% USDC, 10% JTO". I won't guess your strategy.`,
+        });
+      }
+
+      if (!ctx) {
+        return clarifyExposure({
+          forTool: "rebalance",
+          title: "How big is the treasury you're rebalancing?",
+          question: `I need your real exposure to quote each leg through Jupiter. How should I model it?`,
+          extras: { targets },
+        });
+      }
+
+      const solPrice = (await getPrice(origin, "SOL")) || 0;
+      if (!solPrice) {
+        return { result_type: "error", title: "Live SOL price unavailable", summary: "Retry — I won't fake a price." };
+      }
+
+      let portfolioUsd = 0;
+      let portfolioLabel = "";
+      if (ctx.mode === "sol_amount") {
+        const amt = Number(ctx.value) || 0;
+        portfolioUsd = amt * solPrice;
+        portfolioLabel = `${amt} SOL (≈ $${portfolioUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })})`;
+      } else if (ctx.mode === "usd_amount") {
+        portfolioUsd = Number(ctx.value) || 0;
+        portfolioLabel = `$${portfolioUsd.toLocaleString()} AUM`;
+      } else if (ctx.mode === "wallet") {
+        return {
+          result_type: "info",
+          title: "Wallet rebalance needs sign-in",
+          summary: `For privacy, I read on-chain balances of ${String(ctx.value).slice(0, 4)}…${String(ctx.value).slice(-4)} only after you sign in.`,
+          primary_action: { label: "Sign in to load wallet", requires_auth: true, intent: "execute_rebalance" },
+          meta: { source: "Privacy gate · sign-in required for live wallet read" },
+        };
+      } else if (ctx.mode === "demo") {
+        portfolioUsd = Number(ctx.value) || 100_000;
+        portfolioLabel = `Demo basket · $${portfolioUsd.toLocaleString()}`;
+      }
+
+      if (!portfolioUsd || portfolioUsd <= 0) {
+        return clarifyExposure({
+          forTool: "rebalance",
+          title: "Need a portfolio size",
+          question: "I couldn't read that exposure. Try again — connect a wallet, paste an address, or enter an amount.",
+          extras: { targets },
+        });
+      }
+
       const legs: any[] = [];
       let totalImpact = 0;
       for (const [sym, pct] of Object.entries(targets)) {
         if (sym === "SOL") continue;
-        const usdLeg = (portfolio * Number(pct)) / 100;
+        const usdLeg = (portfolioUsd * Number(pct)) / 100;
         const solIn = usdLeg / solPrice;
         try {
           const q = await getQuote(origin, "SOL", sym, solIn);
@@ -233,13 +322,13 @@ async function execute(origin: string, tool_id: string, p: any) {
         summary: `${legs.length} swap${legs.length === 1 ? "" : "s"} via Jupiter · total impact ${totalImpact.toFixed(2)}%`,
         legs,
         metrics: [
-          { label: "Portfolio (demo)", value: `$${portfolio.toLocaleString()}` },
+          { label: "Portfolio", value: portfolioLabel },
           { label: "Total price impact", value: `${totalImpact.toFixed(2)}%`, tone: totalImpact > 1.5 ? "warn" : "good" },
           { label: "Est. gas", value: `~${(legs.length * 0.000565).toFixed(4)} SOL` },
         ],
         primary_action: { label: "Sign in to execute plan", requires_auth: true, intent: "execute_rebalance" },
         secondary_action: { label: "Save as strategy", requires_auth: true, intent: "save_strategy" },
-        meta: { source: "Jupiter v6 · multi-leg simulation" },
+        meta: { source: `Jupiter v6 · ${ctx.mode} · live quotes` },
       };
     }
 
