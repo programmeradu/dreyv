@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, Check, Shield, Zap } from "lucide-react";
+import { ArrowRight, Check, Shield, Zap } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 type Step = {
   command: string;
@@ -100,7 +101,7 @@ export function HeroCommandbarDemo() {
         {/* Command input */}
         <div className="px-5 pt-5">
           <div className="flex items-start gap-3 rounded-xl bg-slate-50/80 ring-1 ring-slate-200/70 px-4 py-3.5">
-            <Sparkles className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
+            <DreyvStar size={16} className="text-violet-600 mt-0.5 shrink-0" />
             <div className="flex-1 text-[14px] leading-snug text-slate-800 font-medium min-h-[20px]">
               {typed}
               {phase === "typing" && (
