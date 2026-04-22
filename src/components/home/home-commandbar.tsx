@@ -206,7 +206,7 @@ export function HomeCommandbar() {
                 {loading ? (
                   <LoadingCard />
                 ) : result ? (
-                  <ResultCard result={result} onAction={triggerAction} />
+                  <ResultCard result={result} onAction={triggerAction} onReply={(reply) => run(`${input} ${reply}`.trim())} />
                 ) : null}
               </motion.div>
             )}
