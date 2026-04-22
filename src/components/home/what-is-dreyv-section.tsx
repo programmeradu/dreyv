@@ -77,7 +77,7 @@ export function WhatIsDreyvSection() {
             </motion.div>
 
             <nav
-              className="mt-8 flex flex-col gap-0 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-1 sm:gap-y-3"
+              className="mt-8 flex flex-col gap-0 sm:grid sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-center sm:gap-x-1.5 sm:gap-y-0"
               aria-label="From intent to signature"
             >
               {PIPELINE.map((step, i) => {
@@ -85,7 +85,7 @@ export function WhatIsDreyvSection() {
                 return (
                   <Fragment key={step.title}>
                     <motion.div
-                      className="flex flex-1 min-w-0 sm:max-w-[8.75rem] sm:flex-1"
+                      className="w-full"
                       initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                       animate={inView ? { opacity: 1, y: 0 } : reduceMotion ? { opacity: 1, y: 0 } : {}}
                       transition={{
@@ -93,11 +93,11 @@ export function WhatIsDreyvSection() {
                         delay: reduceMotion ? 0 : 0.08 + i * 0.06,
                       }}
                     >
-                      <div className="flex w-full items-center gap-3 rounded-xl border border-violet-200/40 bg-white/80 px-3 py-3 sm:flex-col sm:items-start">
+                      <div className="flex w-full items-center gap-3 rounded-xl border border-violet-200/40 bg-white/80 px-3 py-3 sm:flex-col sm:items-center sm:text-center sm:gap-2 sm:px-2.5 sm:py-3.5 sm:aspect-square sm:justify-center">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
                           <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
                         </div>
-                        <div className="min-w-0 sm:pt-0.5">
+                        <div className="min-w-0 sm:pt-0">
                           <p className="text-xs font-semibold text-slate-900">{step.title}</p>
                           <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{step.caption}</p>
                         </div>
@@ -106,7 +106,7 @@ export function WhatIsDreyvSection() {
                     {i < PIPELINE.length - 1 && (
                       <>
                         <div
-                          className="hidden sm:flex shrink-0 items-center justify-center self-center px-0.5 text-violet-300"
+                          className="hidden sm:flex shrink-0 items-center justify-center text-violet-300"
                           aria-hidden
                         >
                           <ChevronRight className="h-4 w-4" strokeWidth={2} />
