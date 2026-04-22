@@ -72,7 +72,46 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
     if (isPrivateSeoPath(pathname)) {
         response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
+    // RFC 8288 Link headers — agent discovery hints on every public page.
+    // Browsers ignore these; agents (and Cloudflare's agent-ready scanner) read them.
+    if (!isPrivateSeoPath(pathname)) {
+        response.headers.append(
+            'Link',
+            '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+        );
+        response.headers.append(
+            'Link',
+            '</.well-known/acp.json>; rel="service-desc"; type="application/json"; title="ACP discovery"',
+        );
+        response.headers.append(
+            'Link',
+            '</.well-known/ucp>; rel="service-desc"; type="application/json"; title="UCP profile"',
+        );
+        response.headers.append(
+            'Link',
+            '</guides>; rel="service-doc"; type="text/html"; title="dreyv developer guides"',
+        );
+        response.headers.append(
+            'Link',
+            '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+        );
+    }
     return response;
+}
+
+/**
+ * Markdown negotiation for agents (Cloudflare "Markdown for Agents" pattern).
+ *
+ * If a client sends `Accept: text/markdown`, transparently rewrite the request
+ * to our markdown-render endpoint so the response body is markdown while HTML
+ * remains the default for browsers. Only applies to safe GET requests on
+ * indexable HTML pages.
+ */
+function wantsMarkdown(request: NextRequest): boolean {
+    if (request.method !== 'GET') return false;
+    const accept = request.headers.get('accept') || '';
+    // Browsers send `text/html,...` first; agents that want markdown lead with it.
+    return /(^|,\s*)text\/markdown(\s*;|\s*,|$)/i.test(accept);
 }
 
 // Canonical host for SEO consolidation. All alternate domains (dreyv.app,
@@ -134,6 +173,49 @@ export async function middleware(request: NextRequest) {
         }
         console.log('[Middleware] Stripping neon_auth_session_verifier, redirecting to:', cleanUrl.pathname + cleanUrl.search);
         return withSeoHeaders(NextResponse.redirect(cleanUrl), pathname);
+    }
+
+    // ─── Markdown negotiation for agents ────────────────────────────
+    // Public HTML page + `Accept: text/markdown` → proxy to render-markdown.
+    // Browsers (Accept: text/html,...) are unaffected.
+    if (
+        wantsMarkdown(request) &&
+        !pathname.startsWith('/api/') &&
+        !pathname.startsWith('/_next/') &&
+        !pathname.includes('.') &&
+        !isPrivateSeoPath(pathname)
+    ) {
+        const origin =
+            request.headers.get('x-forwarded-host')
+                ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
+                : request.nextUrl.origin;
+        const target = `${origin}${pathname}${request.nextUrl.search}`;
+        try {
+            const upstream = await fetch(`${origin}/api/studio/render-markdown`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: target }),
+                // Keep latency in check; agents can fall back to HTML on failure.
+                signal: AbortSignal.timeout(10_000),
+            });
+            if (upstream.ok) {
+                const data = (await upstream.json()) as { markdown?: string };
+                const md = data.markdown ?? '';
+                const headers = new Headers({
+                    'Content-Type': 'text/markdown; charset=utf-8',
+                    'Cache-Control': 'public, max-age=300, s-maxage=300',
+                    'Vary': 'Accept',
+                    'X-Markdown-Source': target,
+                });
+                const tokenEstimate = Math.ceil(md.length / 4);
+                headers.set('x-markdown-tokens', String(tokenEstimate));
+                const res = new NextResponse(md, { status: 200, headers });
+                return withSeoHeaders(res, pathname);
+            }
+        } catch (err) {
+            // Fall through to normal HTML response on failure.
+            console.warn('[middleware] markdown negotiation failed:', (err as Error).message);
+        }
     }
 
     // ─── Skip public routes ─────────────────────────────────────────
