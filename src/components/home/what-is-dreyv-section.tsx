@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { Fragment, useRef } from "react";
 import {
@@ -10,6 +11,7 @@ import {
   MessageSquare,
   PenLine,
 } from "lucide-react";
+import commandStar from "@/assets/command-star-violet.png";
 
 const PIPELINE = [
   {
