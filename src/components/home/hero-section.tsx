@@ -114,8 +114,8 @@ export function HeroSection() {
             <span className="relative font-semibold tracking-wide">Join the waitlist</span>
             <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
           </a>
-          <a href="/auth?redirect=/app" className={marketingGhostLink}>
-            or try a command &rarr;
+          <a href="#demo" className={marketingGhostLink}>
+            or try a command &darr;
           </a>
         </motion.div>
 
