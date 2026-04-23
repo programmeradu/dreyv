@@ -104,8 +104,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
-
-// Used by the verify route below so we have a stable export name.
-export function _generateInviteToken(): string {
-  return randomBytes(24).toString("base64url");
-}
