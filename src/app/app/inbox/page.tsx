@@ -86,6 +86,8 @@ type TxProposal = {
   errorMessage: string | null;
   createdAt: string;
   expiresAt: string | null;
+  unsignedTx?: string | null;
+  instructions?: TxInstruction[] | null;
 };
 
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
@@ -93,6 +95,7 @@ const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as c
 export default function InboxPage() {
   const { publicKey } = useWallet();
   const wallet = publicKey?.toBase58() ?? null;
+  const executor = useTransactionExecutor();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
