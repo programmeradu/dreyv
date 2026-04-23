@@ -35,7 +35,7 @@ export default function WaitlistPage() {
         <div className="absolute bottom-0 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/25 blur-[140px]" />
       </div>
 
-      <section className="relative mx-auto max-w-6xl px-6 pt-32 pb-20 lg:pt-40 lg:pb-28">
+      <section className="relative mx-auto max-w-6xl px-6 pt-10 pb-20 lg:pt-16 lg:pb-28">
         <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-14 items-start">
           {/* Left: hero copy + form */}
           <div>
