@@ -13,12 +13,42 @@ export type NotificationType =
     | "security"
     | "system";
 
+export interface NotificationActionContext {
+    /** Remove this notification from the bell entirely. */
+    dismiss: () => void;
+    /** Mark this notification as read (keeps it in history). */
+    markRead: () => void;
+    /** Close the notification popup overlay. */
+    closePopup: () => void;
+    /** Programmatically navigate (uses window.location). */
+    navigate: (href: string) => void;
+}
+
 export interface NotificationAction {
+    /** Stable id for the action — used for loading/disabled state. Optional. */
+    id?: string;
     label: string;
-    /** Visual variant — primary (filled) or ghost (outline). Defaults to primary. */
-    variant?: "primary" | "ghost";
-    /** Called when the user clicks the action. Return value is awaited. */
-    onClick: (ctx: { dismiss: () => void; markRead: () => void }) => void | Promise<void>;
+    /** Optional Lucide icon name (e.g. "TrendingUp"). Resolved at render time. */
+    icon?: string;
+    /** Visual variant. Defaults to "primary". */
+    variant?: "primary" | "ghost" | "danger";
+    /** If set, action navigates to this href instead of running onClick. */
+    href?: string;
+    /** Tooltip / aria-label override. */
+    tooltip?: string;
+    /**
+     * Called when clicked. May be async — button shows a spinner until it resolves.
+     * Throw to surface an error toast (caller wires this).
+     */
+    onClick?: (ctx: NotificationActionContext) => void | Promise<void>;
+    /** Auto-mark as read after the action resolves. Default: true. */
+    markReadOnAction?: boolean;
+    /** Auto-dismiss (remove) after the action resolves. Default: false. */
+    dismissOnAction?: boolean;
+    /** Auto-close the popup after the action resolves. Default: true. */
+    closePopupOnAction?: boolean;
+    /** Disable the button (e.g. waiting on a precondition). */
+    disabled?: boolean;
 }
 
 export interface Notification {

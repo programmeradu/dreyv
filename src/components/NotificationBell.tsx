@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useCallback, useMemo, useState } from "react";
+import * as LucideIcons from "lucide-react";
 import {
     Bell,
     BellOff,
-    Check,
     X,
     ShoppingCart,
     Tag,
@@ -17,6 +17,7 @@ import {
     Inbox,
     ArrowRight,
     Network,
+    Loader2,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -83,16 +84,90 @@ const TYPE_META: Record<NotificationType, TypeMeta> = {
     },
 };
 
+// ─── Action button ────────────────────────────────────────────────────
+
+import type { NotificationAction, NotificationActionContext } from "@/lib/notifications";
+
+const VARIANT_CLASS: Record<Required<NotificationAction>["variant"], string> = {
+    primary: "bg-violet-600 text-white hover:bg-violet-700 shadow-sm shadow-violet-600/20",
+    ghost: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+    danger: "bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/20",
+};
+
+function ActionButton({
+    action,
+    ctx,
+}: {
+    action: NotificationAction;
+    ctx: NotificationActionContext;
+}) {
+    const [busy, setBusy] = useState(false);
+    const variant = action.variant ?? "primary";
+    // Resolve optional Lucide icon by name
+    const IconCmp =
+        action.icon && (LucideIcons as Record<string, any>)[action.icon]
+            ? ((LucideIcons as Record<string, any>)[action.icon] as React.ComponentType<{
+                  size?: number;
+                  className?: string;
+              }>)
+            : null;
+
+    const handleClick = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (busy || action.disabled) return;
+
+        const markReadOnAction = action.markReadOnAction ?? true;
+        const dismissOnAction = action.dismissOnAction ?? false;
+        const closePopupOnAction = action.closePopupOnAction ?? true;
+
+        try {
+            setBusy(true);
+            if (action.href) {
+                ctx.navigate(action.href);
+            } else if (action.onClick) {
+                await action.onClick(ctx);
+            }
+            if (markReadOnAction) ctx.markRead();
+            if (dismissOnAction) ctx.dismiss();
+            if (closePopupOnAction) ctx.closePopup();
+        } catch (err) {
+            console.error("[NotificationAction]", action.label, err);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleClick}
+            disabled={busy || action.disabled}
+            title={action.tooltip ?? action.label}
+            className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-1.5 rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed ${VARIANT_CLASS[variant]}`}
+        >
+            {busy ? (
+                <Loader2 size={12} className="animate-spin" />
+            ) : IconCmp ? (
+                <IconCmp size={12} />
+            ) : null}
+            {action.label}
+        </button>
+    );
+}
+
 // ─── Item row ─────────────────────────────────────────────────────────
 
 function NotificationItem({
     item,
     onRead,
     onRemove,
+    onClosePopup,
 }: {
     item: Notification;
     onRead: () => void;
     onRemove: () => void;
+    onClosePopup: () => void;
 }) {
     const unread = !item.read;
     const meta = TYPE_META[item.type] ?? TYPE_META.system;
@@ -114,11 +189,16 @@ function NotificationItem({
         .replace(" year", "y")
         .replace(/\s+/g, "") + " ago";
 
-    const actions = (item.meta?.actions ?? []) as Array<{
-        label: string;
-        variant?: "primary" | "ghost";
-        onClick: (ctx: { dismiss: () => void; markRead: () => void }) => void | Promise<void>;
-    }>;
+    const actions = (item.meta?.actions ?? []) as NotificationAction[];
+
+    const ctx: NotificationActionContext = {
+        dismiss: onRemove,
+        markRead: onRead,
+        closePopup: onClosePopup,
+        navigate: (href: string) => {
+            if (typeof window !== "undefined") window.location.href = href;
+        },
+    };
 
     return (
         <div
@@ -150,7 +230,13 @@ function NotificationItem({
                 <div className="flex items-start gap-2">
                     <button
                         type="button"
-                        onClick={onRead}
+                        onClick={() => {
+                            onRead();
+                            if (item.href) {
+                                onClosePopup();
+                                window.location.href = item.href;
+                            }
+                        }}
                         className="flex-1 min-w-0 text-left"
                     >
                         <p className="text-[13.5px] font-bold text-slate-900 leading-snug truncate">
@@ -169,24 +255,9 @@ function NotificationItem({
                 )}
 
                 {actions.length > 0 && (
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
                         {actions.map((a, i) => (
-                            <button
-                                key={i}
-                                type="button"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void a.onClick({ dismiss: onRemove, markRead: onRead });
-                                }}
-                                className={`text-[12px] font-semibold px-3.5 py-1.5 rounded-lg transition-all ${
-                                    a.variant === "ghost"
-                                        ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                        : "bg-violet-600 text-white hover:bg-violet-700 shadow-sm shadow-violet-600/20"
-                                }`}
-                            >
-                                {a.label}
-                            </button>
+                            <ActionButton key={a.id ?? `${a.label}-${i}`} action={a} ctx={ctx} />
                         ))}
                     </div>
                 )}
@@ -326,6 +397,7 @@ export function NotificationBell() {
                                 item={item}
                                 onRead={() => markRead(item.id)}
                                 onRemove={() => remove(item.id)}
+                                onClosePopup={() => setOpen(false)}
                             />
                         ))
                     )}
