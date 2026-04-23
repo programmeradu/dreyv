@@ -319,50 +319,7 @@ export function NotificationBell() {
                 sideOffset={10}
                 className="w-[400px] p-0 max-h-[600px] flex flex-col overflow-hidden rounded-2xl border border-slate-200 shadow-[0_24px_70px_-20px_rgba(15,23,42,0.25)] bg-white"
             >
-                {/* ─── Brand Header ───────────────────────────────────── */}
-                <div className="px-5 pt-5 pb-4 shrink-0 border-b border-slate-100">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="size-11 rounded-xl bg-violet-100 ring-1 ring-violet-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={typeof glyphBrand === "string" ? glyphBrand : (glyphBrand as any).src}
-                                    alt=""
-                                    aria-hidden
-                                    className="size-8 object-contain"
-                                />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-[16px] font-bold tracking-tight text-slate-900 leading-tight">
-                                    Alpha Alert
-                                </h3>
-                                <p className="text-[10.5px] font-semibold tracking-[0.08em] uppercase text-slate-500 mt-0.5">
-                                    Dreyv Atlas Intelligence
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <a
-                                href="/app/settings"
-                                onClick={() => setOpen(false)}
-                                className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                                title="Notification settings"
-                            >
-                                <SlidersHorizontal size={15} />
-                            </a>
-                            <button
-                                type="button"
-                                onClick={() => setOpen(false)}
-                                className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                                title="Close"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ─── Counter row ────────────────────────────────────── */}
+                {/* ─── Counter row + actions ──────────────────────────── */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-white shrink-0">
                     <p className="text-[12.5px] font-semibold text-violet-600">
                         {count > 0
