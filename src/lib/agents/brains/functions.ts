@@ -22,7 +22,9 @@ import {
   saveAlertOnly,
   saveSubAgentSpec,
   expireSubAgents,
+  expireStaleTxProposals,
 } from "./storage";
+import { bridgeProposalToTx } from "./executor-bridge";
 import {
   listWatchers,
   scanWatcher,
@@ -92,11 +94,22 @@ export const opportunityRouter = inngest.createFunction(
     );
 
     const spawn = await step.run("maybe-spawn", () => maybeSpawnFromProposal(proposal, userId));
+
+    // Phase 6: high-confidence proposals get queued as HITL transactions.
+    const queued = await step.run("bridge-to-tx", () =>
+      bridgeProposalToTx({
+        proposalId: persisted?.id ?? null,
+        userId,
+        proposal,
+      }),
+    );
+
     return {
       verdict: "escalate",
       kind: proposal.kind,
       proposalId: persisted?.id ?? null,
       spawned: spawn.spawned,
+      queuedTxId: queued?.id ?? null,
     };
   },
 );
@@ -230,6 +243,19 @@ export const reflectorListener = inngest.createFunction(
   },
 );
 
+/**
+ * Expire queued tx proposals past their TTL. Runs every 10 minutes alongside
+ * the sub-agent reaper so stale "approve me" cards drop out of the inbox.
+ */
+export const txProposalReaper = inngest.createFunction(
+  { id: "brains-tx-proposal-reaper", name: "Brains • Tx proposal reaper" },
+  { cron: "*/10 * * * *" },
+  async ({ step }) => {
+    const expired = await step.run("expire-tx", () => expireStaleTxProposals());
+    return { expired };
+  },
+);
+
 export const BRAIN_FUNCTIONS = [
   opportunityRouter,
   subAgentSpawner,
@@ -237,4 +263,5 @@ export const BRAIN_FUNCTIONS = [
   subAgentTick,
   treasuryWatch5m,
   reflectorListener,
+  txProposalReaper,
 ];

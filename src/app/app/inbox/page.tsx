@@ -26,6 +26,7 @@ import {
   Eye,
   Plus,
   Trash2,
+  Zap,
 } from "lucide-react";
 
 type Proposal = {
@@ -64,6 +65,21 @@ type Watcher = {
   lastScanAt: string | null;
 };
 
+type TxProposal = {
+  id: string;
+  proposalId: string | null;
+  kind: string;
+  summary: string;
+  status: string;
+  riskLevel: string;
+  routing: string;
+  estimatedFeeSol: string | null;
+  signature: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+};
+
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
 
 export default function InboxPage() {
@@ -73,6 +89,7 @@ export default function InboxPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
   const [watchers, setWatchers] = useState<Watcher[]>([]);
+  const [txProposals, setTxProposals] = useState<TxProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -86,16 +103,18 @@ export default function InboxPage() {
     setLoading(true);
     try {
       const q = wallet ? `?wallet=${wallet}` : "";
-      const [p, s, w] = await Promise.all([
+      const [p, s, w, tx] = await Promise.all([
         fetch(`/api/inbox/proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/inbox/subagents${q}`, { cache: "no-store" }).then((r) => r.json()),
         wallet
           ? fetch(`/api/inbox/watchers?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json())
           : Promise.resolve({ watchers: [] }),
+        fetch(`/api/inbox/tx-proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
       ]);
       setProposals(p?.proposals ?? []);
       setSubagents(s?.subagents ?? []);
       setWatchers(w?.watchers ?? []);
+      setTxProposals(tx?.txProposals ?? []);
     } finally {
       setLoading(false);
     }
@@ -142,6 +161,20 @@ export default function InboxPage() {
   const removeWatcher = async (id: string) => {
     await fetch(`/api/inbox/watchers?id=${id}`, { method: "DELETE" });
     setWatchers((prev) => prev.filter((w) => w.id !== id));
+  };
+
+  const actTx = async (id: string, action: "approve" | "reject") => {
+    setBusyId(id);
+    try {
+      await fetch("/api/inbox/tx-proposals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      setTxProposals((prev) => prev.filter((t) => t.id !== id));
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -253,6 +286,74 @@ export default function InboxPage() {
           </Card>
         </section>
       )}
+
+      {/* Pending HITL transactions (Phase 6) */}
+      <section className="mx-auto max-w-5xl px-6 pb-6">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
+          <Zap className="h-4 w-4 text-violet-600" />
+          Pending transactions
+          <span className="ml-1 text-neutral-400">({txProposals.length})</span>
+          <span className="ml-2 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+            HITL gated
+          </span>
+        </div>
+        {txProposals.length === 0 ? (
+          <Card className="border-violet-100 bg-white/70 p-6 text-center text-sm text-neutral-500">
+            No transactions queued. High-confidence proposals (≥75%) auto-queue
+            here for your approval — nothing signs without you.
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {txProposals.map((t) => (
+              <Card
+                key={t.id}
+                className="border-violet-200 bg-white p-4 shadow-sm transition hover:border-violet-400"
+              >
+                <div className="flex items-start gap-3">
+                  <Badge className="bg-violet-600 text-white hover:bg-violet-600">{t.kind}</Badge>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold">{t.summary}</h4>
+                      <span className="ml-auto text-[11px] text-neutral-400">
+                        {t.routing} • risk {t.riskLevel}
+                        {t.estimatedFeeSol ? ` • ~◎${Number(t.estimatedFeeSol).toFixed(6)}` : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-neutral-500">
+                      queued {new Date(t.createdAt).toLocaleTimeString()}
+                      {t.expiresAt ? ` • expires ${new Date(t.expiresAt).toLocaleTimeString()}` : ""}
+                    </div>
+                    {t.errorMessage && (
+                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                        {t.errorMessage}
+                      </div>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-violet-600 text-white hover:bg-violet-700"
+                        disabled={busyId === t.id}
+                        onClick={() => actTx(t.id, "approve")}
+                      >
+                        <Check className="mr-1 h-4 w-4" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-violet-200 text-neutral-700 hover:bg-violet-50"
+                        disabled={busyId === t.id}
+                        onClick={() => actTx(t.id, "reject")}
+                      >
+                        <X className="mr-1 h-4 w-4" /> Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Proposals */}
       <section className="mx-auto max-w-5xl px-6 pb-16">
