@@ -117,6 +117,8 @@ export default function WaitlistPage() {
           </ol>
         </div>
       </section>
-    </main>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
