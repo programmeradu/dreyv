@@ -199,74 +199,111 @@ async function executeSingleAction(operation: string, parameters: any, context: 
     }
 }
 
+async function buildAndGateTransaction(
+    instructions: TransactionInstruction[],
+    context: ActionContext,
+    quote?: any
+): Promise<{ tx: VersionedTransaction; serialized: string }> {
+    const { connection, vaultAddress } = context;
+    const payer = new PublicKey(vaultAddress);
+
+    const lookupTables = quote?._lookupTables || [];
+    const { blockhash } = await connection.getLatestBlockhash("confirmed");
+    const message = new TransactionMessage({
+        payerKey: payer,
+        recentBlockhash: blockhash,
+        instructions,
+    }).compileToV0Message(lookupTables);
+    const tx = new VersionedTransaction(message);
+
+    // Block transactions touching policy-blocked programs
+    enforceProgramAllowlist(
+        instructions.map((ix) => ix.programId.toBase58()),
+        DEFAULT_POLICY
+    );
+
+    // Pre-flight quote validation (when applicable)
+    const report = quote ? simulationFirewall.protect(quote) : null;
+
+    // On-chain simulation — throws FirewallBlockedError on any failure
+    const simResult = await simulationFirewall.simulate(tx, vaultAddress);
+
+    // Hard policy enforcement — throws on violation
+    enforce(report, simResult, DEFAULT_POLICY);
+
+    return { tx, serialized: Buffer.from(tx.serialize()).toString("base64") };
+}
+
 async function executeSwap(params: any, context: ActionContext): Promise<string> {
     const { inputToken, outputToken, amount } = params;
-    const { connection, wallet, squadsClient, vaultAddress } = context;
+    const { connection, squadsClient, vaultAddress } = context;
 
-    // 1. Get Token Mints (Mocking for common tokens if not provided)
-    // In production, we'd look up the mint address from a token list
-    const inputMint = inputToken === "USDC" ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" : "So11111111111111111111111111111111111111112";
-    const outputMint = outputToken === "SOL" ? "So11111111111111111111111111111111111111112" : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+    const inputMint = inputToken === "USDC"
+        ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        : "So11111111111111111111111111111111111111112";
+    const outputMint = outputToken === "SOL"
+        ? "So11111111111111111111111111111111111111112"
+        : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-    // 2. Get Quote from Jupiter
-    const amountInSmallestUnit = Math.floor(amount * (inputToken === "USDC" ? 1e6 : 1e9)); // Simple decimal assumption
+    const amountInSmallestUnit = Math.floor(amount * (inputToken === "USDC" ? 1e6 : 1e9));
     const jupiterApiKey = process.env.NEXT_PUBLIC_JUPITER_API_KEY || "";
     const jupiterHeaders: Record<string, string> = { "Content-Type": "application/json" };
     if (jupiterApiKey) jupiterHeaders["x-api-key"] = jupiterApiKey;
     const quoteUrl = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInSmallestUnit}&slippageBps=50`;
 
-    let instructionsData;
-
-    try {
-        const quoteRes = await fetch(quoteUrl, { headers: jupiterHeaders });
-        const quoteData = await quoteRes.json();
-
-        if (!quoteData || quoteData.error) {
-            throw new Error("Failed to get quote from Jupiter");
-        }
-
-        // 3. Get Instructions
-        const instructionsRes = await fetch("https://lite-api.jup.ag/swap/v1/swap-instructions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                quoteResponse: quoteData,
-                userPublicKey: vaultAddress, // The Vault executes the swap!
-                wrapAndUnwrapSol: true
-            })
-        });
-
-        instructionsData = await instructionsRes.json();
-        if (instructionsData.error) throw new Error("Failed to fetch swap instructions");
-    } catch (error) {
-        // Mock Instructions fallback
-        instructionsData = {
-            setupInstructions: [],
-            swapInstruction: {
-                programId: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-                accounts: [],
-                data: ""
-            },
-            cleanupInstruction: null,
-            addressLookupTableAddresses: []
-        };
+    // Fetch real Jupiter quote — fail-closed on any error (no mock fallback)
+    const quoteRes = await fetch(quoteUrl, { headers: jupiterHeaders });
+    if (!quoteRes.ok) {
+        throw new FirewallBlockedError(
+            `Jupiter quote fetch failed (${quoteRes.status}) — firewall blocked swap`
+        );
+    }
+    const quoteData = await quoteRes.json();
+    if (!quoteData || quoteData.error) {
+        throw new FirewallBlockedError(
+            `Jupiter quote error: ${quoteData?.error || "empty response"}`
+        );
     }
 
-    // 4. Deserialize Instructions (Simplified for prototype)
-    // In real app: Deserialize base64 instructions back to TransactionInstruction objects
-    // For now, we pass a placeholder array to our mocked SquadsClient.createVaultTransaction
-    const mockInstructions = [new TransactionInstruction({
-        keys: [],
-        programId: new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"),
-        data: Buffer.from([])
-    })];
+    // Fetch real swap instructions
+    const instructionsRes = await fetch("https://lite-api.jup.ag/swap/v1/swap-instructions", {
+        method: "POST",
+        headers: jupiterHeaders,
+        body: JSON.stringify({
+            quoteResponse: quoteData,
+            userPublicKey: vaultAddress,
+            wrapAndUnwrapSol: true,
+        }),
+    });
+    if (!instructionsRes.ok) {
+        throw new FirewallBlockedError(
+            `Jupiter swap-instructions fetch failed (${instructionsRes.status})`
+        );
+    }
+    const instructionsData = (await instructionsRes.json()) as JupiterSwapInstructionsResponse;
+    if (instructionsData.error) {
+        throw new FirewallBlockedError(`Jupiter swap-instructions error: ${instructionsData.error}`);
+    }
 
-    // 5. Create Proposal
+    // Real instruction deserialization (no Buffer.from([]) placeholder)
+    const realInstructions = flattenJupiterInstructions(instructionsData);
+    const lookupTables = await resolveLookupTables(
+        connection,
+        instructionsData.addressLookupTableAddresses
+    );
+
+    // Build, simulate, and policy-gate the real transaction
+    const { tx } = await buildAndGateTransaction(
+        realInstructions,
+        context,
+        { ...quoteData, _lookupTables: lookupTables }
+    );
+
     return await squadsClient.createVaultTransaction(
         vaultAddress,
-        mockInstructions,
+        realInstructions,
         0,
-        `Swap ${amount} ${inputToken} to ${outputToken}`
+        `Swap ${amount} ${inputToken} to ${outputToken} (firewall passed, ${realInstructions.length} ix)`
     );
 }
 
@@ -274,17 +311,31 @@ async function executeTransfer(params: any, context: ActionContext): Promise<str
     const { recipient, token, amount } = params;
     const { squadsClient, vaultAddress } = context;
 
-    // Mock Instructions for Transfer
-    const mockInstructions = [new TransactionInstruction({
-        keys: [],
-        programId: SystemProgram.programId,
-        data: Buffer.from([])
-    })];
+    if (!recipient) {
+        throw new FirewallBlockedError("Transfer missing recipient");
+    }
+    if (token && token !== "SOL") {
+        // SPL transfers require ATA resolution — out of scope for this hardening pass.
+        // Fail-closed rather than silently building a wrong instruction.
+        throw new FirewallBlockedError(
+            `SPL token transfers (${token}) not yet supported by firewall path — use swap or vault tooling`
+        );
+    }
+
+    const fromPubkey = new PublicKey(vaultAddress);
+    const toPubkey = new PublicKey(recipient);
+    const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
+
+    const realInstructions = [
+        SystemProgram.transfer({ fromPubkey, toPubkey, lamports }),
+    ];
+
+    await buildAndGateTransaction(realInstructions, context);
 
     return await squadsClient.createVaultTransaction(
         vaultAddress,
-        mockInstructions,
+        realInstructions,
         0,
-        `Transfer ${amount} ${token} to ${recipient}`
+        `Transfer ${amount} SOL to ${recipient} (firewall passed)`
     );
 }
