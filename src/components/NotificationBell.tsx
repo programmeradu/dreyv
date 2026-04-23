@@ -1,22 +1,12 @@
 "use client";
 
 import React, { useEffect, useCallback, useMemo, useState } from "react";
-import * as LucideIcons from "lucide-react";
 import {
     Bell,
     BellOff,
     X,
-    ShoppingCart,
-    Tag,
-    Calendar,
-    Smartphone,
-    Cpu,
-    Shield,
-    Download,
     SlidersHorizontal,
-    Inbox,
     ArrowRight,
-    Network,
     Loader2,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,57 +19,59 @@ import {
 import { AppEventBus } from "@/lib/events";
 import { formatDistanceToNowStrict } from "date-fns";
 
+// ─── Premium custom-rendered glyphs (replace stock Lucide marks) ─────
+import glyphBrand from "@/assets/notif/glyph-brand.png";
+import glyphPurchase from "@/assets/notif/glyph-purchase.png";
+import glyphListing from "@/assets/notif/glyph-listing.png";
+import glyphInstall from "@/assets/notif/glyph-install.png";
+import glyphDelist from "@/assets/notif/glyph-delist.png";
+import glyphAgent from "@/assets/notif/glyph-agent.png";
+import glyphSecurity from "@/assets/notif/glyph-security.png";
+import glyphSystem from "@/assets/notif/glyph-system.png";
+
 // ─── Type meta ────────────────────────────────────────────────────────
-// Square, soft-tinted medallions inspired by the Stitch reference.
+// Each type uses a custom-rendered crystal glyph + soft-tinted medallion.
 
 type TypeMeta = {
     label: string;
-    Icon: React.ComponentType<{ size?: number; className?: string }>;
-    iconClass: string;
+    glyph: string;
     medallionBg: string;
 };
 
 const TYPE_META: Record<NotificationType, TypeMeta> = {
     purchase: {
         label: "Purchase",
-        Icon: ShoppingCart,
-        iconClass: "text-emerald-600",
+        glyph: glyphPurchase,
         medallionBg: "bg-emerald-50 ring-1 ring-emerald-100",
     },
     listing: {
         label: "Listing",
-        Icon: Tag,
-        iconClass: "text-sky-600",
+        glyph: glyphListing,
         medallionBg: "bg-sky-50 ring-1 ring-sky-100",
     },
     install: {
         label: "Install",
-        Icon: Download,
-        iconClass: "text-indigo-600",
+        glyph: glyphInstall,
         medallionBg: "bg-indigo-50 ring-1 ring-indigo-100",
     },
     delist: {
         label: "Delist",
-        Icon: Smartphone,
-        iconClass: "text-amber-600",
+        glyph: glyphDelist,
         medallionBg: "bg-amber-50 ring-1 ring-amber-100",
     },
     agent_alert: {
         label: "Agent",
-        Icon: Cpu,
-        iconClass: "text-violet-600",
+        glyph: glyphAgent,
         medallionBg: "bg-violet-50 ring-1 ring-violet-100",
     },
     security: {
         label: "Security",
-        Icon: Shield,
-        iconClass: "text-rose-600",
+        glyph: glyphSecurity,
         medallionBg: "bg-rose-50 ring-1 ring-rose-100",
     },
     system: {
         label: "System",
-        Icon: Calendar,
-        iconClass: "text-slate-600",
+        glyph: glyphSystem,
         medallionBg: "bg-slate-50 ring-1 ring-slate-100",
     },
 };
