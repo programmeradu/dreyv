@@ -52,9 +52,9 @@ export function specFromProposal(p: DeepProposal): SubAgentSpec | null {
   };
 }
 
-export async function maybeSpawnFromProposal(p: DeepProposal) {
+export async function maybeSpawnFromProposal(p: DeepProposal, userId?: string | null) {
   const spec = specFromProposal(p);
   if (!spec) return { spawned: false };
-  await publish({ name: "subagent.spawn.requested", data: spec });
+  await publish({ name: "subagent.spawn.requested", data: { ...spec, userId: userId ?? null } });
   return { spawned: true, spec };
 }
