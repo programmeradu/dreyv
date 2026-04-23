@@ -114,7 +114,7 @@ export function WaitlistForm() {
     <form
       onSubmit={onSubmit}
       noValidate
-      className="rounded-2xl border border-violet-200 bg-white/90 backdrop-blur p-6 lg:p-8 space-y-5"
+      className="space-y-7"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
