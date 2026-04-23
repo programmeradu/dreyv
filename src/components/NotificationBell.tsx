@@ -35,7 +35,7 @@ import glyphSystem from "@/assets/notif/glyph-system.png";
 
 type TypeMeta = {
     label: string;
-    glyph: string;
+    glyph: any; // StaticImageData from next/image
     medallionBg: string;
 };
 
