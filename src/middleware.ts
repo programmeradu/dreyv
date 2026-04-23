@@ -119,6 +119,14 @@ function withSeoHeaders(response: NextResponse, pathname: string): NextResponse 
             'Link',
             '</sitemap.xml>; rel="sitemap"; type="application/xml"',
         );
+        response.headers.append(
+            'Link',
+            '</waitlist>; rel="related"; type="text/html"; title="dreyv waitlist"',
+        );
+        response.headers.append(
+            'Link',
+            '</waitlist.md>; rel="related"; type="text/markdown"; title="dreyv waitlist (machine-readable)"',
+        );
     }
     return response;
 }

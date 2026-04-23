@@ -63,8 +63,8 @@ export function SiteHeader() {
             <Button variant="ghost" size="sm" asChild className="text-slate-600 hover:text-violet-700 hover:bg-violet-50/60">
               <a href="/atlas">Try Atlas</a>
             </Button>
-            <a href="/auth?redirect=/app" className={marketingPrimaryCtaSm}>
-              <span className="relative font-semibold tracking-wide">Get started</span>
+            <a href="/waitlist" className={marketingPrimaryCtaSm}>
+              <span className="relative font-semibold tracking-wide">Join waitlist</span>
               <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
             </a>
           </div>
@@ -103,11 +103,11 @@ export function SiteHeader() {
                   <a href="/atlas">Try Atlas</a>
                 </Button>
                 <a
-                  href="/auth?redirect=/app"
+                  href="/waitlist"
                   onClick={() => setMobileOpen(false)}
                   className={`${marketingPrimaryCtaSm} justify-center w-full`}
                 >
-                  <span className="relative font-semibold tracking-wide">Get started</span>
+                  <span className="relative font-semibold tracking-wide">Join waitlist</span>
                   <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
                 </a>
               </div>

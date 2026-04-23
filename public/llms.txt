@@ -9,6 +9,7 @@
 - App: /app
 - Atlas (public tools): /atlas
 - Pricing: /pricing — machine-readable: /pricing.md
+- Waitlist (invite-only access): /waitlist — machine-readable: /waitlist.md
 - Compare vs Squads / Jupiter / Birdeye: /compare
 - Developers: /developers
 - Guide — Intent-driven treasury on Solana: /guides/intent-driven-treasury-solana
