@@ -24,6 +24,7 @@ export async function savePropagatedProposal(args: {
   proposal: DeepProposal;
   triage: TriageResult;
   opp: OpportunitySummary;
+  userId?: string | null;
 }): Promise<PersistedProposal | null> {
   if (!db) {
     console.warn("[brains:storage] DATABASE_URL missing — skipping proposal persist");
@@ -45,6 +46,7 @@ export async function savePropagatedProposal(args: {
         opp: args.opp as unknown as object,
         tags: args.triage.tags as unknown as object[],
         status: "open",
+        userId: args.userId ?? null,
         observedAt: new Date(args.opp.observedAt ?? Date.now()),
       })
       .returning({
@@ -63,6 +65,7 @@ export async function savePropagatedProposal(args: {
 export async function saveAlertOnly(args: {
   triage: TriageResult;
   opp: OpportunitySummary;
+  userId?: string | null;
 }): Promise<PersistedProposal | null> {
   if (!db) return null;
   try {
@@ -81,6 +84,7 @@ export async function saveAlertOnly(args: {
         opp: args.opp as unknown as object,
         tags: args.triage.tags as unknown as object[],
         status: "open",
+        userId: args.userId ?? null,
         observedAt: new Date(args.opp.observedAt ?? Date.now()),
       })
       .returning({
@@ -138,13 +142,16 @@ export async function expireSubAgents(now: Date = new Date()): Promise<number> {
   }
 }
 
-export async function listOpenProposals(limit = 50) {
+export async function listOpenProposals(limit = 50, opts: { userId?: string | null } = {}) {
   if (!db) return [];
   try {
+    const where = opts.userId
+      ? and(eq(agentProposals.status, "open"), eq(agentProposals.userId, opts.userId))
+      : eq(agentProposals.status, "open");
     return await db
       .select()
       .from(agentProposals)
-      .where(eq(agentProposals.status, "open"))
+      .where(where)
       .orderBy(desc(agentProposals.createdAt))
       .limit(limit);
   } catch (e: any) {
@@ -153,13 +160,16 @@ export async function listOpenProposals(limit = 50) {
   }
 }
 
-export async function listActiveSubAgents(limit = 50) {
+export async function listActiveSubAgents(limit = 50, opts: { userId?: string | null } = {}) {
   if (!db) return [];
   try {
+    const where = opts.userId
+      ? and(eq(agentSubagents.status, "active"), eq(agentSubagents.userId, opts.userId))
+      : eq(agentSubagents.status, "active");
     return await db
       .select()
       .from(agentSubagents)
-      .where(eq(agentSubagents.status, "active"))
+      .where(where)
       .orderBy(desc(agentSubagents.createdAt))
       .limit(limit);
   } catch (e: any) {
