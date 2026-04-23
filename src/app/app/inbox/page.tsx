@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useTransactionExecutor } from "@/lib/hooks/useTransactionExecutor";
+import { pollConfirmation } from "@/lib/solana/poll-confirmation";
+import { Connection } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
   Loader2,
