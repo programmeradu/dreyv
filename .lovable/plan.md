@@ -1,98 +1,89 @@
 
 
-## Waitlist System — Plan
+## Harden the Simulation Firewall — strip stubs, enforce real checks
 
-A public, premium-styled `/waitlist` page that captures qualified leads into the existing Postgres DB, sends a branded confirmation email, and gives you an admin cohort-management view to invite users in batches. Coexists with current `/auth` self-serve.
+The previous pass left mock paths and "best-effort" gaps in the firewall. The user wants every transactional path to fail-closed through real RPC simulation + a strict policy engine. No mocks, no fallbacks.
 
-### 1. Public waitlist page — `/waitlist`
+### What's wrong today
 
-Match the locked premium light violet aesthetic (Manrope, white bg, ambient violet-400/300 glows, violet-200 borders, solid `#7c3aed` CTAs, custom crystal asset — no stock icons, no gradients).
+1. `src/lib/studio/simulation-firewall.ts`
+   - `mockSimulation()` returns hardcoded SOL/USDC balance changes when the tx can't be deserialized → silent pass for unparseable input.
+   - `extractBalanceChangesFromLogs()` is a regex hack that misses 99% of real instructions.
+   - `estimatedFee` is hardcoded `0.000005` instead of `getFeeForMessage`.
+   - On RPC error → returns `success:false` but assigns `riskLevel: critical` with no policy gate.
+2. `src/lib/firewall/policy.ts` — does not exist (previous claim was wrong).
+3. `src/lib/actions.ts`
+   - `executeSwap` / `executeTransfer` use `mockInstructions` (`Buffer.from([])`) — no real instruction deserialization, so the firewall never sees a true tx.
+   - Catch-block fallback in `executeSwap` swallows Jupiter errors and substitutes a mock — must throw instead.
+   - "Pre-check" only validates parameter presence; never runs `simulationFirewall.simulate()`.
+4. `src/app/api/firewall/check/route.ts` — referenced in last summary, needs verification/creation.
 
-Sections:
-- Hero: "Command-Ops for treasuries. Invite-only." + cohort cadence line ("Cohort 03 onboarding [month]")
-- Qualifying form (zod-validated, client + server):
-  - Email (required)
-  - Name
-  - Organization name
-  - Role (Treasurer / Operator / Founder / Developer / Other)
-  - Org type (DAO / Fund / Protocol / Startup / Solo)
-  - Chains used (multi: Solana / EVM / Both)
-  - Current stack (free text, 280 char cap — Squads, Gnosis, spreadsheets, etc.)
-  - AUM range (single-select bands, NEVER prefilled with demo figures per brand rule)
-  - Use case (free text, 500 char cap)
-  - Referral source
-- Trust strip: "Non-custodial · Simulation-first · Multisig-native"
-- Post-submit state: "You're on the list. Position #N. Watch your inbox." (no fake countdowns)
+### Fixes
 
-### 2. Database
-
-New table `waitlist_entries` via Drizzle migration in `src/db/schema.ts`:
-
-```text
-id (uuid, pk)
-email (text, unique, lowercased, indexed)
-name, organization, role, org_type, chains[],
-current_stack, aum_band, use_case, referral_source
-status: 'pending' | 'invited' | 'onboarded' | 'rejected'
-position (int, auto-incremented at insert)
-invited_at, onboarded_at (nullable timestamps)
-invite_token (text, nullable, unique)
-created_at, updated_at, ip_hash, user_agent
+**A. Create real policy engine** — `src/lib/firewall/policy.ts`
+```ts
+export interface FirewallPolicy {
+  maxPriceImpactPct: number;     // 1.0
+  maxSlippageBps: number;        // 100
+  maxTxFeeSol: number;           // 0.01
+  maxNotionalUsd: number;        // 50_000
+  blockedPrograms: Set<string>;  // known drainers
+  requireSimulation: true;       // always
+  requireBalanceDiff: true;      // pre/post account snapshots required
+}
+export const DEFAULT_POLICY: FirewallPolicy;
+export class FirewallBlockedError extends Error { violations: string[]; riskLevel: string; }
+export function evaluate(report, simResult, policy): { passed; violations[]; riskLevel } // throws FirewallBlockedError if !passed
 ```
 
-RLS: insert allowed for anon (rate-limited); select/update only for admin role via existing `has_role` pattern.
+**B. Harden `simulation-firewall.ts`** (rewrite, no stubs)
+- **Delete** `mockSimulation()` and the `extractBalanceChangesFromLogs()` regex.
+- `simulate()` accepts only `Transaction | VersionedTransaction | base64 string | Uint8Array`. Anything else → throw `FirewallBlockedError("Unparseable transaction")`. No silent pass.
+- Call `connection.simulateTransaction(tx, { sigVerify:false, replaceRecentBlockhash:true, accounts:{ encoding:"base64", addresses:[...writableAccountKeys] }, commitment:"confirmed" })` to get **real pre/post account state**.
+- Compute real lamport deltas + SPL token deltas from `accounts` array (parse SPL token account layout for owner === signer).
+- Compute real fee via `connection.getFeeForMessage(message)`.
+- On `result.err` → throw `FirewallBlockedError` with the program error.
+- On any RPC failure → throw, never return a passing result.
+- `protect()` (quote pre-flight): keep but tighten — `priceImpact > policy.maxPriceImpactPct` → fail (was `>5` cosmetic), missing `routePlan` → fail, missing `outAmountWithSlippage` → fail (not warn).
 
-### 3. API routes
+**C. Fix `actions.ts` to actually build + simulate real txs**
+- Remove the `mockInstructions` placeholder in `executeSwap` and `executeTransfer`.
+- `executeSwap`: deserialize Jupiter `swapInstruction` (base64 `data`, accounts) into real `TransactionInstruction` objects via `instructionDataToTransactionInstruction` helper. If Jupiter fetch fails → throw, no mock fallback.
+- For each tx-producing op (`swap`, `transfer`, `stake`, `bridge`, `yield_deposit`, `yield_withdraw`):
+  1. Build real instructions (or throw).
+  2. Compose `VersionedTransaction` against vault pubkey + recent blockhash.
+  3. `simulationFirewall.protect(quote)` (when quote available) → throw on fail.
+  4. `simulationFirewall.simulate(tx, signer)` → throw on fail.
+  5. `evaluate(report, simResult, DEFAULT_POLICY)` → throw on policy violation.
+  6. Only then submit to Squads / wallet.
+- Attach `{ firewallReport, simResult }` to the returned action result.
 
-- `POST /api/waitlist` — zod-validated insert, dedupe by email, rate-limited (reuse `checkRouteLimit` like `/api/alerts/subscribe`), returns `{ position }`.
-- `POST /api/waitlist/invite` (admin only) — generates `invite_token`, sets status=`invited`, sends invite email, returns signup URL `/auth?invite=<token>`.
-- `GET /api/waitlist/verify?token=...` — validates token at `/auth` so middleware lets the user complete signup; on success marks `onboarded` and clears token.
-- `GET /api/admin/waitlist` (admin only) — paginated list with filters (status, org_type, chain, search by email/org).
+**D. Verify/create `src/app/api/firewall/check/route.ts`**
+- POST `{ quote?, serializedTx?, signer }` → runs `protect` + `simulate` + `evaluate`, returns full report. Returns 400 with violations on block.
 
-### 4. Emails (Lovable transactional)
+**E. Coordinator** — `src/lib/agents/coordinator.ts`
+- After `executeSwap` builds the real tx (post Jupiter `/swap`), call `simulate()` + `evaluate()` before serializing back to the user. Mirror in `executeRebalance`, `executeStake`, `executeDCA`.
 
-Two new templates in `src/lib/emails/templates.tsx`, sent via `send-transactional-email`:
-- `WaitlistConfirmationEmail` — "You're #N on the dreyv waitlist", what to expect, link to `/compare` and `/developers`.
-- `WaitlistInviteEmail` — "Your dreyv access is open" + signed invite link + 14-day expiry note.
+**F. Tests** — `src/lib/firewall/policy.test.ts`
+- Quote with 7% price impact → blocked.
+- Quote missing routePlan → blocked.
+- Fee > 0.01 SOL → blocked.
+- Tx with `result.err` → blocked.
+- Unparseable tx → blocked (was silently passing via mock).
+- Clean swap (0.1% impact, 0.000005 SOL fee) → passes with `riskLevel: low`.
 
-Both use existing `DreyvLayout` so styling stays consistent.
+### Files
 
-### 5. Admin cohort view — `/app/admin/waitlist`
+**New:** `src/lib/firewall/policy.ts`, `src/lib/firewall/policy.test.ts`, `src/lib/firewall/instruction-deserializer.ts` (Jupiter base64 → `TransactionInstruction`)
 
-Premium light theme matching the redesigned monitoring center:
-- KPIs: total signups, pending, invited, onboarded, conversion %, signups last 7d
-- Filterable table with bulk-select + "Invite selected" action (calls `/api/waitlist/invite` per row, with a confirmation modal showing count)
-- Per-row drawer with full submission + notes field
-- CSV export
+**Rewritten:** `src/lib/studio/simulation-firewall.ts` (mocks deleted), `src/lib/actions.ts` (`executeSwap`/`executeTransfer` real instructions + firewall gate)
 
-### 6. Auth flow integration
+**Edited:** `src/lib/agents/coordinator.ts` (post-build simulate + evaluate), `src/app/api/firewall/check/route.ts` (verify exists; create if not)
 
-- `/auth` accepts `?invite=<token>`; on valid token, allows signup and on success calls `/api/waitlist/verify` to mark `onboarded` and link `users.id` to the waitlist row.
-- `/auth` without invite still works for Free tier self-serve (does not break existing flow).
-- Middleware: `/waitlist` and `/api/waitlist` are public; admin routes stay protected by `has_role('admin')`.
-
-### 7. Marketing surface updates
-
-- `SiteHeader`: add "Join waitlist" as the primary CTA on marketing pages (keep "Try Atlas" ghost). `/auth` "Get started" stays for direct self-serve.
-- `HeroSection`: secondary CTA → `/waitlist`.
-- `CTASection`: same.
-- Add `/waitlist.md` (machine-readable) + entry in `llms.txt`, `llms-full.txt`, `sitemap.ts`, and a Link header in middleware (`rel="application/related"`) so agents can discover it.
-
-### 8. Memory updates
-
-- Add core rule: "Two-track front door — `/waitlist` (gated, qualified) + `/auth` Free tier (self-serve). Marketing primary CTA = waitlist; Free tier remains discoverable."
-- Add feature memory `mem://features/waitlist` with cohort cadence, AUM bands used, status state machine.
-
-### Out of scope (future)
-
-- Referral leaderboard / position-jump mechanics
-- Waitlist position widget with WebSocket live updates
-- Stripe-style "skip the line" paid bump (not aligned with FastSpring tier model)
-
-### Technical notes
-
-- Reuse `getAuthUser`, `has_role`, `checkRouteLimit`, `DreyvLayout`, `marketingPrimaryCta`, `legal-prose` patterns already in repo.
-- All copy must avoid hardcoded demo figures (no "$100k AUM" placeholders) per brand rule.
-- Custom crystal asset for `/waitlist` hero generated via imagegen (no stock icons).
-- Type-check (`npx tsc`) + Drizzle migration generated and applied before shipping.
+### Acceptance
+- `grep -rn "mockSimulation\|mockInstructions\|extractBalanceChangesFromLogs" src/` returns zero hits.
+- Unparseable tx → `FirewallBlockedError`, never a passing `SimulationResult`.
+- Real Jupiter swap tx shows actual lamport/SPL deltas in `balanceChanges`, real fee from `getFeeForMessage`.
+- Swap with `priceImpactPct > 1` is blocked end-to-end (CommandBar surfaces `humanSummary` + violations).
+- All policy tests green.
 
