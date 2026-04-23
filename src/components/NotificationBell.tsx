@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useCallback, useMemo, useState } from "react";
+import * as LucideIcons from "lucide-react";
 import {
     Bell,
     BellOff,
-    Check,
     X,
     ShoppingCart,
     Tag,
@@ -17,6 +17,7 @@ import {
     Inbox,
     ArrowRight,
     Network,
+    Loader2,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
