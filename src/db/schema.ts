@@ -718,3 +718,35 @@ export const dreyvConnections = pgTable('dreyv_connections', {
   userProviderIdx: index('dreyv_conn_user_provider_idx').on(t.userId, t.provider),
   providerIdx: index('dreyv_conn_provider_idx').on(t.provider),
 }));
+// ─── Waitlist ─────────────────────────────────────────────────────────
+// Public waitlist for invite-only cohort onboarding. Anon-insertable
+// (rate-limited at API layer); admin-only read/update via has_role check.
+export const waitlistEntries = pgTable('waitlist_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  organization: text('organization'),
+  role: text('role'), // treasurer | operator | founder | developer | other
+  orgType: text('org_type'), // dao | fund | protocol | startup | solo
+  chains: jsonb('chains').$type<string[]>(), // ['solana','evm']
+  currentStack: text('current_stack'),
+  aumBand: text('aum_band'), // not_disclosed | sub_100k | 100k_1m | 1m_10m | 10m_100m | 100m_plus
+  useCase: text('use_case'),
+  referralSource: text('referral_source'),
+  status: text('status').notNull().default('pending'), // pending | invited | onboarded | rejected
+  position: serial('position').notNull(),
+  invitedAt: timestamp('invited_at'),
+  onboardedAt: timestamp('onboarded_at'),
+  inviteToken: text('invite_token').unique(),
+  inviteExpiresAt: timestamp('invite_expires_at'),
+  notes: text('notes'),
+  ipHash: text('ip_hash'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  emailIdx: index('waitlist_email_idx').on(t.email),
+  statusIdx: index('waitlist_status_idx').on(t.status),
+  inviteTokenIdx: index('waitlist_invite_token_idx').on(t.inviteToken),
+  createdIdx: index('waitlist_created_idx').on(t.createdAt),
+}));

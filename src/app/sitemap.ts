@@ -25,6 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/atlas/methodology", changeFrequency: "monthly", priority: 0.7 },
     { path: "/atlas/strategy-lab", changeFrequency: "weekly", priority: 0.75 },
     { path: "/guides", changeFrequency: "weekly", priority: 0.85 },
+    { path: "/waitlist", changeFrequency: "weekly", priority: 0.95 },
     { path: "/legal/privacy", changeFrequency: "yearly", priority: 0.3 },
     { path: "/legal/terms", changeFrequency: "yearly", priority: 0.3 },
     { path: "/legal/cookies", changeFrequency: "yearly", priority: 0.2 },

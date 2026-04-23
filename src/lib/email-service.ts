@@ -149,3 +149,43 @@ export async function sendGasAlertEmail({
     react: GasAlertEmail({ gasPrice, ethPrice, costUsd, gasUnits, thresholdUsd }),
   });
 }
+
+// ─── Waitlist senders ────────────────────────────────────────────────
+import {
+  WaitlistConfirmationEmail,
+  WaitlistInviteEmail,
+} from './emails/templates';
+
+export async function sendWaitlistConfirmationEmail({
+  to,
+  name,
+  position,
+}: {
+  to: string;
+  name: string | null;
+  position: number;
+}) {
+  return sendEmail({
+    to,
+    subject: `You're #${position} on the dreyv waitlist`,
+    react: WaitlistConfirmationEmail({ name, position }),
+  });
+}
+
+export async function sendWaitlistInviteEmail({
+  to,
+  name,
+  inviteUrl,
+  expiresInDays,
+}: {
+  to: string;
+  name: string | null;
+  inviteUrl: string;
+  expiresInDays: number;
+}) {
+  return sendEmail({
+    to,
+    subject: 'Your dreyv access is open',
+    react: WaitlistInviteEmail({ name, inviteUrl, expiresInDays }),
+  });
+}

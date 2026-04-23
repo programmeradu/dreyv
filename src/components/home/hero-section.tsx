@@ -104,12 +104,12 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 font-inter-label"
         >
-          <a href="/app" className={marketingPrimaryCtaSm}>
-            <span className="relative font-semibold tracking-wide">Open App</span>
+          <a href="/waitlist" className={marketingPrimaryCtaSm}>
+            <span className="relative font-semibold tracking-wide">Join the waitlist</span>
             <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
           </a>
-          <a href="#demo" className={marketingGhostLink}>
-            or try a command &darr;
+          <a href="/auth?redirect=/app" className={marketingGhostLink}>
+            or open the app &rarr;
           </a>
         </motion.div>
 

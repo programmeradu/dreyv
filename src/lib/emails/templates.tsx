@@ -374,3 +374,94 @@ export function GasAlertEmail({
     </DreyvLayout>
   );
 }
+
+// ─── Waitlist: confirmation ──────────────────────────────────────────
+export function WaitlistConfirmationEmail({
+  name,
+  position,
+}: {
+  name: string | null;
+  position: number;
+}) {
+  const greeting = name ? `${name}, you're in line.` : "You're in line.";
+  return (
+    <DreyvLayout preview={`You're #${position} on the dreyv waitlist`}>
+      <EmailHeading>You're on the list</EmailHeading>
+      <EmailSubtext>{greeting}</EmailSubtext>
+      <Text
+        style={{
+          fontSize: '14px',
+          color: brand.text,
+          lineHeight: '1.6',
+          textAlign: 'center',
+          margin: '0 0 24px 0',
+        }}
+      >
+        Position{' '}
+        <span style={{ color: brand.accent, fontWeight: 700 }}>#{position}</span>.
+        We onboard treasuries, DAOs, funds and protocols in small cohorts so every
+        new account gets a real walkthrough.
+      </Text>
+      <Text
+        style={{
+          fontSize: '13px',
+          color: brand.textMuted,
+          lineHeight: '1.6',
+          textAlign: 'center',
+          margin: '0 0 24px 0',
+        }}
+      >
+        While you wait — read how dreyv compares, or browse the developer surface.
+      </Text>
+      <PrimaryButton href="https://dreyv.stauniverse.tech/compare">
+        See how it compares
+      </PrimaryButton>
+    </DreyvLayout>
+  );
+}
+
+// ─── Waitlist: invite ────────────────────────────────────────────────
+export function WaitlistInviteEmail({
+  name,
+  inviteUrl,
+  expiresInDays,
+}: {
+  name: string | null;
+  inviteUrl: string;
+  expiresInDays: number;
+}) {
+  return (
+    <DreyvLayout preview="Your dreyv access is open">
+      <EmailHeading>Your access is open</EmailHeading>
+      <EmailSubtext>
+        {name ? `${name}, ` : ''}you're up. Claim your seat below.
+      </EmailSubtext>
+      <Text
+        style={{
+          fontSize: '14px',
+          color: brand.text,
+          lineHeight: '1.6',
+          textAlign: 'center',
+          margin: '0 0 24px 0',
+        }}
+      >
+        This invite link is single-use and expires in{' '}
+        <span style={{ color: brand.accent, fontWeight: 700 }}>{expiresInDays} days</span>.
+        Connect a wallet — non-custodial by design, multisig-native from day one.
+      </Text>
+      <PrimaryButton href={inviteUrl}>Claim your seat</PrimaryButton>
+      <Text
+        style={{
+          fontSize: '11px',
+          color: brand.textMuted,
+          lineHeight: '1.6',
+          textAlign: 'center',
+          margin: '16px 0 0',
+          wordBreak: 'break-all',
+        }}
+      >
+        Or paste this URL: {inviteUrl}
+      </Text>
+    </DreyvLayout>
+  );
+}
