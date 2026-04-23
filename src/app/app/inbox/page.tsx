@@ -26,6 +26,7 @@ import {
   Eye,
   Plus,
   Trash2,
+  Zap,
 } from "lucide-react";
 
 type Proposal = {
@@ -64,6 +65,21 @@ type Watcher = {
   lastScanAt: string | null;
 };
 
+type TxProposal = {
+  id: string;
+  proposalId: string | null;
+  kind: string;
+  summary: string;
+  status: string;
+  riskLevel: string;
+  routing: string;
+  estimatedFeeSol: string | null;
+  signature: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+};
+
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
 
 export default function InboxPage() {
@@ -73,6 +89,7 @@ export default function InboxPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
   const [watchers, setWatchers] = useState<Watcher[]>([]);
+  const [txProposals, setTxProposals] = useState<TxProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -86,16 +103,18 @@ export default function InboxPage() {
     setLoading(true);
     try {
       const q = wallet ? `?wallet=${wallet}` : "";
-      const [p, s, w] = await Promise.all([
+      const [p, s, w, tx] = await Promise.all([
         fetch(`/api/inbox/proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/inbox/subagents${q}`, { cache: "no-store" }).then((r) => r.json()),
         wallet
           ? fetch(`/api/inbox/watchers?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json())
           : Promise.resolve({ watchers: [] }),
+        fetch(`/api/inbox/tx-proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
       ]);
       setProposals(p?.proposals ?? []);
       setSubagents(s?.subagents ?? []);
       setWatchers(w?.watchers ?? []);
+      setTxProposals(tx?.txProposals ?? []);
     } finally {
       setLoading(false);
     }
@@ -142,6 +161,20 @@ export default function InboxPage() {
   const removeWatcher = async (id: string) => {
     await fetch(`/api/inbox/watchers?id=${id}`, { method: "DELETE" });
     setWatchers((prev) => prev.filter((w) => w.id !== id));
+  };
+
+  const actTx = async (id: string, action: "approve" | "reject") => {
+    setBusyId(id);
+    try {
+      await fetch("/api/inbox/tx-proposals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      setTxProposals((prev) => prev.filter((t) => t.id !== id));
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
