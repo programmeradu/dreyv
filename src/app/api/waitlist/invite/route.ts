@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { inArray } from "drizzle-orm";
+import { inArray, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { waitlistEntries, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 import { getAuthUser } from "@/lib/auth-utils";
+import { sendWaitlistInviteEmail } from "@/lib/email-service";
 import { INVITE_EXPIRY_DAYS } from "@/lib/waitlist/constants";
 
 export const runtime = "nodejs";

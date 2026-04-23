@@ -6,6 +6,7 @@ import { waitlistEntries } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 import { waitlistSubmissionSchema } from "@/lib/waitlist/schema";
+import { sendWaitlistConfirmationEmail } from "@/lib/email-service";
 
 export const runtime = "nodejs";
 
