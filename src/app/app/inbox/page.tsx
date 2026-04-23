@@ -174,15 +174,101 @@ export default function InboxPage() {
     setWatchers((prev) => prev.filter((w) => w.id !== id));
   };
 
+  const patchTx = async (
+    id: string,
+    action: "approve" | "reject" | "submitted" | "confirmed" | "failed",
+    extra: { signature?: string; errorMessage?: string } = {}
+  ) => {
+    return fetch("/api/inbox/tx-proposals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action, ...extra }),
+    });
+  };
+
+  const dispatchInstruction = async (
+    ix: TxInstruction
+  ): Promise<{ success: boolean; signature?: string; error?: string }> => {
+    const p = ix.params || {};
+    switch (ix.op) {
+      case "swap": {
+        const inputToken = String(p.inputToken ?? p.inMint ?? "");
+        const outputToken = String(p.outputToken ?? p.outMint ?? "");
+        const amount = Number(p.amount ?? 0);
+        const slippageBps = p.slippageBps ? Number(p.slippageBps) : undefined;
+        if (!inputToken || !outputToken || !amount) {
+          return { success: false, error: "missing swap params" };
+        }
+        return executor.executeSwap({ inputToken, outputToken, amount, slippageBps });
+      }
+      case "transfer": {
+        const recipient = String(p.recipient ?? p.to ?? "");
+        const token = String(p.token ?? "SOL");
+        const amount = Number(p.amount ?? 0);
+        if (!recipient || !amount) return { success: false, error: "missing transfer params" };
+        return executor.executeTransfer({ recipient, token, amount });
+      }
+      default:
+        // For stake/unstake/deposit_yield/withdraw/rebalance — no client builder yet.
+        // Fall back to a memo-only proposal so the action is recorded on-chain via multisig
+        // or surfaced for manual handling.
+        return executor.createProposal(`${ix.op}: ${JSON.stringify(p).slice(0, 160)}`);
+    }
+  };
+
   const actTx = async (id: string, action: "approve" | "reject") => {
     setBusyId(id);
     try {
-      await fetch("/api/inbox/tx-proposals", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
-      });
-      setTxProposals((prev) => prev.filter((t) => t.id !== id));
+      if (action === "reject") {
+        await patchTx(id, "reject");
+        setTxProposals((prev) => prev.filter((t) => t.id !== id));
+        return;
+      }
+
+      const tx = txProposals.find((t) => t.id === id);
+      if (!tx) return;
+
+      if (!executor.isWalletConnected && !executor.isMultisig) {
+        toast.error("Connect a wallet to approve transactions");
+        return;
+      }
+
+      // 1) Mark approved server-side (intent recorded before signing)
+      await patchTx(id, "approve");
+
+      // 2) Build/sign/submit on the wallet side
+      let result: { success: boolean; signature?: string; proposalKey?: string; error?: string };
+      if (tx.unsignedTx) {
+        result = await executor.executeRawTransaction(tx.unsignedTx);
+      } else {
+        const ix = tx.instructions?.[0];
+        if (!ix) {
+          await patchTx(id, "failed", { errorMessage: "no instructions" });
+          toast.error("Proposal has no executable instructions");
+          return;
+        }
+        result = await dispatchInstruction(ix);
+      }
+
+      // 3) Patch back result
+      if (result.success) {
+        const sig = result.signature ?? result.proposalKey;
+        await patchTx(id, "submitted", { signature: sig });
+        // Optimistic confirmed — wallet executor already awaits confirmation
+        await patchTx(id, "confirmed", { signature: sig });
+        toast.success(`Transaction ${sig ? `${sig.slice(0, 8)}…` : "submitted"}`);
+        setTxProposals((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        await patchTx(id, "failed", { errorMessage: result.error?.slice(0, 400) });
+        toast.error(result.error ?? "Transaction failed");
+        // Refresh to show error state instead of dropping the row
+        await refresh();
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "unknown error";
+      await patchTx(id, "failed", { errorMessage: msg.slice(0, 400) });
+      toast.error(msg);
+      await refresh();
     } finally {
       setBusyId(null);
     }
