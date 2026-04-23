@@ -3,6 +3,8 @@ import Image from "next/image";
 import { WaitlistForm } from "./waitlist-form";
 import { COHORT_LABEL, COHORT_WINDOW } from "@/lib/waitlist/constants";
 import { getSiteOrigin } from "@/lib/seo/site";
+import { SiteHeader } from "@/components/home/site-header";
+import { SiteFooter } from "@/components/home/site-footer";
 
 const TITLE = "Join the dreyv waitlist — Command-Ops for treasuries";
 const DESCRIPTION =
