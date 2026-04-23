@@ -1,17 +1,32 @@
 /**
- * /app/inbox — proposal & sub-agent inbox.
+ * /app/inbox — proposal & sub-agent inbox + treasury watcher manager.
  *
- * Surfaces every `agent.proposal.created` / `agent.alert.raised` the
- * brain pipeline has emitted, plus the active sub-agent roster spawned
- * by the reflector. Light theme, solid violet accents per brand rules.
+ * Wallet-scoped (Phase 5): when a Solana wallet is connected we pass
+ * `?wallet=<pubkey>` to the inbox APIs so users only see proposals/alerts
+ * surfaced for their treasury. Without a wallet we show the workspace-wide
+ * (operator) feed for transparency / debugging.
+ *
+ * Light theme, solid violet accents per brand rules.
  */
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, ShieldAlert, Check, X, Bot } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Loader2,
+  Sparkles,
+  ShieldAlert,
+  Check,
+  X,
+  Bot,
+  Eye,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 type Proposal = {
   id: string;
@@ -40,25 +55,51 @@ type SubAgent = {
   createdAt: string;
 };
 
+type Watcher = {
+  id: string;
+  chain: string;
+  address: string;
+  label: string | null;
+  active: boolean;
+  lastScanAt: string | null;
+};
+
+const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
+
 export default function InboxPage() {
+  const { publicKey } = useWallet();
+  const wallet = publicKey?.toBase58() ?? null;
+
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
+  const [watchers, setWatchers] = useState<Watcher[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Watcher form state
+  const [chain, setChain] = useState<string>("solana");
+  const [address, setAddress] = useState("");
+  const [label, setLabel] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, s] = await Promise.all([
-        fetch("/api/inbox/proposals", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/inbox/subagents", { cache: "no-store" }).then((r) => r.json()),
+      const q = wallet ? `?wallet=${wallet}` : "";
+      const [p, s, w] = await Promise.all([
+        fetch(`/api/inbox/proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/inbox/subagents${q}`, { cache: "no-store" }).then((r) => r.json()),
+        wallet
+          ? fetch(`/api/inbox/watchers?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json())
+          : Promise.resolve({ watchers: [] }),
       ]);
       setProposals(p?.proposals ?? []);
       setSubagents(s?.subagents ?? []);
+      setWatchers(w?.watchers ?? []);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [wallet]);
 
   useEffect(() => {
     refresh();
@@ -80,15 +121,38 @@ export default function InboxPage() {
     }
   };
 
+  const addWatcher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wallet || !address) return;
+    setAdding(true);
+    try {
+      await fetch("/api/inbox/watchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: wallet, chain, address, label: label || undefined }),
+      });
+      setAddress("");
+      setLabel("");
+      await refresh();
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const removeWatcher = async (id: string) => {
+    await fetch(`/api/inbox/watchers?id=${id}`, { method: "DELETE" });
+    setWatchers((prev) => prev.filter((w) => w.id !== id));
+  };
+
   return (
-    <main className="min-h-screen bg-white text-neutral-900 font-[Manrope,sans-serif]">
+    <main className="relative min-h-screen bg-white text-neutral-900 font-[Manrope,sans-serif]">
       {/* Ambient violet glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-3xl" />
         <div className="absolute top-[40%] -right-32 h-[380px] w-[520px] rounded-full bg-violet-400/20 blur-3xl" />
       </div>
 
-      <section className="mx-auto max-w-5xl px-6 pt-16 pb-10">
+      <section className="mx-auto max-w-5xl px-6 pt-16 pb-6">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
             <Sparkles className="h-5 w-5" />
@@ -96,8 +160,9 @@ export default function InboxPage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Brain Inbox</h1>
             <p className="text-sm text-neutral-500">
-              Proposals and alerts from the autonomous agent fabric. Triage → deep
-              reasoning → here.
+              {wallet
+                ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
+                : "Workspace-wide view. Connect a wallet to scope to your treasury."}
             </p>
           </div>
           <Button
@@ -110,6 +175,86 @@ export default function InboxPage() {
         </div>
       </section>
 
+      {/* Treasury watchers */}
+      {wallet && (
+        <section className="mx-auto max-w-5xl px-6 pb-6">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
+            <Eye className="h-4 w-4 text-violet-600" />
+            Treasury watchers
+            <span className="ml-1 text-neutral-400">({watchers.length})</span>
+          </div>
+          <Card className="border-violet-100 bg-white p-4">
+            <form onSubmit={addWatcher} className="flex flex-wrap items-end gap-2">
+              <div className="flex flex-col">
+                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Chain</label>
+                <select
+                  value={chain}
+                  onChange={(e) => setChain(e.target.value)}
+                  className="h-9 rounded-md border border-violet-200 bg-white px-2 text-sm"
+                >
+                  {CHAINS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex min-w-[260px] flex-1 flex-col">
+                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Address</label>
+                <Input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="0x… or Solana pubkey"
+                  className="border-violet-200"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Label</label>
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="optional"
+                  className="border-violet-200"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={adding || !address}
+                className="bg-violet-600 text-white hover:bg-violet-700"
+              >
+                <Plus className="mr-1 h-4 w-4" /> Watch
+              </Button>
+            </form>
+
+            {watchers.length > 0 && (
+              <ul className="mt-4 divide-y divide-violet-100">
+                {watchers.map((w) => (
+                  <li key={w.id} className="flex items-center gap-3 py-2 text-sm">
+                    <Badge className="bg-violet-600 text-white hover:bg-violet-600">{w.chain}</Badge>
+                    <span className="font-mono text-xs text-neutral-700">
+                      {w.address.slice(0, 6)}…{w.address.slice(-6)}
+                    </span>
+                    {w.label && <span className="text-neutral-500">— {w.label}</span>}
+                    <span className="ml-auto text-[11px] text-neutral-400">
+                      {w.lastScanAt ? `last scan ${new Date(w.lastScanAt).toLocaleTimeString()}` : "never scanned"}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeWatcher(w.id)}
+                      className="text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </section>
+      )}
+
+      {/* Proposals */}
       <section className="mx-auto max-w-5xl px-6 pb-16">
         <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
           <ShieldAlert className="h-4 w-4 text-violet-600" />
