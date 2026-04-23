@@ -79,10 +79,10 @@ export function WaitlistForm() {
   if (state.kind === "success") {
     return (
       <div className="text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-white">
-          <Check className="h-5 w-5" />
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white">
+          <Check className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
           {state.alreadyOnList ? "You're already on the list." : "You're on the list."}
         </h2>
         <p className="mt-2 text-slate-600">
@@ -90,7 +90,7 @@ export function WaitlistForm() {
           <span className="font-semibold text-violet-700">#{state.position}</span>. Watch your inbox
           — we'll send a single-use invite when your cohort opens. No reminders, no countdowns.
         </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm">
+        <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm">
           <a
             href="/compare"
             className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-white px-4 py-2 font-medium text-slate-700 hover:border-violet-400 hover:text-violet-700 transition"
