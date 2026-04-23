@@ -126,7 +126,7 @@ const NAVIGATION_ROUTE_ALLOWLIST = new Set([
   "/app/atlas",
 ]);
 
-function classifyEvidenceNeed(userText: string): EvidenceClass {
+export function classifyEvidenceNeed(userText: string): EvidenceClass {
   const t = userText.trim().toLowerCase();
   if (!t || isSimpleConversation(t)) return "conversational";
   if (/\b(navigate|open|go to|redirect)\b/.test(t)) return "navigation_required";
