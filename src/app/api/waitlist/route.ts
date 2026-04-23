@@ -85,7 +85,6 @@ export async function POST(request: NextRequest) {
     // Fire-and-forget confirmation email — never block the response on it.
     void (async () => {
       try {
-        const { sendWaitlistConfirmationEmail } = await import("@/lib/email-service");
         await sendWaitlistConfirmationEmail({
           to: email,
           name: data.name || null,

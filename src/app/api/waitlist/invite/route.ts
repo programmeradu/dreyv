@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
 
         void (async () => {
           try {
-            const { sendWaitlistInviteEmail } = await import("@/lib/email-service");
             await sendWaitlistInviteEmail({
               to: row.email,
               name: row.name,
