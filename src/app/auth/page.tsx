@@ -776,7 +776,9 @@ function AuthPageContent() {
                                             </div>
                                         )}
 
-
+                                        <div className="space-y-1.5 lg:space-y-2">
+                                            <WalletButton
+                                                name="Phantom"
                                                 domain="phantom.app"
                                                 onClick={handleConnectWallet}
                                                 recommended
