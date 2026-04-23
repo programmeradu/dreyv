@@ -1,4 +1,12 @@
-import { Connection, PublicKey, TransactionInstruction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+    Connection,
+    PublicKey,
+    TransactionInstruction,
+    TransactionMessage,
+    VersionedTransaction,
+    SystemProgram,
+    LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import { SquadsClient } from "./squads";
 import { AppEventBus } from "./events";
 import { IntentRegistry } from "./agents/registry";
@@ -9,6 +17,12 @@ import { TavilyClient } from "./tavily";
 import { HeliusClient } from "./helius";
 import { KnowledgeBase } from "./knowledge";
 import { simulationFirewall } from "./studio/simulation-firewall";
+import { DEFAULT_POLICY, FirewallBlockedError, enforce, enforceProgramAllowlist } from "./firewall/policy";
+import {
+    flattenJupiterInstructions,
+    resolveLookupTables,
+    type JupiterSwapInstructionsResponse,
+} from "./firewall/instruction-deserializer";
 
 export interface ActionContext {
     connection: Connection;
