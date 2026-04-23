@@ -1,142 +1,98 @@
 
 
-# Studio Empty-State Flow + Self-Learning Architect
+## Waitlist System — Plan
 
-Build a Lovable/Bolt-style empty state that **only ships real apps** — no mocks, no stubs. Three-stage AI-guided flow that clarifies intent, picks real integrations, previews a build plan, then hands off to ArchitectEngine with anti-mock guardrails and Firecrawl+Perplexity research enrichment for unknown protocols.
+A public, premium-styled `/waitlist` page that captures qualified leads into the existing Postgres DB, sends a branded confirmation email, and gives you an admin cohort-management view to invite users in batches. Coexists with current `/auth` self-serve.
 
-## What gets built
+### 1. Public waitlist page — `/waitlist`
 
-### 1. Empty-state UI at `/app/studio` (when no project loaded)
-Full-screen prompt box, dreyv violet, replaces the current "drop into App.tsx" behavior.
+Match the locked premium light violet aesthetic (Manrope, white bg, ambient violet-400/300 glows, violet-200 borders, solid `#7c3aed` CTAs, custom crystal asset — no stock icons, no gradients).
+
+Sections:
+- Hero: "Command-Ops for treasuries. Invite-only." + cohort cadence line ("Cohort 03 onboarding [month]")
+- Qualifying form (zod-validated, client + server):
+  - Email (required)
+  - Name
+  - Organization name
+  - Role (Treasurer / Operator / Founder / Developer / Other)
+  - Org type (DAO / Fund / Protocol / Startup / Solo)
+  - Chains used (multi: Solana / EVM / Both)
+  - Current stack (free text, 280 char cap — Squads, Gnosis, spreadsheets, etc.)
+  - AUM range (single-select bands, NEVER prefilled with demo figures per brand rule)
+  - Use case (free text, 500 char cap)
+  - Referral source
+- Trust strip: "Non-custodial · Simulation-first · Multisig-native"
+- Post-submit state: "You're on the list. Position #N. Watch your inbox." (no fake countdowns)
+
+### 2. Database
+
+New table `waitlist_entries` via Drizzle migration in `src/db/schema.ts`:
 
 ```text
-┌───────────────────────────────────────────────────────┐
-│                                                       │
-│        What do you want to build?                     │
-│   ┌─────────────────────────────────────────────┐     │
-│   │ A staking dashboard for mSOL holders…       │     │
-│   └─────────────────────────────────────────────┘     │
-│              [ Generate plan → ]                      │
-│                                                       │
-│   Examples: staking dashboard · token-gated chat ·    │
-│   DCA bot UI · Squads multisig viewer                 │
-│                                                       │
-│   ─── or ──                                           │
-│   [Start from template]  [Open recent]                │
-└───────────────────────────────────────────────────────┘
+id (uuid, pk)
+email (text, unique, lowercased, indexed)
+name, organization, role, org_type, chains[],
+current_stack, aum_band, use_case, referral_source
+status: 'pending' | 'invited' | 'onboarded' | 'rejected'
+position (int, auto-incremented at insert)
+invited_at, onboarded_at (nullable timestamps)
+invite_token (text, nullable, unique)
+created_at, updated_at, ip_hash, user_agent
 ```
 
-After submit, transitions to a **3-stage stepper** in the same panel:
+RLS: insert allowed for anon (rate-limited); select/update only for admin role via existing `has_role` pattern.
 
-- **Stage 1 — Clarify**: AI returns 2–4 targeted questions (network, wallets, read-only vs transactional, target protocol). Rendered as chips/radio groups, no free-text where avoidable.
-- **Stage 2 — Integrations**: AI proposes a real stack. Each integration shown as a toggle with status badge:
-  - `✓ ready` (key in env / connector linked)
-  - `⚙ needs setup` (opens connector flow / secret prompt)
-  - `🔬 researching` (unknown protocol → Firecrawl+Perplexity kicks in)
-- **Stage 3 — Plan preview**: file tree, data sources list, on-chain calls, "real vs needs-your-input" checklist, **[Build it →]** button. On click, hands the enriched context to existing `ArchitectEngine.generate()`.
+### 3. API routes
 
-### 2. New API routes (Next.js App Router, not Supabase functions — matches existing project)
+- `POST /api/waitlist` — zod-validated insert, dedupe by email, rate-limited (reuse `checkRouteLimit` like `/api/alerts/subscribe`), returns `{ position }`.
+- `POST /api/waitlist/invite` (admin only) — generates `invite_token`, sets status=`invited`, sends invite email, returns signup URL `/auth?invite=<token>`.
+- `GET /api/waitlist/verify?token=...` — validates token at `/auth` so middleware lets the user complete signup; on success marks `onboarded` and clears token.
+- `GET /api/admin/waitlist` (admin only) — paginated list with filters (status, org_type, chain, search by email/org).
 
-- **`/api/studio/clarify`** — POST `{ prompt }` → `{ questions: [{id, text, options[], multi}] }`. Uses Lovable AI Gateway (`google/gemini-3-flash-preview`) with tool-calling for structured output.
-- **`/api/studio/plan`** — POST `{ prompt, answers, knownIntegrations }` → `{ integrations: [{id, name, status, requiredSecrets[]}], files: [...], dataSources: [...], onChainCalls: [...], unknownProtocols: [...] }`. Triggers research enrichment for any `unknownProtocols`.
-- **`/api/studio/research`** — POST `{ protocol, prompt }` → fetches docs via **Firecrawl** (scrape protocol docs URL) + **Perplexity** (`sonar-pro` for SDK shape and code examples), returns markdown chunk + extracted SDK signatures, persists to existing `knowledgeEntries` table with `source: "studio_research"`.
+### 4. Emails (Lovable transactional)
 
-All three use existing `checkRouteLimit` middleware and `getAuthUserId` pattern from `src/app/api/runs/route.ts`.
+Two new templates in `src/lib/emails/templates.tsx`, sent via `send-transactional-email`:
+- `WaitlistConfirmationEmail` — "You're #N on the dreyv waitlist", what to expect, link to `/compare` and `/developers`.
+- `WaitlistInviteEmail` — "Your dreyv access is open" + signed invite link + 14-day expiry note.
 
-### 3. Anti-mock guardrails in `ArchitectEngine.analyzeCode`
+Both use existing `DreyvLayout` so styling stays consistent.
 
-Extend the existing `forbiddenPatterns` array with:
+### 5. Admin cohort view — `/app/admin/waitlist`
 
-```ts
-[/\b(mock|stub|placeholder|dummy|fake|lorem|TODO|FIXME)\w*\s*[:=]/i, "No mocks/stubs allowed — use real data from useFetch()"],
-[/\b0x0{20,}\b/, "Zero-address placeholder detected — use a real address"],
-[/setTimeout\([^)]*(mock|fake|dummy)/i, "Fake-data setTimeout detected"],
-[/const\s+\w+\s*=\s*\[\s*\{\s*(id|name)\s*:\s*['"`](test|sample|example|foo|bar)/i, "Hardcoded sample data — fetch real data instead"],
-```
+Premium light theme matching the redesigned monitoring center:
+- KPIs: total signups, pending, invited, onboarded, conversion %, signups last 7d
+- Filterable table with bulk-select + "Invite selected" action (calls `/api/waitlist/invite` per row, with a confirmation modal showing count)
+- Per-row drawer with full submission + notes field
+- CSV export
 
-When triggered → engine enters CORRECTING state with prompt: "Replace mock data with a real `useFetch()` call to {suggested API from researchContext}."
+### 6. Auth flow integration
 
-### 4. Research enrichment wired into `ArchitectEngine.generate(...)`
+- `/auth` accepts `?invite=<token>`; on valid token, allows signup and on success calls `/api/waitlist/verify` to mark `onboarded` and link `users.id` to the waitlist row.
+- `/auth` without invite still works for Free tier self-serve (does not break existing flow).
+- Middleware: `/waitlist` and `/api/waitlist` are public; admin routes stay protected by `has_role('admin')`.
 
-Engine already accepts `researchContext` parameter. The **plan stage** assembles it from:
-- `web3-context.ts` SDK_HOOK_DOCS for known hooks
-- `studio_research` knowledge entries for unknown protocols
-- Recent `studio_runs` outcomes for the same prompt category (re-rank suggestions)
+### 7. Marketing surface updates
 
-### 5. New telemetry table `studio_runs` (migration)
+- `SiteHeader`: add "Join waitlist" as the primary CTA on marketing pages (keep "Try Atlas" ghost). `/auth` "Get started" stays for direct self-serve.
+- `HeroSection`: secondary CTA → `/waitlist`.
+- `CTASection`: same.
+- Add `/waitlist.md` (machine-readable) + entry in `llms.txt`, `llms-full.txt`, `sitemap.ts`, and a Link header in middleware (`rel="application/related"`) so agents can discover it.
 
-```ts
-export const studioRuns = pgTable('studio_runs', {
-  id: serial('id').primaryKey(),
-  shortId: text('short_id').notNull().unique(),
-  userId: uuid('user_id').references(() => users.id),
-  prompt: text('prompt').notNull(),
-  promptCategory: text('prompt_category'),       // staking | swap | dao | nft | other (LLM-tagged)
-  clarifyAnswers: jsonb('clarify_answers'),
-  chosenIntegrations: jsonb('chosen_integrations'), // [{id, status}]
-  unknownProtocols: jsonb('unknown_protocols'),     // [protocol names that triggered research]
-  researchSources: jsonb('research_sources'),       // [{url, source: firecrawl|perplexity}]
-  analyzerOutcome: text('analyzer_outcome'),        // CLEAN | CORRECTED | FAILED
-  attempts: integer('attempts'),
-  shipped: boolean('shipped').default(false),
-  errors: jsonb('errors'),
-  durationMs: integer('duration_ms'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({
-  userIdx: index('studio_runs_user_idx').on(t.userId),
-  categoryIdx: index('studio_runs_category_idx').on(t.promptCategory),
-  outcomeIdx: index('studio_runs_outcome_idx').on(t.analyzerOutcome),
-}));
-```
+### 8. Memory updates
 
-Logged at three points: clarify start, plan finalized, build complete.
+- Add core rule: "Two-track front door — `/waitlist` (gated, qualified) + `/auth` Free tier (self-serve). Marketing primary CTA = waitlist; Free tier remains discoverable."
+- Add feature memory `mem://features/waitlist` with cohort cadence, AUM bands used, status state machine.
 
-### 6. Self-learning loop
+### Out of scope (future)
 
-`/api/studio/plan` queries `studioRuns` for past successful runs in the same `promptCategory` and re-ranks integration suggestions by `success_rate * recency`. Cold start uses a static priority list.
+- Referral leaderboard / position-jump mechanics
+- Waitlist position widget with WebSocket live updates
+- Stripe-style "skip the line" paid bump (not aligned with FastSpring tier model)
 
-## Files created / edited
+### Technical notes
 
-**New:**
-- `src/components/studio/EmptyState.tsx` — full-screen prompt box
-- `src/components/studio/PlanStepper.tsx` — 3-stage stepper shell
-- `src/components/studio/stages/ClarifyStage.tsx`
-- `src/components/studio/stages/IntegrationsStage.tsx`
-- `src/components/studio/stages/PlanPreviewStage.tsx`
-- `src/app/api/studio/clarify/route.ts`
-- `src/app/api/studio/plan/route.ts`
-- `src/app/api/studio/research/route.ts`
-- `src/lib/studio/integration-registry.ts` — maps integration ids → required secrets/connectors
-- `src/lib/studio/prompt-categorizer.ts` — Lovable AI tool call to tag category
-- DB migration: `studio_runs` table
-
-**Edited:**
-- `src/app/app/studio/page.tsx` — render `<EmptyState />` when `files === DEFAULT_FILES && !currentAppId`; on Build click, call `engine.generate(prompt, files, [], researchContext)`
-- `src/lib/studio/architect-engine.ts` — extend `analyzeCode` with anti-mock patterns
-- `src/db/schema.ts` — add `studioRuns` export
-
-## Dependencies / secrets needed
-
-- **Lovable AI Gateway** — already wired (`LOVABLE_API_KEY` auto-provisioned). Used for clarify/plan/categorize.
-- **Firecrawl** — link via `standard_connectors--connect` (connector_id: `firecrawl`). Already used in `src/lib/firecrawl.ts`; will reuse.
-- **Perplexity** — link via `standard_connectors--connect` (connector_id: `perplexity`). New.
-
-## Out of scope (call out, don't build now)
-
-- Real-time integration health checks (just check env presence for v1)
-- UI for browsing past `studio_runs` (telemetry collected, dashboard later)
-- Per-user OAuth for end-users of generated apps (uses developer's connectors)
-- Replacing the existing Keystone green theme in the rest of Studio (separate rebrand task)
-
-## Build order
-
-1. Migration: `studio_runs` table + schema export
-2. `integration-registry.ts` (static map)
-3. `/api/studio/clarify` + `/api/studio/plan` + `/api/studio/research` routes
-4. Connect Perplexity connector (Firecrawl already present)
-5. Empty-state UI + 3-stage stepper components
-6. Wire stepper → ArchitectEngine with researchContext
-7. Anti-mock guardrails in `analyzeCode`
-8. Telemetry hooks at clarify/plan/build points
-9. Verify end-to-end with a "build a Marinade staking dashboard" prompt
+- Reuse `getAuthUser`, `has_role`, `checkRouteLimit`, `DreyvLayout`, `marketingPrimaryCta`, `legal-prose` patterns already in repo.
+- All copy must avoid hardcoded demo figures (no "$100k AUM" placeholders) per brand rule.
+- Custom crystal asset for `/waitlist` hero generated via imagegen (no stock icons).
+- Type-check (`npx tsc`) + Drizzle migration generated and applied before shipping.
 
