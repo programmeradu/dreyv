@@ -31,9 +31,9 @@ export interface TreasuryWatcher {
   address: string;
   label: string | null;
   active: boolean;
-  lastScanAt: Date | null;
+  lastScanAt: Date | string | null;
   lastSnapshot: unknown;
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 export async function listWatchers(opts: { userId?: string; activeOnly?: boolean } = {}) {
