@@ -410,6 +410,68 @@ function AuthPageContent() {
     const [socialLoading, setSocialLoading] = useState<string | null>(null);
     const [oauthError, setOauthError] = useState<string | null>(null);
 
+    // ── Invite token (waitlist) ────────────────────────────────────
+    const inviteToken = searchParams.get('invite') || '';
+    const [inviteState, setInviteState] = useState<
+        | { status: 'none' }
+        | { status: 'checking' }
+        | { status: 'valid'; email?: string }
+        | { status: 'invalid'; reason: string }
+        | { status: 'expired' }
+        | { status: 'used' }
+    >(inviteToken ? { status: 'checking' } : { status: 'none' });
+
+    // Verify invite token on mount
+    useEffect(() => {
+        if (!inviteToken) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`/api/waitlist/verify?token=${encodeURIComponent(inviteToken)}`);
+                const data = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                if (!data?.ok) {
+                    setInviteState({ status: 'invalid', reason: 'check_failed' });
+                    return;
+                }
+                if (data.expired) { setInviteState({ status: 'expired' }); addLog('INVITE_EXPIRED'); return; }
+                if (data.status === 'onboarded') { setInviteState({ status: 'used' }); addLog('INVITE_ALREADY_USED'); return; }
+                if (data.valid) {
+                    setInviteState({ status: 'valid', email: data.email });
+                    addLog(`INVITE_TOKEN_VALID${data.email ? `: ${data.email}` : ''}`);
+                } else {
+                    setInviteState({ status: 'invalid', reason: data.reason || 'invalid' });
+                    addLog('INVITE_TOKEN_INVALID');
+                }
+            } catch {
+                if (!cancelled) setInviteState({ status: 'invalid', reason: 'network' });
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [inviteToken, addLog]);
+
+    // Mark waitlist entry as onboarded once auth succeeds
+    const inviteConsumed = React.useRef(false);
+    useEffect(() => {
+        if (!inviteToken || inviteConsumed.current) return;
+        if (inviteState.status !== 'valid') return;
+        if (!isAuthenticated) return;
+        inviteConsumed.current = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/waitlist/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: inviteToken, userId: user?.id }),
+                });
+                if (res.ok) addLog('INVITE_CONSUMED · WAITLIST_ONBOARDED');
+                else addLog('WARN: INVITE_CONSUME_FAILED');
+            } catch {
+                addLog('WARN: INVITE_CONSUME_NETWORK_ERROR');
+            }
+        })();
+    }, [inviteToken, inviteState, isAuthenticated, user?.id, addLog]);
+
     // Check for OAuth callback errors
     useEffect(() => {
         const err = searchParams.get('error');
