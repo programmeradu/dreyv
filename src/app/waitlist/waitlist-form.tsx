@@ -18,9 +18,9 @@ type SubmitState =
   | { kind: "error"; message: string };
 
 const inputBase =
-  "w-full rounded-xl border border-violet-200 bg-white/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition";
+  "w-full rounded-xl border border-violet-200 bg-white/90 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition";
 
-const labelBase = "block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 mb-1.5";
+const labelBase = "block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700 mb-2";
 
 export function WaitlistForm() {
   const [form, setForm] = useState<WaitlistSubmission>({
@@ -78,11 +78,11 @@ export function WaitlistForm() {
 
   if (state.kind === "success") {
     return (
-      <div className="rounded-2xl border border-violet-200 bg-white p-8">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-white">
-          <Check className="h-5 w-5" />
+      <div className="text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white">
+          <Check className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-900">
           {state.alreadyOnList ? "You're already on the list." : "You're on the list."}
         </h2>
         <p className="mt-2 text-slate-600">
@@ -90,7 +90,7 @@ export function WaitlistForm() {
           <span className="font-semibold text-violet-700">#{state.position}</span>. Watch your inbox
           — we'll send a single-use invite when your cohort opens. No reminders, no countdowns.
         </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm">
+        <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm">
           <a
             href="/compare"
             className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-white px-4 py-2 font-medium text-slate-700 hover:border-violet-400 hover:text-violet-700 transition"
@@ -114,9 +114,9 @@ export function WaitlistForm() {
     <form
       onSubmit={onSubmit}
       noValidate
-      className="rounded-2xl border border-violet-200 bg-white/90 backdrop-blur p-6 lg:p-8 space-y-5"
+      className="space-y-7"
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-email" className={labelBase}>
             Email <span className="text-violet-600">*</span>
@@ -147,7 +147,7 @@ export function WaitlistForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-org" className={labelBase}>Organization</label>
           <input
@@ -176,7 +176,7 @@ export function WaitlistForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-orgtype" className={labelBase}>Org type</label>
           <select
@@ -232,7 +232,7 @@ export function WaitlistForm() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-aum" className={labelBase}>Treasury size</label>
           <select
