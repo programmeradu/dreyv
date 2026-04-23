@@ -116,7 +116,7 @@ export function WaitlistForm() {
       noValidate
       className="space-y-7"
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-email" className={labelBase}>
             Email <span className="text-violet-600">*</span>
@@ -147,7 +147,7 @@ export function WaitlistForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-org" className={labelBase}>Organization</label>
           <input
@@ -176,7 +176,7 @@ export function WaitlistForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-orgtype" className={labelBase}>Org type</label>
           <select
@@ -232,7 +232,7 @@ export function WaitlistForm() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label htmlFor="wl-aum" className={labelBase}>Treasury size</label>
           <select
