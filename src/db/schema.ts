@@ -804,3 +804,23 @@ export const agentSubagents = pgTable('agent_subagents', {
   expiresIdx: index('agent_subagents_expires_idx').on(t.expiresAt),
   userIdx: index('agent_subagents_user_idx').on(t.userId),
 }));
+
+// ─── Agent Brains: per-wallet treasury watchers ───────────────────────
+// Each row registers a wallet (Solana or EVM) for the cadence sweepers
+// to scan on a schedule. The watcher feed surfaces user-scoped
+// opportunities → triage → proposals routed back to that user's inbox.
+export const agentTreasuryWatchers = pgTable('agent_treasury_watchers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id),
+  chain: text('chain').notNull(), // solana | ethereum | base | arbitrum | polygon | bsc
+  address: text('address').notNull(),
+  label: text('label'),
+  active: boolean('active').notNull().default(true),
+  lastScanAt: timestamp('last_scan_at'),
+  lastSnapshot: jsonb('last_snapshot'), // last balances/values for delta detection
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('agent_watchers_user_idx').on(t.userId),
+  activeIdx: index('agent_watchers_active_idx').on(t.active),
+  addrIdx: index('agent_watchers_addr_idx').on(t.address),
+}));

@@ -1,19 +1,26 @@
 /**
- * GET  /api/inbox/proposals — list open proposals/alerts
- * PATCH /api/inbox/proposals — { id, status } update lifecycle
- *
- * Used by `/app/inbox`. No auth gate yet — proposals are workspace-wide
- * in Phase 4; per-user routing comes in Phase 5 with treasury watchers.
+ * GET  /api/inbox/proposals?wallet=<connected wallet> — list open proposals/alerts.
+ *      When `wallet` is provided we resolve it to a user_id and return only
+ *      proposals scoped to that user. Without `wallet`, returns workspace-wide
+ *      (unscoped) proposals — useful for the brain operator view.
+ * PATCH /api/inbox/proposals — { id, status } update lifecycle.
  */
 import { NextResponse } from "next/server";
-import { listOpenProposals, setProposalStatus } from "@/lib/agents/brains/storage";
+import {
+  listOpenProposals,
+  setProposalStatus,
+  resolveUserIdFromWallet,
+} from "@/lib/agents/brains/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const rows = await listOpenProposals(100);
-  return NextResponse.json({ ok: true, proposals: rows });
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const wallet = url.searchParams.get("wallet");
+  const userId = wallet ? await resolveUserIdFromWallet(wallet) : null;
+  const rows = await listOpenProposals(100, { userId });
+  return NextResponse.json({ ok: true, proposals: rows, scopedTo: userId ?? null });
 }
 
 export async function PATCH(req: Request) {

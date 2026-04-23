@@ -24,6 +24,7 @@ export async function savePropagatedProposal(args: {
   proposal: DeepProposal;
   triage: TriageResult;
   opp: OpportunitySummary;
+  userId?: string | null;
 }): Promise<PersistedProposal | null> {
   if (!db) {
     console.warn("[brains:storage] DATABASE_URL missing — skipping proposal persist");
@@ -45,6 +46,7 @@ export async function savePropagatedProposal(args: {
         opp: args.opp as unknown as object,
         tags: args.triage.tags as unknown as object[],
         status: "open",
+        userId: args.userId ?? null,
         observedAt: new Date(args.opp.observedAt ?? Date.now()),
       })
       .returning({
@@ -63,6 +65,7 @@ export async function savePropagatedProposal(args: {
 export async function saveAlertOnly(args: {
   triage: TriageResult;
   opp: OpportunitySummary;
+  userId?: string | null;
 }): Promise<PersistedProposal | null> {
   if (!db) return null;
   try {
@@ -81,6 +84,7 @@ export async function saveAlertOnly(args: {
         opp: args.opp as unknown as object,
         tags: args.triage.tags as unknown as object[],
         status: "open",
+        userId: args.userId ?? null,
         observedAt: new Date(args.opp.observedAt ?? Date.now()),
       })
       .returning({
@@ -96,7 +100,7 @@ export async function saveAlertOnly(args: {
   }
 }
 
-export async function saveSubAgentSpec(spec: SubAgentSpec): Promise<boolean> {
+export async function saveSubAgentSpec(spec: SubAgentSpec & { userId?: string | null }): Promise<boolean> {
   if (!db) return false;
   try {
     const expires = new Date(Date.now() + spec.ttlMinutes * 60_000);
@@ -114,12 +118,24 @@ export async function saveSubAgentSpec(spec: SubAgentSpec): Promise<boolean> {
         expiresAt: expires,
         notes: spec.notes,
         spec: spec as unknown as object,
+        userId: spec.userId ?? null,
       })
       .onConflictDoNothing({ target: agentSubagents.id });
     return true;
   } catch (e: any) {
     console.warn("[brains:storage] subagent persist failed", e?.message);
     return false;
+  }
+}
+
+export async function resolveUserIdFromWallet(walletAddress?: string | null): Promise<string | null> {
+  if (!db || !walletAddress) return null;
+  try {
+    const { users } = await import("@/db/schema");
+    const rows = await db.select({ id: users.id }).from(users).where(eq(users.walletAddress, walletAddress)).limit(1);
+    return rows[0]?.id ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -138,13 +154,16 @@ export async function expireSubAgents(now: Date = new Date()): Promise<number> {
   }
 }
 
-export async function listOpenProposals(limit = 50) {
+export async function listOpenProposals(limit = 50, opts: { userId?: string | null } = {}) {
   if (!db) return [];
   try {
+    const where = opts.userId
+      ? and(eq(agentProposals.status, "open"), eq(agentProposals.userId, opts.userId))
+      : eq(agentProposals.status, "open");
     return await db
       .select()
       .from(agentProposals)
-      .where(eq(agentProposals.status, "open"))
+      .where(where)
       .orderBy(desc(agentProposals.createdAt))
       .limit(limit);
   } catch (e: any) {
@@ -153,13 +172,16 @@ export async function listOpenProposals(limit = 50) {
   }
 }
 
-export async function listActiveSubAgents(limit = 50) {
+export async function listActiveSubAgents(limit = 50, opts: { userId?: string | null } = {}) {
   if (!db) return [];
   try {
+    const where = opts.userId
+      ? and(eq(agentSubagents.status, "active"), eq(agentSubagents.userId, opts.userId))
+      : eq(agentSubagents.status, "active");
     return await db
       .select()
       .from(agentSubagents)
-      .where(eq(agentSubagents.status, "active"))
+      .where(where)
       .orderBy(desc(agentSubagents.createdAt))
       .limit(limit);
   } catch (e: any) {
