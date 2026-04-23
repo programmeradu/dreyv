@@ -365,8 +365,8 @@ export class SimulationFirewall {
         const postParsed = postData ? parseSplTokenAccount(postData) : null;
         const tokenOwner = postParsed?.owner || preParsed?.owner;
         if (tokenOwner === signerBase58) {
-          const preAmt = Number(preParsed?.amount ?? 0n);
-          const postAmt = Number(postParsed?.amount ?? 0n);
+          const preAmt = Number(preParsed?.amount ?? BigInt(0));
+          const postAmt = Number(postParsed?.amount ?? BigInt(0));
           const delta = postAmt - preAmt;
           if (delta !== 0) {
             balanceChanges.push({
