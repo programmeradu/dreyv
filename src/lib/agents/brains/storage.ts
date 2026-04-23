@@ -100,7 +100,7 @@ export async function saveAlertOnly(args: {
   }
 }
 
-export async function saveSubAgentSpec(spec: SubAgentSpec): Promise<boolean> {
+export async function saveSubAgentSpec(spec: SubAgentSpec & { userId?: string | null }): Promise<boolean> {
   if (!db) return false;
   try {
     const expires = new Date(Date.now() + spec.ttlMinutes * 60_000);
@@ -118,12 +118,24 @@ export async function saveSubAgentSpec(spec: SubAgentSpec): Promise<boolean> {
         expiresAt: expires,
         notes: spec.notes,
         spec: spec as unknown as object,
+        userId: spec.userId ?? null,
       })
       .onConflictDoNothing({ target: agentSubagents.id });
     return true;
   } catch (e: any) {
     console.warn("[brains:storage] subagent persist failed", e?.message);
     return false;
+  }
+}
+
+export async function resolveUserIdFromWallet(walletAddress?: string | null): Promise<string | null> {
+  if (!db || !walletAddress) return null;
+  try {
+    const { users } = await import("@/db/schema");
+    const rows = await db.select({ id: users.id }).from(users).where(eq(users.walletAddress, walletAddress)).limit(1);
+    return rows[0]?.id ?? null;
+  } catch {
+    return null;
   }
 }
 
