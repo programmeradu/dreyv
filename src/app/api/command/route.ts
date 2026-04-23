@@ -2263,7 +2263,7 @@ Wallet State: ${JSON.stringify(walletState || {})}
           : keystoneTools;
     if (budgeted.reduced) {
       console.warn(
-        `[Command API] Prompt budget reduction applied (evidenceClass=${evidenceClass}, chars=${estimateMessageChars(formattedMessages)}).`,
+        `[Command API] Prompt budget reduction applied (evidenceClass=${evidenceClass}, chars=${JSON.stringify(formattedMessages).length}).`,
       );
     }
 
