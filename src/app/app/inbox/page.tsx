@@ -22,16 +22,18 @@ import { Connection } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
   Loader2,
-  Sparkles,
-  ShieldAlert,
   Check,
   X,
-  Bot,
-  Eye,
   Plus,
   Trash2,
-  Zap,
+  RefreshCw,
+  ChevronRight,
 } from "lucide-react";
+import glyphBrand from "@/assets/notif/glyph-brand.png";
+import glyphAgent from "@/assets/notif/glyph-agent.png";
+import glyphSecurity from "@/assets/notif/glyph-security.png";
+import glyphPurchase from "@/assets/notif/glyph-purchase.png";
+import glyphSystem from "@/assets/notif/glyph-system.png";
 
 type TxInstruction = {
   op: string;
