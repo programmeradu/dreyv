@@ -55,7 +55,13 @@ export function HeroSection() {
         >
           The Sovereign OS for Digital Assets
           {solPrice && (
-            <span className="ml-4 text-slate-500 font-mono normal-case tracking-normal">
+            <span className="ml-4 inline-flex items-center gap-1.5 text-slate-500 font-mono normal-case tracking-normal align-middle">
+              <img
+                src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+                alt="Solana"
+                className="h-3.5 w-3.5 rounded-full"
+                loading="lazy"
+              />
               SOL ${solPrice.toFixed(2)}
             </span>
           )}
