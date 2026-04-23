@@ -20,17 +20,25 @@ import {
   lunarCrushFeed,
   tokenUnlocksFeed,
   exponentialFeed,
-  alchemyFeed,
-  covalentFeed,
   type DreyvEvent,
 } from "@/lib/datafeeds";
 
 const HOT_SYMBOLS = ["SOL", "ETH", "BTC", "JUP", "BONK", "WIF"];
-const HOT_PYTH_IDS = [
-  // Pyth price feed ids — kept tiny so tick10s stays cheap.
-  "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", // SOL/USD
-  "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace", // ETH/USD
-  "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43", // BTC/USD
+const HOT_CG_IDS = [
+  "solana",
+  "ethereum",
+  "bitcoin",
+  "jupiter-exchange-solana",
+  "bonk",
+  "dogwifcoin",
+];
+const BROAD_CG_IDS = [
+  ...HOT_CG_IDS,
+  "pyth-network",
+  "jito-governance-token",
+  "pepe",
+  "arbitrum",
+  "optimism",
 ];
 
 async function safeFetch<T>(label: string, fn: () => Promise<DreyvEvent[]>): Promise<DreyvEvent[]> {
@@ -57,10 +65,10 @@ export const tick10s = inngest.createFunction(
     const events = await step.run("fetch-hot-prices", async () => {
       const all: DreyvEvent[] = [];
       if (pythFeed.isReady()) {
-        all.push(...(await safeFetch("pyth", () => pythFeed.fetch({ priceIds: HOT_PYTH_IDS }))));
+        all.push(...(await safeFetch("pyth", () => pythFeed.fetch({ symbols: HOT_SYMBOLS }))));
       }
       if (coingeckoFeed.isReady()) {
-        all.push(...(await safeFetch("coingecko", () => coingeckoFeed.fetch({ symbols: HOT_SYMBOLS }))));
+        all.push(...(await safeFetch("coingecko", () => coingeckoFeed.fetch({ ids: HOT_CG_IDS }))));
       }
       return all;
     });
@@ -74,24 +82,13 @@ export const sweep1m = inngest.createFunction(
   { cron: "*/1 * * * *" },
   async ({ step }) => {
     const market = await step.run("market-sweep", async () => {
-      if (!coingeckoFeed.isReady()) return [];
-      return safeFetch("coingecko-broad", () =>
-        coingeckoFeed.fetch({ symbols: [...HOT_SYMBOLS, "PYTH", "JTO", "PEPE", "ARB", "OP"] }),
-      );
+      if (!coingeckoFeed.isReady()) return [] as DreyvEvent[];
+      return safeFetch("coingecko-broad", () => coingeckoFeed.fetch({ ids: BROAD_CG_IDS }));
     });
 
-    const chain = await step.run("chain-anomaly", async () => {
-      const all: DreyvEvent[] = [];
-      if (alchemyFeed.isReady()) {
-        all.push(...(await safeFetch("alchemy", () => alchemyFeed.fetch({ network: "eth-mainnet" }))));
-      }
-      if (covalentFeed.isReady()) {
-        all.push(...(await safeFetch("covalent", () => covalentFeed.fetch({ chainId: 1 }))));
-      }
-      return all;
-    });
-
-    const all = [...market, ...chain];
+    // Note: Alchemy / Covalent feeds are address-scoped (wallet watch). They
+    // run from the wallet/treasury watcher pipeline, not the market sweep.
+    const all = market;
     const published = await step.run("publish", () => fanout(all));
 
     // Heuristic: any market move > 5% in window → opportunity surfaced.
@@ -129,10 +126,10 @@ export const deep5m = inngest.createFunction(
         all.push(...(await safeFetch("lunarcrush", () => lunarCrushFeed.fetch({ symbols: HOT_SYMBOLS }))));
       }
       if (tokenUnlocksFeed.isReady()) {
-        all.push(...(await safeFetch("unlocks", () => tokenUnlocksFeed.fetch({ daysAhead: 30 }))));
+        all.push(...(await safeFetch("unlocks", () => tokenUnlocksFeed.fetch({ withinDays: 30 }))));
       }
       if (exponentialFeed.isReady()) {
-        all.push(...(await safeFetch("exponential", () => exponentialFeed.fetch({ limit: 20 }))));
+        all.push(...(await safeFetch("exponential", () => exponentialFeed.fetch({}))));
       }
       return all;
     });
