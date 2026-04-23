@@ -115,7 +115,7 @@ export function HeroSection() {
             <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
           </a>
           <a href="/auth?redirect=/app" className={marketingGhostLink}>
-            or open the app &rarr;
+            or try a command &rarr;
           </a>
         </motion.div>
 
