@@ -35,9 +35,9 @@ export default function WaitlistPage() {
         <div className="absolute bottom-0 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/25 blur-[140px]" />
       </div>
 
-      <section className="relative mx-auto max-w-6xl px-6 pt-10 pb-20 lg:pt-16 lg:pb-28">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-14 items-start">
-          {/* Left: hero copy + form */}
+      <section className="relative mx-auto max-w-6xl px-6 pt-10 pb-16 lg:pt-16 lg:pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
+          {/* Left: hero copy */}
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
               <span className="h-1.5 w-1.5 rounded-full bg-violet-600" aria-hidden />
@@ -60,11 +60,7 @@ export default function WaitlistPage() {
               Onboarding window: <span className="text-violet-700 font-medium">{COHORT_WINDOW}</span>.
             </p>
 
-            <div className="mt-10">
-              <WaitlistForm />
-            </div>
-
-            <p className="mt-10 text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400">
+            <p className="mt-8 text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400">
               Non-custodial · Simulation-first · Multisig-native
             </p>
           </div>
@@ -82,6 +78,15 @@ export default function WaitlistPage() {
             />
           </div>
         </div>
+      </section>
+
+      {/* Centered form — borderless, breathing room */}
+      <section className="relative mx-auto max-w-2xl px-6 pb-24">
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Request your seat</h2>
+          <p className="mt-2 text-sm text-slate-500">A few details so we can place you in the right cohort.</p>
+        </div>
+        <WaitlistForm />
       </section>
 
       {/* What to expect strip */}
