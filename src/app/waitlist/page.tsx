@@ -27,7 +27,7 @@ export default function WaitlistPage() {
   return (
     <>
       <SiteHeader />
-      <main className="relative isolate min-h-screen bg-white text-slate-900 font-[var(--font-manrope),Manrope,ui-sans-serif,system-ui] pt-20">
+      <main className="relative isolate min-h-screen bg-white text-slate-900 font-[var(--font-manrope),Manrope,ui-sans-serif,system-ui] pt-16">
         {/* Ambient violet glows — solid violet only, no gradients/fuchsia */}
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[1100px] rounded-full bg-violet-400/25 blur-[160px]" />
