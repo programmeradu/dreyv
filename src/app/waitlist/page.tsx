@@ -27,7 +27,7 @@ export default function WaitlistPage() {
   return (
     <>
       <SiteHeader />
-      <main className="relative isolate min-h-screen bg-white text-slate-900 font-[var(--font-manrope),Manrope,ui-sans-serif,system-ui] pt-20">
+      <main className="relative isolate min-h-screen bg-white text-slate-900 font-[var(--font-manrope),Manrope,ui-sans-serif,system-ui] pt-16">
         {/* Ambient violet glows — solid violet only, no gradients/fuchsia */}
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[1100px] rounded-full bg-violet-400/25 blur-[160px]" />
@@ -35,7 +35,7 @@ export default function WaitlistPage() {
         <div className="absolute bottom-0 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/25 blur-[140px]" />
       </div>
 
-      <section className="relative mx-auto max-w-6xl px-6 pt-32 pb-20 lg:pt-40 lg:pb-28">
+      <section className="relative mx-auto max-w-6xl px-6 pt-10 pb-20 lg:pt-16 lg:pb-28">
         <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-14 items-start">
           {/* Left: hero copy + form */}
           <div>
