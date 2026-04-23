@@ -45,6 +45,26 @@ const nextConfig: NextConfig = {
         ...config.resolve.alias,
         'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
       };
+      // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
+      // eth-json-rpc-filters, etc. transitively reference node:* modules).
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        http: false,
+        https: false,
+        zlib: false,
+        os: false,
+        path: false,
+        child_process: false,
+        worker_threads: false,
+      };
+      // Some libs import `node:*` prefix — normalize to bare specifiers
+      // so the fallbacks above (and webpack's own resolution) apply.
+      config.plugins = config.plugins || [];
     }
     if (!isServer && process.env.VISUAL_EDITS_ENABLED) {
       // Disabled to prevent restart loop - enable only when needed
