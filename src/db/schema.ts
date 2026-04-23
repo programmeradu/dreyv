@@ -824,3 +824,40 @@ export const agentTreasuryWatchers = pgTable('agent_treasury_watchers', {
   activeIdx: index('agent_watchers_active_idx').on(t.active),
   addrIdx: index('agent_watchers_addr_idx').on(t.address),
 }));
+
+// ─── Agent Brains: HITL-gated transaction proposals ────────────────────
+// Phase 6: when a brain proposal is high-confidence, the executor bridge
+// builds a concrete unsigned transaction and queues it here for human
+// approval. The wallet/multisig signer pulls from this queue, signs, and
+// updates status. We never auto-sign.
+export const agentTxProposals = pgTable('agent_tx_proposals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  proposalId: uuid('proposal_id').references(() => agentProposals.id),
+  userId: uuid('user_id').references(() => users.id),
+  chain: text('chain').notNull().default('solana'),
+  kind: text('kind').notNull(), // swap | transfer | stake | rebalance | unknown
+  summary: text('summary').notNull(),
+  // Serialized unsigned transaction (base64). For multisig: the inner instructions blob.
+  unsignedTx: text('unsigned_tx'),
+  instructions: jsonb('instructions'), // structured ix list (alt to unsignedTx)
+  estimatedFeeSol: numeric('estimated_fee_sol', { precision: 12, scale: 9 }),
+  riskLevel: text('risk_level').notNull().default('medium'), // low | medium | high
+  routing: text('routing').notNull().default('wallet'), // wallet | multisig
+  multisigVault: text('multisig_vault'),
+  status: text('status').notNull().default('queued'),
+  // queued | approved | submitted | confirmed | failed | rejected | expired
+  signature: text('signature'),
+  errorMessage: text('error_message'),
+  meta: jsonb('meta'),
+  expiresAt: timestamp('expires_at'),
+  approvedAt: timestamp('approved_at'),
+  submittedAt: timestamp('submitted_at'),
+  confirmedAt: timestamp('confirmed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  statusIdx: index('agent_tx_proposals_status_idx').on(t.status),
+  userIdx: index('agent_tx_proposals_user_idx').on(t.userId),
+  proposalIdx: index('agent_tx_proposals_proposal_idx').on(t.proposalId),
+  createdIdx: index('agent_tx_proposals_created_idx').on(t.createdAt),
+}));
