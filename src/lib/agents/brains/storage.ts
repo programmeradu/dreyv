@@ -7,7 +7,7 @@
  * we log and return `null` so the bus stays alive in dev.
  */
 import { db } from "@/db";
-import { agentProposals, agentSubagents } from "@/db/schema";
+import { agentProposals, agentSubagents, agentTxProposals } from "@/db/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import type { DeepProposal } from "./gemini-deep";
 import type { TriageResult, OpportunitySummary } from "./groq-triage";
@@ -205,5 +205,78 @@ export async function setProposalStatus(
   } catch (e: any) {
     console.warn("[brains:storage] set proposal status failed", e?.message);
     return false;
+  }
+}
+
+// ─── HITL transaction queue ──────────────────────────────────────────
+export async function listQueuedTxProposals(
+  limit = 50,
+  opts: { userId?: string | null; status?: string } = {},
+) {
+  if (!db) return [];
+  try {
+    const status = opts.status ?? "queued";
+    const where = opts.userId
+      ? and(eq(agentTxProposals.status, status), eq(agentTxProposals.userId, opts.userId))
+      : eq(agentTxProposals.status, status);
+    return await db
+      .select()
+      .from(agentTxProposals)
+      .where(where)
+      .orderBy(desc(agentTxProposals.createdAt))
+      .limit(limit);
+  } catch (e: any) {
+    console.warn("[brains:storage] list tx proposals failed", e?.message);
+    return [];
+  }
+}
+
+export async function getTxProposal(id: string) {
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(agentTxProposals).where(eq(agentTxProposals.id, id)).limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateTxProposalStatus(
+  id: string,
+  patch: {
+    status: "queued" | "approved" | "submitted" | "confirmed" | "failed" | "rejected" | "expired";
+    signature?: string | null;
+    errorMessage?: string | null;
+  },
+): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const now = new Date();
+    const set: Record<string, unknown> = { status: patch.status, updatedAt: now };
+    if (patch.signature !== undefined) set.signature = patch.signature;
+    if (patch.errorMessage !== undefined) set.errorMessage = patch.errorMessage;
+    if (patch.status === "approved") set.approvedAt = now;
+    if (patch.status === "submitted") set.submittedAt = now;
+    if (patch.status === "confirmed") set.confirmedAt = now;
+    await db.update(agentTxProposals).set(set).where(eq(agentTxProposals.id, id));
+    return true;
+  } catch (e: any) {
+    console.warn("[brains:storage] update tx proposal failed", e?.message);
+    return false;
+  }
+}
+
+export async function expireStaleTxProposals(now: Date = new Date()): Promise<number> {
+  if (!db) return 0;
+  try {
+    const expired = await db
+      .update(agentTxProposals)
+      .set({ status: "expired", updatedAt: now })
+      .where(and(eq(agentTxProposals.status, "queued"), lt(agentTxProposals.expiresAt, now)))
+      .returning({ id: agentTxProposals.id });
+    return expired.length;
+  } catch (e: any) {
+    console.warn("[brains:storage] expire tx proposals failed", e?.message);
+    return 0;
   }
 }

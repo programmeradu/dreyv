@@ -22,7 +22,9 @@ import {
   saveAlertOnly,
   saveSubAgentSpec,
   expireSubAgents,
+  expireStaleTxProposals,
 } from "./storage";
+import { bridgeProposalToTx } from "./executor-bridge";
 import {
   listWatchers,
   scanWatcher,
