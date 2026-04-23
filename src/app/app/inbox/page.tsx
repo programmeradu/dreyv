@@ -256,10 +256,33 @@ export default function InboxPage() {
       if (result.success) {
         const sig = result.signature ?? result.proposalKey;
         await patchTx(id, "submitted", { signature: sig });
-        // Optimistic confirmed — wallet executor already awaits confirmation
-        await patchTx(id, "confirmed", { signature: sig });
-        toast.success(`Transaction ${sig ? `${sig.slice(0, 8)}…` : "submitted"}`);
-        setTxProposals((prev) => prev.filter((t) => t.id !== id));
+
+        // 4) Re-verify on-chain (only for real Solana signatures, not multisig proposalKeys)
+        if (result.signature) {
+          const rpc =
+            process.env.NEXT_PUBLIC_SOLANA_RPC ||
+            process.env.NEXT_PUBLIC_HELIUS_RPC ||
+            "https://api.mainnet-beta.solana.com";
+          const conn = new Connection(rpc, "confirmed");
+          const verdict = await pollConfirmation(conn, result.signature, { maxWaitMs: 60_000 });
+          if (verdict.confirmed) {
+            await patchTx(id, "confirmed", { signature: sig });
+            toast.success(`Confirmed ${sig!.slice(0, 8)}…`);
+            setTxProposals((prev) => prev.filter((t) => t.id !== id));
+          } else {
+            await patchTx(id, "failed", {
+              signature: sig,
+              errorMessage: `confirmation ${verdict.error ?? "failed"}`,
+            });
+            toast.error(`On-chain ${verdict.error ?? "failure"}`);
+            await refresh();
+          }
+        } else {
+          // Multisig proposal — no signature to poll, treat submission as terminal
+          await patchTx(id, "confirmed", { signature: sig });
+          toast.success(`Multisig proposal ${sig ? `${sig.slice(0, 8)}…` : "queued"}`);
+          setTxProposals((prev) => prev.filter((t) => t.id !== id));
+        }
       } else {
         await patchTx(id, "failed", { errorMessage: result.error?.slice(0, 400) });
         toast.error(result.error ?? "Transaction failed");
