@@ -750,3 +750,57 @@ export const waitlistEntries = pgTable('waitlist_entries', {
   inviteTokenIdx: index('waitlist_invite_token_idx').on(t.inviteToken),
   createdIdx: index('waitlist_created_idx').on(t.createdAt),
 }));
+
+// ─── Agent Brains: proposals & alerts ────────────────────────────────
+// Durable record of every proposal/alert the brain pipeline emits.
+// `status` is the lifecycle for the inbox UI; `actions` mirrors
+// DeepProposal.actions so the UI can render them without re-querying.
+export const agentProposals = pgTable('agent_proposals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  kind: text('kind').notNull(), // 'proposal' | 'alert'
+  title: text('title').notNull(),
+  thesis: text('thesis').notNull(),
+  actions: jsonb('actions').notNull().default([]),
+  riskNotes: jsonb('risk_notes').notNull().default([]),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull().default('0.5'),
+  horizon: text('horizon').notNull().default('hours'),
+  model: text('model').notNull().default('unknown'),
+  triage: jsonb('triage'),
+  opp: jsonb('opp'),
+  status: text('status').notNull().default('open'), // open | dismissed | acted | expired
+  tags: jsonb('tags').notNull().default([]),
+  userId: uuid('user_id').references(() => users.id),
+  actedAt: timestamp('acted_at'),
+  dismissedAt: timestamp('dismissed_at'),
+  observedAt: timestamp('observed_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  statusIdx: index('agent_proposals_status_idx').on(t.status),
+  kindIdx: index('agent_proposals_kind_idx').on(t.kind),
+  createdIdx: index('agent_proposals_created_idx').on(t.createdAt),
+  userIdx: index('agent_proposals_user_idx').on(t.userId),
+}));
+
+// ─── Agent Brains: spawned sub-agents ────────────────────────────────
+// Reflector-driven persistent sub-agents. The Inngest runtime keeps
+// these alive until `expires_at`, then auto-retires them.
+export const agentSubagents = pgTable('agent_subagents', {
+  id: text('id').primaryKey(), // sa_<slug>-<ts36>
+  name: text('name').notNull(),
+  goal: text('goal').notNull(),
+  triggers: jsonb('triggers').notNull().default([]),
+  capabilities: jsonb('capabilities').notNull().default([]),
+  parent: text('parent').notNull().default('reflector'),
+  status: text('status').notNull().default('active'), // active | paused | retired | expired
+  ttlMinutes: integer('ttl_minutes').notNull().default(240),
+  expiresAt: timestamp('expires_at').notNull(),
+  notes: text('notes'),
+  spec: jsonb('spec').notNull(),
+  userId: uuid('user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  statusIdx: index('agent_subagents_status_idx').on(t.status),
+  expiresIdx: index('agent_subagents_expires_idx').on(t.expiresAt),
+  userIdx: index('agent_subagents_user_idx').on(t.userId),
+}));
