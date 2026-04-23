@@ -410,6 +410,68 @@ function AuthPageContent() {
     const [socialLoading, setSocialLoading] = useState<string | null>(null);
     const [oauthError, setOauthError] = useState<string | null>(null);
 
+    // ── Invite token (waitlist) ────────────────────────────────────
+    const inviteToken = searchParams.get('invite') || '';
+    const [inviteState, setInviteState] = useState<
+        | { status: 'none' }
+        | { status: 'checking' }
+        | { status: 'valid'; email?: string }
+        | { status: 'invalid'; reason: string }
+        | { status: 'expired' }
+        | { status: 'used' }
+    >(inviteToken ? { status: 'checking' } : { status: 'none' });
+
+    // Verify invite token on mount
+    useEffect(() => {
+        if (!inviteToken) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`/api/waitlist/verify?token=${encodeURIComponent(inviteToken)}`);
+                const data = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                if (!data?.ok) {
+                    setInviteState({ status: 'invalid', reason: 'check_failed' });
+                    return;
+                }
+                if (data.expired) { setInviteState({ status: 'expired' }); addLog('INVITE_EXPIRED'); return; }
+                if (data.status === 'onboarded') { setInviteState({ status: 'used' }); addLog('INVITE_ALREADY_USED'); return; }
+                if (data.valid) {
+                    setInviteState({ status: 'valid', email: data.email });
+                    addLog(`INVITE_TOKEN_VALID${data.email ? `: ${data.email}` : ''}`);
+                } else {
+                    setInviteState({ status: 'invalid', reason: data.reason || 'invalid' });
+                    addLog('INVITE_TOKEN_INVALID');
+                }
+            } catch {
+                if (!cancelled) setInviteState({ status: 'invalid', reason: 'network' });
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [inviteToken, addLog]);
+
+    // Mark waitlist entry as onboarded once auth succeeds
+    const inviteConsumed = React.useRef(false);
+    useEffect(() => {
+        if (!inviteToken || inviteConsumed.current) return;
+        if (inviteState.status !== 'valid') return;
+        if (!isAuthenticated) return;
+        inviteConsumed.current = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/waitlist/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: inviteToken, userId: user?.id }),
+                });
+                if (res.ok) addLog('INVITE_CONSUMED · WAITLIST_ONBOARDED');
+                else addLog('WARN: INVITE_CONSUME_FAILED');
+            } catch {
+                addLog('WARN: INVITE_CONSUME_NETWORK_ERROR');
+            }
+        })();
+    }, [inviteToken, inviteState, isAuthenticated, user?.id, addLog]);
+
     // Check for OAuth callback errors
     useEffect(() => {
         const err = searchParams.get('error');
@@ -671,6 +733,46 @@ function AuthPageContent() {
                                             <div className="flex items-start gap-2.5 rounded-xl border border-red-200/80 bg-red-50 p-3 lg:gap-3 lg:p-3.5">
                                                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                                                 <p className="text-[12px] font-medium leading-snug text-red-800 lg:text-[13px]">{oauthError}</p>
+                                            </div>
+                                        )}
+
+                                        {inviteState.status !== 'none' && (
+                                            <div className={`flex items-start gap-2.5 rounded-xl border p-3 lg:gap-3 lg:p-3.5 ${
+                                                inviteState.status === 'valid'
+                                                    ? 'border-violet-300/70 bg-violet-50'
+                                                    : inviteState.status === 'checking'
+                                                    ? 'border-violet-200/70 bg-white'
+                                                    : 'border-amber-200/80 bg-amber-50'
+                                            }`}>
+                                                {inviteState.status === 'checking' ? (
+                                                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-violet-600" />
+                                                ) : inviteState.status === 'valid' ? (
+                                                    <Sparkles size={16} className="mt-0.5 shrink-0 text-violet-600" />
+                                                ) : (
+                                                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                                )}
+                                                <div className="min-w-0">
+                                                    {inviteState.status === 'checking' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-slate-700 lg:text-[13px]">Verifying your invite…</p>
+                                                    )}
+                                                    {inviteState.status === 'valid' && (
+                                                        <>
+                                                            <p className="text-[12px] font-bold leading-snug text-violet-800 lg:text-[13px]">Cohort invite accepted</p>
+                                                            <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-600 lg:text-[12px]">
+                                                                {inviteState.email ? `Signed for ${inviteState.email}. ` : ''}Connect a wallet to complete onboarding.
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                    {inviteState.status === 'expired' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">This invite has expired. Reply to your invite email and we&apos;ll send a fresh one.</p>
+                                                    )}
+                                                    {inviteState.status === 'used' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">This invite was already used. Sign in with the wallet you onboarded with.</p>
+                                                    )}
+                                                    {inviteState.status === 'invalid' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">We couldn&apos;t verify this invite link. You can still sign in to the Free tier below.</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
 
