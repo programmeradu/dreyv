@@ -123,7 +123,7 @@ export default function WaitlistPage() {
         </div>
       </section>
       </main>
-      <SiteFooter />
+      <SiteFooterLight />
     </>
   );
 }
