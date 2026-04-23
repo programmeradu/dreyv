@@ -31,9 +31,10 @@ export async function GET(req: Request) {
     }
 
     // Build upstream URL depending on whether ids or mints provided
-    const base = new URL("https://price.jup.ag/v6/price");
+    // NOTE: price.jup.ag/v6 was deprecated -> use lite-api.jup.ag/price/v3
+    const base = new URL("https://lite-api.jup.ag/price/v3");
     if (ids) base.searchParams.set("ids", ids);
-    if (mints) base.searchParams.set("mints", mints);
+    if (mints) base.searchParams.set("ids", [base.searchParams.get("ids"), mints].filter(Boolean).join(","));
     if (vsToken) base.searchParams.set("vsToken", vsToken);
 
     // Attach Jupiter App ID header if provided via env
