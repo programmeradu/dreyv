@@ -301,314 +301,394 @@ export default function InboxPage() {
     }
   };
 
+  type TabKey = "pending" | "proposals" | "subagents" | "watchers";
+  const [tab, setTab] = useState<TabKey>("pending");
+
+  const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
+    { key: "pending", label: "Pending", count: txProposals.length, glyph: glyphPurchase },
+    { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
+    { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
+    { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
+  ];
+
+  const sectionEmpty = (msg: string) => (
+    <div className="rounded-xl border border-dashed border-violet-100 bg-white/60 px-5 py-8 text-center text-[12.5px] text-neutral-500">
+      {msg}
+    </div>
+  );
+
   return (
     <main className="relative min-h-screen bg-white text-neutral-900 font-[Manrope,sans-serif]">
       {/* Ambient violet glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-3xl" />
-        <div className="absolute top-[40%] -right-32 h-[380px] w-[520px] rounded-full bg-violet-400/20 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-[340px] w-[680px] -translate-x-1/2 rounded-full bg-violet-300/25 blur-3xl" />
+        <div className="absolute top-[35%] -right-24 h-[280px] w-[420px] rounded-full bg-violet-400/15 blur-3xl" />
       </div>
 
-      <section className="mx-auto max-w-5xl px-6 pt-16 pb-6">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Brain Inbox</h1>
-            <p className="text-sm text-neutral-500">
-              {wallet
-                ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
-                : "Workspace-wide view. Connect a wallet to scope to your treasury."}
-            </p>
+      <section className="mx-auto max-w-4xl px-6 pt-10 pb-6">
+        {/* ─── Brand header card ──────────────────────────── */}
+        <div className="rounded-2xl border border-violet-100 bg-white/70 backdrop-blur-sm shadow-[0_10px_40px_-20px_rgba(124,58,237,0.25)]">
+          <div className="flex items-start gap-3 px-5 pt-5 pb-4">
+            <div className="size-11 rounded-xl bg-violet-100 ring-1 ring-violet-200 flex items-center justify-center shrink-0 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={typeof glyphBrand === "string" ? glyphBrand : (glyphBrand as any).src}
+                alt=""
+                aria-hidden
+                className="size-8 object-contain"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-[20px] font-bold tracking-tight leading-tight">
+                  Brain Inbox
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
+                  HITL
+                </span>
+              </div>
+              <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
+                {wallet
+                  ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
+                  : "Workspace-wide view. Connect a wallet to scope to your treasury."}
+              </p>
+            </div>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Refresh
+            </button>
           </div>
-          <Button
-            variant="outline"
-            className="ml-auto border-violet-200 text-violet-700 hover:bg-violet-50"
-            onClick={refresh}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
-          </Button>
-        </div>
-      </section>
 
-      {/* Treasury watchers */}
-      {wallet && (
-        <section className="mx-auto max-w-5xl px-6 pb-6">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
-            <Eye className="h-4 w-4 text-violet-600" />
-            Treasury watchers
-            <span className="ml-1 text-neutral-400">({watchers.length})</span>
-          </div>
-          <Card className="border-violet-100 bg-white p-4">
-            <form onSubmit={addWatcher} className="flex flex-wrap items-end gap-2">
-              <div className="flex flex-col">
-                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Chain</label>
-                <select
-                  value={chain}
-                  onChange={(e) => setChain(e.target.value)}
-                  className="h-9 rounded-md border border-violet-200 bg-white px-2 text-sm"
+          {/* ─── Tab nav ────────────────────────────────── */}
+          <div className="flex items-center gap-1 px-3 pb-2 overflow-x-auto scrollbar-thin">
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
+                    active
+                      ? "bg-violet-600 text-white shadow-sm shadow-violet-600/20"
+                      : "text-neutral-600 hover:bg-violet-50 hover:text-violet-700"
+                  }`}
                 >
-                  {CHAINS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex min-w-[260px] flex-1 flex-col">
-                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Address</label>
-                <Input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="0x… or Solana pubkey"
-                  className="border-violet-200"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Label</label>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="optional"
-                  className="border-violet-200"
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={adding || !address}
-                className="bg-violet-600 text-white hover:bg-violet-700"
-              >
-                <Plus className="mr-1 h-4 w-4" /> Watch
-              </Button>
-            </form>
-
-            {watchers.length > 0 && (
-              <ul className="mt-4 divide-y divide-violet-100">
-                {watchers.map((w) => (
-                  <li key={w.id} className="flex items-center gap-3 py-2 text-sm">
-                    <Badge className="bg-violet-600 text-white hover:bg-violet-600">{w.chain}</Badge>
-                    <span className="font-mono text-xs text-neutral-700">
-                      {w.address.slice(0, 6)}…{w.address.slice(-6)}
-                    </span>
-                    {w.label && <span className="text-neutral-500">— {w.label}</span>}
-                    <span className="ml-auto text-[11px] text-neutral-400">
-                      {w.lastScanAt ? `last scan ${new Date(w.lastScanAt).toLocaleTimeString()}` : "never scanned"}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => removeWatcher(w.id)}
-                      className="text-neutral-500 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </section>
-      )}
-
-      {/* Pending HITL transactions (Phase 6) */}
-      <section className="mx-auto max-w-5xl px-6 pb-6">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
-          <Zap className="h-4 w-4 text-violet-600" />
-          Pending transactions
-          <span className="ml-1 text-neutral-400">({txProposals.length})</span>
-          <span className="ml-2 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-            HITL gated
-          </span>
-        </div>
-        {txProposals.length === 0 ? (
-          <Card className="border-violet-100 bg-white/70 p-6 text-center text-sm text-neutral-500">
-            No transactions queued. High-confidence proposals (≥75%) auto-queue
-            here for your approval — nothing signs without you.
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {txProposals.map((t) => (
-              <Card
-                key={t.id}
-                className="border-violet-200 bg-white p-4 shadow-sm transition hover:border-violet-400"
-              >
-                <div className="flex items-start gap-3">
-                  <Badge className="bg-violet-600 text-white hover:bg-violet-600">{t.kind}</Badge>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold">{t.summary}</h4>
-                      <span className="ml-auto text-[11px] text-neutral-400">
-                        {t.routing} • risk {t.riskLevel}
-                        {t.estimatedFeeSol ? ` • ~◎${Number(t.estimatedFeeSol).toFixed(6)}` : ""}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-[11px] text-neutral-500">
-                      queued {new Date(t.createdAt).toLocaleTimeString()}
-                      {t.expiresAt ? ` • expires ${new Date(t.expiresAt).toLocaleTimeString()}` : ""}
-                    </div>
-                    {t.errorMessage && (
-                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                        {t.errorMessage}
-                      </div>
-                    )}
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-violet-600 text-white hover:bg-violet-700"
-                        disabled={busyId === t.id}
-                        onClick={() => actTx(t.id, "approve")}
-                      >
-                        <Check className="mr-1 h-4 w-4" /> Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-violet-200 text-neutral-700 hover:bg-violet-50"
-                        disabled={busyId === t.id}
-                        onClick={() => actTx(t.id, "reject")}
-                      >
-                        <X className="mr-1 h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={typeof t.glyph === "string" ? t.glyph : (t.glyph as any).src}
+                    alt=""
+                    aria-hidden
+                    className={`size-4 object-contain ${active ? "" : "opacity-80"}`}
+                  />
+                  {t.label}
+                  <span
+                    className={`text-[10.5px] font-bold leading-none rounded-full px-1.5 py-px tabular-nums ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-neutral-100 text-neutral-500"
+                    }`}
+                  >
+                    {t.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
       </section>
 
-      {/* Proposals */}
-      <section className="mx-auto max-w-5xl px-6 pb-16">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
-          <ShieldAlert className="h-4 w-4 text-violet-600" />
-          Open proposals & alerts
-          <span className="ml-1 text-neutral-400">({proposals.length})</span>
-        </div>
-
-        {loading && proposals.length === 0 ? (
-          <Card className="border-violet-100 bg-white/70 p-8 text-center text-sm text-neutral-500">
-            Loading…
-          </Card>
-        ) : proposals.length === 0 ? (
-          <Card className="border-violet-100 bg-white/70 p-8 text-center text-sm text-neutral-500">
-            No open items. The fabric is watching — anything escalated will land here.
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {proposals.map((p) => (
-              <Card
-                key={p.id}
-                className="border-violet-100 bg-white p-5 shadow-sm transition hover:border-violet-300"
-              >
-                <div className="flex items-start gap-3">
-                  <Badge
-                    className={
-                      p.kind === "proposal"
-                        ? "bg-violet-600 text-white hover:bg-violet-600"
-                        : "bg-amber-500 text-white hover:bg-amber-500"
-                    }
+      {/* ─── Active tab content ─────────────────────────── */}
+      <section className="mx-auto max-w-4xl px-6 pb-16 space-y-3">
+        {tab === "pending" && (
+          <>
+            {txProposals.length === 0
+              ? sectionEmpty(
+                  "No transactions queued. High-confidence proposals (≥75%) auto-queue here for your approval — nothing signs without you.",
+                )
+              : txProposals.map((t) => (
+                  <article
+                    key={t.id}
+                    className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
                   >
-                    {p.kind}
-                  </Badge>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-semibold">{p.title}</h3>
-                      <span className="ml-auto text-xs text-neutral-400">
-                        conf {Number(p.confidence).toFixed(2)} • {p.horizon} • {p.model}
+                    <div className="flex items-start gap-3">
+                      <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
+                        {t.kind}
                       </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-2">
+                          <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
+                            {t.summary}
+                          </h4>
+                          <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
+                            {t.routing} · risk {t.riskLevel}
+                            {t.estimatedFeeSol
+                              ? ` · ~◎${Number(t.estimatedFeeSol).toFixed(6)}`
+                              : ""}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-neutral-500">
+                          queued {new Date(t.createdAt).toLocaleTimeString()}
+                          {t.expiresAt
+                            ? ` · expires ${new Date(t.expiresAt).toLocaleTimeString()}`
+                            : ""}
+                        </div>
+                        {t.errorMessage && (
+                          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                            {t.errorMessage}
+                          </div>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            disabled={busyId === t.id}
+                            onClick={() => actTx(t.id, "approve")}
+                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Approve
+                          </button>
+                          <button
+                            disabled={busyId === t.id}
+                            onClick={() => actTx(t.id, "reject")}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                          >
+                            <X className="h-3.5 w-3.5" /> Reject
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-1 text-sm text-neutral-600">{p.thesis}</p>
-                    {p.actions?.length > 0 && (
-                      <ul className="mt-3 space-y-1">
-                        {p.actions.slice(0, 3).map((a, i) => (
-                          <li
-                            key={i}
-                            className="rounded-md border border-violet-100 bg-violet-50/40 px-3 py-2 text-xs text-neutral-700"
-                          >
-                            <span className="font-mono text-violet-700">{a.op}</span>
-                            {a.rationale ? <> — {a.rationale}</> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {p.riskNotes?.length > 0 && (
+                  </article>
+                ))}
+          </>
+        )}
+
+        {tab === "proposals" && (
+          <>
+            {loading && proposals.length === 0
+              ? sectionEmpty("Loading…")
+              : proposals.length === 0
+                ? sectionEmpty(
+                    "No open items. The fabric is watching — anything escalated will land here.",
+                  )
+                : proposals.map((p) => (
+                    <article
+                      key={p.id}
+                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-white ${
+                            p.kind === "proposal" ? "bg-violet-600" : "bg-amber-500"
+                          }`}
+                        >
+                          {p.kind}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2">
+                            <h3 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
+                              {p.title}
+                            </h3>
+                            <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
+                              conf {Number(p.confidence).toFixed(2)} · {p.horizon} · {p.model}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[12.5px] text-neutral-600 leading-snug">
+                            {p.thesis}
+                          </p>
+                          {p.actions?.length > 0 && (
+                            <ul className="mt-2.5 space-y-1">
+                              {p.actions.slice(0, 3).map((a, i) => (
+                                <li
+                                  key={i}
+                                  className="flex items-start gap-2 rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-1.5 text-[11.5px] text-neutral-700"
+                                >
+                                  <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" />
+                                  <span>
+                                    <span className="font-mono font-semibold text-violet-700">
+                                      {a.op}
+                                    </span>
+                                    {a.rationale ? (
+                                      <span className="text-neutral-500"> — {a.rationale}</span>
+                                    ) : null}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {p.riskNotes?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {p.riskNotes.slice(0, 4).map((r, i) => (
+                                <span
+                                  key={i}
+                                  className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10.5px] text-amber-700"
+                                >
+                                  {r}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              disabled={busyId === p.id}
+                              onClick={() => act(p.id, "acted")}
+                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                            >
+                              <Check className="h-3.5 w-3.5" /> Mark acted
+                            </button>
+                            <button
+                              disabled={busyId === p.id}
+                              onClick={() => act(p.id, "dismissed")}
+                              className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                            >
+                              <X className="h-3.5 w-3.5" /> Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+          </>
+        )}
+
+        {tab === "subagents" && (
+          <>
+            {subagents.length === 0
+              ? sectionEmpty(
+                  "No sub-agents spawned yet. The reflector spawns them from high-confidence deep proposals.",
+                )
+              : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {subagents.map((s) => (
+                    <article
+                      key={s.id}
+                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
+                          {s.parent}
+                        </span>
+                        <h4 className="text-[13px] font-semibold text-neutral-900 truncate">
+                          {s.name}
+                        </h4>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-[12px] text-neutral-600 leading-snug">
+                        {s.goal}
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {p.riskNotes.slice(0, 4).map((r, i) => (
+                        {s.capabilities?.map((c) => (
                           <span
-                            key={i}
-                            className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700"
+                            key={c}
+                            className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] text-violet-700"
                           >
-                            {r}
+                            {c}
                           </span>
                         ))}
                       </div>
-                    )}
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-violet-600 text-white hover:bg-violet-700"
-                        disabled={busyId === p.id}
-                        onClick={() => act(p.id, "acted")}
-                      >
-                        <Check className="mr-1 h-4 w-4" /> Mark acted
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-violet-200 text-neutral-700 hover:bg-violet-50"
-                        disabled={busyId === p.id}
-                        onClick={() => act(p.id, "dismissed")}
-                      >
-                        <X className="mr-1 h-4 w-4" /> Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-12 mb-3 flex items-center gap-2 text-sm font-medium text-neutral-700">
-          <Bot className="h-4 w-4 text-violet-600" />
-          Active sub-agents
-          <span className="ml-1 text-neutral-400">({subagents.length})</span>
-        </div>
-        {subagents.length === 0 ? (
-          <Card className="border-violet-100 bg-white/70 p-6 text-center text-sm text-neutral-500">
-            No sub-agents spawned yet. The reflector spawns them from
-            high-confidence deep proposals.
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {subagents.map((s) => (
-              <Card key={s.id} className="border-violet-100 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-violet-600 text-white hover:bg-violet-600">
-                    {s.parent}
-                  </Badge>
-                  <h4 className="text-sm font-semibold">{s.name}</h4>
-                </div>
-                <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{s.goal}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {s.capabilities?.map((c) => (
-                    <span
-                      key={c}
-                      className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] text-violet-700"
-                    >
-                      {c}
-                    </span>
+                      <div className="mt-2 text-[10.5px] text-neutral-400">
+                        TTL {s.ttlMinutes}m · expires {new Date(s.expiresAt).toLocaleString()}
+                      </div>
+                    </article>
                   ))}
                 </div>
-                <div className="mt-2 text-[11px] text-neutral-400">
-                  TTL {s.ttlMinutes}m • expires{" "}
-                  {new Date(s.expiresAt).toLocaleString()}
-                </div>
-              </Card>
-            ))}
-          </div>
+              )}
+          </>
+        )}
+
+        {tab === "watchers" && (
+          <>
+            {!wallet ? (
+              sectionEmpty("Connect a wallet to manage treasury watchers.")
+            ) : (
+              <div className="rounded-xl border border-violet-100 bg-white p-4">
+                <form onSubmit={addWatcher} className="flex flex-wrap items-end gap-2">
+                  <div className="flex flex-col">
+                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Chain
+                    </label>
+                    <select
+                      value={chain}
+                      onChange={(e) => setChain(e.target.value)}
+                      className="h-9 rounded-md border border-violet-200 bg-white px-2 text-[12.5px]"
+                    >
+                      {CHAINS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex min-w-[220px] flex-1 flex-col">
+                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Address
+                    </label>
+                    <Input
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="0x… or Solana pubkey"
+                      className="h-9 border-violet-200 text-[12.5px]"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Label
+                    </label>
+                    <Input
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      placeholder="optional"
+                      className="h-9 border-violet-200 text-[12.5px]"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={adding || !address}
+                    className="inline-flex h-9 items-center gap-1 rounded-lg bg-violet-600 px-3 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Watch
+                  </button>
+                </form>
+
+                {watchers.length > 0 && (
+                  <ul className="mt-3 divide-y divide-violet-100">
+                    {watchers.map((w) => (
+                      <li
+                        key={w.id}
+                        className="flex items-center gap-3 py-2 text-[12.5px]"
+                      >
+                        <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
+                          {w.chain}
+                        </span>
+                        <span className="font-mono text-[11px] text-neutral-700">
+                          {w.address.slice(0, 6)}…{w.address.slice(-6)}
+                        </span>
+                        {w.label && (
+                          <span className="text-neutral-500 truncate">— {w.label}</span>
+                        )}
+                        <span className="ml-auto text-[10.5px] text-neutral-400 shrink-0">
+                          {w.lastScanAt
+                            ? `last scan ${new Date(w.lastScanAt).toLocaleTimeString()}`
+                            : "never scanned"}
+                        </span>
+                        <button
+                          onClick={() => removeWatcher(w.id)}
+                          className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          aria-label="Remove watcher"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
