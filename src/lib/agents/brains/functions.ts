@@ -25,6 +25,7 @@ import {
   expireStaleTxProposals,
 } from "./storage";
 import { bridgeProposalToTx } from "./executor-bridge";
+import { reconcileSubmittedTxProposals } from "./tx-reconciler";
 import {
   listWatchers,
   scanWatcher,
