@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useCallback, useMemo, useState } from "react";
+import * as LucideIcons from "lucide-react";
 import {
     Bell,
     BellOff,
@@ -163,8 +164,8 @@ function NotificationItem({
 }) {
     const unread = !item.read;
     const meta = TYPE_META[item.type] ?? TYPE_META.system;
-    const { Icon } = meta;
     const avatarUrl: string | undefined = item.meta?.avatarUrl;
+    const glyphSrc = typeof meta.glyph === "string" ? meta.glyph : (meta.glyph as any).src;
 
     const time = formatDistanceToNowStrict(new Date(item.timestamp), { addSuffix: false })
         .replace(" minutes", "m")
@@ -206,7 +207,7 @@ function NotificationItem({
                 />
             )}
 
-            {/* Square medallion */}
+            {/* Square medallion with custom crystal glyph */}
             <div
                 className={`relative size-10 rounded-xl ${meta.medallionBg} flex items-center justify-center shrink-0 overflow-hidden`}
             >
@@ -214,7 +215,14 @@ function NotificationItem({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={avatarUrl} alt="" className="size-full object-cover rounded-xl" />
                 ) : (
-                    <Icon size={18} className={meta.iconClass} />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={glyphSrc}
+                        alt=""
+                        aria-hidden
+                        className="size-7 object-contain drop-shadow-sm"
+                        loading="lazy"
+                    />
                 )}
             </div>
 
@@ -315,8 +323,14 @@ export function NotificationBell() {
                 <div className="px-5 pt-5 pb-4 shrink-0 border-b border-slate-100">
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="size-11 rounded-xl bg-violet-100 ring-1 ring-violet-200 flex items-center justify-center shrink-0">
-                                <Network size={20} className="text-violet-600" strokeWidth={2.25} />
+                            <div className="size-11 rounded-xl bg-violet-100 ring-1 ring-violet-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={typeof glyphBrand === "string" ? glyphBrand : (glyphBrand as any).src}
+                                    alt=""
+                                    aria-hidden
+                                    className="size-8 object-contain"
+                                />
                             </div>
                             <div className="min-w-0">
                                 <h3 className="text-[16px] font-bold tracking-tight text-slate-900 leading-tight">
@@ -370,8 +384,14 @@ export function NotificationBell() {
                 <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-slate-100">
                     {visible.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-3 py-14 px-6 text-center">
-                            <div className="size-12 rounded-xl bg-violet-50 ring-1 ring-violet-100 flex items-center justify-center">
-                                <Inbox size={20} className="text-violet-600" />
+                            <div className="size-14 rounded-2xl bg-violet-50 ring-1 ring-violet-100 flex items-center justify-center overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={typeof glyphBrand === "string" ? glyphBrand : (glyphBrand as any).src}
+                                    alt=""
+                                    aria-hidden
+                                    className="size-9 object-contain opacity-80"
+                                />
                             </div>
                             <div>
                                 <p className="text-[13px] font-bold text-slate-900">
