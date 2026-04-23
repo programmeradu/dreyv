@@ -11,11 +11,12 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/agents/inngest-client";
 import { ALL_FUNCTIONS } from "@/lib/agents/functions";
+import { BRAIN_FUNCTIONS } from "@/lib/agents/brains/functions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: ALL_FUNCTIONS,
+  functions: [...ALL_FUNCTIONS, ...BRAIN_FUNCTIONS],
 });
