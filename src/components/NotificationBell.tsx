@@ -397,6 +397,7 @@ export function NotificationBell() {
                                 item={item}
                                 onRead={() => markRead(item.id)}
                                 onRemove={() => remove(item.id)}
+                                onClosePopup={() => setOpen(false)}
                             />
                         ))
                     )}
