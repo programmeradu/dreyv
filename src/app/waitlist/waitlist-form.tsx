@@ -78,7 +78,7 @@ export function WaitlistForm() {
 
   if (state.kind === "success") {
     return (
-      <div className="rounded-2xl border border-violet-200 bg-white p-8">
+      <div className="text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-white">
           <Check className="h-5 w-5" />
         </div>
