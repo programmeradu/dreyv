@@ -10,7 +10,10 @@
  */
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { NotificationBell } from "@/components/NotificationBell";
+import { CollaborativeHeader } from "@/components/CollaborativeHeader";
+import { WalletButton } from "@/components/WalletButton";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +32,7 @@ import {
   RefreshCw,
   ChevronRight,
 } from "lucide-react";
-import glyphBrand from "@/assets/notif/glyph-brand.png";
+// glyphBrand removed — header no longer shows the brand crystal
 import glyphAgent from "@/assets/notif/glyph-agent.png";
 import glyphSecurity from "@/assets/notif/glyph-security.png";
 import glyphPurchase from "@/assets/notif/glyph-purchase.png";
@@ -318,64 +321,72 @@ export default function InboxPage() {
   );
 
   return (
-    <main className="relative min-h-screen bg-white text-neutral-900 font-[Manrope,sans-serif]">
+    <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative font-[Manrope,sans-serif]">
+      {/* ─── Universal app header ───────────────────────── */}
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10 shadow-sm shrink-0">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent)]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-70">
+              dreyv // Command workspace
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold tracking-tight text-foreground uppercase">Inbox</h1>
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
+              HITL
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-60"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Refresh
+          </button>
+
+          <Suspense fallback={<div className="h-8 w-24 bg-muted animate-pulse rounded-full" />}>
+            <CollaborativeHeader />
+          </Suspense>
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          <WalletButton />
+        </div>
+      </header>
+
       {/* Ambient violet glow */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 left-1/2 h-[340px] w-[680px] -translate-x-1/2 rounded-full bg-violet-300/25 blur-3xl" />
-        <div className="absolute top-[35%] -right-24 h-[280px] w-[420px] rounded-full bg-violet-400/15 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 top-16 -z-10 overflow-hidden h-[400px]">
+        <div className="absolute -top-32 left-1/2 h-[340px] w-[680px] -translate-x-1/2 rounded-full bg-violet-300/20 blur-3xl" />
       </div>
 
-      <section className="mx-auto max-w-4xl px-6 pt-10 pb-6">
-        {/* ─── Brand header card ──────────────────────────── */}
-        <div className="rounded-2xl border border-violet-100 bg-white/70 backdrop-blur-sm shadow-[0_10px_40px_-20px_rgba(124,58,237,0.25)]">
-          <div className="flex items-start gap-3 px-5 pt-5 pb-4">
-            <div className="size-11 rounded-xl bg-violet-100 ring-1 ring-violet-200 flex items-center justify-center shrink-0 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={typeof glyphBrand === "string" ? glyphBrand : (glyphBrand as any).src}
-                alt=""
-                aria-hidden
-                className="size-8 object-contain"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-[20px] font-bold tracking-tight leading-tight">
-                  Brain Inbox
-                </h1>
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-                  HITL
-                </span>
-              </div>
-              <p className="text-[12px] text-neutral-500 mt-0.5 leading-relaxed">
-                {wallet
-                  ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
-                  : "Workspace-wide view. Connect a wallet to scope to your treasury."}
-              </p>
-            </div>
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
-              Refresh
-            </button>
-          </div>
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <section className="mx-auto max-w-4xl px-6 pt-6 pb-4">
+          {/* Subtitle */}
+          <p className="text-[12.5px] text-muted-foreground mb-4">
+            {wallet
+              ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
+              : "Workspace-wide view. Connect a wallet to scope to your treasury."}
+          </p>
 
           {/* ─── Tab nav ────────────────────────────────── */}
-          <div className="flex items-center gap-1 px-3 pb-2 overflow-x-auto scrollbar-thin">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin border-b border-violet-100 pb-0">
             {TABS.map((t) => {
               const active = tab === t.key;
               return (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
+                  className={`group relative inline-flex items-center gap-2 rounded-t-lg px-3 py-2 text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
                     active
                       ? "bg-violet-600 text-white shadow-sm shadow-violet-600/20"
                       : "text-neutral-600 hover:bg-violet-50 hover:text-violet-700"
@@ -402,8 +413,7 @@ export default function InboxPage() {
               );
             })}
           </div>
-        </div>
-      </section>
+        </section>
 
       {/* ─── Active tab content ─────────────────────────── */}
       <section className="mx-auto max-w-4xl px-6 pb-16 space-y-3">
@@ -691,6 +701,7 @@ export default function InboxPage() {
           </>
         )}
       </section>
-    </main>
+      </div>
+    </div>
   );
 }
