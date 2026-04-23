@@ -32,7 +32,7 @@ import {
   RefreshCw,
   ChevronRight,
 } from "lucide-react";
-import glyphBrand from "@/assets/notif/glyph-brand.png";
+// glyphBrand removed — header no longer shows the brand crystal
 import glyphAgent from "@/assets/notif/glyph-agent.png";
 import glyphSecurity from "@/assets/notif/glyph-security.png";
 import glyphPurchase from "@/assets/notif/glyph-purchase.png";
