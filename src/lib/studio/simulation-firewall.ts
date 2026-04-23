@@ -1,40 +1,56 @@
 /**
- * Keystone Simulation Firewall
- * 
- * When a Mini-App requests signTransaction, the OS intercepts it and:
- * 1. Fork: Simulates the transaction against a mainnet fork (via Helius/Solana RPC)
- * 2. Analyze: Calculates exact balance changes (State Diff)
- * 3. Present: Returns a human-readable impact report
- * 4. Block: Hard blocks if simulation fails (revert/slippage)
- * 
- * [OPUS-4.6] — The Simulation Firewall
+ * Keystone Simulation Firewall (HARDENED — no mocks, no silent passes)
+ *
+ * Every transaction-producing operation in the platform is required to
+ * pass through this firewall before being signed by the user / vault.
+ *
+ * Pipeline:
+ *   1. `protect(quote)`  — quote-level pre-flight (price impact, route, slippage)
+ *   2. `simulate(tx)`    — real RPC `simulateTransaction` against mainnet,
+ *                          requesting `accounts` snapshots so we can compute
+ *                          true lamport / SPL token deltas and the real fee
+ *                          via `getFeeForMessage`.
+ *   3. policy `evaluate` — caller passes the report + sim into
+ *                          `@/lib/firewall/policy.evaluate` for hard checks.
+ *
+ * The previous mock paths (`mockSimulation`, log-regex balance extraction,
+ * hardcoded fee) have been deleted. Any unparseable input or RPC failure
+ * throws `FirewallBlockedError` — there is no silent-pass path.
  */
 
-import { Connection, VersionedTransaction, Transaction } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  VersionedTransaction,
+  type SimulatedTransactionAccountInfo,
+  type SimulatedTransactionResponse,
+} from "@solana/web3.js";
+import { FirewallBlockedError } from "@/lib/firewall/policy";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface BalanceChange {
-  token: string;       // Token symbol or mint address
-  before: number;      // Balance before
-  after: number;       // Balance after
-  change: number;      // Signed delta
-  changeUsd?: number;  // USD value of the change
+  token: string; // Token symbol or mint address
+  before: number;
+  after: number;
+  change: number;
+  changeUsd?: number;
 }
 
 export interface SimulationResult {
   success: boolean;
   error?: string;
   balanceChanges: BalanceChange[];
-  estimatedFee: number;      // SOL fee
-  logs: string[];            // Transaction logs from simulation
-  unitsConsumed: number;     // Compute units used
+  estimatedFee: number; // SOL
+  logs: string[];
+  unitsConsumed: number;
   riskLevel: "low" | "medium" | "high" | "critical";
-  humanSummary: string;      // e.g., "You lose 5 SOL, You gain 5000 USDC"
+  humanSummary: string;
 }
 
 /**
- * Pre-flight report returned by protect() — quote-level validation
+ * Pre-flight report returned by `protect()` — quote-level validation
  * before actual on-chain simulation.
  */
 export interface FirewallReport {
@@ -47,11 +63,35 @@ export interface FirewallReport {
   humanSummary: string;
 }
 
+// ─── SPL Token Account layout (slim parser) ─────────────────────────
+// Layout: mint(32) | owner(32) | amount(u64 LE, 8) | ...
+// We only need the first 72 bytes.
+const SPL_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const SPL_TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+function parseSplTokenAccount(dataBase64: string): { mint: string; owner: string; amount: bigint } | null {
+  try {
+    const buf = Buffer.from(dataBase64, "base64");
+    if (buf.length < 72) return null;
+    const mint = new PublicKey(buf.subarray(0, 32)).toBase58();
+    const owner = new PublicKey(buf.subarray(32, 64)).toBase58();
+    const amount = buf.readBigUInt64LE(64);
+    return { mint, owner, amount };
+  } catch {
+    return null;
+  }
+}
+
+function lamportsToSol(lamports: number | bigint): number {
+  const n = typeof lamports === "bigint" ? Number(lamports) : lamports;
+  return n / 1_000_000_000;
+}
+
 // ─── Risk Assessment ────────────────────────────────────────────────
 
-function assessRisk(changes: BalanceChange[], fee: number): SimulationResult["riskLevel"] {
+function assessRisk(changes: BalanceChange[], _fee: number): SimulationResult["riskLevel"] {
   const totalLossUsd = changes
-    .filter(c => c.change < 0)
+    .filter((c) => c.change < 0)
     .reduce((sum, c) => sum + Math.abs(c.changeUsd || 0), 0);
 
   if (totalLossUsd > 1000) return "critical";
@@ -61,29 +101,21 @@ function assessRisk(changes: BalanceChange[], fee: number): SimulationResult["ri
 }
 
 function buildHumanSummary(changes: BalanceChange[], fee: number): string {
-  const losses = changes.filter(c => c.change < 0);
-  const gains = changes.filter(c => c.change > 0);
+  const losses = changes.filter((c) => c.change < 0);
+  const gains = changes.filter((c) => c.change > 0);
 
   const parts: string[] = [];
-
   if (losses.length > 0) {
-    const lossStr = losses
-      .map(c => `${Math.abs(c.change).toLocaleString()} ${c.token}`)
-      .join(", ");
-    parts.push(`You send: ${lossStr}`);
+    parts.push(
+      `You send: ${losses.map((c) => `${Math.abs(c.change).toLocaleString()} ${c.token}`).join(", ")}`
+    );
   }
-
   if (gains.length > 0) {
-    const gainStr = gains
-      .map(c => `${c.change.toLocaleString()} ${c.token}`)
-      .join(", ");
-    parts.push(`You receive: ${gainStr}`);
+    parts.push(
+      `You receive: ${gains.map((c) => `${c.change.toLocaleString()} ${c.token}`).join(", ")}`
+    );
   }
-
-  if (fee > 0) {
-    parts.push(`Fee: ${fee.toFixed(6)} SOL`);
-  }
-
+  if (fee > 0) parts.push(`Fee: ${fee.toFixed(6)} SOL`);
   return parts.join(" | ") || "No balance changes detected";
 }
 
@@ -94,13 +126,12 @@ export class SimulationFirewall {
   private connection: Connection;
 
   private constructor(rpcUrl?: string) {
-    // Use HIGH-FIDELITY endpoint (Helius/Triton), never public RPC for simulation
-    const endpoint = rpcUrl
-      || process.env.HELIUS_RPC_URL
-      || (process.env.HELIUS_API_KEY
+    const endpoint =
+      rpcUrl ||
+      process.env.HELIUS_RPC_URL ||
+      (process.env.HELIUS_API_KEY
         ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
-        : process.env.NEXT_PUBLIC_SOLANA_RPC_URL
-          || "https://api.mainnet-beta.solana.com");
+        : process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com");
     this.connection = new Connection(endpoint, "confirmed");
   }
 
@@ -111,222 +142,260 @@ export class SimulationFirewall {
     return SimulationFirewall.instance;
   }
 
+  // ─── Quote pre-flight ────────────────────────────────────────────
   /**
-   * Pre-flight protection: validates a Jupiter quote BEFORE on-chain simulation.
-   * This is the method called by the ExecutionCoordinator during the SIMULATING state.
-   * It does NOT require actual transaction bytes — works on quote data alone.
+   * Validates a Jupiter-style quote BEFORE on-chain simulation.
+   * Strict — failed checks are not warnings.
    */
   protect(quote: {
     priceImpactPct?: string;
     inAmount?: string;
     outAmount?: string;
     outAmountWithSlippage?: string;
-    routePlan?: any[];
+    routePlan?: unknown[];
   }): FirewallReport {
     const priceImpact = parseFloat(quote.priceImpactPct || "0");
     const outAmount = parseFloat(quote.outAmount || "0");
     const inAmount = parseFloat(quote.inAmount || "0");
 
     const checks: Record<string, "pass" | "fail" | "warn"> = {
-      priceImpact: priceImpact > 5 ? "fail" : priceImpact > 1 ? "warn" : "pass",
+      priceImpact: priceImpact > 1 ? "fail" : priceImpact > 0.5 ? "warn" : "pass",
       outputNonZero: outAmount > 0 ? "pass" : "fail",
       inputNonZero: inAmount > 0 ? "pass" : "fail",
       routeExists: (quote.routePlan?.length || 0) > 0 ? "pass" : "fail",
-      slippageGuard: quote.outAmountWithSlippage ? "pass" : "warn",
+      slippageGuard: quote.outAmountWithSlippage ? "pass" : "fail",
     };
 
-    const hasFail = Object.values(checks).includes("fail");
+    const failedChecks = Object.entries(checks)
+      .filter(([, v]) => v === "fail")
+      .map(([k]) => k);
 
-    // Risk level
     let riskLevel: FirewallReport["riskLevel"] = "low";
     if (priceImpact > 5 || outAmount <= 0) riskLevel = "critical";
     else if (priceImpact > 2) riskLevel = "high";
     else if (priceImpact > 0.5) riskLevel = "medium";
 
-    // Human summary
+    const passed = failedChecks.length === 0;
     const parts: string[] = [];
-    if (hasFail) {
-      const failedChecks = Object.entries(checks)
-        .filter(([, v]) => v === "fail")
-        .map(([k]) => k);
-      parts.push(`BLOCKED: Failed checks: ${failedChecks.join(", ")}`);
-    } else {
-      parts.push(`All pre-flight checks passed`);
-    }
+    parts.push(
+      passed ? "All pre-flight checks passed" : `BLOCKED: Failed checks: ${failedChecks.join(", ")}`
+    );
     parts.push(`Price impact: ${priceImpact}%`);
     parts.push(`Risk: ${riskLevel}`);
 
     return {
-      passed: !hasFail,
+      passed,
       riskLevel,
       checks,
-      blockedReason: hasFail
-        ? `Simulation Firewall blocked: ${Object.entries(checks).filter(([,v]) => v === "fail").map(([k]) => k).join(", ")} failed`
-        : undefined,
+      blockedReason: passed
+        ? undefined
+        : `Simulation Firewall blocked: ${failedChecks.join(", ")} failed`,
       priceImpact,
       outputAmount: quote.outAmount || "0",
       humanSummary: parts.join(" | "),
     };
   }
 
+  // ─── On-chain simulation ─────────────────────────────────────────
   /**
-   * Simulate a transaction and return a human-readable impact report.
-   * Returns a SimulationResult with success=false if the tx would revert.
+   * Simulate a transaction against a real RPC and compute true
+   * pre/post balance deltas + the real fee. Throws
+   * `FirewallBlockedError` on any failure — never returns a silent pass.
    */
   async simulate(
-    transactionData: unknown,
+    transactionData: VersionedTransaction | Transaction | string | Uint8Array,
     signerPublicKey: string
   ): Promise<SimulationResult> {
+    if (!signerPublicKey) {
+      throw new FirewallBlockedError("Missing signer public key for simulation", [
+        "signer required",
+      ]);
+    }
+
+    // ─── 1. Normalize input → VersionedTransaction ─────────────────
+    let tx: VersionedTransaction;
     try {
-      // ─── 1. Parse Transaction ───────────────────────────
-      // In the current bridge flow, transactions arrive as serialized data
-      // For now, we simulate using the Solana RPC simulateTransaction
-
-      // Attempt to detect transaction type
-      let simulationResponse;
-      let logs: string[] = [];
-      let unitsConsumed = 0;
-
-      if (transactionData && typeof transactionData === "object" && "serialize" in (transactionData as object)) {
-        // Already a Transaction/VersionedTransaction object
-        const tx = transactionData as VersionedTransaction;
-        simulationResponse = await this.connection.simulateTransaction(tx, {
-          sigVerify: false,
-          replaceRecentBlockhash: true,
-        });
-      } else if (typeof transactionData === "string" || transactionData instanceof Uint8Array) {
-        // Serialized transaction bytes
-        const bytes = typeof transactionData === "string"
-          ? Buffer.from(transactionData, "base64")
-          : transactionData;
-        const tx = VersionedTransaction.deserialize(bytes);
-        simulationResponse = await this.connection.simulateTransaction(tx, {
-          sigVerify: false,
-          replaceRecentBlockhash: true,
-        });
+      if (transactionData instanceof VersionedTransaction) {
+        tx = transactionData;
+      } else if (transactionData instanceof Transaction) {
+        // Legacy → wrap as v0 by serializing the message
+        const msg = transactionData.compileMessage();
+        tx = new VersionedTransaction(msg);
+      } else if (typeof transactionData === "string") {
+        const bytes = Buffer.from(transactionData, "base64");
+        tx = VersionedTransaction.deserialize(bytes);
+      } else if (transactionData instanceof Uint8Array) {
+        tx = VersionedTransaction.deserialize(transactionData);
       } else {
-        // Cannot parse — return a mock simulation for demo purposes
-        return this.mockSimulation(transactionData, signerPublicKey);
+        throw new Error("Unsupported transaction format");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new FirewallBlockedError(
+        `Unparseable transaction: ${msg}`,
+        ["transaction could not be deserialized"],
+        "critical"
+      );
+    }
+
+    // ─── 2. Collect writable account keys for snapshot diff ────────
+    const writableKeys: PublicKey[] = [];
+    const allKeys: PublicKey[] = [];
+    try {
+      const message = tx.message;
+      const staticKeys = message.staticAccountKeys;
+      const numWritableSigners = message.header.numRequiredSignatures - message.header.numReadonlySignedAccounts;
+      const numWritableNonSigners =
+        staticKeys.length - message.header.numRequiredSignatures - message.header.numReadonlyUnsignedAccounts;
+      for (let i = 0; i < staticKeys.length; i++) {
+        allKeys.push(staticKeys[i]);
+        const isWritableSigner = i < numWritableSigners;
+        const isWritableNonSigner =
+          i >= message.header.numRequiredSignatures &&
+          i < message.header.numRequiredSignatures + numWritableNonSigners;
+        if (isWritableSigner || isWritableNonSigner) writableKeys.push(staticKeys[i]);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new FirewallBlockedError(
+        `Could not extract account keys: ${msg}`,
+        ["account key extraction failed"],
+        "critical"
+      );
+    }
+
+    // ─── 3. Snapshot pre-state for writable accounts ───────────────
+    let preAccounts: (SimulatedTransactionAccountInfo | null)[] = [];
+    try {
+      const infos = await this.connection.getMultipleAccountsInfo(writableKeys, "confirmed");
+      preAccounts = infos.map((info) =>
+        info
+          ? {
+              executable: info.executable,
+              owner: info.owner.toBase58(),
+              lamports: info.lamports,
+              data: [info.data.toString("base64"), "base64"],
+              rentEpoch: info.rentEpoch ?? 0,
+            }
+          : null
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new FirewallBlockedError(
+        `RPC pre-state snapshot failed: ${msg}`,
+        ["pre-snapshot failed"],
+        "critical"
+      );
+    }
+
+    // ─── 4. Run the actual simulation ──────────────────────────────
+    let simResp: { value: SimulatedTransactionResponse } | null = null;
+    try {
+      simResp = await this.connection.simulateTransaction(tx, {
+        sigVerify: false,
+        replaceRecentBlockhash: true,
+        commitment: "confirmed",
+        accounts: {
+          encoding: "base64",
+          addresses: writableKeys.map((k) => k.toBase58()),
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new FirewallBlockedError(
+        `On-chain simulation RPC failed: ${msg}`,
+        ["simulation RPC failed"],
+        "critical"
+      );
+    }
+
+    const result = simResp.value;
+
+    if (result.err) {
+      throw new FirewallBlockedError(
+        `Transaction would fail on-chain: ${JSON.stringify(result.err)}`,
+        [`program error: ${JSON.stringify(result.err)}`, ...(result.logs || []).slice(-5)],
+        "critical"
+      );
+    }
+
+    // ─── 5. Compute real fee via getFeeForMessage ──────────────────
+    let estimatedFee = 0;
+    try {
+      const feeResp = await this.connection.getFeeForMessage(tx.message, "confirmed");
+      if (typeof feeResp.value === "number") estimatedFee = lamportsToSol(feeResp.value);
+    } catch {
+      // Fee oracle is best-effort — we'll let policy.evaluate decide whether
+      // the (now zero) fee passes. Treat unavailability as 0 — policy still
+      // requires balance diff, so this alone cannot cause a silent pass.
+    }
+
+    // ─── 6. Compute real balance deltas from snapshots ─────────────
+    const postAccounts = result.accounts || [];
+    const balanceChanges: BalanceChange[] = [];
+    const signerBase58 = signerPublicKey;
+
+    for (let i = 0; i < writableKeys.length; i++) {
+      const key = writableKeys[i].toBase58();
+      const pre = preAccounts[i];
+      const post = postAccounts[i];
+
+      const preLamports = pre?.lamports ?? 0;
+      const postLamports = post?.lamports ?? 0;
+      const lamportDelta = postLamports - preLamports;
+
+      // Native SOL change for the signer
+      if (key === signerBase58 && lamportDelta !== 0) {
+        balanceChanges.push({
+          token: "SOL",
+          before: lamportsToSol(preLamports),
+          after: lamportsToSol(postLamports),
+          change: lamportsToSol(lamportDelta),
+        });
+        continue;
       }
 
-      // ─── 2. Process Simulation Results ──────────────────
-      const result = simulationResponse.value;
-
-      if (result.err) {
-        return {
-          success: false,
-          error: `Transaction would fail: ${JSON.stringify(result.err)}`,
-          balanceChanges: [],
-          estimatedFee: 0.000005,
-          logs: result.logs || [],
-          unitsConsumed: result.unitsConsumed || 0,
-          riskLevel: "critical",
-          humanSummary: "BLOCKED: Transaction simulation failed. This transaction would revert on-chain.",
-        };
+      // SPL token account change owned by signer
+      const owner = post?.owner ?? pre?.owner;
+      if (owner === SPL_TOKEN_PROGRAM || owner === SPL_TOKEN_2022_PROGRAM) {
+        const preData = pre?.data?.[0];
+        const postDataRaw = post?.data;
+        const postData = Array.isArray(postDataRaw) ? postDataRaw[0] : undefined;
+        const preParsed = preData ? parseSplTokenAccount(preData) : null;
+        const postParsed = postData ? parseSplTokenAccount(postData) : null;
+        const tokenOwner = postParsed?.owner || preParsed?.owner;
+        if (tokenOwner === signerBase58) {
+          const preAmt = Number(preParsed?.amount ?? BigInt(0));
+          const postAmt = Number(postParsed?.amount ?? BigInt(0));
+          const delta = postAmt - preAmt;
+          if (delta !== 0) {
+            balanceChanges.push({
+              token: postParsed?.mint || preParsed?.mint || key,
+              before: preAmt,
+              after: postAmt,
+              change: delta,
+            });
+          }
+        }
       }
-
-      logs = result.logs || [];
-      unitsConsumed = result.unitsConsumed || 0;
-
-      // ─── 3. Extract Balance Changes ─────────────────────
-      // Note: Full balance diff requires pre/post account state comparison
-      // which needs the simulateTransaction with `accounts` config.
-      // For now, we analyze logs and return estimated changes.
-      const balanceChanges = this.extractBalanceChangesFromLogs(logs);
-      const fee = 0.000005; // Base fee estimate
-
-      const riskLevel = assessRisk(balanceChanges, fee);
-      const humanSummary = buildHumanSummary(balanceChanges, fee);
-
-      return {
-        success: true,
-        balanceChanges,
-        estimatedFee: fee,
-        logs,
-        unitsConsumed,
-        riskLevel,
-        humanSummary,
-      };
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        error: `Simulation error: ${message}`,
-        balanceChanges: [],
-        estimatedFee: 0,
-        logs: [],
-        unitsConsumed: 0,
-        riskLevel: "critical",
-        humanSummary: `BLOCKED: Could not simulate transaction. ${message}`,
-      };
     }
-  }
 
-  /**
-   * Mock simulation for demo/dev mode when we can't deserialize the tx.
-   */
-  private mockSimulation(
-    transactionData: unknown,
-    signerPublicKey: string
-  ): SimulationResult {
-    // Extract hints from the transaction metadata if available
-    const metadata = (transactionData as Record<string, unknown>)?.metadata as Record<string, string> | undefined;
-    const txType = metadata?.type || "unknown";
-
-    let balanceChanges: BalanceChange[] = [];
-    let humanSummary = "Transaction simulated (mock mode)";
-
-    if (txType === "jupiter_swap") {
-      balanceChanges = [
-        { token: "SOL", before: 124.5, after: 123.5, change: -1, changeUsd: -23.40 },
-        { token: "USDC", before: 5400.2, after: 5423.60, change: 23.40, changeUsd: 23.40 },
-      ];
-      humanSummary = "You send: 1 SOL | You receive: ~23.40 USDC | Fee: 0.000005 SOL";
-    } else if (txType === "transfer") {
-      balanceChanges = [
-        { token: "SOL", before: 124.5, after: 119.5, change: -5, changeUsd: -117.00 },
-      ];
-      humanSummary = "You send: 5 SOL | Fee: 0.000005 SOL";
-    }
+    const logs = result.logs || [];
+    const unitsConsumed = result.unitsConsumed || 0;
+    const riskLevel = assessRisk(balanceChanges, estimatedFee);
+    const humanSummary = buildHumanSummary(balanceChanges, estimatedFee);
 
     return {
       success: true,
       balanceChanges,
-      estimatedFee: 0.000005,
-      logs: ["[Mock] Transaction simulation passed"],
-      unitsConsumed: 200000,
-      riskLevel: assessRisk(balanceChanges, 0.000005),
+      estimatedFee,
+      logs,
+      unitsConsumed,
+      riskLevel,
       humanSummary,
     };
-  }
-
-  /**
-   * Parse simulation logs to extract balance change hints.
-   * This is a best-effort heuristic — full state diff requires account snapshots.
-   */
-  private extractBalanceChangesFromLogs(logs: string[]): BalanceChange[] {
-    const changes: BalanceChange[] = [];
-
-    for (const log of logs) {
-      // Look for Transfer instructions in logs
-      const transferMatch = log.match(/Transfer:\s*(\d+(?:\.\d+)?)\s*(SOL|USDC|lamports)/i);
-      if (transferMatch) {
-        const amount = parseFloat(transferMatch[1]);
-        const token = transferMatch[2].toUpperCase();
-        changes.push({
-          token,
-          before: 0,
-          after: 0,
-          change: -amount,
-        });
-      }
-    }
-
-    return changes;
   }
 }
 
 // ─── Singleton ──────────────────────────────────────────────────────
-// Use SimulationFirewall.getInstance() for the proper singleton.
-// Legacy export kept for backwards compatibility.
 export const simulationFirewall = SimulationFirewall.getInstance();
