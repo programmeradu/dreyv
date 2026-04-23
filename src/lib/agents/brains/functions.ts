@@ -257,6 +257,18 @@ export const txProposalReaper = inngest.createFunction(
   },
 );
 
+/**
+ * Reconcile `submitted` tx proposals against on-chain status every 5 min so
+ * rows don't get stranded when the user closes the tab mid-confirmation.
+ */
+export const txProposalReconciler = inngest.createFunction(
+  { id: "brains-tx-proposal-reconciler", name: "Brains • Tx proposal reconciler" },
+  { cron: "*/5 * * * *" },
+  async ({ step }) => {
+    return await step.run("reconcile-tx", () => reconcileSubmittedTxProposals());
+  },
+);
+
 export const BRAIN_FUNCTIONS = [
   opportunityRouter,
   subAgentSpawner,
@@ -265,4 +277,5 @@ export const BRAIN_FUNCTIONS = [
   treasuryWatch5m,
   reflectorListener,
   txProposalReaper,
+  txProposalReconciler,
 ];
