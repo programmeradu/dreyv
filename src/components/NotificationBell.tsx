@@ -326,15 +326,33 @@ export function NotificationBell() {
                             ? `${count} New Update${count === 1 ? "" : "s"}`
                             : `${visible.length} Notification${visible.length === 1 ? "" : "s"}`}
                     </p>
-                    {count > 0 && (
-                        <button
-                            onClick={markAllRead}
-                            type="button"
-                            className="text-[11px] font-bold tracking-[0.08em] uppercase text-slate-700 hover:text-violet-600 transition-colors"
+                    <div className="flex items-center gap-1 shrink-0">
+                        {count > 0 && (
+                            <button
+                                onClick={markAllRead}
+                                type="button"
+                                className="text-[11px] font-bold tracking-[0.08em] uppercase text-slate-700 hover:text-violet-600 transition-colors px-2"
+                            >
+                                Mark all as read
+                            </button>
+                        )}
+                        <a
+                            href="/app/settings"
+                            onClick={() => setOpen(false)}
+                            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Notification settings"
                         >
-                            Mark all as read
+                            <SlidersHorizontal size={15} />
+                        </a>
+                        <button
+                            type="button"
+                            onClick={() => setOpen(false)}
+                            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Close"
+                        >
+                            <X size={16} />
                         </button>
-                    )}
+                    </div>
                 </div>
 
                 {/* ─── List ───────────────────────────────────────────── */}
