@@ -736,9 +736,47 @@ function AuthPageContent() {
                                             </div>
                                         )}
 
-                                        <div className="space-y-1.5 lg:space-y-2">
-                                            <WalletButton
-                                                name="Phantom"
+                                        {inviteState.status !== 'none' && (
+                                            <div className={`flex items-start gap-2.5 rounded-xl border p-3 lg:gap-3 lg:p-3.5 ${
+                                                inviteState.status === 'valid'
+                                                    ? 'border-violet-300/70 bg-violet-50'
+                                                    : inviteState.status === 'checking'
+                                                    ? 'border-violet-200/70 bg-white'
+                                                    : 'border-amber-200/80 bg-amber-50'
+                                            }`}>
+                                                {inviteState.status === 'checking' ? (
+                                                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-violet-600" />
+                                                ) : inviteState.status === 'valid' ? (
+                                                    <Sparkles size={16} className="mt-0.5 shrink-0 text-violet-600" />
+                                                ) : (
+                                                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                                )}
+                                                <div className="min-w-0">
+                                                    {inviteState.status === 'checking' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-slate-700 lg:text-[13px]">Verifying your invite…</p>
+                                                    )}
+                                                    {inviteState.status === 'valid' && (
+                                                        <>
+                                                            <p className="text-[12px] font-bold leading-snug text-violet-800 lg:text-[13px]">Cohort invite accepted</p>
+                                                            <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-600 lg:text-[12px]">
+                                                                {inviteState.email ? `Signed for ${inviteState.email}. ` : ''}Connect a wallet to complete onboarding.
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                    {inviteState.status === 'expired' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">This invite has expired. Reply to your invite email and we&apos;ll send a fresh one.</p>
+                                                    )}
+                                                    {inviteState.status === 'used' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">This invite was already used. Sign in with the wallet you onboarded with.</p>
+                                                    )}
+                                                    {inviteState.status === 'invalid' && (
+                                                        <p className="text-[12px] font-medium leading-snug text-amber-900 lg:text-[13px]">We couldn&apos;t verify this invite link. You can still sign in to the Free tier below.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+
                                                 domain="phantom.app"
                                                 onClick={handleConnectWallet}
                                                 recommended
