@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { WalletButton } from "@/components/WalletButton";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
-import { Search, Plus, Box, ArrowRight, Rocket, Flame, Sparkles, Star, Gift, TrendingUp } from "lucide-react";
+import { Search, Plus, Box, ArrowRight, Rocket, Flame, Zap, Star, Gift, TrendingUp, LayoutGrid } from "lucide-react";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
 import { Suspense } from "react";
 import { MiniAppCardCompact } from "@/components/studio/MiniAppCardCompact";
@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 const CATEGORIES = [
-    { key: "All", icon: Sparkles },
+    { key: "All", icon: LayoutGrid },
     { key: "DeFi", icon: TrendingUp },
     { key: "NFT", icon: Star },
     { key: "Governance", icon: Box },
@@ -115,7 +115,7 @@ export default function MarketplacePage() {
             {
                 key: "new",
                 title: "New this week",
-                icon: Sparkles,
+                icon: Zap,
                 accent: "text-primary",
                 filter: (a) => {
                     const sorted = [...a].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
