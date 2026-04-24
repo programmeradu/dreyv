@@ -1,5 +1,17 @@
 import * as squads from "@sqds/multisig";
-import { Connection, PublicKey, Keypair, Transaction, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
+import {
+    Connection,
+    PublicKey,
+    Keypair,
+    Transaction,
+    TransactionInstruction,
+    VersionedTransaction,
+    TransactionMessage,
+    SystemProgram,
+    LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+// @ts-ignore — spl-token's package.json exports map confuses TS bundler resolution but runtime works fine
+import { createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // @sqds/multisig v2.x (Squads v4) exports helpers at the top level or under namespaces
 const { getTransactionPda, getProposalPda, getVaultPda, getMultisigPda } = squads;
@@ -440,12 +452,15 @@ export class SquadsClient {
      */
     async createVaultTransaction(
         vaultAddress: string,
-        instructions: any[],
+        instructions: TransactionInstruction[],
         vaultIndex: number = 0,
-        memo: string = "Keystone Action"
+        memo: string = "Dreyv Action"
     ): Promise<string> {
         if (!this.wallet || !this.wallet.publicKey) {
             throw new Error("Wallet not connected");
+        }
+        if (!instructions || instructions.length === 0) {
+            throw new Error("createVaultTransaction requires at least one instruction. Empty proposals are no longer permitted.");
         }
 
         try {
@@ -455,24 +470,172 @@ export class SquadsClient {
                 multisigKey
             );
 
-            // Get current transaction index
-            const transactionIndex = Number(multisigAccount.transactionIndex) + 1;
-
-            // In v4, we create a 'VaultTransaction'
-            // getTransactionPda takes { multisigPda, index }
+            const creator = this.wallet.publicKey as PublicKey;
+            const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1);
+            const [vaultPda] = getVaultPda({ multisigPda: multisigKey, index: vaultIndex });
             const [vaultTransactionKey] = getTransactionPda({
                 multisigPda: multisigKey,
-                index: BigInt(transactionIndex)
+                index: transactionIndex,
             });
 
-            // Note: In real app, we would use squads.instructions.vaultTransactionCreate
-            // which takes { multisigPda, vaultIndex, transactionIndex, creator, ... }
-            return vaultTransactionKey.toBase58();
+            const latestBlockhash = await this.connection.getLatestBlockhash();
 
+            // Build the inner message that the vault PDA will execute on success
+            const innerMessage = new TransactionMessage({
+                payerKey: vaultPda,
+                recentBlockhash: latestBlockhash.blockhash,
+                instructions,
+            });
+
+            const vaultTxIx = squads.instructions.vaultTransactionCreate({
+                multisigPda: multisigKey,
+                transactionIndex,
+                creator,
+                vaultIndex,
+                ephemeralSigners: 0,
+                transactionMessage: innerMessage,
+                memo,
+            });
+
+            const proposalIx = squads.instructions.proposalCreate({
+                multisigPda: multisigKey,
+                transactionIndex,
+                creator,
+                isDraft: false,
+            });
+
+            const activateIx = squads.instructions.proposalActivate({
+                multisigPda: multisigKey,
+                transactionIndex,
+                member: creator,
+            });
+
+            const tx = new Transaction().add(vaultTxIx, proposalIx, activateIx);
+            tx.feePayer = creator;
+            tx.recentBlockhash = latestBlockhash.blockhash;
+
+            const signedTx = await this.wallet.signTransaction(tx);
+            await this.connection.sendRawTransaction(signedTx.serialize());
+
+            return vaultTransactionKey.toBase58();
         } catch (error) {
             console.error("Failed to create Squads Proposal:", error);
             throw error;
         }
+    }
+
+    /**
+     * Returns the SOL/SPL transfer instructions that the vault PDA must execute.
+     * Use these as the `instructions` arg to createVaultTransaction.
+     */
+    async buildTransferInstructions({
+        vaultAddress,
+        recipient,
+        amount,
+        mint,
+        decimals,
+        vaultIndex = 0,
+    }: {
+        vaultAddress: string;
+        recipient: string;
+        amount: number;
+        mint?: string;       // omit/empty for native SOL
+        decimals?: number;   // required for SPL transfers
+        vaultIndex?: number;
+    }): Promise<TransactionInstruction[]> {
+        const multisigKey = new PublicKey(vaultAddress);
+        const [vaultPda] = getVaultPda({ multisigPda: multisigKey, index: vaultIndex });
+        const recipientKey = new PublicKey(recipient);
+
+        // Native SOL transfer
+        if (!mint || mint === "SOL" || mint === "So11111111111111111111111111111111111111112") {
+            const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
+            return [SystemProgram.transfer({
+                fromPubkey: vaultPda,
+                toPubkey: recipientKey,
+                lamports,
+            })];
+        }
+
+        // SPL transfer
+        if (typeof decimals !== "number") {
+            throw new Error("decimals is required for SPL transfers");
+        }
+        const mintKey = new PublicKey(mint);
+        const sourceAta = getAssociatedTokenAddressSync(mintKey, vaultPda, true);
+        const destAta = getAssociatedTokenAddressSync(mintKey, recipientKey);
+        const rawAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
+
+        return [
+            // Idempotently create the destination ATA so transfers don't fail when the recipient hasn't held this token
+            createAssociatedTokenAccountIdempotentInstruction(vaultPda, destAta, recipientKey, mintKey),
+            createTransferInstruction(sourceAta, destAta, vaultPda, rawAmount, [], TOKEN_PROGRAM_ID),
+        ];
+    }
+
+    /**
+     * Builds Jupiter swap instructions targeted at the vault PDA so they can be wrapped in a Squads proposal.
+     * Returns the inner instructions and any address-lookup-table accounts required.
+     */
+    async buildJupiterSwapInstructionsForVault({
+        vaultAddress,
+        inputMint,
+        outputMint,
+        amount,            // raw lamports/units (already decimal-adjusted)
+        slippageBps = 50,
+        vaultIndex = 0,
+    }: {
+        vaultAddress: string;
+        inputMint: string;
+        outputMint: string;
+        amount: number;
+        slippageBps?: number;
+        vaultIndex?: number;
+    }): Promise<{ instructions: TransactionInstruction[]; lookupTableKeys: string[] }> {
+        const multisigKey = new PublicKey(vaultAddress);
+        const [vaultPda] = getVaultPda({ multisigPda: multisigKey, index: vaultIndex });
+
+        // 1. Quote
+        const quoteRes = await fetch(
+            `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`
+        );
+        if (!quoteRes.ok) throw new Error(`Jupiter quote failed: ${quoteRes.status}`);
+        const quote = await quoteRes.json();
+
+        // 2. Swap-instructions endpoint returns raw ixs for a custom payer/signer
+        const swapIxRes = await fetch("https://lite-api.jup.ag/swap/v1/swap-instructions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                quoteResponse: quote,
+                userPublicKey: vaultPda.toBase58(),
+                wrapAndUnwrapSol: true,
+            }),
+        });
+        if (!swapIxRes.ok) throw new Error(`Jupiter swap-instructions failed: ${swapIxRes.status}`);
+        const ixData = await swapIxRes.json();
+
+        const toIx = (raw: any): TransactionInstruction => new TransactionInstruction({
+            programId: new PublicKey(raw.programId),
+            keys: raw.accounts.map((a: any) => ({
+                pubkey: new PublicKey(a.pubkey),
+                isSigner: a.isSigner,
+                isWritable: a.isWritable,
+            })),
+            data: Buffer.from(raw.data, "base64"),
+        });
+
+        const all: TransactionInstruction[] = [
+            ...(ixData.computeBudgetInstructions || []).map(toIx),
+            ...(ixData.setupInstructions || []).map(toIx),
+            toIx(ixData.swapInstruction),
+        ];
+        if (ixData.cleanupInstruction) all.push(toIx(ixData.cleanupInstruction));
+
+        return {
+            instructions: all,
+            lookupTableKeys: ixData.addressLookupTableAddresses || [],
+        };
     }
 
     /**
@@ -541,6 +704,7 @@ export class SquadsClient {
         type?: string;
         amount?: string;
         token?: string;
+        counterparty?: string;
     }[]> {
         try {
             const resolvedKey = await this.resolveVaultAddress(vaultAddress);
@@ -556,6 +720,7 @@ export class SquadsClient {
                 type?: string;
                 amount?: string;
                 token?: string;
+                counterparty?: string;
             }[] = signatures.map(sig => ({
                 signature: sig.signature,
                 blockTime: sig.blockTime ?? null,

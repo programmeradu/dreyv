@@ -87,12 +87,20 @@ export function useTransactionExecutor() {
     const lamports = Math.floor(params.amount * Math.pow(10, decimals));
     const slippageBps = params.slippageBps || 50;
 
-    // ─── Multisig Path: Create Squads Proposal ─────────────────────
+    // ─── Multisig Path: Create Squads Proposal with REAL Jupiter ixs ─
     if (isMultisig && sqClient && activeVault) {
       try {
+        const { instructions } = await sqClient.buildJupiterSwapInstructionsForVault({
+          vaultAddress: activeVault,
+          inputMint,
+          outputMint,
+          amount: lamports,
+          slippageBps,
+        });
+
         const proposalKey = await sqClient.createVaultTransaction(
           activeVault,
-          [], // Instructions would be built from Jupiter quote
+          instructions,
           0,
           `Swap ${params.amount} ${params.inputToken} → ${params.outputToken}`
         );
@@ -170,14 +178,26 @@ export function useTransactionExecutor() {
    * Execute a transfer: wallet sign (individual) or Squads proposal (multisig)
    */
   const executeTransfer = useCallback(async (params: TransferParams): Promise<ExecutionResult> => {
-    // ─── Multisig Path ─────────────────────────────────────────────
+    // ─── Multisig Path: Real SOL/SPL transfer instructions ─────────
     if (isMultisig && sqClient && activeVault) {
       try {
+        const isSol = params.token.toUpperCase() === "SOL";
+        const mint = isSol ? undefined : resolveMint(params.token);
+        const decimals = isSol ? 9 : getDecimals(params.token);
+
+        const instructions = await sqClient.buildTransferInstructions({
+          vaultAddress: activeVault,
+          recipient: params.recipient,
+          amount: params.amount,
+          mint,
+          decimals,
+        });
+
         const proposalKey = await sqClient.createVaultTransaction(
           activeVault,
-          [],
+          instructions,
           0,
-          `Transfer ${params.amount} ${params.token} to ${params.recipient}`
+          `Transfer ${params.amount} ${params.token} to ${params.recipient.slice(0, 8)}...`
         );
         toast.success("Proposal Created", {
           description: `Transfer proposal ${proposalKey.slice(0, 8)}... submitted.`,
