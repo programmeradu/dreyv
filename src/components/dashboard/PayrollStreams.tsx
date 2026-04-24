@@ -27,44 +27,65 @@ export function PayrollStreams() {
     const [paths, setPaths] = useState<Record<string, string>>({});
 
     const streams = useMemo<DerivedStream[]>(() => {
-        const candidates = (recentTransactions || [])
-            .filter((tx: any) => {
-                if (!tx?.success) return false;
-                const amountText = String(tx?.amount || "");
-                const numeric = Number(amountText.replace(/[^0-9.-]/g, ""));
-                return Number.isFinite(numeric) && numeric < 0;
-            })
-            .slice(0, 20)
-            .map((tx: any) => {
-                const amountText = String(tx?.amount || "0");
-                const value = Math.abs(Number(amountText.replace(/[^0-9.-]/g, "")));
-                const token = (tx?.token || "USDC").toUpperCase();
-                const sig = String(tx?.signature || "");
-                const short = sig ? `${sig.slice(0, 4)}…${sig.slice(-4)}` : "Unknown";
-                const name = `Payee ${short}`;
-                return {
-                    id: sig || `${tx?.slot || Math.random()}`,
-                    name,
-                    monthlyUsd: value,
-                    rateLabel: `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${token}`,
-                    avatar: getAvatarUrl(name),
-                };
-            });
+        // Build per-recipient aggregates over the last 60 days, then normalize to a 30-day cadence.
+        const NOW = Date.now();
+        const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 
-        // Aggregate by payee label and keep top 3
-        const merged = new Map<string, DerivedStream>();
-        for (const c of candidates) {
-            const existing = merged.get(c.name);
-            if (!existing) {
-                merged.set(c.name, c);
-                continue;
-            }
-            existing.monthlyUsd += c.monthlyUsd;
-            existing.rateLabel = `${existing.monthlyUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`;
+        type Bucket = {
+            recipient: string;
+            token: string;
+            totalAbs: number;
+            firstSeen: number;
+            lastSeen: number;
+            count: number;
+        };
+        const byRecipient = new Map<string, Bucket>();
+
+        for (const tx of recentTransactions || []) {
+            if (!tx?.success) continue;
+            const recipient: string = tx?.counterparty;
+            if (!recipient) continue; // need a real on-chain destination
+
+            const blockTimeMs = tx?.blockTime ? tx.blockTime * 1000 : NOW;
+            if (NOW - blockTimeMs > SIXTY_DAYS_MS) continue;
+
+            const amountText = String(tx?.amount || "");
+            const numeric = Number(amountText.replace(/[^0-9.-]/g, ""));
+            if (!Number.isFinite(numeric) || numeric >= 0) continue; // outgoing only
+
+            const token = (tx?.token || "USDC").toUpperCase();
+            const key = `${recipient}::${token}`;
+            const bucket = byRecipient.get(key) || {
+                recipient,
+                token,
+                totalAbs: 0,
+                firstSeen: blockTimeMs,
+                lastSeen: blockTimeMs,
+                count: 0,
+            };
+            bucket.totalAbs += Math.abs(numeric);
+            bucket.firstSeen = Math.min(bucket.firstSeen, blockTimeMs);
+            bucket.lastSeen = Math.max(bucket.lastSeen, blockTimeMs);
+            bucket.count += 1;
+            byRecipient.set(key, bucket);
         }
-        return [...merged.values()]
-            .sort((a, b) => b.monthlyUsd - a.monthlyUsd)
-            .slice(0, 3);
+
+        // Normalize each bucket to a 30-day "monthly" rate based on observed cadence
+        const out: DerivedStream[] = [];
+        for (const b of byRecipient.values()) {
+            const spanDays = Math.max(1, (b.lastSeen - b.firstSeen) / (24 * 60 * 60 * 1000));
+            // If only one tx, treat as monthly base; otherwise scale by observed cadence
+            const monthly = b.count <= 1 ? b.totalAbs : b.totalAbs * (30 / Math.min(60, spanDays));
+            const name = `${b.recipient.slice(0, 4)}…${b.recipient.slice(-4)}`;
+            out.push({
+                id: b.recipient,
+                name,
+                monthlyUsd: monthly,
+                rateLabel: `${monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${b.token} / mo`,
+                avatar: getAvatarUrl(b.recipient),
+            });
+        }
+        return out.sort((a, b) => b.monthlyUsd - a.monthlyUsd).slice(0, 3);
     }, [recentTransactions]);
 
     const totalMonthlyFlow = useMemo(
