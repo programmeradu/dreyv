@@ -704,6 +704,7 @@ export class SquadsClient {
         type?: string;
         amount?: string;
         token?: string;
+        counterparty?: string;
     }[]> {
         try {
             const resolvedKey = await this.resolveVaultAddress(vaultAddress);
@@ -719,6 +720,7 @@ export class SquadsClient {
                 type?: string;
                 amount?: string;
                 token?: string;
+                counterparty?: string;
             }[] = signatures.map(sig => ({
                 signature: sig.signature,
                 blockTime: sig.blockTime ?? null,
