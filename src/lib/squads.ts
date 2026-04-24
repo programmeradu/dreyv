@@ -10,6 +10,7 @@ import {
     SystemProgram,
     LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
+// @ts-ignore — spl-token's package.json exports map confuses TS bundler resolution but runtime works fine
 import {
     createTransferInstruction,
     createAssociatedTokenAccountIdempotentInstruction,
