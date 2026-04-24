@@ -174,17 +174,55 @@ export function VaultSelector() {
         return (
             <div className="relative mb-8">
                 {createMode ? (
-                    <div className="p-4 rounded-2xl bg-card border border-primary/30 shadow-[0_0_15px_rgba(37,168,92,0.15)] flex flex-col items-center justify-center text-center">
-                        <Shield className="w-10 h-10 text-primary mb-3" />
-                        <h3 className="text-sm font-semibold text-foreground mb-1">Create a New Squads Vault</h3>
-                        <p className="text-[11px] text-muted-foreground mb-4">Deploy a native Squads V4 multisig to the Solana blockchain. You will be set as the initial admin (1/1 threshold).</p>
-                        <div className="flex gap-2 w-full">
+                    <div className="p-5 rounded-2xl bg-card border border-primary/30 shadow-[0_0_15px_rgba(124,58,237,0.15)]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                                <Shield size={16} />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-sm font-semibold text-foreground leading-tight">Configure Squads V4 Vault</h3>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Your wallet is added automatically. Add co-signers and pick the threshold.</p>
+                            </div>
+                        </div>
+
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Co-signer addresses (optional)</label>
+                        <textarea
+                            value={memberInput}
+                            onChange={(e) => setMemberInput(e.target.value)}
+                            placeholder="Paste one Solana address per line..."
+                            rows={3}
+                            disabled={isCreating}
+                            className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-[11px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50 transition-colors mb-1 resize-none"
+                        />
+                        <div className="flex items-center justify-between mb-3 text-[10px] text-muted-foreground">
+                            <span>{parsedMembers.length} valid co-signer{parsedMembers.length === 1 ? "" : "s"}</span>
+                            <span>{totalMembers} total member{totalMembers === 1 ? "" : "s"} (incl. you)</span>
+                        </div>
+
+                        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Approval threshold</label>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, totalMembers)}
+                                value={thresholdInput}
+                                onChange={(e) => setThresholdInput(e.target.value)}
+                                disabled={isCreating}
+                                className="w-16 h-9 bg-muted border border-border rounded-lg px-2 text-[12px] font-mono text-foreground text-center focus:outline-none focus:border-primary/50"
+                            />
+                            <span className="text-[11px] text-muted-foreground">of {totalMembers} signature{totalMembers === 1 ? "" : "s"} required to execute</span>
+                        </div>
+                        {!thresholdValid && (
+                            <p className="text-[10px] text-destructive mb-2">Threshold must be between 1 and {totalMembers}.</p>
+                        )}
+
+                        <div className="flex gap-2">
                             <button
                                 onClick={handleCreateMultisig}
-                                disabled={isCreating}
-                                className="flex-1 h-9 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50 relative"
+                                disabled={isCreating || !thresholdValid}
+                                className="flex-1 h-9 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50"
                             >
-                                {isCreating ? "Deploying..." : "Sign & Deploy"}
+                                {isCreating ? "Deploying..." : `Deploy ${thresholdNum}-of-${totalMembers} Multisig`}
                             </button>
                             <button
                                 onClick={() => setCreateMode(false)}
