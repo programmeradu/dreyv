@@ -1,7 +1,8 @@
 "use client";
 import React from "react";
 import { Marquee } from "@/components/ui/marquee";
-import { Activity, Download, Rocket, ShieldCheck } from "lucide-react";
+import { Activity } from "lucide-react";
+import { CrystalIcon, type CrystalName } from "@/components/marketplace/CrystalIcon";
 
 interface ActivityTickerProps {
     apps: any[];
@@ -11,17 +12,16 @@ export function ActivityTicker({ apps }: ActivityTickerProps) {
     if (!apps || apps.length === 0) return null;
 
     const items = apps.slice(0, 12).map((app, i) => {
-        const variants = [
-            { icon: Download, text: `installed ${app.name}`, accent: "text-primary" },
-            { icon: Rocket, text: `published ${app.name}`, accent: "text-emerald-400" },
-            { icon: ShieldCheck, text: `audited ${app.name}`, accent: "text-blue-400" },
+        const variants: { crystal: CrystalName; text: string }[] = [
+            { crystal: "installed", text: `installed ${app.name}` },
+            { crystal: "publish", text: `published ${app.name}` },
+            { crystal: "security", text: `audited ${app.name}` },
         ];
         const v = variants[i % variants.length];
         const wallet = app.creatorWallet || "";
         return {
             key: `${app.id}-${i}`,
-            Icon: v.icon,
-            accent: v.accent,
+            crystal: v.crystal,
             who: `${wallet.slice(0, 4)}…${wallet.slice(-4)}`,
             text: v.text,
         };
@@ -38,9 +38,9 @@ export function ActivityTicker({ apps }: ActivityTickerProps) {
                 <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Live</span>
             </div>
             <Marquee className="[--duration:50s] flex-1" pauseOnHover>
-                {items.map(({ key, Icon, accent, who, text }) => (
+                {items.map(({ key, crystal, who, text }) => (
                     <div key={key} className="flex items-center gap-2 text-[11px] font-mono whitespace-nowrap">
-                        <Icon size={11} className={accent} />
+                        <CrystalIcon name={crystal} size={18} alt="" />
                         <span className="text-muted-foreground uppercase tracking-wider">{who}</span>
                         <span className="text-foreground/80">{text}</span>
                         <span className="text-border">•</span>
