@@ -11,12 +11,7 @@ import {
     LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 // @ts-ignore — spl-token's package.json exports map confuses TS bundler resolution but runtime works fine
-import {
-    createTransferInstruction,
-    createAssociatedTokenAccountIdempotentInstruction,
-    getAssociatedTokenAddressSync,
-    TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // @sqds/multisig v2.x (Squads v4) exports helpers at the top level or under namespaces
 const { getTransactionPda, getProposalPda, getVaultPda, getMultisigPda } = squads;
