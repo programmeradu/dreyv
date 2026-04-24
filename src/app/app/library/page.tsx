@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Box, Play, Clock, MoreVertical, LayoutGrid, Store, Trash2, XCircle } from "lucide-react";
+import { CrystalIcon } from "@/components/marketplace/CrystalIcon";
 import { Logo } from "@/components/icons";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
@@ -140,15 +141,7 @@ export default function LibraryPage() {
 
                                 <div className="hidden md:flex relative w-48 h-48 items-center justify-center">
                                     <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 blur-2xl" />
-                                    <div className="relative w-32 h-32 rounded-3xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-xl shadow-primary/30 rotate-6">
-                                        <Box size={56} strokeWidth={1.5} className="text-primary-foreground -rotate-6" />
-                                    </div>
-                                    <div className="absolute -top-2 -right-2 w-12 h-12 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center">
-                                        <LayoutGrid size={20} className="text-primary" />
-                                    </div>
-                                    <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-2xl bg-card border border-border shadow-lg flex items-center justify-center">
-                                        <Store size={20} className="text-primary" />
-                                    </div>
+                                    <CrystalIcon name="all" size={180} alt="Your Library" />
                                 </div>
                             </div>
                         </div>
