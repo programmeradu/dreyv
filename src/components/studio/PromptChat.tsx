@@ -5,7 +5,8 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, Sparkles, MessageSquare, ListTree } from "lucide-react";
+import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, MessageSquare, ListTree } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { ArchitectIcon } from "@/components/icons";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -637,7 +638,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                                                         disabled={isGenerating}
                                                         className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/20 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center gap-1 disabled:opacity-50"
                                                     >
-                                                        <Sparkles size={10} />
+                                                        <DreyvStar size={10} />
                                                         {chip}
                                                     </button>
                                                 ))}

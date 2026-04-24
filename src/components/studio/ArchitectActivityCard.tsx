@@ -8,9 +8,9 @@ import {
     Wrench,
     CheckCircle2,
     AlertTriangle,
-    Sparkles,
     Brain,
 } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export type ActivityCard =
     | { id: string; kind: "thinking"; text: string; collapsed?: boolean; done?: boolean }
@@ -85,7 +85,7 @@ export function ArchitectActivityCard({ card, onOpenFile, onToggleThinking }: Pr
     if (card.kind === "plan") {
         return (
             <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[12px] flex items-center gap-2">
-                <Sparkles size={12} className="text-primary shrink-0" />
+                <DreyvStar size={12} className="text-primary shrink-0" />
                 <span className="text-foreground/80 font-medium truncate">
                     Planning: <span className="text-primary">{card.prompt}</span>
                 </span>

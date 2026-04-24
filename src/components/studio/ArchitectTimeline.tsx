@@ -21,10 +21,10 @@ import {
     CheckCircle2,
     AlertTriangle,
     Brain,
-    Sparkles,
     ChevronRight,
     Activity,
 } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import type { ActivityCard } from "@/components/studio/ArchitectActivityCard";
 
 export type TimelineItem =
@@ -93,7 +93,7 @@ function ActivityRow({ card, onOpenFile }: { card: ActivityCard; onOpenFile?: (f
     if (card.kind === "plan") {
         return (
             <div className="flex items-center gap-2 py-1.5 px-2 text-[12px]">
-                <Sparkles size={13} className="text-primary shrink-0" />
+                <DreyvStar size={13} className="text-primary shrink-0" />
                 <span className="text-muted-foreground">Planning</span>
                 <span className="text-foreground/80 truncate">{card.prompt}</span>
             </div>
