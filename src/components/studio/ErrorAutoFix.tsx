@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { AlertTriangle, Sparkles, Loader2, Check, X, RotateCcw } from "lucide-react";
+import { AlertTriangle, Loader2, Check, X, RotateCcw } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export function ErrorAutoFix({
                         onClick={requestFix}
                         className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-sm font-bold transition-colors"
                     >
-                        <Sparkles className="w-4 h-4" />
+                        <DreyvStar size={16} />
                         Auto-Fix with AI Architect
                     </button>
                 )}

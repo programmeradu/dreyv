@@ -10,7 +10,8 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Command, FileCode, Sparkles, Save, FolderOpen, Play, FileText, Search, Download, Rocket, Settings } from "lucide-react";
+import { Command, FileCode, Save, FolderOpen, Play, FileText, Search, Download, Rocket, Settings } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export interface PaletteCommand {
     id: string;

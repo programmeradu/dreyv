@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Award, Download, ShieldCheck, ArrowRight, ChevronLeft, ChevronRight, Box } from "lucide-react";
+import { Download, ShieldCheck, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { CrystalIcon } from "@/components/marketplace/CrystalIcon";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarUrl } from "@/lib/avatars";
@@ -37,8 +38,8 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
             <div className="relative grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-6 p-5 md:p-7 items-center">
                 <div className="flex flex-col gap-3 min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/15 border border-primary/30 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                            <Award size={10} /> Featured
+                        <span className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-md bg-primary/15 border border-primary/30 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                            <CrystalIcon name="featured" size={16} alt="" /> Featured
                         </span>
                         <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                             App of the moment · {idx + 1}/{featured.length}
@@ -117,10 +118,9 @@ export function FeaturedAppHero({ apps }: FeaturedAppHeroProps) {
                         />
                     ) : (
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background flex items-center justify-center">
-                            <Avatar className="h-24 w-24 rounded-2xl">
-                                <AvatarImage src={app.iconUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${app.id}`} />
-                                <AvatarFallback><Box className="text-primary" /></AvatarFallback>
-                            </Avatar>
+                            <div className="h-32 w-32 flex items-center justify-center">
+                                <CrystalIcon name="featured" size={120} alt={app.name} />
+                            </div>
                         </div>
                     )}
                     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background/80 to-transparent" />

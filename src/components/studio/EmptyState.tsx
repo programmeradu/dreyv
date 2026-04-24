@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, ArrowRight, FolderOpen, LayoutTemplate } from "lucide-react";
+import { ArrowRight, FolderOpen, LayoutTemplate } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
@@ -110,7 +111,7 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
                 >
                   {isSubmitting ? (
                     <>
-                      <Sparkles size={14} className="animate-spin" />
+                      <DreyvStar size={14} className="animate-spin" />
                       Planning…
                     </>
                   ) : (

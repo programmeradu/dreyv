@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Loader2, Check, X, ChevronRight } from "lucide-react";
+import { Loader2, Check, X, ChevronRight } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -228,7 +229,7 @@ export function InlineCodeGen({
             <div className="bg-zinc-900 border border-emerald-500/30 rounded-xl shadow-2xl shadow-emerald-500/10 overflow-hidden">
                 {/* Input Bar */}
                 <div className="flex items-center gap-2 p-3 border-b border-zinc-800">
-                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <DreyvStar size={16} className="text-emerald-400 shrink-0" />
                     <input
                         ref={inputRef}
                         value={state.prompt}

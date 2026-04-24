@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { WalletButton } from "@/components/WalletButton";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
-import { Search, Plus, Box, ArrowRight, Rocket, Flame, Zap, Star, Gift, TrendingUp, LayoutGrid } from "lucide-react";
+import { Search, Plus, Box, ArrowRight } from "lucide-react";
+import { CrystalIcon, categoryToCrystal, type CrystalName } from "@/components/marketplace/CrystalIcon";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
 import { Suspense } from "react";
 import { MiniAppCardCompact } from "@/components/studio/MiniAppCardCompact";
@@ -18,22 +19,22 @@ import { NotificationBell } from "@/components/NotificationBell";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-const CATEGORIES = [
-    { key: "All", icon: LayoutGrid },
-    { key: "DeFi", icon: TrendingUp },
-    { key: "NFT", icon: Star },
-    { key: "Governance", icon: Box },
-    { key: "Analytics", icon: TrendingUp },
-    { key: "Utility", icon: Box },
-    { key: "Trading", icon: Flame },
-    { key: "Security", icon: Box },
-    { key: "Social", icon: Box },
+const CATEGORIES: { key: string; crystal: CrystalName }[] = [
+    { key: "All", crystal: "all" },
+    { key: "DeFi", crystal: "defi" },
+    { key: "NFT", crystal: "nft" },
+    { key: "Governance", crystal: "governance" },
+    { key: "Analytics", crystal: "analytics" },
+    { key: "Utility", crystal: "utility" },
+    { key: "Trading", crystal: "trading" },
+    { key: "Security", crystal: "security" },
+    { key: "Social", crystal: "social" },
 ];
 
 interface Section {
     key: string;
     title: string;
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+    crystal: CrystalName;
     accent: string;
     filter: (apps: any[]) => any[];
 }
@@ -108,14 +109,14 @@ export default function MarketplacePage() {
             {
                 key: "trending",
                 title: "Trending",
-                icon: Flame,
+                crystal: "trending",
                 accent: "text-orange-400",
                 filter: (a) => [...a].sort((x, y) => (y.installs || 0) - (x.installs || 0)).slice(0, 8),
             },
             {
                 key: "new",
                 title: "New this week",
-                icon: Zap,
+                crystal: "new",
                 accent: "text-primary",
                 filter: (a) => {
                     const sorted = [...a].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
@@ -128,7 +129,7 @@ export default function MarketplacePage() {
             {
                 key: "staff",
                 title: "Staff picks",
-                icon: Star,
+                crystal: "featured",
                 accent: "text-yellow-400",
                 filter: (a) => [...a]
                     .filter(x => (x.securityScore ?? 0) >= 80 || (x.rating ?? 0) >= 4.5)
@@ -137,14 +138,14 @@ export default function MarketplacePage() {
             {
                 key: "free",
                 title: "Free",
-                icon: Gift,
+                crystal: "free",
                 accent: "text-emerald-400",
                 filter: (a) => a.filter(x => Number(x.priceUsdc) === 0).slice(0, 8),
             },
             {
                 key: "most",
                 title: "Most installed",
-                icon: TrendingUp,
+                crystal: "installed",
                 accent: "text-blue-400",
                 filter: (a) => [...a].sort((x, y) => (y.installs || 0) - (x.installs || 0)).slice(0, 8),
             },
@@ -192,18 +193,18 @@ export default function MarketplacePage() {
                     </div>
                     <div className="flex-1 overflow-x-auto scrollbar-none">
                         <div className="flex items-center gap-1.5">
-                            {CATEGORIES.map(({ key, icon: Icon }) => {
+                            {CATEGORIES.map(({ key, crystal }) => {
                                 const active = categoryFilter === key;
                                 return (
                                     <button
                                         key={key}
                                         onClick={() => setCategoryFilter(key)}
-                                        className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all ${active
+                                        className={`shrink-0 inline-flex items-center gap-1.5 h-8 pl-1.5 pr-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all ${active
                                             ? 'bg-primary/15 border-primary/40 text-primary'
                                             : 'bg-card/30 border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
                                             }`}
                                     >
-                                        <Icon size={11} />
+                                        <CrystalIcon name={crystal} size={20} alt="" />
                                         {key}
                                     </button>
                                 );
@@ -213,9 +214,9 @@ export default function MarketplacePage() {
                     <Button
                         size="sm"
                         onClick={() => setShowPublishPicker(true)}
-                        className="h-9 px-3 text-[11px] font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90 shrink-0"
+                        className="h-9 pl-1.5 pr-3 text-[11px] font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90 shrink-0 gap-1.5"
                     >
-                        <Plus size={14} className="mr-1" /> Publish
+                        <CrystalIcon name="publish" size={22} alt="" /> Publish
                     </Button>
                 </div>
             </div>
@@ -277,12 +278,11 @@ export default function MarketplacePage() {
                             {sections.map(section => {
                                 const items = section.filter(allApps);
                                 if (items.length === 0) return null;
-                                const Icon = section.icon;
                                 return (
                                     <section key={section.key} className="space-y-3">
                                         <div className="flex items-baseline justify-between">
                                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground flex items-center gap-2">
-                                                <Icon size={12} className={section.accent} />
+                                                <CrystalIcon name={section.crystal} size={22} alt="" />
                                                 {section.title}
                                                 <span className="text-muted-foreground font-mono ml-1 normal-case tracking-normal">
                                                     {items.length}
@@ -302,16 +302,16 @@ export default function MarketplacePage() {
 
                     {!loadingApps && allApps.length === 0 && (
                         <div className="text-center py-32 rounded-2xl border border-dashed border-border/60">
-                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
-                                <Rocket className="w-6 h-6 text-muted-foreground" />
+                            <div className="inline-flex items-center justify-center w-16 h-16 mb-3">
+                                <CrystalIcon name="publish" size={56} alt="" />
                             </div>
                             <h3 className="text-base font-bold mb-1">No apps published yet</h3>
                             <p className="text-xs text-muted-foreground mb-4">Be the first to ship a mini-app to the marketplace.</p>
                             <Button
                                 onClick={() => setShowPublishPicker(true)}
-                                className="h-9 px-4 text-xs font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90"
+                                className="h-9 pl-1.5 pr-4 text-xs font-black uppercase tracking-widest bg-primary text-black hover:bg-primary/90 gap-1.5"
                             >
-                                <Plus size={14} className="mr-1" /> Publish App
+                                <CrystalIcon name="publish" size={22} alt="" /> Publish App
                             </Button>
                         </div>
                     )}
@@ -321,7 +321,7 @@ export default function MarketplacePage() {
             <PremiumModal isOpen={showPublishPicker} onClose={() => setShowPublishPicker(false)} className="sm:max-w-[500px]">
                 <PremiumModalHeader>
                     <PremiumModalTitle className="flex items-center gap-2">
-                        <Rocket size={18} className="text-primary" />
+                        <CrystalIcon name="publish" size={24} alt="" />
                         Publish to Marketplace
                     </PremiumModalTitle>
                     <PremiumModalDescription>
