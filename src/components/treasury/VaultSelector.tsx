@@ -20,31 +20,71 @@ export function VaultSelector() {
     const [address, setAddress] = useState("");
     const [copied, setCopied] = useState(false);
 
+    // Multi-member create config
+    const [memberInput, setMemberInput] = useState("");        // raw textarea — comma/newline separated
+    const [thresholdInput, setThresholdInput] = useState("1");
+
     const shortAddr = activeVault ? `${activeVault.slice(0, 6)}...${activeVault.slice(-4)}` : "";
+
+    const parsedMembers = (() => {
+        const raw = memberInput
+            .split(/[\s,]+/)
+            .map(s => s.trim())
+            .filter(s => s.length >= 32 && s.length <= 44);
+        const seen = new Set<string>();
+        const valid: PublicKey[] = [];
+        for (const r of raw) {
+            try {
+                const k = new PublicKey(r);
+                const b58 = k.toBase58();
+                if (!seen.has(b58)) {
+                    seen.add(b58);
+                    valid.push(k);
+                }
+            } catch { /* skip invalid */ }
+        }
+        return valid;
+    })();
+    const thresholdNum = Math.max(1, parseInt(thresholdInput) || 1);
+    const totalMembers = parsedMembers.length + (wallet.publicKey && !parsedMembers.some(m => wallet.publicKey && m.equals(wallet.publicKey)) ? 1 : 0);
+    const thresholdValid = thresholdNum >= 1 && thresholdNum <= Math.max(1, totalMembers);
+
 
     const handleCreateMultisig = async () => {
         if (!wallet.publicKey || !wallet.connected) {
             toast.error("Wallet disconnected", { description: "Connect your wallet first." });
             return;
         }
+        if (!thresholdValid) {
+            toast.error("Invalid threshold", { description: `Threshold must be between 1 and ${totalMembers}.` });
+            return;
+        }
 
         try {
             setIsCreating(true);
-            toast.loading("Deploying Squads V4 Vault...", { id: "create-multisig" });
-            
+            toast.loading(`Deploying ${thresholdNum}-of-${totalMembers} Squads V4 Vault...`, { id: "create-multisig" });
+
+            // Compose member set: connected wallet (always) + entered co-signers
+            const memberSet: { key: PublicKey; permissions: { mask: number } }[] = [];
+            const seen = new Set<string>();
+            const pushMember = (k: PublicKey) => {
+                const b58 = k.toBase58();
+                if (seen.has(b58)) return;
+                seen.add(b58);
+                memberSet.push({ key: k, permissions: { mask: 7 } }); // Initiate + Vote + Execute
+            };
+            pushMember(wallet.publicKey);
+            for (const m of parsedMembers) pushMember(m);
+
             const client = new SquadsClient(connection, wallet);
             const { multisigPda } = await client.createMultisig({
-                members: [{
-                    key: wallet.publicKey,
-                    // 3 = mask for all permissions (Initiate, Vote, Execute)
-                    permissions: { mask: 3 }
-                }],
-                threshold: 1, // Start as 1/1, user can add members via Team page
+                members: memberSet,
+                threshold: thresholdNum,
             });
 
             toast.success("Squads Multisig Deployed!", {
                 id: "create-multisig",
-                description: `Created successfully: ${multisigPda.slice(0, 8)}...`
+                description: `${thresholdNum}/${memberSet.length} multisig live: ${multisigPda.slice(0, 8)}...`
             });
 
             // Persist vault to database with tier enforcement
@@ -71,10 +111,12 @@ export function VaultSelector() {
             // Connect to the new vault automatically
             setActiveVault(multisigPda);
             setCreateMode(false);
-            
+            setMemberInput("");
+            setThresholdInput("1");
+
         } catch (error: any) {
             console.error(error);
-            toast.error("Deployment failed", { 
+            toast.error("Deployment failed", {
                 id: "create-multisig",
                 description: error?.message || "Could not deploy multisig"
             });
