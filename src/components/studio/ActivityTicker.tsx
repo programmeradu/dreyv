@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { Marquee } from "@/components/ui/marquee";
-import { Activity, Download, Sparkles, ShieldCheck } from "lucide-react";
+import { Activity, Download, Rocket, ShieldCheck } from "lucide-react";
 
 interface ActivityTickerProps {
     apps: any[];
@@ -13,7 +13,7 @@ export function ActivityTicker({ apps }: ActivityTickerProps) {
     const items = apps.slice(0, 12).map((app, i) => {
         const variants = [
             { icon: Download, text: `installed ${app.name}`, accent: "text-primary" },
-            { icon: Sparkles, text: `published ${app.name}`, accent: "text-emerald-400" },
+            { icon: Rocket, text: `published ${app.name}`, accent: "text-emerald-400" },
             { icon: ShieldCheck, text: `audited ${app.name}`, accent: "text-blue-400" },
         ];
         const v = variants[i % variants.length];
