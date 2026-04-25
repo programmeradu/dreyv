@@ -12,6 +12,7 @@ import {
 } from "@solana/web3.js";
 // @ts-ignore — spl-token's package.json exports map confuses TS bundler resolution but runtime works fine
 import { createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { coalesce } from "@/lib/solana/rpc-coalesce";
 
 // @sqds/multisig v2.x (Squads v4) exports helpers at the top level or under namespaces
 const { getTransactionPda, getProposalPda, getVaultPda, getMultisigPda } = squads;
@@ -231,7 +232,12 @@ export class SquadsClient {
     async getVaultBalance(vaultAddress: string): Promise<number> {
         try {
             const resolvedKey = await this.resolveVaultAddress(vaultAddress);
-            const balance = await this.connection.getBalance(resolvedKey);
+            // Coalesce concurrent identical reads to one RPC call (8s window) to
+            // protect Helius/public RPC daily quotas from N callers x M widgets.
+            const balance = await coalesce(
+                `getBalance:${resolvedKey.toBase58()}`,
+                () => this.connection.getBalance(resolvedKey),
+            );
             return balance / 1e9; // Convert Lamports to SOL
         } catch (error) {
             console.error("Failed to fetch Vault Balance:", error);
