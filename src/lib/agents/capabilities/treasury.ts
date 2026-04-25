@@ -453,8 +453,8 @@ const multisig_proposal = defineCapability({
 });
 
 export const treasuryCapabilities: AnyCapability[] = [
-  create_multisig,
-  transfer,
-  mass_dispatch,
-  multisig_proposal,
+  create_multisig as AnyCapability,
+  transfer as AnyCapability,
+  mass_dispatch as AnyCapability,
+  multisig_proposal as AnyCapability,
 ];
