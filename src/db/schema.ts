@@ -929,3 +929,26 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── DACS Phase 3 — Episodic memory ──────────────────────────────────
+// Settled outcomes feed back into the planner so risk_score reflects the
+// user's actual approve/reject history, not just the static rubric.
+export const agentEpisodes = pgTable('agent_episodes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  commandId: text('command_id').notNull(),
+  walletAddress: text('wallet_address'),
+  intentKind: text('intent_kind').notNull(),
+  capabilityIds: jsonb('capability_ids').notNull().default('[]'),
+  outcome: text('outcome').notNull(),
+  riskScore: numeric('risk_score'),
+  valueUsd: numeric('value_usd'),
+  durationMs: integer('duration_ms'),
+  signature: text('signature'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('agent_episodes_wallet_idx').on(t.walletAddress),
+  intentIdx: index('agent_episodes_intent_idx').on(t.intentKind),
+  outcomeIdx: index('agent_episodes_outcome_idx').on(t.outcome),
+  createdIdx: index('agent_episodes_created_idx').on(t.createdAt),
+}));

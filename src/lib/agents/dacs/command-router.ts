@@ -22,7 +22,8 @@ import { recordDacs, computeParity } from "./diff-log";
 import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
-import type { CommandSubmittedPayload } from "./types";
+import { recallEpisodes, recordEpisode } from "./episodes";
+import type { CommandSubmittedPayload, Plan } from "./types";
 
 export const commandRouter = inngest.createFunction(
   {
@@ -56,8 +57,30 @@ export const commandRouter = inngest.createFunction(
     });
 
     // Phase 2: load per-user policy + run open-vocab plan through compose veto.
-    const policy = await step.run("load-policy", async () => loadUserPolicy(walletAddress));
-    const verdict = verifyComposedPlan(rawPlan, { policy, promptMode });
+    // Phase 3: pull episodic memory and bias risk_score before routing.
+    const [policy, recall] = await Promise.all([
+      step.run("load-policy", async () => loadUserPolicy(walletAddress)),
+      step.run("recall-episodes", async () => recallEpisodes(walletAddress, intent.kind)),
+    ]);
+
+    // Episodic bias: if the user historically rejects this intent kind,
+    // bump risk_score so the next plan needs HITL even if value is low.
+    let biasedPlan: Plan = rawPlan;
+    if (recall.approvalRate != null && recall.total >= 3) {
+      const rejectionPressure = 1 - recall.approvalRate;
+      const bias = Math.min(0.25, rejectionPressure * 0.3);
+      const newRisk = Math.min(1, (rawPlan.riskScore ?? 0) + bias);
+      biasedPlan = {
+        ...rawPlan,
+        riskScore: newRisk,
+        rationale:
+          bias > 0.05
+            ? `${rawPlan.rationale} (Risk +${bias.toFixed(2)} from past ${recall.total} ${intent.kind} episodes; approval rate ${(recall.approvalRate * 100).toFixed(0)}%.)`
+            : rawPlan.rationale,
+      };
+    }
+
+    const verdict = verifyComposedPlan(biasedPlan, { policy, promptMode });
     const plan = verdict.plan;
 
     if (!verdict.ok && verdict.rejection) {
@@ -125,6 +148,22 @@ export const commandRouter = inngest.createFunction(
       });
       await computeParity(commandId);
     });
+
+    // Phase 3: record episode for terminal decisions (auto_execute / reject).
+    // queue_for_approval episodes are recorded by the executor on resolution.
+    if (decision.kind === "auto_execute" || decision.kind === "reject") {
+      await step.run("record-episode", async () => {
+        await recordEpisode({
+          commandId,
+          walletAddress,
+          intent,
+          plan,
+          outcome: decision.kind === "auto_execute" ? "auto_executed" : "rejected",
+          durationMs: Date.now() - startedAt,
+          notes: decision.reason,
+        });
+      });
+    }
 
     await publish({
       name: "agent.command.completed",
