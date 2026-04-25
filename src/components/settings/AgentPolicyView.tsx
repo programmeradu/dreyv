@@ -186,7 +186,7 @@ export function AgentPolicyView() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-black uppercase tracking-tight">Allow dynamic writes</span>
             {state.allowDynamicWrites && (
-              <AlertTriangle size={12} className="text-amber-500" />
+              <AlertTriangle size={12} className="text-destructive" />
             )}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
@@ -270,7 +270,7 @@ function ListField({
   onChange: (v: string) => void;
 }) {
   const dot =
-    tone === "positive" ? "bg-emerald-500" : "bg-rose-500";
+    tone === "positive" ? "bg-primary" : "bg-destructive";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
