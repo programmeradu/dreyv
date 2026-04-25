@@ -1,0 +1,73 @@
+{
+  "name": "@dreyv/cloudflare",
+  "version": "0.1.0",
+  "description": "Dreyv Cloudflare SDK — unified wrapper around Browser Rendering, Workers AI, KV, D1, R2, and the Cloudflare Agents (Durable Object) runtime. Built for Dreyv autonomous treasury agents and Mini-Apps.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.mjs",
+      "require": "./dist/browser.js"
+    },
+    "./workers-ai": {
+      "types": "./dist/workers-ai.d.ts",
+      "import": "./dist/workers-ai.mjs",
+      "require": "./dist/workers-ai.js"
+    },
+    "./kv": {
+      "types": "./dist/kv.d.ts",
+      "import": "./dist/kv.mjs",
+      "require": "./dist/kv.js"
+    },
+    "./d1": {
+      "types": "./dist/d1.d.ts",
+      "import": "./dist/d1.mjs",
+      "require": "./dist/d1.js"
+    },
+    "./r2": {
+      "types": "./dist/r2.d.ts",
+      "import": "./dist/r2.mjs",
+      "require": "./dist/r2.js"
+    },
+    "./agents": {
+      "types": "./dist/agents.d.ts",
+      "import": "./dist/agents.mjs",
+      "require": "./dist/agents.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts src/browser.ts src/workers-ai.ts src/kv.ts src/d1.ts src/r2.ts src/agents.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts src/browser.ts src/workers-ai.ts src/kv.ts src/d1.ts src/r2.ts src/agents.ts --format cjs,esm --dts --watch"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "dreyv",
+    "cloudflare",
+    "workers-ai",
+    "browser-rendering",
+    "kv",
+    "d1",
+    "r2",
+    "agents",
+    "durable-objects",
+    "treasury",
+    "solana"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/programmeradu/keystone-treasury-os.git",
+    "directory": "packages/cloudflare-sdk"
+  }
+}
