@@ -51,6 +51,11 @@ export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
     return { delivered: false, reason: "inngest_not_linked" };
   }
 
+  // Hard 8s timeout so a hung gateway can NEVER stall an Inngest step.
+  // Fan-outs of 50+ publish() calls would otherwise blow the 5min function
+  // timeout (root cause of past inngest/scheduled.timer failures).
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
     const res = await fetch(`${GATEWAY_URL}/e/`, {
       method: "POST",
@@ -60,18 +65,20 @@ export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
         "Content-Type": "application/json",
       },
       body: JSON.stringify(list.length === 1 ? list[0] : list),
+      signal: controller.signal,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      // eslint-disable-next-line no-console
       console.error("[bus:error]", res.status, body.slice(0, 200));
       return { delivered: false, reason: `gateway_${res.status}` };
     }
     return { delivered: true };
   } catch (e: any) {
-    // eslint-disable-next-line no-console
-    console.error("[bus:exception]", e?.message || e);
-    return { delivered: false, reason: e?.message || "unknown" };
+    const reason = e?.name === "AbortError" ? "gateway_timeout_8s" : e?.message || "unknown";
+    console.error("[bus:exception]", reason);
+    return { delivered: false, reason };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
