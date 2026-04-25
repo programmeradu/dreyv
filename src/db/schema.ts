@@ -861,3 +861,29 @@ export const agentTxProposals = pgTable('agent_tx_proposals', {
   proposalIdx: index('agent_tx_proposals_proposal_idx').on(t.proposalId),
   createdIdx: index('agent_tx_proposals_created_idx').on(t.createdAt),
 }));
+
+// ─── DACS Phase 1 — Shadow-mode command diff log ──────────────────────
+export const commandDiffLog = pgTable('command_diff_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  commandId: text('command_id').notNull().unique(),
+  walletAddress: text('wallet_address'),
+  rawText: text('raw_text').notNull(),
+  promptMode: text('prompt_mode').notNull().default('auto'),
+  legacySummary: text('legacy_summary'),
+  legacyToolCalls: jsonb('legacy_tool_calls'),
+  legacyDecisionKind: text('legacy_decision_kind'),
+  legacyLatencyMs: integer('legacy_latency_ms'),
+  dacsIntent: jsonb('dacs_intent'),
+  dacsPlan: jsonb('dacs_plan'),
+  dacsDecisionKind: text('dacs_decision_kind'),
+  dacsDecisionReason: text('dacs_decision_reason'),
+  dacsLatencyMs: integer('dacs_latency_ms'),
+  parity: text('parity'),
+  parityNotes: text('parity_notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  createdIdx: index('command_diff_log_created_idx').on(t.createdAt),
+  parityIdx: index('command_diff_log_parity_idx').on(t.parity),
+  walletIdx: index('command_diff_log_wallet_idx').on(t.walletAddress),
+}));
