@@ -22,6 +22,7 @@ import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store
 import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
+import { HandoffStream } from "@/components/commandbar/HandoffStream";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
