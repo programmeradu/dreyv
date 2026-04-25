@@ -6,5 +6,13 @@
 import { commandRouter } from "./command-router";
 import { executeApprovedPlan } from "./executor";
 import { subagentTickerCron, subagentTick } from "./subagent-runtime";
+import { SPECIALIST_FUNCTIONS } from "./specialist-runtime";
 
-export const DACS_FUNCTIONS = [commandRouter, executeApprovedPlan, subagentTickerCron, subagentTick];
+export const DACS_FUNCTIONS = [
+  commandRouter,
+  executeApprovedPlan,
+  subagentTickerCron,
+  subagentTick,
+  ...SPECIALIST_FUNCTIONS,
+];
+
