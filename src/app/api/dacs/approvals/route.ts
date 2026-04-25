@@ -61,6 +61,8 @@ export async function PATCH(req: Request) {
   });
 
   // Best-effort bus signal so executors / observers can react.
+  // Map approve→approved, reject→rejected so the executor can switch on status.
+  const status = action === "approve" ? "approved" : "rejected";
   await publish({
     name: "agent.approval.resolved",
     data: {
@@ -68,6 +70,7 @@ export async function PATCH(req: Request) {
       commandId: existing.commandId,
       walletAddress: existing.walletAddress,
       action,
+      status,
       resolvedBy: body.resolvedBy ?? null,
       note: body.note ?? null,
       resolvedAt: Date.now(),
