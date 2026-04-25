@@ -52,7 +52,10 @@ export type CapabilityDomain =
   | "intel"
   | "studio"
   | "dynamic"
-  | "misc";
+  | "misc"
+  | "policy"
+  | "payments"
+  | "risk";
 
 /**
  * Mutable per-request execution state. Lives for one HTTP request /
