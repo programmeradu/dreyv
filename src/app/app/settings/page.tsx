@@ -12,6 +12,7 @@ import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { BillingView } from "@/components/settings/BillingView";
 import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
 import { SubagentsPanel } from "@/components/settings/SubagentsPanel";
+import { HandoffsPanel } from "@/components/settings/HandoffsPanel";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { useNotificationStore } from "@/lib/notifications";
 import { toast } from "@/lib/toast-notifications";
@@ -50,6 +51,7 @@ export default function SettingsPage() {
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <AgentPolicyView />
                     <SubagentsPanel />
+                    <HandoffsPanel />
                 </div>
             );
             default: return (

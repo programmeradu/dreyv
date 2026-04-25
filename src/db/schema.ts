@@ -984,3 +984,25 @@ export const dacsSubagents = pgTable('dacs_subagents', {
   nextRunIdx: index('dacs_subagents_next_run_idx').on(t.nextRunAt),
   createdIdx: index('dacs_subagents_created_idx').on(t.createdAt),
 }));
+
+// ─── DACS Phase 5.2 — Specialist handoff reports ─────────────────────
+// Persist every AgentReport emitted by a specialist runtime so the UI
+// can render a per-command timeline of who handled what.
+export const dacsHandoffs = pgTable('dacs_handoffs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  commandId: text('command_id').notNull(),
+  walletAddress: text('wallet_address'),
+  specialist: text('specialist').notNull(),
+  intentKind: text('intent_kind').notNull(),
+  status: text('status').notNull(), // accepted | completed | rejected | deferred
+  summary: text('summary').notNull(),
+  report: jsonb('report').notNull(),
+  stepResults: jsonb('step_results'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  commandIdx: index('dacs_handoffs_command_idx').on(t.commandId),
+  walletIdx: index('dacs_handoffs_wallet_idx').on(t.walletAddress),
+  specialistIdx: index('dacs_handoffs_specialist_idx').on(t.specialist),
+  createdIdx: index('dacs_handoffs_created_idx').on(t.createdAt),
+}));

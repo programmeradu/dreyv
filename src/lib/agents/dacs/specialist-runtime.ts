@@ -155,6 +155,29 @@ function makeSpecialistFunction(spec: SpecialistSpec) {
         durationMs,
       };
 
+      await step.run("persist-report", async () => {
+        try {
+          const { db } = await import("@/db");
+          const { dacsHandoffs } = await import("@/db/schema");
+          if (!db) return;
+          await db.insert(dacsHandoffs).values({
+            commandId,
+            walletAddress,
+            specialist: spec.id,
+            intentKind: intent.kind,
+            status,
+            summary,
+            report: report as unknown as Record<string, unknown>,
+            stepResults: stepResults as unknown as Record<string, unknown>,
+            durationMs,
+          });
+        } catch (e) {
+          // Persistence is best-effort; never block the bus emit.
+          // eslint-disable-next-line no-console
+          console.warn("[specialist-runtime] persist failed", (e as Error).message);
+        }
+      });
+
       await step.run("publish-report", async () => {
         await publish({
           name: "agent.handoff.reported",
