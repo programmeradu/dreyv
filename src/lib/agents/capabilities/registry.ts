@@ -30,9 +30,9 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...tradingCapabilities,
     ...yieldCapabilities,
     ...intelCapabilities,
-    // ...studioCapabilities,
-    // ...dynamicCapabilities,
-    // ...miscCapabilities,
+    ...studioCapabilities,
+    ...dynamicCapabilities,
+    ...miscCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
