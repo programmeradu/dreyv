@@ -27,6 +27,7 @@ import {
 import { bridgeProposalToTx } from "./executor-bridge";
 import { reconcileSubmittedTxProposals } from "./tx-reconciler";
 import { pollJitoOnce } from "../jito-poller";
+import { sendAgent, subagentInstance, isAgentWorkerConfigured } from "../agent-client";
 import {
   listWatchers,
   scanWatcher,
@@ -170,26 +171,56 @@ export const subAgentTick = inngest.createFunction(
 
     if (!active.length) return { ticked: 0 };
 
-    await step.run("emit-ticks", async () => {
-      await Promise.all(
-        active.map((a) =>
-          publish({
-            name: "agent.opportunity.surfaced",
-            data: {
-              reason: `subagent_tick:${a.name}`,
-              window: "30m",
-              userId: a.userId,
-              source: "subagent",
-              subagentId: a.id,
-              goal: a.goal,
-              observedAt: new Date().toISOString(),
-            },
+    // Hybrid execution:
+    //  - If the Cloudflare Agent Worker is configured, send a `tick` message
+    //    to each sub-agent's Durable Object. Each DO has its own private
+    //    memory, will reason against its own log, and post back through
+    //    /api/agents/ingest-tick if it has anything material.
+    //  - Otherwise, fall back to the original behavior of publishing one
+    //    bus event per sub-agent so the brain still triages something.
+    // Either way we chunk + Promise.allSettled so one slow call can never
+    // stall the whole step (this was the root cause of the previous 5min
+    // timeouts that were killing inngest/scheduled.timer).
+    const useDO = isAgentWorkerConfigured();
+    const results = await step.run("emit-ticks", async () => {
+      const CHUNK = 10;
+      let ok = 0;
+      let failed = 0;
+      for (let i = 0; i < active.length; i += CHUNK) {
+        const slice = active.slice(i, i + CHUNK);
+        const settled = await Promise.allSettled(
+          slice.map(async (a) => {
+            if (useDO) {
+              // Idempotent init (DO ignores if already initialized) → tick.
+              await sendAgent(subagentInstance(a.id), {
+                kind: "init",
+                payload: { goal: a.goal, userId: a.userId, walletAddress: null },
+              });
+              return sendAgent(subagentInstance(a.id), { kind: "tick" });
+            }
+            return publish({
+              name: "agent.opportunity.surfaced",
+              data: {
+                reason: `subagent_tick:${a.name}`,
+                window: "30m",
+                userId: a.userId,
+                source: "subagent",
+                subagentId: a.id,
+                goal: a.goal,
+                observedAt: new Date().toISOString(),
+              },
+            });
           }),
-        ),
-      );
+        );
+        for (const r of settled) {
+          if (r.status === "fulfilled") ok += 1;
+          else failed += 1;
+        }
+      }
+      return { ok, failed, mode: useDO ? "durable_object" : "bus_fallback" };
     });
 
-    return { ticked: active.length };
+    return { ticked: active.length, ...results };
   },
 );
 
