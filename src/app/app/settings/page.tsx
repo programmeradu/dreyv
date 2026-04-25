@@ -10,11 +10,12 @@ import { ProfileView } from "@/components/settings/ProfileView";
 import { NotificationsView } from "@/components/settings/NotificationsView";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { BillingView } from "@/components/settings/BillingView";
+import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { useNotificationStore } from "@/lib/notifications";
 import { toast } from "@/lib/toast-notifications";
 
-type SettingsView = "general" | "profile" | "notifications" | "api" | "billing";
+type SettingsView = "general" | "profile" | "notifications" | "api" | "billing" | "policy";
 
 export default function SettingsPage() {
     const [currentView, setCurrentView] = useState<SettingsView>("general");
@@ -44,6 +45,7 @@ export default function SettingsPage() {
             case "notifications": return <NotificationsView />;
             case "api": return <ApiKeysView />;
             case "billing": return <BillingView />;
+            case "policy": return <AgentPolicyView />;
             default: return (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Agent Personas Section */}
@@ -150,6 +152,12 @@ export default function SettingsPage() {
                                     label="Identity Profile"
                                     active={currentView === "profile"}
                                     onClick={() => setCurrentView("profile")}
+                                />
+                                <SettingsItem
+                                    icon={Shield}
+                                    label="Agent Policy"
+                                    active={currentView === "policy"}
+                                    onClick={() => setCurrentView("policy")}
                                 />
                                 <SettingsItem
                                     icon={Bell}
