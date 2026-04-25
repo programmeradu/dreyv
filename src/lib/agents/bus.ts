@@ -51,10 +51,9 @@ export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
     return { delivered: false, reason: "inngest_not_linked" };
   }
 
-  // Hard 8s timeout so a hung gateway can NEVER stall an Inngest step
-  // (Inngest steps abort at 5min; fan-outs of 50 publish() calls would
-  // multiply this and blow the function timeout — that was the cause of
-  // the recurring 5min `inngest/scheduled.timer` failures).
+  // Hard 8s timeout so a hung gateway can NEVER stall an Inngest step.
+  // Fan-outs of 50+ publish() calls would otherwise blow the 5min function
+  // timeout (root cause of past inngest/scheduled.timer failures).
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
@@ -70,14 +69,12 @@ export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      // eslint-disable-next-line no-console
       console.error("[bus:error]", res.status, body.slice(0, 200));
       return { delivered: false, reason: `gateway_${res.status}` };
     }
     return { delivered: true };
   } catch (e: any) {
     const reason = e?.name === "AbortError" ? "gateway_timeout_8s" : e?.message || "unknown";
-    // eslint-disable-next-line no-console
     console.error("[bus:exception]", reason);
     return { delivered: false, reason };
   } finally {

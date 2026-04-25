@@ -27,6 +27,7 @@ import {
 import { bridgeProposalToTx } from "./executor-bridge";
 import { reconcileSubmittedTxProposals } from "./tx-reconciler";
 import { pollJitoOnce } from "../jito-poller";
+import { sendAgent, subagentInstance, isAgentWorkerConfigured } from "../agent-client";
 import {
   listWatchers,
   scanWatcher,
@@ -170,9 +171,17 @@ export const subAgentTick = inngest.createFunction(
 
     if (!active.length) return { ticked: 0 };
 
-    // Use allSettled + bounded concurrency so one slow/failed publish never
-    // stalls the whole step. publish() now has its own 8s timeout, but we
-    // also cap the parallelism so a burst of 50 doesn't saturate the gateway.
+    // Hybrid execution:
+    //  - If the Cloudflare Agent Worker is configured, send a `tick` message
+    //    to each sub-agent's Durable Object. Each DO has its own private
+    //    memory, will reason against its own log, and post back through
+    //    /api/agents/ingest-tick if it has anything material.
+    //  - Otherwise, fall back to the original behavior of publishing one
+    //    bus event per sub-agent so the brain still triages something.
+    // Either way we chunk + Promise.allSettled so one slow call can never
+    // stall the whole step (this was the root cause of the previous 5min
+    // timeouts that were killing inngest/scheduled.timer).
+    const useDO = isAgentWorkerConfigured();
     const results = await step.run("emit-ticks", async () => {
       const CHUNK = 10;
       let ok = 0;
@@ -180,8 +189,16 @@ export const subAgentTick = inngest.createFunction(
       for (let i = 0; i < active.length; i += CHUNK) {
         const slice = active.slice(i, i + CHUNK);
         const settled = await Promise.allSettled(
-          slice.map((a) =>
-            publish({
+          slice.map(async (a) => {
+            if (useDO) {
+              // Idempotent init (DO ignores if already initialized) → tick.
+              await sendAgent(subagentInstance(a.id), {
+                kind: "init",
+                payload: { goal: a.goal, userId: a.userId, walletAddress: null },
+              });
+              return sendAgent(subagentInstance(a.id), { kind: "tick" });
+            }
+            return publish({
               name: "agent.opportunity.surfaced",
               data: {
                 reason: `subagent_tick:${a.name}`,
@@ -192,15 +209,15 @@ export const subAgentTick = inngest.createFunction(
                 goal: a.goal,
                 observedAt: new Date().toISOString(),
               },
-            }),
-          ),
+            });
+          }),
         );
         for (const r of settled) {
-          if (r.status === "fulfilled" && r.value.delivered) ok += 1;
+          if (r.status === "fulfilled") ok += 1;
           else failed += 1;
         }
       }
-      return { ok, failed };
+      return { ok, failed, mode: useDO ? "durable_object" : "bus_fallback" };
     });
 
     return { ticked: active.length, ...results };
@@ -220,48 +237,34 @@ export const treasuryWatch5m = inngest.createFunction(
     if (!watchers.length) return { scanned: 0, surfaced: 0 };
 
     let surfaced = 0;
-    let errored = 0;
     for (const w of watchers) {
-      try {
-        // Wrap the entire per-watcher pipeline in a single step.run so a
-        // hung scan can't stretch the parent function past its 5min limit.
-        // Each watcher gets its own try/catch so one bad address doesn't
-        // poison the rest of the sweep.
-        const result = await step.run(`watch-${w.id}`, async () => {
-          const snap = (await Promise.race([
-            scanWatcher(w),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000)),
-          ])) as WatcherSnapshot | null;
-          if (!snap) return { surfaced: false };
-          const prev = (w.lastSnapshot as WatcherSnapshot | null) ?? null;
-          const diff = diffSnapshots(prev, snap);
-          await recordScan(w.id, snap).catch(() => {});
-          if (!diff.material) return { surfaced: false };
-          await publish({
-            name: "agent.opportunity.surfaced",
-            data: {
-              reason: `treasury_${diff.reason}`,
-              window: "5m",
-              userId: w.userId,
-              source: "treasury_watcher",
-              watcherId: w.id,
-              chain: w.chain,
-              address: w.address,
-              label: w.label,
-              deltaPct: diff.deltaPct,
-              snapshot: snap,
-              observedAt: new Date().toISOString(),
-            },
-          });
-          return { surfaced: true };
-        });
-        if (result.surfaced) surfaced += 1;
-      } catch (e: any) {
-        errored += 1;
-        console.warn(`[treasuryWatch5m] watcher ${w.id} failed:`, e?.message);
-      }
+      const snap = (await step.run(`scan-${w.id}`, () => scanWatcher(w))) as WatcherSnapshot | null;
+      if (!snap) continue;
+      const prev = (w.lastSnapshot as WatcherSnapshot | null) ?? null;
+      const diff = diffSnapshots(prev, snap);
+      await step.run(`record-${w.id}`, () => recordScan(w.id, snap));
+      if (!diff.material) continue;
+      surfaced += 1;
+      await step.run(`surface-${w.id}`, () =>
+        publish({
+          name: "agent.opportunity.surfaced",
+          data: {
+            reason: `treasury_${diff.reason}`,
+            window: "5m",
+            userId: w.userId,
+            source: "treasury_watcher",
+            watcherId: w.id,
+            chain: w.chain,
+            address: w.address,
+            label: w.label,
+            deltaPct: diff.deltaPct,
+            snapshot: snap,
+            observedAt: new Date().toISOString(),
+          },
+        }),
+      );
     }
-    return { scanned: watchers.length, surfaced, errored };
+    return { scanned: watchers.length, surfaced };
   },
 );
 
