@@ -22,7 +22,8 @@ import { recordDacs, computeParity } from "./diff-log";
 import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
-import type { CommandSubmittedPayload } from "./types";
+import { recallEpisodes, recordEpisode } from "./episodes";
+import type { CommandSubmittedPayload, Plan } from "./types";
 
 export const commandRouter = inngest.createFunction(
   {
