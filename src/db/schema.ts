@@ -928,4 +928,4 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   dailyValueCapUsd: numeric('daily_value_cap_usd'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}));
+});
