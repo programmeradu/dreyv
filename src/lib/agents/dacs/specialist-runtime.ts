@@ -47,12 +47,12 @@ function buildHeadlessContext(walletAddress: string | null): CapabilityContext {
  * specialist's declared domains. Steps outside that slice are skipped (they
  * are owned by another specialist or by the executor).
  */
-function ownsCapability(spec: SpecialistSpec, cap: anyCapability): boolean {
+function ownsCapability(spec: SpecialistSpec, cap: AnyCapability): boolean {
   return spec.domains.includes(cap.domain);
 }
 
 /** Read/sim/meta side effects are safe to run in the specialist runtime. */
-function isSafeSideEffect(cap: anyCapability): boolean {
+function isSafeSideEffect(cap: AnyCapability): boolean {
   return cap.sideEffects === "read" || cap.sideEffects === "sim" || cap.sideEffects === "meta";
 }
 
