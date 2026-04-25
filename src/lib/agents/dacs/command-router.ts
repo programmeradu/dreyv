@@ -238,6 +238,31 @@ export const commandRouter = inngest.createFunction(
       });
     }
 
+    // Phase 5: dispatch to specialist agent for non-reject decisions.
+    // Publishes CATP envelope on the bus and a stub report; specialist
+    // execution functions land in Phase 5.1.
+    if (decision.kind !== "reject") {
+      await step.run("dispatch-specialist", async () => {
+        const envelope = buildEnvelope({
+          commandId,
+          walletAddress,
+          intent,
+          plan,
+          promptMode,
+          submittedAt: payload.submittedAt,
+        });
+        await publish({
+          name: "agent.handoff.requested",
+          data: { commandId, walletAddress, envelope },
+        });
+        const report = runSpecialistStub(envelope);
+        await publish({
+          name: "agent.handoff.reported",
+          data: { commandId, walletAddress, report },
+        });
+      });
+    }
+
     await publish({
       name: "agent.command.completed",
       data: { commandId, walletAddress, decisionKind: decision.kind, completedAt: Date.now() },
