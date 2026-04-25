@@ -14,7 +14,7 @@
 import { inngest } from "../inngest-client";
 import { publish } from "../bus";
 import { capabilityRegistry } from "../capabilities/registry";
-import type { CapabilityContext, ExecutionState, anyCapability } from "../capabilities/types";
+import type { AnyCapability, CapabilityContext, ExecutionState } from "../capabilities/types";
 import {
   SPECIALISTS,
   type AgentReport,
