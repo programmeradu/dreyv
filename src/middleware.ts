@@ -158,8 +158,52 @@ const ALTERNATE_HOSTS = new Set([
     'www.dreyv.finance',
 ]);
 
+/**
+ * Construction gate — temporarily blocks `/app/*` for everyone except
+ * allow-listed wallets / emails while we rebuild the dashboard.
+ *
+ * Enabled when `DREYV_APP_CONSTRUCTION_MODE=true`. Allow-list is a
+ * comma-separated list in `DREYV_APP_CONSTRUCTION_ALLOWLIST` of either
+ * Solana wallet pubkeys (SIWS `sub`) or emails (Neon Auth `email`).
+ *
+ * Bypassed for: the rebuilding page itself, static assets, and any
+ * non-/app route.
+ */
+function isConstructionAllowed(payload: Record<string, unknown> | null, allowlist: string[]): boolean {
+    if (allowlist.length === 0) return false;
+    const sub = typeof payload?.sub === 'string' ? payload.sub : null;
+    const email = typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
+    return allowlist.some((entry) => {
+        const e = entry.trim().toLowerCase();
+        if (!e) return false;
+        return e === sub?.toLowerCase() || e === email;
+    });
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+
+    // ─── App construction gate (must run first) ─────────────────────
+    if (
+        process.env.DREYV_APP_CONSTRUCTION_MODE === 'true' &&
+        pathname.startsWith('/app') &&
+        pathname !== '/app-rebuilding' &&
+        !pathname.startsWith('/_next') &&
+        !pathname.includes('.')
+    ) {
+        const allowlist = (process.env.DREYV_APP_CONSTRUCTION_ALLOWLIST || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        const payload = await getSiwsPayload(request);
+        if (!isConstructionAllowed(payload, allowlist)) {
+            const origin =
+                request.headers.get('x-forwarded-host')
+                    ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
+                    : request.nextUrl.origin;
+            return NextResponse.redirect(new URL('/app-rebuilding', origin), 307);
+        }
+    }
 
     // ─── Canonical-host redirect (single hop, 308) ───────────────────
     // Skip in non-production (preview deploys, localhost) so they keep working.
