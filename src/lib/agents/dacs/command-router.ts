@@ -24,6 +24,7 @@ import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
 import { recallEpisodes, recordEpisode } from "./episodes";
 import { spawnSubagent } from "./subagent-store";
+import { buildEnvelope, runSpecialistStub } from "./specialists";
 import type { CommandSubmittedPayload, Intent, Plan, RouteDecision } from "./types";
 
 /**
