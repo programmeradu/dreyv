@@ -30,7 +30,7 @@ export const subagentTickerCron = inngest.createFunction(
         due.map((row) =>
           publish({
             name: "agent.subagent.tick" as never,
-            data: { subagentId: row.id, scheduledFor: row.nextRunAt.toISOString() },
+            data: { subagentId: row.id, scheduledFor: new Date(row.nextRunAt).toISOString() },
           }),
         ),
       );
