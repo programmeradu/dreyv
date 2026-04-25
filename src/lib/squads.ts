@@ -715,7 +715,10 @@ export class SquadsClient {
         try {
             const resolvedKey = await this.resolveVaultAddress(vaultAddress);
 
-            const signatures = await this.connection.getSignaturesForAddress(resolvedKey, { limit });
+            const signatures = await coalesce(
+                `getSignaturesForAddress:${resolvedKey.toBase58()}:${limit}`,
+                () => this.connection.getSignaturesForAddress(resolvedKey, { limit }),
+            );
 
             const transactions: {
                 signature: string;
