@@ -8,7 +8,16 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight, Mail } from "lucide-react";
+import { Urbanist } from "next/font/google";
+import { ArrowRight, Mail } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const wordmark = Urbanist({
+  subsets: ["latin"],
+  weight: "600",
+  display: "swap",
+  adjustFontFallback: true,
+});
 
 export default function AppRebuildingPage() {
   return (
@@ -22,11 +31,19 @@ export default function AppRebuildingPage() {
       </div>
 
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" />
+        <Link
+          href="/"
+          aria-label="dreyv home"
+          className="flex items-center group rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500/40"
+        >
+          <span
+            className={cn(
+              wordmark.className,
+              "text-xl font-semibold tracking-tight text-violet-700 lowercase leading-none group-hover:text-violet-600 transition-colors antialiased",
+            )}
+          >
+            dreyv
           </span>
-          dreyv
         </Link>
         <Link
           href="/waitlist"
