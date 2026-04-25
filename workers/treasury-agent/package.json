@@ -1,0 +1,20 @@
+{
+  "name": "dreyv-treasury-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker hosting the Dreyv per-sub-agent Durable Object. Each DO instance is one Dreyv sub-agent with its own private memory, alarms, and webhook endpoint.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "wrangler": "^3.99.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@dreyv/cloudflare": "*"
+  }
+}

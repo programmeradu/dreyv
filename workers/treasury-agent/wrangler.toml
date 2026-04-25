@@ -1,0 +1,30 @@
+name = "dreyv-treasury-agent"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Each Dreyv sub-agent runs as a Durable Object instance addressed by
+# `subagent:${id}` or `user:${userId}`. State persists per-instance.
+[[durable_objects.bindings]]
+name = "TREASURY_AGENT"
+class_name = "TreasuryAgent"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["TreasuryAgent"]
+
+# Optional: bind Workers AI for triage at the edge. Enable by uncommenting
+# after `wrangler ai-gateway create dreyv` is run.
+# [ai]
+# binding = "AI"
+
+# Optional: bind a KV namespace for cross-agent shared cache (e.g. token prices).
+# [[kv_namespaces]]
+# binding = "SHARED_CACHE"
+# id = "<your-kv-namespace-id>"
+
+[observability]
+enabled = true
+
+[vars]
+DREYV_BRAIN_BASE_URL = "https://dreyv.stauniverse.tech"
