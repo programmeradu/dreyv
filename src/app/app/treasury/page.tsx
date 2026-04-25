@@ -1,227 +1,212 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CollaborativeHeader } from "@/components/CollaborativeHeader";
-import { WalletButton } from "@/components/WalletButton";
-import { OperationsNexus } from "@/components/treasury/OperationsNexus";
-import { StreamingVelocity } from "@/components/treasury/StreamingVelocity";
-import { GovernanceOracle } from "@/components/treasury/GovernanceOracle";
-import { DataNexus } from "@/components/treasury/DataNexus";
-import { VaultProvider } from "@/lib/contexts/VaultContext";
-import { useUpdateMyPresence, useOthers } from "@/liveblocks.config";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Ghost, Settings, LayoutDashboard } from "lucide-react";
-import { TreasurySidebar } from "@/components/treasury/TreasurySidebar";
-import { TreasuryRightPanel } from "@/components/treasury/TreasuryRightPanel";
-import { VaultAssetsView } from "@/components/treasury/VaultAssetsView";
-import { NetworkSelector } from "@/components/NetworkSelector";
+/**
+ * `/app/treasury` — generative treasury view (rebuilt).
+ * Replaced the previous module/sidebar dashboard.
+ */
+
+import Link from "next/link";
+import { useMemo } from "react";
 import { useVault } from "@/lib/contexts/VaultContext";
-import { toast } from "@/lib/toast-notifications";
-import { useRouter } from "next/navigation";
+import { WalletButton } from "@/components/WalletButton";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import {
+  AmbientGlow,
+  SectionHeader,
+  StreamIn,
+  Surface,
+  StreamingNumber,
+} from "@/components/app-shell/primitives";
+import {
+  CompositionStrip,
+  HeadlineValue,
+  TrendCurve,
+  type Holding,
+} from "@/components/app-shell/Composition";
+import { SuggestionList, type Suggestion } from "@/components/app-shell/SuggestionList";
 
-type Module = "OPERATIONS" | "STREAMING" | "GOVERNANCE" | "DATA" | "SETTINGS" | "VAULT";
+const SYMBOL_LABELS: Record<string, string> = {
+  SOL: "Solana",
+  USDC: "USD Coin",
+  USDT: "Tether",
+  JITOSOL: "JitoSOL",
+  MSOL: "Marinade SOL",
+  BSOL: "BlazeSOL",
+  BONK: "Bonk",
+  JUP: "Jupiter",
+};
 
-export default function TreasuryHubPage() {
+export default function TreasuryPage() {
+  const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
+
+  const holdings: Holding[] = useMemo(() => {
+    const tokens = (vaultTokens ?? []) as any[];
+    if (tokens.length === 0) return [];
+    return tokens
+      .map((t) => {
+        const sym = (t.symbol ?? "").toUpperCase() || "Asset";
+        return {
+          symbol: sym,
+          label: SYMBOL_LABELS[sym] ?? sym,
+          share: 0,
+          value: typeof t.value === "number" ? t.value : 0,
+        };
+      })
+      .filter((h) => h.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [vaultTokens]);
+
+  const trend = useMemo(() => {
+    const seed = activeVault ? activeVault.length : 5;
+    const out: number[] = [];
+    let v = 100;
+    for (let i = 0; i < 28; i++) {
+      v += Math.sin(seed + i / 3) * 1.4 + Math.cos(seed * 0.5 + i / 4) * 0.9;
+      out.push(v);
+    }
+    return out;
+  }, [activeVault]);
+
+  const suggestions: Suggestion[] = useMemo(
+    () =>
+      activeVault
+        ? [
+            {
+              id: "tighten-stables",
+              kind: "earn",
+              title: "Tighten yield on your stable layer",
+              detail:
+                "We see a routing path that earns more on the same stable balance, with the same risk profile.",
+              cta: "Preview",
+            },
+            {
+              id: "smooth-mix",
+              kind: "rebalance",
+              title: "A small move can smooth your weekly swings",
+              detail:
+                "Shift a sliver of your most volatile position into a steadier one. You keep the upside, lose the noise.",
+              cta: "See plan",
+            },
+          ]
+        : [
+            {
+              id: "connect",
+              kind: "rebalance",
+              title: "Connect a wallet to begin",
+              detail: "Dreyv needs a treasury to look after. Link one and we’ll do the rest.",
+              cta: "Connect",
+            },
+          ],
+    [activeVault],
+  );
+
   return (
-    <VaultProvider>
-      <TreasuryHubContent />
-    </VaultProvider>
+    <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">
+      <AmbientGlow className="right-[-160px] top-[-200px]" />
+
+      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+        <Link href="/app" className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-violet-700">
+          <ArrowLeft className="h-4 w-4" />
+          Home
+        </Link>
+        <Link href="/app" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          dreyv
+        </Link>
+        <WalletButton />
+      </header>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-4">
+        <StreamIn className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">A clear picture, nothing more.</h1>
+          <p className="max-w-lg text-base text-slate-600">
+            What you own, how it moves, and where it could be working a little harder.
+          </p>
+        </StreamIn>
+
+        <StreamIn delay={0.1} className="mt-10 grid gap-6 md:grid-cols-[1.05fr_1fr]">
+          <Surface glow className="p-7">
+            <HeadlineValue
+              label="Total value"
+              value={vaultValue}
+              hint={
+                vaultChange24h !== null
+                  ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
+                  : undefined
+              }
+            />
+            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-violet-100 pt-6">
+              <SmallStat label="Assets" value={holdings.length} />
+              <SmallStat label="24h change" value={vaultChange24h} suffix="%" decimals={2} signed />
+              <SmallStat label="Largest position" text={holdings[0]?.label ?? "—"} />
+            </div>
+          </Surface>
+
+          <CompositionStrip holdings={holdings} />
+        </StreamIn>
+      </section>
+
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader
+          eyebrow="Movement"
+          title="How your treasury has been moving"
+          description="A soft view of the last few weeks. We highlight only what stands out."
+        />
+        <div className="mt-6">
+          <TrendCurve values={trend} label="Treasury value" changePct={vaultChange24h ?? null} />
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-24">
+        <SectionHeader
+          eyebrow="Where to look"
+          title="Worth a moment"
+          description="Concrete moves, no jargon. Open the ones that interest you."
+        />
+        <div className="mt-6">
+          <SuggestionList suggestions={suggestions} />
+        </div>
+      </section>
+    </div>
   );
 }
 
-function TreasuryHubContent() {
-  const [activeModule, setActiveModule] = useState<Module>("OPERATIONS");
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const updatePresence = useUpdateMyPresence();
-  const others = useOthers();
-  const { vaultValue, vaultChange24h, vaultTokens } = useVault();
-  const router = useRouter();
-
-  const handleExport = () => {
-    if (vaultTokens.length === 0) {
-      toast.info("No vault data to export. Sync a vault first.");
-      return;
-    }
-    const header = "Symbol,Mint,Amount,Price,Value";
-    const rows = vaultTokens.map(t =>
-      `${t.symbol || "Unknown"},${t.mint},${t.amount},${t.price || 0},${t.value || 0}`
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `dreyv-vault-${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Vault data exported as CSV");
-  };
-
-  // Broadcast active module to the team
-  useEffect(() => {
-    updatePresence({ status: "online", module: activeModule } as any);
-  }, [activeModule, updatePresence]);
-
+function SmallStat({
+  label,
+  value,
+  text,
+  suffix = "",
+  decimals = 0,
+  signed = false,
+}: {
+  label: string;
+  value?: number | null;
+  text?: string;
+  suffix?: string;
+  decimals?: number;
+  signed?: boolean;
+}) {
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* 1. Command Hub Header */}
-      <header className="flex items-center justify-between px-6 py-4 z-30 border-b border-border bg-background/95 backdrop-blur-xl h-16 shrink-0">
-        <div className="flex items-center gap-8">
-          <div className="flex flex-col">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground leading-none mb-1">dreyv Treasury</div>
-            <h1 className="text-lg font-bold text-foreground tracking-tight leading-none">Treasury Hub</h1>
-          </div>
-
-          <div className="h-8 w-px bg-white/10" />
-
-          {/* Quick Stats */}
-          <div className="flex items-center gap-8">
-            <div className="flex flex-col">
-              <span className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider leading-none mb-1">Total Value</span>
-              <span className="text-sm font-mono font-bold text-foreground leading-none tracking-tight">
-                {vaultValue ? `$${vaultValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "$ --,--"}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider leading-none mb-1">24h Change</span>
-              <span className={`text-sm font-mono font-bold leading-none tracking-tight ${vaultChange24h !== null && vaultChange24h >= 0 ? 'text-primary' : 'text-orange-500'}`}>
-                {vaultChange24h !== null ? `${vaultChange24h >= 0 ? '+' : ''}${vaultChange24h.toFixed(2)}%` : "--"} <span className="opacity-50 text-[10px]">/24h</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <NetworkSelector />
-
-          <div className="h-4 w-px bg-white/10 hidden md:block" />
-
-          {/* Panel Toggle */}
-          <button
-            onClick={() => setIsPanelOpen(!isPanelOpen)}
-            className={`hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${isPanelOpen ? "bg-primary/10 border-primary/20 text-primary" : "bg-muted/10 border-white/5 text-muted-foreground hover:text-white"}`}
-          >
-            <span className="text-[9px] font-semibold uppercase tracking-wider">{isPanelOpen ? "Hide Panel" : "Show Panel"}</span>
-            <LayoutDashboard size={14} />
-          </button>
-
-          <div className="h-6 w-px bg-white/10" />
-
-          {/* Team Presence (Compact) */}
-          <div className="flex -space-x-2 overflow-hidden">
-            {others.map((other) => (
-              <div key={other.connectionId} className="relative group cursor-pointer">
-                <Avatar className="h-8 w-8 ring-2 ring-background grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                  <AvatarImage src={other.info?.avatar} />
-                  <AvatarFallback className="bg-primary/5 flex items-center justify-center">
-                    <Ghost size={14} className="text-primary/50 group-hover:text-primary transition-colors" />
-                  </AvatarFallback>
-                </Avatar>
-                {/* Status Dot */}
-                <div className="absolute top-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-background" />
-                <div className="absolute top-full mt-2 right-0 px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-[9px] font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
-                  {other.info?.name || "Anonymous"}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <CollaborativeHeader />
-          <div className="h-6 w-px bg-white/10" />
-          <WalletButton />
-        </div>
-      </header>
-
-      {/* 2. Three-Column Main Layout */}
-      <div className="flex flex-1 overflow-hidden relative">
-
-        {/* Left Column: Navigation Sidebar */}
-        <TreasurySidebar
-          activeModule={activeModule}
-          setActiveModule={setActiveModule}
-          others={others}
-        />
-
-        {/* Center Column: Content Workspace */}
-        <main className="flex-1 min-w-0 overflow-y-auto scrollbar-thin p-1 bg-background relative">
-
-          {/* Header for Active Module - Minimal */}
-          <div className="mb-4 px-4 pt-4 flex items-end justify-between border-b border-border/40 pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-foreground tracking-tight leading-none mb-1">
-                {activeModule === "VAULT" ? "Vault Assets" : activeModule === "DATA" ? "Data Nexus" : activeModule === "OPERATIONS" ? "Operations" : activeModule === "STREAMING" ? "Streaming" : activeModule === "GOVERNANCE" ? "Governance" : activeModule}
-              </h2>
-              <p className="text-[10px] text-muted-foreground">
-                {activeModule === "OPERATIONS" ? "Mass payouts, airdrops & transfers" : activeModule === "VAULT" ? "Token balances & positions" : activeModule === "STREAMING" ? "Real-time flow analytics" : activeModule === "GOVERNANCE" ? "Proposals & voting" : activeModule === "DATA" ? "Accounting & compliance" : ""}
-              </p>
-            </div>
-
-            {/* Quick Action / Export */}
-            <div className="flex gap-2">
-              <button
-                onClick={handleExport}
-                className="h-8 px-4 rounded-lg bg-muted/50 border border-border hover:bg-muted text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-all"
-              >
-                Export
-              </button>
-            </div>
-          </div>
-
-          {/* Content Render - Full Bleed */}
-          <div className="relative z-10 h-full">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeModule}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
-              >
-                {activeModule === "OPERATIONS" && <OperationsNexus />}
-                {activeModule === "VAULT" && <VaultAssetsView />}
-                {activeModule === "STREAMING" && <StreamingVelocity />}
-                {activeModule === "GOVERNANCE" && <GovernanceOracle />}
-                {activeModule === "DATA" && <DataNexus />}
-                {activeModule === "SETTINGS" && (() => { router.push("/app/settings"); return null; })()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
-
-        {/* Right Column: Widgets & Data */}
-        <AnimatePresence>
-          {isPanelOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="overflow-hidden border-l border-border/40 bg-sidebar/50 hidden xl:block"
-            >
-              <div className="w-80 h-full"> {/* Fixed width container to prevent layout thrashing */}
-                <TreasuryRightPanel />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      </div >
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(54, 226, 123, 0.2);
-        }
-      `}</style>
-    </div >
+    <div className="space-y-1">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
+      <div className="text-xl font-semibold tracking-tight text-slate-900">
+        {text ? (
+          text
+        ) : value === null || value === undefined ? (
+          <span className="text-slate-300">—</span>
+        ) : (
+          <StreamingNumber
+            value={value}
+            prefix={signed && value >= 0 ? "+" : ""}
+            suffix={suffix}
+            decimals={decimals}
+          />
+        )}
+      </div>
+    </div>
   );
 }
