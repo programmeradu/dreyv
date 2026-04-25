@@ -8,11 +8,8 @@ Pricing tiers: Free $0, Mini $49/mo, Max $199/mo (FastSpring MoR). Keep marketin
 Approved pricing page aesthetic: white bg, solid violet accents, ambient violet-400/300 glows, manrope, custom crystal tier images, solid violet "Most popular" border + flat violet CTA strip — replicate this style for other marketing pages.
 NEVER use hardcoded/demo/made-up figures (e.g. "$100k portfolio", "$250k AUM", default amounts) in any simulation, plan, or projection. Every prompt must either run on live data, or clarify (LLM-driven) to ask the user for the missing exposure (connect wallet / paste address / enter amount / explicit demo opt-in). Bad marketing otherwise.
 Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) + `/auth` Free tier (self-serve, stays discoverable). Never gate Atlas read-only / `/compare` / `/developers` / `llms*.txt` / OpenAPI.
-APP SHELL (`/app`, `/app/treasury`, `/app/analytics`) = generative + streaming UX. Hide ALL technical chrome (no agent IDs, no tick logs, no terminal feeds, no JSON, no monospace data tables). Speak in human outcomes. Match Stitch-light marketing DNA.
-/api/command LLM provider order = Groq → Cloudflare Workers AI → Lovable AI Gateway (last-resort only). Never reorder without explicit approval.
-CommandBar migration to DACS (bus-driven agent pipeline) is in progress — see [DACS](mem://features/dacs). Until Phase 6 cutover, every new capability MUST be added to `src/lib/agents/capabilities/*` registry, not inline in `src/app/api/command/route.ts`.
+DACS migration is the active backend refactor — `.lovable/plan.md` is canonical. Phase 0 done (48 capabilities). Phase 1 next: intent → plan → route → sse-proxy. Always re-read plan before DACS work.
 
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
-- [App shell aesthetic](mem://design/app-shell) — generative streaming UI rules for /app, /app/treasury, /app/analytics: hide agent internals, Stitch-light violet Manrope, human-outcome copy.
-- [DACS](mem://features/dacs) — 6-phase migration of CommandBar from inline streamText+30 hardcoded tools to bus-driven agent pipeline (intent → plan → reflect → route). Locked decisions: full dynamic + HITL, per-user policy default-require-approval, shadow mode 1 week before cutover.
+- [DACS](mem://features/dacs) — CommandBar → bus-driven agent pipeline, 6 phases, capability registry (48 caps), HITL, shadow rollout. Source of truth is `.lovable/plan.md`.
