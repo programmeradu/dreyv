@@ -164,7 +164,7 @@ export const executeApprovedPlan = inngest.createFunction(
         plan,
         outcome: ok ? "approved_executed" : "approved_failed",
         durationMs,
-        signature,
+        signature: signature ?? undefined,
         notes: ok ? undefined : firstError ?? undefined,
       });
     });
