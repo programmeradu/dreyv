@@ -17,6 +17,7 @@
 import { db } from "@/db";
 import { agentTxProposals } from "@/db/schema";
 import type { DeepProposal } from "./gemini-deep";
+import { buildPlanForAction, type ExecutorPlan } from "./executor-plans";
 
 const MIN_CONFIDENCE = 0.75;
 const PROPOSAL_TTL_MS = 1000 * 60 * 30; // 30 min queue freshness
@@ -118,12 +119,17 @@ export async function bridgeProposalToTx(args: {
   let estimatedFeeSol: number | null = null;
   let errorMessage: string | null = null;
   let status: "queued" | "failed" = "queued";
+  let plan: ExecutorPlan | null = null;
 
   try {
-    if (action.op === "swap") {
-      const built = await tryBuildSwapTx(action.params);
-      unsignedTx = built.unsignedTx;
-      estimatedFeeSol = built.estimatedFeeSol;
+    plan = buildPlanForAction(action.op, action.params || {});
+    if (!plan) {
+      errorMessage = `no_plan_builder_for_op:${action.op}`;
+      status = "failed";
+    } else {
+      // Conservative fee estimate; wallet recomputes at sign time.
+      estimatedFeeSol =
+        plan.op === "rebalance" ? 0.000_2 : plan.op === "swap" ? 0.000_05 : 0.000_03;
     }
   } catch (e: any) {
     errorMessage = e?.message?.slice(0, 500) ?? "build_failed";
@@ -138,13 +144,14 @@ export async function bridgeProposalToTx(args: {
         userId: args.userId ?? null,
         chain: "solana",
         kind: action.op,
-        summary,
+        summary: plan?.summary ?? summary,
         unsignedTx,
         instructions: [
           {
             op: action.op,
             params: action.params,
             rationale: action.rationale,
+            plan, // ← typed executor blueprint the wallet consumes at sign time
           },
         ] as unknown as object,
         estimatedFeeSol: estimatedFeeSol != null ? String(estimatedFeeSol) : null,

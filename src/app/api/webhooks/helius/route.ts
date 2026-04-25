@@ -10,6 +10,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { publishDreyvEvent } from "@/lib/agents/bus";
+import { surfaceChainOpportunity } from "@/lib/agents/opportunity-translator";
 import type { ChainEvent } from "@/lib/datafeeds/normalize";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,10 @@ export async function POST(req: NextRequest) {
       amountUsd: typeof tx?.amountUsd === "number" ? tx.amountUsd : undefined,
       raw: tx,
     };
+    // Always publish raw chain event for downstream feeds + memory
     publishDreyvEvent(evt).catch(() => {});
+    // Translate material events into agent.opportunity.surfaced for the brain router
+    surfaceChainOpportunity(evt).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, accepted: items.length });
