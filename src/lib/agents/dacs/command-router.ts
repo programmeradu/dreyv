@@ -131,6 +131,57 @@ export const commandRouter = inngest.createFunction(
       return { commandId, intentKind: intent.kind, decisionKind: verdict.rejection.kind, steps: 0 };
     }
 
+    // Phase 4: recurring/monitoring intents are deferred to a sub-agent
+    // instead of executing immediately. Skip when this command is itself a
+    // sub-agent tick (commandId starts with `sa_`).
+    const recurring = detectRecurringSpec(intent);
+    const isSubagentTick = commandId.startsWith("sa_");
+    if (recurring.recurring && !isSubagentTick && plan.steps.length > 0) {
+      const subagentId = await step.run("spawn-subagent", async () =>
+        spawnSubagent({
+          walletAddress,
+          parentCommandId: commandId,
+          title: rawText.slice(0, 80),
+          rawText,
+          intent,
+          planTemplate: plan,
+          intervalSeconds: recurring.intervalSeconds,
+          maxTicks: recurring.maxTicks,
+        }),
+      );
+      const deferDecision: RouteDecision = {
+        kind: "defer_to_subagent",
+        plan,
+        reason: `Spawned sub-agent (interval ${recurring.intervalSeconds}s${recurring.maxTicks ? `, max ${recurring.maxTicks} ticks` : ""}).`,
+        approvalQueueId: subagentId ?? undefined,
+      };
+      await publish({
+        name: "agent.plan.routed",
+        data: { commandId, walletAddress, decision: deferDecision },
+      });
+      if (subagentId) {
+        await publish({
+          name: "agent.subagent.spawned",
+          data: { subagentId, commandId, walletAddress, intervalSeconds: recurring.intervalSeconds },
+        });
+      }
+      await step.run("persist-defer-snapshot", async () => {
+        await recordDacs({
+          commandId,
+          intent,
+          plan,
+          decision: deferDecision,
+          latencyMs: Date.now() - startedAt,
+        });
+        await computeParity(commandId);
+      });
+      await publish({
+        name: "agent.command.completed",
+        data: { commandId, walletAddress, decisionKind: deferDecision.kind, completedAt: Date.now() },
+      });
+      return { commandId, intentKind: intent.kind, decisionKind: deferDecision.kind, steps: plan.steps.length, subagentId };
+    }
+
     const decision = await step.run("route-plan", async () => {
       const d = routePlan(intent, plan, { policy, promptMode });
       // Phase 2: when the router queues a plan, persist it to the HITL queue
