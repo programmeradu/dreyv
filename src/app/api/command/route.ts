@@ -267,14 +267,30 @@ Wallet State: ${JSON.stringify(walletState || {})}
     // Fire-and-forget: legacy pipeline below still serves the user.
     void (async () => {
       try {
+        const dacsStartedAt = Date.now();
         const { submitCommand } = await import("@/lib/agents/dacs/submit");
-        await submitCommand({
+        const { recordLegacy, computeParity } = await import("@/lib/agents/dacs/diff-log");
+        const { commandId, submitted } = await submitCommand({
           walletAddress,
           rawText: userRequestText,
           promptMode,
           vaultState,
           walletState,
         });
+        if (submitted) {
+          // Legacy pipeline streams below; we only know it was *served* — record
+          // a passthrough marker so the diff harness can still compute parity
+          // when DACS finishes. Phase 6 will replace this with full tool-call
+          // capture once the legacy route is dismantled.
+          await recordLegacy({
+            commandId,
+            decisionKind: "served",
+            latencyMs: Date.now() - dacsStartedAt,
+          });
+          // Defer parity compute — DACS may finish later. Best-effort retry.
+          setTimeout(() => void computeParity(commandId), 5_000);
+          setTimeout(() => void computeParity(commandId), 30_000);
+        }
       } catch (e) {
         console.warn("[DACS] shadow submit failed:", e);
       }
