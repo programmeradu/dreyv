@@ -2304,7 +2304,10 @@ Wallet State: ${JSON.stringify(walletState || {})}
       },
     };
 
-    // Model chain: Groq first, then Cloudflare Workers AI fallbacks (after 1–2 tries we fall back)
+    // Model chain order (per product decision):
+    //   1. Groq (primary — fastest + cheapest at scale)
+    //   2. Cloudflare Workers AI (secondary — high free tier, good 70B fallback)
+    //   3. Lovable AI Gateway (last-resort — used only if BOTH above are unavailable/exhausted)
     const modelChain: { name: string; model: Parameters<typeof streamText>[0]["model"]; maxChars: number }[] = [];
     if (process.env.GROQ_API_KEY) {
       modelChain.push({
@@ -2313,22 +2316,22 @@ Wallet State: ${JSON.stringify(walletState || {})}
         maxChars: estimateCompatibilityBudget("groq/llama-3.3-70b-versatile"),
       });
     }
-    if (lovableProvider) {
-      for (const modelId of LOVABLE_FALLBACK_MODELS) {
-        const modelName = `lovable/${modelId}`;
-        modelChain.push({
-          name: modelName,
-          model: lovableProvider.chatModel(modelId),
-          maxChars: estimateCompatibilityBudget(modelName),
-        });
-      }
-    }
     if (cloudflareProvider) {
       for (const modelId of CLOUDFLARE_FALLBACK_MODELS) {
         const modelName = `cloudflare/${modelId}`;
         modelChain.push({
           name: modelName,
           model: cloudflareProvider.chatModel(modelId),
+          maxChars: estimateCompatibilityBudget(modelName),
+        });
+      }
+    }
+    if (lovableProvider) {
+      for (const modelId of LOVABLE_FALLBACK_MODELS) {
+        const modelName = `lovable/${modelId}`;
+        modelChain.push({
+          name: modelName,
+          model: lovableProvider.chatModel(modelId),
           maxChars: estimateCompatibilityBudget(modelName),
         });
       }
