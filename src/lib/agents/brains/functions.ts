@@ -155,18 +155,29 @@ export const subAgentTick = inngest.createFunction(
   { cron: "*/30 * * * *" },
   async ({ step }) => {
     const active = await step.run("load-active", async () => {
-      if (!db) return [] as Array<{ id: string; name: string; goal: string; userId: string | null }>;
-      const rows = await db
-        .select({
-          id: agentSubagents.id,
-          name: agentSubagents.name,
-          goal: agentSubagents.goal,
-          userId: agentSubagents.userId,
-        })
-        .from(agentSubagents)
-        .where(eq(agentSubagents.status, "active"))
-        .limit(50);
-      return rows;
+      const empty: Array<{ id: string; name: string; goal: string; userId: string | null }> = [];
+      if (!db) return empty;
+      try {
+        const rows = await db
+          .select({
+            id: agentSubagents.id,
+            name: agentSubagents.name,
+            goal: agentSubagents.goal,
+            userId: agentSubagents.userId,
+          })
+          .from(agentSubagents)
+          .where(eq(agentSubagents.status, "active"))
+          .limit(50);
+        return rows;
+      } catch (err: any) {
+        // Degrade gracefully if the table hasn't been migrated yet
+        // (e.g. fresh deploy before 0008_agent_subagents.sql is applied).
+        if (err?.code === "42P01") {
+          console.warn("[subAgentTick] agent_subagents table missing — skipping tick. Apply scripts/migrations/0008_agent_subagents.sql.");
+          return empty;
+        }
+        throw err;
+      }
     });
 
     if (!active.length) return { ticked: 0 };

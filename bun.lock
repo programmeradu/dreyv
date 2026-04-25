@@ -151,6 +151,10 @@
         "typescript": "^5.8.3",
       },
     },
+    "packages/cloudflare-sdk": {
+      "name": "@dreyv/cloudflare",
+      "version": "0.1.0",
+    },
     "packages/sdk": {
       "name": "@keystone-os/sdk",
       "version": "0.3.0",
@@ -249,6 +253,8 @@
     "@daveyplate/better-auth-ui": ["@daveyplate/better-auth-ui@3.3.9", "", { "dependencies": { "@better-fetch/fetch": "^1.1.21", "@hcaptcha/react-hcaptcha": "^1.17.1", "@noble/hashes": "^2.0.1", "@react-email/components": "^1.0.1", "@wojtekmaj/react-recaptcha-v3": "^0.1.4", "react-google-recaptcha": "^3.1.0", "react-qr-code": "^2.0.18", "ua-parser-js": "^2.0.7", "vaul": "^1.1.2" }, "peerDependencies": { "@captchafox/react": "^1.10.0", "@hookform/resolvers": ">=5.2.0", "@marsidev/react-turnstile": ">=1.1.0", "@radix-ui/react-avatar": ">=1.1.0", "@radix-ui/react-checkbox": ">=1.1.0", "@radix-ui/react-context": ">=1.1.0", "@radix-ui/react-dialog": ">=1.1.0", "@radix-ui/react-dropdown-menu": ">=2.1.0", "@radix-ui/react-label": ">=2.1.0", "@radix-ui/react-primitive": ">=2.0.0", "@radix-ui/react-select": ">=2.2.0", "@radix-ui/react-separator": ">=1.1.0", "@radix-ui/react-slot": ">=1.1.0", "@radix-ui/react-tabs": ">=1.1.0", "@radix-ui/react-use-callback-ref": ">=1.1.0", "@radix-ui/react-use-layout-effect": ">=1.1.0", "@tanstack/react-query": ">=5.66.0", "better-auth": "^1.4.6", "class-variance-authority": ">=0.7.0", "clsx": ">=2.1.0", "input-otp": ">=1.4.0", "lucide-react": ">=0.469.0", "react": ">=18.0.0", "react-dom": ">=18.0.0", "react-hook-form": ">=7.55.0", "sonner": ">=1.7.0", "tailwind-merge": ">=2.6.0", "tailwindcss": ">=3.0.0", "zod": ">=3.0.0" } }, "sha512-bKUSytQmIaUwPd6hFcbZGiscCDhrh2BN10DZCR3QjsXpc0Wj2yBUcKQC2FKr8dUPZiUnWNt2ajIsEnaMXuKewA=="],
 
     "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
+
+    "@dreyv/cloudflare": ["@dreyv/cloudflare@workspace:packages/cloudflare-sdk"],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
