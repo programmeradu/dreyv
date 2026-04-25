@@ -23,7 +23,28 @@ import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
 import { recallEpisodes, recordEpisode } from "./episodes";
-import type { CommandSubmittedPayload, Plan } from "./types";
+import { spawnSubagent } from "./subagent-store";
+import type { CommandSubmittedPayload, Intent, Plan, RouteDecision } from "./types";
+
+/**
+ * Detect a recurring/monitoring shape: intent.kind=monitor, or constraints
+ * carry an explicit cadence (frequency / iterations / recurrence).
+ * Returns the inferred interval in seconds (default 24h) when matched.
+ */
+function detectRecurringSpec(intent: Intent): { recurring: boolean; intervalSeconds: number; maxTicks: number | null } {
+  const c = intent.constraints ?? {};
+  const freq = String(c.frequency ?? c.cadence ?? "").toLowerCase();
+  const iterations = Number(c.iterations ?? c.cycles ?? 0) || null;
+  const isMonitor = intent.kind === "monitor";
+  const hasRecurrence = !!(c.recurrence || c.frequency || c.cadence || c.iterations);
+  if (!isMonitor && !hasRecurrence) return { recurring: false, intervalSeconds: 86400, maxTicks: null };
+  let interval = 86_400;
+  if (freq.includes("hour")) interval = 3600;
+  else if (freq.includes("minute")) interval = 600;
+  else if (freq.includes("week")) interval = 7 * 86_400;
+  else if (freq.includes("day") || isMonitor) interval = 86_400;
+  return { recurring: true, intervalSeconds: interval, maxTicks: iterations };
+}
 
 export const commandRouter = inngest.createFunction(
   {
