@@ -96,3 +96,29 @@ Wire CommandBar to spawn `SubAgentSpec` for "watch / DCA / alert" intents:
 - Every write defaults to HITL queue. Auto-approve only when user policy explicitly opts in (threshold + protocol allowlist).
 - Shadow-mode diff harness must log both pipelines per request and surface divergences in admin view.
 - Risk-agent must veto any dynamic plan touching protocols not in user policy allowlist OR exceeding user-defined value cap.
+
+---
+
+## Status snapshot (keep updated)
+
+**Phase 0 — DONE.** 30 legacy tools + 14 new capabilities = **48 total** in `src/lib/agents/capabilities/`.
+- Domains: treasury(4), trading(4), yield(5), intel(7), studio(8), dynamic(3), misc(3), policy(3), payments(5), risk(6)
+- Legacy shim: `src/lib/agents/capabilities/legacy-shim.ts` (`buildLegacyTools(ctx, { only? })`)
+- Coverage assertion (`assertLegacyCoverage(LEGACY_COMMAND_BAR_TOOL_IDS)`) passes
+- `route.ts` **not yet** swapped to the shim — gated cutover happens at start of Phase 1
+
+**Phase 0.5 — Net-new capabilities (NOT in legacy route).** Added ahead of planner so Phase 1 can reason about them:
+- **policy/** `set_treasury_policy`, `treasury_runway_autopilot`, `treasury_attestation`
+- **payments/** `recurring_payment`, `invoice_pay`, `gas_tank_topup`, `grant_disbursement`, `expense_categorize`
+- **risk/** `counterparty_risk_score`, `stablecoin_diversification`, `tax_lot_tracker`, `hedge_position`, `liquidation_watch`, `mev_rebate_claim`
+- All have real schemas + sensitivity + protocols. Executors return structured `requiresApproval: true` payloads where they touch funds — Phase 2 HITL queue picks them up. Indexer-bound ones (`tax_lot_tracker`, `expense_categorize`, `counterparty_risk_score` deep) get fleshed out in Phase 4.
+
+**Phase 1 — NEXT.** Build:
+1. `src/lib/agents/dacs/intent.ts` — Groq llama-3.3 intent extraction
+2. `src/lib/agents/dacs/plan.ts` — typed plan synthesis (Groq simple / Gemini deep)
+3. `src/lib/agents/dacs/route.ts` — Inngest `commandRouter` (intent → plan → reflect → route)
+4. `src/lib/agents/dacs/sse-proxy.ts` — SSE channel forwarding bus events to `/api/command`
+5. `agent.command.submitted` event wiring + `DACS_ENABLED` flag
+6. Wire `legacy-shim.buildLegacyTools(ctx)` into route.ts as the canonical tool source (deletes inline duplicates lazily)
+
+**Phases 2–6 unchanged from plan above.**
