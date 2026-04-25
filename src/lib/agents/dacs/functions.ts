@@ -5,5 +5,6 @@
 
 import { commandRouter } from "./command-router";
 import { executeApprovedPlan } from "./executor";
+import { subagentTickerCron, subagentTick } from "./subagent-runtime";
 
-export const DACS_FUNCTIONS = [commandRouter, executeApprovedPlan];
+export const DACS_FUNCTIONS = [commandRouter, executeApprovedPlan, subagentTickerCron, subagentTick];

@@ -33,7 +33,11 @@ export type BusEventName =
   | "agent.command.completed"
   // DACS Phase 2 — HITL queue
   | "agent.approval.requested"
-  | "agent.approval.resolved";
+  | "agent.approval.resolved"
+  // DACS Phase 4 — sub-agent runtime
+  | "agent.subagent.spawned"
+  | "agent.subagent.tick"
+  | "agent.subagent.completed";
 
 export interface BusEnvelope<T = unknown> {
   name: BusEventName;
