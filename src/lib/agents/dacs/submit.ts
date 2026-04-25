@@ -2,12 +2,13 @@
  * DACS Phase 1 — entry point used by `/api/command/route.ts`.
  *
  * Publishes `agent.command.submitted` to the bus when DACS is in shadow or
- * primary mode. In shadow mode the legacy pipeline still serves the user,
- * but DACS runs in parallel and writes its decision to the diff log.
+ * primary mode AND seeds a `command_diff_log` row so legacy + DACS snapshots
+ * can be merged for parity review.
  */
 
 import { publish } from "../bus";
 import { dacsActive } from "./flag";
+import { seedDiffRow } from "./diff-log";
 import type { CommandSubmittedPayload } from "./types";
 
 export async function submitCommand(payload: Omit<CommandSubmittedPayload, "commandId" | "submittedAt"> & {
@@ -25,6 +26,15 @@ export async function submitCommand(payload: Omit<CommandSubmittedPayload, "comm
     walletState: payload.walletState,
     submittedAt: Date.now(),
   };
+
+  // Seed the diff-log row first so legacy writes that finish quickly
+  // never race ahead of the DACS row insert.
+  await seedDiffRow({
+    commandId,
+    walletAddress: full.walletAddress,
+    rawText: full.rawText,
+    promptMode: full.promptMode,
+  });
 
   const result = await publish({ name: "agent.command.submitted", data: full });
   return { commandId, submitted: result.delivered };
