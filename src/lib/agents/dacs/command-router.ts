@@ -149,6 +149,22 @@ export const commandRouter = inngest.createFunction(
       await computeParity(commandId);
     });
 
+    // Phase 3: record episode for terminal decisions (auto_execute / reject).
+    // queue_for_approval episodes are recorded by the executor on resolution.
+    if (decision.kind === "auto_execute" || decision.kind === "reject") {
+      await step.run("record-episode", async () => {
+        await recordEpisode({
+          commandId,
+          walletAddress,
+          intent,
+          plan,
+          outcome: decision.kind === "auto_execute" ? "auto_executed" : "rejected",
+          durationMs: Date.now() - startedAt,
+          notes: decision.reason,
+        });
+      });
+    }
+
     await publish({
       name: "agent.command.completed",
       data: { commandId, walletAddress, decisionKind: decision.kind, completedAt: Date.now() },
