@@ -11,6 +11,7 @@ import { NotificationsView } from "@/components/settings/NotificationsView";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { BillingView } from "@/components/settings/BillingView";
 import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
+import { SubagentsPanel } from "@/components/settings/SubagentsPanel";
 import { NetworkSelector } from "@/components/NetworkSelector";
 import { useNotificationStore } from "@/lib/notifications";
 import { toast } from "@/lib/toast-notifications";
@@ -45,7 +46,12 @@ export default function SettingsPage() {
             case "notifications": return <NotificationsView />;
             case "api": return <ApiKeysView />;
             case "billing": return <BillingView />;
-            case "policy": return <AgentPolicyView />;
+            case "policy": return (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <AgentPolicyView />
+                    <SubagentsPanel />
+                </div>
+            );
             default: return (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Agent Personas Section */}
