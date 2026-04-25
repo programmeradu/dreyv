@@ -17,8 +17,8 @@ import type { AnyCapability, CapabilityDomain } from "./types";
 import { treasuryCapabilities } from "./treasury";
 import { tradingCapabilities } from "./trading";
 import { yieldCapabilities } from "./yield";
+import { intelCapabilities } from "./intel";
 // Domain modules below land in subsequent turns of Phase 0.
-// import { intelCapabilities } from "./intel";
 // import { studioCapabilities } from "./studio";
 // import { dynamicCapabilities } from "./dynamic";
 // import { miscCapabilities } from "./misc";
@@ -30,7 +30,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...treasuryCapabilities,
     ...tradingCapabilities,
     ...yieldCapabilities,
-    // ...intelCapabilities,
+    ...intelCapabilities,
     // ...studioCapabilities,
     // ...dynamicCapabilities,
     // ...miscCapabilities,
