@@ -151,10 +151,16 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        // SameSite=Lax works in normal top-level navigation AND in the
+        // Lovable preview iframe (same-origin app shell) without requiring
+        // cross-site cookie permissions. SameSite=None would be silently
+        // dropped by Chrome/Safari inside cross-site iframes, leaving the
+        // user "signed in" client-side but with no cookie on the next
+        // request.
         response.cookies.set(COOKIE_NAME, token, {
             httpOnly: true,
             secure: true,
-            sameSite: 'none',
+            sameSite: 'lax',
             path: '/',
             maxAge: SESSION_MAX_AGE,
         });
@@ -206,7 +212,7 @@ export async function DELETE() {
     response.cookies.set(COOKIE_NAME, '', {
         httpOnly: true,
         secure: true,
-        sameSite: 'none',
+        sameSite: 'lax',
         path: '/',
         maxAge: 0,
     });

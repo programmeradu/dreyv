@@ -70,7 +70,7 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
             clearTimeout(timeoutId);
 
             const data = await parseJsonSafe(res);
-            if (data.user) {
+            if (data?.user) {
                 setUser(data.user);
             } else {
                 setUser(null);
