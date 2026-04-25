@@ -19,6 +19,9 @@ import { classifyIntent } from "./intent";
 import { synthesizePlan } from "./plan";
 import { routePlan } from "./route";
 import { recordDacs, computeParity } from "./diff-log";
+import { verifyComposedPlan } from "./compose";
+import { loadUserPolicy } from "./policy-store";
+import { enqueueApproval } from "./hitl-queue";
 import type { CommandSubmittedPayload } from "./types";
 
 export const commandRouter = inngest.createFunction(
@@ -43,7 +46,7 @@ export const commandRouter = inngest.createFunction(
       return i;
     });
 
-    const plan = await step.run("synthesize-plan", async () => {
+    const rawPlan = await step.run("synthesize-plan", async () => {
       const p = await synthesizePlan(intent);
       await publish({
         name: "agent.plan.synthesized",
@@ -52,8 +55,59 @@ export const commandRouter = inngest.createFunction(
       return p;
     });
 
+    // Phase 2: load per-user policy + run open-vocab plan through compose veto.
+    const policy = await step.run("load-policy", async () => loadUserPolicy(walletAddress));
+    const verdict = verifyComposedPlan(rawPlan, { policy, promptMode });
+    const plan = verdict.plan;
+
+    if (!verdict.ok && verdict.rejection) {
+      await publish({
+        name: "agent.plan.routed",
+        data: { commandId, walletAddress, decision: verdict.rejection },
+      });
+      await step.run("persist-rejection", async () => {
+        await recordDacs({
+          commandId,
+          intent,
+          plan,
+          decision: verdict.rejection!,
+          latencyMs: Date.now() - startedAt,
+        });
+        await computeParity(commandId);
+      });
+      await publish({
+        name: "agent.command.completed",
+        data: {
+          commandId,
+          walletAddress,
+          decisionKind: verdict.rejection.kind,
+          completedAt: Date.now(),
+        },
+      });
+      return { commandId, intentKind: intent.kind, decisionKind: verdict.rejection.kind, steps: 0 };
+    }
+
     const decision = await step.run("route-plan", async () => {
-      const d = routePlan(intent, plan, { promptMode });
+      const d = routePlan(intent, plan, { policy, promptMode });
+      // Phase 2: when the router queues a plan, persist it to the HITL queue
+      // and enrich the decision with the resulting approvalQueueId.
+      if (d.kind === "queue_for_approval") {
+        const approvalId = await enqueueApproval({
+          commandId,
+          walletAddress,
+          intent,
+          plan,
+          decision: d,
+          ttlHours: plan.riskScore >= 0.7 ? 6 : 24,
+        });
+        if (approvalId) {
+          d.approvalQueueId = approvalId;
+          await publish({
+            name: "agent.approval.requested",
+            data: { commandId, walletAddress, approvalId, reason: d.reason },
+          });
+        }
+      }
       await publish({
         name: "agent.plan.routed",
         data: { commandId, walletAddress, decision: d },

@@ -113,12 +113,17 @@ Wire CommandBar to spawn `SubAgentSpec` for "watch / DCA / alert" intents:
 - **risk/** `counterparty_risk_score`, `stablecoin_diversification`, `tax_lot_tracker`, `hedge_position`, `liquidation_watch`, `mev_rebate_claim`
 - All have real schemas + sensitivity + protocols. Executors return structured `requiresApproval: true` payloads where they touch funds — Phase 2 HITL queue picks them up. Indexer-bound ones (`tax_lot_tracker`, `expense_categorize`, `counterparty_risk_score` deep) get fleshed out in Phase 4.
 
-**Phase 1 — NEXT.** Build:
-1. `src/lib/agents/dacs/intent.ts` — Groq llama-3.3 intent extraction
-2. `src/lib/agents/dacs/plan.ts` — typed plan synthesis (Groq simple / Gemini deep)
-3. `src/lib/agents/dacs/route.ts` — Inngest `commandRouter` (intent → plan → reflect → route)
-4. `src/lib/agents/dacs/sse-proxy.ts` — SSE channel forwarding bus events to `/api/command`
-5. `agent.command.submitted` event wiring + `DACS_ENABLED` flag
-6. Wire `legacy-shim.buildLegacyTools(ctx)` into route.ts as the canonical tool source (deletes inline duplicates lazily)
+**Phase 1 — DONE.** DACS pipeline (`intent → plan → route`) live in shadow mode behind `DACS_ENABLED`. Diff log + SSE proxy + admin view shipped.
 
-**Phases 2–6 unchanged from plan above.**
+**Phase 2 — DONE.** HITL queue + open-vocab planner sandbox + per-user policy:
+- `command_approvals` + `user_agent_policy` tables (migration `0011_dacs_phase2_hitl.sql`)
+- `src/lib/agents/dacs/{compose,hitl-queue,policy-store}.ts`
+- `commandRouter` now: loads policy → verifies composed plan (allowlist/registry veto) → enqueues HITL on `queue_for_approval` → emits `agent.approval.requested` / `agent.approval.resolved` bus events
+- API: `/api/dacs/approvals` (GET/PATCH) + `/api/dacs/policy` (GET/PUT)
+- Default posture: every write requires approval; users opt into thresholds via policy
+
+**Phase 3 — NEXT.** Episodic memory + executor for approved plans:
+1. `agent_episodes` table + nightly policy derivation job
+2. Approval-resolved listener → executor that runs the queued plan
+3. Reflector post-mortem on failures
+4. `/app/settings` UI for `user_agent_policy` (allowlist, thresholds)

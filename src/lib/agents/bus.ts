@@ -30,7 +30,10 @@ export type BusEventName =
   | "agent.intent.classified"
   | "agent.plan.synthesized"
   | "agent.plan.routed"
-  | "agent.command.completed";
+  | "agent.command.completed"
+  // DACS Phase 2 — HITL queue
+  | "agent.approval.requested"
+  | "agent.approval.resolved";
 
 export interface BusEnvelope<T = unknown> {
   name: BusEventName;

@@ -887,3 +887,45 @@ export const commandDiffLog = pgTable('command_diff_log', {
   parityIdx: index('command_diff_log_parity_idx').on(t.parity),
   walletIdx: index('command_diff_log_wallet_idx').on(t.walletAddress),
 }));
+
+// ─── DACS Phase 2 — HITL approval queue ───────────────────────────────
+// Every plan the router decides to "queue_for_approval" lands here. The
+// /app inbox surfaces pending rows; resolution writes back status +
+// signature so the executor (Phase 3) can settle the plan.
+export const commandApprovals = pgTable('command_approvals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  commandId: text('command_id').notNull(),
+  walletAddress: text('wallet_address'),
+  status: text('status').notNull().default('pending'), // pending | approved | rejected | expired | executed
+  reason: text('reason').notNull(),
+  intent: jsonb('intent').notNull(),
+  plan: jsonb('plan').notNull(),
+  decision: jsonb('decision').notNull(),
+  riskScore: numeric('risk_score'),
+  estimatedValueUsd: numeric('estimated_value_usd'),
+  resolvedAt: timestamp('resolved_at'),
+  resolvedBy: text('resolved_by'),
+  resolutionNote: text('resolution_note'),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('command_approvals_wallet_idx').on(t.walletAddress),
+  statusIdx: index('command_approvals_status_idx').on(t.status),
+  commandIdx: index('command_approvals_command_idx').on(t.commandId),
+  createdIdx: index('command_approvals_created_idx').on(t.createdAt),
+}));
+
+// ─── DACS Phase 2 — Per-user agent policy ─────────────────────────────
+// Router consults this to decide auto-execute vs HITL. Defaults are
+// conservative; users opt into looser thresholds explicitly.
+export const userAgentPolicy = pgTable('user_agent_policy', {
+  walletAddress: text('wallet_address').primaryKey(),
+  autoApproveBelowUsd: numeric('auto_approve_below_usd').notNull().default('0'),
+  requireMultisigAboveUsd: numeric('require_multisig_above_usd'),
+  protocolAllowlist: jsonb('protocol_allowlist').notNull().default('[]'),
+  protocolDenylist: jsonb('protocol_denylist').notNull().default('[]'),
+  allowDynamicWrites: boolean('allow_dynamic_writes').notNull().default(false),
+  dailyValueCapUsd: numeric('daily_value_cap_usd'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
