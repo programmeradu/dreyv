@@ -43,6 +43,7 @@
     "**/*.test.tsx",
     "mini-apps",
     "old-atlas.tsx",
-    "packages"
+    "packages",
+    "workers"
   ]
 }
