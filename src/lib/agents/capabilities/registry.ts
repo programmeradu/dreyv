@@ -18,10 +18,9 @@ import { treasuryCapabilities } from "./treasury";
 import { tradingCapabilities } from "./trading";
 import { yieldCapabilities } from "./yield";
 import { intelCapabilities } from "./intel";
-// Domain modules below land in subsequent turns of Phase 0.
-// import { studioCapabilities } from "./studio";
-// import { dynamicCapabilities } from "./dynamic";
-// import { miscCapabilities } from "./misc";
+import { studioCapabilities } from "./studio";
+import { dynamicCapabilities } from "./dynamic";
+import { miscCapabilities } from "./misc";
 
 let cached: Map<string, AnyCapability> | null = null;
 
