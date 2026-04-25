@@ -957,7 +957,9 @@ export const agentEpisodes = pgTable('agent_episodes', {
 // Long-running directives (recurring DCA, monitor, alert) live here.
 // A cron sweep ticks each row whose next_run_at <= now and re-runs the
 // stored plan template through DACS as a fresh command.
-export const agentSubagents = pgTable('agent_subagents', {
+// NOTE: distinct from `agent_subagents` (Brains system); keep table name
+// `dacs_subagents` to avoid colliding with the existing Brains table.
+export const dacsSubagents = pgTable('dacs_subagents', {
   id: uuid('id').defaultRandom().primaryKey(),
   walletAddress: text('wallet_address'),
   parentCommandId: text('parent_command_id').notNull(),
@@ -977,8 +979,8 @@ export const agentSubagents = pgTable('agent_subagents', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
-  walletIdx: index('agent_subagents_wallet_idx').on(t.walletAddress),
-  statusIdx: index('agent_subagents_status_idx').on(t.status),
-  nextRunIdx: index('agent_subagents_next_run_idx').on(t.nextRunAt),
-  createdIdx: index('agent_subagents_created_idx').on(t.createdAt),
+  walletIdx: index('dacs_subagents_wallet_idx').on(t.walletAddress),
+  statusIdx: index('dacs_subagents_status_idx').on(t.status),
+  nextRunIdx: index('dacs_subagents_next_run_idx').on(t.nextRunAt),
+  createdIdx: index('dacs_subagents_created_idx').on(t.createdAt),
 }));
