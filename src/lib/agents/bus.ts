@@ -24,7 +24,13 @@ export type BusEventName =
   | "agent.report.ready"
   | "agent.self.proposed"
   | "subagent.spawn.requested"
-  | "miniapp.spawn.requested";
+  | "miniapp.spawn.requested"
+  // DACS Phase 1
+  | "agent.command.submitted"
+  | "agent.intent.classified"
+  | "agent.plan.synthesized"
+  | "agent.plan.routed"
+  | "agent.command.completed";
 
 export interface BusEnvelope<T = unknown> {
   name: BusEventName;
