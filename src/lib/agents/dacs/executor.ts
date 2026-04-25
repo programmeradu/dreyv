@@ -135,7 +135,7 @@ export const executeApprovedPlan = inngest.createFunction(
         }
       } catch (err: any) {
         firstError = err?.message || String(err);
-        stepResults.push({ capabilityId: cap.id, ok: false, error: firstError });
+        stepResults.push({ capabilityId: cap.id, ok: false, error: firstError ?? undefined });
         break;
       }
     }
