@@ -263,6 +263,23 @@ Wallet State: ${JSON.stringify(walletState || {})}
       /\b(bot|app|mini-?app|script|automation|agent)\b/.test(lowerUserRequest);
     const isStudioBuildIntent = promptMode === "build" || (promptMode === "auto" && inferredBuildIntent);
 
+    // ─── DACS Phase 1 shadow hook (no-op when DACS_ENABLED=off) ───────
+    // Fire-and-forget: legacy pipeline below still serves the user.
+    void (async () => {
+      try {
+        const { submitCommand } = await import("@/lib/agents/dacs/submit");
+        await submitCommand({
+          walletAddress,
+          rawText: userRequestText,
+          promptMode,
+          vaultState,
+          walletState,
+        });
+      } catch (e) {
+        console.warn("[DACS] shadow submit failed:", e);
+      }
+    })();
+
     const executionState: {
       lastSwap: null | {
         inputToken: string;
