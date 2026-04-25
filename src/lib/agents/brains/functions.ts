@@ -26,6 +26,7 @@ import {
 } from "./storage";
 import { bridgeProposalToTx } from "./executor-bridge";
 import { reconcileSubmittedTxProposals } from "./tx-reconciler";
+import { pollJitoOnce } from "../jito-poller";
 import {
   listWatchers,
   scanWatcher,
@@ -269,6 +270,20 @@ export const txProposalReconciler = inngest.createFunction(
   },
 );
 
+/**
+ * Jito MEV poller — every 2 minutes, samples Jito tip-floor stats and
+ * surfaces an `agent.opportunity.surfaced` if MEV pressure is unusual.
+ * Cheap (one HTTP call) and complements the Helius webhook stream.
+ */
+export const jitoMevPoll = inngest.createFunction(
+  { id: "jito-mev-poll-2m", name: "Jito MEV poll (2m)" },
+  { cron: "*/2 * * * *" },
+  async ({ step }) => {
+    const surfaced = await step.run("poll-jito", () => pollJitoOnce());
+    return { surfaced };
+  },
+);
+
 export const BRAIN_FUNCTIONS = [
   opportunityRouter,
   subAgentSpawner,
@@ -278,4 +293,5 @@ export const BRAIN_FUNCTIONS = [
   reflectorListener,
   txProposalReaper,
   txProposalReconciler,
+  jitoMevPoll,
 ];
