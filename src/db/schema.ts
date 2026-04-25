@@ -952,3 +952,35 @@ export const agentEpisodes = pgTable('agent_episodes', {
   outcomeIdx: index('agent_episodes_outcome_idx').on(t.outcome),
   createdIdx: index('agent_episodes_created_idx').on(t.createdAt),
 }));
+
+// ─── DACS Phase 4 — Sub-agent runtime ────────────────────────────────
+// Long-running directives (recurring DCA, monitor, alert) live here.
+// A cron sweep ticks each row whose next_run_at <= now and re-runs the
+// stored plan template through DACS as a fresh command.
+// NOTE: distinct from `agent_subagents` (Brains system); keep table name
+// `dacs_subagents` to avoid colliding with the existing Brains table.
+export const dacsSubagents = pgTable('dacs_subagents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address'),
+  parentCommandId: text('parent_command_id').notNull(),
+  title: text('title').notNull(),
+  rawText: text('raw_text').notNull(),
+  intent: jsonb('intent').notNull(),
+  planTemplate: jsonb('plan_template').notNull(),
+  status: text('status').notNull().default('active'), // active | paused | completed | failed | cancelled
+  intervalSeconds: integer('interval_seconds').notNull().default(86400),
+  nextRunAt: timestamp('next_run_at').defaultNow().notNull(),
+  tickCount: integer('tick_count').notNull().default(0),
+  maxTicks: integer('max_ticks'),
+  lastTickAt: timestamp('last_tick_at'),
+  lastTickStatus: text('last_tick_status'),
+  lastTickNote: text('last_tick_note'),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('dacs_subagents_wallet_idx').on(t.walletAddress),
+  statusIdx: index('dacs_subagents_status_idx').on(t.status),
+  nextRunIdx: index('dacs_subagents_next_run_idx').on(t.nextRunAt),
+  createdIdx: index('dacs_subagents_created_idx').on(t.createdAt),
+}));

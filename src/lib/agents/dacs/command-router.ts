@@ -23,7 +23,28 @@ import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
 import { recallEpisodes, recordEpisode } from "./episodes";
-import type { CommandSubmittedPayload, Plan } from "./types";
+import { spawnSubagent } from "./subagent-store";
+import type { CommandSubmittedPayload, Intent, Plan, RouteDecision } from "./types";
+
+/**
+ * Detect a recurring/monitoring shape: intent.kind=monitor, or constraints
+ * carry an explicit cadence (frequency / iterations / recurrence).
+ * Returns the inferred interval in seconds (default 24h) when matched.
+ */
+function detectRecurringSpec(intent: Intent): { recurring: boolean; intervalSeconds: number; maxTicks: number | null } {
+  const c = intent.constraints ?? {};
+  const freq = String(c.frequency ?? c.cadence ?? "").toLowerCase();
+  const iterations = Number(c.iterations ?? c.cycles ?? 0) || null;
+  const isMonitor = intent.kind === "monitor";
+  const hasRecurrence = !!(c.recurrence || c.frequency || c.cadence || c.iterations);
+  if (!isMonitor && !hasRecurrence) return { recurring: false, intervalSeconds: 86400, maxTicks: null };
+  let interval = 86_400;
+  if (freq.includes("hour")) interval = 3600;
+  else if (freq.includes("minute")) interval = 600;
+  else if (freq.includes("week")) interval = 7 * 86_400;
+  else if (freq.includes("day") || isMonitor) interval = 86_400;
+  return { recurring: true, intervalSeconds: interval, maxTicks: iterations };
+}
 
 export const commandRouter = inngest.createFunction(
   {
@@ -108,6 +129,57 @@ export const commandRouter = inngest.createFunction(
         },
       });
       return { commandId, intentKind: intent.kind, decisionKind: verdict.rejection.kind, steps: 0 };
+    }
+
+    // Phase 4: recurring/monitoring intents are deferred to a sub-agent
+    // instead of executing immediately. Skip when this command is itself a
+    // sub-agent tick (commandId starts with `sa_`).
+    const recurring = detectRecurringSpec(intent);
+    const isSubagentTick = commandId.startsWith("sa_");
+    if (recurring.recurring && !isSubagentTick && plan.steps.length > 0) {
+      const subagentId = await step.run("spawn-subagent", async () =>
+        spawnSubagent({
+          walletAddress,
+          parentCommandId: commandId,
+          title: rawText.slice(0, 80),
+          rawText,
+          intent,
+          planTemplate: plan,
+          intervalSeconds: recurring.intervalSeconds,
+          maxTicks: recurring.maxTicks,
+        }),
+      );
+      const deferDecision: RouteDecision = {
+        kind: "defer_to_subagent",
+        plan,
+        reason: `Spawned sub-agent (interval ${recurring.intervalSeconds}s${recurring.maxTicks ? `, max ${recurring.maxTicks} ticks` : ""}).`,
+        approvalQueueId: subagentId ?? undefined,
+      };
+      await publish({
+        name: "agent.plan.routed",
+        data: { commandId, walletAddress, decision: deferDecision },
+      });
+      if (subagentId) {
+        await publish({
+          name: "agent.subagent.spawned",
+          data: { subagentId, commandId, walletAddress, intervalSeconds: recurring.intervalSeconds },
+        });
+      }
+      await step.run("persist-defer-snapshot", async () => {
+        await recordDacs({
+          commandId,
+          intent,
+          plan,
+          decision: deferDecision,
+          latencyMs: Date.now() - startedAt,
+        });
+        await computeParity(commandId);
+      });
+      await publish({
+        name: "agent.command.completed",
+        data: { commandId, walletAddress, decisionKind: deferDecision.kind, completedAt: Date.now() },
+      });
+      return { commandId, intentKind: intent.kind, decisionKind: deferDecision.kind, steps: plan.steps.length, subagentId };
     }
 
     const decision = await step.run("route-plan", async () => {
