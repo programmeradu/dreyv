@@ -5,7 +5,7 @@
 -- defers to instead of executing immediately. Each tick runs the spec
 -- through the DACS pipeline as a fresh command.
 --
--- agent_subagents:
+-- dacs_subagents:
 --   spec        — original raw text + parsed intent/plan template
 --   schedule    — cron-like cadence (interval_seconds for now; cron later)
 --   status      — active | paused | completed | failed | cancelled
@@ -13,7 +13,7 @@
 --   tick_count  — increments on every successful tick
 --   max_ticks   — optional hard cap (e.g. 30 daily DCAs)
 
-CREATE TABLE IF NOT EXISTS agent_subagents (
+CREATE TABLE IF NOT EXISTS dacs_subagents (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   wallet_address    text,
   parent_command_id text NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS agent_subagents (
   updated_at        timestamp NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS agent_subagents_wallet_idx     ON agent_subagents(wallet_address);
-CREATE INDEX IF NOT EXISTS agent_subagents_status_idx     ON agent_subagents(status);
-CREATE INDEX IF NOT EXISTS agent_subagents_next_run_idx   ON agent_subagents(next_run_at);
-CREATE INDEX IF NOT EXISTS agent_subagents_created_idx    ON agent_subagents(created_at DESC);
+CREATE INDEX IF NOT EXISTS dacs_subagents_wallet_idx     ON dacs_subagents(wallet_address);
+CREATE INDEX IF NOT EXISTS dacs_subagents_status_idx     ON dacs_subagents(status);
+CREATE INDEX IF NOT EXISTS dacs_subagents_next_run_idx   ON dacs_subagents(next_run_at);
+CREATE INDEX IF NOT EXISTS dacs_subagents_created_idx    ON dacs_subagents(created_at DESC);
