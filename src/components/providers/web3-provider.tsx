@@ -16,7 +16,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { TorusWalletAdapter } from "@solana/wallet-adapter-torus";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo, useCallback } from "react";
 import { VaultProvider } from "@/lib/contexts/VaultContext";
