@@ -37,7 +37,10 @@ export type BusEventName =
   // DACS Phase 4 — sub-agent runtime
   | "agent.subagent.spawned"
   | "agent.subagent.tick"
-  | "agent.subagent.completed";
+  | "agent.subagent.completed"
+  // DACS Phase 5 — multi-agent orchestration
+  | "agent.handoff.requested"
+  | "agent.handoff.reported";
 
 export interface BusEnvelope<T = unknown> {
   name: BusEventName;
