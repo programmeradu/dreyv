@@ -24,7 +24,7 @@ import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
 import { recallEpisodes, recordEpisode } from "./episodes";
 import { spawnSubagent } from "./subagent-store";
-import { buildEnvelope, runSpecialistStub } from "./specialists";
+import { buildEnvelope } from "./specialists";
 import type { CommandSubmittedPayload, Intent, Plan, RouteDecision } from "./types";
 
 /**
@@ -238,9 +238,11 @@ export const commandRouter = inngest.createFunction(
       });
     }
 
-    // Phase 5: dispatch to specialist agent for non-reject decisions.
-    // Publishes CATP envelope on the bus and a stub report; specialist
-    // execution functions land in Phase 5.1.
+    // Phase 5.1: dispatch to specialist agent for non-reject decisions.
+    // Publishes the CATP envelope on the bus; the matching specialist
+    // Inngest function (see specialist-runtime.ts) consumes it, executes
+    // its read/sim slice, and emits `agent.handoff.reported` with a real
+    // AgentReport. Write-side steps still flow through the HITL executor.
     if (decision.kind !== "reject") {
       await step.run("dispatch-specialist", async () => {
         const envelope = buildEnvelope({
@@ -254,11 +256,6 @@ export const commandRouter = inngest.createFunction(
         await publish({
           name: "agent.handoff.requested",
           data: { commandId, walletAddress, envelope },
-        });
-        const report = runSpecialistStub(envelope);
-        await publish({
-          name: "agent.handoff.reported",
-          data: { commandId, walletAddress, report },
         });
       });
     }
