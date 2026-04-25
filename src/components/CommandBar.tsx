@@ -22,6 +22,7 @@ import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store
 import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
+import { HandoffStream } from "@/components/commandbar/HandoffStream";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -553,6 +554,9 @@ export function CommandBar() {
                   <div className="h-2" />
                 </div>
               )}
+
+              {/* ── Live specialist handoff stream (Phase 5.3) ── */}
+              <HandoffStream wallet={publicKey?.toBase58() ?? null} />
 
               {/* ── Input bar ── */}
               <form
