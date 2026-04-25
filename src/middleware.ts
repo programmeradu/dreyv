@@ -305,7 +305,7 @@ export async function middleware(request: NextRequest) {
         '/manifest',
     ];
 
-    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth'];
+    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding'];
 
     if (
         publicPaths.some((p) => pathname.startsWith(p)) ||
