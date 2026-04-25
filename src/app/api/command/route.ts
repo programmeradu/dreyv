@@ -33,6 +33,23 @@ const CLOUDFLARE_FALLBACK_MODELS = [
   "@cf/meta/llama-3.1-8b-instruct",
 ];
 
+// Lovable AI Gateway — auto-provisioned (LOVABLE_API_KEY set by Lovable Cloud).
+// OpenAI-compatible, supports streaming + tool calls.
+const lovableApiKey = process.env.LOVABLE_API_KEY;
+const lovableProvider = lovableApiKey
+  ? createOpenAICompatible({
+      name: "lovable",
+      apiKey: lovableApiKey,
+      baseURL: "https://ai.gateway.lovable.dev/v1",
+    })
+  : null;
+
+const LOVABLE_FALLBACK_MODELS = [
+  "google/gemini-3-flash-preview",
+  "google/gemini-2.5-flash",
+  "openai/gpt-5-mini",
+];
+
 // Rate-limit cooldown cache — skip providers that recently returned 429
 const rateLimitCooldown: Record<string, number> = {};
 
@@ -2296,6 +2313,16 @@ Wallet State: ${JSON.stringify(walletState || {})}
         maxChars: estimateCompatibilityBudget("groq/llama-3.3-70b-versatile"),
       });
     }
+    if (lovableProvider) {
+      for (const modelId of LOVABLE_FALLBACK_MODELS) {
+        const modelName = `lovable/${modelId}`;
+        modelChain.push({
+          name: modelName,
+          model: lovableProvider.chatModel(modelId),
+          maxChars: estimateCompatibilityBudget(modelName),
+        });
+      }
+    }
     if (cloudflareProvider) {
       for (const modelId of CLOUDFLARE_FALLBACK_MODELS) {
         const modelName = `cloudflare/${modelId}`;
@@ -2309,7 +2336,7 @@ Wallet State: ${JSON.stringify(walletState || {})}
 
     if (modelChain.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No AI provider configured. Set GROQ_API_KEY or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN." }),
+        JSON.stringify({ error: "No AI provider configured. Set LOVABLE_API_KEY, GROQ_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN." }),
         { status: 503, headers: { "Content-Type": "application/json" } },
       );
     }
