@@ -555,6 +555,9 @@ export function CommandBar() {
                 </div>
               )}
 
+              {/* ── Live specialist handoff stream (Phase 5.3) ── */}
+              <HandoffStream wallet={publicKey?.toBase58() ?? null} />
+
               {/* ── Input bar ── */}
               <form
                 onSubmit={handleFormSubmit}
