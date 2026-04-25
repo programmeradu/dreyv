@@ -160,3 +160,12 @@ export function defineCapability<TInput extends z.ZodTypeAny, TOutput>(
 ): Capability<TInput, TOutput> {
   return spec;
 }
+
+/**
+ * Erased Capability type for places that hold heterogeneous capabilities in
+ * arrays/maps (registry, domain exports). The generic is bivariant under the
+ * `any` parameter, so a `Capability<SpecificSchema, SpecificOutput>` is
+ * assignable to `AnyCapability` without TS variance complaints.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyCapability = Capability<any, any>;

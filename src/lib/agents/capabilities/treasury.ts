@@ -18,7 +18,7 @@
  */
 
 import { z } from "zod";
-import { defineCapability, type Capability } from "./types";
+import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
 
 const create_multisig = defineCapability({
@@ -452,7 +452,7 @@ const multisig_proposal = defineCapability({
   },
 });
 
-export const treasuryCapabilities: Capability[] = [
+export const treasuryCapabilities: AnyCapability[] = [
   create_multisig,
   transfer,
   mass_dispatch,

@@ -13,7 +13,7 @@
  * don't fight Next.js's tree-shaking.
  */
 
-import type { Capability, CapabilityDomain } from "./types";
+import type { AnyCapability, CapabilityDomain } from "./types";
 import { treasuryCapabilities } from "./treasury";
 // Domain modules below land in subsequent turns of Phase 0.
 // import { tradingCapabilities } from "./trading";
@@ -23,10 +23,10 @@ import { treasuryCapabilities } from "./treasury";
 // import { dynamicCapabilities } from "./dynamic";
 // import { miscCapabilities } from "./misc";
 
-let cached: Map<string, Capability> | null = null;
+let cached: Map<string, AnyCapability> | null = null;
 
-function buildRegistry(): Map<string, Capability> {
-  const all: Capability[] = [
+function buildRegistry(): Map<string, AnyCapability> {
+  const all: AnyCapability[] = [
     ...treasuryCapabilities,
     // ...tradingCapabilities,
     // ...yieldCapabilities,
@@ -35,7 +35,7 @@ function buildRegistry(): Map<string, Capability> {
     // ...dynamicCapabilities,
     // ...miscCapabilities,
   ];
-  const map = new Map<string, Capability>();
+  const map = new Map<string, AnyCapability>();
   for (const cap of all) {
     if (map.has(cap.id)) {
       throw new Error(
@@ -47,16 +47,16 @@ function buildRegistry(): Map<string, Capability> {
   return map;
 }
 
-export function capabilityRegistry(): Map<string, Capability> {
+export function capabilityRegistry(): Map<string, AnyCapability> {
   if (!cached) cached = buildRegistry();
   return cached;
 }
 
-export function getCapability(id: string): Capability | undefined {
+export function getCapability(id: string): AnyCapability | undefined {
   return capabilityRegistry().get(id);
 }
 
-export function listCapabilities(domain?: CapabilityDomain): Capability[] {
+export function listCapabilities(domain?: CapabilityDomain): AnyCapability[] {
   const all = Array.from(capabilityRegistry().values());
   return domain ? all.filter((c) => c.domain === domain) : all;
 }
