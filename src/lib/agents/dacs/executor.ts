@@ -44,7 +44,7 @@ export const executeApprovedPlan = inngest.createFunction(
   {
     id: "dacs-execute-approved-plan",
     name: "DACS · Execute Approved Plan",
-    concurrency: { limit: 25 },
+    concurrency: { limit: 5 },
     retries: 1,
   },
   { event: "agent.approval.resolved" },

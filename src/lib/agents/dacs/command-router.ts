@@ -29,7 +29,7 @@ export const commandRouter = inngest.createFunction(
   {
     id: "dacs-command-router",
     name: "DACS · Command Router",
-    concurrency: { limit: 50 },
+    concurrency: { limit: 5 },
     retries: 2,
   },
   { event: "agent.command.submitted" },
