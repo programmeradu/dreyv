@@ -65,6 +65,7 @@ export async function GET(req: Request) {
         close();
         return;
       }
+      const dbi = db;
 
       const poll = async () => {
         if (closed) return;
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
             commandId ? eq(dacsHandoffs.commandId, commandId) : undefined,
           ].filter(Boolean) as ReturnType<typeof eq>[];
 
-          const rows = await db
+          const rows = await dbi
             .select()
             .from(dacsHandoffs)
             .where(filters.length ? and(...filters) : undefined)
