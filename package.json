@@ -158,6 +158,7 @@
     "@types/babel__standalone": "^7.1.9",
     "@types/bs58": "^4.0.4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",

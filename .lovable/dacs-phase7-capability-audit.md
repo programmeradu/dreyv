@@ -210,8 +210,8 @@ These don't exist yet and unlock the reporting use case the user asked about.
 - [x] **7A.3** `treasury_report_pdf` capability — real Helius + DB + signed URL
 - [x] **7A.4** `treasury_report_csv` capability — real Helius + DB + signed URL
 - [x] **7A.5** `audit_pack_generate` capability — ZIP bundle (PDF + CSVs + raw JSON)
-- [ ] **7A.6** `<ArtifactChip>` component (chat-stream rendering — next session)
-- [x] **7A.7** Lovable Cloud bucket auto-provisioned (`treasury-artifacts`, 7-day signed URLs, 50MB cap)
+- [x] **7A.6** `<ArtifactChip>` + `<ArtifactList>` components rendered inside `ToolCard` for any capability output that returns `artifacts: []`. PDFs get inline preview, all kinds get download. Solid violet branding.
+- [x] **7A.7** Artifact storage migrated **Supabase → Neon** (`agent_artifacts` table, bytea body, JWT-signed `/api/agent/artifacts/[id]?t=<jwt>` download endpoint, 7-day TTL, 50MB cap). Migration runner: `POST /api/admin/run-artifacts-migration?token=…`.
 - [ ] **7B.1** Streamflow wired in `recurring_payment`
 - [ ] **7B.2** Invoice OCR + URL parse
 - [ ] **7B.3** Inngest gas-tank watcher

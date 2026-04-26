@@ -10,6 +10,7 @@ import { TOOL_META } from "@/lib/commandbar/tool-meta";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
 import { SigningCard } from "@/components/commandbar/SigningCard";
 import { ForesightChart, type ForesightChartProps } from "@/components/commandbar/ForesightChart";
+import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
 
 export interface ToolCardProps {
   toolName: string;
@@ -164,6 +165,16 @@ export function ToolCard({
           result={output ?? {}}
         />
       )}
+
+      {/* Phase 7A — agent-generated artifacts (PDF / CSV / ZIP) */}
+      {isDone && success === true && (() => {
+        const artifacts = extractArtifacts(output);
+        return artifacts.length > 0 ? (
+          <div className="mt-2">
+            <ArtifactList artifacts={artifacts} />
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 }

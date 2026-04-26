@@ -89,6 +89,8 @@ const treasury_report_pdf = defineCapability({
             kind: "pdf",
             ownerKey: target,
             folder: `reports/${input.month}`,
+            capabilityId: "treasury_report_pdf",
+            meta: { month: input.month, wallet: target },
         });
 
         await logEpisode({
@@ -168,6 +170,8 @@ const treasury_report_csv = defineCapability({
             kind: "csv",
             ownerKey: target,
             folder: `reports/${input.month}`,
+            capabilityId: "treasury_report_csv",
+            meta: { month: input.month, wallet: target, sheet: input.sheet },
         });
 
         await logEpisode({
@@ -256,6 +260,8 @@ const audit_pack_generate = defineCapability({
             kind: "zip",
             ownerKey: target,
             folder: `audit-packs/${input.month}`,
+            capabilityId: "audit_pack_generate",
+            meta: { month: input.month, wallet: target },
         });
 
         await logEpisode({
