@@ -146,7 +146,7 @@ export function extractArtifacts(output: unknown): ArtifactDescriptor[] {
   const o = output as Record<string, unknown>;
   const arr = Array.isArray(o.artifacts) ? o.artifacts : null;
   const single = !arr && o.artifact && typeof o.artifact === "object" ? [o.artifact] : null;
-  const candidates = (arr ?? single ?? []) as Array<Record<string, unknown>>;
+  const candidates = (arr ?? single ?? []) as unknown[];
   return candidates.filter(isArtifact);
 }
 
