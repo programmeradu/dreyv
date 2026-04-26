@@ -7,7 +7,7 @@
 
 import Papa from "papaparse";
 
-export interface CsvBuildInput<T extends Record<string, unknown>> {
+export interface CsvBuildInput<T> {
     rows: T[];
     /** Explicit column order. Required so output is stable across runs. */
     columns: (keyof T & string)[];
@@ -15,13 +15,13 @@ export interface CsvBuildInput<T extends Record<string, unknown>> {
     preamble?: string[];
 }
 
-export function buildCsv<T extends Record<string, unknown>>(input: CsvBuildInput<T>): Buffer {
+export function buildCsv<T>(input: CsvBuildInput<T>): Buffer {
     const { rows, columns, preamble } = input;
 
     const csv = Papa.unparse(
         {
-            fields: columns,
-            data: rows.map((r) => columns.map((c) => formatCell(r[c]))),
+            fields: columns as string[],
+            data: rows.map((r) => columns.map((c) => formatCell((r as Record<string, unknown>)[c]))),
         },
         { quotes: true, newline: "\n" },
     );
