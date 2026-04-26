@@ -9,7 +9,15 @@ import {
   uuid,
   index,
   jsonb,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+// Postgres bytea column for storing artifact bodies inline (Neon-backed).
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 // ─── Users (SIWS Auth — synced from Supabase Auth) ────────────────────
 export const users = pgTable('users', {
