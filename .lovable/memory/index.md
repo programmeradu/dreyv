@@ -14,3 +14,5 @@ Canonical production domain is **dreyv.com** (org owns dreyv.com / dreyv.app / d
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
 - [DACS](mem://features/dacs) — CommandBar → bus-driven agent pipeline, 6 phases, capability registry (48 caps), HITL, shadow rollout. Source of truth is `.lovable/plan.md`.
+- [No stubs](mem://preferences/no-stubs) — Hard rule: no fake IDs, no ARMED-only states, no DEFERRED placeholders. Real calls only.
+- [Phase 7 audit](file://.lovable/dacs-phase7-capability-audit.md) — Per-capability REAL/PARTIAL/STUB status + integration table + 4-day wire-up plan (Deliverables, Payments, Risk, Policy, Sniper/Sentiment, Scheduled).
