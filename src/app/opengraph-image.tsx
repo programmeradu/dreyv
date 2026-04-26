@@ -1,20 +1,7 @@
-import { OG_SIZE, OG_CONTENT_TYPE, renderOgCard, resolveCrystalUrl } from "./_og/template";
-
+import { ImageResponse } from "next/og";
 export const runtime = "edge";
-
-export const alt =
-  "dreyv — AI treasury workspace for Solana teams (non-custodial)";
-
-export const size = OG_SIZE;
-export const contentType = OG_CONTENT_TYPE;
-
-export default function OpenGraphImage() {
-  return renderOgCard({
-    eyebrow: "AI treasury OS · Solana",
-    headline: "Treasury intent, simulated and signed.",
-    subline:
-      "Natural-language commands → simulated plan → human-readable impact. Sign with your multisig. Non-custodial.",
-    chips: ["Non-custodial", "Simulation-first", "Multisig-ready"],
-    crystalUrl: resolveCrystalUrl(),
-  });
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+export default function Image() {
+  return new ImageResponse(<div style={{display:'flex',width:'100%',height:'100%',background:'red',color:'white',fontSize:80,alignItems:'center',justifyContent:'center'}}>HELLO</div>, { width: 1200, height: 630 });
 }
