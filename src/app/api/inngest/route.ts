@@ -13,11 +13,17 @@ import { inngest } from "@/lib/agents/inngest-client";
 import { ALL_FUNCTIONS } from "@/lib/agents/functions";
 import { BRAIN_FUNCTIONS } from "@/lib/agents/brains/functions";
 import { DACS_FUNCTIONS } from "@/lib/agents/dacs/functions";
+import { TX_STREAM_FUNCTIONS } from "@/lib/agents/tx-stream/functions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [...ALL_FUNCTIONS, ...BRAIN_FUNCTIONS, ...DACS_FUNCTIONS],
+  functions: [
+    ...ALL_FUNCTIONS,
+    ...BRAIN_FUNCTIONS,
+    ...DACS_FUNCTIONS,
+    ...TX_STREAM_FUNCTIONS,
+  ],
 });
