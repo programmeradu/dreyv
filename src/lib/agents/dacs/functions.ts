@@ -7,12 +7,14 @@ import { commandRouter } from "./command-router";
 import { executeApprovedPlan } from "./executor";
 import { subagentTickerCron, subagentTick } from "./subagent-runtime";
 import { SPECIALIST_FUNCTIONS } from "./specialist-runtime";
+import { dacsPolicyDerivation } from "./policy-derivation";
 
 export const DACS_FUNCTIONS = [
   commandRouter,
   executeApprovedPlan,
   subagentTickerCron,
   subagentTick,
+  dacsPolicyDerivation,
   ...SPECIALIST_FUNCTIONS,
 ];
 

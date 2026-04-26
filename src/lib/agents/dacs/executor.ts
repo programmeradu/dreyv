@@ -19,6 +19,7 @@ import { eq } from "drizzle-orm";
 import { capabilityRegistry } from "../capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "../capabilities/types";
 import { recordEpisode } from "./episodes";
+import { recordPostMortem } from "./post-mortem";
 import type { Intent, Plan, RouteDecision } from "./types";
 
 function buildHeadlessContext(walletAddress: string | null): CapabilityContext {
@@ -168,6 +169,22 @@ export const executeApprovedPlan = inngest.createFunction(
         notes: ok ? undefined : firstError ?? undefined,
       });
     });
+
+    if (!ok) {
+      await step.run("record-post-mortem", async () => {
+        const failedStep = stepResults.find((s) => !s.ok);
+        await recordPostMortem({
+          commandId: row.commandId,
+          walletAddress: row.walletAddress,
+          intent,
+          plan,
+          failedCapabilityId: failedStep?.capabilityId ?? null,
+          error: firstError ?? "unknown error",
+          durationMs,
+          signature,
+        });
+      });
+    }
 
     await publish({
       name: "agent.command.completed",

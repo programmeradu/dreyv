@@ -926,6 +926,9 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   protocolDenylist: jsonb('protocol_denylist').notNull().default('[]'),
   allowDynamicWrites: boolean('allow_dynamic_writes').notNull().default(false),
   dailyValueCapUsd: numeric('daily_value_cap_usd'),
+  // Phase 3: derivation suggestions awaiting user action (kind/value/rationale/confidence/createdAt).
+  pendingSuggestions: jsonb('pending_suggestions').notNull().default('[]'),
+  lastDerivationAt: timestamp('last_derivation_at'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
