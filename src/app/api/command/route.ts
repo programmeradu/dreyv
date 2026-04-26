@@ -265,36 +265,35 @@ Wallet State: ${JSON.stringify(walletState || {})}
 
     // ─── DACS Phase 1 shadow hook (no-op when DACS_ENABLED=off) ───────
     // Fire-and-forget: legacy pipeline below still serves the user.
-    void (async () => {
-      try {
-        const dacsStartedAt = Date.now();
-        const { submitCommand } = await import("@/lib/agents/dacs/submit");
-        const { recordLegacy, computeParity } = await import("@/lib/agents/dacs/diff-log");
-        const { commandId, submitted } = await submitCommand({
-          walletAddress,
-          rawText: userRequestText,
-          promptMode,
-          vaultState,
-          walletState,
-        });
-        if (submitted) {
-          // Legacy pipeline streams below; we only know it was *served* — record
-          // a passthrough marker so the diff harness can still compute parity
-          // when DACS finishes. Phase 6 will replace this with full tool-call
-          // capture once the legacy route is dismantled.
-          await recordLegacy({
-            commandId,
-            decisionKind: "served",
-            latencyMs: Date.now() - dacsStartedAt,
+    // Skip empty/whitespace prompts — they create noise drift in the audit
+    // (DACS correctly rejects empty input while legacy logs "served").
+    if (userRequestText.trim().length > 0) {
+      void (async () => {
+        try {
+          const dacsStartedAt = Date.now();
+          const { submitCommand } = await import("@/lib/agents/dacs/submit");
+          const { recordLegacy, computeParity } = await import("@/lib/agents/dacs/diff-log");
+          const { commandId, submitted } = await submitCommand({
+            walletAddress,
+            rawText: userRequestText,
+            promptMode,
+            vaultState,
+            walletState,
           });
-          // Defer parity compute — DACS may finish later. Best-effort retry.
-          setTimeout(() => void computeParity(commandId), 5_000);
-          setTimeout(() => void computeParity(commandId), 30_000);
+          if (submitted) {
+            await recordLegacy({
+              commandId,
+              decisionKind: "served",
+              latencyMs: Date.now() - dacsStartedAt,
+            });
+            setTimeout(() => void computeParity(commandId), 5_000);
+            setTimeout(() => void computeParity(commandId), 30_000);
+          }
+        } catch (e) {
+          console.warn("[DACS] shadow submit failed:", e);
         }
-      } catch (e) {
-        console.warn("[DACS] shadow submit failed:", e);
-      }
-    })();
+      })();
+    }
 
     const executionState: {
       lastSwap: null | {
