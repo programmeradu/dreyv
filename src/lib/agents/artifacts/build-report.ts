@@ -31,62 +31,96 @@ export async function buildTreasuryReportData(opts: BuildReportOpts): Promise<Tr
     const { walletOrVault, month, userId, solPriceUsd } = opts;
     const { since, until, label } = monthRange(month);
 
-    // 1) On-chain txs (real Helius call). Throws if HELIUS_API_KEY missing.
-    let heliusTxs: HeliusEnhancedTx[] = [];
-    try {
-        heliusTxs = await fetchHeliusTransactions(walletOrVault, {
-            sinceUnix: since,
-            untilUnix: until,
-            limit: 1000,
-        });
-    } catch (e) {
-        // Re-throw so the capability surfaces a real failure rather than fake data.
-        throw new Error(`On-chain history fetch failed: ${(e as Error).message}`);
-    }
-
+    // 1) Prefer the categorized tx_events table (Phase 7B). Falls back to a
+    // live Helius pull if no rows are indexed yet for this wallet/month.
     const transactions: TransactionRow[] = [];
     let netFlowUsd = 0;
     let nativeFlowsKnown = false;
 
-    for (const tx of heliusTxs) {
-        const date = new Date(tx.timestamp * 1000).toISOString().slice(0, 10);
+    const indexed = db
+        ? await db
+            .select()
+            .from(txEvents)
+            .where(
+                and(
+                    eq(txEvents.walletAddress, walletOrVault),
+                    gte(txEvents.blockTime, new Date(since * 1000)),
+                    lte(txEvents.blockTime, new Date(until * 1000)),
+                ),
+            )
+            .orderBy(desc(txEvents.blockTime))
+        : [];
 
-        for (const nt of tx.nativeTransfers ?? []) {
-            const sol = nt.amount / 10 ** SOL_DECIMALS;
+    if (indexed.length > 0) {
+        for (const e of indexed) {
             const direction: TransactionRow["direction"] =
-                nt.fromUserAccount === walletOrVault ? "out"
-                    : nt.toUserAccount === walletOrVault ? "in"
-                        : "internal";
-            const usd = solPriceUsd != null ? sol * solPriceUsd * (direction === "out" ? -1 : 1) : null;
+                e.direction === "in" ? "in" : e.direction === "out" ? "out" : "internal";
+            const amount = e.amount != null ? Number(e.amount) : 0;
+            const usd = e.valueUsd != null ? Number(e.valueUsd) * (direction === "out" ? -1 : 1) : null;
             if (usd != null) {
                 nativeFlowsKnown = true;
                 netFlowUsd += usd;
             }
             transactions.push({
-                date,
-                signature: tx.signature,
+                date: (e.blockTime ?? e.createdAt).toISOString().slice(0, 10),
+                signature: e.signature,
                 direction,
-                token: "SOL",
-                amount: sol,
+                token: e.tokenSymbol ?? (e.tokenMint ? e.tokenMint.slice(0, 6) : "—"),
+                amount,
                 valueUsd: usd,
-                counterparty: direction === "out" ? nt.toUserAccount : nt.fromUserAccount,
+                counterparty: e.counterparty ?? "",
             });
         }
-
-        for (const tt of tx.tokenTransfers ?? []) {
-            const direction: TransactionRow["direction"] =
-                tt.fromUserAccount === walletOrVault ? "out"
-                    : tt.toUserAccount === walletOrVault ? "in"
-                        : "internal";
-            transactions.push({
-                date,
-                signature: tx.signature,
-                direction,
-                token: tt.mint.slice(0, 6),    // short mint; UI can re-resolve symbol
-                amount: tt.tokenAmount,
-                valueUsd: null,                  // SPL price resolution would require Jupiter/CG; skipped to stay real
-                counterparty: direction === "out" ? tt.toUserAccount : tt.fromUserAccount,
+    } else {
+        // Fallback: live Helius (throws if HELIUS_API_KEY missing).
+        let heliusTxs: HeliusEnhancedTx[] = [];
+        try {
+            heliusTxs = await fetchHeliusTransactions(walletOrVault, {
+                sinceUnix: since,
+                untilUnix: until,
+                limit: 1000,
             });
+        } catch (e) {
+            throw new Error(`On-chain history fetch failed: ${(e as Error).message}`);
+        }
+        for (const tx of heliusTxs) {
+            const date = new Date(tx.timestamp * 1000).toISOString().slice(0, 10);
+            for (const nt of tx.nativeTransfers ?? []) {
+                const sol = nt.amount / 10 ** SOL_DECIMALS;
+                const direction: TransactionRow["direction"] =
+                    nt.fromUserAccount === walletOrVault ? "out"
+                        : nt.toUserAccount === walletOrVault ? "in"
+                            : "internal";
+                const usd = solPriceUsd != null ? sol * solPriceUsd * (direction === "out" ? -1 : 1) : null;
+                if (usd != null) {
+                    nativeFlowsKnown = true;
+                    netFlowUsd += usd;
+                }
+                transactions.push({
+                    date,
+                    signature: tx.signature,
+                    direction,
+                    token: "SOL",
+                    amount: sol,
+                    valueUsd: usd,
+                    counterparty: direction === "out" ? nt.toUserAccount : nt.fromUserAccount,
+                });
+            }
+            for (const tt of tx.tokenTransfers ?? []) {
+                const direction: TransactionRow["direction"] =
+                    tt.fromUserAccount === walletOrVault ? "out"
+                        : tt.toUserAccount === walletOrVault ? "in"
+                            : "internal";
+                transactions.push({
+                    date,
+                    signature: tx.signature,
+                    direction,
+                    token: tt.mint.slice(0, 6),
+                    amount: tt.tokenAmount,
+                    valueUsd: null,
+                    counterparty: direction === "out" ? tt.toUserAccount : tt.fromUserAccount,
+                });
+            }
         }
     }
 
