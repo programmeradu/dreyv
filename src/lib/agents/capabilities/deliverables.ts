@@ -170,6 +170,8 @@ const treasury_report_csv = defineCapability({
             kind: "csv",
             ownerKey: target,
             folder: `reports/${input.month}`,
+            capabilityId: "treasury_report_csv",
+            meta: { month: input.month, wallet: target, sheet: input.sheet },
         });
 
         await logEpisode({
