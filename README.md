@@ -43,8 +43,8 @@ During the 10 days of the Venturethon, we focused the product on being **the com
 
 ## Live deployments
 
-* **Dreyv (primary):** [dreyv.stauniverse.tech](https://dreyv.stauniverse.tech)
-* **Solana Atlas (public intelligence):** [dreyv.stauniverse.tech/atlas](https://dreyv.stauniverse.tech/atlas)
+* **Dreyv (primary):** [dreyv.com](https://dreyv.com)
+* **Solana Atlas (public intelligence):** [dreyv.com/atlas](https://dreyv.com/atlas)
 
 ---
 

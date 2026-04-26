@@ -85,7 +85,7 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            padding: "76px 56px 76px 84px",
+            padding: "64px 40px 96px 84px",
             position: "relative",
             zIndex: 2,
           }}
@@ -95,124 +95,124 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 14,
-              marginBottom: 36,
-            }}
-          >
-            <div
-              style={{
-                width: 10,
-                height: 38,
-                borderRadius: 3,
-                background: VIOLET,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 44,
-                fontWeight: 800,
-                letterSpacing: "-0.045em",
-                color: INK,
-                lineHeight: 1,
+                gap: 14,
+                marginBottom: 28,
               }}
             >
-              dreyv
-            </span>
-          </div>
+              <div
+                style={{
+                  width: 8,
+                  height: 30,
+                  borderRadius: 3,
+                  background: VIOLET,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 36,
+                  fontWeight: 800,
+                  letterSpacing: "-0.045em",
+                  color: INK,
+                  lineHeight: 1,
+                }}
+              >
+                dreyv
+              </span>
+            </div>
 
-          {eyebrow ? (
+            {eyebrow ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: VIOLET_700,
+                  marginBottom: 16,
+                }}
+              >
+                {eyebrow}
+              </div>
+            ) : null}
+
             <div
               style={{
+                fontSize: 52,
+                fontWeight: 800,
+                letterSpacing: "-0.035em",
+                lineHeight: 1.08,
+                color: INK,
+                maxWidth: 600,
                 display: "flex",
-                alignItems: "center",
-                fontSize: 16,
+              }}
+            >
+              {headline}
+            </div>
+
+            {subline ? (
+              <div
+                style={{
+                  marginTop: 20,
+                  fontSize: 22,
+                  fontWeight: 500,
+                  lineHeight: 1.35,
+                  color: INK_SOFT,
+                  maxWidth: 600,
+                  display: "flex",
+                }}
+              >
+                {subline}
+              </div>
+            ) : null}
+
+            {chips.length > 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  gap: 10,
+                  marginTop: 28,
+                  flexWrap: "wrap",
+                }}
+              >
+                {chips.slice(0, 3).map((c) => (
+                  <div
+                    key={c}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "8px 16px",
+                      borderRadius: 9999,
+                      border: `1px solid ${VIOLET_200}`,
+                      background: "rgba(255,255,255,0.72)",
+                      color: VIOLET_700,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {c}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                position: "absolute",
+                left: 84,
+                bottom: 36,
+                fontSize: 14,
                 fontWeight: 700,
                 letterSpacing: "0.22em",
                 textTransform: "uppercase",
-                color: VIOLET_700,
-                marginBottom: 22,
+                color: INK_FAINT,
               }}
             >
-              {eyebrow}
+              dreyv.com
             </div>
-          ) : null}
-
-          <div
-            style={{
-              fontSize: 64,
-              fontWeight: 800,
-              letterSpacing: "-0.035em",
-              lineHeight: 1.05,
-              color: INK,
-              maxWidth: 640,
-              display: "flex",
-            }}
-          >
-            {headline}
-          </div>
-
-          {subline ? (
-            <div
-              style={{
-                marginTop: 26,
-                fontSize: 26,
-                fontWeight: 500,
-                lineHeight: 1.35,
-                color: INK_SOFT,
-                maxWidth: 640,
-                display: "flex",
-              }}
-            >
-              {subline}
-            </div>
-          ) : null}
-
-          {chips.length > 0 ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                gap: 12,
-                marginTop: 40,
-                flexWrap: "wrap",
-              }}
-            >
-              {chips.slice(0, 3).map((c) => (
-                <div
-                  key={c}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "10px 18px",
-                    borderRadius: 9999,
-                    border: `1px solid ${VIOLET_200}`,
-                    background: "rgba(255,255,255,0.72)",
-                    color: VIOLET_700,
-                    fontSize: 18,
-                    fontWeight: 700,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {c}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div
-            style={{
-              position: "absolute",
-              left: 84,
-              bottom: 44,
-              fontSize: 16,
-              fontWeight: 700,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: INK_FAINT,
-            }}
-          >
-            dreyv.stauniverse.tech
-          </div>
         </div>
 
         {/* Right: crystal hero */}
@@ -264,6 +264,6 @@ export function resolveCrystalUrl(): string {
   const env =
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "https://dreyv.stauniverse.tech";
+    "https://dreyv.com";
   return `${env.replace(/\/$/, "")}/brand/og-crystal.png`;
 }
