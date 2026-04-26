@@ -1017,3 +1017,27 @@ export const dacsHandoffs = pgTable('dacs_handoffs', {
   specialistIdx: index('dacs_handoffs_specialist_idx').on(t.specialist),
   createdIdx: index('dacs_handoffs_created_idx').on(t.createdAt),
 }));
+
+// ─── DACS Phase 7A — Agent-generated artifacts (PDF/CSV/ZIP/JSON) ────
+// Bytes stored inline in Neon (bytea). Served via signed JWT through
+// /api/agent/artifacts/[id]. Capped at 50MB at the application layer.
+export const agentArtifacts = pgTable('agent_artifacts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ownerKey: text('owner_key').notNull(), // wallet address or vault PDA
+  walletAddress: text('wallet_address'),
+  capabilityId: text('capability_id').notNull(),
+  commandId: text('command_id'),
+  kind: text('kind').notNull(), // pdf | csv | zip | json
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  bytes: integer('bytes').notNull(),
+  body: bytea('body').notNull(),
+  meta: jsonb('meta').notNull().default('{}'),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  ownerIdx: index('agent_artifacts_owner_idx').on(t.ownerKey),
+  walletIdx: index('agent_artifacts_wallet_idx').on(t.walletAddress),
+  kindIdx: index('agent_artifacts_kind_idx').on(t.kind),
+  createdIdx: index('agent_artifacts_created_idx').on(t.createdAt),
+}));
