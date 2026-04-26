@@ -1,6 +1,7 @@
 # Project Memory
 
 ## Core
+NEVER ship stubs in agent capabilities — no `Math.random()` IDs returned as real, no terminal `ARMED`/`DEFERRED_TO_INDEXER`/`NEEDS_PARSE`, no `compositeRisk: "UNKNOWN"`. Every capability must hit a real API/SDK/RPC, log to `agent_episodes`, and reconcile via Inngest within 60s. See `mem://preferences/no-stubs` + `.lovable/dacs-phase7-capability-audit.md`.
 Brand color is SOLID violet only (`violet-600` / `#7c3aed` aka `aurora-violet`). NEVER use fuchsia, pink, or gradients (no `from-violet-* to-fuchsia-*`, no `bg-gradient-*`). Solid fills only.
 DEFAULT THEME for every new public/marketing/dev page = Stitch-inspired premium LIGHT (white bg, Manrope, solid violet accents, ambient violet-400/300 glows, violet-200 borders). NEVER ship a dark/generic first draft and wait for the user to ask for a redesign — match `/pricing` aesthetic from the first pass.
 For "premium icons" the user wants custom generated/illustrated marks (e.g. 3D violet crystal renders via imagegen), not stock Lucide/Heroicons reused across the app. No common stock iconography on marketing pages.
