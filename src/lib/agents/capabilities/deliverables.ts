@@ -89,6 +89,9 @@ const treasury_report_pdf = defineCapability({
             kind: "pdf",
             ownerKey: target,
             folder: `reports/${input.month}`,
+            capabilityId: "treasury_report_pdf",
+            commandId: ctx.commandId ?? null,
+            meta: { month: input.month, wallet: target },
         });
 
         await logEpisode({
