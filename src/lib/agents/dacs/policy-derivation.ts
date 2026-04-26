@@ -273,7 +273,7 @@ export const dacsPolicyDerivation = inngest.createFunction(
         // hasn't actively opted in. Skip until they touch settings once.
         if (!policy) return { autoApplied: 0, proposed: 0 };
 
-        const result = derive(policy as PolicyRow, walletEpisodes);
+        const result = derive(policy as PolicyRow, walletEpisodes as unknown as EpisodeRow[]);
         const existingPending = asSuggestions((policy as PolicyRow).pendingSuggestions);
 
         const newAllowlist = new Set(asArray((policy as PolicyRow).protocolAllowlist));
