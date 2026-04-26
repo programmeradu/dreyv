@@ -10,7 +10,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ScanSearch, RefreshCw, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { ScanSearch, RefreshCw, AlertCircle, CheckCircle2, ArrowRight, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 interface DriftSample {
