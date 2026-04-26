@@ -205,13 +205,13 @@ These don't exist yet and unlock the reporting use case the user asked about.
 
 ## 6. Tracking checklist
 
-- [ ] **7A.1** `@react-pdf/renderer` + `papaparse` installed
-- [ ] **7A.2** `src/lib/agents/artifacts/` skeleton
-- [ ] **7A.3** `treasury_report_pdf` capability
-- [ ] **7A.4** `treasury_report_csv` capability
-- [ ] **7A.5** `audit_pack_generate` capability
-- [ ] **7A.6** `<ArtifactChip>` component
-- [ ] **7A.7** Lovable Cloud storage bucket + signed URLs
+- [x] **7A.1** `@react-pdf/renderer` + `papaparse` + `jszip` installed
+- [x] **7A.2** `src/lib/agents/artifacts/` skeleton (storage, csv, pdf, helius, build-report)
+- [x] **7A.3** `treasury_report_pdf` capability — real Helius + DB + signed URL
+- [x] **7A.4** `treasury_report_csv` capability — real Helius + DB + signed URL
+- [x] **7A.5** `audit_pack_generate` capability — ZIP bundle (PDF + CSVs + raw JSON)
+- [ ] **7A.6** `<ArtifactChip>` component (chat-stream rendering — next session)
+- [x] **7A.7** Lovable Cloud bucket auto-provisioned (`treasury-artifacts`, 7-day signed URLs, 50MB cap)
 - [ ] **7B.1** Streamflow wired in `recurring_payment`
 - [ ] **7B.2** Invoice OCR + URL parse
 - [ ] **7B.3** Inngest gas-tank watcher

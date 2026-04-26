@@ -24,6 +24,7 @@ import { miscCapabilities } from "./misc";
 import { policyCapabilities } from "./policy";
 import { paymentsCapabilities } from "./payments";
 import { riskCapabilities } from "./risk";
+import { deliverableCapabilities } from "./deliverables";
 
 let cached: Map<string, AnyCapability> | null = null;
 
@@ -39,6 +40,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...policyCapabilities,
     ...paymentsCapabilities,
     ...riskCapabilities,
+    ...deliverableCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
