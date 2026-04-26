@@ -103,18 +103,32 @@ function extractLatestUserText(messages: any[] | undefined, prompt?: string): st
   if (prompt && typeof prompt === "string" && prompt.trim()) return prompt.trim();
   if (!Array.isArray(messages) || messages.length === 0) return "";
 
+  const partsToText = (parts: any): string => {
+    if (typeof parts === "string") return parts;
+    if (!Array.isArray(parts)) return "";
+    return parts
+      .map((p: any) => {
+        if (typeof p === "string") return p;
+        // AI SDK v5: { type: 'text', text: '...' }
+        if (p?.type === "text" && typeof p.text === "string") return p.text;
+        if (typeof p?.text === "string") return p.text;
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ");
+  };
+
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg?.role !== "user") continue;
 
-    if (typeof msg?.content === "string") return msg.content;
+    // AI SDK v5 uses `parts`; legacy/v4 uses `content` (string or array).
+    const fromParts = partsToText(msg?.parts);
+    if (fromParts.trim()) return fromParts;
 
-    if (Array.isArray(msg?.content)) {
-      const textParts = msg.content
-        .map((p: any) => (typeof p === "string" ? p : p?.text || ""))
-        .filter(Boolean);
-      if (textParts.length > 0) return textParts.join(" ");
-    }
+    if (typeof msg?.content === "string" && msg.content.trim()) return msg.content;
+    const fromContent = partsToText(msg?.content);
+    if (fromContent.trim()) return fromContent;
   }
 
   return "";
