@@ -90,7 +90,6 @@ const treasury_report_pdf = defineCapability({
             ownerKey: target,
             folder: `reports/${input.month}`,
             capabilityId: "treasury_report_pdf",
-            commandId: ctx.commandId ?? null,
             meta: { month: input.month, wallet: target },
         });
 
