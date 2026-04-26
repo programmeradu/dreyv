@@ -77,6 +77,23 @@ export const subagentTick = inngest.createFunction(
       await recordTick({ id: sa.id, status: "ok", note: `tick→${childCommandId}` });
     });
 
+    // Emit a "ticked" event so the inbox / monitoring can show the user what
+    // their background agent just did. Distinct from agent.subagent.tick
+    // (which is the internal dispatch trigger).
+    await step.run("publish-ticked", async () => {
+      await publish({
+        name: "agent.subagent.ticked" as never,
+        data: {
+          subagentId: sa.id,
+          walletAddress: sa.walletAddress,
+          parentCommandId: sa.parentCommandId,
+          childCommandId,
+          tickCount: sa.tickCount + 1,
+          tickedAt: Date.now(),
+        },
+      });
+    });
+
     return { subagentId, childCommandId };
   },
 );
