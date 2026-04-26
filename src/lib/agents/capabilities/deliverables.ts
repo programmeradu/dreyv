@@ -260,6 +260,8 @@ const audit_pack_generate = defineCapability({
             kind: "zip",
             ownerKey: target,
             folder: `audit-packs/${input.month}`,
+            capabilityId: "audit_pack_generate",
+            meta: { month: input.month, wallet: target },
         });
 
         await logEpisode({
