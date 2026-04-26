@@ -27,4 +27,4 @@ new_classes = ["TreasuryAgent"]
 enabled = true
 
 [vars]
-DREYV_BRAIN_BASE_URL = "https://dreyv.stauniverse.tech"
+DREYV_BRAIN_BASE_URL = "https://dreyv.com"

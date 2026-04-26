@@ -413,7 +413,7 @@ export function WaitlistConfirmationEmail({
       >
         While you wait — read how dreyv compares, or browse the developer surface.
       </Text>
-      <PrimaryButton href="https://dreyv.stauniverse.tech/compare">
+      <PrimaryButton href="https://dreyv.com/compare">
         See how it compares
       </PrimaryButton>
     </DreyvLayout>

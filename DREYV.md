@@ -172,7 +172,7 @@ We will **sequence** ruthlessly but **not** drop the vision:
 
 ## 13. Technical SEO (implemented)
 
-Aligned with **Next.js App Router** conventions and **Google Search Central** guidance: crawlable HTML from Server Components, `metadataBase` for absolute URLs, **per-route canonical** on public pages, `**/sitemap.xml`** and `**/robots.txt**`, **Web App Manifest**, dynamic **Open Graph** image (`/opengraph-image`), **JSON-LD** graph (`Organization`, `WebSite`, `SoftwareApplication`), `robots` meta defaults with `googleBot` preview hints, and `**X-Robots-Tag: noindex`** on app/auth/API-style routes via middleware. Set `**NEXT_PUBLIC_APP_URL**` to the live origin (e.g. `https://dreyv.stauniverse.tech`) in production; optionally `**NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION**` after Search Console verification.
+Aligned with **Next.js App Router** conventions and **Google Search Central** guidance: crawlable HTML from Server Components, `metadataBase` for absolute URLs, **per-route canonical** on public pages, `**/sitemap.xml`** and `**/robots.txt**`, **Web App Manifest**, dynamic **Open Graph** image (`/opengraph-image`), **JSON-LD** graph (`Organization`, `WebSite`, `SoftwareApplication`), `robots` meta defaults with `googleBot` preview hints, and `**X-Robots-Tag: noindex`** on app/auth/API-style routes via middleware. Set `**NEXT_PUBLIC_APP_URL**` to the live origin (e.g. `https://dreyv.com`) in production; optionally `**NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION**` after Search Console verification.
 
 ---
 

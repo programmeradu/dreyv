@@ -17,7 +17,7 @@ async function isAdmin(userId: string): Promise<boolean> {
 }
 
 function getAppUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://dreyv.stauniverse.tech").replace(/\/+$/, "");
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://dreyv.com").replace(/\/+$/, "");
 }
 
 export async function POST(request: NextRequest) {

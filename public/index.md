@@ -32,7 +32,7 @@ dreyv replaces the 8+ disconnected tools treasury teams juggle (wallets, DEX agg
 ## Brand
 - Name: **dreyv** (pronounced "DRAVE")
 - Parent: StaUniverse — https://stauniverse.tech
-- Production: https://dreyv.stauniverse.tech
+- Production: https://dreyv.com
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
 
 ## Legal
