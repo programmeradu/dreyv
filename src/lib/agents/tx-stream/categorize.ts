@@ -139,10 +139,12 @@ export function parseTxFacts(tx: HeliusEnhancedTx, watchedWallet: string): Parse
     let amountLamports = "0";
 
     const native = (tx.nativeTransfers ?? []).find(
-        (t) => t.fromUserAccount === watchedWallet || t.toUserAccount === watchedWallet,
+        (t: { fromUserAccount: string; toUserAccount: string }) =>
+            t.fromUserAccount === watchedWallet || t.toUserAccount === watchedWallet,
     );
     const spl = (tx.tokenTransfers ?? []).find(
-        (t) => t.fromUserAccount === watchedWallet || t.toUserAccount === watchedWallet,
+        (t: { fromUserAccount: string; toUserAccount: string }) =>
+            t.fromUserAccount === watchedWallet || t.toUserAccount === watchedWallet,
     );
 
     if (spl) {
