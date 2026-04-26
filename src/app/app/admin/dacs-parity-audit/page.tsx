@@ -10,7 +10,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ScanSearch, RefreshCw, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { ScanSearch, RefreshCw, AlertCircle, CheckCircle2, ArrowRight, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 interface DriftSample {
@@ -144,6 +144,31 @@ export default function DacsParityAuditPage() {
               {totals.find((t) => t.parity === "match")?.n ?? 0}
             </div>
           </div>
+        </div>
+
+        {/* Plain-English explainer */}
+        <div className="mb-6 rounded-2xl border border-violet-200/60 bg-violet-50/40 p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+            <HelpCircle className="h-4 w-4" /> How to read this page
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">
+            Every command you run goes through <strong>two pipelines in parallel</strong>: the live{" "}
+            <span className="font-mono text-xs">legacy</span> system answers you, and the new{" "}
+            <span className="font-mono text-xs">DACS</span> agent runs silently in the background. We
+            compare their decisions and group them by <em>route</em> (the type of action chosen, e.g.{" "}
+            <span className="font-mono text-xs">swap</span>, <span className="font-mono text-xs">queue_for_approval</span>).
+            A route is safe to cut over once its <strong>drift rate hits 0%</strong>.
+          </p>
+          <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-5">
+            <div><span className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-800">match</span> — both picked the same action ✅</div>
+            <div><span className="rounded bg-red-100 px-1.5 py-0.5 font-mono text-red-800">drift</span> — they disagreed ⚠️</div>
+            <div><span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">L-only</span> — only legacy returned a decision</div>
+            <div><span className="rounded bg-violet-100 px-1.5 py-0.5 font-mono text-violet-800">D-only</span> — only DACS returned a decision</div>
+            <div><span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">Lat (l/d)</span> — avg latency in ms, legacy / dacs</div>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Empty table? Run a few commands in the CommandBar (⌘K) and refresh — rows take ~2s to populate.
+          </p>
         </div>
 
         {error && (
