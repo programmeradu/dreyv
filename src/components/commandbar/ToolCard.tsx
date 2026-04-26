@@ -165,6 +165,16 @@ export function ToolCard({
           result={output ?? {}}
         />
       )}
+
+      {/* Phase 7A — agent-generated artifacts (PDF / CSV / ZIP) */}
+      {isDone && success === true && (() => {
+        const artifacts = extractArtifacts(output);
+        return artifacts.length > 0 ? (
+          <div className="mt-2">
+            <ArtifactList artifacts={artifacts} />
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 }
