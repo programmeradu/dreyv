@@ -9,7 +9,7 @@
  *   Auth: header `Authorization: <secret>` matching HELIUS_WEBHOOK_AUTH
  */
 import { NextRequest, NextResponse } from "next/server";
-import { publishDreyvEvent } from "@/lib/agents/bus";
+import { publish, publishDreyvEvent } from "@/lib/agents/bus";
 import { surfaceChainOpportunity } from "@/lib/agents/opportunity-translator";
 import type { ChainEvent } from "@/lib/datafeeds/normalize";
 
@@ -66,6 +66,16 @@ export async function POST(req: NextRequest) {
     // Translate material events into agent.opportunity.surfaced for the brain router
     surfaceChainOpportunity(evt).catch(() => {});
   }
+
+  // Phase 7B — fan out raw enhanced txs to the dedicated tx processor.
+  // Capped at 200 to avoid blowing the Inngest fan-out budget on backfills.
+  const slice = items.slice(0, 200);
+  publish(
+    slice.map((tx) => ({
+      name: "wallet.tx.observed" as const,
+      data: { source: "helius_webhook", tx },
+    })),
+  ).catch(() => {});
 
   return NextResponse.json({ ok: true, accepted: items.length });
 }

@@ -1041,3 +1041,85 @@ export const agentArtifacts = pgTable('agent_artifacts', {
   kindIdx: index('agent_artifacts_kind_idx').on(t.kind),
   createdIdx: index('agent_artifacts_created_idx').on(t.createdAt),
 }));
+
+// ─── DACS Phase 7B — Helius transaction streaming ────────────────────
+// Wallets we subscribe to via Helius webhook + cron reconciler. Either
+// auto-subscribed from `vaults`/`org_vaults` or manually added by users.
+export const txWatchedWallets = pgTable('tx_watched_wallets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(),
+  ownerWallet: text('owner_wallet'),         // user wallet that owns this watch
+  source: text('source').notNull().default('user'), // user | vault | org_vault | auto
+  label: text('label'),
+  heliusWebhookId: text('helius_webhook_id'),
+  active: boolean('active').notNull().default(true),
+  lastSyncedSignature: text('last_synced_signature'),
+  lastSyncedAt: timestamp('last_synced_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('tx_watched_wallets_wallet_idx').on(t.walletAddress),
+  ownerIdx: index('tx_watched_wallets_owner_idx').on(t.ownerWallet),
+  activeIdx: index('tx_watched_wallets_active_idx').on(t.active),
+}));
+
+// Persisted, deduped, categorized Helius enhanced txs. Source of truth
+// for treasury reports + analytics flows.
+export const txEvents = pgTable('tx_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(), // the watched wallet this row belongs to
+  signature: text('signature').notNull(),
+  slot: integer('slot'),
+  blockTime: timestamp('block_time'),
+  feeLamports: integer('fee_lamports'),
+  source: text('source'),                    // helius "source" e.g. JUPITER, SQUADS
+  type: text('type'),                        // helius "type" e.g. SWAP, TRANSFER
+  direction: text('direction'),              // in | out | internal | unknown
+  counterparty: text('counterparty'),
+  tokenMint: text('token_mint'),
+  tokenSymbol: text('token_symbol'),
+  amount: numeric('amount'),                 // human-readable token amount
+  amountLamports: numeric('amount_lamports'),
+  valueUsd: numeric('value_usd'),
+  category: text('category').notNull().default('uncategorized'), // swap | transfer-in | transfer-out | payroll | yield | fee | mev | unknown
+  categorySource: text('category_source'),   // builtin:<name> | rule:<id> | manual
+  matchedRuleId: uuid('matched_rule_id'),
+  tags: jsonb('tags').notNull().default('[]'),
+  raw: jsonb('raw').notNull(),               // full Helius enhanced-tx payload
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  walletSigUniq: index('tx_events_wallet_sig_uniq').on(t.walletAddress, t.signature),
+  walletTimeIdx: index('tx_events_wallet_time_idx').on(t.walletAddress, t.blockTime),
+  categoryIdx: index('tx_events_category_idx').on(t.category),
+  blockTimeIdx: index('tx_events_block_time_idx').on(t.blockTime),
+}));
+
+// User-defined categorization rules. Evaluated AFTER built-in heuristics
+// (built-ins set a `default` category, user rules can override).
+export const txCategoryRules = pgTable('tx_category_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ownerWallet: text('owner_wallet').notNull(),
+  name: text('name').notNull(),
+  // Match conditions (all required ones must pass; null = wildcard)
+  matchProgramId: text('match_program_id'),
+  matchSource: text('match_source'),
+  matchCounterparty: text('match_counterparty'),
+  matchTokenMint: text('match_token_mint'),
+  matchMemoContains: text('match_memo_contains'),
+  matchMinAmount: numeric('match_min_amount'),
+  matchMaxAmount: numeric('match_max_amount'),
+  matchDirection: text('match_direction'), // in | out | internal | any
+  // Action
+  category: text('category').notNull(),
+  tags: jsonb('tags').notNull().default('[]'),
+  priority: integer('priority').notNull().default(100),
+  enabled: boolean('enabled').notNull().default(true),
+  hits: integer('hits').notNull().default(0),
+  lastMatchedAt: timestamp('last_matched_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  ownerIdx: index('tx_category_rules_owner_idx').on(t.ownerWallet),
+  enabledIdx: index('tx_category_rules_enabled_idx').on(t.enabled),
+  priorityIdx: index('tx_category_rules_priority_idx').on(t.priority),
+}));
