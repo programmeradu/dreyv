@@ -72,7 +72,15 @@ interface CapStats {
   maxValueUsd: number;
 }
 
-function summarize(episodes: typeof agentEpisodes.$inferSelect[]): Map<string, CapStats> {
+interface EpisodeRow {
+  capabilityIds: unknown;
+  outcome: string;
+  valueUsd: string | null;
+  walletAddress: string | null;
+  createdAt: Date | string;
+}
+
+function summarize(episodes: EpisodeRow[]): Map<string, CapStats> {
   const stats = new Map<string, CapStats>();
   for (const ep of episodes) {
     const caps = Array.isArray(ep.capabilityIds) ? (ep.capabilityIds as string[]) : [];
@@ -108,10 +116,7 @@ interface DerivationResult {
   proposed: Suggestion[];
 }
 
-function derive(
-  policy: PolicyRow,
-  episodes: typeof agentEpisodes.$inferSelect[],
-): DerivationResult {
+function derive(policy: PolicyRow, episodes: EpisodeRow[]): DerivationResult {
   const result: DerivationResult = {
     walletAddress: policy.walletAddress,
     autoApplied: [],
