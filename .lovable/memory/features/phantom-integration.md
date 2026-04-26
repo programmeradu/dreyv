@@ -86,9 +86,10 @@ Order of providers (outer → inner): `NetworkProvider > PhantomProvider > Conne
 
 | Var | Where | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_PHANTOM_APP_ID` | Public | Required by all client SDKs |
+| `NEXT_PUBLIC_PHANTOM_APP_ID` | Public | Required by all client SDKs. **Dreyv App ID = `7eeb0207-f5c1-4841-a6a9-1a0501438d1a`** (issued in Phantom Portal 2026-04-26). |
 | `PHANTOM_ORG_ID` | Server only | Server SDK (when approved) |
 | `PHANTOM_API_PRIVATE_KEY` | Server only | Server SDK signing key |
+| `ARTIFACT_SIGNING_SECRET` | Server only | Phase 7A — signs short-lived download URLs for `agent_artifacts`. Falls back to `JWT_SECRET`. |
 
 ## 7. Open questions to resolve before launch
 
