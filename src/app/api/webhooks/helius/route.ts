@@ -67,6 +67,16 @@ export async function POST(req: NextRequest) {
     surfaceChainOpportunity(evt).catch(() => {});
   }
 
+  // Phase 7B — fan out raw enhanced txs to the dedicated tx processor.
+  // Capped at 200 to avoid blowing the Inngest fan-out budget on backfills.
+  const slice = items.slice(0, 200);
+  publish(
+    slice.map((tx) => ({
+      name: "wallet.tx.observed" as const,
+      data: { source: "helius_webhook", tx },
+    })),
+  ).catch(() => {});
+
   return NextResponse.json({ ok: true, accepted: items.length });
 }
 
