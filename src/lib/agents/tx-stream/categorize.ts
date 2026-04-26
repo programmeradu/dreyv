@@ -11,7 +11,7 @@
  * Inngest worker that calls categorize().
  */
 
-import type { HeliusEnhancedTx } from "./helius";
+import type { HeliusEnhancedTx } from "@/lib/agents/artifacts/helius";
 
 export type Category =
   | "swap"
