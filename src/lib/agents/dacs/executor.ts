@@ -19,6 +19,7 @@ import { eq } from "drizzle-orm";
 import { capabilityRegistry } from "../capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "../capabilities/types";
 import { recordEpisode } from "./episodes";
+import { recordPostMortem } from "./post-mortem";
 import type { Intent, Plan, RouteDecision } from "./types";
 
 function buildHeadlessContext(walletAddress: string | null): CapabilityContext {
