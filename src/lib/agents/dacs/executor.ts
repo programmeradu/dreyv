@@ -170,6 +170,22 @@ export const executeApprovedPlan = inngest.createFunction(
       });
     });
 
+    if (!ok) {
+      await step.run("record-post-mortem", async () => {
+        const failedStep = stepResults.find((s) => !s.ok);
+        await recordPostMortem({
+          commandId: row.commandId,
+          walletAddress: row.walletAddress,
+          intent,
+          plan,
+          failedCapabilityId: failedStep?.capabilityId ?? null,
+          error: firstError ?? "unknown error",
+          durationMs,
+          signature,
+        });
+      });
+    }
+
     await publish({
       name: "agent.command.completed",
       data: {
