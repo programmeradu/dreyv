@@ -11,7 +11,7 @@
  */
 
 import { db } from "@/db";
-import { agentEpisodes, agentProposals } from "@/db/schema";
+import { agentEpisodes, agentProposals, txEvents } from "@/db/schema";
 import { and, gte, lte, eq, desc } from "drizzle-orm";
 import { fetchHeliusTransactions, monthRange, type HeliusEnhancedTx } from "./helius";
 import type { ProposalRow, TransactionRow, PolicyActionRow, TreasuryReportInput } from "./pdf";
