@@ -9,6 +9,7 @@ Approved pricing page aesthetic: white bg, solid violet accents, ambient violet-
 NEVER use hardcoded/demo/made-up figures (e.g. "$100k portfolio", "$250k AUM", default amounts) in any simulation, plan, or projection. Every prompt must either run on live data, or clarify (LLM-driven) to ask the user for the missing exposure (connect wallet / paste address / enter amount / explicit demo opt-in). Bad marketing otherwise.
 Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) + `/auth` Free tier (self-serve, stays discoverable). Never gate Atlas read-only / `/compare` / `/developers` / `llms*.txt` / OpenAPI.
 DACS migration is the active backend refactor — `.lovable/plan.md` is canonical. Phase 0 done (48 capabilities). Phase 1 next: intent → plan → route → sse-proxy. Always re-read plan before DACS work.
+Canonical production domain is **dreyv.com** (org owns dreyv.com / dreyv.app / dreyv.finance). NEVER use `dreyv.stauniverse.tech` in code, copy, emails, OG images, docs, or env defaults — always default to `https://dreyv.com`.
 
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
