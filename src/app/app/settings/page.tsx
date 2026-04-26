@@ -11,6 +11,7 @@ import { NotificationsView } from "@/components/settings/NotificationsView";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { BillingView } from "@/components/settings/BillingView";
 import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
+import { PolicySuggestionsPanel } from "@/components/settings/PolicySuggestionsPanel";
 import { SubagentsPanel } from "@/components/settings/SubagentsPanel";
 import { HandoffsPanel } from "@/components/settings/HandoffsPanel";
 import { NetworkSelector } from "@/components/NetworkSelector";
@@ -49,6 +50,7 @@ export default function SettingsPage() {
             case "billing": return <BillingView />;
             case "policy": return (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <PolicySuggestionsPanel />
                     <AgentPolicyView />
                     <SubagentsPanel />
                     <HandoffsPanel />
