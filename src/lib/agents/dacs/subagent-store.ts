@@ -101,15 +101,43 @@ export async function setSubagentStatus(id: string, status: SubagentStatus) {
   }
 }
 
-/** Rows due for a tick: status=active AND next_run_at <= now. */
+/**
+ * Rows due for a tick: status=active AND next_run_at <= now AND not expired
+ * AND not at max_ticks. Expired/maxed rows are auto-completed in a separate
+ * pass so they don't fire one extra tick before recordTick() catches them.
+ */
 export async function dueSubagents(now: Date = new Date(), limit = 50) {
   if (!db) return [];
   try {
-    return await db
+    const rows = await db
       .select()
       .from(dacsSubagents)
       .where(and(eq(dacsSubagents.status, "active"), lte(dacsSubagents.nextRunAt, now)))
       .limit(limit);
+    // Filter expired / maxed in app-code so we can also auto-complete them
+    // in a single follow-up update (avoids a second SQL roundtrip per row).
+    const dueIds: string[] = [];
+    const completeIds: string[] = [];
+    for (const r of rows) {
+      const expired = r.expiresAt != null && r.expiresAt <= now;
+      const maxed = r.maxTicks != null && r.tickCount >= r.maxTicks;
+      if (expired || maxed) completeIds.push(r.id);
+      else dueIds.push(r.id);
+    }
+    if (completeIds.length > 0) {
+      // Best-effort terminal sweep — single update for all expired/maxed.
+      try {
+        for (const id of completeIds) {
+          await db
+            .update(dacsSubagents)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(eq(dacsSubagents.id, id));
+        }
+      } catch (err) {
+        console.warn("[dacs:subagent] terminal sweep failed:", err);
+      }
+    }
+    return rows.filter((r) => dueIds.includes(r.id));
   } catch (err) {
     console.warn("[dacs:subagent] due query failed:", err);
     return [];
