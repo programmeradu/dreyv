@@ -9,7 +9,7 @@
  *   Auth: header `Authorization: <secret>` matching HELIUS_WEBHOOK_AUTH
  */
 import { NextRequest, NextResponse } from "next/server";
-import { publishDreyvEvent } from "@/lib/agents/bus";
+import { publish, publishDreyvEvent } from "@/lib/agents/bus";
 import { surfaceChainOpportunity } from "@/lib/agents/opportunity-translator";
 import type { ChainEvent } from "@/lib/datafeeds/normalize";
 
