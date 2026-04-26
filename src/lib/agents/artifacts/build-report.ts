@@ -91,7 +91,7 @@ export async function buildTreasuryReportData(opts: BuildReportOpts): Promise<Tr
     }
 
     // 2) Proposals (real DB query).
-    const proposalRows = userId
+    const proposalRows = userId && db
         ? await db
             .select()
             .from(agentProposals)
@@ -116,17 +116,19 @@ export async function buildTreasuryReportData(opts: BuildReportOpts): Promise<Tr
     }));
 
     // 3) Policy / agent decisions for this wallet (real DB query).
-    const episodeRows = await db
-        .select()
-        .from(agentEpisodes)
-        .where(
-            and(
-                eq(agentEpisodes.walletAddress, walletOrVault),
-                gte(agentEpisodes.createdAt, new Date(since * 1000)),
-                lte(agentEpisodes.createdAt, new Date(until * 1000)),
-            ),
-        )
-        .orderBy(desc(agentEpisodes.createdAt));
+    const episodeRows = db
+        ? await db
+            .select()
+            .from(agentEpisodes)
+            .where(
+                and(
+                    eq(agentEpisodes.walletAddress, walletOrVault),
+                    gte(agentEpisodes.createdAt, new Date(since * 1000)),
+                    lte(agentEpisodes.createdAt, new Date(until * 1000)),
+                ),
+            )
+            .orderBy(desc(agentEpisodes.createdAt))
+        : [];
 
     const policyActions: PolicyActionRow[] = episodeRows.map((e) => ({
         date: e.createdAt.toISOString().slice(0, 10),

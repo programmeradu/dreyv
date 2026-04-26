@@ -35,6 +35,7 @@ async function logEpisode(opts: {
     artifact?: UploadedArtifact;
 }) {
     try {
+        if (!db) return;
         await db.insert(agentEpisodes).values({
             commandId: `artifact-${Date.now()}`,
             walletAddress: opts.walletAddress,
