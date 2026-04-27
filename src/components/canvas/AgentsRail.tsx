@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { cn } from "@/lib/utils";
+import { toolLabel, toolWatching } from "@/lib/commandbar/tool-meta";
 
 const MAX_VISIBLE = 5;
 const RECENT_WINDOW_MS = 60 * 60 * 1000; // 1h
