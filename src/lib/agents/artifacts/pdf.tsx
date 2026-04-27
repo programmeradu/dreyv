@@ -453,6 +453,8 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
     const { summary, proposals, transactions, policyActions } = input;
     const periodLabel = fmtPeriod(input.period);
     const netSigned = summary.netFlowUsd;
+    // Deterministic doc ID (no PII): wallet prefix + period
+    const docId = `DRV-${input.period.replace("-", "")}-${input.walletOrVault.slice(0, 6).toUpperCase()}`;
 
     return (
         <Document
