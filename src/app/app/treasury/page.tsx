@@ -1,12 +1,23 @@
 "use client";
 
 /**
- * `/app/treasury` — generative treasury view (rebuilt).
- * Replaced the previous module/sidebar dashboard.
+ * `/app/treasury` — generative, agent-extensible treasury surface.
+ *
+ * Architecture (matches research synthesis in mem://research/treasury-landscape):
+ *  - Hero rail        : live valuation + composition (no mocks).
+ *  - Pulse rail       : autonomous watcher narratives surfaced via Canvas.
+ *  - Action rail      : the global CommandBar (mounted in /app/layout.tsx).
+ *  - Stream rail      : CanvasStream — every block (tokens, wallets, runway,
+ *                        mass-send, policy, yield, reporting…) is a CanvasBlock
+ *                        emitted by this page on mount and by agents at runtime.
+ *
+ * No fixed sections per bucket. Empty buckets render as `empty-bucket` blocks
+ * with a single "Ask Dreyv to set this up" affordance that opens the
+ * CommandBar pre-filled. NEVER render mock/demo figures.
  */
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
 import { ArrowLeft, Sparkles } from "lucide-react";
@@ -20,10 +31,11 @@ import {
 import {
   CompositionStrip,
   HeadlineValue,
-  TrendCurve,
   type Holding,
 } from "@/components/app-shell/Composition";
-import { SuggestionList, type Suggestion } from "@/components/app-shell/SuggestionList";
+import { CanvasStream } from "@/components/canvas/CanvasStream";
+import { useCanvas } from "@/lib/canvas/CanvasContext";
+import { AppEventBus } from "@/lib/events";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
@@ -36,8 +48,18 @@ const SYMBOL_LABELS: Record<string, string> = {
   JUP: "Jupiter",
 };
 
+const STABLES = new Set(["USDC", "USDT", "PYUSD", "USDH", "DAI"]);
+
 export default function TreasuryPage() {
-  const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
+  const {
+    vaultValue,
+    vaultChange24h,
+    vaultTokens,
+    activeVault,
+    vaultConfig,
+    isMultisig,
+    proposals,
+  } = useVault();
 
   const holdings: Holding[] = useMemo(() => {
     const tokens = (vaultTokens ?? []) as any[];
@@ -57,52 +79,15 @@ export default function TreasuryPage() {
       .slice(0, 6);
   }, [vaultTokens]);
 
-  const trend = useMemo(() => {
-    const seed = activeVault ? activeVault.length : 5;
-    const out: number[] = [];
-    let v = 100;
-    for (let i = 0; i < 28; i++) {
-      v += Math.sin(seed + i / 3) * 1.4 + Math.cos(seed * 0.5 + i / 4) * 0.9;
-      out.push(v);
-    }
-    return out;
-  }, [activeVault]);
-
-  const suggestions: Suggestion[] = useMemo(
-    () =>
-      activeVault
-        ? [
-            {
-              id: "tighten-stables",
-              kind: "earn",
-              title: "Tighten yield on your stable layer",
-              detail:
-                "We see a routing path that earns more on the same stable balance, with the same risk profile.",
-              cta: "Preview",
-            },
-            {
-              id: "smooth-mix",
-              kind: "rebalance",
-              title: "A small move can smooth your weekly swings",
-              detail:
-                "Shift a sliver of your most volatile position into a steadier one. You keep the upside, lose the noise.",
-              cta: "See plan",
-            },
-          ]
-        : [
-            {
-              id: "connect",
-              kind: "rebalance",
-              title: "Connect a wallet to begin",
-              detail: "Dreyv needs a treasury to look after. Link one and we’ll do the rest.",
-              cta: "Connect",
-            },
-          ],
-    [activeVault],
-  );
+  const stableBalance = useMemo(() => {
+    const tokens = (vaultTokens ?? []) as any[];
+    return tokens
+      .filter((t) => STABLES.has((t.symbol ?? "").toUpperCase()))
+      .reduce((s, t) => s + (typeof t.value === "number" ? t.value : 0), 0);
+  }, [vaultTokens]);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">
+    <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="right-[-160px] top-[-200px]" />
 
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
@@ -119,12 +104,13 @@ export default function TreasuryPage() {
         <WalletButton />
       </header>
 
+      {/* HERO */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pt-4">
         <StreamIn className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">A clear picture, nothing more.</h1>
           <p className="max-w-lg text-base text-slate-600">
-            What you own, how it moves, and where it could be working a little harder.
+            What you own, who can move it, and where it could be working a little harder. Ask Dreyv anything below — the canvas fills in.
           </p>
         </StreamIn>
 
@@ -134,7 +120,7 @@ export default function TreasuryPage() {
               label="Total value"
               value={vaultValue}
               hint={
-                vaultChange24h !== null
+                vaultChange24h !== null && vaultChange24h !== undefined
                   ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
                   : undefined
               }
@@ -150,29 +136,257 @@ export default function TreasuryPage() {
         </StreamIn>
       </section>
 
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      {/* PULSE — empty/connect state if no vault */}
+      {!activeVault && (
+        <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6">
+          <Surface className="p-8 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Get started</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Connect a treasury to begin</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+              Link a Phantom wallet, a Squads multisig, or paste any address to watch — Dreyv will populate everything below.
+            </p>
+            <div className="mt-5 flex justify-center gap-3">
+              <button
+                onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
+                className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                Connect or paste address
+              </button>
+              <button
+                onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Show me an example treasury walkthrough", autoSubmit: false })}
+                className="rounded-xl border border-violet-200 px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-50"
+              >
+                Show me how it works
+              </button>
+            </div>
+          </Surface>
+        </section>
+      )}
+
+      {/* CANVAS STREAM — generative bucket surface */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-40">
         <SectionHeader
-          eyebrow="Movement"
-          title="How your treasury has been moving"
-          description="A soft view of the last few weeks. We highlight only what stands out."
+          eyebrow="Live canvas"
+          title="Everything Dreyv is watching for you"
+          description="Tokens, wallets, runway, payouts, policy. Each card is live — pin the ones you want to keep, dismiss the rest, and ask Dreyv to add more."
         />
         <div className="mt-6">
-          <TrendCurve values={trend} label="Treasury value" changePct={vaultChange24h ?? null} />
+          <CanvasStream />
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-24">
-        <SectionHeader
-          eyebrow="Where to look"
-          title="Worth a moment"
-          description="Concrete moves, no jargon. Open the ones that interest you."
-        />
-        <div className="mt-6">
-          <SuggestionList suggestions={suggestions} />
-        </div>
-      </section>
+      <TreasuryBlockSeeder
+        activeVault={activeVault}
+        vaultTokens={vaultTokens}
+        vaultValue={vaultValue}
+        stableBalance={stableBalance}
+        vaultConfig={vaultConfig}
+        isMultisig={isMultisig}
+        proposalsCount={proposals?.length ?? 0}
+      />
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Block seeder — emits the foundation buckets into the shared Canvas         */
+/* -------------------------------------------------------------------------- */
+
+function TreasuryBlockSeeder({
+  activeVault,
+  vaultTokens,
+  vaultValue,
+  stableBalance,
+  vaultConfig,
+  isMultisig,
+  proposalsCount,
+}: {
+  activeVault: string | null;
+  vaultTokens: any[];
+  vaultValue: number | null;
+  stableBalance: number;
+  vaultConfig: { threshold: number; members: number } | null;
+  isMultisig: boolean;
+  proposalsCount: number;
+}) {
+  const { addBlock, removeBlock, blocks } = useCanvas();
+  const seededIds = useRef<string[]>([]);
+
+  // Reseed on key state changes. Prefix our ids so we only ever clear our own.
+  useEffect(() => {
+    // Clear previously seeded blocks
+    for (const id of seededIds.current) removeBlock(id);
+    seededIds.current = [];
+
+    const ids: string[] = [];
+
+    // 1. TOKENS
+    {
+      const id = `tr-tokens-${activeVault ?? "empty"}`;
+      const total = (vaultTokens ?? []).reduce(
+        (s: number, t: any) => s + (typeof t.value === "number" ? t.value : 0),
+        0,
+      );
+      const rows = (vaultTokens ?? [])
+        .map((t: any) => ({
+          symbol: (t.symbol ?? "").toUpperCase() || "Asset",
+          label: SYMBOL_LABELS[(t.symbol ?? "").toUpperCase()] ?? t.symbol,
+          balance: typeof t.balance === "number" ? t.balance : typeof t.amount === "number" ? t.amount : undefined,
+          value: typeof t.value === "number" ? t.value : undefined,
+          change24h: typeof t.priceChange24h === "number" ? t.priceChange24h : undefined,
+        }))
+        .filter((r: any) => r.value && r.value > 0)
+        .sort((a: any, b: any) => (b.value ?? 0) - (a.value ?? 0));
+      addBlock({
+        id,
+        type: "tokens-table",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Tokens in your treasury",
+        subtitle: rows.length ? `${rows.length} assets · live prices` : "Connect a wallet to see your token balances",
+        payload: { rows, totalValue: total > 0 ? total : null },
+        pinned: true,
+      });
+      ids.push(id);
+    }
+
+    // 2. WALLETS
+    {
+      const id = `tr-wallets-${activeVault ?? "empty"}`;
+      const wallets = activeVault
+        ? [
+            {
+              address: activeVault,
+              label: isMultisig ? "Treasury (Squads multisig)" : "Treasury wallet",
+              kind: isMultisig ? ("multisig" as const) : ("hot" as const),
+              threshold: vaultConfig?.threshold,
+              members: vaultConfig?.members,
+              value: vaultValue ?? undefined,
+              pendingApprovals: proposalsCount,
+            },
+          ]
+        : [];
+      addBlock({
+        id,
+        type: "wallets-roster",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Wallets & signers",
+        subtitle: activeVault
+          ? "Add more wallets, signers, or watch-only addresses"
+          : "No wallets connected yet",
+        payload: { wallets },
+      });
+      ids.push(id);
+    }
+
+    // 3. RUNWAY
+    {
+      const id = `tr-runway-${activeVault ?? "empty"}`;
+      // Without a real burn-rate watcher, we surface as insufficient — DACS
+      // sub-agents will populate this with real months over time. Never invent.
+      addBlock({
+        id,
+        type: "runway",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Runway",
+        subtitle: "How many months you have at current burn",
+        payload: {
+          insufficient: true,
+          stableBalance: stableBalance > 0 ? stableBalance : null,
+        },
+      });
+      ids.push(id);
+    }
+
+    // 4. MASS SEND-OUTS
+    if (activeVault) {
+      const id = `tr-masssend-${activeVault}`;
+      addBlock({
+        id,
+        type: "empty-bucket",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Mass send-outs",
+        subtitle: "Payroll, airdrops, grants — one batch, one approval",
+        payload: {
+          description:
+            "Upload a CSV of recipients or pick an address book. Dreyv will simulate, route through your multisig, and report back per-recipient.",
+          prompt: "Run a mass payout from my treasury",
+        },
+      });
+      ids.push(id);
+    }
+
+    // 5. POLICY & APPROVALS
+    if (activeVault) {
+      const id = `tr-policy-${activeVault}`;
+      addBlock({
+        id,
+        type: "empty-bucket",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Policy & approvals",
+        subtitle: "Spending limits, allowlists, signer roster",
+        payload: {
+          description:
+            "Set spending limits per wallet, allowlist recipient addresses, and let Dreyv auto-approve routine moves while flagging the unusual.",
+          prompt: "Set up treasury policies and spending limits",
+        },
+      });
+      ids.push(id);
+    }
+
+    // 6. YIELD ROUTING
+    if (activeVault && stableBalance > 0) {
+      const id = `tr-yield-${activeVault}`;
+      addBlock({
+        id,
+        type: "empty-bucket",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Earn on idle stables",
+        subtitle: "Curated, policy-bounded yield routing",
+        payload: {
+          description:
+            "Dreyv can route your stables to vetted venues that match your risk band, with autopilot rails that respect your approvals.",
+          prompt: "Find safe yield for my idle stables",
+        },
+      });
+      ids.push(id);
+    }
+
+    // 7. REPORTING
+    if (activeVault) {
+      const id = `tr-report-${activeVault}`;
+      addBlock({
+        id,
+        type: "empty-bucket",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Reports & shareable link",
+        subtitle: "Live treasury report — public link, board-ready",
+        payload: {
+          description:
+            "Generate a Karpatkey-style monthly report on demand, or share a live, read-only link with board members and accountants.",
+          prompt: "Generate a treasury report I can share",
+        },
+      });
+      ids.push(id);
+    }
+
+    seededIds.current = ids;
+
+    // We intentionally do NOT clean up on unmount — pinned blocks persist
+    // and ephemeral blocks should outlive route changes within /app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeVault, vaultTokens, vaultValue, stableBalance, vaultConfig?.threshold, vaultConfig?.members, isMultisig, proposalsCount]);
+
+  // Touch `blocks` so the seeder re-runs cleanly when the canvas resets (e.g. signin).
+  void blocks.length;
+
+  return null;
 }
 
 function SmallStat({
