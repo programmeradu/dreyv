@@ -32,12 +32,26 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
+    const [paletteOpen, setPaletteOpen] = useState(false);
 
     useAppEvent((event) => {
         if (event.type === "NAVIGATE" && event.payload) {
             router.push(event.payload);
         }
     });
+
+    // ⌘K / Ctrl+K opens the Capability Palette anywhere in /app/*
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            const isK = e.key === "k" || e.key === "K";
+            if (isK && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                setPaletteOpen((v) => !v);
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
 
     // Lazy sync Neon Auth user to DB on first load
     const syncedRef = useRef(false);
