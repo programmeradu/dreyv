@@ -1123,3 +1123,40 @@ export const txCategoryRules = pgTable('tx_category_rules', {
   enabledIdx: index('tx_category_rules_enabled_idx').on(t.enabled),
   priorityIdx: index('tx_category_rules_priority_idx').on(t.priority),
 }));
+
+/**
+ * Phase 7B.1 — Streamflow recurring-payment tracking.
+ *
+ * One row per `recurring_payment` capability invocation. Created at tx-build
+ * time (status=`pending_signature`); reconciler updates to `confirmed` once
+ * the on-chain stream account exists, or `expired` if not seen after 30 min.
+ */
+export const streamflowStreams = pgTable('streamflow_streams', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  /** Streamflow on-chain metadata pubkey — also the user-visible streamId. */
+  streamId: text('stream_id').notNull().unique(),
+  commandId: text('command_id'),
+  walletAddress: text('wallet_address').notNull(),
+  recipient: text('recipient').notNull(),
+  mint: text('mint').notNull(),
+  tokenSymbol: text('token_symbol').notNull(),
+  amountPerPeriod: numeric('amount_per_period').notNull(),
+  periodSeconds: integer('period_seconds').notNull(),
+  durationPeriods: integer('duration_periods').notNull(),
+  totalAmount: numeric('total_amount').notNull(),
+  cliffSeconds: integer('cliff_seconds').notNull().default(0),
+  cancellable: boolean('cancellable').notNull().default(true),
+  startTs: integer('start_ts').notNull(),
+  /** pending_signature | confirmed | expired | cancelled | failed */
+  status: text('status').notNull().default('pending_signature'),
+  signature: text('signature'),
+  reconciledAt: timestamp('reconciled_at'),
+  reconcileAttempts: integer('reconcile_attempts').notNull().default(0),
+  lastReconcileError: text('last_reconcile_error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('streamflow_streams_wallet_idx').on(t.walletAddress),
+  statusIdx: index('streamflow_streams_status_idx').on(t.status),
+  createdIdx: index('streamflow_streams_created_idx').on(t.createdAt),
+}));
