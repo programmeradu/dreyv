@@ -677,5 +677,6 @@ export const paymentsCapabilities: AnyCapability[] = [
   invoice_pay,
   gas_tank_topup,
   grant_disbursement,
+  grant_milestone_release,
   expense_categorize,
 ];

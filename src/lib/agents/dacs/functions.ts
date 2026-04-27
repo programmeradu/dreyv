@@ -10,6 +10,7 @@ import { SPECIALIST_FUNCTIONS } from "./specialist-runtime";
 import { dacsPolicyDerivation } from "./policy-derivation";
 import { reconcileStreamflowStreams } from "./reconcile-streamflow";
 import { gasTankWatcher } from "./gas-tank-watcher";
+import { grantsWatcher } from "./grants-watcher";
 
 export const DACS_FUNCTIONS = [
   commandRouter,
@@ -19,6 +20,7 @@ export const DACS_FUNCTIONS = [
   dacsPolicyDerivation,
   reconcileStreamflowStreams,
   gasTankWatcher,
+  grantsWatcher,
   ...SPECIALIST_FUNCTIONS,
 ];
 
