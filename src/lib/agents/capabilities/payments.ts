@@ -446,7 +446,7 @@ const invoice_pay = defineCapability({
   id: "invoice_pay",
   domain: "payments",
   description:
-    "Parse an invoice (URL, raw text, or structured fields) and produce an on-chain payment proposal with memo and reference.",
+    "Parse an invoice (URL, raw text, or structured fields) and produce an on-chain payment proposal with memo and reference. For URL/text/image inputs, prefer calling `invoice_extract` first to get a confidence-scored extraction.",
   inputSchema: z.object({
     source: z.union([
       z.object({ url: z.string().url() }),
@@ -459,16 +459,54 @@ const invoice_pay = defineCapability({
         invoiceNumber: z.string().optional(),
       }),
     ]),
+    /**
+     * Optional structured payload from `invoice_extract`. When present,
+     * `invoice_pay` uses it directly and skips the NEEDS_PARSE branch.
+     */
+    extracted: z
+      .object({
+        recipient: z.string(),
+        amount: z.number().positive(),
+        token: z.string(),
+        memo: z.string().optional(),
+        invoiceNumber: z.string().optional(),
+      })
+      .optional(),
+    /** Minimum overall confidence required to auto-proceed (default 0.7). */
+    minConfidence: z.number().min(0).max(1).optional().default(0.7),
+    overallConfidence: z.number().min(0).max(1).optional(),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
-  execute: async ({ source }, ctx) => {
+  execute: async ({ source, extracted, minConfidence, overallConfidence }, ctx) => {
     if (!ctx.walletAddress) {
       return { success: false, operation: "invoice_pay", message: "Wallet required." };
     }
     const blocked = ctx.blockExecutionForBuildIntent("invoice_pay");
     if (blocked) return blocked;
+
+    // 1. Pre-extracted payload from invoice_extract — most reliable path.
+    if (extracted) {
+      if (overallConfidence !== undefined && overallConfidence < (minConfidence ?? 0.7)) {
+        return {
+          success: false,
+          operation: "invoice_pay",
+          status: "LOW_CONFIDENCE",
+          requiresApproval: false,
+          extracted,
+          overallConfidence,
+          message: `Extraction confidence ${Math.round(overallConfidence * 100)}% < threshold ${Math.round((minConfidence ?? 0.7) * 100)}%. Confirm fields manually before paying.`,
+        };
+      }
+      return {
+        success: true,
+        operation: "invoice_pay",
+        ...extracted,
+        requiresApproval: true,
+        message: `Invoice ${extracted.invoiceNumber ?? ""} → pay ${extracted.amount} ${extracted.token} to ${extracted.recipient.slice(0, 8)}…. Sign to send.`,
+      };
+    }
 
     const isStructured = "recipient" in source && "amount" in source;
     if (!isStructured) {
