@@ -92,6 +92,7 @@ export function BusBridge() {
       case "CANVAS_ADD_BLOCK": {
         const p = (event.payload ?? {}) as Record<string, unknown>;
         addBlock({
+          id: typeof p.id === "string" ? (p.id as string) : undefined,
           type: (p.type as never) ?? "narrative",
           source: (p.source as never) ?? "agent",
           title: typeof p.title === "string" ? (p.title as string) : "Update",
