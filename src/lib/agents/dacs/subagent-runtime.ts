@@ -56,6 +56,32 @@ export const subagentTick = inngest.createFunction(
       return { subagentId, skipped: true, reason: sa ? sa.status : "not_found" };
     }
 
+    // Conditional trigger gate — if the subagent has a `trigger` spec and it
+    // does NOT fire, skip dispatch but advance next_run_at so we re-check.
+    const triggerSpec = (sa.trigger ?? null) as TriggerSpec | null;
+    if (triggerSpec) {
+      const evalResult = await step.run("evaluate-trigger", async () =>
+        evaluateTrigger(triggerSpec, sa.walletAddress, sa.lastEvalAt ?? null),
+      );
+      if (!evalResult.fired) {
+        await step.run("record-skip", async () =>
+          recordTriggerEval(sa.id, {
+            skippedAt: evalResult.evaluatedAt,
+            lastReason: evalResult.reason,
+            lastValue: evalResult.lastValue,
+          }),
+        );
+        return { subagentId, skipped: true, reason: evalResult.reason };
+      }
+      await step.run("record-fire", async () =>
+        recordTriggerEval(sa.id, {
+          firedAt: evalResult.evaluatedAt,
+          lastReason: evalResult.reason,
+          lastValue: evalResult.lastValue,
+        }),
+      );
+    }
+
     // Submit a fresh command so the existing DACS pipeline handles policy +
     // HITL + episodes for this tick. Reuses the original raw_text.
     const childCommandId = `sa_${sa.id.slice(0, 8)}_${randomUUID().slice(0, 8)}`;
