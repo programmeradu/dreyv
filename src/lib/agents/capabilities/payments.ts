@@ -1055,13 +1055,13 @@ const expense_categorize = defineCapability({
       const llmIndex: number[] = [];
 
       outgoing.forEach((row, i) => {
-        const h = heuristicCategory({ source: row.source, type: row.type, symbol: row.facts.symbol ?? null, counterparty: row.facts.counterparty ?? null });
+        const h = heuristicCategory({ source: row.source, type: row.type, symbol: row.facts.tokenSymbol ?? null, counterparty: row.facts.counterparty ?? null });
         if (h) {
           heuristicTagged.push({
             signature: row.signature,
             timestamp: row.timestamp,
             counterparty: row.facts.counterparty ?? null,
-            symbol: row.facts.symbol ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
             amount: row.facts.amount ?? 0,
             category: h.category,
             confidence: h.confidence,
@@ -1072,7 +1072,7 @@ const expense_categorize = defineCapability({
           llmRows.push({
             idx: i,
             counterparty: row.facts.counterparty ?? null,
-            symbol: row.facts.symbol ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
             amount: row.facts.amount ?? 0,
             type: row.type,
             source: row.source,
@@ -1094,7 +1094,7 @@ const expense_categorize = defineCapability({
             signature: row.signature,
             timestamp: row.timestamp,
             counterparty: row.facts.counterparty ?? null,
-            symbol: row.facts.symbol ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
             amount: row.facts.amount ?? 0,
             category: tag.category,
             confidence: tag.confidence,
