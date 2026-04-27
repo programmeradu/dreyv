@@ -322,7 +322,7 @@ export async function POST(req: Request) {
     };
 
     // ─── DACS Phase 6 — capabilities sourced from the registry ────────
-    // Replaces the inline 1,900-line `keystoneTools` object that lived here
+    // Replaces the inline 1,900-line `dreyvTools` object that lived here
     // pre-cutover. Behavior is byte-for-byte preserved (see capability
     // domain modules in `src/lib/agents/capabilities/*`); the registry is the
     // single source of truth for both the user-facing `/api/command` stream
