@@ -8,28 +8,22 @@
  * The CommandBar is the single user entry point — no palette button.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { AmbientGlow, StreamIn, SectionHeader } from "@/components/app-shell/primitives";
 import { HeadlineValue, TrendCurve } from "@/components/app-shell/Composition";
 import { CanvasStream } from "@/components/canvas/CanvasStream";
+import { AgentsRail } from "@/components/canvas/AgentsRail";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
-
-function generateSparkline(seed: number, n = 28): number[] {
-  const out: number[] = [];
-  let v = 100;
-  for (let i = 0; i < n; i++) {
-    v += Math.sin(seed + i / 3) * 1.2 + Math.cos(seed * 0.7 + i / 5) * 0.8;
-    out.push(v);
-  }
-  return out;
-}
+import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault } = useVault();
   const { addBlock, blocks } = useCanvas();
-  const trend = useMemo(() => generateSparkline(activeVault ? 7 : 3), [activeVault]);
+  const trend = useTreasuryTrend("7d");
+  // Use the real composite change from the trend if the vault hasn't reported one yet.
+  const displayChange = vaultChange24h ?? trend.changePct ?? null;
 
   // Seed a single welcome suggestion on first empty landing.
   const seededRef = useRef(false);
