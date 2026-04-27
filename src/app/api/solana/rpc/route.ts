@@ -1,7 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 
 export const dynamic = "force-dynamic";
+
+// Lightweight per-IP burst guard for the RPC proxy.
+// (User-tier quotas are NOT applied here — RPC reads are infrastructure,
+// not a billable user action like Atlas tx lookups.)
+const ipHits = new Map<string, { count: number; windowStart: number }>();
+const IP_WINDOW_MS = 60_000; // 1 minute
+const IP_MAX = 600;          // 600 RPC calls / IP / minute (10/s)
+
+function checkIpBurst(req: NextRequest): { allowed: boolean; retryAfterSec: number } {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const now = Date.now();
+  const entry = ipHits.get(ip);
+  if (!entry || now - entry.windowStart > IP_WINDOW_MS) {
+    ipHits.set(ip, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterSec: 0 };
+  }
+  entry.count += 1;
+  if (entry.count > IP_MAX) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.ceil((IP_WINDOW_MS - (now - entry.windowStart)) / 1000),
+    };
+  }
+  return { allowed: true, retryAfterSec: 0 };
+}
 
 // In-memory cache for RPC responses (5 second TTL)
 const rpcCache = new Map<string, { data: any; expiresAt: number }>();
@@ -33,26 +60,27 @@ function setCachedResult(key: string, data: any): void {
 // Auto-selects endpoint (public RPC by default; uses Helius when HELIUS_API_KEY is set). No env vars required.
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit: 100 requests/hour per user for RPC calls
-    const rateLimit = await checkRouteLimit(req, "atlas_tx_lookups");
-    if (!rateLimit.allowed) {
+    // IP burst guard only — no per-user quota on RPC reads.
+    const burst = checkIpBurst(req);
+    if (!burst.allowed) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
-          message: `RPC rate limit reached. Try again after ${rateLimit.resetAt.toISOString()}`,
+          message: `RPC burst limit reached for this IP. Retry in ${burst.retryAfterSec}s.`,
         },
         {
           status: 429,
           headers: {
-            "Retry-After": String(Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000)),
-            "X-RateLimit-Limit": "100",
+            "Retry-After": String(burst.retryAfterSec),
+            "X-RateLimit-Limit": String(IP_MAX),
             "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Scope": "ip-burst",
           },
         }
       );
     }
 
-    const publicRpc = process.env.NEXT_PUBLIC_SOLANA_RPC;
+    const publicRpc = process.env.NEXT_PUBLIC_SOLANA_RPC || process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
     const heliusKey = process.env.HELIUS_API_KEY;
     const endpoint = publicRpc || (heliusKey ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(heliusKey)}` : "https://api.mainnet-beta.solana.com");
     const mockMode = process.env.NODE_ENV !== "production" && String(process.env.MOCK_MODE || "").toLowerCase() === "true";
