@@ -27,7 +27,7 @@ import { PromptChat } from "@/components/studio/PromptChat";
 import { CodeEditor } from "@/components/studio/CodeEditor";
 import { LivePreview } from "@/components/studio/LivePreview";
 import { ContractEditor } from "@/components/studio/ContractEditor";
-import { WalletManager } from "@/components/studio/WalletManager";
+
 import { compileProgram } from "@/lib/studio/solana-playground";
 import { saveProject } from "@/actions/studio-actions";
 import { PremiumModal, PremiumModalTitle, PremiumModalDescription } from "@/components/ui/PremiumModal";
@@ -175,7 +175,7 @@ export default function StudioPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCompiling, setIsCompiling] = useState(false);
     const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
     const [runtimeLogs, setRuntimeLogs] = useState<string[]>([]);
@@ -804,7 +804,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 onRunTest={handleTest}
                 isTesting={isTesting}
                 walletLabel={publicKey ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}` : "Connect"}
-                onWalletClick={() => setShowWalletModal(true)}
+                
                 onNewProject={handleNewProject}
                 onOpenProjects={() => setShowProjectBrowser(true)}
                 onToggleSDK={() => setShowSDKReference((prev) => !prev)}
