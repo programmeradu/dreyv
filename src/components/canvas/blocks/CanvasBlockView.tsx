@@ -15,8 +15,8 @@ import Link from "next/link";
 
 /** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
 const GlyphCheck = ({ className = "h-3 w-3" }: { className?: string }) => (
-  <svg viewBox="0 0 12 12" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2.5 6.4 5 8.8 9.5 3.6" />
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M12 1.5 L14.2 9.8 L22.5 12 L14.2 14.2 L12 22.5 L9.8 14.2 L1.5 12 L9.8 9.8 Z" />
   </svg>
 );
 const GlyphAlert = ({ className = "h-3 w-3" }: { className?: string }) => (
