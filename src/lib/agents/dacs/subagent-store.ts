@@ -198,7 +198,8 @@ export async function recordTick(input: RecordTickInput) {
         lastTickAt: new Date(),
         lastTickStatus: input.status,
         lastTickNote: input.note ?? null,
-        nextRunAt: new Date(Date.now() + existing.intervalSeconds * 1000),
+        // Honor cron when present, else fall back to interval.
+        nextRunAt: computeNextRun(existing.intervalSeconds, existing.cronExpr),
         status: newStatus,
         updatedAt: new Date(),
       })
@@ -208,5 +209,31 @@ export async function recordTick(input: RecordTickInput) {
   } catch (err) {
     console.warn("[dacs:subagent] recordTick failed:", err);
     return null;
+  }
+}
+
+/**
+ * Persist trigger evaluation output AND advance next_run_at without bumping
+ * tick_count. Used by the runtime when a conditional trigger said "not yet".
+ */
+export async function recordTriggerEval(
+  id: string,
+  meta: Record<string, unknown>,
+): Promise<void> {
+  if (!db) return;
+  try {
+    const existing = await getSubagent(id);
+    if (!existing) return;
+    await db
+      .update(dacsSubagents)
+      .set({
+        triggerMeta: meta,
+        lastEvalAt: new Date(),
+        nextRunAt: computeNextRun(existing.intervalSeconds, existing.cronExpr),
+        updatedAt: new Date(),
+      })
+      .where(eq(dacsSubagents.id, id));
+  } catch (err) {
+    console.warn("[dacs:subagent] recordTriggerEval failed:", err);
   }
 }
