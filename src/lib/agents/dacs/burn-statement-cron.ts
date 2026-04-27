@@ -166,6 +166,50 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             meta: { month, wallet, source: "cron" },
           });
 
+          const signedUrl = (artifact as { signedUrl?: string }).signedUrl ?? null;
+
+          // Phase 7F.2 — email delivery (opt-in via user_settings.email_alerts).
+          let emailStatus: "sent" | "skipped" | "failed" | "no-url" = "skipped";
+          let emailNote = "no-opt-in";
+          const recipient = await resolveOptedInEmail(wallet);
+          if (recipient) {
+            if (!signedUrl) {
+              emailStatus = "no-url";
+              emailNote = "no-signed-url";
+            } else {
+              const netFlow = data.summary.netFlowUsd;
+              const flowLine =
+                netFlow == null
+                  ? "Net flow: n/a"
+                  : `Net flow: ${netFlow >= 0 ? "+" : "-"}$${Math.abs(netFlow).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+              const message = [
+                `Your dreyv monthly burn statement for ${month} is ready.`,
+                "",
+                `Wallet: ${wallet.slice(0, 4)}…${wallet.slice(-4)}`,
+                `Transactions: ${data.transactions.length}`,
+                `Proposals: ${data.proposals.length}`,
+                flowLine,
+                "",
+                "Click below to download the full PDF report (link expires in 7 days).",
+              ].join("\n");
+              const result = await sendNotificationEmail({
+                to: recipient,
+                title: `Monthly burn statement — ${month}`,
+                message,
+                actionUrl: signedUrl,
+                actionLabel: "Download PDF report",
+              });
+              if (result.success) {
+                emailStatus = "sent";
+                emailNote = `id=${result.id ?? "n/a"}`;
+                emailed += 1;
+              } else {
+                emailStatus = "failed";
+                emailNote = (result.error ?? "unknown").slice(0, 120);
+              }
+            }
+          }
+
           await db!.insert(agentEpisodes).values({
             commandId,
             walletAddress: wallet,
@@ -173,7 +217,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             capabilityIds: ["monthly_burn_statement"],
             outcome: "produced",
             valueUsd: data.summary.netFlowUsd != null ? String(Math.abs(data.summary.netFlowUsd)) : null,
-            notes: `period=${month} txs=${data.transactions.length} proposals=${data.proposals.length} netFlowUsd=${data.summary.netFlowUsd ?? "n/a"} | artifact=${artifact.kind}:${artifact.path}`,
+            notes: `period=${month} txs=${data.transactions.length} proposals=${data.proposals.length} netFlowUsd=${data.summary.netFlowUsd ?? "n/a"} | artifact=${artifact.kind}:${artifact.path} | email=${emailStatus}:${emailNote}`,
           });
 
           await fireAlert(sub.alertWebhook, {
@@ -181,8 +225,9 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             wallet,
             month,
             artifactPath: artifact.path,
-            signedUrl: (artifact as { signedUrl?: string }).signedUrl ?? null,
+            signedUrl,
             summary: data.summary,
+            email: { status: emailStatus, recipient: recipient ? `${recipient.split("@")[0].slice(0, 2)}***@${recipient.split("@")[1] ?? ""}` : null },
             at: new Date().toISOString(),
           });
 
