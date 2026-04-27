@@ -18,7 +18,6 @@ import { publish } from "../bus";
 import { classifyIntent } from "./intent";
 import { synthesizePlan } from "./plan";
 import { routePlan } from "./route";
-import { recordDacs, computeParity } from "./diff-log";
 import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
 import { enqueueApproval } from "./hitl-queue";
@@ -110,16 +109,6 @@ export const commandRouter = inngest.createFunction(
         name: "agent.plan.routed",
         data: { commandId, walletAddress, decision: verdict.rejection },
       });
-      await step.run("persist-rejection", async () => {
-        await recordDacs({
-          commandId,
-          intent,
-          plan,
-          decision: verdict.rejection!,
-          latencyMs: Date.now() - startedAt,
-        });
-        await computeParity(commandId);
-      });
       await publish({
         name: "agent.command.completed",
         data: {
@@ -166,16 +155,6 @@ export const commandRouter = inngest.createFunction(
           data: { subagentId, commandId, walletAddress, intervalSeconds: recurring.intervalSeconds },
         });
       }
-      await step.run("persist-defer-snapshot", async () => {
-        await recordDacs({
-          commandId,
-          intent,
-          plan,
-          decision: deferDecision,
-          latencyMs: Date.now() - startedAt,
-        });
-        await computeParity(commandId);
-      });
       await publish({
         name: "agent.command.completed",
         data: { commandId, walletAddress, decisionKind: deferDecision.kind, completedAt: Date.now() },
@@ -209,17 +188,6 @@ export const commandRouter = inngest.createFunction(
         data: { commandId, walletAddress, decision: d },
       });
       return d;
-    });
-
-    await step.run("persist-diff-snapshot", async () => {
-      await recordDacs({
-        commandId,
-        intent,
-        plan,
-        decision,
-        latencyMs: Date.now() - startedAt,
-      });
-      await computeParity(commandId);
     });
 
     // Phase 3: record episode for terminal decisions (auto_execute / reject).

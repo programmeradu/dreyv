@@ -17,12 +17,10 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  ArrowRight,
   PauseCircle,
   XCircle,
   Clock,
 } from "lucide-react";
-import Link from "next/link";
 
 interface RecentIssue {
   id: string;
@@ -139,12 +137,6 @@ export default function DacsHandoffsAuditPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href="/app/admin/dacs-parity-audit"
-              className="inline-flex items-center gap-1 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-50"
-            >
-              Parity audit <ArrowRight className="h-3 w-3" />
-            </Link>
             <button
               onClick={load}
               className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 shadow-sm hover:bg-violet-50"

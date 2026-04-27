@@ -1,30 +1,27 @@
 /**
- * DACS Phase 1 — feature flag + capability filters.
+ * DACS Phase 6 — feature flag (post-cutover).
  *
- * `DACS_ENABLED` controls the cutover. Three modes:
- *   - "off":     legacy route.ts handles every request, DACS dormant.
- *   - "shadow":  legacy still serves the user; DACS runs in parallel, writes
- *                its plan + decision to `command_diff_log` for diff review.
- *                **Default** — required so the admin parity audit page is
- *                populated as commands run.
- *   - "primary": DACS serves the user; legacy is dormant.
+ * `DACS_ENABLED` controls the runtime mode:
+ *   - "off":     legacy `/api/command` route serves the user; DACS dormant.
+ *                Kept as an emergency rollback only.
+ *   - "primary": **Default.** DACS pipeline (intent → plan → route → execute
+ *                → reconcile) is the source of truth. The legacy route still
+ *                handles the user-facing stream but publishes to the bus and
+ *                consults the same capability registry.
  *
- * Phase 6 cutover deletes the legacy path once "primary" has been clean for
- * a week.
+ * The Phase 1 "shadow" mode and command_diff_log parity harness were removed
+ * after a clean parity week; see `.lovable/memory/features/dacs.md`.
  */
 
-export type DacsMode = "off" | "shadow" | "primary";
+export type DacsMode = "off" | "primary";
 
 export function dacsMode(): DacsMode {
   const v = (process.env.DACS_ENABLED || "").toLowerCase().trim();
-  if (v === "1" || v === "true" || v === "primary") return "primary";
   if (v === "off" || v === "0" || v === "false") return "off";
-  // Default to shadow so command_diff_log gets populated and the admin
-  // parity audit has data to render.
-  return "shadow";
+  // Default after Phase 6 cutover.
+  return "primary";
 }
 
 export function dacsActive(): boolean {
-  const m = dacsMode();
-  return m === "shadow" || m === "primary";
+  return dacsMode() === "primary";
 }
