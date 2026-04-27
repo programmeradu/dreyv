@@ -352,17 +352,17 @@ const liquidation_watch = defineCapability({
   id: "liquidation_watch",
   domain: "risk",
   description:
-    "Monitor open positions on Kamino/MarginFi/Drift; auto-deleverage when health factor drops below threshold.",
+    "Persist a real liquidation watch on Kamino/MarginFi/Drift. Inngest cron probes the on-chain position every 2min via Helius RPC + per-protocol layout decode, fires alert webhook + agent_episodes entry when health factor drops below floor. Pass `positionAccount` to enable HF computation; otherwise watch is created in `discovery_pending` state.",
   inputSchema: z.object({
-    venues: z
-      .array(z.enum(["kamino", "marginfi", "drift"]))
-      .optional()
-      .default(["kamino", "marginfi", "drift"]),
+    venues: z.array(z.enum(["kamino", "marginfi", "drift"])).optional().default(["kamino", "marginfi", "drift"]),
+    positionAccount: z.string().optional().describe("On-chain position account (Kamino obligation / MarginFi account / Drift user). Required for live HF; without it watch is discovery_pending."),
     healthFactorFloor: z.number().min(1).max(5).default(1.25),
-    autoDeleverage: z.boolean().default(true),
+    autoDeleverage: z.boolean().default(false),
     alertWebhook: z.string().url().optional(),
+    enabled: z.boolean().optional().default(true),
+    watchId: z.string().uuid().optional().describe("Pass to update an existing watch instead of creating new ones."),
   }),
-  sideEffects: "write",
+  sideEffects: "meta",
   requiredAuth: "wallet",
   sensitivity: "high",
   protocols: ["kamino", "marginfi", "drift"],
@@ -370,15 +370,77 @@ const liquidation_watch = defineCapability({
     if (!ctx.walletAddress) {
       return { success: false, operation: "liquidation_watch", message: "Wallet required." };
     }
-    return {
-      success: true,
-      operation: "liquidation_watch",
-      watchId: `liq_${Math.random().toString(36).slice(2, 10)}`,
-      ...input,
-      status: "ARMED",
-      requiresApproval: true,
-      message: `Liquidation watch armed across ${input.venues.join(", ")} at HF≥${input.healthFactorFloor}.${input.autoDeleverage ? " Auto-deleverage on breach." : " Alert-only."}`,
-    };
+    try {
+      const { db } = await import("@/db");
+      const { liquidationWatches } = await import("@/db/schema");
+      const { eq } = await import("drizzle-orm");
+      if (!db) {
+        return { success: false, operation: "liquidation_watch", message: "Database unavailable." };
+      }
+
+      const status = input.positionAccount ? "active" : "discovery_pending";
+
+      // Update path.
+      if (input.watchId) {
+        const [updated] = await db
+          .update(liquidationWatches)
+          .set({
+            healthFactorFloor: String(input.healthFactorFloor),
+            autoDeleverage: input.autoDeleverage,
+            alertWebhook: input.alertWebhook ?? null,
+            enabled: input.enabled ?? true,
+            positionAccount: input.positionAccount ?? null,
+            status: input.enabled === false ? "disabled" : status,
+            updatedAt: new Date(),
+          })
+          .where(eq(liquidationWatches.id, input.watchId))
+          .returning();
+        if (!updated) {
+          return { success: false, operation: "liquidation_watch", message: `Watch ${input.watchId} not found.` };
+        }
+        return {
+          success: true,
+          operation: "liquidation_watch",
+          watch: updated,
+          message: `Watch ${input.watchId.slice(0, 8)}… updated. Status: ${updated.status}.`,
+        };
+      }
+
+      // Create one watch row per venue.
+      const inserted = await db
+        .insert(liquidationWatches)
+        .values(
+          input.venues.map(venue => ({
+            walletAddress: ctx.walletAddress!,
+            venue,
+            positionAccount: input.positionAccount ?? null,
+            healthFactorFloor: String(input.healthFactorFloor),
+            autoDeleverage: input.autoDeleverage,
+            alertWebhook: input.alertWebhook ?? null,
+            enabled: input.enabled ?? true,
+            status,
+          })),
+        )
+        .returning();
+
+      const warnings: string[] = [];
+      if (!input.positionAccount) {
+        warnings.push("No positionAccount supplied — watches created in discovery_pending state. Patch via watchId once the obligation/marginfi/user account is known.");
+      }
+
+      return {
+        success: true,
+        operation: "liquidation_watch",
+        watches: inserted,
+        watchIds: inserted.map(w => w.id),
+        warnings,
+        message: `Created ${inserted.length} liquidation watch(es) across ${input.venues.join(", ")} at HF≥${input.healthFactorFloor}. ${input.autoDeleverage ? "Auto-deleverage flagged (TX drafting not yet wired)." : "Alert-only."} ${status === "discovery_pending" ? "Discovery pending — pass positionAccount to enable HF probes." : "Cron polls every 2min."}`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:liquidation_watch]", msg);
+      return { success: false, operation: "liquidation_watch", message: `Watch creation failed: ${msg}` };
+    }
   },
 });
 
