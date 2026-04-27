@@ -23,6 +23,7 @@ import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
 import { HandoffStream } from "@/components/commandbar/HandoffStream";
+import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,7 @@ export function CommandBar() {
   const [input, setInput] = useState("");
   const [promptMode, setPromptMode] = useState<PromptMode>("auto");
   const [submitPulse, setSubmitPulse] = useState(false);
+  const [activeSpecialist, setActiveSpecialist] = useState<string | null>(null);
 
   const { setSigningToolId, setSigningStatus, setTxSignatures } =
     useCommandBarSigningStore();
@@ -521,6 +523,24 @@ export function CommandBar() {
             <div className="absolute -inset-1 bg-gradient-to-br from-violet-400/30 via-fuchsia-300/15 to-transparent rounded-3xl blur-2xl opacity-60 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col max-h-[85vh]">
+              {/* ── Pipeline header (intent + specialist + recall) ── */}
+              {messages.length > 0 && (
+                <PipelineHeader
+                  lastUserPrompt={
+                    [...messages]
+                      .reverse()
+                      .find((m) => m.role === "user")
+                      ?.parts?.flatMap((p) =>
+                        p.type === "text" ? [(p as { text: string }).text] : [],
+                      )
+                      .join(" ") ?? null
+                  }
+                  wallet={publicKey?.toBase58() ?? null}
+                  activeSpecialist={activeSpecialist}
+                  busy={agentBusy}
+                />
+              )}
+
               {/* ── Chat thread or empty state ── */}
               {messages.length === 0 ? (
                 <EmptyState onChipClick={handleChipClick} />
@@ -556,7 +576,11 @@ export function CommandBar() {
               )}
 
               {/* ── Live specialist handoff stream (Phase 5.3) ── */}
-              <HandoffStream wallet={publicKey?.toBase58() ?? null} />
+              <HandoffStream
+                wallet={publicKey?.toBase58() ?? null}
+                streaming={agentBusy}
+                onActiveSpecialistChange={setActiveSpecialist}
+              />
 
               {/* ── Input bar ── */}
               <form
