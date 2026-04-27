@@ -72,7 +72,17 @@ const treasury_report_pdf = defineCapability({
     sensitivity: "low",
     execute: async (input, ctx) => {
         const target = input.walletOrVault ?? ctx.walletAddress;
-        if (!target) throw new Error("treasury_report_pdf: no wallet/vault provided");
+        if (!target) {
+            return {
+                success: false,
+                operation: "treasury_report_pdf",
+                status: "needs_wallet" as const,
+                requiresApproval: false,
+                artifacts: [],
+                error: "WALLET_REQUIRED",
+                message: `Connect a wallet (or pass walletOrVault) to generate a treasury PDF for ${input.month}.`,
+            };
+        }
 
         const data = await buildTreasuryReportData({
             walletOrVault: target,
