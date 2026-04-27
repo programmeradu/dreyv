@@ -37,9 +37,19 @@ export interface HandoffStreamProps {
   wallet: string | null;
   commandId?: string;
   max?: number;
+  /** When true, render even with zero events and pulse the live indicator. */
+  streaming?: boolean;
+  /** Notify parent of the most recent in-flight specialist (accepted/deferred). */
+  onActiveSpecialistChange?: (specialist: string | null) => void;
 }
 
-export function HandoffStream({ wallet, commandId, max = 4 }: HandoffStreamProps) {
+export function HandoffStream({
+  wallet,
+  commandId,
+  max = 4,
+  streaming = false,
+  onActiveSpecialistChange,
+}: HandoffStreamProps) {
   const [events, setEvents] = useState<HandoffEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const esRef = useRef<EventSource | null>(null);
@@ -75,13 +85,24 @@ export function HandoffStream({ wallet, commandId, max = 4 }: HandoffStreamProps
     };
   }, [wallet, commandId, max]);
 
+  // Surface the active specialist (most recent accepted/deferred) to the parent
+  useEffect(() => {
+    if (!onActiveSpecialistChange) return;
+    const inFlight = events.find(
+      (e) => e.status === "accepted" || e.status === "deferred",
+    );
+    onActiveSpecialistChange(inFlight ? inFlight.specialist : null);
+  }, [events, onActiveSpecialistChange]);
+
   if (!wallet && !commandId) return null;
-  if (events.length === 0) return null;
+  // While streaming, render an empty "waiting on specialists" strip so the
+  // user sees the SSE channel is live before the first report lands.
+  if (events.length === 0 && !streaming) return null;
 
   return (
     <div className="px-4 py-2 border-t border-border bg-muted/30">
       <div className="flex items-center gap-2 mb-1.5">
-        <Network size={11} className="text-primary" />
+        <Network size={11} className={`text-primary ${streaming ? "animate-pulse" : ""}`} />
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Specialist activity
         </span>
@@ -89,6 +110,11 @@ export function HandoffStream({ wallet, commandId, max = 4 }: HandoffStreamProps
           className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`}
           title={connected ? "Live" : "Reconnecting"}
         />
+        {events.length === 0 && streaming && (
+          <span className="text-[10px] text-muted-foreground/70 italic">
+            waiting for specialist reports…
+          </span>
+        )}
       </div>
       <ul className="space-y-1">
         {events.map((e) => {
