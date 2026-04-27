@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { publish, publishDreyvEvent } from "@/lib/agents/bus";
 import { surfaceChainOpportunity } from "@/lib/agents/opportunity-translator";
 import type { ChainEvent } from "@/lib/datafeeds/normalize";
+import { maybeDraftSniperBuy } from "@/lib/agents/dacs/sniper";
+import type { HeliusEnhancedTx } from "@/lib/agents/artifacts/helius";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -76,6 +78,13 @@ export async function POST(req: NextRequest) {
       data: { source: "helius_webhook", tx },
     })),
   ).catch(() => {});
+
+  // Phase 7E.1 — sniper bot match on inbound DEX tx (fire-and-forget).
+  for (const tx of slice) {
+    maybeDraftSniperBuy(tx as HeliusEnhancedTx).catch((e) =>
+      console.warn("[helius webhook] sniper match failed:", e instanceof Error ? e.message : e),
+    );
+  }
 
   return NextResponse.json({ ok: true, accepted: items.length });
 }
