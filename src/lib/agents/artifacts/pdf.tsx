@@ -29,10 +29,18 @@ Font.register({
         { src: path.join(FONTS_DIR, "Inter-Bold.otf"), fontWeight: 700 },
     ],
 });
+Font.register({
+    family: "SourceSerif",
+    fonts: [
+        { src: path.join(FONTS_DIR, "SourceSerif4-Light.otf"), fontWeight: 300 },
+        { src: path.join(FONTS_DIR, "SourceSerif4-Regular.otf"), fontWeight: 400 },
+    ],
+});
 Font.registerHyphenationCallback((word) => [word]);
 
 // ── Palette (restrained, corporate) ──────────────────────────────────
 const VIOLET = "#7c3aed";
+const VIOLET_SOFT = "#f5f1ff";
 const INK = "#0b0f17";          // near-black, warmer than pure
 const INK_70 = "#3a4252";
 const INK_50 = "#6b7280";
