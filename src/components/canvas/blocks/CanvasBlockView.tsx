@@ -12,7 +12,7 @@ import { TrendCurve } from "@/components/app-shell/Composition";
 import { ArtifactList, type ArtifactDescriptor } from "@/components/commandbar/ArtifactChip";
 import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { TokenAvatar } from "@/components/TokenAvatar";
 
 /**
