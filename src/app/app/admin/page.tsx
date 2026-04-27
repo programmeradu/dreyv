@@ -168,12 +168,12 @@ export default function AdminMonitoringRoom() {
                         <MetricGrid cols={2}>
                             <MetricCard
                                 title="Total users"
-                                value={metrics.users.total}
-                                trend={{ value: metrics.users.new24h, prefix: "+", subtext: "last 24h" }}
+                                value={safe.users.total}
+                                trend={{ value: safe.users.new24h, prefix: "+", subtext: "last 24h" }}
                             />
                             <MetricCard
                                 title="New this week"
-                                value={metrics.users.new7d}
+                                value={safe.users.new7d}
                             />
                         </MetricGrid>
                         <div className="mt-1 p-4 rounded-2xl border border-violet-100 bg-violet-50/40">
@@ -182,10 +182,10 @@ export default function AdminMonitoringRoom() {
                             </span>
                             <BreakdownList
                                 items={[
-                                    { label: "Onboarded", value: metrics.users.onboarded, color: "#7c3aed" },
-                                    { label: "Emails collected", value: metrics.users.withEmail, color: "#a78bfa" },
+                                    { label: "Onboarded", value: safe.users.onboarded, color: "#7c3aed" },
+                                    { label: "Emails collected", value: safe.users.withEmail, color: "#a78bfa" },
                                 ]}
-                                valueFormatter={(v) => `${v} users (${Math.round((v / metrics.users.total) * 100 || 0)}%)`}
+                                valueFormatter={(v) => `${v} users (${Math.round((v / safe.users.total) * 100 || 0)}%)`}
                             />
                         </div>
                     </AdminMetricsPanel>
@@ -199,12 +199,12 @@ export default function AdminMonitoringRoom() {
                         <MetricGrid cols={2}>
                             <MetricCard
                                 title="Marketplace volume"
-                                value={metrics.revenue.totalMarketplaceVol}
+                                value={safe.revenue.totalMarketplaceVol}
                                 formatter={(v) => `$${v.toLocaleString()}`}
                             />
                             <MetricCard
                                 title="Platform fees"
-                                value={metrics.revenue.totalMarketplaceRev}
+                                value={safe.revenue.totalMarketplaceRev}
                                 formatter={(v) => `$${v.toLocaleString()}`}
                             />
                         </MetricGrid>
@@ -214,9 +214,9 @@ export default function AdminMonitoringRoom() {
                             </span>
                             <BreakdownList
                                 items={[
-                                    { label: "Free tier", value: metrics.revenue.tiers.free || 0, color: "#cbd5e1" },
-                                    { label: "Mini tier", value: metrics.revenue.tiers.mini || 0, color: "#a78bfa" },
-                                    { label: "Max tier", value: metrics.revenue.tiers.max || 0, color: "#7c3aed" },
+                                    { label: "Free tier", value: safe.revenue.tiers.free || 0, color: "#cbd5e1" },
+                                    { label: "Mini tier", value: safe.revenue.tiers.mini || 0, color: "#a78bfa" },
+                                    { label: "Max tier", value: safe.revenue.tiers.max || 0, color: "#7c3aed" },
                                 ]}
                             />
                         </div>
@@ -231,12 +231,12 @@ export default function AdminMonitoringRoom() {
                         <MetricGrid cols={2}>
                             <MetricCard
                                 title="Total executions"
-                                value={metrics.ai.totalExecutions}
-                                trend={{ value: metrics.ai.executions24h, prefix: "+", subtext: "last 24h" }}
+                                value={safe.ai.totalExecutions}
+                                trend={{ value: safe.ai.executions24h, prefix: "+", subtext: "last 24h" }}
                             />
                             <MetricCard
                                 title="Architect runs"
-                                value={metrics.ai.totalRuns}
+                                value={safe.ai.totalRuns}
                             />
                         </MetricGrid>
                         <div className="mt-1 p-4 rounded-2xl border border-violet-100 bg-violet-50/40">
@@ -245,9 +245,9 @@ export default function AdminMonitoringRoom() {
                             </span>
                             <BreakdownList
                                 items={[
-                                    { label: "Successful", value: metrics.ai.executionStatus.SUCCESS || 0, color: "#7c3aed" },
-                                    { label: "Pending / simulating", value: (metrics.ai.executionStatus.PENDING || 0) + (metrics.ai.executionStatus.SIMULATING || 0), color: "#f59e0b" },
-                                    { label: "Failed", value: metrics.ai.executionStatus.FAILED || 0, color: "#f43f5e" },
+                                    { label: "Successful", value: safe.ai.executionStatus.SUCCESS || 0, color: "#7c3aed" },
+                                    { label: "Pending / simulating", value: (safe.ai.executionStatus.PENDING || 0) + (safe.ai.executionStatus.SIMULATING || 0), color: "#f59e0b" },
+                                    { label: "Failed", value: safe.ai.executionStatus.FAILED || 0, color: "#f43f5e" },
                                 ]}
                             />
                         </div>
@@ -262,13 +262,13 @@ export default function AdminMonitoringRoom() {
                         <MetricGrid cols={2}>
                             <MetricCard
                                 title="Active bots"
-                                value={metrics.dca.activeBots}
+                                value={safe.dca.activeBots}
                             />
                             <MetricCard
                                 title="Total invested"
-                                value={metrics.dca.totalInvested}
+                                value={safe.dca.totalInvested}
                                 formatter={(v) => `$${v.toLocaleString()}`}
-                                trend={{ value: metrics.dca.volume24h, prefix: "+$", subtext: "last 24h" }}
+                                trend={{ value: safe.dca.volume24h, prefix: "+$", subtext: "last 24h" }}
                             />
                         </MetricGrid>
                         <div className="mt-1 p-4 rounded-2xl border border-violet-100 bg-violet-50/40">
@@ -277,9 +277,9 @@ export default function AdminMonitoringRoom() {
                             </span>
                             <BreakdownList
                                 items={[
-                                    { label: "Active", value: metrics.dca.botsStatus.active || 0, color: "#7c3aed" },
-                                    { label: "Completed", value: metrics.dca.botsStatus.completed || 0, color: "#cbd5e1" },
-                                    { label: "Paused / failed", value: (metrics.dca.botsStatus.paused || 0) + (metrics.dca.botsStatus.failed || 0), color: "#f43f5e" },
+                                    { label: "Active", value: safe.dca.botsStatus.active || 0, color: "#7c3aed" },
+                                    { label: "Completed", value: safe.dca.botsStatus.completed || 0, color: "#cbd5e1" },
+                                    { label: "Paused / failed", value: (safe.dca.botsStatus.paused || 0) + (safe.dca.botsStatus.failed || 0), color: "#f43f5e" },
                                 ]}
                             />
                         </div>
@@ -292,9 +292,9 @@ export default function AdminMonitoringRoom() {
                         className="lg:col-span-2"
                     >
                         <MetricGrid cols={3}>
-                            <MetricCard title="Apps created" value={metrics.marketplace.totalApps} />
-                            <MetricCard title="Published" value={metrics.marketplace.publishedApps} />
-                            <MetricCard title="Active installs" value={metrics.marketplace.activeInstalls} />
+                            <MetricCard title="Apps created" value={safe.marketplace.totalApps} />
+                            <MetricCard title="Published" value={safe.marketplace.publishedApps} />
+                            <MetricCard title="Active installs" value={safe.marketplace.activeInstalls} />
                         </MetricGrid>
                     </AdminMetricsPanel>
 
@@ -305,19 +305,19 @@ export default function AdminMonitoringRoom() {
                         className="lg:col-span-2"
                     >
                         <MetricGrid cols={2}>
-                            <MetricCard title="Tracked TXs" value={metrics.onchain.txCount} />
+                            <MetricCard title="Tracked TXs" value={safe.onchain.txCount} />
                             <MetricCard
                                 title="Tracked volume"
-                                value={metrics.onchain.usdVol}
+                                value={safe.onchain.usdVol}
                                 formatter={(v) => `$${Math.round(v).toLocaleString()}`}
                             />
                             <MetricCard
                                 title="Airdrops claimed"
-                                value={metrics.onchain.airdropClaims}
+                                value={safe.onchain.airdropClaims}
                             />
                             <MetricCard
                                 title="Airdrop yield"
-                                value={metrics.onchain.airdropValue}
+                                value={safe.onchain.airdropValue}
                                 formatter={(v) => `$${Math.round(v).toLocaleString()}`}
                             />
                         </MetricGrid>
@@ -330,8 +330,8 @@ export default function AdminMonitoringRoom() {
                         className="lg:col-span-2"
                     >
                         <MetricGrid cols={2}>
-                            <MetricCard title="Total teams" value={metrics.teams.total} />
-                            <MetricCard title="Vault-linked teams" value={metrics.teams.vaultLinked} />
+                            <MetricCard title="Total teams" value={safe.teams.total} />
+                            <MetricCard title="Vault-linked teams" value={safe.teams.vaultLinked} />
                         </MetricGrid>
                         <div className="mt-1 p-4 rounded-2xl border border-violet-100 bg-violet-50/40">
                             <span className="text-[10px] uppercase font-semibold tracking-[0.14em] text-slate-500 mb-3 block">
@@ -339,8 +339,8 @@ export default function AdminMonitoringRoom() {
                             </span>
                             <BreakdownList
                                 items={[
-                                    { label: "Sent", value: metrics.teams.invitesTotal, color: "#cbd5e1" },
-                                    { label: "Accepted", value: metrics.teams.invitesAccepted, color: "#7c3aed" },
+                                    { label: "Sent", value: safe.teams.invitesTotal, color: "#cbd5e1" },
+                                    { label: "Accepted", value: safe.teams.invitesAccepted, color: "#7c3aed" },
                                 ]}
                             />
                         </div>
@@ -350,20 +350,20 @@ export default function AdminMonitoringRoom() {
                     <AdminMetricsPanel
                         title="System health & events"
                         icon={<Shield size={16} />}
-                        status={metrics.system.rateLimitHits24h > 1000 ? "warning" : "healthy"}
+                        status={safe.system.rateLimitHits24h > 1000 ? "warning" : "healthy"}
                         className="lg:col-span-2"
                     >
                         <MetricGrid cols={2}>
                             <MetricCard
                                 title="Rate-limit hits (24h)"
-                                value={metrics.system.rateLimitHits24h}
-                                colorClass={metrics.system.rateLimitHits24h > 1000 ? "text-amber-600" : "text-slate-700"}
+                                value={safe.system.rateLimitHits24h}
+                                colorClass={safe.system.rateLimitHits24h > 1000 ? "text-amber-600" : "text-slate-700"}
                             />
-                            <MetricCard title="Active monitors" value={metrics.system.activeMonitors} />
-                            <MetricCard title="Active atlas sessions" value={metrics.system.activeAtlasSessions} />
+                            <MetricCard title="Active monitors" value={safe.system.activeMonitors} />
+                            <MetricCard title="Active atlas sessions" value={safe.system.activeAtlasSessions} />
                             <MetricCard
                                 title="Foresight accuracy"
-                                value={metrics.system.foresightAccuracy}
+                                value={safe.system.foresightAccuracy}
                                 formatter={(v) => `${(v * 100).toFixed(1)}%`}
                             />
                         </MetricGrid>
