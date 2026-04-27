@@ -1450,3 +1450,490 @@ function PolicyNum({
     </label>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Phase 6 — Payments & Treasury Operations                                   */
+/* -------------------------------------------------------------------------- */
+
+interface RecurringSchedule {
+  id: string;
+  label: string;
+  cadence: string;
+  anchorDay: number | null;
+  defaultToken: string;
+  recipients: { address: string; amount: number; label?: string }[];
+  status: "active" | "paused" | "archived";
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+  catch { return "—"; }
+}
+
+function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const [schedules, setSchedules] = useState<RecurringSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // Form state
+  const [label, setLabel] = useState("");
+  const [cadence, setCadence] = useState("monthly");
+  const [anchorDay, setAnchorDay] = useState<number>(1);
+  const [defaultToken, setDefaultToken] = useState("USDC");
+  const [recipientsRaw, setRecipientsRaw] = useState("");
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/recurring-payouts?wallet=${wallet}`);
+      const json = await res.json();
+      setSchedules(json.schedules ?? []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const submit = async () => {
+    if (!label.trim() || !recipientsRaw.trim()) return;
+    setBusy("create");
+    const recipients = recipientsRaw
+      .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      .map((line) => {
+        const [address, amountRaw, lab] = line.split(/[,\t]/).map((p) => p.trim());
+        return { address, amount: Number(amountRaw), label: lab || undefined };
+      })
+      .filter((r) => r.address && r.amount > 0);
+    await fetch("/api/treasury/recurring-payouts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, label, cadence, anchorDay, defaultToken, recipients }),
+    });
+    setLabel(""); setRecipientsRaw(""); setShowForm(false); setBusy(null);
+    refresh();
+  };
+
+  const action = async (id: string, action: string) => {
+    setBusy(id);
+    await fetch("/api/treasury/recurring-payouts", {
+      method: action === "delete" ? "DELETE" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: action === "delete" ? undefined : JSON.stringify({ id, action }),
+      ...(action === "delete" ? {} : {}),
+    });
+    if (action === "delete") {
+      await fetch(`/api/treasury/recurring-payouts?id=${id}`, { method: "DELETE" });
+    }
+    setBusy(null);
+    refresh();
+  };
+
+  const active = schedules.filter((s) => s.status !== "archived");
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {!wallet ? (
+        <p className="text-sm text-slate-600">Connect a wallet to schedule recurring payouts.</p>
+      ) : (
+        <>
+          {loading && active.length === 0 ? (
+            <p className="text-sm text-slate-500">Loading schedules…</p>
+          ) : active.length === 0 ? (
+            <p className="text-sm text-slate-600">No recurring payouts yet. Set one up for payroll, grants, or contributors.</p>
+          ) : (
+            <ul className="divide-y divide-violet-100">
+              {active.map((s) => {
+                const total = s.recipients.reduce((sum, r) => sum + r.amount, 0);
+                return (
+                  <li key={s.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold text-slate-900">{s.label}</span>
+                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">{s.cadence}</span>
+                        {s.status === "paused" && (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Paused</span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[12px] text-slate-500">
+                        {s.recipients.length} recipients · {total.toLocaleString()} {s.defaultToken} · next {fmtDate(s.nextRunAt)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={() => action(s.id, "queue-now")}
+                        disabled={busy === s.id || s.status !== "active"}
+                        className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                      >Run now</button>
+                      <button
+                        onClick={() => action(s.id, s.status === "paused" ? "resume" : "pause")}
+                        disabled={busy === s.id}
+                        className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50"
+                      >{s.status === "paused" ? "Resume" : "Pause"}</button>
+                      <button
+                        onClick={() => action(s.id, "delete")}
+                        disabled={busy === s.id}
+                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-rose-600"
+                      >×</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {!showForm ? (
+            <button
+              onClick={() => setShowForm(true)}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900"
+            >+ New schedule</button>
+          ) : (
+            <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Engineering payroll"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none" />
+                <select value={cadence} onChange={(e) => setCadence(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
+                  <option value="monthly">Monthly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="manual">Manual only</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" min={1} max={28} value={anchorDay} onChange={(e) => setAnchorDay(Number(e.target.value))}
+                  placeholder="Day of month" className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                <select value={defaultToken} onChange={(e) => setDefaultToken(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
+                  <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
+                  <option value="SOL">SOL</option>
+                </select>
+              </div>
+              <textarea
+                value={recipientsRaw} onChange={(e) => setRecipientsRaw(e.target.value)}
+                rows={3}
+                placeholder="address,amount,label per line"
+                className="w-full rounded-md border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px] text-slate-900 placeholder:text-slate-400"
+              />
+              <div className="flex items-center gap-2">
+                <button onClick={submit} disabled={busy === "create"}
+                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                  {busy === "create" ? "Saving…" : "Save schedule"}
+                </button>
+                <button onClick={() => setShowForm(false)}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </BlockShell>
+  );
+}
+
+/* ---- Gas tank watcher ---------------------------------------------------- */
+
+interface GasTankWatcher {
+  id: string;
+  vaultAddress: string;
+  minSol: string;
+  targetSol: string;
+  fundingAddress: string | null;
+  capPerTopupSol: string;
+  status: "active" | "paused";
+  lastBalanceSol: string | null;
+  lastCheckedAt: string | null;
+  lastTopupAt: string | null;
+}
+
+function GasTankBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const [watcher, setWatcher] = useState<GasTankWatcher | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const [minSol, setMinSol] = useState(0.5);
+  const [targetSol, setTargetSol] = useState(2);
+  const [fundingAddress, setFundingAddress] = useState("");
+  const [cap, setCap] = useState(1);
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/gas-tank?wallet=${wallet}`);
+      const json = await res.json();
+      setWatcher(json.watcher);
+      if (json.watcher) {
+        setMinSol(Number(json.watcher.minSol));
+        setTargetSol(Number(json.watcher.targetSol));
+        setFundingAddress(json.watcher.fundingAddress ?? "");
+        setCap(Number(json.watcher.capPerTopupSol));
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const save = async () => {
+    setBusy("save");
+    await fetch("/api/treasury/gas-tank", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, minSol, targetSol, fundingAddress: fundingAddress || null, capPerTopupSol: cap }),
+    });
+    setBusy(null); setEditing(false); refresh();
+  };
+
+  const action = async (a: string) => {
+    setBusy(a);
+    await fetch("/api/treasury/gas-tank", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, action: a }),
+    });
+    setBusy(null); refresh();
+  };
+
+  if (!wallet) {
+    return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to enable a gas-tank watcher.</p></BlockShell>;
+  }
+
+  if (loading && !watcher) {
+    return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-500">Loading…</p></BlockShell>;
+  }
+
+  if (!watcher && !editing) {
+    return (
+      <BlockShell block={block} accent="slate">
+        <p className="text-sm text-slate-700">Auto-refill SOL on this vault when it dips below your floor — Dreyv watches and proposes a top-up via HITL.</p>
+        <button onClick={() => setEditing(true)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900">
+          + Set up gas tank
+        </button>
+      </BlockShell>
+    );
+  }
+
+  if (editing) {
+    return (
+      <BlockShell block={block} accent="violet">
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="Floor (SOL)"><input type="number" step="0.1" value={minSol} onChange={(e) => setMinSol(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
+            <Field label="Target (SOL)"><input type="number" step="0.1" value={targetSol} onChange={(e) => setTargetSol(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
+            <Field label="Cap / top-up"><input type="number" step="0.1" value={cap} onChange={(e) => setCap(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
+          </div>
+          <Field label="Funding address (where SOL comes from)">
+            <input value={fundingAddress} onChange={(e) => setFundingAddress(e.target.value)} placeholder="Solana address" className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 font-mono text-[12px]" />
+          </Field>
+          <div className="flex items-center gap-2 pt-1">
+            <button onClick={save} disabled={busy === "save"} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy === "save" ? "Saving…" : "Save"}
+            </button>
+            <button onClick={() => { setEditing(false); refresh(); }} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+          </div>
+        </div>
+      </BlockShell>
+    );
+  }
+
+  const w = watcher!;
+  const balanceN = w.lastBalanceSol != null ? Number(w.lastBalanceSol) : null;
+  const minN = Number(w.minSol);
+  const tone = balanceN == null ? "slate" : balanceN < minN ? "rose" : "emerald";
+
+  return (
+    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-semibold tracking-tight text-slate-900">
+            {balanceN != null ? balanceN.toFixed(3) : "—"}
+          </span>
+          <span className="text-xs text-slate-500">SOL · floor {minN} · target {Number(w.targetSol)}</span>
+        </div>
+        <Pill tone={tone === "rose" ? "rose" : tone === "emerald" ? "emerald" : "violet"}>
+          {w.status === "paused" ? "Paused" : balanceN == null ? "Unchecked" : balanceN < minN ? "Low" : "Healthy"}
+        </Pill>
+      </div>
+      <p className="mt-1 text-[12px] text-slate-500">
+        {w.lastCheckedAt ? `checked ${new Date(w.lastCheckedAt).toLocaleString()}` : "not checked yet"}
+        {w.fundingAddress ? ` · funded from ${w.fundingAddress.slice(0, 6)}…${w.fundingAddress.slice(-4)}` : " · no funding source set"}
+      </p>
+      <div className="mt-3 flex items-center gap-1.5">
+        <button onClick={() => action("check-now")} disabled={busy === "check-now"} className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+          {busy === "check-now" ? "Checking…" : "Check now"}
+        </button>
+        <button onClick={() => action(w.status === "paused" ? "resume" : "pause")} disabled={busy != null} className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+          {w.status === "paused" ? "Resume" : "Pause"}
+        </button>
+        <button onClick={() => setEditing(true)} className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700">Edit</button>
+      </div>
+    </BlockShell>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/* ---- Invoice inbox ------------------------------------------------------- */
+
+interface InvoiceRow {
+  id: string;
+  vendorName: string;
+  payToAddress: string;
+  amount: string;
+  token: string;
+  memo: string | null;
+  dueAt: string | null;
+  status: "pending" | "queued" | "paid" | "rejected";
+}
+
+function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const [rows, setRows] = useState<InvoiceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const [vendorName, setVendorName] = useState("");
+  const [payToAddress, setPayToAddress] = useState("");
+  const [amount, setAmount] = useState<string>("");
+  const [token, setToken] = useState("USDC");
+  const [memo, setMemo] = useState("");
+  const [dueAt, setDueAt] = useState("");
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/invoices?wallet=${wallet}`);
+      const json = await res.json();
+      setRows(json.invoices ?? []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const submit = async () => {
+    if (!vendorName || !payToAddress || !(Number(amount) > 0)) return;
+    setBusy("create");
+    await fetch("/api/treasury/invoices", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, vendorName, payToAddress, amount: Number(amount), token, memo: memo || null, dueAt: dueAt || null }),
+    });
+    setVendorName(""); setPayToAddress(""); setAmount(""); setMemo(""); setDueAt("");
+    setShowForm(false); setBusy(null); refresh();
+  };
+
+  const action = async (id: string, a: string) => {
+    setBusy(id);
+    if (a === "delete") {
+      await fetch(`/api/treasury/invoices?id=${id}`, { method: "DELETE" });
+    } else {
+      await fetch("/api/treasury/invoices", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: a }),
+      });
+    }
+    setBusy(null); refresh();
+  };
+
+  const open = rows.filter((r) => r.status === "pending" || r.status === "queued");
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {!wallet ? (
+        <p className="text-sm text-slate-600">Connect a wallet to track invoices.</p>
+      ) : (
+        <>
+          {loading && open.length === 0 ? (
+            <p className="text-sm text-slate-500">Loading invoices…</p>
+          ) : open.length === 0 ? (
+            <p className="text-sm text-slate-600">No invoices in your inbox. Add one when a bill comes in — Dreyv batches them by due date.</p>
+          ) : (
+            <ul className="divide-y divide-violet-100">
+              {open.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-slate-900">{r.vendorName}</span>
+                      {r.status === "queued" && (
+                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">In approval</span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 truncate text-[12px] text-slate-500">
+                      {Number(r.amount).toLocaleString()} {r.token}
+                      {r.dueAt ? ` · due ${fmtDate(r.dueAt)}` : ""}
+                      {r.memo ? ` · ${r.memo}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {r.status === "pending" && (
+                      <button onClick={() => action(r.id, "pay")} disabled={busy === r.id}
+                        className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                        Queue payment
+                      </button>
+                    )}
+                    {r.status === "pending" && (
+                      <button onClick={() => action(r.id, "reject")} disabled={busy === r.id}
+                        className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-700">
+                        Reject
+                      </button>
+                    )}
+                    <button onClick={() => action(r.id, "delete")} disabled={busy === r.id}
+                      className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-rose-600">×</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!showForm ? (
+            <button onClick={() => setShowForm(true)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900">
+              + Add invoice
+            </button>
+          ) : (
+            <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Vendor"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
+                <input value={payToAddress} onChange={(e) => setPayToAddress(e.target.value)} placeholder="Pay-to address"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px]" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
+                <select value={token} onChange={(e) => setToken(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm">
+                  <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
+                  <option value="SOL">SOL</option>
+                </select>
+                <input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-700" />
+              </div>
+              <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Memo (optional)"
+                className="w-full rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
+              <div className="flex items-center gap-2">
+                <button onClick={submit} disabled={busy === "create"}
+                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                  {busy === "create" ? "Saving…" : "Save invoice"}
+                </button>
+                <button onClick={() => setShowForm(false)} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </BlockShell>
+  );
+}
