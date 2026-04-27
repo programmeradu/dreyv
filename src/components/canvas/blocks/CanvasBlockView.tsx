@@ -333,16 +333,19 @@ function ResearchBriefBlock({ block }: { block: CanvasBlock }) {
     (a) => a && typeof a.ref === "string" && typeof a.filename === "string",
   );
 
-  const handleAct = (s: { title?: string; cta?: string; href?: string }) => {
+  const handleAct = (s: { title?: string; cta?: string; href?: string; detail?: string }) => {
     if (s.href) {
       window.location.href = s.href;
       return;
     }
-    // Fire as a CommandBar prefill so Dreyv runs the suggested action.
-    AppEventBus.emit("AGENT_COMMAND", {
-      command: s.cta || s.title || `Act on ${protocol}`,
-      autoSubmit: false,
-    });
+    // Build a natural-language command for Dreyv. Prefer the CTA verb, fall
+    // back to title, and append the protocol context so the planner has enough
+    // signal. autoSubmit: true → CommandBar opens and runs immediately.
+    const verb = (s.cta || s.title || `Act on ${protocol}`).trim();
+    const command = /\b(kamino|jupiter|marinade|drift|orca|raydium|jito|meteora)\b/i.test(verb)
+      ? verb
+      : `${verb} (${protocol})`;
+    AppEventBus.emit("AGENT_COMMAND", { command, autoSubmit: true });
   };
 
   return (
