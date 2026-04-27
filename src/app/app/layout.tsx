@@ -119,6 +119,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
                 {/* Floating Command Bar */}
                 <CommandBar />
+
+                {/* ⌘K Capability Palette — exposes all 48 capabilities */}
+                <CapabilityPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
             </main>
         </div>
     );
