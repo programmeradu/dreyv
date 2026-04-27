@@ -21,22 +21,31 @@ import {
 
 // Register Inter (bundled OTFs, no network fetch). Inter avoids the @react-pdf
 // Helvetica glyph-fragmentation bug on uppercase strings.
+// NOTE: @react-pdf/renderer's font resolver treats `src` as a URL. On Node we
+// must use the `file://` protocol form, otherwise the resolver throws
+// "Could not resolve font for <family>" during render.
+import { pathToFileURL } from "node:url";
 const FONTS_DIR = path.join(process.cwd(), "src/lib/agents/artifacts/fonts");
-Font.register({
-    family: "Inter",
-    fonts: [
-        { src: path.join(FONTS_DIR, "Inter-Regular.otf"), fontWeight: 400 },
-        { src: path.join(FONTS_DIR, "Inter-Bold.otf"), fontWeight: 700 },
-    ],
-});
-Font.register({
-    family: "SourceSerif",
-    fonts: [
-        { src: path.join(FONTS_DIR, "SourceSerif4-Light.otf"), fontWeight: 300 },
-        { src: path.join(FONTS_DIR, "SourceSerif4-Regular.otf"), fontWeight: 400 },
-    ],
-});
-Font.registerHyphenationCallback((word) => [word]);
+const fontUrl = (name: string) => pathToFileURL(path.join(FONTS_DIR, name)).href;
+try {
+    Font.register({
+        family: "Inter",
+        fonts: [
+            { src: fontUrl("Inter-Regular.otf"), fontWeight: 400 },
+            { src: fontUrl("Inter-Bold.otf"), fontWeight: 700 },
+        ],
+    });
+    Font.register({
+        family: "SourceSerif",
+        fonts: [
+            { src: fontUrl("SourceSerif4-Light.otf"), fontWeight: 300 },
+            { src: fontUrl("SourceSerif4-Regular.otf"), fontWeight: 400 },
+        ],
+    });
+    Font.registerHyphenationCallback((word) => [word]);
+} catch (err) {
+    console.error("[pdf] Font registration failed:", err);
+}
 
 // ── Palette (restrained, corporate) ──────────────────────────────────
 const VIOLET = "#7c3aed";
