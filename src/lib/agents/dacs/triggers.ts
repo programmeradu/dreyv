@@ -310,12 +310,21 @@ async function evalSentiment(spec: TriggerSpec): Promise<TriggerEvalResult> {
   }
 }
 
-// ─── News (Tavily → Firecrawl fallback) ───────────────────────────────
+// ─── News (Tavily → Firecrawl → Cloudflare Browser fallback) ──────────
+//
+// 3-tier research so Dreyv keeps full context for the user brief even when
+// any single provider is down or rate-limited:
+//
+//   1. Tavily   — fast typed search (preferred when key present)
+//   2. Firecrawl /v2/search — broader web index, last 24h
+//   3. Cloudflare Browser Rendering /markdown on Google News query —
+//      pure-render fallback that needs no search vendor at all, just
+//      CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN.
 async function evalNews(spec: TriggerSpec): Promise<TriggerEvalResult> {
   const query = String(spec.query ?? "").trim();
   if (!query) return NOT_FIRED("news_trigger_invalid_spec");
 
-  // 1. Tavily primary
+  // 1. Tavily
   const tavilyKey = process.env.TAVILY_API_KEY;
   if (tavilyKey) {
     try {
@@ -327,29 +336,70 @@ async function evalNews(spec: TriggerSpec): Promise<TriggerEvalResult> {
         return FIRED(`news (tavily): ${top}`, hits);
       }
     } catch {
-      /* fall through to firecrawl */
+      /* fall through */
     }
   }
 
-  // 2. Firecrawl fallback — gives Dreyv broader research context
+  // 2. Firecrawl
   const fcKey = process.env.FIRECRAWL_API_KEY;
-  if (!fcKey) return NOT_FIRED(tavilyKey ? "news_no_hits" : "no_research_provider");
+  if (fcKey) {
+    try {
+      const res = await fetch("https://api.firecrawl.dev/v2/search", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${fcKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query, limit: 5, tbs: "qdr:d" }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { data?: Array<{ title?: string; url?: string }> };
+        const hits = json?.data?.length ?? 0;
+        if (hits > 0) {
+          const top = json!.data![0]?.title || json!.data![0]?.url || `${hits} hits`;
+          return FIRED(`news (firecrawl): ${top}`, hits);
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // 3. Cloudflare Browser Rendering — render Google News for the query and
+  //    count article links. Works with just CF account creds, no search
+  //    vendor required.
+  const cfAccount = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const cfToken = process.env.CLOUDFLARE_AI_TOKEN;
+  if (!cfAccount || !cfToken) {
+    return NOT_FIRED(tavilyKey || fcKey ? "news_no_hits" : "no_research_provider");
+  }
   try {
-    const res = await fetch("https://api.firecrawl.dev/v2/search", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${fcKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query, limit: 5, tbs: "qdr:d" }),
-    });
-    if (!res.ok) return NOT_FIRED(`firecrawl_${res.status}`);
-    const json = (await res.json()) as { data?: Array<{ title?: string; url?: string }> };
-    const hits = json?.data?.length ?? 0;
+    const newsUrl = `https://news.google.com/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cfAccount}/browser-rendering/markdown`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cfToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: newsUrl, gotoOptions: { waitUntil: "networkidle2" } }),
+      },
+    );
+    if (!res.ok) return NOT_FIRED(`cloudflare_${res.status}`);
+    const json = (await res.json()) as { result?: string; markdown?: string };
+    const md = json?.result ?? json?.markdown ?? "";
+    // Article links on Google News markdown look like ./articles/<id>; count them.
+    const matches = md.match(/\(\.\/articles\/[A-Za-z0-9_-]+/g) ?? [];
+    const hits = matches.length;
     if (hits > 0) {
-      const top = json!.data![0]?.title || json!.data![0]?.url || `${hits} hits`;
-      return FIRED(`news (firecrawl): ${top}`, hits);
+      // Try to grab the first headline-shaped line for context.
+      const firstHeadline = md
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l.length > 30 && l.length < 220 && !l.startsWith("!") && !l.startsWith("["));
+      return FIRED(`news (cloudflare): ${firstHeadline ?? `${hits} hits`}`, hits);
     }
     return NOT_FIRED("no news hits", 0);
   } catch (err) {
-    return NOT_FIRED(`firecrawl_error:${(err as Error).message}`);
+    return NOT_FIRED(`cloudflare_error:${(err as Error).message}`);
   }
 }
 
