@@ -136,7 +136,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     if (s === "success" || s === "complete" || s === "done") {
       return (
         <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <Check className="h-3 w-3" />
+          <GlyphCheck />
         </span>
       );
     }
@@ -150,7 +150,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     if (s === "error" || s === "failed") {
       return (
         <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-          <ShieldAlert className="h-3 w-3" />
+          <GlyphAlert />
         </span>
       );
     }
@@ -192,7 +192,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
             className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
           >
             {asString(action.label, "Open")}
-            <ArrowRight className="h-4 w-4" />
+            <GlyphArrow className="h-4 w-4" />
           </Link>
         </div>
       )}
@@ -255,7 +255,7 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
             success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
           }`}
         >
-          {success ? <Check className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+          {success ? <GlyphCheck className="h-3.5 w-3.5" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0">
           {operation && (
@@ -276,7 +276,7 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
     <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-          <Sparkles className="h-3.5 w-3.5" />
+          <GlyphSpark />
         </span>
         <div className="min-w-0 flex-1">
           {typeof block.payload.message === "string" && block.payload.message && (
@@ -288,7 +288,7 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
             >
               {asString(cta.label, "Open")}
-              <ArrowRight className="h-3.5 w-3.5" />
+              <GlyphArrow />
             </Link>
           )}
         </div>
