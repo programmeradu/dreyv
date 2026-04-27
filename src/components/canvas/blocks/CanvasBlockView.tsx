@@ -15,8 +15,8 @@ import Link from "next/link";
 
 /** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
 const GlyphCheck = ({ className = "h-3 w-3" }: { className?: string }) => (
-  <svg viewBox="0 0 12 12" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2.5 6.4 5 8.8 9.5 3.6" />
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M12 1.5 L14.2 9.8 L22.5 12 L14.2 14.2 L12 22.5 L9.8 14.2 L1.5 12 L9.8 9.8 Z" />
   </svg>
 );
 const GlyphAlert = ({ className = "h-3 w-3" }: { className?: string }) => (
@@ -141,8 +141,8 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
   const stepBadge = (s: string | undefined, idx: number) => {
     if (s === "success" || s === "complete" || s === "done") {
       return (
-        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <GlyphCheck />
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-violet-600">
+          <GlyphCheck className="h-3.5 w-3.5" />
         </span>
       );
     }
@@ -258,10 +258,10 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
       <div className="flex items-start gap-3">
         <span
           className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-            success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+            success ? "text-violet-600" : "bg-rose-100 text-rose-700"
           }`}
         >
-          {success ? <GlyphCheck className="h-3.5 w-3.5" /> : <GlyphAlert className="h-3.5 w-3.5" />}
+          {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0">
           {operation && (
