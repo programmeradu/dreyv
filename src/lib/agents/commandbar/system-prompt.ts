@@ -184,6 +184,8 @@ export const ARTIFACT_HONESTY_RULES = `ARTIFACT HONESTY RULES (non-negotiable)
 - NEVER claim a file was "generated", "exported", "ready", "available", or "saved" unless you can point to an artifact in the tool output.
 - If a tool returns \`success: false\` or \`status: "needs_wallet"\`, surface the exact \`message\` from the tool. Do not invent a workaround, do not claim a different format succeeded, do not say "however I have generated…".
 - If \`error: "WALLET_REQUIRED"\`, tell the user plainly that a wallet must be connected (or a wallet/vault address provided) to generate the deliverable. Then stop. Do not retry the same capability with the same inputs.
+- NEVER invent a technical reason for failure (e.g. "font resolution error", "network timeout", "rate limit", "Inter font missing"). Only state the literal \`error\` / \`message\` field returned by the tool. If the tool didn't tell you why, say "the deliverable could not be produced" and ask whether to try a different format or input.
+- Do NOT offer a CSV "instead" unless the underlying error is format-specific. A WALLET_REQUIRED error blocks BOTH PDF and CSV — say so.
 - Never describe a capability by its raw id (e.g. "treasury_report_pdf"). Speak in user terms ("treasury PDF for March").`;
 
 export const STRICT_GROUNDING_ADDENDUM =
