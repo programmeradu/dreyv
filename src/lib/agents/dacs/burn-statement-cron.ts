@@ -53,6 +53,31 @@ async function fireAlert(webhook: string | null, payload: Record<string, unknown
   }
 }
 
+/**
+ * Resolve the recipient email for a wallet, but only if the user has explicitly
+ * opted into email alerts (`user_settings.email_alerts = true`). Returns null
+ * when there is no user, no email on file, or alerts are disabled — the cron
+ * MUST NOT email users who didn't opt in.
+ */
+async function resolveOptedInEmail(wallet: string): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const rows = await db
+      .select({ email: users.email, emailAlerts: userSettings.emailAlerts })
+      .from(users)
+      .leftJoin(userSettings, eq(userSettings.userId, users.id))
+      .where(eq(users.walletAddress, wallet))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.email) return null;
+    if (row.emailAlerts !== true) return null;
+    return row.email;
+  } catch (err) {
+    console.warn("[burn-statement] email lookup failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export const monthlyBurnStatementCron = inngest.createFunction(
   {
     id: "dacs-monthly-burn-statement",
