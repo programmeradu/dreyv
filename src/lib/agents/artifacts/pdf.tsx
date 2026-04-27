@@ -305,10 +305,12 @@ const styles = StyleSheet.create({
         fontFamily: "Inter", fontWeight: 700,
         letterSpacing: 1.2,
     },
-    footerRightText: {
+    footerRightWrap: {
         position: "absolute",
         bottom: 22,
         right: PAGE_MARGIN,
+    },
+    footerPageNum: {
         fontSize: 7,
         color: INK_30,
         fontFamily: "Inter", fontWeight: 700,
