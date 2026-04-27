@@ -60,13 +60,11 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: INK,
         fontFamily: "Helvetica-Bold",
-        letterSpacing: 3,
     },
     mastheadMeta: {
         fontSize: 8,
         color: INK_50,
         textAlign: "right",
-        letterSpacing: 0.4,
         textTransform: "uppercase",
     },
 
@@ -75,17 +73,16 @@ const styles = StyleSheet.create({
     eyebrow: {
         fontSize: 8,
         color: VIOLET,
-        letterSpacing: 1.6,
         textTransform: "uppercase",
         fontFamily: "Helvetica-Bold",
-        marginBottom: 8,
+        marginBottom: 10,
     },
     title: {
-        fontSize: 26,
+        fontSize: 28,
         fontFamily: "Helvetica",
         color: INK,
-        marginBottom: 6,
-        letterSpacing: -0.3,
+        marginBottom: 14,
+        lineHeight: 1.1,
     },
     subtitle: {
         fontSize: 9,
