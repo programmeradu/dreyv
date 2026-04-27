@@ -1335,3 +1335,38 @@ export const liquidationWatches = pgTable('liquidation_watches', {
   enabledIdx: index('liq_watches_enabled_idx').on(t.enabled),
   statusIdx: index('liq_watches_status_idx').on(t.status),
 }));
+
+// ─── Runway autopilot rules (DACS Phase 7D.2) ─────────────────────────
+// Persistent config for `treasury_runway_autopilot`. Watcher cron polls
+// treasury USD value, computes runway, fires alert/episode on breach.
+export const runwayAutopilotRules = pgTable('runway_autopilot_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(),
+  /** Minimum runway in months — alert/rebalance if projected runway falls below. */
+  targetRunwayMonths: numeric('target_runway_months').notNull(),
+  /** Monthly burn in USD. If null, watcher infers from 90d outflows. */
+  monthlyBurnUsd: numeric('monthly_burn_usd'),
+  /** Last inferred burn (for transparency when monthlyBurnUsd is null). */
+  inferredBurnUsd: numeric('inferred_burn_usd'),
+  rebalanceMode: text('rebalance_mode').notNull().default('balanced'), // conservative | balanced | aggressive
+  /** Allowed actions JSONB array: ["yield_withdraw","swap_to_stable","open_hedge","alert_only"] */
+  actionsAllowed: jsonb('actions_allowed').notNull().default('["alert_only"]'),
+  alertWebhook: text('alert_webhook'),
+  enabled: boolean('enabled').notNull().default(true),
+  /** active | breached | disabled */
+  status: text('status').notNull().default('active'),
+  /** Last computed treasury USD value. */
+  lastTreasuryUsd: numeric('last_treasury_usd'),
+  /** Last computed runway (months). */
+  lastRunwayMonths: numeric('last_runway_months'),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastCheckError: text('last_check_error'),
+  lastBreachedAt: timestamp('last_breached_at'),
+  checkAttempts: integer('check_attempts').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('runway_autopilot_wallet_idx').on(t.walletAddress),
+  enabledIdx: index('runway_autopilot_enabled_idx').on(t.enabled),
+  statusIdx: index('runway_autopilot_status_idx').on(t.status),
+}));
