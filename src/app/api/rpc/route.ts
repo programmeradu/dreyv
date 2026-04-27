@@ -126,7 +126,19 @@ export async function POST(req: NextRequest) {
 
     // Build candidates
     const candidates: string[] = [];
-    if (rpcUrl) candidates.push(rpcUrl);
+    if (rpcUrl) {
+      // SSRF defense: only accept caller-supplied URLs that match our allowlist,
+      // use https, and don't resolve to private/loopback/metadata addresses.
+      if (!isAllowedRpcUrl(rpcUrl)) {
+        return new Response(
+          JSON.stringify({
+            error: "rpcUrl rejected: must be https and target an allowlisted RPC provider",
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      candidates.push(rpcUrl);
+    }
 
     if (chainKey) {
       const key = chainKey.toLowerCase();
