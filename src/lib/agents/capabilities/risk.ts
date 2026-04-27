@@ -289,33 +289,62 @@ const hedge_position = defineCapability({
   id: "hedge_position",
   domain: "risk",
   description:
-    "Open or adjust a perp short on Drift/Zeta to hedge spot exposure (delta-neutral stables strategy).",
+    "Plan a real Drift perp short to hedge spot exposure (delta-neutral). Live Pyth Hermes oracle price, slippage-protected limit, exact base/collateral amounts in protocol base units. Returns a complete order spec the client SDK signs via `driftClient.placePerpOrder`.",
   inputSchema: z.object({
-    venue: z.enum(["drift", "zeta"]).default("drift"),
+    venue: z.enum(["drift"]).default("drift"),
     asset: z.string().default("SOL"),
     notionalUsd: z.number().positive(),
     leverage: z.number().min(1).max(10).default(2),
     collateralToken: z.string().default("USDC"),
+    slippageBps: z.number().int().min(1).max(500).optional().default(30),
+    reduceOnly: z.boolean().optional().default(false),
+    postOnly: z.boolean().optional().default(false),
+    expirySeconds: z.number().int().min(15).max(600).optional().default(60),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
-  protocols: ["drift", "zeta"],
+  protocols: ["drift"],
   execute: async (input, ctx) => {
     if (!ctx.walletAddress) {
       return { success: false, operation: "hedge_position", message: "Wallet required." };
     }
     const blocked = ctx.blockExecutionForBuildIntent("hedge_position");
     if (blocked) return blocked;
-    const requiredCollateral = input.notionalUsd / input.leverage;
-    return {
-      success: true,
-      operation: "hedge_position",
-      ...input,
-      requiredCollateralUsd: requiredCollateral,
-      requiresApproval: true,
-      message: `Hedge drafted: short $${input.notionalUsd.toLocaleString()} ${input.asset} on ${input.venue} at ${input.leverage}× (collateral ≈ $${requiredCollateral.toLocaleString()} ${input.collateralToken}). Sign to open.`,
-    };
+
+    if (input.collateralToken.toUpperCase() !== "USDC") {
+      return { success: false, operation: "hedge_position", message: `Drift hedge currently supports USDC collateral only (received ${input.collateralToken}).` };
+    }
+
+    try {
+      const { planDriftHedge } = await import("@/lib/agents/dacs/drift-hedge");
+      const plan = await planDriftHedge({
+        asset: input.asset,
+        notionalUsd: input.notionalUsd,
+        leverage: input.leverage,
+        slippageBps: input.slippageBps,
+        reduceOnly: input.reduceOnly,
+        postOnly: input.postOnly,
+        expirySeconds: input.expirySeconds,
+      });
+      if (!plan.ok) {
+        return { success: false, operation: "hedge_position", asset: plan.asset, message: plan.error };
+      }
+      return {
+        success: true,
+        operation: "hedge_position",
+        venue: "drift",
+        asset: plan.asset,
+        spec: plan.spec,
+        warnings: plan.warnings,
+        requiresApproval: true,
+        message: `Drift ${plan.asset}-PERP short planned: ${plan.spec.baseAssetAmountHuman.toFixed(4)} ${plan.asset} @ oracle $${plan.spec.oraclePrice.toFixed(4)}, limit $${plan.spec.limitPrice.toFixed(4)} (${input.slippageBps}bps), collateral $${plan.spec.requiredCollateralUsd.toFixed(2)} USDC at ${input.leverage}×. ${plan.warnings.length} warning(s). Sign in Atlas to open.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:hedge_position]", msg);
+      return { success: false, operation: "hedge_position", message: `Hedge planner failed: ${msg}` };
+    }
   },
 });
 
