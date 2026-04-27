@@ -384,10 +384,10 @@ Wallet State: ${JSON.stringify(walletState || {})}
       rpcEndpoint,
       vaultState,
       walletState,
-      executionState,
+      executionState: executionState as never,
       promptMode,
       isStudioBuildIntent,
-      blockExecutionForBuildIntent,
+      blockExecutionForBuildIntent: blockExecutionForBuildIntent as never,
       resolveSplitAmount,
     });
     const registryTools = buildLegacyTools(capabilityCtx);
