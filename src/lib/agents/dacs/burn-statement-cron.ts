@@ -252,6 +252,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
       month,
       subscribers: subscribers.length,
       generated,
+      emailed,
       skippedEmpty,
       skippedDup,
       failed,
