@@ -112,7 +112,7 @@ export function BlockShell({
           </div>
 
           <div className="mt-3">{children}</div>
-          <div className="mt-3 flex items-center justify-end">
+          <div className="mt-3 flex items-center justify-end empty:hidden empty:mt-0">
             <SubagentSpawnChip block={block} />
           </div>
         </div>
