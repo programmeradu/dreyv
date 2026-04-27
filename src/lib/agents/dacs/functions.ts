@@ -12,6 +12,7 @@ import { reconcileStreamflowStreams } from "./reconcile-streamflow";
 import { gasTankWatcher } from "./gas-tank-watcher";
 import { grantsWatcher } from "./grants-watcher";
 import { liquidationWatcher } from "./liq-watcher";
+import { runwayAutopilotWatcher } from "./runway-watcher";
 
 export const DACS_FUNCTIONS = [
   commandRouter,
@@ -23,6 +24,7 @@ export const DACS_FUNCTIONS = [
   gasTankWatcher,
   grantsWatcher,
   liquidationWatcher,
+  runwayAutopilotWatcher,
   ...SPECIALIST_FUNCTIONS,
 ];
 
