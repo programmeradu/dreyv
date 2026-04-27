@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
 import { ArrowLeft, Sparkles } from "lucide-react";
@@ -22,6 +22,34 @@ import { TrendCurve } from "@/components/app-shell/Composition";
 
 export default function AnalyticsPage() {
   const { vaultValue, vaultChange24h, vaultTokens } = useVault();
+
+  // ── Loop detector ─────────────────────────────────────────────────
+  // If this page re-renders >40 times in a 250ms window, log a single
+  // warning with a stack so we can trace what's driving the update loop.
+  const renderTimes = useRef<number[]>([]);
+  const warned = useRef(false);
+  if (typeof window !== "undefined") {
+    const now = performance.now();
+    renderTimes.current.push(now);
+    renderTimes.current = renderTimes.current.filter((t) => now - t < 250);
+    if (renderTimes.current.length > 40 && !warned.current) {
+      warned.current = true;
+      // eslint-disable-next-line no-console
+      console.error("[AnalyticsPage] update loop detected", {
+        rendersIn250ms: renderTimes.current.length,
+        vaultValue,
+        vaultChange24h,
+        vaultTokensLen: Array.isArray(vaultTokens) ? vaultTokens.length : "n/a",
+        stack: new Error().stack,
+      });
+    }
+  }
+  useEffect(() => {
+    return () => {
+      warned.current = false;
+      renderTimes.current = [];
+    };
+  }, []);
 
   const trend = useMemo(() => {
     const out: number[] = [];
