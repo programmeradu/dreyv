@@ -57,11 +57,14 @@ function ClampedBody({ text, className = "text-sm leading-relaxed text-slate-700
   const [expanded, setExpanded] = useState(false);
   const isLong = text.length > 220 || text.split(/\n/).length > 4;
   if (!isLong) return <MD text={text} className={className} />;
+  // Apply line-clamp to the <p> directly (Tailwind line-clamp uses
+  // -webkit-line-clamp, which only behaves correctly when set on the
+  // element that actually contains the inline text — wrapping a <p>
+  // in a clamped <div> swallows the "Show more" content silently).
+  const clampClass = expanded ? "" : "line-clamp-4";
   return (
     <div>
-      <div className={expanded ? "" : "line-clamp-4"}>
-        <MD text={text} className={className} />
-      </div>
+      <MD text={text} className={`${className} ${clampClass}`.trim()} />
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
