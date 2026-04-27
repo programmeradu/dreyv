@@ -45,7 +45,7 @@ export const liquidationWatcher = inngest.createFunction(
   { cron: "*/2 * * * *" },
   async ({ step, logger }: InngestHandlerArgs) => {
     const watches = await step.run("load-watches", async () =>
-      db
+      db!
         .select()
         .from(liquidationWatches)
         .where(and(eq(liquidationWatches.enabled, true), isNotNull(liquidationWatches.positionAccount))),
@@ -66,7 +66,7 @@ export const liquidationWatcher = inngest.createFunction(
           const hf = result.healthFactor;
           const floor = Number(w.healthFactorFloor);
 
-          await db
+          await db!
             .update(liquidationWatches)
             .set({
               lastHealthFactor: hf != null && Number.isFinite(hf) ? String(hf) : null,
@@ -92,21 +92,21 @@ export const liquidationWatcher = inngest.createFunction(
               autoDeleverage: w.autoDeleverage,
               at: now.toISOString(),
             });
-            await db.insert(agentEpisodes).values({
+            await db!.insert(agentEpisodes).values({
+              commandId: `liq-watch:${w.id}:${now.getTime()}`,
               walletAddress: w.walletAddress,
-              capabilityId: "liquidation_watch",
-              input: { watchId: w.id, venue: w.venue, positionAccount: w.positionAccount, floor },
-              output: { healthFactor: hf, collateralUsd: result.collateralUsd, liabilitiesUsd: result.liabilitiesUsd, autoDeleverage: w.autoDeleverage },
+              intentKind: "risk.liquidation_watch",
+              capabilityIds: ["liquidation_watch"],
               outcome: "needs_attention",
-              note: w.autoDeleverage
-                ? `HF ${hf.toFixed(3)} < ${floor} on ${w.venue}. Auto-deleverage TX drafting not yet wired — manual action required.`
-                : `HF ${hf.toFixed(3)} < ${floor} on ${w.venue}. Alert-only watch fired.`,
+              notes: w.autoDeleverage
+                ? `HF ${hf.toFixed(3)} < ${floor} on ${w.venue} (${w.positionAccount}). Auto-deleverage TX drafting not yet wired — manual action required.`
+                : `HF ${hf.toFixed(3)} < ${floor} on ${w.venue} (${w.positionAccount}). Alert-only watch fired.`,
             });
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           logger.warn(`probe ${w.id} failed: ${msg}`);
-          await db
+          await db!
             .update(liquidationWatches)
             .set({ lastCheckError: msg, lastCheckedAt: now, checkAttempts: w.checkAttempts + 1, updatedAt: now })
             .where(eq(liquidationWatches.id, w.id));
