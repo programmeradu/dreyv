@@ -8,6 +8,7 @@
  */
 
 import React from "react";
+import path from "node:path";
 import {
     Document,
     Page,
@@ -18,8 +19,16 @@ import {
     Font,
 } from "@react-pdf/renderer";
 
-// Use @react-pdf built-in fonts (Helvetica/Times/Courier are bundled — no
-// network fetch). Avoid Manrope here to keep PDF generation hermetic.
+// Register Inter (bundled OTFs, no network fetch). Inter avoids the @react-pdf
+// Helvetica glyph-fragmentation bug on uppercase strings.
+const FONTS_DIR = path.join(process.cwd(), "src/lib/agents/artifacts/fonts");
+Font.register({
+    family: "Inter",
+    fonts: [
+        { src: path.join(FONTS_DIR, "Inter-Regular.otf"), fontWeight: 400 },
+        { src: path.join(FONTS_DIR, "Inter-Bold.otf"), fontWeight: 700 },
+    ],
+});
 Font.registerHyphenationCallback((word) => [word]);
 
 // ── Palette (restrained, corporate) ──────────────────────────────────
