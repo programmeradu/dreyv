@@ -140,13 +140,24 @@ export function AgentsRail() {
         agentId?: string;
         capability?: string;
         actor?: string;
-        steps?: Array<{ title?: string; status?: string }>;
+        steps?: Array<{
+          title?: string;
+          status?: string;
+          subSteps?: Array<{ title?: string; status?: string }>;
+        }>;
       };
 
-      // CommandBar plan blocks — surface each capability step as its own persona.
+      // CommandBar plan blocks — surface each capability step AND the
+      // pipeline sub-steps (firewall, route sim, risk, mev, resolver) so the
+      // rail reflects every agent that actually ran inside the loop.
       if (Array.isArray(payload.steps) && payload.steps.length) {
         for (const step of payload.steps) {
           if (step?.title) bumpPersona(step.title, block.createdAt, step.title);
+          if (Array.isArray(step?.subSteps)) {
+            for (const sub of step.subSteps) {
+              if (sub?.title) bumpPersona(sub.title, block.createdAt, sub.title);
+            }
+          }
         }
         continue;
       }
