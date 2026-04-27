@@ -295,18 +295,32 @@ const styles = StyleSheet.create({
         lineHeight: 1.55,
     },
 
-    // Footer (rendered as a fixed element on every page)
-    footer: {
+    // Footer (rendered as fixed elements on every page)
+    footerLeft: {
         position: "absolute",
-        bottom: 18,
+        bottom: 22,
+        left: PAGE_MARGIN,
+        fontSize: 7,
+        color: INK_30,
+        fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
+    },
+    footerRight: {
+        position: "absolute",
+        bottom: 22,
+        right: PAGE_MARGIN,
+        fontSize: 7,
+        color: INK_30,
+        fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
+    },
+    footerRule: {
+        position: "absolute",
+        bottom: 36,
         left: PAGE_MARGIN,
         right: PAGE_MARGIN,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingTop: 8,
-        borderTopWidth: 0.5,
-        borderTopColor: RULE,
+        height: 0.5,
+        backgroundColor: RULE,
     },
     footerText: {
         fontSize: 7,
