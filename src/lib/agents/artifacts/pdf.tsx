@@ -359,14 +359,14 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 <View style={styles.masthead} fixed>
                     <Text style={styles.brand}>DREYV</Text>
                     <View>
-                        <Text style={styles.mastheadMeta}>Treasury Report</Text>
+                        <Text style={styles.mastheadMeta}>TREASURY REPORT</Text>
                         <Text style={styles.mastheadMeta}>{fmtGenerated(input.generatedAt)}</Text>
                     </View>
                 </View>
 
                 {/* Title */}
                 <View style={styles.titleBlock}>
-                    <Text style={styles.eyebrow}>Reporting Period</Text>
+                    <Text style={styles.eyebrow}>REPORTING PERIOD</Text>
                     <Text style={styles.title}>{periodLabel}</Text>
                     <Text style={styles.subtitle}>{input.walletOrVault}</Text>
                 </View>
@@ -374,24 +374,24 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {/* KPI strip */}
                 <View style={styles.kpiStrip}>
                     <View style={styles.kpiCellFirst}>
-                        <Text style={styles.kpiLabel}>Net Flow</Text>
+                        <Text style={styles.kpiLabel}>NET FLOW</Text>
                         <Text style={[styles.kpiValue, netSigned != null && netSigned < 0 ? { color: "#b91c1c" } : netSigned != null && netSigned > 0 ? { color: "#15803d" } : {}]}>
                             {fmtMoney(netSigned, true)}
                         </Text>
                     </View>
                     <View style={styles.kpiCell}>
-                        <Text style={styles.kpiLabel}>Transactions</Text>
+                        <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
                         <Text style={styles.kpiValue}>{summary.totalTransactions}</Text>
                     </View>
                     <View style={styles.kpiCell}>
-                        <Text style={styles.kpiLabel}>Proposals</Text>
+                        <Text style={styles.kpiLabel}>PROPOSALS</Text>
                         <Text style={styles.kpiValue}>
                             {summary.executedProposals}
                             <Text style={{ color: INK_30 }}> / {summary.totalProposals}</Text>
                         </Text>
                     </View>
                     <View style={styles.kpiCell}>
-                        <Text style={styles.kpiLabel}>Ending Balance</Text>
+                        <Text style={styles.kpiLabel}>ENDING BALANCE</Text>
                         <Text style={[styles.kpiValue, styles.kpiAccent]}>
                             {summary.endingBalanceUsd != null ? fmtMoney(summary.endingBalanceUsd) : "—"}
                         </Text>
@@ -401,20 +401,20 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {/* Proposals */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Proposals</Text>
-                        <Text style={styles.sectionCount}>{proposals.length} total</Text>
+                        <Text style={styles.sectionTitle}>PROPOSALS</Text>
+                        <Text style={styles.sectionCount}>{proposals.length} TOTAL</Text>
                     </View>
                     {proposals.length === 0 ? (
                         <Text style={styles.empty}>No proposals in this period.</Text>
                     ) : (
                         <View>
                             <View style={styles.thead}>
-                                <Text style={[styles.th, { flex: PROPOSAL_COLS.date }]}>Date</Text>
-                                <Text style={[styles.th, { flex: PROPOSAL_COLS.title }]}>Title</Text>
-                                <Text style={[styles.th, { flex: PROPOSAL_COLS.type }]}>Type</Text>
-                                <Text style={[styles.th, { flex: PROPOSAL_COLS.status }]}>Status</Text>
-                                <Text style={[styles.th, { flex: PROPOSAL_COLS.quorum }]}>Quorum</Text>
-                                <Text style={[styles.th, styles.right, { flex: PROPOSAL_COLS.value }]}>Value</Text>
+                                <Text style={[styles.th, { flex: PROPOSAL_COLS.date }]}>DATE</Text>
+                                <Text style={[styles.th, { flex: PROPOSAL_COLS.title }]}>TITLE</Text>
+                                <Text style={[styles.th, { flex: PROPOSAL_COLS.type }]}>TYPE</Text>
+                                <Text style={[styles.th, { flex: PROPOSAL_COLS.status }]}>STATUS</Text>
+                                <Text style={[styles.th, { flex: PROPOSAL_COLS.quorum }]}>QUORUM</Text>
+                                <Text style={[styles.th, styles.right, { flex: PROPOSAL_COLS.value }]}>VALUE</Text>
                             </View>
                             {proposals.map((p, i) => (
                                 <View key={i} style={i === proposals.length - 1 ? styles.trLast : styles.tr}>
@@ -422,7 +422,7 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                                     <Text style={[styles.td, { flex: PROPOSAL_COLS.title }]}>{p.title}</Text>
                                     <Text style={[styles.tdMuted, { flex: PROPOSAL_COLS.type }]}>{p.type}</Text>
                                     <Text style={[styles.statusBase, statusStyle(p.status), { flex: PROPOSAL_COLS.status }]}>
-                                        {p.status}
+                                        {p.status.toUpperCase()}
                                     </Text>
                                     <Text style={[styles.tdMuted, { flex: PROPOSAL_COLS.quorum }]}>{p.quorum ?? "—"}</Text>
                                     <Text style={[styles.td, styles.right, { flex: PROPOSAL_COLS.value }]}>
@@ -437,21 +437,21 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {/* Transactions */}
                 <View style={styles.section} wrap>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Transactions</Text>
-                        <Text style={styles.sectionCount}>{transactions.length} total</Text>
+                        <Text style={styles.sectionTitle}>TRANSACTIONS</Text>
+                        <Text style={styles.sectionCount}>{transactions.length} TOTAL</Text>
                     </View>
                     {transactions.length === 0 ? (
                         <Text style={styles.empty}>No transactions in this period.</Text>
                     ) : (
                         <View>
                             <View style={styles.thead} fixed>
-                                <Text style={[styles.th, { flex: TX_COLS.date }]}>Date</Text>
+                                <Text style={[styles.th, { flex: TX_COLS.date }]}>DATE</Text>
                                 <Text style={[styles.th, { flex: TX_COLS.dir }]}> </Text>
-                                <Text style={[styles.th, { flex: TX_COLS.token }]}>Token</Text>
-                                <Text style={[styles.th, styles.right, { flex: TX_COLS.amount }]}>Amount</Text>
-                                <Text style={[styles.th, styles.right, { flex: TX_COLS.value }]}>Value</Text>
-                                <Text style={[styles.th, { flex: TX_COLS.counterparty }]}>Counterparty</Text>
-                                <Text style={[styles.th, { flex: TX_COLS.sig }]}>Signature</Text>
+                                <Text style={[styles.th, { flex: TX_COLS.token }]}>TOKEN</Text>
+                                <Text style={[styles.th, styles.right, { flex: TX_COLS.amount }]}>AMOUNT</Text>
+                                <Text style={[styles.th, styles.right, { flex: TX_COLS.value }]}>VALUE</Text>
+                                <Text style={[styles.th, { flex: TX_COLS.counterparty }]}>COUNTERPARTY</Text>
+                                <Text style={[styles.th, { flex: TX_COLS.sig }]}>SIGNATURE</Text>
                             </View>
                             {transactions.map((t, i) => (
                                 <View key={i} style={i === transactions.length - 1 ? styles.trLast : styles.tr} wrap={false}>
@@ -482,16 +482,16 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {policyActions && policyActions.length > 0 ? (
                     <View style={styles.section} wrap>
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Policy Actions</Text>
-                            <Text style={styles.sectionCount}>{policyActions.length} total</Text>
+                            <Text style={styles.sectionTitle}>POLICY ACTIONS</Text>
+                            <Text style={styles.sectionCount}>{policyActions.length} TOTAL</Text>
                         </View>
                         <View>
                             <View style={styles.thead}>
-                                <Text style={[styles.th, { flex: POLICY_COLS.date }]}>Date</Text>
-                                <Text style={[styles.th, { flex: POLICY_COLS.capability }]}>Capability</Text>
-                                <Text style={[styles.th, { flex: POLICY_COLS.decision }]}>Decision</Text>
-                                <Text style={[styles.th, styles.right, { flex: POLICY_COLS.risk }]}>Risk</Text>
-                                <Text style={[styles.th, { flex: POLICY_COLS.notes }]}>Notes</Text>
+                                <Text style={[styles.th, { flex: POLICY_COLS.date }]}>DATE</Text>
+                                <Text style={[styles.th, { flex: POLICY_COLS.capability }]}>CAPABILITY</Text>
+                                <Text style={[styles.th, { flex: POLICY_COLS.decision }]}>DECISION</Text>
+                                <Text style={[styles.th, styles.right, { flex: POLICY_COLS.risk }]}>RISK</Text>
+                                <Text style={[styles.th, { flex: POLICY_COLS.notes }]}>NOTES</Text>
                             </View>
                             {policyActions.map((a, i) => (
                                 <View key={i} style={i === policyActions.length - 1 ? styles.trLast : styles.tr} wrap={false}>
@@ -510,11 +510,11 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
 
                 {/* Footer */}
                 <View style={styles.footer} fixed>
-                    <Text style={styles.footerText}>Dreyv / Treasury OS</Text>
+                    <Text style={styles.footerText}>DREYV / TREASURY OS</Text>
                     <Text
                         style={styles.footerText}
                         render={({ pageNumber, totalPages }) =>
-                            `Page ${pageNumber} of ${totalPages}`
+                            `PAGE ${pageNumber} OF ${totalPages}`
                         }
                     />
                 </View>
