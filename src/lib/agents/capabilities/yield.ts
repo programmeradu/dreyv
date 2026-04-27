@@ -643,36 +643,53 @@ const execute_dca = defineCapability({
 
     let dcaTransaction: string | null = null;
     let dcaError: string | null = null;
+    let dcaRequestId: string | null = null;
 
     if (ctx.walletAddress) {
       try {
         const totalInAmountRaw = Math.floor(totalAmount * Math.pow(10, decimals));
-        const dcaRes = await fetch("https://dca-api.jup.ag/v1/dca/create", {
+        // Jupiter Recurring API (replaces deprecated dca-api.jup.ag).
+        // Time-based: amount/cycle = inAmount / numberOfOrders, run every `interval` seconds.
+        const recurringHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        const jupKey = process.env.NEXT_PUBLIC_JUPITER_API_KEY || process.env.JUPITER_API_KEY;
+        if (jupKey) recurringHeaders["x-api-key"] = jupKey;
+        const recurringHost = jupKey
+          ? "https://api.jup.ag/recurring/v1/createOrder"
+          : "https://lite-api.jup.ag/recurring/v1/createOrder";
+        const dcaRes = await fetch(recurringHost, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: recurringHeaders,
           body: JSON.stringify({
-            payer: ctx.walletAddress,
+            user: ctx.walletAddress,
             inputMint: inMint,
             outputMint: outMint,
-            inAmount: totalInAmountRaw.toString(),
-            inAmountPerCycle: inAmountPerCycle.toString(),
-            cycleSecondsApart: cycleSeconds,
-            userPublicKey: ctx.walletAddress,
+            params: {
+              time: {
+                inAmount: totalInAmountRaw,
+                numberOfOrders: iterations,
+                interval: cycleSeconds,
+                minPrice: null,
+                maxPrice: null,
+                startAt: null,
+              },
+            },
           }),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (dcaRes.ok) {
-          const dcaData = await dcaRes.json();
-          if (dcaData.transaction || dcaData.swapTransaction) {
-            dcaTransaction = dcaData.transaction || dcaData.swapTransaction;
+          const dcaData = (await dcaRes.json()) as { transaction?: string; requestId?: string };
+          if (dcaData.transaction) {
+            dcaTransaction = dcaData.transaction;
+            dcaRequestId = dcaData.requestId ?? null;
           }
         } else {
-          dcaError = await dcaRes.text();
-          console.warn("[capability:execute_dca] Jupiter DCA API error:", dcaError);
+          dcaError = (await dcaRes.text()).slice(0, 300);
+          console.warn("[capability:execute_dca] Recurring API error:", dcaError);
         }
       } catch (e: unknown) {
         dcaError = e instanceof Error ? e.message : String(e);
-        console.warn("[capability:execute_dca] Jupiter DCA API call failed:", dcaError);
+        console.warn("[capability:execute_dca] Recurring API call failed:", dcaError);
       }
     }
 
@@ -698,6 +715,7 @@ const execute_dca = defineCapability({
       estimatedOutputPerCycle: estOutput,
       priceImpact: firstQuote?.priceImpactPct || null,
       serializedTransaction: dcaTransaction || undefined,
+      dcaRequestId: dcaRequestId || undefined,
       dcaApiError: dcaError || undefined,
       status: dcaTransaction ? "READY_FOR_SIGNATURE" : "READY_FOR_ACTIVATION",
       requiresApproval: true,
