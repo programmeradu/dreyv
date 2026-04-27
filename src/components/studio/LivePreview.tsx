@@ -236,16 +236,16 @@ export function LivePreview({
                 return { activeVault: _walletConnected ? 'Connected Wallet' : 'Demo Portfolio', balances: balances, tokens: tokens };
             };
 
+            // useTurnkey was removed — mini-apps should use the host's wallet
+            // adapter via serialized-tx flows instead. Keep a noop stub so
+            // legacy generated apps don't crash at import time.
             var useTurnkey = function() {
                 return {
                     getPublicKey: function() {
-                        return keystoneBridge.call('turnkey.getPublicKey');
+                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
                     },
-                    signTransaction: function(tx, description) {
-                        return keystoneBridge.call('turnkey.signTransaction', {
-                            transaction: tx,
-                            description: description || 'Sign transaction',
-                        });
+                    signTransaction: function() {
+                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
                     },
                 };
             };
