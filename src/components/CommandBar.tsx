@@ -436,6 +436,35 @@ export function CommandBar() {
     }
   }, [messages]);
 
+  // Stream tool-call progress into the active Plan block as it materializes.
+  useEffect(() => {
+    const planId = activePlanBlockIdRef.current;
+    if (!canvas || !planId) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    const toolParts = getToolParts(last);
+    if (toolParts.length === 0) return;
+    const steps = toolParts.map((p) => {
+      const out =
+        p.state === "output-available"
+          ? (p.output as Record<string, unknown> | undefined)
+          : undefined;
+      const failed = out?.success === false;
+      return {
+        title: String(p.toolName ?? "step"),
+        detail: typeof out?.message === "string" ? (out.message as string) : undefined,
+        status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
+      };
+    });
+    canvas.updateBlock(planId, {
+      payload: {
+        status: "running",
+        summary: `Running ${steps.length} step${steps.length === 1 ? "" : "s"}…`,
+        steps,
+      },
+    });
+  }, [messages, canvas]);
+
   // Auto-focus input within 150ms of opening (Requirement 1.7)
   useEffect(() => {
     if (open) {
