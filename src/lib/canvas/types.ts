@@ -27,6 +27,8 @@ export type CanvasBlockType =
   | "tokens-table"
   | "wallets-roster"
   | "runway"
+  | "mass-send"
+  | "policy-approvals"
   | "empty-bucket";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {
