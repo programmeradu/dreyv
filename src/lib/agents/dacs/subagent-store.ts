@@ -47,32 +47,55 @@ function computeNextRun(intervalSeconds: number, cronExpr: string | null | undef
 
 export async function spawnSubagent(input: SpawnSubagentInput): Promise<string | null> {
   if (!db) return null;
+  const interval = Math.max(60, input.intervalSeconds ?? 86_400);
+  const cronExpr = input.cronExpr?.trim() || null;
+  const nextRunAt = computeNextRun(interval, cronExpr);
+
+  // Build the full payload (Phase 4.1 columns included).
+  const fullValues = {
+    walletAddress: input.walletAddress,
+    parentCommandId: input.parentCommandId,
+    title: input.title.slice(0, 120),
+    rawText: input.rawText,
+    intent: input.intent as unknown as Record<string, unknown>,
+    planTemplate: input.planTemplate as unknown as Record<string, unknown>,
+    intervalSeconds: interval,
+    cronExpr,
+    trigger: (input.trigger ?? null) as unknown as Record<string, unknown> | null,
+    spawnedFrom: (input.spawnedFrom ?? null) as Record<string, unknown> | null,
+    nextRunAt,
+    maxTicks: input.maxTicks ?? null,
+    expiresAt: input.expiresAt ?? null,
+  };
+
   try {
-    const interval = Math.max(60, input.intervalSeconds ?? 86_400);
-    const cronExpr = input.cronExpr?.trim() || null;
-    const nextRunAt = computeNextRun(interval, cronExpr);
-    const [row] = await db
-      .insert(dacsSubagents)
-      .values({
-        walletAddress: input.walletAddress,
-        parentCommandId: input.parentCommandId,
-        title: input.title.slice(0, 120),
-        rawText: input.rawText,
-        intent: input.intent as unknown as Record<string, unknown>,
-        planTemplate: input.planTemplate as unknown as Record<string, unknown>,
-        intervalSeconds: interval,
-        cronExpr,
-        trigger: (input.trigger ?? null) as unknown as Record<string, unknown> | null,
-        spawnedFrom: (input.spawnedFrom ?? null) as Record<string, unknown> | null,
-        nextRunAt,
-        maxTicks: input.maxTicks ?? null,
-        expiresAt: input.expiresAt ?? null,
-      })
-      .returning({ id: dacsSubagents.id });
+    const [row] = await db.insert(dacsSubagents).values(fullValues).returning({ id: dacsSubagents.id });
     return row?.id ?? null;
   } catch (err) {
-    console.warn("[dacs:subagent] spawn failed:", err);
-    return null;
+    const msg = String((err as Error)?.message || err);
+    console.warn("[dacs:subagent] spawn failed (full insert):", msg);
+
+    // Graceful fallback when migration 0017 hasn't been applied yet — drop
+    // the new columns and retry with the legacy schema so users on older DBs
+    // still get a working "Watch this" CTA (just without cron/trigger meta).
+    const isMissingColumn =
+      /column .*(cron_expr|trigger|spawned_from|last_eval_at).* does not exist/i.test(msg) ||
+      /no column named (cron_expr|trigger|spawned_from|last_eval_at)/i.test(msg);
+    if (!isMissingColumn) return null;
+
+    try {
+      const { cronExpr: _c, trigger: _t, spawnedFrom: _s, ...legacy } = fullValues;
+      void _c; void _t; void _s;
+      const [row] = await db
+        .insert(dacsSubagents)
+        .values(legacy as typeof fullValues)
+        .returning({ id: dacsSubagents.id });
+      console.warn("[dacs:subagent] spawned via legacy fallback — apply migration 0017 to enable cron/triggers.");
+      return row?.id ?? null;
+    } catch (err2) {
+      console.warn("[dacs:subagent] legacy fallback also failed:", (err2 as Error)?.message || err2);
+      return null;
+    }
   }
 }
 
