@@ -102,9 +102,15 @@ export function AgentsRail() {
     const now = Date.now();
     const acc = new Map<string, DerivedAgent>();
 
-    // Seed baseline (idle by default).
+    // Seed baseline (idle by default). Names/watching come from TOOL_META so
+    // we never leak codenames.
     for (const b of BASELINE) {
-      acc.set(b.id, { id: b.id, name: b.name, watching: b.watching, tone: b.tone });
+      acc.set(b.id, {
+        id: b.id,
+        name: toolLabel(b.id),
+        watching: toolWatching(b.id),
+        tone: b.tone,
+      });
     }
 
     // Walk canvas blocks; attribute activity to personas. We look at:
@@ -115,22 +121,23 @@ export function AgentsRail() {
     //      and the rail looks dead.
     let toneIdx = 0;
     const bumpPersona = (rawId: string, at: number, title?: string) => {
-      const id = String(rawId).toLowerCase().trim();
+      const id = normalizeId(rawId);
       if (!id) return;
+      const friendlyTitle = title ? toolLabel(normalizeId(title)) : undefined;
       const existing = acc.get(id);
       if (existing) {
         if (!existing.lastAt || existing.lastAt < at) {
           existing.lastAt = at;
-          if (title) existing.lastTitle = title;
+          if (friendlyTitle) existing.lastTitle = friendlyTitle;
         }
       } else {
         acc.set(id, {
           id,
-          name: humanize(id),
-          watching: "live capability",
+          name: toolLabel(id),
+          watching: toolWatching(id),
           tone: TONE_PALETTE[toneIdx++ % TONE_PALETTE.length],
           lastAt: at,
-          lastTitle: title,
+          lastTitle: friendlyTitle,
         });
       }
     };
