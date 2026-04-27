@@ -115,27 +115,36 @@ function useRoomId() {
     const [roomId, setRoomId] = useState<string | null>(null);
     const { user: siwsUser } = useKeystoneAuth();
     const { activeVault } = useVault();
+    // Depend on the primitive id, NOT the user object — stops re-runs every render
+    const siwsUserId = siwsUser?.id ?? null;
 
     useEffect(() => {
         // Tie Liveblocks presence directly to the active Multisig Vault
         if (activeVault) {
-            setRoomId(`vault:${activeVault}`);
+            const next = `vault:${activeVault}`;
+            setRoomId((prev) => (prev === next ? prev : next));
             return;
         }
 
-        // If no vault is selected, fallback to their personal ID
-        if (siwsUser?.id) {
-            setRoomId(`user:${siwsUser.id}`);
+        if (siwsUserId) {
+            const next = `user:${siwsUserId}`;
+            setRoomId((prev) => (prev === next ? prev : next));
             return;
         }
 
+        let cancelled = false;
         authClient.getSession().then((session) => {
+            if (cancelled) return;
             const userId = session.data?.user?.id;
             if (userId && !activeVault) {
-                setRoomId(`user:${userId}`);
+                const next = `user:${userId}`;
+                setRoomId((prev) => (prev === next ? prev : next));
             }
         });
-    }, [siwsUser, activeVault]);
+        return () => {
+            cancelled = true;
+        };
+    }, [siwsUserId, activeVault]);
 
     return roomId;
 }
