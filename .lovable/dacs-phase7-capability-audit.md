@@ -55,8 +55,8 @@
 | `stake`           | ✅     | Marinade/Jito/Blaze via `ExecutionCoordinator.stake_sol` |
 | `yield_deposit`   | ✅     | Real Kamino + Meteora APIs, real Jupiter swap into share mint |
 | `yield_withdraw`  | ✅     | Real Kamino + Meteora + Jupiter ExactOut |
-| `rebalance`       | 🟡     | `ExecutionCoordinator.rebalance_portfolio` exists; verify it builds real txs (TBD line 444+) |
-| `execute_dca`     | 🟡     | Same as above — verify Jupiter DCA program ix is built |
+| `rebalance`       | ✅     | 7E.3 verified: `coordinator.rebalance_portfolio` quotes per-leg via Jupiter then builds real base64 swap txs (lines 650–687); returned in `serializedTransactions` |
+| `execute_dca`     | ✅     | 7E.3: switched from deprecated `dca-api.jup.ag/v1/dca/create` → current `https://api.jup.ag/recurring/v1/createOrder` (or lite host) with `params.time` shape; returns real signable tx + `requestId` |
 
 ### Intel (7)
 | ID                     | Status | Notes |
