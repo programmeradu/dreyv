@@ -152,7 +152,7 @@ export default function AdminMonitoringRoom() {
                 </div>
             </header>
 
-            <main className="relative z-10 px-6 py-8 overflow-y-auto">
+            <main className="relative z-10 px-6 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1800px] mx-auto pb-12">
 
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
