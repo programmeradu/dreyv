@@ -118,16 +118,19 @@ async function evalWallet(spec: TriggerSpec, fallbackWallet: string | null): Pro
   if (!wallet || !token || !Number.isFinite(threshold)) {
     return NOT_FIRED("wallet_trigger_invalid_spec");
   }
+  const apiKey = process.env.HELIUS_API_KEY;
+  if (!apiKey) return NOT_FIRED("helius_unavailable");
   try {
-    const helius = new HeliusClient();
-    const portfolio = await helius.getPortfolio(wallet).catch(() => null);
-    if (!portfolio) return NOT_FIRED("wallet_unavailable");
+    const helius = new HeliusClient(apiKey);
+    const portfolio = await helius
+      .getAssetsByOwner(wallet)
+      .catch(() => [] as Array<{ mint: string; symbol: string; amount: number }>);
     const match = portfolio.find(
-      (a) =>
+      (a: { mint: string; symbol: string }) =>
         (a.symbol || "").toLowerCase() === token.toLowerCase() ||
         (a.mint || "") === token,
     );
-    const balance = match ? Number(match.uiAmount ?? 0) : 0;
+    const balance = match ? Number((match as { amount?: number }).amount ?? 0) : 0;
     if (compare(balance, op, threshold)) {
       return FIRED(`${token} balance ${op} ${threshold} (now ${balance})`, balance);
     }
@@ -147,9 +150,7 @@ async function evalNews(spec: TriggerSpec): Promise<TriggerEvalResult> {
     const tavily = new TavilyClient(apiKey);
     // Quick search — tight topic, last 24h. We treat presence of any result
     // mentioning the query as "fired".
-    const results = await tavily
-      .search({ query, max_results: 5, search_depth: "basic" })
-      .catch(() => null);
+    const results = await tavily.search(query, "basic").catch(() => null);
     const hits = Array.isArray(results) ? results.length : 0;
     if (spec.op === "any" || hits > 0) {
       const top = Array.isArray(results) && results[0]?.title ? String(results[0].title) : `${hits} hits`;
@@ -174,15 +175,17 @@ async function evalHandoff(
     const conds = [eq(dacsHandoffs.specialist, specialist), gt(dacsHandoffs.createdAt, sinceTs)];
     if (fallbackWallet) conds.push(eq(dacsHandoffs.walletAddress, fallbackWallet));
     const rows = await db
-      .select({ id: dacsHandoffs.id, riskLevel: dacsHandoffs.riskLevel })
+      .select({ id: dacsHandoffs.id, status: dacsHandoffs.status })
       .from(dacsHandoffs)
       .where(and(...conds))
       .limit(5);
     if (rows.length === 0) return NOT_FIRED("no recent handoffs", 0);
     if (spec.riskLevel) {
-      const match = rows.find((r) => (r.riskLevel || "").toLowerCase() === spec.riskLevel!.toLowerCase());
-      if (!match) return NOT_FIRED(`no ${specialist} handoff at risk=${spec.riskLevel}`, rows.length);
-      return FIRED(`${specialist} reported ${spec.riskLevel}`, rows.length);
+      // `riskLevel` is overloaded here as a status filter (accepted|completed|rejected|deferred)
+      // since dacs_handoffs doesn't carry a separate risk severity column.
+      const match = rows.find((r) => (r.status || "").toLowerCase() === spec.riskLevel!.toLowerCase());
+      if (!match) return NOT_FIRED(`no ${specialist} handoff at status=${spec.riskLevel}`, rows.length);
+      return FIRED(`${specialist} reported status=${spec.riskLevel}`, rows.length);
     }
     return FIRED(`${specialist} reported ${rows.length} time(s)`, rows.length);
   } catch (err) {
