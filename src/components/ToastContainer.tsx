@@ -3,46 +3,38 @@
 import { useEffect, useState, useRef } from 'react';
 import { useToastStore, type Toast } from '@/lib/toast-notifications';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, AlertTriangle, XCircle, Sparkles, ArrowRight } from 'lucide-react';
+
+type ToastKind = Toast['type'];
 
 /**
- * Premium light-themed toast palette — matches Atlas/Dreyv violet-forward UI.
- * Each variant defines: icon, accent (left bar + dot + action btn), soft tinted bg for icon halo.
+ * Dreyv toast palette — brand-first, no stock status icons and no left rail.
  */
-const TOAST_CONFIG = {
-  success: {
-    icon: CheckCircle2,
-    accent: 'rgb(16, 185, 129)',         // emerald-500
-    accentSoft: 'rgba(16, 185, 129, 0.10)',
-    accentRing: 'rgba(16, 185, 129, 0.22)',
-    badgeBg: 'rgba(16, 185, 129, 0.10)',
-    badgeText: 'rgb(4, 120, 87)',         // emerald-700
-  },
-  error: {
-    icon: XCircle,
-    accent: 'rgb(244, 63, 94)',           // rose-500
-    accentSoft: 'rgba(244, 63, 94, 0.10)',
-    accentRing: 'rgba(244, 63, 94, 0.22)',
-    badgeBg: 'rgba(244, 63, 94, 0.10)',
-    badgeText: 'rgb(190, 18, 60)',
-  },
-  warning: {
-    icon: AlertTriangle,
-    accent: 'rgb(245, 158, 11)',          // amber-500
-    accentSoft: 'rgba(245, 158, 11, 0.12)',
-    accentRing: 'rgba(245, 158, 11, 0.25)',
-    badgeBg: 'rgba(245, 158, 11, 0.12)',
-    badgeText: 'rgb(180, 83, 9)',
-  },
-  info: {
-    icon: Sparkles,
-    accent: 'rgb(139, 92, 246)',          // violet-500 — brand
-    accentSoft: 'rgba(139, 92, 246, 0.10)',
-    accentRing: 'rgba(139, 92, 246, 0.22)',
-    badgeBg: 'rgba(139, 92, 246, 0.10)',
-    badgeText: 'rgb(109, 40, 217)',       // violet-700
-  },
+const TOAST_CONFIG: Record<ToastKind, { label: string; title: string }> = {
+  success: { label: '✓', title: 'Completed' },
+  error: { label: '!', title: 'Attention' },
+  warning: { label: '△', title: 'Review' },
+  info: { label: '◇', title: 'Signal' },
 };
+
+function DreyvToastMark({ type }: { type: ToastKind }) {
+  const config = TOAST_CONFIG[type] || TOAST_CONFIG.info;
+
+  return (
+    <div
+      className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-aurora-violet/20 bg-aurora-violet/10 text-aurora-violet mt-0.5"
+      aria-hidden="true"
+      title={config.title}
+    >
+      <svg viewBox="0 0 32 32" className="absolute inset-0 h-full w-full" fill="none">
+        <path d="M16 4.5 27.5 16 16 27.5 4.5 16 16 4.5Z" stroke="currentColor" strokeOpacity="0.34" strokeWidth="1.5" />
+        <path d="M16 8.5 23.5 16 16 23.5 8.5 16 16 8.5Z" stroke="currentColor" strokeOpacity="0.18" strokeWidth="1.25" />
+      </svg>
+      <span className="relative text-[13px] font-extrabold leading-none text-aurora-violet">
+        {config.label}
+      </span>
+    </div>
+  );
+}
 
 /**
  * Toast Container — top-right, stacked, max ~380px wide
@@ -74,8 +66,6 @@ export function ToastContainer() {
  * optional uppercase badge, optional filled pill action button.
  */
 function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; onDismiss: () => void }) {
-  const config = TOAST_CONFIG[toast.type] || TOAST_CONFIG.info;
-  const Icon = config.icon;
   const isDismissing = !!toast.dismissedAt;
 
   // Progress bar (subtle, sits at bottom)
@@ -106,47 +96,21 @@ function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; o
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.94, filter: 'blur(2px)' }}
       transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-      className="pointer-events-auto relative overflow-hidden rounded-xl group"
-      style={{
-        background: '#ffffff',
-        border: '1px solid rgb(226, 232, 240)', // slate-200
-        boxShadow:
-          '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(255,255,255,0.6) inset',
-      }}
+      className="pointer-events-auto relative overflow-hidden rounded-lg border border-border bg-popover shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_28px_-14px_rgba(15,23,42,0.22)] group"
     >
-      {/* Left accent bar */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-[3px]"
-        style={{ background: config.accent }}
-      />
-
-      <div className="flex items-start gap-3 pl-4 pr-3 py-3">
-        {/* Icon halo */}
-        <div
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 ring-1 ring-inset"
-          style={{
-            background: config.accentSoft,
-            // @ts-ignore — using --tw-ring style via inline ringColor
-            boxShadow: `inset 0 0 0 1px ${config.accentRing}`,
-          }}
-        >
-          <Icon size={15} style={{ color: config.accent }} strokeWidth={2.4} />
-        </div>
+      <div className="flex items-start gap-3 px-3 py-3">
+        <DreyvToastMark type={toast.type} />
 
         {/* Content */}
         <div className="flex-1 min-w-0 py-0.5">
           {/* Title row + optional badge */}
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[13px] font-semibold text-slate-900 leading-tight">
+            <p className="text-[13px] font-semibold text-popover-foreground leading-tight">
               {toast.title}
             </p>
             {toast.badge && (
               <span
-                className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
-                style={{
-                  background: config.badgeBg,
-                  color: config.badgeText,
-                }}
+                className="inline-flex items-center rounded-md bg-aurora-violet/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-aurora-violet"
               >
                 {toast.badge}
               </span>
@@ -154,7 +118,7 @@ function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; o
           </div>
 
           {toast.message && (
-            <p className="text-[12px] text-slate-500 mt-0.5 leading-snug line-clamp-2">
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
               {toast.message}
             </p>
           )}
@@ -162,11 +126,10 @@ function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; o
           {toast.action && (
             <button
               onClick={() => { toast.action?.onClick(); onDismiss(); }}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-white px-2.5 py-1 rounded-full transition-all hover:brightness-110 hover:shadow-sm active:scale-95"
-              style={{ background: config.accent }}
+              className="mt-2 inline-flex items-center gap-1 rounded-full bg-aurora-violet px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-all hover:brightness-110 hover:shadow-sm active:scale-95"
             >
               {toast.action.label}
-              <ArrowRight size={11} strokeWidth={2.5} />
+              <span aria-hidden="true" className="text-[12px] leading-none">→</span>
             </button>
           )}
         </div>
@@ -174,22 +137,21 @@ function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; o
         {/* Close */}
         <button
           onClick={onDismiss}
-          className="shrink-0 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors mt-0.5"
+          className="shrink-0 p-1 rounded-md text-muted-foreground/70 hover:text-popover-foreground hover:bg-muted transition-colors mt-0.5"
           aria-label="Dismiss notification"
         >
-          <X size={14} />
+          <span aria-hidden="true" className="block text-[15px] leading-none">×</span>
         </button>
       </div>
 
       {/* Progress bar — ultra-subtle */}
       {toast.duration > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-muted">
           <motion.div
-            className="h-full"
+            className="h-full bg-aurora-violet"
             style={{
-              background: config.accent,
               width: `${progress}%`,
-              opacity: 0.55,
+              opacity: 0.5,
             }}
             transition={{ duration: 0.1, ease: 'linear' }}
           />
