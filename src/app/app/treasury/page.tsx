@@ -308,15 +308,15 @@ function TreasuryBlockSeeder({
       const id = `tr-masssend-${activeVault}`;
       addBlock({
         id,
-        type: "empty-bucket",
+        type: "mass-send",
         source: "page",
         origin: "/app/treasury",
         title: "Mass send-outs",
         subtitle: "Payroll, airdrops, grants — one batch, one approval",
         payload: {
-          description:
-            "Upload a CSV of recipients or pick an address book. Dreyv will simulate, route through your multisig, and report back per-recipient.",
-          prompt: "Run a mass payout from my treasury",
+          wallet: activeVault,
+          isMultisig,
+          defaultToken: stableBalance > 0 ? "USDC" : "SOL",
         },
       });
       ids.push(id);
@@ -327,15 +327,14 @@ function TreasuryBlockSeeder({
       const id = `tr-policy-${activeVault}`;
       addBlock({
         id,
-        type: "empty-bucket",
+        type: "policy-approvals",
         source: "page",
         origin: "/app/treasury",
         title: "Policy & approvals",
         subtitle: "Spending limits, allowlists, signer roster",
         payload: {
-          description:
-            "Set spending limits per wallet, allowlist recipient addresses, and let Dreyv auto-approve routine moves while flagging the unusual.",
-          prompt: "Set up treasury policies and spending limits",
+          wallet: activeVault,
+          isMultisig,
         },
       });
       ids.push(id);
