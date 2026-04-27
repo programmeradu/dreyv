@@ -136,9 +136,7 @@ function NarrativeBlock({ block }: { block: CanvasBlock }) {
   const message = asString(block.payload.message ?? block.payload.detail);
   return (
     <BlockShell block={block} accent="slate">
-      {message ? (
-        <p className="text-sm leading-relaxed text-slate-700">{message}</p>
-      ) : null}
+      {message ? <ClampedBody text={message} /> : null}
     </BlockShell>
   );
 }
