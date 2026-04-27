@@ -206,10 +206,10 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
 
-    // Footer
+    // Footer (rendered as a fixed element on every page)
     footer: {
         position: "absolute",
-        bottom: 24,
+        bottom: 20,
         left: PAGE_MARGIN,
         right: PAGE_MARGIN,
         flexDirection: "row",
