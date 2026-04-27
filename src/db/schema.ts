@@ -937,6 +937,10 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   // Phase 3: derivation suggestions awaiting user action (kind/value/rationale/confidence/createdAt).
   pendingSuggestions: jsonb('pending_suggestions').notNull().default('[]'),
   lastDerivationAt: timestamp('last_derivation_at'),
+  // Phase 7D.1: extended treasury-policy rules persisted by `set_treasury_policy`.
+  // Stores fields that don't have dedicated columns (policyName, runwayFloorMonths,
+  // maxProtocolPct, maxSlippagePct, requireAudit, active flag, history[]).
+  policyMeta: jsonb('policy_meta'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
