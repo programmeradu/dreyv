@@ -12,6 +12,8 @@ import { db } from "@/db";
 import { dacsSubagents } from "@/db/schema";
 import { and, desc, eq, lte } from "drizzle-orm";
 import type { Intent, Plan } from "./types";
+import { nextRunAfter } from "./cron";
+import type { TriggerSpec } from "./triggers";
 
 export interface SpawnSubagentInput {
   walletAddress: string | null;
@@ -21,14 +23,34 @@ export interface SpawnSubagentInput {
   intent: Intent;
   planTemplate: Plan;
   intervalSeconds?: number;
+  /** Optional 5-field cron expression. Takes precedence over intervalSeconds. */
+  cronExpr?: string | null;
+  /** Optional conditional trigger spec (price / wallet / news / handoff). */
+  trigger?: TriggerSpec | null;
+  /** Provenance — e.g. { kind:"canvas_block", blockId, blockType, title }. */
+  spawnedFrom?: Record<string, unknown> | null;
   maxTicks?: number | null;
   expiresAt?: Date | null;
+}
+
+/**
+ * Compute the next run time. Cron expression wins when supplied & valid;
+ * otherwise we fall back to interval-from-now (legacy behavior).
+ */
+function computeNextRun(intervalSeconds: number, cronExpr: string | null | undefined): Date {
+  if (cronExpr) {
+    const next = nextRunAfter(cronExpr, new Date());
+    if (next) return next;
+  }
+  return new Date(Date.now() + intervalSeconds * 1000);
 }
 
 export async function spawnSubagent(input: SpawnSubagentInput): Promise<string | null> {
   if (!db) return null;
   try {
     const interval = Math.max(60, input.intervalSeconds ?? 86_400);
+    const cronExpr = input.cronExpr?.trim() || null;
+    const nextRunAt = computeNextRun(interval, cronExpr);
     const [row] = await db
       .insert(dacsSubagents)
       .values({
@@ -39,7 +61,10 @@ export async function spawnSubagent(input: SpawnSubagentInput): Promise<string |
         intent: input.intent as unknown as Record<string, unknown>,
         planTemplate: input.planTemplate as unknown as Record<string, unknown>,
         intervalSeconds: interval,
-        nextRunAt: new Date(Date.now() + interval * 1000),
+        cronExpr,
+        trigger: (input.trigger ?? null) as unknown as Record<string, unknown> | null,
+        spawnedFrom: (input.spawnedFrom ?? null) as Record<string, unknown> | null,
+        nextRunAt,
         maxTicks: input.maxTicks ?? null,
         expiresAt: input.expiresAt ?? null,
       })
@@ -173,7 +198,8 @@ export async function recordTick(input: RecordTickInput) {
         lastTickAt: new Date(),
         lastTickStatus: input.status,
         lastTickNote: input.note ?? null,
-        nextRunAt: new Date(Date.now() + existing.intervalSeconds * 1000),
+        // Honor cron when present, else fall back to interval.
+        nextRunAt: computeNextRun(existing.intervalSeconds, existing.cronExpr),
         status: newStatus,
         updatedAt: new Date(),
       })
@@ -183,5 +209,31 @@ export async function recordTick(input: RecordTickInput) {
   } catch (err) {
     console.warn("[dacs:subagent] recordTick failed:", err);
     return null;
+  }
+}
+
+/**
+ * Persist trigger evaluation output AND advance next_run_at without bumping
+ * tick_count. Used by the runtime when a conditional trigger said "not yet".
+ */
+export async function recordTriggerEval(
+  id: string,
+  meta: Record<string, unknown>,
+): Promise<void> {
+  if (!db) return;
+  try {
+    const existing = await getSubagent(id);
+    if (!existing) return;
+    await db
+      .update(dacsSubagents)
+      .set({
+        triggerMeta: meta,
+        lastEvalAt: new Date(),
+        nextRunAt: computeNextRun(existing.intervalSeconds, existing.cronExpr),
+        updatedAt: new Date(),
+      })
+      .where(eq(dacsSubagents.id, id));
+  } catch (err) {
+    console.warn("[dacs:subagent] recordTriggerEval failed:", err);
   }
 }

@@ -991,6 +991,12 @@ export const dacsSubagents = pgTable('dacs_subagents', {
   lastTickStatus: text('last_tick_status'),
   lastTickNote: text('last_tick_note'),
   expiresAt: timestamp('expires_at'),
+  // Phase 4.1 — cron + conditional triggers + canvas spawn provenance.
+  cronExpr: text('cron_expr'),
+  trigger: jsonb('trigger'),
+  triggerMeta: jsonb('trigger_meta'),
+  spawnedFrom: jsonb('spawned_from'),
+  lastEvalAt: timestamp('last_eval_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({

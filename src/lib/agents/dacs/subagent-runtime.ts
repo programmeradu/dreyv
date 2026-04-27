@@ -12,7 +12,8 @@
 import { randomUUID } from "node:crypto";
 import { inngest } from "../inngest-client";
 import { publish } from "../bus";
-import { dueSubagents, getSubagent, recordTick } from "./subagent-store";
+import { dueSubagents, getSubagent, recordTick, recordTriggerEval } from "./subagent-store";
+import { evaluateTrigger, type TriggerSpec } from "./triggers";
 
 export const subagentTickerCron = inngest.createFunction(
   {
@@ -53,6 +54,32 @@ export const subagentTick = inngest.createFunction(
     const sa = await step.run("load", async () => getSubagent(subagentId));
     if (!sa || sa.status !== "active") {
       return { subagentId, skipped: true, reason: sa ? sa.status : "not_found" };
+    }
+
+    // Conditional trigger gate — if the subagent has a `trigger` spec and it
+    // does NOT fire, skip dispatch but advance next_run_at so we re-check.
+    const triggerSpec = (sa.trigger ?? null) as TriggerSpec | null;
+    if (triggerSpec) {
+      const evalResult = await step.run("evaluate-trigger", async () =>
+        evaluateTrigger(triggerSpec, sa.walletAddress, sa.lastEvalAt ?? null),
+      );
+      if (!evalResult.fired) {
+        await step.run("record-skip", async () =>
+          recordTriggerEval(sa.id, {
+            skippedAt: evalResult.evaluatedAt,
+            lastReason: evalResult.reason,
+            lastValue: evalResult.lastValue,
+          }),
+        );
+        return { subagentId, skipped: true, reason: evalResult.reason };
+      }
+      await step.run("record-fire", async () =>
+        recordTriggerEval(sa.id, {
+          firedAt: evalResult.evaluatedAt,
+          lastReason: evalResult.reason,
+          lastValue: evalResult.lastValue,
+        }),
+      );
     }
 
     // Submit a fresh command so the existing DACS pipeline handles policy +
