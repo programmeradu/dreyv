@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin/AdminMetricsPanel";
 import { MetricCard } from "@/components/admin/MetricCard";
+import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
@@ -338,6 +339,9 @@ export default function AdminMonitoringRoom() {
                             />
                         </MetricGrid>
                     </AdminMetricsPanel>
+
+                    {/* PANEL 9: Inngest agent runtime */}
+                    <InngestHealthPanel />
                 </div>
             </main>
         </div>
