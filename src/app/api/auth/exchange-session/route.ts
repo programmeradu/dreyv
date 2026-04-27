@@ -34,8 +34,9 @@ export async function GET() {
     const response = NextResponse.json({ state: 'ready' });
     response.cookies.set(OAUTH_STATE_COOKIE, stateToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
+        partitioned: true,
         path: '/',
         maxAge: 600, // 10 minutes
     });
@@ -240,8 +241,9 @@ export async function POST(request: NextRequest) {
 
         response.cookies.set(COOKIE_NAME, token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: true,
+            sameSite: 'none',
+            partitioned: true,
             path: '/',
             maxAge: SESSION_MAX_AGE,
         });
@@ -249,8 +251,9 @@ export async function POST(request: NextRequest) {
         // Clear the OAuth state cookie
         response.cookies.set(OAUTH_STATE_COOKIE, '', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: true,
+            sameSite: 'none',
+            partitioned: true,
             path: '/',
             maxAge: 0,
         });
