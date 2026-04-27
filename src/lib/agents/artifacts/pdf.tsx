@@ -177,9 +177,9 @@ const styles = StyleSheet.create({
     // Status pill (text-only, no fills)
     statusBase: {
         fontSize: 7.5,
-        letterSpacing: 0.6,
         textTransform: "uppercase",
         fontFamily: "Helvetica-Bold",
+        paddingHorizontal: 6,
     },
     statusExecuted: { color: "#15803d" },
     statusRejected: { color: "#b91c1c" },
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     footerText: {
         fontSize: 7.5,
         color: INK_30,
-        letterSpacing: 0.5,
         textTransform: "uppercase",
+        fontFamily: "Helvetica-Bold",
     },
 });
 
