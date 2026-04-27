@@ -884,8 +884,8 @@ const grant_milestone_release = defineCapability({
           }),
         ];
       } else {
-        const { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountIdempotentInstruction } =
-          await import("@solana/spl-token");
+        const spl = (await import("@solana/spl-token")) as any;
+        const { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountIdempotentInstruction } = spl;
         const mintKey = new PublicKey(grant.mint);
         const fromAta = await getAssociatedTokenAddress(mintKey, sender);
         const toAta = await getAssociatedTokenAddress(mintKey, recipient);
