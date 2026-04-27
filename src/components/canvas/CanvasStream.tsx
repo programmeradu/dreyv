@@ -12,8 +12,15 @@ import { Reorder, AnimatePresence, motion } from "framer-motion";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { CanvasBlockView } from "./blocks/CanvasBlockView";
 
-export function CanvasStream() {
-  const { blocks, reorderBlocks } = useCanvas();
+export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {}) {
+  const { blocks: allBlocks, reorderBlocks } = useCanvas();
+  const blocks = allBlocks.filter((b) => {
+    if (!scope) return true;
+    const origin = b.origin ?? "";
+    if (scope === "treasury") return origin.startsWith("/app/treasury");
+    // dashboard: anything not explicitly scoped to a sub-page
+    return !origin.startsWith("/app/treasury") && !origin.startsWith("/app/analytics");
+  });
   const pinned = blocks.filter((b) => b.pinned);
   const ephemeral = blocks.filter((b) => !b.pinned);
 
