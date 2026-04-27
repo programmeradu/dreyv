@@ -450,10 +450,45 @@ export function CommandBar() {
           ? (p.output as Record<string, unknown> | undefined)
           : undefined;
       const failed = out?.success === false;
+
+      // Derive sub-steps from common output fields so the AgentsRail can light
+      // up the pipeline agents (Simulation Firewall, Route Sim, Risk, MEV)
+      // that ran inside this single tool call.
+      const subSteps: Array<{ title: string; status: string }> = [];
+      if (out) {
+        if (out.firewallChecks && typeof out.firewallChecks === "object") {
+          const checks = out.firewallChecks as Record<string, string>;
+          const fwFailed = Object.values(checks).some((v) => v === "fail");
+          subSteps.push({
+            title: "simulation_firewall",
+            status: fwFailed ? "failed" : "success",
+          });
+        }
+        if (typeof out.simulationPassed === "boolean") {
+          subSteps.push({
+            title: "route_simulator",
+            status: out.simulationPassed ? "success" : "failed",
+          });
+        }
+        if (out.riskLevel) {
+          subSteps.push({
+            title: "risk_sentinel",
+            status: out.riskLevel === "critical" || out.riskLevel === "high" ? "failed" : "success",
+          });
+        }
+        if (out.route || out.routePlan) {
+          subSteps.push({ title: "mev_guard", status: "success" });
+        }
+        if (out.inputToken || out.outputToken || out.inputMint || out.outputMint) {
+          subSteps.push({ title: "token_resolver", status: "success" });
+        }
+      }
+
       return {
         title: String(p.toolName ?? "step"),
         detail: typeof out?.message === "string" ? (out.message as string) : undefined,
         status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
+        subSteps,
       };
     });
     canvas.updateBlock(planId, {
