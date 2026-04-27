@@ -31,10 +31,6 @@ export interface JsonRpcResponse {
 // ─── Bridge Methods ─────────────────────────────────────────────────
 
 export const BridgeMethods = {
-  // Turnkey wallet operations
-  TURNKEY_GET_PK: "turnkey.getPublicKey",
-  TURNKEY_SIGN: "turnkey.signTransaction",
-
   // Proxy fetch (KIMI connectivity)
   PROXY_REQUEST: "proxy.fetch",
 

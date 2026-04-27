@@ -13,8 +13,6 @@ export interface KeystoneBridge {
 
 export const BridgeMethods = {
   // Core
-  TURNKEY_GET_PK: "turnkey.getPublicKey",
-  TURNKEY_SIGN: "turnkey.signTransaction",
   PROXY_REQUEST: "proxy.fetch",
   EVENT_EMIT: "event.emit",
   // Sovereign OS 2026

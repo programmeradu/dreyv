@@ -8,7 +8,6 @@
 
 export {
   useVault,
-  useTurnkey,
   useFetch,
   AppEventBus,
   useEncryptedSecret,
@@ -36,7 +35,6 @@ export { verifyZKSP } from "./utils/zksp";
 export type {
   Token,
   VaultState,
-  TurnkeyState,
   FetchOptions,
   FetchResult,
   EventBus,

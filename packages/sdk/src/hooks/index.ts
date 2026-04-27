@@ -1,5 +1,5 @@
 export { useVault } from "./useVault";
-export { useTurnkey } from "./useTurnkey";
+
 export { useFetch } from "./useFetch";
 export { AppEventBus } from "./AppEventBus";
 // Sovereign OS 2026
