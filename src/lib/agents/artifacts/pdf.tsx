@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: PAGE_MARGIN,
         fontSize: 9.5,
         color: INK,
-        fontFamily: "Helvetica",
+        fontFamily: "Inter", fontWeight: 400,
         backgroundColor: PAGE_BG,
         lineHeight: 1.4,
     },
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     brand: {
         fontSize: 11,
         color: INK,
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
     },
     mastheadMeta: {
         fontSize: 8,
@@ -83,12 +83,12 @@ const styles = StyleSheet.create({
         fontSize: 8,
         color: VIOLET,
 
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
         marginBottom: 10,
     },
     title: {
         fontSize: 28,
-        fontFamily: "Helvetica",
+        fontFamily: "Inter", fontWeight: 400,
         color: INK,
         marginBottom: 14,
         lineHeight: 1.1,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 9,
         color: INK_50,
-        fontFamily: "Helvetica",
+        fontFamily: "Inter", fontWeight: 400,
     },
 
     // KPI strip
@@ -121,11 +121,11 @@ const styles = StyleSheet.create({
         color: INK_50,
 
         marginBottom: 8,
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
     },
     kpiValue: {
         fontSize: 18,
-        fontFamily: "Helvetica",
+        fontFamily: "Inter", fontWeight: 400,
         color: INK,
     },
     kpiAccent: { color: VIOLET },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 11,
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
         color: INK,
 
     },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
         fontSize: 8,
         color: INK_50,
 
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
     },
 
     // Borderless tables
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
         fontSize: 7,
         color: INK_50,
 
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
         paddingHorizontal: 6,
     },
     tr: {
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     statusBase: {
         fontSize: 7.5,
 
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
         paddingHorizontal: 6,
     },
     statusExecuted: { color: "#15803d" },
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
         fontSize: 7.5,
         color: INK_30,
 
-        fontFamily: "Helvetica-Bold",
+        fontFamily: "Inter", fontWeight: 700,
     },
 });
 
