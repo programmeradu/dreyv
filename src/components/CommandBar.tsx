@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
 import { HandoffStream } from "@/components/commandbar/HandoffStream";
 import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
+import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,10 +145,13 @@ export function CommandBar() {
   const { vaultTokens } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
+  const canvas = useOptionalCanvas();
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalPanelRef = useRef<HTMLDivElement>(null);
+  // Currently-streaming plan block id (one per in-flight prompt).
+  const activePlanBlockIdRef = useRef<string | null>(null);
 
   // ─── Signing ───────────────────────────────────────────────────────────────
 
@@ -246,6 +250,45 @@ export function CommandBar() {
       toast.error("Agent Error", { description: msg });
     },
     onFinish: ({ message }) => {
+      // Finalize the active plan block with the full tool sequence + outcome.
+      const planId = activePlanBlockIdRef.current;
+      if (canvas && planId) {
+        const toolParts = getToolParts(message);
+        const steps = toolParts.map((p) => {
+          const out = (p.state === "output-available"
+            ? (p.output as Record<string, unknown> | undefined)
+            : undefined);
+          const failed = out?.success === false;
+          return {
+            title: String(p.toolName ?? "step"),
+            detail:
+              typeof out?.message === "string"
+                ? (out.message as string)
+                : typeof out?.operation === "string"
+                  ? `operation: ${out.operation as string}`
+                  : undefined,
+            status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
+          };
+        });
+        const anyFailed = steps.some((s) => s.status === "failed");
+        const textPart = message.parts?.find((p) => p.type === "text") as
+          | { text?: string }
+          | undefined;
+        canvas.updateBlock(planId, {
+          subtitle: anyFailed ? "Completed with errors" : "Complete",
+          payload: {
+            status: anyFailed ? "error" : "complete",
+            summary:
+              textPart?.text?.slice(0, 240) ||
+              (steps.length
+                ? `Ran ${steps.length} step${steps.length === 1 ? "" : "s"}.`
+                : "Agent finished."),
+            steps,
+          },
+        });
+        activePlanBlockIdRef.current = null;
+      }
+
       for (const part of getToolParts(message)) {
         if (part.state !== "output-available") continue;
         const output = part.output as Record<string, unknown> | undefined;
@@ -393,6 +436,35 @@ export function CommandBar() {
     }
   }, [messages]);
 
+  // Stream tool-call progress into the active Plan block as it materializes.
+  useEffect(() => {
+    const planId = activePlanBlockIdRef.current;
+    if (!canvas || !planId) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    const toolParts = getToolParts(last);
+    if (toolParts.length === 0) return;
+    const steps = toolParts.map((p) => {
+      const out =
+        p.state === "output-available"
+          ? (p.output as Record<string, unknown> | undefined)
+          : undefined;
+      const failed = out?.success === false;
+      return {
+        title: String(p.toolName ?? "step"),
+        detail: typeof out?.message === "string" ? (out.message as string) : undefined,
+        status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
+      };
+    });
+    canvas.updateBlock(planId, {
+      payload: {
+        status: "running",
+        summary: `Running ${steps.length} step${steps.length === 1 ? "" : "s"}…`,
+        steps,
+      },
+    });
+  }, [messages, canvas]);
+
   // Auto-focus input within 150ms of opening (Requirement 1.7)
   useEffect(() => {
     if (open) {
@@ -431,6 +503,28 @@ export function CommandBar() {
       setInput("");
       setPromptMode("auto");
       setSubmitPulse(true);
+
+      // Spawn a pinned Plan block immediately so the dashboard reflects the
+      // command before the model has even responded. We update it as tool
+      // parts stream in (see effect below) and finalize on `onFinish`.
+      if (canvas) {
+        const id = canvas.addBlock({
+          type: "plan",
+          source: "commandbar",
+          origin: "/commandbar",
+          title: text.length > 64 ? text.slice(0, 61) + "…" : text,
+          subtitle: "Planning…",
+          pinned: true,
+          payload: {
+            prompt: text,
+            status: "planning",
+            summary: "Agent is analysing your command.",
+            steps: [],
+          },
+        });
+        activePlanBlockIdRef.current = id;
+      }
+
       try {
         await sendMessage(
           { text },
@@ -444,9 +538,19 @@ export function CommandBar() {
         );
       } catch (err) {
         console.error("[CommandBar] Send error:", err);
+        const planId = activePlanBlockIdRef.current;
+        if (canvas && planId) {
+          canvas.updateBlock(planId, {
+            subtitle: "Failed",
+            payload: {
+              status: "error",
+              summary: err instanceof Error ? err.message : "Command failed.",
+            },
+          });
+        }
       }
     },
-    [input, agentBusy, sendMessage, vaultTokens, publicKey],
+    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas],
   );
 
   const handleChipClick = useCallback((text: string) => {

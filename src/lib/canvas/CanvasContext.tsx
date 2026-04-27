@@ -90,6 +90,20 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
     return id;
   }, []);
 
+  const updateBlock: CanvasContextValue["updateBlock"] = useCallback((id, patch) => {
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const { payload: payloadPatch, ...rest } = patch;
+        return {
+          ...b,
+          ...rest,
+          payload: payloadPatch ? { ...b.payload, ...payloadPatch } : b.payload,
+        };
+      }),
+    );
+  }, []);
+
   const removeBlock = useCallback((id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
@@ -118,8 +132,8 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<CanvasContextValue>(
-    () => ({ blocks, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }),
-    [blocks, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral],
+    () => ({ blocks, addBlock, updateBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }),
+    [blocks, addBlock, updateBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral],
   );
 
   return (

@@ -52,6 +52,13 @@ export interface CanvasActions {
       pinned?: boolean;
     },
   ) => string;
+  updateBlock: (
+    id: string,
+    patch:
+      | Partial<Omit<CanvasBlock, "id" | "createdAt" | "payload">> & {
+          payload?: Record<string, unknown>;
+        },
+  ) => void;
   removeBlock: (id: string) => void;
   pinBlock: (id: string, pinned?: boolean) => void;
   reorderBlocks: (ids: string[]) => void;

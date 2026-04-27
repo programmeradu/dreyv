@@ -97,19 +97,65 @@ function ChartBlock({ block }: { block: CanvasBlock }) {
 }
 
 function PlanBlock({ block }: { block: CanvasBlock }) {
-  const steps = asArray<{ title?: string; detail?: string }>(block.payload.steps);
+  const steps = asArray<{ title?: string; detail?: string; status?: string }>(block.payload.steps);
   const summary = asString(block.payload.summary ?? block.payload.description);
+  const status = asString(block.payload.status, "planning");
   const action = block.payload.action as { href?: string; label?: string } | undefined;
+
+  const statusTone =
+    status === "running" || status === "streaming"
+      ? "violet"
+      : status === "complete" || status === "success"
+        ? "emerald"
+        : status === "error" || status === "failed"
+          ? "rose"
+          : "slate";
+
+  const stepBadge = (s: string | undefined, idx: number) => {
+    if (s === "success" || s === "complete" || s === "done") {
+      return (
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <Check className="h-3 w-3" />
+        </span>
+      );
+    }
+    if (s === "running" || s === "active") {
+      return (
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+        </span>
+      );
+    }
+    if (s === "error" || s === "failed") {
+      return (
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+          <ShieldAlert className="h-3 w-3" />
+        </span>
+      );
+    }
+    return (
+      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700">
+        {idx + 1}
+      </span>
+    );
+  };
+
   return (
     <BlockShell block={block} accent="violet">
-      {summary && <p className="text-sm leading-relaxed text-slate-700">{summary}</p>}
+      <div className="flex items-center justify-between gap-3">
+        {summary && <p className="text-sm leading-relaxed text-slate-700">{summary}</p>}
+        <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
+          {status === "running" || status === "streaming" ? (
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+          ) : null}
+          {status}
+        </Pill>
+      </div>
       {steps.length > 0 && (
         <ol className="mt-3 space-y-2">
-          {steps.slice(0, 6).map((s, i) => (
+          {steps.slice(0, 8).map((s, i) => (
             <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700">
-                {i + 1}
-              </span>
+              {stepBadge(s.status, i)}
               <div className="min-w-0">
                 <p className="font-medium text-slate-900">{asString(s.title, `Step ${i + 1}`)}</p>
                 {s.detail && <p className="text-slate-600">{s.detail}</p>}
