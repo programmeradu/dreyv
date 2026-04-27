@@ -675,21 +675,6 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                     </View>
                 </View>
 
-                {/* Footer */}
-                <View style={styles.footer} fixed>
-                    <Text style={styles.footerText}>DREYV</Text>
-                    <View style={styles.footerCenter}>
-                        <Text style={styles.footerText}>TREASURY REPORT</Text>
-                        <View style={styles.footerMark} />
-                        <Text style={styles.footerText}>{periodLabel.toUpperCase()}</Text>
-                    </View>
-                    <Text
-                        style={styles.footerText}
-                        render={({ pageNumber, totalPages }) =>
-                            `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
-                        }
-                    />
-                </View>
             </Page>
         </Document>
     );
