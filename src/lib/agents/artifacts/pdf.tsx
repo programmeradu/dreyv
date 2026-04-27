@@ -289,11 +289,10 @@ const styles = StyleSheet.create({
         fontFamily: "Courier",
     },
     attestation: {
-        fontSize: 8,
+        fontSize: 8.5,
         color: INK_70,
         fontFamily: "SourceSerif", fontWeight: 400,
-        fontStyle: "italic",
-        lineHeight: 1.5,
+        lineHeight: 1.55,
     },
 
     // Footer (rendered as a fixed element on every page)
