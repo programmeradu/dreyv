@@ -21,10 +21,11 @@
 import { Inngest, type InngestHandlerArgs } from "inngest";
 import { and, eq, sql as dsql } from "drizzle-orm";
 import { db } from "@/db";
-import { runwayAutopilotRules, agentEpisodes } from "@/db/schema";
+import { runwayAutopilotRules, agentEpisodes, users, userSettings } from "@/db/schema";
 import { buildTreasuryReportData } from "@/lib/agents/artifacts/build-report";
 import { renderTreasuryReportPdf } from "@/lib/agents/artifacts/pdf";
 import { uploadArtifact } from "@/lib/agents/artifacts/storage";
+import { sendNotificationEmail } from "@/lib/email-service";
 
 const inngest = new Inngest({ id: "dacs-monthly-burn-statement" });
 
