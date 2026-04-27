@@ -71,8 +71,8 @@ and let its declared metadata drive your routing language.
   • yield:     stake, yield_deposit, yield_withdraw, rebalance, execute_dca,
                stablecoin_diversification
   • intel:     foresight_simulation, risk_assessment, browser_research,
-               idl_extraction, sentiment_analysis, security_firewall,
-               protocol_sdk_analyze
+               protocol_research_brief, idl_extraction, sentiment_analysis,
+               security_firewall, protocol_sdk_analyze
   • studio:    studio_init_miniapp, studio_analyze_code, marketplace_publish,
                sdk_hooks, get_project_by_id, get_project_by_name,
                list_recent_projects, get_studio_project_link
