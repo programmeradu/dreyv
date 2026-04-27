@@ -715,6 +715,7 @@ const execute_dca = defineCapability({
       estimatedOutputPerCycle: estOutput,
       priceImpact: firstQuote?.priceImpactPct || null,
       serializedTransaction: dcaTransaction || undefined,
+      dcaRequestId: dcaRequestId || undefined,
       dcaApiError: dcaError || undefined,
       status: dcaTransaction ? "READY_FOR_SIGNATURE" : "READY_FOR_ACTIVATION",
       requiresApproval: true,
