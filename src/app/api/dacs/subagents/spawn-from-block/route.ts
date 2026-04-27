@@ -36,18 +36,37 @@ const BodySchema = z.object({
   rawText: z.string().min(1).max(2000),
   intervalSeconds: z.number().int().min(60).max(60 * 60 * 24 * 30).optional(),
   cronExpr: z.string().min(1).max(120).optional(),
+  // Trigger spec — recursive (composite kinds carry `children`). We accept
+  // any object whose top-level `kind` is in the supported set; deeper
+  // validation happens in the evaluator at runtime.
   trigger: z
     .object({
-      kind: z.enum(["price", "wallet", "news", "handoff"]),
+      kind: z.enum([
+        "price",
+        "price_change",
+        "wallet",
+        "tx",
+        "yield",
+        "unlock",
+        "sentiment",
+        "news",
+        "handoff",
+        "all",
+        "any",
+      ]),
       op: z.enum(["lt", "gt", "lte", "gte", "eq", "contains", "any"]).optional(),
       symbol: z.string().optional(),
+      windowMinutes: z.number().int().positive().optional(),
       token: z.string().optional(),
       walletAddress: z.string().optional(),
+      pool: z.string().optional(),
       query: z.string().optional(),
       specialist: z.string().optional(),
       riskLevel: z.string().optional(),
       value: z.union([z.number(), z.string()]).optional(),
+      children: z.array(z.record(z.unknown())).optional(),
     })
+    .passthrough()
     .optional(),
   maxTicks: z.number().int().positive().max(10_000).optional(),
   expiresAt: z.string().datetime().optional(),
