@@ -15,6 +15,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { useDistributionFiles, parseDistributionFile, type DistributionEntry } from "@/lib/hooks/useDistributionFiles";
+import { useVault, type RegisteredVault } from "@/lib/contexts/VaultContext";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
@@ -592,24 +595,208 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
 }
 
+/**
+ * Compact, interactive wallet & vault manager.
+ *
+ * Real affordances (no CommandBar detour):
+ *  • Link a connected wallet via the existing wallet-adapter modal
+ *  • Paste any Solana address to watch read-only
+ *  • Switch the active vault (one click)
+ *  • Inline rename + remove
+ *  • Tier limit surfaced as a violet pill
+ *
+ * Squads multisig auto-detection is handled by VaultContext on activation —
+ * we only mark `kind: 'multisig'` when the user explicitly toggles it.
+ */
 function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
-  const wallets = asArray<WalletRow>(block.payload.wallets);
+  // Legacy payload (still rendered if no live registry yet)
+  const fallbackWallets = asArray<WalletRow>(block.payload.wallets);
+  const {
+    activeVault,
+    setActiveVault,
+    registeredVaults,
+    registryLoading,
+    tierLimit,
+    addVault,
+    renameVault,
+    removeVault,
+  } = useVault();
+  const { setVisible: openWalletModal } = useWalletModal();
+  const { publicKey, connected } = useWallet();
+
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteAddr, setPasteAddr] = useState("");
+  const [pasteLabel, setPasteLabel] = useState("");
+  const [pasteAsMultisig, setPasteAsMultisig] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+
+  const isValidAddr = (a: string) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a.trim());
+
+  const onPaste = async () => {
+    setErrMsg(null);
+    const addr = pasteAddr.trim();
+    if (!isValidAddr(addr)) { setErrMsg("Not a valid Solana address"); return; }
+    setBusy(true);
+    const res = await addVault({
+      address: addr,
+      label: pasteLabel.trim() || undefined,
+      kind: pasteAsMultisig ? "multisig" : "watch",
+    });
+    setBusy(false);
+    if (!res.ok) { setErrMsg(res.error); return; }
+    setPasteAddr(""); setPasteLabel(""); setPasteAsMultisig(false); setPasteOpen(false);
+    setActiveVault(res.vault.address);
+  };
+
+  // Auto-register a wallet that the user just connected via wallet-adapter,
+  // if it's not already in the registry.
+  useEffect(() => {
+    if (!connected || !publicKey) return;
+    const addr = publicKey.toBase58();
+    const exists = registeredVaults.some((v) => v.address === addr);
+    if (exists) return;
+    addVault({ address: addr, kind: "connected" }).then((res) => {
+      if (res.ok) setActiveVault(addr);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, publicKey?.toBase58()]);
+
+  const limitReached = tierLimit && tierLimit.used >= tierLimit.limit;
+
+  // If we have no live registry data yet, fall back to legacy renderer
+  // so existing payloads keep working until the user signs in.
+  const showLegacy = registeredVaults.length === 0 && !registryLoading && fallbackWallets.length > 0 && !connected;
 
   return (
     <BlockShell block={block} accent="violet">
-      {wallets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 px-4 py-6 text-center">
-          <p className="text-sm text-slate-600">No wallets connected. Link Phantom, Solflare, a Squads multisig, or paste an address to watch.</p>
+      {/* Header strip — count + tier + add actions */}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          {registeredVaults.length} {registeredVaults.length === 1 ? "wallet" : "wallets"}
+          {tierLimit && (
+            <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+              {tierLimit.used}/{tierLimit.limit} · {tierLimit.tier}
+            </span>
+          )}
+        </p>
+        <div className="flex items-center gap-1.5">
           <button
-            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+            onClick={() => openWalletModal(true)}
+            disabled={limitReached === true}
+            className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Connect or paste address
+            + Link wallet
+          </button>
+          <button
+            onClick={() => setPasteOpen((s) => !s)}
+            disabled={limitReached === true}
+            className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            + Watch address
           </button>
         </div>
-      ) : (
+      </div>
+
+      {/* Paste-to-watch panel */}
+      {pasteOpen && (
+        <div className="mb-2 space-y-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2.5">
+          <input
+            value={pasteAddr}
+            onChange={(e) => { setPasteAddr(e.target.value); setErrMsg(null); }}
+            placeholder="Paste a Solana address (wallet, Squads vault, treasury…)"
+            className="w-full rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 font-mono text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              value={pasteLabel}
+              onChange={(e) => setPasteLabel(e.target.value)}
+              placeholder="Label (optional)"
+              className="flex-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <input type="checkbox" checked={pasteAsMultisig} onChange={(e) => setPasteAsMultisig(e.target.checked)} className="accent-violet-600" />
+              Squads multisig
+            </label>
+          </div>
+          {errMsg && <p className="text-[11px] text-rose-600">{errMsg}</p>}
+          <div className="flex items-center justify-end gap-1.5">
+            <button onClick={() => { setPasteOpen(false); setErrMsg(null); }} className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+            <button onClick={onPaste} disabled={busy || !pasteAddr.trim()} className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy ? "Adding…" : "Watch"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {limitReached && (
+        <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+          You've reached the {tierLimit?.tier} tier limit ({tierLimit?.limit} wallets).{" "}
+          <Link href="/pricing" className="font-semibold underline">Upgrade</Link> to add more.
+        </div>
+      )}
+
+      {/* Live registry */}
+      {registeredVaults.length > 0 ? (
+        <ul className="divide-y divide-violet-100/70 overflow-hidden rounded-xl border border-violet-100">
+          {registeredVaults.map((w) => {
+            const isActive = w.address === activeVault;
+            const isEditing = editing === w.address;
+            return (
+              <li key={w.address} className={`flex items-center gap-2 px-3 py-2 text-[12px] ${isActive ? "bg-violet-50/60" : "bg-white hover:bg-violet-50/30"}`}>
+                <button
+                  onClick={() => setActiveVault(w.address)}
+                  className={`h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-violet-600" : "bg-slate-300 hover:bg-violet-400"}`}
+                  aria-label={isActive ? "Active" : "Set active"}
+                />
+                <div className="min-w-0 flex-1">
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      onBlur={async () => {
+                        const next = editLabel.trim();
+                        if (next && next !== w.label) await renameVault(w.address, next);
+                        setEditing(null);
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(null); }}
+                      className="w-full rounded border border-violet-300 bg-white px-1.5 py-0.5 text-[12px] font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => { setEditing(w.address); setEditLabel(w.label); }}
+                      className="block max-w-full truncate text-left font-semibold text-slate-900 hover:text-violet-700"
+                      title="Click to rename"
+                    >
+                      {w.label}
+                    </button>
+                  )}
+                  <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+                    <span className="font-mono">{shortAddr(w.address)}</span>
+                    <Pill tone={w.kind === "multisig" ? "violet" : w.kind === "watch" ? "slate" : "emerald"}>{w.kind}</Pill>
+                  </p>
+                </div>
+                {isActive && <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Active</span>}
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Remove ${w.label}?`)) return;
+                    await removeVault(w.address);
+                  }}
+                  className="text-[11px] text-slate-400 hover:text-rose-600"
+                  aria-label="Remove wallet"
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : showLegacy ? (
         <ul className="space-y-2">
-          {wallets.map((w) => (
+          {fallbackWallets.map((w) => (
             <li key={w.address} className="flex items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-4 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -619,15 +806,32 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
                 <p className="text-[11px] uppercase tracking-wider text-slate-500">
                   {shortAddr(w.address)}
                   {w.threshold && w.members ? ` · ${w.threshold}-of-${w.members}` : ""}
-                  {w.pendingApprovals ? ` · ${w.pendingApprovals} pending` : ""}
                 </p>
               </div>
-              <div className="text-right">
-                <p className="tabular-nums font-medium text-slate-900">{fmtUsd(w.value)}</p>
-              </div>
+              <p className="tabular-nums font-medium text-slate-900">{fmtUsd(w.value)}</p>
             </li>
           ))}
         </ul>
+      ) : (
+        <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/40 px-4 py-5 text-center">
+          <p className="text-[12px] text-slate-600">
+            No wallets yet. Link Phantom/Solflare, paste an address to watch, or attach a Squads multisig.
+          </p>
+          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+            <button
+              onClick={() => openWalletModal(true)}
+              className="rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50"
+            >
+              Link wallet
+            </button>
+            <button
+              onClick={() => setPasteOpen(true)}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-700"
+            >
+              Paste address
+            </button>
+          </div>
+        </div>
       )}
     </BlockShell>
   );

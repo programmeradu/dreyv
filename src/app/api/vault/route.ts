@@ -34,8 +34,10 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/vault — Register a vault (after on-chain creation).
+ * POST /api/vault — Register a vault (after on-chain creation OR as watch-only).
  * Enforces tier-based vault limits.
+ *
+ * Body: { address, label?, isMultisig?, kind?: 'connected'|'watch'|'multisig' }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +47,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { address, label, isMultisig } = body;
+    const kindRaw = typeof body.kind === "string" ? body.kind : null;
+    const kind: "connected" | "watch" | "multisig" =
+      kindRaw === "watch" || kindRaw === "multisig" || kindRaw === "connected"
+        ? kindRaw
+        : isMultisig
+          ? "multisig"
+          : "connected";
 
     if (!address || typeof address !== "string" || address.length < 32 || address.length > 44) {
       return errors.badRequest("Valid Solana address required");
@@ -97,8 +106,9 @@ export async function POST(request: NextRequest) {
       .values({
         userId: authUser.id,
         address,
-        label: label || "My Vault",
-        isMultisig: isMultisig ?? false,
+        label: label || (kind === "watch" ? "Watched address" : kind === "multisig" ? "Squads multisig" : "My Wallet"),
+        isMultisig: isMultisig ?? kind === "multisig",
+        kind,
       })
       .returning();
 

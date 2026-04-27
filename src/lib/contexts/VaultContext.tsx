@@ -22,6 +22,14 @@ export interface StakeAccountInfo {
 
 const VAULT_STORAGE_KEY = "keystone_active_vault";
 
+export interface RegisteredVault {
+    address: string;
+    label: string;
+    isMultisig: boolean;
+    kind: "connected" | "watch" | "multisig";
+    createdAt?: string;
+}
+
 interface VaultContextType {
     activeVault: string | null;
     setActiveVault: (address: string | null) => void;
@@ -40,6 +48,15 @@ interface VaultContextType {
     sqClient: SquadsClient | null;
     isMultisig: boolean; // true when connected address is a Squads multisig
     importedMints: string[]; // user-imported token mints that bypass spam filter
+    // Phase 5 — multi-vault registry
+    registeredVaults: RegisteredVault[];
+    registryLoading: boolean;
+    registryError: string | null;
+    tierLimit: { tier: string; limit: number; used: number } | null;
+    refreshRegistry: () => Promise<void>;
+    addVault: (input: { address: string; label?: string; kind?: "connected" | "watch" | "multisig" }) => Promise<{ ok: true; vault: RegisteredVault } | { ok: false; error: string; code?: string }>;
+    renameVault: (address: string, label: string) => Promise<boolean>;
+    removeVault: (address: string) => Promise<boolean>;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -114,6 +131,100 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     // Monotonic counter to guard against stale refresh results
     const refreshVersionRef = useRef(0);
     const { importedMints } = useImportedTokens();
+
+    // ── Phase 5 — multi-vault registry ───────────────────────────────
+    const [registeredVaults, setRegisteredVaults] = useState<RegisteredVault[]>([]);
+    const [registryLoading, setRegistryLoading] = useState(false);
+    const [registryError, setRegistryError] = useState<string | null>(null);
+    const [tierLimit, setTierLimit] = useState<{ tier: string; limit: number; used: number } | null>(null);
+
+    const refreshRegistry = React.useCallback(async () => {
+        setRegistryLoading(true);
+        setRegistryError(null);
+        try {
+            const res = await fetch("/api/vault");
+            if (!res.ok) {
+                if (res.status === 401) { setRegisteredVaults([]); return; }
+                throw new Error(`registry_${res.status}`);
+            }
+            const data = await res.json();
+            const rows: RegisteredVault[] = Array.isArray(data?.vaults)
+                ? data.vaults.map((v: any) => ({
+                    address: v.address,
+                    label: v.label ?? "My Wallet",
+                    isMultisig: !!v.isMultisig,
+                    kind: (v.kind === "watch" || v.kind === "multisig" || v.kind === "connected")
+                        ? v.kind
+                        : v.isMultisig ? "multisig" : "connected",
+                    createdAt: v.createdAt ?? undefined,
+                }))
+                : [];
+            setRegisteredVaults(rows);
+        } catch (e: any) {
+            setRegistryError(e?.message ?? "registry_failed");
+        } finally {
+            setRegistryLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { refreshRegistry(); }, [refreshRegistry]);
+
+    const addVault = React.useCallback(async (input: { address: string; label?: string; kind?: "connected" | "watch" | "multisig" }) => {
+        try {
+            const res = await fetch("/api/vault", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    address: input.address,
+                    label: input.label,
+                    kind: input.kind ?? "watch",
+                    isMultisig: input.kind === "multisig",
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 403 && data?.error?.code === "VAULT_LIMIT_REACHED") {
+                setTierLimit({ tier: data.tier, limit: data.limit, used: data.currentCount });
+                return { ok: false as const, error: data.error.message, code: "VAULT_LIMIT_REACHED" };
+            }
+            if (!res.ok || !data?.vault) {
+                return { ok: false as const, error: data?.error?.message ?? "Failed to add wallet" };
+            }
+            await refreshRegistry();
+            const v: RegisteredVault = {
+                address: data.vault.address,
+                label: data.vault.label,
+                isMultisig: !!data.vault.isMultisig,
+                kind: data.vault.kind ?? (data.vault.isMultisig ? "multisig" : "connected"),
+                createdAt: data.vault.createdAt,
+            };
+            return { ok: true as const, vault: v };
+        } catch (e: any) {
+            return { ok: false as const, error: e?.message ?? "network_error" };
+        }
+    }, [refreshRegistry]);
+
+    const renameVault = React.useCallback(async (address: string, label: string) => {
+        const res = await fetch(`/api/vault/${encodeURIComponent(address)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label }),
+        });
+        if (!res.ok) return false;
+        setRegisteredVaults((prev) => prev.map((v) => (v.address === address ? { ...v, label } : v)));
+        return true;
+    }, []);
+
+    const removeVault = React.useCallback(async (address: string) => {
+        const res = await fetch(`/api/vault/${encodeURIComponent(address)}`, { method: "DELETE" });
+        if (!res.ok) return false;
+        setRegisteredVaults((prev) => prev.filter((v) => v.address !== address));
+        if (activeVault === address) {
+            setActiveVaultRaw(null);
+            try { localStorage.removeItem(VAULT_STORAGE_KEY); } catch {}
+        }
+        return true;
+    }, [activeVault]);
+
 
     // Stabilize sqClient by tracking the underlying RPC endpoint string +
     // wallet pubkey. The wallet-adapter often hands us a NEW Connection
@@ -407,6 +518,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             recentTransactions,
             stakeAccounts,
             totalStakedSol,
+            registeredVaults,
+            registryLoading,
+            registryError,
+            tierLimit,
+            refreshRegistry,
+            addVault,
+            renameVault,
+            removeVault,
         }}>
             {children}
         </VaultContext.Provider>
