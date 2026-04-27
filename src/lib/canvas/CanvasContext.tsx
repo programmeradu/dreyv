@@ -132,8 +132,8 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<CanvasContextValue>(
-    () => ({ blocks, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }),
-    [blocks, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral],
+    () => ({ blocks, addBlock, updateBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }),
+    [blocks, addBlock, updateBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral],
   );
 
   return (
