@@ -23,7 +23,11 @@ export type CanvasBlockType =
   | "capability-result"
   | "suggestion"
   | "artifact"
-  | "research-brief";
+  | "research-brief"
+  | "tokens-table"
+  | "wallets-roster"
+  | "runway"
+  | "empty-bucket";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {
   id: string;
