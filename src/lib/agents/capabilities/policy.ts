@@ -243,9 +243,9 @@ const treasury_attestation = defineCapability({
   id: "treasury_attestation",
   domain: "policy",
   description:
-    "Generate a cryptographic proof-of-reserves snapshot (Merkle root of holdings) for transparency reports, investors, and on-chain attestation.",
+    "Generate a cryptographic proof-of-reserves snapshot (deterministic Merkle root over live holdings). When publishOnChain=true, builds a real Memo-program transaction (program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr) anchoring the root + label + timestamp + leaf count, returned as base64 unsigned VersionedTransaction for the user to sign.",
   inputSchema: z.object({
-    label: z.string().describe("Snapshot label, e.g. 'Q4-2026-attestation'"),
+    label: z.string().min(1).max(100).describe("Snapshot label, e.g. 'Q4-2026-attestation'"),
     publishOnChain: z.boolean().optional().default(false),
   }),
   sideEffects: "read",
@@ -255,28 +255,113 @@ const treasury_attestation = defineCapability({
     if (!ctx.walletAddress) {
       return { success: false, operation: "treasury_attestation", message: "Wallet required for attestation." };
     }
-    const tokens = ctx.vaultState?.tokens || ctx.walletState?.balances || [];
-    const { createHash } = await import("crypto");
-    // Deterministic Merkle-style root over (symbol, amount) leaves.
-    const leaves = tokens
-      .map((t: any) => `${t.symbol || "?"}:${t.amount ?? 0}`)
-      .sort()
-      .map((s) => createHash("sha256").update(s).digest("hex"));
-    const root = leaves.length
-      ? createHash("sha256").update(leaves.join("")).digest("hex")
-      : createHash("sha256").update("empty").digest("hex");
-    return {
-      success: true,
-      operation: "treasury_attestation",
-      label,
-      walletAddress: ctx.walletAddress,
-      timestamp: Date.now(),
-      leafCount: leaves.length,
-      merkleRoot: `0x${root}`,
-      publishOnChain: !!publishOnChain,
-      requiresApproval: !!publishOnChain,
-      message: `Attestation "${label}" generated: root 0x${root.slice(0, 16)}… over ${leaves.length} holding(s).${publishOnChain ? " Sign to anchor on-chain." : ""}`,
-    };
+
+    try {
+      // 1. Resolve live holdings: prefer ctx.vaultState/walletState; if both
+      //    empty, do a real on-chain valuation (no demo figures).
+      type Leaf = { symbol: string; amount: number };
+      let leaves: Leaf[] = [];
+      const ctxTokens = (ctx.vaultState?.tokens || ctx.walletState?.balances || []) as Array<Record<string, unknown>>;
+      if (ctxTokens.length > 0) {
+        leaves = ctxTokens.map((t) => ({
+          symbol: String(t.symbol ?? "?"),
+          amount: Number(t.amount ?? 0),
+        }));
+      } else {
+        const { valueTreasuryUsd } = await import("@/lib/agents/dacs/treasury-valuation");
+        const valuation = await valueTreasuryUsd({ wallet: ctx.walletAddress, rpcEndpoint: ctx.rpcEndpoint });
+        leaves = valuation.positions
+          .filter((p) => p.amount > 0)
+          .map((p) => ({ symbol: p.symbol, amount: p.amount }));
+      }
+
+      if (leaves.length === 0) {
+        return {
+          success: false,
+          operation: "treasury_attestation",
+          status: "NO_HOLDINGS",
+          message: "No live holdings detected for this wallet. Connect a funded wallet or vault before attesting.",
+        };
+      }
+
+      const { createHash } = await import("crypto");
+      // Deterministic Merkle-style root over (symbol, amount) leaves.
+      const leafLines = leaves
+        .map((l) => `${l.symbol}:${l.amount}`)
+        .sort();
+      const leafHashes = leafLines.map((s) => createHash("sha256").update(s).digest("hex"));
+      const root = createHash("sha256").update(leafHashes.join("")).digest("hex");
+      const timestamp = Date.now();
+
+      const result: Record<string, unknown> = {
+        success: true,
+        operation: "treasury_attestation",
+        label,
+        walletAddress: ctx.walletAddress,
+        timestamp,
+        leafCount: leaves.length,
+        leafLines,
+        merkleRoot: `0x${root}`,
+        publishOnChain: !!publishOnChain,
+      };
+
+      if (publishOnChain) {
+        // Build a real Memo-program transaction anchoring the attestation.
+        const [
+          { Connection, PublicKey, TransactionMessage, VersionedTransaction, TransactionInstruction },
+        ] = await Promise.all([import("@solana/web3.js")]);
+
+        const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+        const payer = new PublicKey(ctx.walletAddress);
+
+        const memoPayload = JSON.stringify({
+          v: 1,
+          kind: "dreyv.attestation",
+          label,
+          wallet: ctx.walletAddress,
+          merkleRoot: `0x${root}`,
+          leafCount: leaves.length,
+          ts: timestamp,
+        });
+
+        const memoIx = new TransactionInstruction({
+          programId: MEMO_PROGRAM_ID,
+          keys: [{ pubkey: payer, isSigner: true, isWritable: false }],
+          data: Buffer.from(memoPayload, "utf8"),
+        });
+
+        const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+        const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+
+        const messageV0 = new TransactionMessage({
+          payerKey: payer,
+          recentBlockhash: blockhash,
+          instructions: [memoIx],
+        }).compileToV0Message();
+        const tx = new VersionedTransaction(messageV0);
+        const serialized = Buffer.from(tx.serialize()).toString("base64");
+
+        result.attestationTx = {
+          serializedTransaction: serialized,
+          blockhash,
+          lastValidBlockHeight,
+          programId: MEMO_PROGRAM_ID.toBase58(),
+          memoPayload,
+          memoBytes: Buffer.byteLength(memoPayload, "utf8"),
+        };
+        result.requiresApproval = true;
+        result.message = `Attestation "${label}" built: Merkle root 0x${root.slice(0, 16)}… over ${leaves.length} live holding(s). Sign the Memo tx to anchor on-chain.`;
+      } else {
+        result.requiresApproval = false;
+        result.message = `Attestation "${label}" generated: Merkle root 0x${root.slice(0, 16)}… over ${leaves.length} live holding(s). Set publishOnChain=true to anchor via Memo program.`;
+      }
+
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:treasury_attestation]", msg);
+      return { success: false, operation: "treasury_attestation", message: `Attestation failed: ${msg}` };
+    }
   },
 });
 
