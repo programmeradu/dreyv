@@ -483,13 +483,14 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 <Text fixed style={styles.footerLeft}>
                     DREYV  ·  TREASURY REPORT  ·  {periodLabel.toUpperCase()}
                 </Text>
-                <Text
-                    fixed
-                    style={styles.footerRightText}
-                    render={({ pageNumber, totalPages }) =>
-                        `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
-                    }
-                />
+                <View fixed style={styles.footerRightWrap}>
+                    <Text
+                        style={styles.footerPageNum}
+                        render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
+                            `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
+                        }
+                    />
+                </View>
 
                 {/* Masthead */}
                 <View fixed>
