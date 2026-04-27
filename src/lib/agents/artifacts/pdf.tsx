@@ -309,10 +309,6 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 22,
         right: PAGE_MARGIN,
-        fontSize: 7,
-        color: INK_30,
-        fontFamily: "Inter", fontWeight: 700,
-        letterSpacing: 1.2,
     },
     footerRule: {
         position: "absolute",
