@@ -232,6 +232,8 @@ function TreasuryBlockSeeder({
         .map((t: any) => ({
           symbol: (t.symbol ?? "").toUpperCase() || "Asset",
           label: SYMBOL_LABELS[(t.symbol ?? "").toUpperCase()] ?? t.symbol,
+          logo: t.logo ?? t.logoURI ?? t.icon ?? undefined,
+          mint: t.mint ?? t.address ?? undefined,
           balance: typeof t.balance === "number" ? t.balance : typeof t.amount === "number" ? t.amount : undefined,
           value: typeof t.value === "number" ? t.value : undefined,
           change24h: typeof t.priceChange24h === "number" ? t.priceChange24h : undefined,
