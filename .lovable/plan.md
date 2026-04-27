@@ -1,113 +1,105 @@
-# Living Canvas Dashboard
+# /treasury — Research-first rebuild as the agent-extensible foundation
 
-Your answers locked the scope: **stacked stream + draggable**, **per-user persistence**, **all 48 capabilities exposed**, **legacy widgets deleted**.
+The current `/app/treasury` is a pretty placeholder with mock holdings/trend/suggestions. Before any code we do real research, then ship a foundation page that the existing **DACS agent system + Canvas + CommandBar** can stream content into — instead of hardcoding 6 dashboard sections we'll never finish.
 
-## 0. Fix `dist-check` (blocker)
+## Design rules (locked, from memory)
 
-The previous turn hand-edited `packages/sdk/dist/*` to strip Turnkey instead of rebuilding. Hand-edited bundler output is brittle and is what `dist-check` is flagging.
+- Stitch-light, white bg, solid violet `#7c3aed`, Manrope, ambient violet glows, violet-200 borders, flat violet CTAs. **No** gradients, fuchsia/pink, dark mode, or generic stock icons.
+- Generative + streaming: numbers count up, sections stream in, charts animate. Never grid-y or static.
+- **Hide all technical chrome** — no agent IDs, tick counters, JSON, terminals, "decisions" panels. Speak in human outcomes ("Dreyv noticed…").
+- **No mock/demo numbers ever.** Empty/unconnected state must clarify (connect wallet, paste address) — not invent figures.
+- Same brand language as `/pricing`, `/waitlist`, `/`, `/app`.
 
-- Run `cd packages/sdk && npx tsup src/index.ts --format cjs,esm --dts --clean` to regenerate clean artifacts from source.
-- Update `packages/sdk/package.json` description ("21 hooks" → "20 hooks") so it matches the actual export count post-Turnkey removal.
+## Phase 1 — Research (no code)
 
-(I verified the rebuild succeeds and produces consistent CJS/ESM/dts.)
+I'll do this with the websearch + perplexity tools and write the findings to `mem://research/treasury-landscape` so the build phase has a single source of truth.
 
-## 1. Canvas state layer
+**Competitor scan** (treasury surface coverage, NOT visual copy):
+- Squads, Realms, Parcl Treasury, Utopia Labs, Coinshift, Multis, Den, Llama (Karpatkey), Safe{Wallet} apps, Superfluid, Sablier, Request Finance, Gnosis Pay, Mean Finance, Streamflow, Lulo, Drift Vaults.
+- For each: capture features they ship under our 6 user-named buckets, pricing/positioning, what users complain about (Reddit/Twitter/G2).
 
-New `src/lib/canvas/` module:
+**User-need scan** (what treasurers actually want — DAO ops, crypto-native CFOs, Solana foundations, agencies on payroll):
+- Forum threads (Realms, Squads), DAO ops job posts, Karpatkey/Steakhouse reports, Messari/Delphi treasury reports, recent (2025-2026) posts on agentic treasury.
 
-- **`types.ts`** — `CanvasBlock` discriminated union: `narrative | metric | chart | plan | watcher | decision | capability-result | suggestion`. Every block carries `{ id, type, source: 'commandbar'|'agent'|'user'|'page', createdAt, pinned, payload }`.
-- **`CanvasContext.tsx`** — React context exposing `{ blocks, pinned, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }`. Mounted once in `src/app/app/layout.tsx` so every page in `/app/*` shares one canvas.
-- **`persistence.ts`** — debounced writer to `localStorage` keyed by `canvas:v1:${userId ?? 'anon'}` (userId from `useKeystoneAuth().siwsUser?.id`). Loads on mount, persists `pinned` blocks only; ephemeral blocks die on reload. Per-user, as requested.
-- **`useCanvas()`** hook — primary consumer API.
+**Output**: a synthesis matrix — `feature × competitor coverage × user demand × Dreyv differentiator (agentic/autonomous)` saved to memory + a short "what to build first vs later" ranking under each of the 6 user buckets:
+1. Tokens in the treasury (holdings, valuation, provenance)
+2. Mass send-outs (payroll, airdrops, grants)
+3. Payments & Treasury Operations (recurring, invoices, gas tank)
+4. Governance & Reporting (proposals, burn statements, exports)
+5. Accounting & Financial Controls (policy, allowlists, approvals, audit)
+6. DeFi & Treasury Management (yield, hedging, rebalancing, liquidations)
+7. Wallet & Asset Security (multisig, signers, attestations, key hygiene)
 
-## 2. Bus → Canvas bridge
+I'll present the synthesis back before writing code so you can shape priorities.
 
-`AppEventBus` is currently a write-only notify channel. We add a single subscription point:
+## Phase 2 — What we already have (audit, no rewrites)
 
-- `src/lib/canvas/bus-bridge.tsx` — mounted inside the `CanvasProvider`. Subscribes to `useAppEvent` and translates a small set of event types into `addBlock` calls:
-  - `CANVAS_ADD_BLOCK` (explicit)
-  - `AGENT_LOG` → narrative block (collapsed timeline)
-  - `SHOW_STRATEGY_MODAL` → plan block (rendered inline instead of modal)
-  - `UI_NOTIFICATION` → suggestion block
+We will **not** rebuild the agent system. Foundation reuses:
 
-This means existing emitters (`DreyvAgentInput`, `AgentCommandCenter`, CommandBar handlers, `/api/command` responses) **automatically** start populating the canvas with no changes to their call sites.
+- **Capability registry** (`src/lib/agents/capabilities/*`) — 48 capabilities across `treasury / trading / yield / payments / policy / risk / intel / studio / dynamic / misc / deliverables / research-brief`. Already covers most of the 6 buckets (mass_dispatch, runway autopilot, gas-tank watcher, grants watcher, liq watcher, burn statement cron, streamflow reconcile, tax-lot engine, drift hedge, etc.).
+- **DACS pipeline** — intent → plan → HITL → executor → episodes → post-mortem; specialists (treasury / trading / yield / payments / policy / risk / research / builder / navigator) with CATP v1.0 handoff envelope; sub-agent runtime for watchers.
+- **Canvas** (`src/lib/canvas`, `src/components/canvas`) — `CanvasBlock` primitive (narrative/metric/chart/plan/watcher/suggestion/artifact/research-brief) is **already** the generative-UI substrate. CommandBar + agents already emit blocks via the bus bridge.
+- **App-shell primitives** — `AmbientGlow`, `Surface`, `StreamIn`, `StreamingNumber`, `Composition`, `SuggestionList`, `NarrativeStream`, `TreasuryPulseCarousel`.
 
-## 3. Dashboard rebuild — `/app` page
+So: don't invent a new dashboard framework — make `/treasury` a Canvas surface scoped to treasury intent, with skeleton "rails" that the registry's capabilities + specialists fill in dynamically.
 
-Replace `src/app/app/page.tsx` body with:
+## Phase 3 — Foundation build (after research approval)
 
-- **Header** (kept): brand, links, wallet button.
-- **Hero strip**: `HeadlineValue` (treasury) + `TrendCurve` — pinned, always first.
-- **The Canvas**: vertical stacked stream of `CanvasBlock` renderers.
-  - Wrapped in `framer-motion` `Reorder.Group` so blocks are draggable to reorder (covers the "draggable" half of answer 1).
-  - Each block: provenance chip (`from CommandBar` / `from Dreyv` / `pinned`), pin/unpin, dismiss, timestamp.
-  - Empty state: ambient "Ask Dreyv anything…" prompt + 3 starter chips.
-- **Bottom**: existing CommandBar (now a conductor — see §5).
+### Page architecture
 
-New components in `src/components/canvas/`:
-- `CanvasStream.tsx` — Reorder container.
-- `BlockShell.tsx` — common chrome (provenance, pin, dismiss).
-- `blocks/NarrativeBlock.tsx`, `MetricBlock.tsx`, `PlanBlock.tsx`, `WatcherBlock.tsx`, `DecisionBlock.tsx`, `CapabilityResultBlock.tsx`, `SuggestionBlock.tsx`, `ChartBlock.tsx`.
-- All use the `Surface` / `StreamIn` / `Pill` primitives from `app-shell/primitives.tsx` so the Stitch-light aesthetic is preserved.
+```text
+/app/treasury (Canvas surface, scope="treasury")
+├── Hero rail        → live valuation, 24h move, composition strip (real data only)
+├── Pulse rail       → streamed narratives from sub-agents (runway, gas, liq, grants)
+├── Action rail      → CommandBar dock, scoped to treasury intents
+├── Canvas stream    → blocks emitted by agents/CommandBar/capabilities
+└── Suggestion rail  → policy-derivation + research-brief outputs
+```
 
-## 4. Capability Palette (all 48)
+No hardcoded "Payroll" / "Governance" / "Accounting" sections. Each bucket is **a set of capability tags** the registry already owns; a bucket renders only when there's a real block, watcher, or suggestion to show. Empty buckets show a single "Ask Dreyv to set this up" affordance that opens CommandBar pre-filled — never mock numbers.
 
-New `⌘K` palette wired to `capabilityRegistry()`:
+### CommandBar ↔ agents ↔ canvas wiring (already exists; we formalise)
 
-- `src/components/canvas/CapabilityPalette.tsx` — uses existing `cmdk`-based `command.tsx` primitives.
-- Reads `listCapabilities()` (registry already exposes domain, sensitivity, description).
-- Groups by domain (treasury / trading / yield / intel / studio / dynamic / misc / policy / payments / risk).
-- Selecting a capability either:
-  - opens a parameter sheet (zod schema → form), then dispatches via the existing `/api/command` pipeline, **or**
-  - for read-only `sideEffects: "read"`, executes immediately and adds a `CapabilityResultBlock` to the canvas.
-- Sensitivity badge (low/medium/high) + auth requirement chip shown inline.
+```text
+User types in dock  ──►  agent.command.submitted
+                            │
+                  intent.classified (DACS)
+                            │
+                   plan.synthesized  ──►  Canvas: "plan" block (streaming)
+                            │
+                   handoff.requested ──►  specialist runs
+                            │
+                   handoff.reported  ──►  Canvas: "capability-result" / "narrative" / "artifact"
+                            │
+                   approval.requested ──►  HITL chip inside the block (no separate modal)
+```
 
-## 5. CommandBar as conductor (not just router)
+The block renderer (`CanvasBlockView`) already supports these payload kinds. We add **treasury-scoped renderers** for the bucket-specific outputs (e.g. mass-dispatch preview, runway curve, allowlist diff, burn statement, hedge plan) — each a small, branded component that streams in.
 
-Today `CommandBar` mostly emits `NAVIGATE`. We extend its result handler:
+### Empty / not-connected state
 
-- Update the existing `/api/command` consumer (and `landing-command-bar.tsx`'s sibling in `/app/*`) so that on plan response it calls `addBlock({ type: 'plan', source: 'commandbar', payload })` **in addition to** the current modal flow. We then make the modal optional — if a plan lands on the canvas, no modal pops; user reviews inline.
-- For "show me…" intents (price check, portfolio, market overview, holder insights), bypass navigation and add the corresponding result block directly to the canvas.
-- Keep `NAVIGATE` for hard route changes (`/app/studio`, `/atlas`, etc.).
+Instead of fake $X numbers: a violet ambient hero with one CTA — `Connect a wallet` or `Paste an address to preview` — and 3 example prompts that route through CommandBar so even the empty state demos the agentic flow.
 
-Cross-page interaction: because the `CanvasProvider` lives at `/app/layout.tsx`, blocks added from `/app/treasury` or `/app/analytics` show up on `/app` too. The provenance chip records the originating page so the user can trace it.
+### What we explicitly do NOT build now
 
-## 6. Demolition (per answer 4)
+- The 6 buckets as static UI sections.
+- Any new agent runtime, bus, or capability schema.
+- Any tab/sidebar/module pattern (violates app-shell rules).
+- Anything visual borrowed from current toast notifications or generic icon sets.
 
-Delete after porting their data hooks into blocks:
-- `src/components/dashboard/AgentCommandCenter.tsx` → its bus listener logic moves into `bus-bridge.tsx`; visual log replaced by `NarrativeBlock`s.
-- `src/components/dashboard/DreyvAgentInput.tsx` → superseded by the conductor CommandBar at the bottom of the canvas.
-- The static CSS-grid `/dashboard` page (TreasuryChart, YieldOptimizer, RiskRadar, vault/payroll/directive widgets) — port `TreasuryChart` data into `ChartBlock`, `YieldOptimizer` into a pinnable `WatcherBlock`, `RiskRadar` into a `MetricBlock`. Then delete the page.
-- Confirm no other route imports them (rg sweep) before delete.
+## Technical notes
 
-## 7. Files to touch / create
+- New file: `src/components/treasury/TreasurySurface.tsx` — Canvas-backed page body, wraps `CanvasProvider` with `scope="treasury"`.
+- New renderers under `src/components/canvas/blocks/treasury/` for bucket-specific block payloads (mass-dispatch preview, runway curve, allowlist diff, burn statement, hedge plan, gas-tank status). Each ≤ ~150 lines, uses existing primitives.
+- New: `src/components/treasury/TreasuryCommandDock.tsx` — CommandBar instance pre-scoped to treasury intents (filters capability suggestions by `domain ∈ {treasury, payments, policy, risk, yield}`).
+- Replace `src/app/app/treasury/page.tsx` body with `<TreasurySurface />`. Header/glow/typography stay identical to current page (already on-brand).
+- Reuse `useVault`, `useTreasuryTrend`, capability registry, DACS bus events. **Do not** touch DACS internals, registry shape, or canvas types.
+- Memory file to add after research: `mem://research/treasury-landscape` (competitor matrix + user-need ranking + bucket priorities).
 
-**Create**
-- `src/lib/canvas/types.ts`
-- `src/lib/canvas/CanvasContext.tsx`
-- `src/lib/canvas/persistence.ts`
-- `src/lib/canvas/bus-bridge.tsx`
-- `src/lib/canvas/useCanvas.ts`
-- `src/components/canvas/CanvasStream.tsx`
-- `src/components/canvas/BlockShell.tsx`
-- `src/components/canvas/CapabilityPalette.tsx`
-- `src/components/canvas/blocks/*.tsx` (8 block types)
+## Deliverable order
 
-**Edit**
-- `src/app/app/layout.tsx` — wrap with `CanvasProvider` + mount `BusBridge` + register `⌘K` for `CapabilityPalette`.
-- `src/app/app/page.tsx` — replace body with `CanvasStream`.
-- `src/components/CommandBar.tsx` (and/or `landing-command-bar.tsx` analog) — add `addBlock` calls to result handler.
-- `packages/sdk/package.json` — fix description, then rebuild dist.
+1. Research synthesis → present back, you approve priorities.
+2. Foundation page (Canvas surface + dock + empty state + 2-3 reference block renderers).
+3. Iterate: add remaining bucket renderers as we wire each capability into the dock's suggestion list.
 
-**Delete**
-- `src/components/dashboard/AgentCommandCenter.tsx`
-- `src/components/dashboard/DreyvAgentInput.tsx`
-- `src/app/dashboard/page.tsx` (and any unique widgets after porting).
-
-## 8. Out of scope (call out explicitly)
-
-- Liveblocks-shared canvas across multisig members — left for later (you chose per-user). The persistence layer is keyed so swapping `localStorage` → Liveblocks storage is one file later.
-- MCP server exposing the registry — still parked.
-- Capability auto-execution policy / risk veto integration — palette dispatches via existing pipelines, no new policy layer this pass.
-
-Once approved I'll execute §0 first (unblocks build), then §1→§7 in order.
+Awaiting approval to start Phase 1 (research) — no code until you've seen the synthesis.
