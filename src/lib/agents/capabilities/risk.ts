@@ -10,8 +10,12 @@
  */
 
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { defineCapability, type AnyCapability } from "./types";
 import { TOKEN_MINTS } from "./tokens";
+import { db } from "@/db";
+import { users, userSettings } from "@/db/schema";
+import { auditWalletMev } from "@/lib/agents/dacs/mev-audit";
 
 const counterparty_risk_score = defineCapability({
   id: "counterparty_risk_score",
@@ -448,25 +452,89 @@ const mev_rebate_claim = defineCapability({
   id: "mev_rebate_claim",
   domain: "risk",
   description:
-    "Claim Jito MEV tips and route future tx flow through priority-fee rebate programs.",
+    "Audit a wallet's Jito MEV exposure: real Helius scan of tip-account payments + live JitoSOL position + optional persistent toggle to route future swaps through Jito bundles. Honest audit — Jito has no user-claimable rebate program; this surfaces real spend and real position, not fabricated 'claims'.",
   inputSchema: z.object({
-    epochsBack: z.number().int().min(1).max(50).optional().default(5),
-    enableRouting: z.boolean().optional().default(true),
+    windowDays: z.number().int().min(1).max(365).optional().default(12)
+      .describe("Look-back window for tip-spend audit (default ≈ 5 epochs)."),
+    enableRouting: z.boolean().optional()
+      .describe("If set, persist user preference to route future swaps through Jito bundles."),
   }),
-  sideEffects: "write",
+  sideEffects: "read",
   requiredAuth: "wallet",
   sensitivity: "low",
   protocols: ["jito"],
-  execute: async ({ epochsBack, enableRouting }, ctx) => {
-    if (!ctx.walletAddress) return { success: false, operation: "mev_rebate_claim", message: "Wallet required." };
-    return {
-      success: true,
-      operation: "mev_rebate_claim",
-      epochsBack,
-      enableRouting,
-      requiresApproval: true,
-      message: `Scanning Jito tips over last ${epochsBack} epoch(s) for ${ctx.walletAddress.slice(0, 8)}…. Sign to claim and ${enableRouting ? "route future tx flow through Jito rebate program" : "leave routing unchanged"}.`,
-    };
+  execute: async ({ windowDays, enableRouting }, ctx) => {
+    if (!ctx.walletAddress) {
+      return { success: false, operation: "mev_rebate_claim", message: "Wallet required." };
+    }
+    try {
+      const audit = await auditWalletMev({
+        wallet: ctx.walletAddress,
+        rpcEndpoint: ctx.rpcEndpoint,
+        windowDays,
+      });
+
+      // Optionally persist the routing preference (best-effort; doesn't block the audit).
+      let routingPersisted: boolean | null = null;
+      if (typeof enableRouting === "boolean" && db) {
+        try {
+          const userRow = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.walletAddress, ctx.walletAddress))
+            .limit(1);
+          const userId = userRow[0]?.id;
+          if (userId) {
+            const existing = await db
+              .select({ id: userSettings.id, preferences: userSettings.preferences })
+              .from(userSettings)
+              .where(eq(userSettings.userId, userId))
+              .limit(1);
+            const prevPrefs = (existing[0]?.preferences as Record<string, unknown> | null) ?? {};
+            const nextPrefs = { ...prevPrefs, jitoBundleRouting: enableRouting };
+            if (existing[0]) {
+              await db
+                .update(userSettings)
+                .set({ preferences: nextPrefs, updatedAt: new Date() })
+                .where(eq(userSettings.id, existing[0].id));
+            } else {
+              await db.insert(userSettings).values({ userId, preferences: nextPrefs });
+            }
+            routingPersisted = enableRouting;
+          }
+        } catch (err) {
+          console.warn("[mev_rebate_claim] failed to persist routing pref:", err instanceof Error ? err.message : err);
+        }
+      }
+
+      return {
+        success: true,
+        operation: "mev_rebate_claim",
+        wallet: audit.wallet,
+        windowDays: audit.windowDays,
+        tipSummary: {
+          totalTipsSol: audit.totalTipsSol,
+          totalTipsLamports: audit.totalTipsLamports,
+          tipCount: audit.tipCount,
+          recent: audit.tipPayments.slice(0, 10).map((t) => ({
+            signature: t.signature,
+            timestamp: t.timestamp,
+            sol: t.sol,
+            tipAccount: t.tipAccount,
+          })),
+        },
+        jitosolPosition: audit.jitosolPosition,
+        routing: {
+          requested: enableRouting ?? null,
+          persisted: routingPersisted,
+        },
+        message: audit.summary,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:mev_rebate_claim]", msg);
+      return { success: false, operation: "mev_rebate_claim", message: `MEV audit failed: ${msg}` };
+    }
   },
 });
 
