@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import {
     Users, Activity, Zap, Bot, Package, Shield,
-    ArrowRightLeft, RefreshCw, Server, AlertTriangle, Workflow,
+    ArrowRightLeft, RefreshCw, Server, AlertTriangle,
 } from "lucide-react";
 import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin/AdminMetricsPanel";
 import { MetricCard } from "@/components/admin/MetricCard";
