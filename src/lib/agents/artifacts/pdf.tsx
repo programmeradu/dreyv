@@ -68,135 +68,184 @@ const styles = StyleSheet.create({
     masthead: {
         flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "flex-start",
-        paddingBottom: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: INK,
+        alignItems: "center",
+        paddingBottom: 12,
+    },
+    mastheadRule: {
+        height: 0.75,
+        backgroundColor: INK,
+        marginBottom: 2,
+    },
+    mastheadAccent: {
+        height: 2,
+        width: 36,
+        backgroundColor: VIOLET,
+        marginBottom: 0,
+    },
+    brandRow: { flexDirection: "row", alignItems: "center" },
+    brandMark: {
+        width: 10,
+        height: 10,
+        backgroundColor: VIOLET,
+        marginRight: 8,
     },
     brand: {
         fontSize: 11,
         color: INK,
         fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
     },
     mastheadMeta: {
-        fontSize: 8,
+        fontSize: 7.5,
         color: INK_50,
         textAlign: "right",
+        letterSpacing: 0.6,
+    },
+    mastheadMetaStrong: {
+        fontSize: 7.5,
+        color: INK,
+        textAlign: "right",
+        fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 0.6,
+    },
 
+    // Confidential / classification strip
+    classification: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    classificationText: {
+        fontSize: 6.5,
+        color: INK_30,
+        letterSpacing: 1.4,
+        fontFamily: "Inter", fontWeight: 700,
     },
 
     // Title block
-    titleBlock: { marginTop: 28, marginBottom: 28 },
+    titleBlock: { marginTop: 38, marginBottom: 32 },
     eyebrow: {
-        fontSize: 8,
+        fontSize: 7.5,
         color: VIOLET,
-
         fontFamily: "Inter", fontWeight: 700,
-        marginBottom: 10,
+        marginBottom: 14,
+        letterSpacing: 1.6,
     },
     title: {
-        fontSize: 28,
-        fontFamily: "Inter", fontWeight: 400,
+        fontSize: 44,
+        fontFamily: "SourceSerif", fontWeight: 300,
         color: INK,
-        marginBottom: 14,
-        lineHeight: 1.1,
+        marginBottom: 18,
+        lineHeight: 1.05,
     },
     subtitle: {
-        fontSize: 9,
+        fontSize: 8.5,
         color: INK_50,
-        fontFamily: "Inter", fontWeight: 400,
+        fontFamily: "Courier",
+        letterSpacing: 0.3,
     },
 
     // KPI strip
     kpiStrip: {
         flexDirection: "row",
         borderTopWidth: 0.5,
-        borderTopColor: RULE,
+        borderTopColor: INK,
         borderBottomWidth: 0.5,
         borderBottomColor: RULE,
-        paddingVertical: 16,
-        marginBottom: 28,
+        paddingVertical: 20,
+        marginBottom: 32,
     },
     kpiCell: {
         flex: 1,
-        paddingHorizontal: 14,
+        paddingHorizontal: 16,
         borderLeftWidth: 0.5,
         borderLeftColor: RULE,
     },
-    kpiCellFirst: { paddingHorizontal: 0, paddingRight: 14, flex: 1 },
+    kpiCellFirst: { paddingHorizontal: 0, paddingRight: 16, flex: 1 },
     kpiLabel: {
-        fontSize: 7,
+        fontSize: 6.5,
         color: INK_50,
-
-        marginBottom: 8,
+        marginBottom: 12,
         fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.3,
     },
     kpiValue: {
-        fontSize: 18,
-        fontFamily: "Inter", fontWeight: 400,
+        fontSize: 22,
+        fontFamily: "SourceSerif", fontWeight: 400,
         color: INK,
+        letterSpacing: -0.3,
     },
     kpiAccent: { color: VIOLET },
 
     // Sections
-    section: { marginBottom: 22 },
+    section: { marginBottom: 26 },
     sectionHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: 10,
-        paddingBottom: 6,
-        borderBottomWidth: 0.5,
+        alignItems: "center",
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottomWidth: 0.75,
         borderBottomColor: INK,
     },
+    sectionTitleRow: { flexDirection: "row", alignItems: "center" },
+    sectionTick: {
+        width: 6,
+        height: 6,
+        backgroundColor: VIOLET,
+        marginRight: 8,
+    },
     sectionTitle: {
-        fontSize: 11,
+        fontSize: 10,
         fontFamily: "Inter", fontWeight: 700,
         color: INK,
-
+        letterSpacing: 1.4,
     },
     sectionCount: {
-        fontSize: 8,
+        fontSize: 7,
         color: INK_50,
-
         fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
     },
 
     // Borderless tables
     thead: {
         flexDirection: "row",
-        paddingBottom: 6,
+        paddingBottom: 8,
         borderBottomWidth: 0.5,
         borderBottomColor: RULE,
     },
     th: {
-        fontSize: 7,
+        fontSize: 6.5,
         color: INK_50,
-
         fontFamily: "Inter", fontWeight: 700,
         paddingHorizontal: 6,
+        letterSpacing: 1.1,
     },
     tr: {
         flexDirection: "row",
-        paddingVertical: 8,
+        paddingVertical: 9,
         borderBottomWidth: 0.5,
         borderBottomColor: RULE_SOFT,
+        alignItems: "center",
     },
     trLast: {
         flexDirection: "row",
-        paddingVertical: 8,
+        paddingVertical: 9,
+        alignItems: "center",
     },
     td: { fontSize: 9, color: INK, paddingHorizontal: 6 },
     tdMuted: { fontSize: 9, color: INK_50, paddingHorizontal: 6 },
-    tdMono: { fontSize: 8.5, color: INK_70, fontFamily: "Courier", paddingHorizontal: 6 },
+    tdMono: { fontSize: 8, color: INK_70, fontFamily: "Courier", paddingHorizontal: 6 },
     right: { textAlign: "right" },
 
     // Status pill (text-only, no fills)
     statusBase: {
-        fontSize: 7.5,
-
+        fontSize: 7,
         fontFamily: "Inter", fontWeight: 700,
         paddingHorizontal: 6,
+        letterSpacing: 0.8,
     },
     statusExecuted: { color: "#15803d" },
     statusRejected: { color: "#b91c1c" },
@@ -214,24 +263,65 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
 
+    // Signature / attestation block
+    signatureBlock: {
+        marginTop: 36,
+        paddingTop: 18,
+        borderTopWidth: 0.5,
+        borderTopColor: INK,
+    },
+    signatureRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 14,
+    },
+    signatureCol: { flex: 1, paddingRight: 24 },
+    signatureLabel: {
+        fontSize: 6.5,
+        color: INK_50,
+        fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
+        marginBottom: 6,
+    },
+    signatureValue: {
+        fontSize: 9,
+        color: INK,
+        fontFamily: "Courier",
+    },
+    attestation: {
+        fontSize: 8,
+        color: INK_70,
+        fontFamily: "SourceSerif", fontWeight: 400,
+        fontStyle: "italic",
+        lineHeight: 1.5,
+    },
+
     // Footer (rendered as a fixed element on every page)
     footer: {
         position: "absolute",
-        bottom: 20,
+        bottom: 24,
         left: PAGE_MARGIN,
         right: PAGE_MARGIN,
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "center",
         paddingTop: 8,
         borderTopWidth: 0.5,
         borderTopColor: RULE,
     },
     footerText: {
-        fontSize: 7.5,
+        fontSize: 7,
         color: INK_30,
-
         fontFamily: "Inter", fontWeight: 700,
+        letterSpacing: 1.2,
     },
+    footerMark: {
+        width: 4,
+        height: 4,
+        backgroundColor: VIOLET,
+        marginHorizontal: 6,
+    },
+    footerCenter: { flexDirection: "row", alignItems: "center" },
 });
 
 // ── Public input schema ──────────────────────────────────────────────
