@@ -1,129 +1,113 @@
-# DACS — Dreyv Agentic Command System Migration Plan
+# Living Canvas Dashboard
 
-Working contract for migrating the CommandBar from a single 2,500-line streamText+tools route into a bus-driven, durable, multi-stage agent pipeline.
+Your answers locked the scope: **stacked stream + draggable**, **per-user persistence**, **all 48 capabilities exposed**, **legacy widgets deleted**.
 
-## Locked decisions
-| Topic | Decision |
-|---|---|
-| LLM provider order in `/api/command` | **Groq → Cloudflare → Lovable** (last-resort) |
-| Plan approval | Phase by phase, in order 0→6 |
-| Dynamic scope | Full dynamic with HITL queue + risk-agent gating |
-| HITL policy | Per-user policy table; default = require approval |
-| Rollout | Shadow mode 1 week → diff harness → hard cutover |
+## 0. Fix `dist-check` (blocker)
 
-## Phase 0 — Capability registry extraction (no behavior change)
-Extract all 30 inline tools from `src/app/api/command/route.ts` into `src/lib/agents/capabilities/<name>.ts`, each exporting:
-```ts
-{ id, description, inputSchema, outputSchema, sideEffects: 'read'|'write'|'sim',
-  requiredAuth: 'none'|'wallet'|'multisig', sensitivity: 'low'|'medium'|'high', executor }
-```
-Build `capabilityRegistry`, add coverage test asserting every legacy tool maps to a registry entry. **Zero regressions allowed.**
+The previous turn hand-edited `packages/sdk/dist/*` to strip Turnkey instead of rebuilding. Hand-edited bundler output is brittle and is what `dist-check` is flagging.
 
-## Phase 1 — Bus-based pipeline (parity, behind `DACS_ENABLED` flag)
-- New event `agent.command.submitted`
-- New Inngest fn `commandRouter`:
-  1. Intent extraction (Groq llama-3.3) → typed `Intent { kind, entities, constraints, confidence, ambiguities[] }`
-  2. Plan synthesis (Gemini deep when complex, Groq when simple) → typed `Plan { steps: CapabilityCall[], rationale, reversibility, risk_score }`
-  3. Reflect (`reflector.critiquePlan(plan)`) — challenges plan, can revise/kill steps
-  4. Route: read → exec; write below threshold → exec; write above OR multisig → `agent_tx_proposals`
-- SSE proxy: `/api/command` (new code path) holds an SSE channel and forwards bus events (`step.started`, `step.token`, `step.tool_result`, `plan.ready`, `awaiting_approval`, `done`)
-- Streaming UX preserved or improved.
+- Run `cd packages/sdk && npx tsup src/index.ts --format cjs,esm --dts --clean` to regenerate clean artifacts from source.
+- Update `packages/sdk/package.json` description ("21 hooks" → "20 hooks") so it matches the actual export count post-Turnkey removal.
 
-## Phase 2 — Open-vocabulary planner (full dynamic + HITL)
-Three layers in planner order:
-1. **Capability registry** (deterministic, fast)
-2. **Composition** — chain primitives into novel macros, cached by intent signature
-3. **Dynamic capabilities** — emit `DynamicCapabilitySpec`, run in `sandbox-runner` with allowlist:
-   - Read tier: Helius RPC, Jupiter quotes, DefiLlama, Birdeye, KB, web search
-   - Write tier: must pass risk-agent + always queue to HITL
+(I verified the rebuild succeeds and produces consistent CJS/ESM/dts.)
 
-## Phase 3 — Episodic memory + per-user policy
-- `agent_episodes` table: every command, plan, decision, outcome (with embedding)
-- Nightly job derives `user_agent_policy` rules from episodes ("rejects swaps >2% impact", "prefers Marinade", "confirm above $500")
-- Plan-time injection of policy as constraints; reflector vetoes violations
-- `tx-reconciler` failure → `reflector.postMortem` → write to `knowledge-memory`
+## 1. Canvas state layer
 
-## Phase 4 — Sub-agent runtime (background continuation)
-Wire CommandBar to spawn `SubAgentSpec` for "watch / DCA / alert" intents:
-- Per-spec Inngest fn with TTL + kill switch
-- Each tick runs scoped `triage → deep → executor-bridge` mini-pipeline
-- Surface in `/inbox` and `/agents` with status, last fire, P&L attribution
+New `src/lib/canvas/` module:
 
-## Phase 5 — Multi-agent orchestration
-- Specialist agents: `treasury-agent` (exists), `research-agent`, `market-agent`, `builder-agent`, `risk-agent`
-- `commandRouter` becomes dispatcher via `agent.handoff`
-- Specialists return `AgentReport` to orchestrator
-- Cross-Agent Treasury Protocol envelope (first-mover concept)
+- **`types.ts`** — `CanvasBlock` discriminated union: `narrative | metric | chart | plan | watcher | decision | capability-result | suggestion`. Every block carries `{ id, type, source: 'commandbar'|'agent'|'user'|'page', createdAt, pinned, payload }`.
+- **`CanvasContext.tsx`** — React context exposing `{ blocks, pinned, addBlock, removeBlock, pinBlock, reorderBlocks, clearEphemeral }`. Mounted once in `src/app/app/layout.tsx` so every page in `/app/*` shares one canvas.
+- **`persistence.ts`** — debounced writer to `localStorage` keyed by `canvas:v1:${userId ?? 'anon'}` (userId from `useKeystoneAuth().siwsUser?.id`). Loads on mount, persists `pinned` blocks only; ephemeral blocks die on reload. Per-user, as requested.
+- **`useCanvas()`** hook — primary consumer API.
 
-## Phase 6 — Cutover + legacy deletion
-- After 1 week shadow + green diff metrics, flip `DACS_ENABLED=true` for all
-- Reduce `route.ts` to ~200-line SSE proxy
-- Delete inline tool definitions
+## 2. Bus → Canvas bridge
 
-## Capability inventory (must all migrate, none lost)
-**Treasury & wallets:** create_multisig, transfer, rebalance, mass_dispatch, multisig_proposal
-**Trading:** swap, swap_v2 (Jupiter), bridge, deploy_sniper_bot
-**Yield:** stake, yield_deposit, yield_withdraw, dca
-**Intel & sim:** what_if, risk_assessment, sentiment_analysis, browser_research, idl_extraction, sdk_protocol_analyze, security_firewall (pre-flight sim)
-**Studio:** init_miniapp, analyze_code, marketplace_publish, sdk_hooks_inject, studio_lookup_by_appid, studio_lookup_by_name, studio_list_recent, studio_resolve_link
-**Dynamic:** dynamic_tool_draft, dynamic_tool_compose, dynamic_tool_sandbox_exec
-**Misc:** set_monitor, verify_external_payload, navigate, knowledge lookups
+`AppEventBus` is currently a write-only notify channel. We add a single subscription point:
 
-## New capabilities unlocked
-- Composition macros (cached by intent signature)
-- Dynamic read-only research/answer plans (sandboxed)
-- Dynamic write paths (sandbox → risk-agent → HITL)
-- Background sub-agents from natural-language intent
-- Cross-agent collaboration via specialist handoff
+- `src/lib/canvas/bus-bridge.tsx` — mounted inside the `CanvasProvider`. Subscribes to `useAppEvent` and translates a small set of event types into `addBlock` calls:
+  - `CANVAS_ADD_BLOCK` (explicit)
+  - `AGENT_LOG` → narrative block (collapsed timeline)
+  - `SHOW_STRATEGY_MODAL` → plan block (rendered inline instead of modal)
+  - `UI_NOTIFICATION` → suggestion block
 
-## File map
-**Existing (referenced):**
-- Bus: `src/lib/agents/bus.ts`, `inngest-client.ts`
-- Brains: `src/lib/agents/brains/{groq-triage,gemini-deep,reflector,executor-plans,executor-bridge,storage,tx-reconciler,watchers,functions}.ts`
-- Coordinator: `src/lib/agents/coordinator.ts`
-- Sandbox: `src/lib/dynamic-tools/sandbox-runner.ts`
-- Memory: `src/lib/knowledge-memory.ts`
-- Tables: `agent_proposals`, `agent_tx_proposals`, `agent_subagents`, `agent_treasury_watchers`
+This means existing emitters (`DreyvAgentInput`, `AgentCommandCenter`, CommandBar handlers, `/api/command` responses) **automatically** start populating the canvas with no changes to their call sites.
 
-**To add:**
-- `src/lib/agents/capabilities/*.ts` (one per capability, ~30 files)
-- `src/lib/agents/capabilities/registry.ts`
-- `src/lib/agents/dacs/{intent,plan,route,sse-proxy}.ts`
-- Schema: `user_agent_policy`, `agent_episodes`, `command_diff_log`
-- `src/app/api/admin/dacs-diff/route.ts`
+## 3. Dashboard rebuild — `/app` page
 
-## Cross-cutting requirements
-- Every write defaults to HITL queue. Auto-approve only when user policy explicitly opts in (threshold + protocol allowlist).
-- Shadow-mode diff harness must log both pipelines per request and surface divergences in admin view.
-- Risk-agent must veto any dynamic plan touching protocols not in user policy allowlist OR exceeding user-defined value cap.
+Replace `src/app/app/page.tsx` body with:
 
----
+- **Header** (kept): brand, links, wallet button.
+- **Hero strip**: `HeadlineValue` (treasury) + `TrendCurve` — pinned, always first.
+- **The Canvas**: vertical stacked stream of `CanvasBlock` renderers.
+  - Wrapped in `framer-motion` `Reorder.Group` so blocks are draggable to reorder (covers the "draggable" half of answer 1).
+  - Each block: provenance chip (`from CommandBar` / `from Dreyv` / `pinned`), pin/unpin, dismiss, timestamp.
+  - Empty state: ambient "Ask Dreyv anything…" prompt + 3 starter chips.
+- **Bottom**: existing CommandBar (now a conductor — see §5).
 
-## Status snapshot (keep updated)
+New components in `src/components/canvas/`:
+- `CanvasStream.tsx` — Reorder container.
+- `BlockShell.tsx` — common chrome (provenance, pin, dismiss).
+- `blocks/NarrativeBlock.tsx`, `MetricBlock.tsx`, `PlanBlock.tsx`, `WatcherBlock.tsx`, `DecisionBlock.tsx`, `CapabilityResultBlock.tsx`, `SuggestionBlock.tsx`, `ChartBlock.tsx`.
+- All use the `Surface` / `StreamIn` / `Pill` primitives from `app-shell/primitives.tsx` so the Stitch-light aesthetic is preserved.
 
-**Phase 0 — DONE.** 30 legacy tools + 14 new capabilities = **48 total** in `src/lib/agents/capabilities/`.
-- Domains: treasury(4), trading(4), yield(5), intel(7), studio(8), dynamic(3), misc(3), policy(3), payments(5), risk(6)
-- Legacy shim: `src/lib/agents/capabilities/legacy-shim.ts` (`buildLegacyTools(ctx, { only? })`)
-- Coverage assertion (`assertLegacyCoverage(LEGACY_COMMAND_BAR_TOOL_IDS)`) passes
-- `route.ts` **not yet** swapped to the shim — gated cutover happens at start of Phase 1
+## 4. Capability Palette (all 48)
 
-**Phase 0.5 — Net-new capabilities (NOT in legacy route).** Added ahead of planner so Phase 1 can reason about them:
-- **policy/** `set_treasury_policy`, `treasury_runway_autopilot`, `treasury_attestation`
-- **payments/** `recurring_payment`, `invoice_pay`, `gas_tank_topup`, `grant_disbursement`, `expense_categorize`
-- **risk/** `counterparty_risk_score`, `stablecoin_diversification`, `tax_lot_tracker`, `hedge_position`, `liquidation_watch`, `mev_rebate_claim`
-- All have real schemas + sensitivity + protocols. Executors return structured `requiresApproval: true` payloads where they touch funds — Phase 2 HITL queue picks them up. Indexer-bound ones (`tax_lot_tracker`, `expense_categorize`, `counterparty_risk_score` deep) get fleshed out in Phase 4.
+New `⌘K` palette wired to `capabilityRegistry()`:
 
-**Phase 1 — DONE.** DACS pipeline (`intent → plan → route`) live in shadow mode behind `DACS_ENABLED`. Diff log + SSE proxy + admin view shipped.
+- `src/components/canvas/CapabilityPalette.tsx` — uses existing `cmdk`-based `command.tsx` primitives.
+- Reads `listCapabilities()` (registry already exposes domain, sensitivity, description).
+- Groups by domain (treasury / trading / yield / intel / studio / dynamic / misc / policy / payments / risk).
+- Selecting a capability either:
+  - opens a parameter sheet (zod schema → form), then dispatches via the existing `/api/command` pipeline, **or**
+  - for read-only `sideEffects: "read"`, executes immediately and adds a `CapabilityResultBlock` to the canvas.
+- Sensitivity badge (low/medium/high) + auth requirement chip shown inline.
 
-**Phase 2 — DONE.** HITL queue + open-vocab planner sandbox + per-user policy:
-- `command_approvals` + `user_agent_policy` tables (migration `0011_dacs_phase2_hitl.sql`)
-- `src/lib/agents/dacs/{compose,hitl-queue,policy-store}.ts`
-- `commandRouter` now: loads policy → verifies composed plan (allowlist/registry veto) → enqueues HITL on `queue_for_approval` → emits `agent.approval.requested` / `agent.approval.resolved` bus events
-- API: `/api/dacs/approvals` (GET/PATCH) + `/api/dacs/policy` (GET/PUT)
-- Default posture: every write requires approval; users opt into thresholds via policy
+## 5. CommandBar as conductor (not just router)
 
-**Phase 3 — NEXT.** Episodic memory + executor for approved plans:
-1. `agent_episodes` table + nightly policy derivation job
-2. Approval-resolved listener → executor that runs the queued plan
-3. Reflector post-mortem on failures
-4. `/app/settings` UI for `user_agent_policy` (allowlist, thresholds)
+Today `CommandBar` mostly emits `NAVIGATE`. We extend its result handler:
+
+- Update the existing `/api/command` consumer (and `landing-command-bar.tsx`'s sibling in `/app/*`) so that on plan response it calls `addBlock({ type: 'plan', source: 'commandbar', payload })` **in addition to** the current modal flow. We then make the modal optional — if a plan lands on the canvas, no modal pops; user reviews inline.
+- For "show me…" intents (price check, portfolio, market overview, holder insights), bypass navigation and add the corresponding result block directly to the canvas.
+- Keep `NAVIGATE` for hard route changes (`/app/studio`, `/atlas`, etc.).
+
+Cross-page interaction: because the `CanvasProvider` lives at `/app/layout.tsx`, blocks added from `/app/treasury` or `/app/analytics` show up on `/app` too. The provenance chip records the originating page so the user can trace it.
+
+## 6. Demolition (per answer 4)
+
+Delete after porting their data hooks into blocks:
+- `src/components/dashboard/AgentCommandCenter.tsx` → its bus listener logic moves into `bus-bridge.tsx`; visual log replaced by `NarrativeBlock`s.
+- `src/components/dashboard/DreyvAgentInput.tsx` → superseded by the conductor CommandBar at the bottom of the canvas.
+- The static CSS-grid `/dashboard` page (TreasuryChart, YieldOptimizer, RiskRadar, vault/payroll/directive widgets) — port `TreasuryChart` data into `ChartBlock`, `YieldOptimizer` into a pinnable `WatcherBlock`, `RiskRadar` into a `MetricBlock`. Then delete the page.
+- Confirm no other route imports them (rg sweep) before delete.
+
+## 7. Files to touch / create
+
+**Create**
+- `src/lib/canvas/types.ts`
+- `src/lib/canvas/CanvasContext.tsx`
+- `src/lib/canvas/persistence.ts`
+- `src/lib/canvas/bus-bridge.tsx`
+- `src/lib/canvas/useCanvas.ts`
+- `src/components/canvas/CanvasStream.tsx`
+- `src/components/canvas/BlockShell.tsx`
+- `src/components/canvas/CapabilityPalette.tsx`
+- `src/components/canvas/blocks/*.tsx` (8 block types)
+
+**Edit**
+- `src/app/app/layout.tsx` — wrap with `CanvasProvider` + mount `BusBridge` + register `⌘K` for `CapabilityPalette`.
+- `src/app/app/page.tsx` — replace body with `CanvasStream`.
+- `src/components/CommandBar.tsx` (and/or `landing-command-bar.tsx` analog) — add `addBlock` calls to result handler.
+- `packages/sdk/package.json` — fix description, then rebuild dist.
+
+**Delete**
+- `src/components/dashboard/AgentCommandCenter.tsx`
+- `src/components/dashboard/DreyvAgentInput.tsx`
+- `src/app/dashboard/page.tsx` (and any unique widgets after porting).
+
+## 8. Out of scope (call out explicitly)
+
+- Liveblocks-shared canvas across multisig members — left for later (you chose per-user). The persistence layer is keyed so swapping `localStorage` → Liveblocks storage is one file later.
+- MCP server exposing the registry — still parked.
+- Capability auto-execution policy / risk veto integration — palette dispatches via existing pipelines, no new policy layer this pass.
+
+Once approved I'll execute §0 first (unblocks build), then §1→§7 in order.
