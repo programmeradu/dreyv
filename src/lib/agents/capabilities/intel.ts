@@ -571,115 +571,238 @@ const idl_extraction = defineCapability({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// sentiment_analysis — RPC signature scan + optional Helius enhancement.
+// sentiment_analysis — Real on-chain whale-flow + price/volume blend.
+//
+// Honest design (DACS Phase 7E.2):
+//   • Pull last 100 enhanced txs for the MINT via Helius
+//     `/v0/addresses/{mint}/transactions` — this is the canonical endpoint
+//     for token activity (mint accounts themselves have ~no signatures).
+//   • Whale-flow from real `tokenTransfers[].tokenAmount` priced via
+//     Jupiter price/v2 (USD). Threshold: ≥ $10k = "whale".
+//   • Net-flow direction = sign of (whale-buy-USD − whale-sell-USD), where
+//     "buy" = the mint is the OUTPUT of a SWAP, "sell" = INPUT.
+//   • Price momentum: CoinGecko 24h % change (when token id resolvable).
+//   • Composite score (0–100) = weighted blend of activity, whale net-buy
+//     ratio, and price momentum. Returns honest `dataSources` list and
+//     refuses with `success: false` if Helius key missing.
 // ─────────────────────────────────────────────────────────────────────────────
 const sentiment_analysis = defineCapability({
   id: "sentiment_analysis",
   domain: "intel",
-  description: "On-chain sentiment and whale flow analysis.",
+  description: "On-chain sentiment: whale flow + price momentum for a token.",
   inputSchema: z.object({
     token: z.string().describe("Token symbol or mint to analyze"),
   }),
   sideEffects: "read",
   requiredAuth: "none",
   sensitivity: "low",
-  protocols: ["helius"],
-  execute: async (input, ctx) => {
+  protocols: ["helius", "jupiter", "coingecko"],
+  execute: async (input, _ctx) => {
     const { token } = input;
     console.log(`[capability:sentiment_analysis] ${token}`);
     const mint = resolveTokenMint(token) || token;
+    const heliusKey = process.env.HELIUS_API_KEY;
+    if (!heliusKey) {
+      return {
+        success: false,
+        operation: "sentiment_analysis",
+        token,
+        mint,
+        error: "HELIUS_API_KEY not configured",
+        message: `Cannot analyze sentiment for ${token} — server missing HELIUS_API_KEY.`,
+      };
+    }
 
-    try {
-      const sigRes = await fetch(ctx.rpcEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getSignaturesForAddress",
-          params: [mint, { limit: 50 }],
-        }),
-      });
-      const sigData = await sigRes.json();
-      const signatures = (sigData.result || []) as Array<{
-        signature: string;
-        blockTime?: number;
-        err?: unknown;
+    const dataSources: string[] = [];
+
+    // 1. Fetch last 100 enhanced txs touching the mint.
+    type HeliusTx = {
+      signature: string;
+      timestamp?: number;
+      type?: string;
+      transactionError?: unknown;
+      tokenTransfers?: Array<{
+        mint: string;
+        tokenAmount: number;
+        fromUserAccount?: string;
+        toUserAccount?: string;
       }>;
+      events?: {
+        swap?: {
+          tokenInputs?: Array<{ mint: string; tokenAmount?: { tokenAmount?: string; decimals?: number } }>;
+          tokenOutputs?: Array<{ mint: string; tokenAmount?: { tokenAmount?: string; decimals?: number } }>;
+        };
+      };
+    };
 
-      const recentCount = signatures.length;
-      const errorCount = signatures.filter((s) => s.err).length;
-      const successCount = recentCount - errorCount;
-
-      let txDetails: Array<{ type: string; amount?: number }> = [];
-      if (process.env.HELIUS_API_KEY && signatures.length > 0) {
-        try {
-          const parseRes = await fetch(
-            `https://api.helius.xyz/v0/transactions?api-key=${process.env.HELIUS_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                transactions: signatures.slice(0, 20).map((s) => s.signature),
-              }),
-            },
-          );
-          if (parseRes.ok)
-            txDetails = (await parseRes.json()) as Array<{
-              type: string;
-              amount?: number;
-            }>;
-        } catch {
-          /* Helius enhanced parsing unavailable */
-        }
-      }
-
-      const transferCount = txDetails.filter((t) => t.type === "TRANSFER").length;
-      const swapCount = txDetails.filter((t) => t.type === "SWAP").length;
-      const largeCount = txDetails.filter((t) => (t.amount || 0) > 10000).length;
-
-      const activityScore = Math.min(
-        100,
-        Math.round(
-          (recentCount / 50) * 60 +
-            (successCount / Math.max(1, recentCount)) * 20 +
-            Math.min(largeCount * 5, 20),
-        ),
+    let txs: HeliusTx[] = [];
+    try {
+      const r = await fetch(
+        `https://api.helius.xyz/v0/addresses/${mint}/transactions?api-key=${heliusKey}&limit=100`,
+        { signal: AbortSignal.timeout(15_000) },
       );
-      const netFlow = transferCount > swapCount ? "distributing" : "accumulating";
-      const sentiment =
-        activityScore >= 70 ? "bullish" : activityScore >= 40 ? "neutral" : "bearish";
+      if (!r.ok) throw new Error(`Helius ${r.status}`);
+      txs = (await r.json()) as HeliusTx[];
+      dataSources.push("helius:addresses/transactions");
+    } catch (err) {
+      return {
+        success: false,
+        operation: "sentiment_analysis",
+        token,
+        mint,
+        error: `Helius fetch failed: ${(err as Error).message}`,
+        message: `Could not fetch on-chain activity for ${token}.`,
+      };
+    }
 
+    if (txs.length === 0) {
       return {
         success: true,
         operation: "sentiment_analysis",
         token,
         mint,
-        compositeScore: activityScore,
-        whaleFlow: {
-          netFlow,
-          largeTransactions24h: largeCount,
-          recentTxCount: recentCount,
-          successRate: `${((successCount / Math.max(1, recentCount)) * 100).toFixed(0)}%`,
-        },
-        breakdown: {
-          transfers: transferCount,
-          swaps: swapCount,
-          errors: errorCount,
-        },
-        sentiment,
-        message: `Sentiment for ${token}: score ${activityScore}/100 (${sentiment}). ${recentCount} recent txs, ${largeCount} whale-size. Net flow: ${netFlow}.`,
-      };
-    } catch (err) {
-      console.error("[capability:sentiment_analysis] RPC error:", err);
-      return {
-        success: false,
-        operation: "sentiment_analysis",
-        token,
-        error: "Failed to fetch on-chain data",
-        message: `Could not analyze sentiment for ${token}.`,
+        compositeScore: 0,
+        sentiment: "no-activity",
+        dataSources,
+        message: `No recent on-chain activity for ${token}.`,
       };
     }
+
+    // 2. Price the mint in USD via Jupiter price/v2.
+    let unitPriceUsd = 0;
+    try {
+      const pr = await fetch(`https://lite-api.jup.ag/price/v2?ids=${mint}`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (pr.ok) {
+        const pj = (await pr.json()) as { data?: Record<string, { price?: string | number }> };
+        unitPriceUsd = Number(pj.data?.[mint]?.price ?? 0) || 0;
+        if (unitPriceUsd > 0) dataSources.push("jupiter:price/v2");
+      }
+    } catch {
+      /* price unavailable — whale USD will be 0 and we'll note it */
+    }
+
+    // 3. Walk txs: count swaps/transfers, classify whale buys vs sells.
+    const now = Math.floor(Date.now() / 1000);
+    const last24h = now - 24 * 3600;
+    const WHALE_USD = 10_000;
+
+    let swapCount = 0;
+    let transferCount = 0;
+    let errorCount = 0;
+    let recent24h = 0;
+    let whaleBuyUsd = 0;
+    let whaleSellUsd = 0;
+    let whaleBuys = 0;
+    let whaleSells = 0;
+
+    for (const tx of txs) {
+      if (tx.transactionError) {
+        errorCount += 1;
+        continue;
+      }
+      if ((tx.timestamp ?? 0) >= last24h) recent24h += 1;
+      const t = (tx.type ?? "").toUpperCase();
+      if (t === "SWAP") swapCount += 1;
+      else if (t === "TRANSFER") transferCount += 1;
+
+      // Find net mint-side movement in this tx.
+      let mintNet = 0;
+      for (const tr of tx.tokenTransfers ?? []) {
+        if (tr.mint !== mint) continue;
+        const amt = Number(tr.tokenAmount) || 0;
+        // We can't distinguish buyer/seller without ctx wallet; instead use
+        // SWAP event direction below. For TRANSFER, sum gross magnitude.
+        mintNet += amt;
+      }
+
+      if (t === "SWAP" && tx.events?.swap && unitPriceUsd > 0) {
+        const inIsMint = (tx.events.swap.tokenInputs ?? []).some((i) => i.mint === mint);
+        const outIsMint = (tx.events.swap.tokenOutputs ?? []).some((o) => o.mint === mint);
+        const usd = mintNet * unitPriceUsd;
+        if (usd >= WHALE_USD) {
+          if (outIsMint && !inIsMint) {
+            whaleBuyUsd += usd;
+            whaleBuys += 1;
+          } else if (inIsMint && !outIsMint) {
+            whaleSellUsd += usd;
+            whaleSells += 1;
+          }
+        }
+      }
+    }
+
+    // 4. Price momentum from CoinGecko (best-effort).
+    let priceChange24hPct: number | null = null;
+    try {
+      const cgRes = await fetch(
+        `https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses=${mint}&vs_currencies=usd&include_24hr_change=true`,
+        { signal: AbortSignal.timeout(5_000) },
+      );
+      if (cgRes.ok) {
+        const cgJ = (await cgRes.json()) as Record<string, { usd_24h_change?: number }>;
+        const k = Object.keys(cgJ)[0];
+        if (k && typeof cgJ[k]?.usd_24h_change === "number") {
+          priceChange24hPct = cgJ[k].usd_24h_change!;
+          dataSources.push("coingecko:simple/token_price");
+        }
+      }
+    } catch {
+      /* CG unavailable */
+    }
+
+    // 5. Composite score: activity (0–40) + whale net-buy (0–35) + momentum (0–25).
+    const activityPart = Math.min(40, Math.round((recent24h / 50) * 40));
+    const whaleNet = whaleBuyUsd - whaleSellUsd;
+    const whaleAbs = whaleBuyUsd + whaleSellUsd;
+    const whaleRatio = whaleAbs > 0 ? whaleNet / whaleAbs : 0; // [-1, 1]
+    const whalePart = Math.round(((whaleRatio + 1) / 2) * 35);
+    let momentumPart = 12;
+    if (priceChange24hPct != null) {
+      const clamped = Math.max(-25, Math.min(25, priceChange24hPct));
+      momentumPart = Math.round(((clamped + 25) / 50) * 25);
+    }
+    const compositeScore = Math.max(0, Math.min(100, activityPart + whalePart + momentumPart));
+    const sentiment =
+      compositeScore >= 70 ? "bullish" : compositeScore >= 45 ? "neutral" : "bearish";
+    const netFlowDir = whaleNet > 0 ? "accumulating" : whaleNet < 0 ? "distributing" : "balanced";
+
+    return {
+      success: true,
+      operation: "sentiment_analysis",
+      token,
+      mint,
+      compositeScore,
+      sentiment,
+      whaleFlow: {
+        netFlow: netFlowDir,
+        whaleBuys,
+        whaleSells,
+        whaleBuyUsd: Math.round(whaleBuyUsd),
+        whaleSellUsd: Math.round(whaleSellUsd),
+        netUsd: Math.round(whaleNet),
+        thresholdUsd: WHALE_USD,
+      },
+      activity: {
+        sampledTxs: txs.length,
+        last24hTxs: recent24h,
+        swaps: swapCount,
+        transfers: transferCount,
+        errors: errorCount,
+      },
+      price: {
+        unitPriceUsd,
+        change24hPct: priceChange24hPct,
+      },
+      breakdown: {
+        activityPart,
+        whalePart,
+        momentumPart,
+      },
+      dataSources,
+      message: `Sentiment for ${token}: ${compositeScore}/100 (${sentiment}). ${recent24h} txs/24h, ${whaleBuys} whale buys vs ${whaleSells} sells (net $${Math.round(whaleNet).toLocaleString()}), 24h price ${priceChange24hPct == null ? "n/a" : `${priceChange24hPct.toFixed(1)}%`}.`,
+    };
   },
 });
 

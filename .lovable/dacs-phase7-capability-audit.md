@@ -65,7 +65,7 @@
 | `risk_assessment`      | ✅     | Real concentration math over live vault |
 | `browser_research`     | ✅     | Cloudflare browser + KB |
 | `idl_extraction`       | ✅     | Real on-chain Anchor IDL fetch + decompress |
-| `sentiment_analysis`   | 🟡     | Whale-flow logic exists; verify Helius enhanced tx call (TBD) |
+| `sentiment_analysis`   | ✅     | 7E.2: real Helius `/v0/addresses/{mint}/transactions` + Jupiter price/v2 USD whale classification + CoinGecko 24h momentum; refuses if `HELIUS_API_KEY` missing |
 | `security_firewall`    | ✅     | Mainnet-fork sim |
 | `protocol_sdk_analyze` | ✅     | Real SDK doc + IDL synthesis |
 
