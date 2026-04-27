@@ -6,7 +6,7 @@
  *   N           — exact match
  *   N,M,...     — list
  *   A-B         — inclusive range
- *   * /N        — step  (e.g. */5 in minute = every 5 min)
+ *   STAR/N      — step  (e.g. STAR/5 in minute = every 5 min)
  *   A-B/N       — range with step
  *
  * Fields (in order):
