@@ -227,8 +227,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
 
   return (
     <BlockShell block={block} accent="violet">
-      <div className="flex items-center justify-between gap-3">
-        {summary && <p className="text-sm leading-relaxed text-slate-700">{summary}</p>}
+      <div className="mb-2 flex">
         <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
           {status === "running" || status === "streaming" ? (
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
@@ -236,6 +235,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
           {status}
         </Pill>
       </div>
+      {summary && <ClampedBody text={summary} />}
       {steps.length > 0 && (
         <ol className="mt-3 space-y-2">
           {steps.slice(0, 8).map((s, i) => (
