@@ -63,6 +63,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <CanvasProvider>
+        <div
             className="flex bg-background font-sans text-foreground overflow-hidden h-screen selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
         >
