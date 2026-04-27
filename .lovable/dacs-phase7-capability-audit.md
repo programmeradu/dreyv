@@ -212,7 +212,7 @@ These don't exist yet and unlock the reporting use case the user asked about.
 - [x] **7A.5** `audit_pack_generate` capability — ZIP bundle (PDF + CSVs + raw JSON)
 - [x] **7A.6** `<ArtifactChip>` + `<ArtifactList>` components rendered inside `ToolCard` for any capability output that returns `artifacts: []`. PDFs get inline preview, all kinds get download. Solid violet branding.
 - [x] **7A.7** Artifact storage migrated **Supabase → Neon** (`agent_artifacts` table, bytea body, JWT-signed `/api/agent/artifacts/[id]?t=<jwt>` download endpoint, 7-day TTL, 50MB cap). Migration runner: `POST /api/admin/run-artifacts-migration?token=…`.
-- [x] **7B.1** Streamflow wired in `recurring_payment` — uses `SolanaStreamClient.buildCreateTransaction`, returns real `metadataId` as `streamId`, base64 `VersionedTransaction` for wallet signing. **Reconciliation TODO:** Inngest cron polling `client.getOne({ id: metadataId })` after sign to confirm on-chain state matches.
+- [x] **7B.1** Streamflow wired in `recurring_payment` — uses `SolanaStreamClient.buildCreateTransaction`, returns real `metadataId` as `streamId`, base64 `VersionedTransaction` for wallet signing. Build-error backlog cleared via `src/types/inngest-shim.d.ts` (typed `Inngest` + handler args; `tsc --noEmit` is clean). **Reconciliation TODO:** Inngest cron polling `client.getOne({ id: metadataId })` after sign to confirm on-chain state matches.
 - [ ] **7B.2** Invoice OCR + URL parse
 - [ ] **7B.3** Inngest gas-tank watcher
 - [ ] **7B.4** Streamflow grant escrow + Octokit proof
