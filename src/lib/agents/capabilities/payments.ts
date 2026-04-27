@@ -1127,7 +1127,7 @@ const expense_categorize = defineCapability({
         categories: PNL_CATEGORIES,
         totals,
         transactions: all,
-        message: `Categorized ${all.length} outgoing tx(s) over the last ${lookbackDays}d (${heuristicTagged.length} via heuristics, ${llmTagged.length} via AI tagging).`,
+        message: `Categorized ${all.length} outgoing tx(s) over the last ${lookbackDays}d (${heuristicTagged.length} via heuristics, ${llmTagged.length} via Dreyv AI).`,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
