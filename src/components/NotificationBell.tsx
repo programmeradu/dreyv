@@ -195,7 +195,7 @@ function NotificationItem({
 
     return (
         <div
-            className={`group relative flex items-start gap-3 px-5 py-4 transition-colors hover:bg-slate-50/70 ${
+            className={`group relative flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-slate-50/70 ${
                 unread ? "bg-violet-50/30" : "bg-white"
             }`}
         >
@@ -203,24 +203,24 @@ function NotificationItem({
             {unread && (
                 <span
                     aria-hidden
-                    className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-violet-600"
+                    className="absolute left-0 top-2.5 bottom-2.5 w-[2px] rounded-r-full bg-violet-600"
                 />
             )}
 
             {/* Square medallion with custom crystal glyph */}
             <div
-                className={`relative size-10 rounded-xl ${meta.medallionBg} flex items-center justify-center shrink-0 overflow-hidden`}
+                className={`relative size-8 rounded-lg ${meta.medallionBg} flex items-center justify-center shrink-0 overflow-hidden`}
             >
                 {avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="" className="size-full object-cover rounded-xl" />
+                    <img src={avatarUrl} alt="" className="size-full object-cover rounded-lg" />
                 ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={glyphSrc}
                         alt=""
                         aria-hidden
-                        className="size-7 object-contain drop-shadow-sm"
+                        className="size-5 object-contain drop-shadow-sm"
                         loading="lazy"
                     />
                 )}
@@ -239,17 +239,17 @@ function NotificationItem({
                         }}
                         className="flex-1 min-w-0 text-left"
                     >
-                        <p className="text-[13.5px] font-bold text-slate-900 leading-snug truncate">
+                        <p className="text-[12.5px] font-semibold text-slate-900 leading-snug truncate">
                             {item.title}
                         </p>
                     </button>
-                    <span className="text-[11.5px] text-slate-500 font-medium shrink-0 tabular-nums pt-0.5">
+                    <span className="text-[10.5px] text-slate-500 font-medium shrink-0 tabular-nums pt-0.5">
                         {time}
                     </span>
                 </div>
 
                 {item.message && (
-                    <p className="text-[12.5px] text-slate-600 leading-snug mt-1 line-clamp-2">
+                    <p className="text-[11.5px] text-slate-600 leading-snug mt-0.5 line-clamp-2">
                         {item.message}
                     </p>
                 )}
