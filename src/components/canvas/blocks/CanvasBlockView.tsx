@@ -13,6 +13,7 @@ import { ArtifactList, type ArtifactDescriptor } from "@/components/commandbar/A
 import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
+import { TokenAvatar } from "@/components/TokenAvatar";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
@@ -490,6 +491,8 @@ function ResearchBriefBlock({ block }: { block: CanvasBlock }) {
 interface TokenRow {
   symbol: string;
   label?: string;
+  logo?: string;
+  mint?: string;
   balance?: number;
   value?: number;
   share?: number; // 0..1
@@ -535,17 +538,20 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
             {rows.slice(0, 12).map((r) => {
               const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
               return (
-                <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-4 py-3 text-sm md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] md:gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{r.label ?? r.symbol}</p>
-                    <p className="text-[11px] uppercase tracking-wider text-slate-500">{r.symbol}{r.source ? ` · ${r.source}` : ""}</p>
+                <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-3 py-2 text-sm md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] md:gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <TokenAvatar symbol={r.symbol} mint={r.mint} logo={r.logo} size={28} />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-900 leading-tight">{r.label ?? r.symbol}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 leading-tight">{r.symbol}{r.source ? ` · ${r.source}` : ""}</p>
+                    </div>
                   </div>
                   <p className="text-right tabular-nums text-slate-700">{fmtNum(r.balance)}</p>
                   <p className="text-right tabular-nums font-medium text-slate-900">{fmtUsd(r.value)}</p>
                   <p className={`text-right tabular-nums ${tone}`}>
                     {r.change24h === undefined || r.change24h === null ? "—" : `${r.change24h >= 0 ? "+" : ""}${r.change24h.toFixed(2)}%`}
                   </p>
-                  <div className="col-span-2 mt-1 flex justify-end gap-1.5 md:col-span-1 md:mt-0">
+                  <div className="col-span-2 mt-1 flex justify-end gap-1 md:col-span-1 md:mt-0">
                     <button onClick={() => handleAct("Send", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Send</button>
                     <button onClick={() => handleAct("Swap", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Swap</button>
                     <button onClick={() => handleAct("Earn yield on", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Earn</button>
