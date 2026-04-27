@@ -65,11 +65,10 @@ function timeAgo(ms: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-function humanize(id: string): string {
-  return id
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
+// Normalize ids so `execute-swap`, `execute_swap`, `EXECUTE_SWAP` all collapse
+// to the same persona key (and match TOOL_META lookups).
+function normalizeId(id: string): string {
+  return String(id).toLowerCase().trim().replace(/-+/g, "_");
 }
 
 export function AgentsRail() {
