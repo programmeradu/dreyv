@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from "react";
 import {
     Users, Activity, Zap, Bot, Package, Shield,
-    ArrowRightLeft, RefreshCw, Server, AlertTriangle,
+    ArrowRightLeft, RefreshCw, Server, AlertTriangle, Workflow,
 } from "lucide-react";
 import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin/AdminMetricsPanel";
 import { MetricCard } from "@/components/admin/MetricCard";
+import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
