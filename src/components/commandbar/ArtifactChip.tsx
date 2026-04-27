@@ -72,19 +72,19 @@ export function ArtifactChip({ artifact, className }: ArtifactChipProps) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-xl border border-violet-200 bg-white p-3 shadow-sm transition-colors hover:border-violet-400",
+        "group flex items-center gap-2.5 rounded-xl border border-violet-200 bg-white p-2.5 shadow-sm transition-colors hover:border-violet-400",
         className,
       )}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
-        <Icon className="h-5 w-5" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
+        <Icon className="h-4.5 w-4.5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-semibold text-zinc-900">
             {artifact.filename}
           </p>
-          <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-700">
+          <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-700">
             {label}
           </span>
         </div>
@@ -93,27 +93,29 @@ export function ArtifactChip({ artifact, className }: ArtifactChipProps) {
           {expiry ? ` · ${expiry}` : ""}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1">
         {canPreview ? (
           <a
             href={previewUrl(artifact.ref)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-violet-200 bg-white px-2.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-50"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-violet-200 bg-white text-violet-700 transition-colors hover:bg-violet-50 sm:w-auto sm:gap-1 sm:px-2.5 sm:text-xs sm:font-medium"
             aria-label={`Preview ${artifact.filename}`}
+            title="Preview"
           >
             <Eye className="h-3.5 w-3.5" />
-            Preview
+            <span className="hidden sm:inline">Preview</span>
           </a>
         ) : null}
         <a
           href={artifact.ref}
           download={artifact.filename}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-violet-600 px-2.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-violet-600 text-white transition-colors hover:bg-violet-700 sm:w-auto sm:gap-1 sm:px-2.5 sm:text-xs sm:font-semibold"
           aria-label={`Download ${artifact.filename}`}
+          title="Download"
         >
           <Download className="h-3.5 w-3.5" />
-          Download
+          <span className="hidden sm:inline">Download</span>
         </a>
       </div>
     </div>
