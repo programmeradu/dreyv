@@ -145,10 +145,13 @@ export function CommandBar() {
   const { vaultTokens } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
+  const canvas = useOptionalCanvas();
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const modalPanelRef = useRef<HTMLDivElement>(null);
+  // Currently-streaming plan block id (one per in-flight prompt).
+  const activePlanBlockIdRef = useRef<string | null>(null);
 
   // ─── Signing ───────────────────────────────────────────────────────────────
 
