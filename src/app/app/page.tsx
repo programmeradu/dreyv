@@ -1,34 +1,23 @@
 "use client";
 
 /**
- * `/app` — generative home.
+ * `/app` — the Living Canvas.
  *
- * No widgets, no terminal. One headline, one streaming narrative,
- * one row of human suggestions. Everything else lives elsewhere.
+ * One header strip, one stacked stream of blocks. Everything that happens
+ * (CommandBar prompts, agent insights, capability runs) lands here. Pinned
+ * blocks survive reload per-user; ephemeral ones drift off naturally.
  */
 
+import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { Sparkles, Command } from "lucide-react";
 import { useVault } from "@/lib/contexts/VaultContext";
-import { WalletButton } from "@/components/WalletButton";
-import { ArrowRight, Sparkles } from "lucide-react";
-import {
-  AmbientGlow,
-  SectionHeader,
-  StreamIn,
-} from "@/components/app-shell/primitives";
-import { NarrativeStream } from "@/components/app-shell/NarrativeStream";
-import {
-  HeadlineValue,
-  TrendCurve,
-} from "@/components/app-shell/Composition";
-import {
-  SuggestionList,
-  type Suggestion,
-} from "@/components/app-shell/SuggestionList";
+import { AmbientGlow, StreamIn, SectionHeader } from "@/components/app-shell/primitives";
+import { HeadlineValue, TrendCurve } from "@/components/app-shell/Composition";
+import { CanvasStream } from "@/components/canvas/CanvasStream";
+import { useCanvas } from "@/lib/canvas/CanvasContext";
 
 function generateSparkline(seed: number, n = 28): number[] {
-  // Stable, gently-trending pseudo-curve so the page never sits flat.
   const out: number[] = [];
   let v = 100;
   for (let i = 0; i < n; i++) {
@@ -39,84 +28,54 @@ function generateSparkline(seed: number, n = 28): number[] {
 }
 
 export default function AppHomePage() {
-  const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
-
+  const { vaultValue, vaultChange24h, activeVault } = useVault();
+  const { addBlock, blocks } = useCanvas();
   const trend = useMemo(() => generateSparkline(activeVault ? 7 : 3), [activeVault]);
 
-  const suggestions: Suggestion[] = useMemo(() => {
+  // Seed a single welcome suggestion the first time the user lands with an
+  // empty canvas. Pinned=false so it disappears as soon as they engage.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (blocks.length > 0) return;
+    seededRef.current = true;
     if (!activeVault) {
-      return [
-        {
-          id: "connect",
-          kind: "rebalance",
-          title: "Connect a wallet to begin",
-          detail:
-            "Dreyv works best when it can see your treasury. Link a wallet and we’ll start watching the moments worth your attention.",
-          cta: "Connect",
+      addBlock({
+        type: "suggestion",
+        source: "agent",
+        title: "Connect a wallet to begin",
+        payload: {
+          message:
+            "Dreyv works best when it can see your treasury. Link a wallet and I'll start watching the moments worth your attention.",
+          cta: { href: "/app/treasury", label: "Open treasury" },
         },
-      ];
-    }
-    const idle = vaultTokens?.find((t: any) =>
-      ["USDC", "USDT", "USD"].includes((t.symbol ?? "").toUpperCase()),
-    );
-    const list: Suggestion[] = [];
-    if (idle) {
-      list.push({
-        id: "earn-stable",
-        kind: "earn",
-        title: "Put your idle stables to work",
-        detail:
-          "A portion of your treasury is sitting still. We can route it into safer yield without locking it up.",
-        cta: "Review",
+      });
+    } else {
+      addBlock({
+        type: "suggestion",
+        source: "agent",
+        title: "A few things, gently",
+        payload: {
+          message:
+            "Ask me anything below — or press ⌘K to open the capability palette and explore everything I can do.",
+        },
       });
     }
-    list.push({
-      id: "protect",
-      kind: "protect",
-      title: "Watching for unusual moves",
-      detail:
-        "If a large outflow or sharp drawdown happens, you’ll be the first to know — quietly, not loudly.",
-      cta: "Settings",
-    });
-    list.push({
-      id: "refine",
-      kind: "rebalance",
-      title: "Your mix is slightly concentrated",
-      detail:
-        "A small rebalance could smooth your weekly swings without giving up upside. We’ll show you exactly how.",
-      cta: "See plan",
-    });
-    return list;
-  }, [activeVault, vaultTokens]);
+  }, [activeVault, blocks.length, addBlock]);
+
+  const openPalette = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true }),
+    );
+  };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">
+    <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="left-1/2 top-[-220px] -translate-x-1/2" />
 
-      {/* Header */}
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/app" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" />
-          </span>
-          dreyv
-        </Link>
-        <div className="flex items-center gap-3 text-sm">
-          <Link href="/app/treasury" className="rounded-full px-3 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700">
-            Treasury
-          </Link>
-          <Link href="/app/analytics" className="rounded-full px-3 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700">
-            Analytics
-          </Link>
-          <Link href="/app/settings" className="rounded-full px-3 py-1.5 text-slate-600 hover:bg-violet-50 hover:text-violet-700">
-            Settings
-          </Link>
-          <div className="ml-2"><WalletButton /></div>
-        </div>
-      </header>
-
       {/* Hero */}
-      <section className="relative z-10 mx-auto grid max-w-6xl gap-10 px-6 pt-6 md:grid-cols-[1.05fr_1fr]">
+      <section className="relative z-10 mx-auto grid max-w-6xl gap-10 px-6 pt-10 md:grid-cols-[1.05fr_1fr]">
         <StreamIn className="space-y-6">
           <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-600 shadow-[0_0_10px_currentColor]" />
@@ -125,61 +84,51 @@ export default function AppHomePage() {
           <h1 className="text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-5xl">
             Good to see you. Your treasury is being looked after.
           </h1>
-          <p className="max-w-lg text-base leading-relaxed text-slate-600">
-            Dreyv watches your positions, your yield, and the moments that matter — and only speaks up when it should.
-          </p>
-          <div className="pt-2">
-            <HeadlineValue
-              label="Total value"
-              value={vaultValue}
-              hint={
-                vaultChange24h !== null
-                  ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
-                  : "Connect a wallet to begin"
-              }
-            />
-          </div>
+          <HeadlineValue
+            label="Total value"
+            value={vaultValue}
+            hint={
+              vaultChange24h !== null
+                ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
+                : "Connect a wallet to begin"
+            }
+          />
           <div className="flex items-center gap-3 pt-2">
-            <Link
-              href="/app/treasury"
+            <button
+              onClick={openPalette}
               className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 active:scale-[0.98]"
             >
-              Open treasury
-              <ArrowRight className="h-4 w-4" />
+              <Command className="h-4 w-4" />
+              Open palette · ⌘K
+            </button>
+            <Link href="/app/treasury" className="text-sm font-medium text-slate-600 hover:text-violet-700">
+              Treasury →
             </Link>
             <Link href="/app/analytics" className="text-sm font-medium text-slate-600 hover:text-violet-700">
-              See analytics →
+              Analytics →
             </Link>
           </div>
         </StreamIn>
 
         <StreamIn delay={0.12}>
-          <NarrativeStream />
+          <TrendCurve values={trend} label="Treasury trend · 7d" changePct={vaultChange24h ?? null} />
         </StreamIn>
       </section>
 
-      {/* Trend */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      {/* The Canvas */}
+      <section className="relative z-10 mx-auto mt-14 max-w-6xl px-6 pb-32">
         <SectionHeader
-          eyebrow="Last 7 days"
-          title="The shape of your week"
-          description="A quiet line, the way it should be. We surface only what changes meaningfully."
+          eyebrow="Your canvas"
+          title="A living surface"
+          description="Everything you ask Dreyv, every insight, every capability you run — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
         />
         <div className="mt-6">
-          <TrendCurve values={trend} label="Treasury trend" changePct={vaultChange24h ?? null} />
+          <CanvasStream onOpenPalette={openPalette} />
         </div>
-      </section>
-
-      {/* Suggestions */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-24">
-        <SectionHeader
-          eyebrow="On Dreyv’s mind"
-          title="A few things, gently"
-          description="Suggestions, not commands. Act when you’re ready."
-        />
-        <div className="mt-6">
-          <SuggestionList suggestions={suggestions} />
-        </div>
+        <p className="mt-6 flex items-center gap-1.5 text-xs text-slate-400">
+          <Sparkles className="h-3 w-3" />
+          Pinned blocks are saved to this account. Everything else is ephemeral.
+        </p>
       </section>
     </div>
   );
