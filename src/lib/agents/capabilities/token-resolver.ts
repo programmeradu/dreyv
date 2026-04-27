@@ -14,7 +14,8 @@
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint } from "@solana/spl-token";
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const splToken = require("@solana/spl-token") as { getMint: (c: Connection, m: PublicKey) => Promise<{ decimals: number; mintAuthority: PublicKey | null; freezeAuthority: PublicKey | null }> };
 import { TOKEN_MINTS } from "./tokens";
 
 // ── Types ──────────────────────────────────────────────────────────────────
