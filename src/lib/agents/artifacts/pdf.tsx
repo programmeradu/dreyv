@@ -195,9 +195,9 @@ const styles = StyleSheet.create({
     statusPending: { color: "#a16207" },
     statusOther: { color: INK_50 },
 
-    dirIn: { color: "#15803d", fontFamily: "Helvetica-Bold" },
-    dirOut: { color: "#b91c1c", fontFamily: "Helvetica-Bold" },
-    dirInternal: { color: INK_50, fontFamily: "Helvetica-Bold" },
+    dirIn: { color: "#15803d", fontFamily: "Inter", fontWeight: 700 },
+    dirOut: { color: "#b91c1c", fontFamily: "Inter", fontWeight: 700 },
+    dirInternal: { color: INK_50, fontFamily: "Inter", fontWeight: 700 },
 
     empty: {
         fontSize: 9,
