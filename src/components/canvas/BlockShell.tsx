@@ -5,6 +5,7 @@ import { Surface } from "@/components/app-shell/primitives";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import type { CanvasBlock, CanvasBlockSource } from "@/lib/canvas/types";
 import { cn } from "@/lib/utils";
+import { SubagentSpawnChip } from "./SubagentSpawnChip";
 
 const SOURCE_LABEL: Record<CanvasBlockSource, string> = {
   commandbar: "from CommandBar",
@@ -111,6 +112,9 @@ export function BlockShell({
           </div>
 
           <div className="mt-3">{children}</div>
+          <div className="mt-3 flex items-center justify-end">
+            <SubagentSpawnChip block={block} />
+          </div>
         </div>
       </div>
     </Surface>
