@@ -9,8 +9,29 @@ import type { CanvasBlock } from "@/lib/canvas/types";
 import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
-import { ArrowRight, Check, ShieldAlert, Sparkles } from "lucide-react";
 import Link from "next/link";
+
+/** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
+const GlyphCheck = ({ className = "h-3 w-3" }: { className?: string }) => (
+  <svg viewBox="0 0 12 12" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.5 6.4 5 8.8 9.5 3.6" />
+  </svg>
+);
+const GlyphAlert = ({ className = "h-3 w-3" }: { className?: string }) => (
+  <svg viewBox="0 0 12 12" className={className} fill="currentColor">
+    <path d="M6 1 11 10.5H1Zm0 3.6v3.2m0 1.4v.6" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+  </svg>
+);
+const GlyphArrow = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg viewBox="0 0 14 14" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+  </svg>
+);
+const GlyphSpark = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg viewBox="0 0 14 14" className={className} fill="currentColor">
+    <path d="M7 1.5 8 5.5l4 1-4 1L7 11.5 6 7.5l-4-1 4-1Z" />
+  </svg>
+);
 
 function asString(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;

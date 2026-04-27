@@ -1,7 +1,6 @@
 "use client";
 
-import { Pin, PinOff, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Surface } from "@/components/app-shell/primitives";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import type { CanvasBlock, CanvasBlockSource } from "@/lib/canvas/types";
@@ -16,7 +15,8 @@ const SOURCE_LABEL: Record<CanvasBlockSource, string> = {
 };
 
 function timeAgo(ms: number): string {
-  const s = Math.max(1, Math.round((Date.now() - ms) / 1000));
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 5) return "just now";
   if (s < 60) return `${s}s ago`;
   const m = Math.round(s / 60);
   if (m < 60) return `${m}m ago`;
@@ -24,6 +24,16 @@ function timeAgo(ms: number): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.round(h / 24);
   return `${d}d ago`;
+}
+
+/** Re-renders every 5s so timestamps stay live without prop drilling. */
+function useLiveLabel(createdAt: number): string {
+  const [label, setLabel] = useState(() => timeAgo(createdAt));
+  useEffect(() => {
+    const id = window.setInterval(() => setLabel(timeAgo(createdAt)), 5000);
+    return () => window.clearInterval(id);
+  }, [createdAt]);
+  return label;
 }
 
 export function BlockShell({
@@ -36,6 +46,7 @@ export function BlockShell({
   accent?: "violet" | "emerald" | "rose" | "slate";
 }) {
   const { pinBlock, removeBlock } = useCanvas();
+  const ago = useLiveLabel(block.createdAt);
   const accentBar: Record<string, string> = {
     violet: "bg-violet-500",
     emerald: "bg-emerald-500",
@@ -53,7 +64,7 @@ export function BlockShell({
               <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
                 <span>{SOURCE_LABEL[block.source]}</span>
                 <span className="text-slate-300">·</span>
-                <span>{timeAgo(block.createdAt)}</span>
+                <span>{ago}</span>
                 {block.origin && (
                   <>
                     <span className="text-slate-300">·</span>
@@ -72,11 +83,19 @@ export function BlockShell({
             <div className="flex shrink-0 items-center gap-1">
               <button
                 onClick={() => pinBlock(block.id)}
-                className="rounded-full p-1.5 text-slate-400 transition hover:bg-violet-50 hover:text-violet-700"
+                className={cn(
+                  "rounded-full p-1.5 transition",
+                  block.pinned
+                    ? "text-violet-700 hover:bg-violet-50"
+                    : "text-slate-400 hover:bg-violet-50 hover:text-violet-700",
+                )}
                 aria-label={block.pinned ? "Unpin" : "Pin"}
                 title={block.pinned ? "Unpin" : "Pin to canvas"}
               >
-                {block.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                {/* Brand glyph: filled vs outlined diamond */}
+                <svg viewBox="0 0 12 12" className="h-3 w-3" fill={block.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
+                  <path d="M6 1.2 10.8 6 6 10.8 1.2 6Z" />
+                </svg>
               </button>
               <button
                 onClick={() => removeBlock(block.id)}
@@ -84,7 +103,9 @@ export function BlockShell({
                 aria-label="Dismiss"
                 title="Dismiss"
               >
-                <X className="h-3.5 w-3.5" />
+                <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5" />
+                </svg>
               </button>
             </div>
           </div>
