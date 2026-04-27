@@ -115,10 +115,18 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const refreshVersionRef = useRef(0);
     const { importedMints } = useImportedTokens();
 
+    // Stabilize sqClient by tracking the underlying RPC endpoint string +
+    // wallet pubkey. The wallet-adapter often hands us a NEW Connection
+    // object on every render of ConnectionProvider (when endpoint switches),
+    // which would otherwise re-create sqClient and re-fire the refresh effect
+    // on every render → "Maximum update depth exceeded" loop.
+    const endpointKey = (connection as any)?._rpcEndpoint || "default";
+    const walletKey = wallet?.publicKey?.toBase58() || "anon";
     const sqClient = useMemo(() => {
         if (!connection) return null;
         return new SquadsClient(connection, wallet);
-    }, [connection, wallet]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [endpointKey, walletKey]);
 
     const refresh = async () => {
         if (!sqClient || !activeVault) return;
