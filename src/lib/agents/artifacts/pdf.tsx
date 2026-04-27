@@ -268,7 +268,7 @@ export interface TreasuryReportInput {
 
 function fmtMoney(v: number | null | undefined, withSign = false): string {
     if (v == null) return "—";
-    const sign = v < 0 ? "−" : withSign && v > 0 ? "+" : "";
+    const sign = v < 0 ? "-" : withSign && v > 0 ? "+" : "";
     const abs = Math.abs(v).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -301,8 +301,8 @@ function dirStyle(d: "in" | "out" | "internal") {
 
 function dirGlyph(d: "in" | "out" | "internal"): string {
     if (d === "in") return "+";
-    if (d === "out") return "−";
-    return "·";
+    if (d === "out") return "-";
+    return "~";
 }
 
 function fmtPeriod(p: string): string {
@@ -510,7 +510,7 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
 
                 {/* Footer */}
                 <View style={styles.footer} fixed>
-                    <Text style={styles.footerText}>Dreyv · Treasury OS</Text>
+                    <Text style={styles.footerText}>Dreyv / Treasury OS</Text>
                     <Text
                         style={styles.footerText}
                         render={({ pageNumber, totalPages }) =>
