@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     planTemplate,
     intervalSeconds: input.intervalSeconds ?? 86_400,
     cronExpr: input.cronExpr ?? null,
-    trigger: input.trigger ?? null,
+    trigger: (input.trigger as never) ?? null,
     spawnedFrom: {
       kind: "canvas_block",
       blockId: input.block.id,
