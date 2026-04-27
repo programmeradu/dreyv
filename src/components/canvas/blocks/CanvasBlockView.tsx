@@ -6,7 +6,7 @@
  */
 
 import type { CanvasBlock } from "@/lib/canvas/types";
-import { BlockShell } from "./BlockShell";
+import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
 import { ArrowRight, Check, ShieldAlert, Sparkles } from "lucide-react";
