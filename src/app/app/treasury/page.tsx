@@ -172,7 +172,7 @@ export default function TreasuryPage() {
           description="Tokens, wallets, runway, payouts, policy. Each card is live — pin the ones you want to keep, dismiss the rest, and ask Dreyv to add more."
         />
         <div className="mt-4">
-          <CanvasStream />
+          <CanvasStream scope="treasury" />
         </div>
       </section>
 
