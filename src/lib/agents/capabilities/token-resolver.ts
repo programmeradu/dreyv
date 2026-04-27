@@ -109,7 +109,7 @@ async function fetchOnChainMint(
 ): Promise<{ decimals: number; mintAuthority: string | null; freezeAuthority: string | null } | null> {
   try {
     const conn = new Connection(rpcEndpoint, "confirmed");
-    const info = await getMint(conn, new PublicKey(mint));
+    const info = await splToken.getMint(conn, new PublicKey(mint));
     return {
       decimals: info.decimals,
       mintAuthority: info.mintAuthority ? info.mintAuthority.toBase58() : null,
