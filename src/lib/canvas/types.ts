@@ -21,7 +21,9 @@ export type CanvasBlockType =
   | "watcher"
   | "decision"
   | "capability-result"
-  | "suggestion";
+  | "suggestion"
+  | "artifact"
+  | "research-brief";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {
   id: string;

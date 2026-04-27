@@ -2,7 +2,14 @@
 
 import { useEffect, useRef } from "react";
 
-type AppEventType = "REFRESH_DASHBOARD" | "NAVIGATE" | "UI_NOTIFICATION" | "AGENT_COMMAND" | "SHOW_STRATEGY_MODAL" | "AGENT_LOG";
+type AppEventType =
+    | "REFRESH_DASHBOARD"
+    | "NAVIGATE"
+    | "UI_NOTIFICATION"
+    | "AGENT_COMMAND"
+    | "SHOW_STRATEGY_MODAL"
+    | "AGENT_LOG"
+    | "CANVAS_ADD_BLOCK";
 
 interface AppEvent {
     type: AppEventType;
