@@ -321,13 +321,13 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
         >
           {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           {operation && (
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               {operation}
             </p>
           )}
-          {message && <p className="mt-1 text-sm leading-relaxed text-slate-700">{message}</p>}
+          {message && <div className="mt-1"><ClampedBody text={message} /></div>}
         </div>
       </div>
     </BlockShell>
