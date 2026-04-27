@@ -11,11 +11,20 @@
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
 
+/** Period in seconds for Streamflow stream cadence. */
+const PERIOD_SECONDS: Record<"daily" | "weekly" | "biweekly" | "monthly", number> = {
+  daily: 86_400,
+  weekly: 604_800,
+  biweekly: 1_209_600,
+  // 30d approximation — Streamflow uses fixed-period seconds, not calendar months
+  monthly: 2_592_000,
+};
+
 const recurring_payment = defineCapability({
   id: "recurring_payment",
   domain: "payments",
   description:
-    "Schedule a recurring or vesting payment (payroll, retainer, grant) with optional cliff. Backed by Streamflow / Squads vesting.",
+    "Schedule a real Streamflow vesting stream (payroll, retainer, grant) with optional cliff. Returns a signable VersionedTransaction and the on-chain stream metadata pubkey.",
   inputSchema: z.object({
     recipient: z.string(),
     token: z.string().default("USDC"),
@@ -24,27 +33,125 @@ const recurring_payment = defineCapability({
     durationPeriods: z.number().int().positive(),
     cliffPeriods: z.number().int().min(0).optional().default(0),
     cancellable: z.boolean().optional().default(true),
+    name: z.string().max(64).optional(),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
-  protocols: ["streamflow", "squads"],
+  protocols: ["streamflow"],
   execute: async (input, ctx) => {
     if (!ctx.walletAddress) {
       return { success: false, operation: "recurring_payment", message: "Wallet required." };
     }
     const blocked = ctx.blockExecutionForBuildIntent("recurring_payment");
     if (blocked) return blocked;
+
     const totalAmount = input.amountPerPeriod * input.durationPeriods;
-    return {
-      success: true,
-      operation: "recurring_payment",
-      streamId: `stream_${Math.random().toString(36).slice(2, 10)}`,
-      ...input,
-      totalAmount,
-      requiresApproval: true,
-      message: `Recurring payment drafted: ${input.amountPerPeriod} ${input.token} ${input.period} → ${input.recipient.slice(0, 8)}… for ${input.durationPeriods} period(s) (total ${totalAmount} ${input.token}). Sign to start stream.`,
-    };
+
+    // Resolve token mint
+    const isSol = isSolSymbol(input.token);
+    const mint = isSol ? "So11111111111111111111111111111111111111112" : resolveTokenMint(input.token.toUpperCase());
+    if (!mint) {
+      return {
+        success: false,
+        operation: "recurring_payment",
+        message: `Unknown token: ${input.token}. Supported: ${Object.keys(TOKEN_MINTS).join(", ")}`,
+      };
+    }
+    const decimals = ["USDC", "USDT"].includes(input.token.toUpperCase()) ? 6 : 9;
+
+    try {
+      const { PublicKey } = await import("@solana/web3.js");
+      const { SolanaStreamClient, getBN, ICluster } = (await import("@streamflow/stream")) as typeof import("@streamflow/stream");
+
+      // Validate recipient
+      try {
+        new PublicKey(input.recipient);
+      } catch {
+        return {
+          success: false,
+          operation: "recurring_payment",
+          message: `Invalid recipient address: ${input.recipient}`,
+        };
+      }
+
+      const senderPublicKey = new PublicKey(ctx.walletAddress);
+      const periodSeconds = PERIOD_SECONDS[input.period];
+      const startTs = Math.floor(Date.now() / 1000) + 60; // start in 60s — gives wallet time to sign
+      const cliffTs = input.cliffPeriods > 0 ? startTs + input.cliffPeriods * periodSeconds : startTs;
+
+      const client = new SolanaStreamClient(
+        ctx.rpcEndpoint,
+        ICluster.Mainnet,
+        "confirmed",
+      );
+
+      const streamData = {
+        recipient: input.recipient,
+        tokenId: mint,
+        start: startTs,
+        amount: getBN(totalAmount, decimals),
+        period: periodSeconds,
+        cliff: cliffTs,
+        cliffAmount: getBN(0, decimals),
+        amountPerPeriod: getBN(input.amountPerPeriod, decimals),
+        name: input.name?.slice(0, 64) ?? `dreyv-${Date.now()}`,
+        canTopup: false,
+        cancelableBySender: input.cancellable,
+        cancelableByRecipient: false,
+        transferableBySender: true,
+        transferableByRecipient: false,
+        automaticWithdrawal: false,
+        withdrawalFrequency: 0,
+      };
+
+      const built = await client.buildCreateTransaction(streamData, {
+        senderPublicKey,
+        isNative: isSol,
+      });
+
+      const serialized = Buffer.from(built.tx.serialize()).toString("base64");
+
+      return {
+        success: true,
+        operation: "recurring_payment",
+        streamId: built.metadataId,
+        metadataPubkey: built.metadataId,
+        recipient: input.recipient,
+        token: input.token,
+        mint,
+        amountPerPeriod: input.amountPerPeriod,
+        period: input.period,
+        periodSeconds,
+        durationPeriods: input.durationPeriods,
+        cliffPeriods: input.cliffPeriods,
+        cancellable: input.cancellable,
+        totalAmount,
+        startTs,
+        cliffTs,
+        serializedTransaction: serialized,
+        txKind: "versioned",
+        recentBlockhash: built.hash,
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `Streamflow stream prepared: ${input.amountPerPeriod} ${input.token} every ${input.period} → ${input.recipient.slice(0, 8)}… for ${input.durationPeriods} period(s) (total ${totalAmount} ${input.token}). Stream ID ${built.metadataId.slice(0, 8)}…. Sign to escrow funds.`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:recurring_payment] Streamflow build error:", msg);
+      return {
+        success: false,
+        operation: "recurring_payment",
+        recipient: input.recipient,
+        token: input.token,
+        amountPerPeriod: input.amountPerPeriod,
+        period: input.period,
+        durationPeriods: input.durationPeriods,
+        totalAmount,
+        buildError: msg,
+        message: `Failed to build Streamflow stream: ${msg}`,
+      };
+    }
   },
 });
 
