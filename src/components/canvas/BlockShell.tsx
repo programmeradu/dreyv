@@ -61,15 +61,19 @@ export function BlockShell({
 
   return (
     <Surface className="relative overflow-hidden">
-      {/* Dreyv logo watermark */}
+      {/* Dreyv logo watermark — tinted via CSS mask so it actually shows on light cards */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-8 -bottom-10 h-44 w-44 opacity-[0.045]"
+        className="pointer-events-none absolute -right-10 -bottom-14 h-52 w-52 bg-violet-600 opacity-[0.07]"
         style={{
-          backgroundImage: "url(/dreyv-mark.svg)",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-          backgroundSize: "contain",
+          WebkitMaskImage: "url(/dreyv-mark.svg)",
+          maskImage: "url(/dreyv-mark.svg)",
+          WebkitMaskRepeat: "no-repeat",
+          maskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskPosition: "center",
+          WebkitMaskSize: "contain",
+          maskSize: "contain",
         }}
       />
       <div className="relative flex items-stretch">

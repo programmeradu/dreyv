@@ -12,6 +12,66 @@ import { TrendCurve } from "@/components/app-shell/Composition";
 import { ArtifactList, type ArtifactDescriptor } from "@/components/commandbar/ArtifactChip";
 import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
+import { useState, type ReactNode } from "react";
+
+/**
+ * Lightweight markdown renderer for narrative/summary text.
+ * Handles **bold** and `code`, strips stray standalone asterisks, and
+ * preserves line breaks. Avoids pulling in a full markdown lib for
+ * what is mostly short LLM replies inside cards.
+ */
+function MD({ text, className }: { text: string; className?: string }) {
+  if (!text) return null;
+  // Drop stray asterisks that aren't part of a **pair** or `*emphasis*`.
+  const cleaned = text.replace(/\*{3,}/g, "**");
+  const tokens: ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(cleaned)) !== null) {
+    if (m.index > last) tokens.push(cleaned.slice(last, m.index));
+    if (m[1]) tokens.push(<strong key={i++} className="font-semibold text-slate-900">{m[1]}</strong>);
+    else if (m[2]) tokens.push(<code key={i++} className="rounded bg-slate-100 px-1 py-0.5 text-[12px] font-mono text-slate-800">{m[2]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < cleaned.length) tokens.push(cleaned.slice(last));
+  // Preserve line breaks
+  const withBreaks: ReactNode[] = [];
+  tokens.forEach((tok, idx) => {
+    if (typeof tok === "string") {
+      const parts = tok.split(/\n+/);
+      parts.forEach((p, pi) => {
+        if (pi > 0) withBreaks.push(<br key={`br-${idx}-${pi}`} />);
+        if (p) withBreaks.push(p);
+      });
+    } else {
+      withBreaks.push(tok);
+    }
+  });
+  return <p className={className}>{withBreaks}</p>;
+}
+
+/** Body text with a 4-line clamp + Show more toggle when content is long. */
+function ClampedBody({ text, className = "text-sm leading-relaxed text-slate-700" }: { text: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 220 || text.split(/\n/).length > 4;
+  if (!isLong) return <MD text={text} className={className} />;
+  return (
+    <div>
+      <div className={expanded ? "" : "line-clamp-4"}>
+        <MD text={text} className={className} />
+      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-700 hover:text-violet-900"
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
+    </div>
+  );
+}
 
 /** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
 const GlyphCheck = ({ className = "h-3 w-3" }: { className?: string }) => (
@@ -76,9 +136,7 @@ function NarrativeBlock({ block }: { block: CanvasBlock }) {
   const message = asString(block.payload.message ?? block.payload.detail);
   return (
     <BlockShell block={block} accent="slate">
-      {message ? (
-        <p className="text-sm leading-relaxed text-slate-700">{message}</p>
-      ) : null}
+      {message ? <ClampedBody text={message} /> : null}
     </BlockShell>
   );
 }
@@ -169,8 +227,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
 
   return (
     <BlockShell block={block} accent="violet">
-      <div className="flex items-center justify-between gap-3">
-        {summary && <p className="text-sm leading-relaxed text-slate-700">{summary}</p>}
+      <div className="mb-2 flex">
         <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
           {status === "running" || status === "streaming" ? (
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
@@ -178,6 +235,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
           {status}
         </Pill>
       </div>
+      {summary && <ClampedBody text={summary} />}
       {steps.length > 0 && (
         <ol className="mt-3 space-y-2">
           {steps.slice(0, 8).map((s, i) => (
@@ -263,13 +321,13 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
         >
           {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           {operation && (
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               {operation}
             </p>
           )}
-          {message && <p className="mt-1 text-sm leading-relaxed text-slate-700">{message}</p>}
+          {message && <div className="mt-1"><ClampedBody text={message} /></div>}
         </div>
       </div>
     </BlockShell>
