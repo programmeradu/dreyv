@@ -250,6 +250,45 @@ export function CommandBar() {
       toast.error("Agent Error", { description: msg });
     },
     onFinish: ({ message }) => {
+      // Finalize the active plan block with the full tool sequence + outcome.
+      const planId = activePlanBlockIdRef.current;
+      if (canvas && planId) {
+        const toolParts = getToolParts(message);
+        const steps = toolParts.map((p) => {
+          const out = (p.state === "output-available"
+            ? (p.output as Record<string, unknown> | undefined)
+            : undefined);
+          const failed = out?.success === false;
+          return {
+            title: String(p.toolName ?? "step"),
+            detail:
+              typeof out?.message === "string"
+                ? (out.message as string)
+                : typeof out?.operation === "string"
+                  ? `operation: ${out.operation as string}`
+                  : undefined,
+            status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
+          };
+        });
+        const anyFailed = steps.some((s) => s.status === "failed");
+        const textPart = message.parts?.find((p) => p.type === "text") as
+          | { text?: string }
+          | undefined;
+        canvas.updateBlock(planId, {
+          subtitle: anyFailed ? "Completed with errors" : "Complete",
+          payload: {
+            status: anyFailed ? "error" : "complete",
+            summary:
+              textPart?.text?.slice(0, 240) ||
+              (steps.length
+                ? `Ran ${steps.length} step${steps.length === 1 ? "" : "s"}.`
+                : "Agent finished."),
+            steps,
+          },
+        });
+        activePlanBlockIdRef.current = null;
+      }
+
       for (const part of getToolParts(message)) {
         if (part.state !== "output-available") continue;
         const output = part.output as Record<string, unknown> | undefined;
