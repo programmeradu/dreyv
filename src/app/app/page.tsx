@@ -4,13 +4,12 @@
  * `/app` — the Living Canvas.
  *
  * One header strip, one stacked stream of blocks. Everything that happens
- * (CommandBar prompts, agent insights, capability runs) lands here. Pinned
- * blocks survive reload per-user; ephemeral ones drift off naturally.
+ * (CommandBar prompts, agent insights, capability runs) lands here.
+ * The CommandBar is the single user entry point — no palette button.
  */
 
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { Sparkles, Command } from "lucide-react";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { AmbientGlow, StreamIn, SectionHeader } from "@/components/app-shell/primitives";
 import { HeadlineValue, TrendCurve } from "@/components/app-shell/Composition";
@@ -32,8 +31,7 @@ export default function AppHomePage() {
   const { addBlock, blocks } = useCanvas();
   const trend = useMemo(() => generateSparkline(activeVault ? 7 : 3), [activeVault]);
 
-  // Seed a single welcome suggestion the first time the user lands with an
-  // empty canvas. Pinned=false so it disappears as soon as they engage.
+  // Seed a single welcome suggestion on first empty landing.
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current) return;
@@ -54,21 +52,14 @@ export default function AppHomePage() {
       addBlock({
         type: "suggestion",
         source: "agent",
-        title: "A few things, gently",
+        title: "Ask me anything",
         payload: {
           message:
-            "Ask me anything below — or press ⌘K to open the capability palette and explore everything I can do.",
+            "Use the command bar below — I'll plan, simulate, and surface every step right here on your canvas.",
         },
       });
     }
   }, [activeVault, blocks.length, addBlock]);
-
-  const openPalette = () => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true }),
-    );
-  };
 
   return (
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
@@ -93,18 +84,11 @@ export default function AppHomePage() {
                 : "Connect a wallet to begin"
             }
           />
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={openPalette}
-              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 active:scale-[0.98]"
-            >
-              <Command className="h-4 w-4" />
-              Open palette · ⌘K
-            </button>
-            <Link href="/app/treasury" className="text-sm font-medium text-slate-600 hover:text-violet-700">
+          <div className="flex items-center gap-5 pt-2 text-sm font-medium text-slate-500">
+            <Link href="/app/treasury" className="hover:text-violet-700">
               Treasury →
             </Link>
-            <Link href="/app/analytics" className="text-sm font-medium text-slate-600 hover:text-violet-700">
+            <Link href="/app/analytics" className="hover:text-violet-700">
               Analytics →
             </Link>
           </div>
@@ -120,13 +104,13 @@ export default function AppHomePage() {
         <SectionHeader
           eyebrow="Your canvas"
           title="A living surface"
-          description="Everything you ask Dreyv, every insight, every capability you run — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
+          description="Everything you ask Dreyv, every insight, every plan it draws up — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
         />
         <div className="mt-6">
-          <CanvasStream onOpenPalette={openPalette} />
+          <CanvasStream />
         </div>
-        <p className="mt-6 flex items-center gap-1.5 text-xs text-slate-400">
-          <Sparkles className="h-3 w-3" />
+        <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
+          <span className="h-1 w-1 rounded-full bg-violet-500" />
           Pinned blocks are saved to this account. Everything else is ephemeral.
         </p>
       </section>
