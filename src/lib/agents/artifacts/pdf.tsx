@@ -464,20 +464,18 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
         >
             <Page size="A4" style={styles.page}>
                 {/* Footer (declared early so `fixed` repeats correctly on every page) */}
-                <View style={styles.footer} fixed>
-                    <Text style={styles.footerText}>DREYV</Text>
-                    <View style={styles.footerCenter}>
-                        <Text style={styles.footerText}>TREASURY REPORT</Text>
-                        <View style={styles.footerMark} />
-                        <Text style={styles.footerText}>{periodLabel.toUpperCase()}</Text>
-                    </View>
-                    <Text
-                        style={styles.footerText}
-                        render={({ pageNumber, totalPages }) =>
-                            `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
-                        }
-                    />
-                </View>
+                <Text
+                    fixed
+                    style={styles.footerLeft}
+                >DREYV  ·  TREASURY REPORT  ·  {periodLabel.toUpperCase()}</Text>
+                <Text
+                    fixed
+                    style={styles.footerRight}
+                    render={({ pageNumber, totalPages }) =>
+                        `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
+                    }
+                />
+                <View style={styles.footerRule} fixed />
 
                 {/* Masthead */}
                 <View fixed>
