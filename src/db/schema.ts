@@ -1370,3 +1370,72 @@ export const runwayAutopilotRules = pgTable('runway_autopilot_rules', {
   enabledIdx: index('runway_autopilot_enabled_idx').on(t.enabled),
   statusIdx: index('runway_autopilot_status_idx').on(t.status),
 }));
+
+// ─── Sniper bot rules (DACS Phase 7E.1) ───────────────────────────────
+// Persistent config for `deploy_sniper_bot`. Helius webhook (shared)
+// monitors DEX programs for new pool events; receiver matches against
+// active rules and drafts a Jupiter buy tx (`needs_signature`).
+export const sniperBotRules = pgTable('sniper_bot_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(),
+  /** raydium_v4 | raydium_clmm | orca_whirlpools */
+  exchange: text('exchange').notNull(),
+  /** Minimum new-pool liquidity in USD before triggering. */
+  liquidityThresholdUsd: numeric('liquidity_threshold_usd').notNull().default('5000'),
+  /** Buy size in USDC (or fundingToken) per trigger. */
+  buyAmountUsd: numeric('buy_amount_usd').notNull().default('25'),
+  fundingToken: text('funding_token').notNull().default('USDC'),
+  fundingMint: text('funding_mint').notNull(),
+  maxSlippageBps: integer('max_slippage_bps').notNull().default(300),
+  /** Optional token mint allowlist (only buy these). */
+  tokenAllowlist: jsonb('token_allowlist').notNull().default('[]'),
+  /** Optional token mint denylist (never buy these). */
+  tokenDenylist: jsonb('token_denylist').notNull().default('[]'),
+  maxBuysPerDay: integer('max_buys_per_day').notNull().default(5),
+  enabled: boolean('enabled').notNull().default(true),
+  /** active | disabled | webhook_failed */
+  status: text('status').notNull().default('active'),
+  /** Helius webhookId returned at registration (shared across rules). */
+  heliusWebhookId: text('helius_webhook_id'),
+  buyDayBucket: text('buy_day_bucket'),
+  buysToday: integer('buys_today').notNull().default(0),
+  lastTriggeredAt: timestamp('last_triggered_at'),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('sniper_rules_wallet_idx').on(t.walletAddress),
+  enabledIdx: index('sniper_rules_enabled_idx').on(t.enabled),
+  exchangeIdx: index('sniper_rules_exchange_idx').on(t.exchange),
+}));
+
+// One row per autobuy event the sniper drafts. Status moves:
+// pending_signature → signed → confirmed | failed | expired (4h TTL).
+export const sniperBotEvents = pgTable('sniper_bot_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ruleId: uuid('rule_id').notNull().references(() => sniperBotRules.id, { onDelete: 'cascade' }),
+  walletAddress: text('wallet_address').notNull(),
+  exchange: text('exchange').notNull(),
+  /** Detected new pool/token mint that triggered the buy. */
+  detectedMint: text('detected_mint').notNull(),
+  detectedSymbol: text('detected_symbol'),
+  detectedSignature: text('detected_signature').notNull(),
+  /** USD size of the buy at trigger. */
+  buyAmountUsd: numeric('buy_amount_usd').notNull(),
+  fundingToken: text('funding_token').notNull(),
+  inAmount: text('in_amount'),
+  outAmount: text('out_amount'),
+  slippageBps: integer('slippage_bps').notNull(),
+  serializedTransaction: text('serialized_transaction'),
+  quoteJson: text('quote_json'),
+  status: text('status').notNull().default('pending_signature'),
+  signature: text('signature'),
+  failureReason: text('failure_reason'),
+  signedAt: timestamp('signed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  ruleIdx: index('sniper_events_rule_idx').on(t.ruleId),
+  statusIdx: index('sniper_events_status_idx').on(t.status),
+  createdIdx: index('sniper_events_created_idx').on(t.createdAt),
+}));

@@ -400,50 +400,118 @@ const deploy_sniper_bot = defineCapability({
   id: "deploy_sniper_bot",
   domain: "trading",
   description:
-    "Deploy an active on-chain sniper bot to monitor DEXes and execute instant buys.",
+    "Persist a sniper rule to sniper_bot_rules + ensure the shared Helius webhook subscribes to Raydium V4/CLMM and Orca Whirlpools program IDs. On new-pool detection the inbound webhook drafts a Jupiter buy (signable tx + sniper_bot_events row + agent_episodes follow-up). Honest: never autobuys without signature; webhook registration result is reported in the response.",
   inputSchema: z.object({
-    exchange: z.string().describe("DEX to watch (e.g., Raydium, Orca)"),
-    liquidityThreshold: z
-      .number()
-      .optional()
-      .describe("Minimum liquidity USD threshold for new pools"),
-    maxSlippage: z
-      .number()
-      .optional()
-      .describe("Maximum slippage tolerance %"),
+    exchange: z.enum(["raydium_v4", "raydium_clmm", "orca_whirlpools"])
+      .describe("DEX program to monitor for new pools"),
+    liquidityThresholdUsd: z.number().min(100).max(10_000_000).optional().default(5000),
+    buyAmountUsd: z.number().min(1).max(10_000).optional().default(25),
+    fundingToken: z.enum(["USDC", "USDT"]).optional().default("USDC"),
+    maxSlippageBps: z.number().int().min(10).max(2000).optional().default(300),
+    tokenAllowlist: z.array(z.string()).optional().default([]),
+    tokenDenylist: z.array(z.string()).optional().default([]),
+    maxBuysPerDay: z.number().int().min(1).max(50).optional().default(5),
+    ruleId: z.string().uuid().optional().describe("Update an existing rule"),
+    enabled: z.boolean().optional().default(true),
   }),
-  sideEffects: "meta",
+  sideEffects: "write",
   requiredAuth: "wallet",
-  sensitivity: "medium",
-  protocols: ["raydium", "orca"],
+  sensitivity: "high",
+  protocols: ["raydium", "orca", "jupiter"],
   execute: async (input, ctx) => {
-    const { exchange, liquidityThreshold, maxSlippage } = input;
-    console.log(
-      `[capability:deploy_sniper_bot] watching ${exchange} (Liquidity > $${liquidityThreshold}, Slp: ${maxSlippage}%)`,
-    );
-
     if (!ctx.walletAddress) {
       return {
         success: false,
         operation: "deploy_sniper_bot",
-        error: "Wallet not connected",
-        message:
-          "Cannot deploy sniper bot. Please connect your wallet to authorize execution.",
+        message: "Wallet required to deploy sniper bot.",
       };
     }
+    const { db } = await import("@/db");
+    const { sniperBotRules } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { ensureSniperWebhookSubscribed } = await import("@/lib/agents/dacs/sniper");
+    const { TOKEN_MINTS } = await import("./tokens");
 
-    const botId = "bot_" + Math.random().toString(36).substring(2, 9);
-    return {
-      success: true,
-      operation: "deploy_sniper_bot",
-      exchange,
-      liquidityThreshold,
-      maxSlippage,
-      botId,
-      status: "ACTIVE",
-      requiresApproval: true,
-      message: `Sniper Bot [${botId}] successfully deployed to War Room. Monitoring ${exchange} for new liquidity pools > $${liquidityThreshold?.toLocaleString()}. Max Slippage set to ${maxSlippage}%. Ready to execute instant buys on detection.`,
-    };
+    if (!db) {
+      return { success: false, operation: "deploy_sniper_bot", message: "Database not configured." };
+    }
+
+    try {
+      const fundingMint = TOKEN_MINTS[input.fundingToken];
+      if (!fundingMint) {
+        return { success: false, operation: "deploy_sniper_bot", message: `Unknown funding token: ${input.fundingToken}` };
+      }
+
+      const now = new Date();
+      const values = {
+        walletAddress: ctx.walletAddress,
+        exchange: input.exchange,
+        liquidityThresholdUsd: String(input.liquidityThresholdUsd),
+        buyAmountUsd: String(input.buyAmountUsd),
+        fundingToken: input.fundingToken,
+        fundingMint,
+        maxSlippageBps: input.maxSlippageBps,
+        tokenAllowlist: input.tokenAllowlist,
+        tokenDenylist: input.tokenDenylist,
+        maxBuysPerDay: input.maxBuysPerDay,
+        enabled: input.enabled,
+        status: input.enabled ? "active" : "disabled",
+        updatedAt: now,
+      };
+
+      let row: typeof sniperBotRules.$inferSelect | undefined;
+      if (input.ruleId) {
+        const updated = await db.update(sniperBotRules).set(values).where(eq(sniperBotRules.id, input.ruleId)).returning();
+        row = updated[0];
+        if (!row) {
+          return { success: false, operation: "deploy_sniper_bot", message: `Rule ${input.ruleId} not found.` };
+        }
+      } else {
+        const inserted = await db.insert(sniperBotRules).values(values).returning();
+        row = inserted[0];
+      }
+
+      // Ensure Helius webhook covers the DEX programs (best-effort).
+      let webhookId = "";
+      let webhookError: string | null = null;
+      try {
+        webhookId = await ensureSniperWebhookSubscribed();
+        if (webhookId) {
+          await db.update(sniperBotRules).set({ heliusWebhookId: webhookId, updatedAt: new Date() }).where(eq(sniperBotRules.id, row!.id));
+        }
+      } catch (e) {
+        webhookError = e instanceof Error ? e.message : String(e);
+        await db.update(sniperBotRules).set({
+          status: "webhook_failed",
+          lastError: webhookError,
+          updatedAt: new Date(),
+        }).where(eq(sniperBotRules.id, row!.id));
+      }
+
+      return {
+        success: true,
+        operation: "deploy_sniper_bot",
+        ruleId: row!.id,
+        exchange: input.exchange,
+        liquidityThresholdUsd: input.liquidityThresholdUsd,
+        buyAmountUsd: input.buyAmountUsd,
+        fundingToken: input.fundingToken,
+        maxSlippageBps: input.maxSlippageBps,
+        maxBuysPerDay: input.maxBuysPerDay,
+        enabled: input.enabled,
+        status: webhookError ? "webhook_failed" : (input.enabled ? "active" : "disabled"),
+        webhook: webhookError
+          ? { ok: false, error: webhookError }
+          : { ok: true, webhookId, programs: ["raydium_v4", "raydium_clmm", "orca_whirlpools"] },
+        message: webhookError
+          ? `Sniper rule ${input.ruleId ? "updated" : "created"} (${row!.id}) but Helius webhook subscription failed: ${webhookError}. Set HELIUS_API_KEY + HELIUS_WEBHOOK_AUTH + NEXT_PUBLIC_APP_URL and retry.`
+          : `Sniper rule ${input.ruleId ? "updated" : "created"} (${row!.id}). Watching ${input.exchange} for pools ≥$${input.liquidityThresholdUsd.toLocaleString()}; will draft $${input.buyAmountUsd} ${input.fundingToken} buys (max ${input.maxBuysPerDay}/day) for you to sign.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:deploy_sniper_bot]", msg);
+      return { success: false, operation: "deploy_sniper_bot", message: `Sniper deploy failed: ${msg}` };
+    }
   },
 });
 
