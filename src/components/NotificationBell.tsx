@@ -195,7 +195,7 @@ function NotificationItem({
 
     return (
         <div
-            className={`group relative flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-slate-50/70 ${
+            className={`group relative flex items-start gap-3 px-5 py-4 transition-colors hover:bg-slate-50/70 ${
                 unread ? "bg-violet-50/30" : "bg-white"
             }`}
         >
@@ -203,24 +203,24 @@ function NotificationItem({
             {unread && (
                 <span
                     aria-hidden
-                    className="absolute left-0 top-2.5 bottom-2.5 w-[2px] rounded-r-full bg-violet-600"
+                    className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-violet-600"
                 />
             )}
 
             {/* Square medallion with custom crystal glyph */}
             <div
-                className={`relative size-8 rounded-lg ${meta.medallionBg} flex items-center justify-center shrink-0 overflow-hidden`}
+                className={`relative size-10 rounded-xl ${meta.medallionBg} flex items-center justify-center shrink-0 overflow-hidden`}
             >
                 {avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="" className="size-full object-cover rounded-lg" />
+                    <img src={avatarUrl} alt="" className="size-full object-cover rounded-xl" />
                 ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={glyphSrc}
                         alt=""
                         aria-hidden
-                        className="size-5 object-contain drop-shadow-sm"
+                        className="size-7 object-contain drop-shadow-sm"
                         loading="lazy"
                     />
                 )}
@@ -239,17 +239,17 @@ function NotificationItem({
                         }}
                         className="flex-1 min-w-0 text-left"
                     >
-                        <p className="text-[12.5px] font-semibold text-slate-900 leading-snug truncate">
+                        <p className="text-[13.5px] font-bold text-slate-900 leading-snug truncate">
                             {item.title}
                         </p>
                     </button>
-                    <span className="text-[10.5px] text-slate-400 font-medium shrink-0 tabular-nums pt-0.5">
+                    <span className="text-[11.5px] text-slate-500 font-medium shrink-0 tabular-nums pt-0.5">
                         {time}
                     </span>
                 </div>
 
                 {item.message && (
-                    <p className="text-[11.5px] text-slate-500 leading-snug mt-0.5 line-clamp-2">
+                    <p className="text-[12.5px] text-slate-600 leading-snug mt-1 line-clamp-2">
                         {item.message}
                     </p>
                 )}
@@ -316,41 +316,41 @@ export function NotificationBell() {
 
             <PopoverContent
                 align="end"
-                sideOffset={8}
-                className="w-[320px] p-0 max-h-[440px] flex flex-col overflow-hidden rounded-xl border border-slate-200 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.22)] bg-white"
+                sideOffset={10}
+                className="w-[400px] p-0 max-h-[600px] flex flex-col overflow-hidden rounded-2xl border border-slate-200 shadow-[0_24px_70px_-20px_rgba(15,23,42,0.25)] bg-white"
             >
                 {/* ─── Counter row + actions ──────────────────────────── */}
-                <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100 bg-white shrink-0">
-                    <p className="text-[11.5px] font-semibold text-violet-600">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-white shrink-0">
+                    <p className="text-[12.5px] font-semibold text-violet-600">
                         {count > 0
-                            ? `${count} new`
-                            : `${visible.length} notifications`}
+                            ? `${count} New Update${count === 1 ? "" : "s"}`
+                            : `${visible.length} Notification${visible.length === 1 ? "" : "s"}`}
                     </p>
-                    <div className="flex items-center gap-0.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                         {count > 0 && (
                             <button
                                 onClick={markAllRead}
                                 type="button"
-                                className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-700 hover:text-violet-600 transition-colors px-1.5"
+                                className="text-[11px] font-bold tracking-[0.08em] uppercase text-slate-700 hover:text-violet-600 transition-colors px-2"
                             >
-                                Mark all read
+                                Mark all as read
                             </button>
                         )}
                         <a
                             href="/app/settings"
                             onClick={() => setOpen(false)}
-                            className="size-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             title="Notification settings"
                         >
-                            <SlidersHorizontal size={13} />
+                            <SlidersHorizontal size={15} />
                         </a>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
-                            className="size-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             title="Close"
                         >
-                            <X size={14} />
+                            <X size={16} />
                         </button>
                     </div>
                 </div>
@@ -395,11 +395,11 @@ export function NotificationBell() {
                     <a
                         href="/app/inbox"
                         onClick={() => setOpen(false)}
-                        className="group flex items-center justify-center gap-1.5 px-3 py-2 text-[11.5px] font-semibold text-slate-700 hover:text-violet-600 transition-colors"
+                        className="group flex items-center justify-center gap-2 px-5 py-3.5 text-[12.5px] font-semibold text-slate-700 hover:text-violet-600 transition-colors"
                     >
-                        See all
+                        See all notifications
                         <ArrowRight
-                            size={12}
+                            size={14}
                             className="transition-transform group-hover:translate-x-0.5"
                         />
                     </a>
