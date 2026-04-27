@@ -34,8 +34,6 @@ async function tryGetStream(streamId: string): Promise<{ exists: boolean; error?
     return { exists: !!stream };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    // Account-not-found is the expected "still pending" signal pre-sign,
-    // OR the "user cancelled the wallet prompt" signal post-timeout.
     if (/account.*does not exist|not found|404/i.test(msg)) {
       return { exists: false };
     }
@@ -92,7 +90,6 @@ export const reconcileStreamflowStreams = inngest.createFunction(
             })
             .where(eq(streamflowStreams.id, row.id));
 
-          // Best-effort follow-up episode so the planner sees a real success.
           try {
             await db!.insert(agentEpisodes).values({
               commandId: row.commandId ?? `streamflow-reconcile-${row.id}`,
@@ -111,7 +108,6 @@ export const reconcileStreamflowStreams = inngest.createFunction(
         continue;
       }
 
-      // Not on-chain yet.
       const attempts = row.reconcileAttempts + 1;
       if (ageMs > EXPIRE_AFTER_MS) {
         await step.run(`expire-${row.streamId}`, async () => {
@@ -156,7 +152,7 @@ export const reconcileStreamflowStreams = inngest.createFunction(
       }
     }
 
-    // Garbage-collect very old terminal rows (>30d) so the table stays small.
+    // GC very old terminal rows so the table stays small.
     await step.run("gc-old-rows", async () => {
       const cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
       await db!
