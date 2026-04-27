@@ -395,11 +395,11 @@ export function NotificationBell() {
                     <a
                         href="/app/inbox"
                         onClick={() => setOpen(false)}
-                        className="group flex items-center justify-center gap-2 px-5 py-3.5 text-[12.5px] font-semibold text-slate-700 hover:text-violet-600 transition-colors"
+                        className="group flex items-center justify-center gap-1.5 px-4 py-2.5 text-[11.5px] font-semibold text-slate-700 hover:text-violet-600 transition-colors"
                     >
                         See all notifications
                         <ArrowRight
-                            size={14}
+                            size={12}
                             className="transition-transform group-hover:translate-x-0.5"
                         />
                     </a>
