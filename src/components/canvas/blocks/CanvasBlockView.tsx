@@ -12,7 +12,7 @@ import { TrendCurve } from "@/components/app-shell/Composition";
 import { ArtifactList, type ArtifactDescriptor } from "@/components/commandbar/ArtifactChip";
 import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { TokenAvatar } from "@/components/TokenAvatar";
 
 /**
@@ -139,6 +139,10 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <RunwayBlock block={block} />;
     case "empty-bucket":
       return <EmptyBucketBlock block={block} />;
+    case "mass-send":
+      return <MassSendBlock block={block} />;
+    case "policy-approvals":
+      return <PolicyApprovalsBlock block={block} />;
     default:
       return null;
   }
@@ -680,5 +684,437 @@ function EmptyBucketBlock({ block }: { block: CanvasBlock }) {
         <GlyphArrow />
       </button>
     </BlockShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mass send-outs — Phase 4                                                   */
+/* -------------------------------------------------------------------------- */
+
+interface MassSendRecipient {
+  address: string;
+  amount: number;
+  token?: string;
+  memo?: string;
+  error?: string;
+}
+
+/** Parse a CSV-ish blob: lines of `address,amount[,token[,memo]]`. */
+function parseRecipients(raw: string, defaultToken: string): MassSendRecipient[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#") && !l.toLowerCase().startsWith("address,"));
+  return lines.map((line) => {
+    const parts = line.split(/[,\t]/).map((p) => p.trim());
+    const [address = "", amountRaw = "", token = defaultToken, memo = ""] = parts;
+    const amount = Number(amountRaw);
+    let error: string | undefined;
+    if (!address || address.length < 32 || address.length > 64) error = "invalid address";
+    else if (!Number.isFinite(amount) || amount <= 0) error = "invalid amount";
+    return { address, amount, token: (token || defaultToken).toUpperCase(), memo, error };
+  });
+}
+
+function MassSendBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const isMultisig = block.payload.isMultisig === true;
+  const [defaultToken, setDefaultToken] = useState<string>(asString(block.payload.defaultToken, "USDC"));
+  const [raw, setRaw] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [queuedId, setQueuedId] = useState<string | null>(null);
+
+  const recipients = useMemo(() => parseRecipients(raw, defaultToken), [raw, defaultToken]);
+  const valid = recipients.filter((r) => !r.error);
+  const totalAmount = valid.reduce((s, r) => s + r.amount, 0);
+  const invalidCount = recipients.length - valid.length;
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setRaw(text);
+  };
+
+  const queue = async () => {
+    if (!wallet || valid.length === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/inbox/tx-proposals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet,
+          kind: "mass-send",
+          summary: `Mass payout · ${valid.length} recipients · ${totalAmount.toLocaleString()} ${defaultToken}`,
+          riskLevel: totalAmount > 10_000 ? "high" : totalAmount > 1_000 ? "medium" : "low",
+          routing: isMultisig ? "multisig" : "wallet",
+          instructions: valid.map((r) => ({
+            op: "transfer",
+            params: { recipient: r.address, amount: r.amount, token: r.token, memo: r.memo || undefined },
+          })),
+          meta: { source: "treasury/mass-send", recipientCount: valid.length, totalAmount, defaultToken },
+          ttlMinutes: 240,
+        }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        setQueuedId(data.id);
+        setRaw("");
+      } else {
+        setQueuedId(null);
+      }
+    } catch {
+      setQueuedId(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!wallet) {
+    return (
+      <BlockShell block={block} accent="violet">
+        <p className="text-sm text-slate-600">Connect a wallet to enable mass payouts.</p>
+      </BlockShell>
+    );
+  }
+
+  return (
+    <BlockShell block={block} accent="violet">
+      <div className="space-y-3">
+        <p className="text-sm text-slate-700">
+          Paste recipients (<code className="rounded bg-slate-100 px-1 text-[11px]">address,amount[,token[,memo]]</code>) or upload a CSV.
+          Dreyv batches them into one HITL approval — nothing signs without you.
+        </p>
+
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default token</label>
+          <select
+            value={defaultToken}
+            onChange={(e) => setDefaultToken(e.target.value)}
+            className="rounded-lg border border-violet-200 bg-white px-2 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300"
+          >
+            {["USDC", "USDT", "SOL", "JUP", "BONK"].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <label className="ml-auto cursor-pointer rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">
+            Upload CSV
+            <input type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={onPickFile} />
+          </label>
+        </div>
+
+        <textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          rows={4}
+          placeholder={`So11…AbC,250\n9wM…XyZ,500,USDC,June grant`}
+          className="w-full rounded-xl border border-violet-200 bg-white px-3 py-2 font-mono text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+
+        {recipients.length > 0 && (
+          <div className="overflow-hidden rounded-xl border border-violet-100">
+            <div className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] gap-2 bg-violet-50/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <span>Recipient</span><span className="text-right">Amount</span><span>Token</span><span className="text-right">Status</span>
+            </div>
+            <ul className="max-h-40 divide-y divide-violet-100/70 overflow-y-auto">
+              {recipients.slice(0, 50).map((r, i) => (
+                <li key={`${r.address}-${i}`} className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] items-center gap-2 px-3 py-1.5 text-[12px]">
+                  <span className="truncate font-mono text-slate-700">{r.address ? `${r.address.slice(0,4)}…${r.address.slice(-4)}` : "—"}</span>
+                  <span className="text-right tabular-nums text-slate-900">{Number.isFinite(r.amount) ? r.amount.toLocaleString() : "—"}</span>
+                  <span className="text-slate-600">{r.token}</span>
+                  <span className={`text-right text-[10px] font-semibold uppercase tracking-wider ${r.error ? "text-rose-600" : "text-emerald-600"}`}>
+                    {r.error ?? "ok"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-violet-100 pt-3">
+          <p className="text-[11px] text-slate-500">
+            {valid.length} valid · {invalidCount} skipped · total {totalAmount.toLocaleString()} {defaultToken}
+            {isMultisig && " · routes via Squads"}
+          </p>
+          <div className="flex items-center gap-2">
+            {queuedId && (
+              <Link href="/app/inbox" className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700">
+                Queued ✓ open inbox
+              </Link>
+            )}
+            <button
+              onClick={queue}
+              disabled={submitting || valid.length === 0}
+              className="rounded-xl bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Queuing…" : `Queue ${valid.length} for approval`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </BlockShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Policy & approvals — Phase 4                                               */
+/* -------------------------------------------------------------------------- */
+
+interface PolicyDoc {
+  autoApproveBelowUsd: number;
+  requireMultisigAboveUsd: number | null;
+  dailyValueCapUsd: number | null;
+  protocolAllowlist: string[];
+  protocolDenylist: string[];
+  allowDynamicWrites: boolean;
+}
+
+interface ApprovalRow {
+  id: string;
+  reason?: string;
+  status?: string;
+  riskScore?: number | string | null;
+  estimatedValueUsd?: number | string | null;
+  createdAt?: string;
+  plan?: { summary?: string; description?: string };
+}
+
+interface TxQueueRow {
+  id: string;
+  summary: string;
+  riskLevel?: string;
+  estimatedFeeSol?: string | null;
+  routing?: string;
+  createdAt?: string;
+}
+
+const DEFAULT_POLICY: PolicyDoc = {
+  autoApproveBelowUsd: 0,
+  requireMultisigAboveUsd: null,
+  dailyValueCapUsd: null,
+  protocolAllowlist: [],
+  protocolDenylist: [],
+  allowDynamicWrites: false,
+};
+
+function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const [policy, setPolicy] = useState<PolicyDoc>(DEFAULT_POLICY);
+  const [approvals, setApprovals] = useState<ApprovalRow[]>([]);
+  const [txQueue, setTxQueue] = useState<TxQueueRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const [pRes, aRes, txRes] = await Promise.all([
+        fetch(`/api/dacs/policy?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/dacs/approvals?wallet=${wallet}&status=pending`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/inbox/tx-proposals?wallet=${wallet}&status=queued`, { cache: "no-store" }).then((r) => r.json()),
+      ]);
+      if (pRes?.ok && pRes.policy) {
+        const p = pRes.policy;
+        setPolicy({
+          autoApproveBelowUsd: Number(p.autoApproveBelowUsd ?? 0),
+          requireMultisigAboveUsd: p.requireMultisigAboveUsd != null ? Number(p.requireMultisigAboveUsd) : null,
+          dailyValueCapUsd: p.dailyValueCapUsd != null ? Number(p.dailyValueCapUsd) : null,
+          protocolAllowlist: Array.isArray(p.protocolAllowlist) ? p.protocolAllowlist : [],
+          protocolDenylist: Array.isArray(p.protocolDenylist) ? p.protocolDenylist : [],
+          allowDynamicWrites: Boolean(p.allowDynamicWrites),
+        });
+      }
+      setApprovals(aRes?.approvals ?? []);
+      setTxQueue(txRes?.txProposals ?? []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const t = setInterval(refresh, 20_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallet]);
+
+  const savePolicy = async () => {
+    if (!wallet) return;
+    setSavingPolicy(true);
+    try {
+      await fetch("/api/dacs/policy", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: wallet, ...policy }),
+      });
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
+  const resolveApproval = async (id: string, action: "approve" | "reject") => {
+    setBusyId(id);
+    try {
+      await fetch("/api/dacs/approvals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action, resolvedBy: wallet }),
+      });
+      setApprovals((prev) => prev.filter((a) => a.id !== id));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (!wallet) {
+    return (
+      <BlockShell block={block} accent="violet">
+        <p className="text-sm text-slate-600">Connect a wallet to manage policy and approvals.</p>
+      </BlockShell>
+    );
+  }
+
+  const pendingTotal = approvals.length + txQueue.length;
+
+  return (
+    <BlockShell block={block} accent="violet">
+      <div className="space-y-3">
+        {/* Status row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Pill tone={pendingTotal > 0 ? "rose" : "emerald"}>
+              {pendingTotal > 0 ? `${pendingTotal} pending` : "All clear"}
+            </Pill>
+            <span className="text-[11px] text-slate-500">
+              auto-approve ≤ {fmtUsd(policy.autoApproveBelowUsd, 0)}
+              {policy.dailyValueCapUsd != null && ` · cap ${fmtUsd(policy.dailyValueCapUsd, 0)}/day`}
+            </span>
+          </div>
+          {loading && <span className="text-[10px] uppercase tracking-wider text-slate-400">syncing…</span>}
+        </div>
+
+        {/* Pending tx queue (HITL signs) */}
+        {txQueue.length > 0 && (
+          <div className="rounded-xl border border-violet-100">
+            <div className="flex items-center justify-between bg-violet-50/60 px-3 py-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Pending signatures</span>
+              <Link href="/app/inbox" className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 hover:text-violet-900">Open inbox →</Link>
+            </div>
+            <ul className="divide-y divide-violet-100/70">
+              {txQueue.slice(0, 3).map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
+                  <span className="min-w-0 truncate text-slate-800">{t.summary}</span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-slate-500">{t.routing} · {t.riskLevel}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Plan-level approvals (DACS HITL) */}
+        {approvals.length > 0 && (
+          <div className="rounded-xl border border-violet-100">
+            <div className="bg-violet-50/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Plans awaiting you
+            </div>
+            <ul className="divide-y divide-violet-100/70">
+              {approvals.slice(0, 4).map((a) => {
+                const value = typeof a.estimatedValueUsd === "string" ? Number(a.estimatedValueUsd) : a.estimatedValueUsd ?? null;
+                return (
+                  <li key={a.id} className="px-3 py-2 text-[12.5px]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">{a.plan?.summary || a.reason || "Plan"}</p>
+                        <p className="text-[10.5px] uppercase tracking-wider text-slate-500">
+                          {value != null ? fmtUsd(value, 0) : "value n/a"}
+                          {a.riskScore != null && ` · risk ${typeof a.riskScore === "string" ? a.riskScore : a.riskScore.toFixed(2)}`}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          onClick={() => resolveApproval(a.id, "approve")}
+                          disabled={busyId === a.id}
+                          className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                        >Approve</button>
+                        <button
+                          onClick={() => resolveApproval(a.id, "reject")}
+                          disabled={busyId === a.id}
+                          className="rounded-lg border border-violet-200 px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                        >Reject</button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Compact policy editor */}
+        <div className="rounded-xl border border-violet-100 p-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Guardrails</p>
+          <div className="grid grid-cols-3 gap-2">
+            <PolicyNum
+              label="Auto-approve ≤"
+              value={policy.autoApproveBelowUsd}
+              onChange={(v) => setPolicy((s) => ({ ...s, autoApproveBelowUsd: v ?? 0 }))}
+            />
+            <PolicyNum
+              label="Multisig >"
+              value={policy.requireMultisigAboveUsd}
+              onChange={(v) => setPolicy((s) => ({ ...s, requireMultisigAboveUsd: v }))}
+            />
+            <PolicyNum
+              label="Daily cap"
+              value={policy.dailyValueCapUsd}
+              onChange={(v) => setPolicy((s) => ({ ...s, dailyValueCapUsd: v }))}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <Link href="/app/settings" className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 hover:text-violet-900">
+              Full policy →
+            </Link>
+            <button
+              onClick={savePolicy}
+              disabled={savingPolicy}
+              className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {savingPolicy ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </BlockShell>
+  );
+}
+
+function PolicyNum({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <div className="mt-1 flex items-center rounded-lg border border-violet-200 bg-white px-2 py-1 text-xs">
+        <span className="text-slate-400">$</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          value={value ?? ""}
+          placeholder="—"
+          onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+          className="w-full bg-transparent pl-1 font-mono text-slate-900 focus:outline-none"
+        />
+      </div>
+    </label>
   );
 }

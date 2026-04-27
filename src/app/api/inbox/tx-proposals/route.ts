@@ -12,6 +12,8 @@ import {
   updateTxProposalStatus,
   resolveUserIdFromWallet,
   getTxProposal,
+  insertTxProposal,
+  type InsertTxProposalInput,
 } from "@/lib/agents/brains/storage";
 
 export const runtime = "nodejs";
@@ -27,6 +29,56 @@ export async function GET(req: Request) {
 }
 
 const VALID_ACTIONS = new Set(["approve", "reject", "submitted", "confirmed", "failed"]);
+
+/**
+ * POST /api/inbox/tx-proposals — enqueue a HITL tx proposal.
+ *
+ * Body:
+ *   {
+ *     wallet?: string;            // resolved → userId
+ *     kind: string;               // 'mass-send' | 'transfer' | 'swap' | ...
+ *     summary: string;
+ *     instructions?: unknown[];   // structured ix list (preferred for mass-send)
+ *     unsignedTx?: string;        // OR a base64 unsigned tx
+ *     riskLevel?: 'low'|'medium'|'high';
+ *     routing?: 'wallet'|'multisig';
+ *     multisigVault?: string;
+ *     estimatedFeeSol?: number;
+ *     meta?: Record<string, unknown>;
+ *     ttlMinutes?: number;
+ *   }
+ */
+export async function POST(req: Request) {
+  let body: Partial<InsertTxProposalInput> & { wallet?: string | null };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  if (!body?.kind || !body?.summary) {
+    return NextResponse.json({ ok: false, error: "kind_and_summary_required" }, { status: 400 });
+  }
+  const userId = body.wallet ? await resolveUserIdFromWallet(body.wallet) : null;
+  const row = await insertTxProposal({
+    userId,
+    proposalId: body.proposalId ?? null,
+    chain: body.chain ?? "solana",
+    kind: body.kind,
+    summary: body.summary,
+    unsignedTx: body.unsignedTx ?? null,
+    instructions: body.instructions ?? null,
+    estimatedFeeSol: body.estimatedFeeSol ?? null,
+    riskLevel: body.riskLevel ?? "medium",
+    routing: body.routing ?? "wallet",
+    multisigVault: body.multisigVault ?? null,
+    meta: body.meta ?? null,
+    ttlMinutes: body.ttlMinutes ?? 60,
+  });
+  if (!row) {
+    return NextResponse.json({ ok: false, error: "insert_failed" }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, id: row.id });
+}
 
 export async function PATCH(req: Request) {
   let body: {

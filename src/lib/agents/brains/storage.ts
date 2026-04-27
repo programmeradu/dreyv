@@ -209,6 +209,57 @@ export async function setProposalStatus(
 }
 
 // ─── HITL transaction queue ──────────────────────────────────────────
+
+export interface InsertTxProposalInput {
+  userId?: string | null;
+  proposalId?: string | null;
+  chain?: string;
+  kind: string; // swap | transfer | stake | rebalance | mass-send | unknown
+  summary: string;
+  unsignedTx?: string | null;
+  instructions?: unknown[] | null;
+  estimatedFeeSol?: number | null;
+  riskLevel?: "low" | "medium" | "high";
+  routing?: "wallet" | "multisig";
+  multisigVault?: string | null;
+  meta?: Record<string, unknown> | null;
+  ttlMinutes?: number; // default 60
+}
+
+export async function insertTxProposal(input: InsertTxProposalInput): Promise<{ id: string } | null> {
+  if (!db) {
+    console.warn("[brains:storage] DATABASE_URL missing — insertTxProposal skipped");
+    return null;
+  }
+  try {
+    const ttlMin = input.ttlMinutes ?? 60;
+    const [row] = await db
+      .insert(agentTxProposals)
+      .values({
+        userId: input.userId ?? null,
+        proposalId: input.proposalId ?? null,
+        chain: input.chain ?? "solana",
+        kind: input.kind,
+        summary: input.summary,
+        unsignedTx: input.unsignedTx ?? null,
+        instructions: (input.instructions ?? null) as unknown as object,
+        estimatedFeeSol:
+          input.estimatedFeeSol != null ? String(input.estimatedFeeSol) : null,
+        riskLevel: input.riskLevel ?? "medium",
+        routing: input.routing ?? "wallet",
+        multisigVault: input.multisigVault ?? null,
+        status: "queued",
+        meta: (input.meta ?? null) as unknown as object,
+        expiresAt: new Date(Date.now() + ttlMin * 60_000),
+      })
+      .returning({ id: agentTxProposals.id });
+    return row ?? null;
+  } catch (e: any) {
+    console.warn("[brains:storage] insertTxProposal failed", e?.message);
+    return null;
+  }
+}
+
 export async function listQueuedTxProposals(
   limit = 50,
   opts: { userId?: string | null; status?: string } = {},
