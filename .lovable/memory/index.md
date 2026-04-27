@@ -9,7 +9,9 @@ Approved pricing page aesthetic: white bg, solid violet accents, ambient violet-
 NEVER use hardcoded/demo/made-up figures (e.g. "$100k portfolio", "$250k AUM", default amounts) in any simulation, plan, or projection. Every prompt must either run on live data, or clarify (LLM-driven) to ask the user for the missing exposure (connect wallet / paste address / enter amount / explicit demo opt-in). Bad marketing otherwise.
 Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) + `/auth` Free tier (self-serve, stays discoverable). Never gate Atlas read-only / `/compare` / `/developers` / `llms*.txt` / OpenAPI.
 /app/treasury is a Canvas surface scoped to treasury intent (4 rails: Hero/Pulse/Action/Stream) — never fixed bucket sections. Buckets render only when an agent/watcher/capability has a real block to show. Empty buckets show "Ask Dreyv to set this up" opening CommandBar pre-filled. Reuse DACS pipeline + capability registry + Canvas + app-shell primitives — do not invent new agent or dashboard frameworks.
+ALWAYS use real logos (token/protocol/company) via real image URLs. Never letter-circle or initial placeholders. Forward `logo` field through canvas payloads; render with `<TokenAvatar>` (its geometric sigil is the only acceptable fallback).
 
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
 - [Treasury landscape research](mem://research/treasury-landscape) — Apr 2026 competitor matrix (Squads/Realms/Coinshift/Utopia/Multis/Karpatkey/Sablier/etc), user-need ranking, Dreyv agentic differentiator, bucket priorities for `/app/treasury` foundation.
+- [Real logos rule](mem://design/real-logos) — How to wire real token/protocol/company logos; never use initial-circle placeholders.
