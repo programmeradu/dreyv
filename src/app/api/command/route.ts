@@ -277,34 +277,24 @@ Wallet State: ${JSON.stringify(walletState || {})}
       /\b(bot|app|mini-?app|script|automation|agent)\b/.test(lowerUserRequest);
     const isStudioBuildIntent = promptMode === "build" || (promptMode === "auto" && inferredBuildIntent);
 
-    // ─── DACS Phase 1 shadow hook (no-op when DACS_ENABLED=off) ───────
-    // Fire-and-forget: legacy pipeline below still serves the user.
-    // Skip empty/whitespace prompts — they create noise drift in the audit
-    // (DACS correctly rejects empty input while legacy logs "served").
+    // ─── DACS Phase 6 — primary submission ────────────────────────────
+    // Fire-and-forget: publishes `agent.command.submitted` to the bus so the
+    // command-router → planner → executor pipeline can run in parallel with
+    // the user-facing stream. The Phase 1 shadow diff-log was removed at
+    // cutover; downstream consumers subscribe directly to the bus.
     if (userRequestText.trim().length > 0) {
       void (async () => {
         try {
-          const dacsStartedAt = Date.now();
           const { submitCommand } = await import("@/lib/agents/dacs/submit");
-          const { recordLegacy, computeParity } = await import("@/lib/agents/dacs/diff-log");
-          const { commandId, submitted } = await submitCommand({
+          await submitCommand({
             walletAddress,
             rawText: userRequestText,
             promptMode,
             vaultState,
             walletState,
           });
-          if (submitted) {
-            await recordLegacy({
-              commandId,
-              decisionKind: "served",
-              latencyMs: Date.now() - dacsStartedAt,
-            });
-            setTimeout(() => void computeParity(commandId), 5_000);
-            setTimeout(() => void computeParity(commandId), 30_000);
-          }
         } catch (e) {
-          console.warn("[DACS] shadow submit failed:", e);
+          console.warn("[DACS] submit failed:", e);
         }
       })();
     }

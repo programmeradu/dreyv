@@ -17,12 +17,10 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  ArrowRight,
   PauseCircle,
   XCircle,
   Clock,
 } from "lucide-react";
-import Link from "next/link";
 
 interface RecentIssue {
   id: string;
