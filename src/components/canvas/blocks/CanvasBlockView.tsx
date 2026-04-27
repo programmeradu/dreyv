@@ -9,6 +9,8 @@ import type { CanvasBlock } from "@/lib/canvas/types";
 import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
+import { ArtifactList, type ArtifactDescriptor } from "@/components/commandbar/ArtifactChip";
+import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
 
 /** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
@@ -61,6 +63,10 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <CapabilityResultBlock block={block} />;
     case "suggestion":
       return <SuggestionBlock block={block} />;
+    case "artifact":
+      return <ArtifactBlock block={block} />;
+    case "research-brief":
+      return <ResearchBriefBlock block={block} />;
     default:
       return null;
   }
