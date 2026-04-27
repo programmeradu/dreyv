@@ -13,6 +13,7 @@ import { gasTankWatcher } from "./gas-tank-watcher";
 import { grantsWatcher } from "./grants-watcher";
 import { liquidationWatcher } from "./liq-watcher";
 import { runwayAutopilotWatcher } from "./runway-watcher";
+import { monthlyBurnStatementCron } from "./burn-statement-cron";
 
 export const DACS_FUNCTIONS = [
   commandRouter,
@@ -25,6 +26,7 @@ export const DACS_FUNCTIONS = [
   grantsWatcher,
   liquidationWatcher,
   runwayAutopilotWatcher,
+  monthlyBurnStatementCron,
   ...SPECIALIST_FUNCTIONS,
 ];
 
