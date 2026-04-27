@@ -170,12 +170,21 @@ ${EXECUTION_RULES}
 
 ${RECONCILIATION_RULES}
 
+${ARTIFACT_HONESTY_RULES}
+
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
 Wallet State: ${JSON.stringify(input.walletState ?? {})}${policyLine}${specialistLine}${memoryLine}
 `;
 }
+
+export const ARTIFACT_HONESTY_RULES = `ARTIFACT HONESTY RULES (non-negotiable)
+- A deliverable (PDF / CSV / ZIP / report / export) only exists if the tool output contains a non-empty \`artifacts\` array. No artifacts → no file was produced. Period.
+- NEVER claim a file was "generated", "exported", "ready", "available", or "saved" unless you can point to an artifact in the tool output.
+- If a tool returns \`success: false\` or \`status: "needs_wallet"\`, surface the exact \`message\` from the tool. Do not invent a workaround, do not claim a different format succeeded, do not say "however I have generated…".
+- If \`error: "WALLET_REQUIRED"\`, tell the user plainly that a wallet must be connected (or a wallet/vault address provided) to generate the deliverable. Then stop. Do not retry the same capability with the same inputs.
+- Never describe a capability by its raw id (e.g. "treasury_report_pdf"). Speak in user terms ("treasury PDF for March").`;
 
 export const STRICT_GROUNDING_ADDENDUM =
   "STRICT GROUNDING MODE: For DB/link/navigation claims, you MUST call a verification capability first (get_project_by_id, get_project_by_name, list_recent_projects, get_studio_project_link, mcp_verify). If verification fails, say you could not verify and ask for clarifying input. Never fabricate appIds, URLs, or routes.";
