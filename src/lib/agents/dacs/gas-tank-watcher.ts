@@ -197,6 +197,7 @@ export const gasTankWatcher = inngest.createFunction(
         logger.warn(`[gas-tank-watcher] balance fetch failed for ${rule.walletAddress}: ${balanceResult.error}`);
         continue;
       }
+      const balanceSol: number = balanceResult.sol;
 
       const floor = parseFloat(rule.floorSol);
       const target = parseFloat(rule.targetSol);
