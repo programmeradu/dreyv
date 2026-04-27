@@ -125,6 +125,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <CapabilityPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
             </main>
         </div>
+        </CanvasProvider>
     );
 }
 
