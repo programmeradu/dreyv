@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
+import { TOKEN_MINTS } from "./tokens";
 
 const counterparty_risk_score = defineCapability({
   id: "counterparty_risk_score",
