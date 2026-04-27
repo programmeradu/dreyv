@@ -1,39 +1,56 @@
 "use client";
 
 /**
- * AgentsRail — right-side persistent surface showing background agents,
- * what they're watching, and their last finding.
+ * AgentsRail — right-side persistent surface showing background agents.
  *
- * Visual language:
- *   - Each agent = a row with a colored "presence" dot (per-agent identity color)
- *   - Status verb in tiny caps ("watching", "scanning", "analyzing")
- *   - Last finding in slate-700, time-ago in slate-400
- *   - Active agents pulse the dot; idle ones are dimmed
- *
- * Data source: subscribes to canvas blocks (source==='agent') to derive the
- * "last finding" per agent. Until SSE is wired the rail still renders the
- * full roster with idle states, so users see the autonomy is *there*.
+ * Fully dynamic:
+ *   - Personas are derived from recent canvas activity (capability invocations,
+ *     agent log titles). Each unique capability/persona that fired in the
+ *     RECENT_WINDOW shows up as a row.
+ *   - We pad up to MAX_VISIBLE rows from a small "always-watching" baseline so
+ *     the rail isn't empty on cold start (those baseline rows render greyed
+ *     out / idle until they actually fire).
+ *   - The "+ N agents more" footer is fetched live from
+ *     /api/capabilities/list so it auto-reflects new capabilities added to the
+ *     registry — never hardcoded.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { cn } from "@/lib/utils";
 
-interface AgentDef {
-  id: string;
-  name: string;
-  watching: string;
-  /** Tailwind text color for the identity dot. */
-  tone: string;
-}
+const MAX_VISIBLE = 5;
+const RECENT_WINDOW_MS = 60 * 60 * 1000; // 1h
+const ACTIVE_WINDOW_MS = 30_000;
 
-const AGENTS: AgentDef[] = [
+/** Tiny baseline so the rail isn't empty before any agent has fired. */
+const BASELINE: Array<{ id: string; name: string; watching: string; tone: string }> = [
   { id: "treasury-watcher", name: "Treasury Watcher", watching: "balance & flows", tone: "text-violet-600" },
   { id: "yield-optimizer", name: "Yield Optimizer", watching: "Kamino · Marinade · MarginFi", tone: "text-emerald-600" },
   { id: "risk-sentinel", name: "Risk Sentinel", watching: "drawdown & exposure", tone: "text-amber-600" },
   { id: "mev-guard", name: "MEV Guard", watching: "swap routes", tone: "text-sky-600" },
   { id: "simulation-firewall", name: "Simulation Firewall", watching: "outgoing transactions", tone: "text-rose-600" },
 ];
+
+const TONE_PALETTE = [
+  "text-violet-600",
+  "text-emerald-600",
+  "text-amber-600",
+  "text-sky-600",
+  "text-rose-600",
+  "text-fuchsia-600",
+  "text-cyan-600",
+  "text-orange-600",
+];
+
+interface DerivedAgent {
+  id: string;
+  name: string;
+  watching: string;
+  tone: string;
+  lastTitle?: string;
+  lastAt?: number;
+}
 
 function timeAgo(ms: number): string {
   const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
@@ -46,9 +63,17 @@ function timeAgo(ms: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
+function humanize(id: string): string {
+  return id
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
 export function AgentsRail() {
   const { blocks } = useCanvas();
   const [, force] = useState(0);
+  const [totalCapabilities, setTotalCapabilities] = useState<number | null>(null);
 
   // Tick every 5s so timeAgo stays live.
   useEffect(() => {
@@ -56,24 +81,80 @@ export function AgentsRail() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Derive last finding per agent from the canvas stream.
-  // We match by `payload.agentId` if present, else by best-effort title match.
-  const findings = useMemo(() => {
-    const map = new Map<string, { title: string; createdAt: number }>();
-    for (const b of blocks) {
-      if (b.source !== "agent") continue;
-      const aid = (b.payload as { agentId?: string })?.agentId;
-      const matched =
-        AGENTS.find((a) => a.id === aid) ??
-        AGENTS.find((a) => b.title.toLowerCase().includes(a.name.toLowerCase().split(" ")[0]));
-      if (!matched) continue;
-      const prev = map.get(matched.id);
-      if (!prev || prev.createdAt < b.createdAt) {
-        map.set(matched.id, { title: b.title, createdAt: b.createdAt });
+  // Fetch total capability count once — drives the "+ N more" footer.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/capabilities/list")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        if (typeof data.count === "number") setTotalCapabilities(data.count);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Derive agent personas from recent canvas activity.
+  const { visible, activeCount } = useMemo(() => {
+    const now = Date.now();
+    const acc = new Map<string, DerivedAgent>();
+
+    // Seed baseline (idle by default).
+    for (const b of BASELINE) {
+      acc.set(b.id, { id: b.id, name: b.name, watching: b.watching, tone: b.tone });
+    }
+
+    // Walk canvas blocks; for each agent-sourced block, attribute to a persona.
+    let toneIdx = 0;
+    for (const block of blocks) {
+      if (block.source !== "agent") continue;
+      if (now - block.createdAt > RECENT_WINDOW_MS) continue;
+
+      const payload = (block.payload ?? {}) as { agentId?: string; capability?: string; actor?: string };
+      const rawId =
+        payload.agentId ||
+        payload.capability ||
+        payload.actor ||
+        // Fallback: attribute by first word of the title (e.g. "Treasury …").
+        block.title.split(/[\s·:—-]/)[0]?.toLowerCase();
+      if (!rawId) continue;
+      const id = String(rawId).toLowerCase();
+
+      const existing = acc.get(id);
+      if (existing) {
+        if (!existing.lastAt || existing.lastAt < block.createdAt) {
+          existing.lastAt = block.createdAt;
+          existing.lastTitle = block.title;
+        }
+      } else {
+        acc.set(id, {
+          id,
+          name: humanize(id),
+          watching: "live capability",
+          tone: TONE_PALETTE[toneIdx++ % TONE_PALETTE.length],
+          lastAt: block.createdAt,
+          lastTitle: block.title,
+        });
       }
     }
-    return map;
+
+    // Rank: agents with recent activity first (most recent first), then idle baseline.
+    const ranked = Array.from(acc.values()).sort((a, b) => {
+      if (a.lastAt && b.lastAt) return b.lastAt - a.lastAt;
+      if (a.lastAt) return -1;
+      if (b.lastAt) return 1;
+      return 0;
+    });
+
+    const visible = ranked.slice(0, MAX_VISIBLE);
+    const activeCount = ranked.filter((a) => a.lastAt && now - a.lastAt < RECENT_WINDOW_MS).length;
+    return { visible, activeCount };
   }, [blocks]);
+
+  // "+ N more" — total registry minus what we're showing. Never negative.
+  const remaining = totalCapabilities != null ? Math.max(0, totalCapabilities - visible.length) : null;
 
   return (
     <aside className="sticky top-6 hidden w-[280px] shrink-0 lg:block">
@@ -81,8 +162,8 @@ export function AgentsRail() {
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-700">Background</p>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-600" />
-            {AGENTS.length} agents
+            <span className={cn("h-1.5 w-1.5 rounded-full bg-violet-600", activeCount > 0 && "animate-pulse")} />
+            {activeCount} active
           </span>
         </div>
         <h3 className="mt-1 font-manrope text-base font-semibold tracking-tight text-slate-900">
@@ -93,13 +174,18 @@ export function AgentsRail() {
         </p>
 
         <ul className="mt-4 space-y-3">
-          {AGENTS.map((agent) => {
-            const finding = findings.get(agent.id);
-            const active = finding && Date.now() - finding.createdAt < 30_000;
+          {visible.map((agent) => {
+            const isIdle = !agent.lastAt;
+            const isActive = agent.lastAt && Date.now() - agent.lastAt < ACTIVE_WINDOW_MS;
             return (
-              <li key={agent.id} className="flex items-start gap-3">
-                <span className={cn("relative mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center", agent.tone)}>
-                  {active && (
+              <li key={agent.id} className={cn("flex items-start gap-3", isIdle && "opacity-50")}>
+                <span
+                  className={cn(
+                    "relative mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center",
+                    isIdle ? "text-slate-300" : agent.tone,
+                  )}
+                >
+                  {isActive && (
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-50" />
                   )}
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
@@ -107,20 +193,26 @@ export function AgentsRail() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-[13px] font-semibold text-slate-900">{agent.name}</p>
-                    {finding && (
+                    {agent.lastAt && (
                       <span className="shrink-0 text-[10px] uppercase tracking-wider text-slate-400">
-                        {timeAgo(finding.createdAt)}
+                        {timeAgo(agent.lastAt)}
                       </span>
                     )}
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                    {finding ? finding.title : `watching ${agent.watching}`}
+                    {agent.lastTitle ? agent.lastTitle : `watching ${agent.watching}`}
                   </p>
                 </div>
               </li>
             );
           })}
         </ul>
+
+        {remaining != null && remaining > 0 && (
+          <p className="mt-3 text-[11px] text-slate-400">
+            + {remaining} agent{remaining === 1 ? "" : "s"} more
+          </p>
+        )}
 
         <div className="mt-5 border-t border-violet-100 pt-4">
           <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Today</p>
