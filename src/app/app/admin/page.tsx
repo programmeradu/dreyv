@@ -78,8 +78,33 @@ export default function AdminMonitoringRoom() {
         );
     }
 
+    // Defensive defaults so a partial API response never crashes the grid.
+    const m = metrics ?? {};
+    const safe = {
+        users: { total: 0, new24h: 0, new7d: 0, onboarded: 0, withEmail: 0, ...(m.users ?? {}) },
+        revenue: {
+            totalMarketplaceVol: 0, totalMarketplaceRev: 0,
+            tiers: { free: 0, mini: 0, max: 0, ...((m.revenue?.tiers) ?? {}) },
+            ...(m.revenue ?? {}),
+        },
+        ai: {
+            totalExecutions: 0, executions24h: 0, totalRuns: 0,
+            executionStatus: { SUCCESS: 0, PENDING: 0, SIMULATING: 0, FAILED: 0, ...((m.ai?.executionStatus) ?? {}) },
+            ...(m.ai ?? {}),
+        },
+        dca: {
+            activeBots: 0, totalInvested: 0, volume24h: 0,
+            botsStatus: { active: 0, completed: 0, paused: 0, failed: 0, ...((m.dca?.botsStatus) ?? {}) },
+            ...(m.dca ?? {}),
+        },
+        marketplace: { totalApps: 0, publishedApps: 0, activeInstalls: 0, ...(m.marketplace ?? {}) },
+        onchain: { txCount: 0, usdVol: 0, airdropClaims: 0, airdropValue: 0, ...(m.onchain ?? {}) },
+        teams: { total: 0, vaultLinked: 0, invitesTotal: 0, invitesAccepted: 0, ...(m.teams ?? {}) },
+        system: { rateLimitHits24h: 0, activeMonitors: 0, activeAtlasSessions: 0, foresightAccuracy: 0, ...(m.system ?? {}) },
+    };
+
     return (
-        <div className="dreyv-marketing-root relative min-h-dvh w-full font-manrope bg-white text-slate-900">
+        <div className="dreyv-marketing-root relative min-h-dvh w-full font-manrope bg-white text-slate-900 overflow-x-hidden">
             {/* Ambient violet light */}
             <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
                 <div className="absolute top-[-12%] left-[-10%] h-[620px] w-[620px] rounded-full bg-violet-400/[0.10] blur-[130px]" />
