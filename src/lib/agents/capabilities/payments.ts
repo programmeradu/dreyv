@@ -929,30 +929,211 @@ const grant_milestone_release = defineCapability({
   },
 });
 
+const PNL_CATEGORIES = ["payroll", "vendor", "grant", "marketing", "opex", "capex", "swap_fee", "transfer_internal", "other"] as const;
+type PnlCategory = (typeof PNL_CATEGORIES)[number];
+
+interface CategorizedExpense {
+  signature: string;
+  timestamp: number;
+  counterparty: string | null;
+  symbol: string | null;
+  amount: number;
+  category: PnlCategory;
+  confidence: number;
+  rationale: string;
+  source: "heuristic" | "llm";
+}
+
+/** Built-in deterministic rules first; only unknown rows go to the LLM. */
+function heuristicCategory(fact: {
+  source?: string | null;
+  type?: string | null;
+  symbol?: string | null;
+  counterparty?: string | null;
+}): { category: PnlCategory; confidence: number; rationale: string } | null {
+  const src = (fact.source || "").toUpperCase();
+  const ty = (fact.type || "").toUpperCase();
+  if (src === "JUPITER" || ty === "SWAP") return { category: "swap_fee", confidence: 0.95, rationale: "Jupiter/swap program" };
+  if (src === "STREAMFLOW") return { category: "payroll", confidence: 0.9, rationale: "Streamflow vesting stream" };
+  if (ty === "STAKE" || ty === "UNSTAKE") return { category: "capex", confidence: 0.7, rationale: "Stake/unstake action" };
+  if (ty === "NFT_SALE" || ty === "NFT_MINT") return { category: "marketing", confidence: 0.5, rationale: "NFT activity (default marketing bucket)" };
+  return null;
+}
+
+async function llmTagExpenses(rows: Array<{ idx: number; counterparty: string | null; symbol: string | null; amount: number; type: string | null; source: string | null }>): Promise<Array<{ idx: number; category: PnlCategory; confidence: number; rationale: string }>> {
+  if (rows.length === 0) return [];
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) {
+    return rows.map(r => ({ idx: r.idx, category: "other" as PnlCategory, confidence: 0.2, rationale: "LLM unavailable" }));
+  }
+  const sys = `You are a treasury bookkeeper. Classify each outgoing on-chain transfer into ONE P&L category from: ${PNL_CATEGORIES.join(", ")}. Use counterparty + token + amount + program source. Return a confidence in [0,1].`;
+  const user = JSON.stringify(rows);
+  try {
+    const res = await callLovableAI({
+      model: "google/gemini-3-flash-preview",
+      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+      tools: [{
+        type: "function",
+        function: {
+          name: "tag_expenses",
+          description: "Tag each row with a P&L category.",
+          parameters: {
+            type: "object",
+            properties: {
+              tags: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    idx: { type: "number" },
+                    category: { type: "string", enum: [...PNL_CATEGORIES] },
+                    confidence: { type: "number" },
+                    rationale: { type: "string" },
+                  },
+                  required: ["idx", "category", "confidence", "rationale"],
+                },
+              },
+            },
+            required: ["tags"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "tag_expenses" } },
+    }, 30_000);
+    if (!res.ok) throw new Error(`AI ${res.status}`);
+    const json = await res.json();
+    const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const parsed = args ? JSON.parse(args) : null;
+    const tags: Array<{ idx: number; category: PnlCategory; confidence: number; rationale: string }> = parsed?.tags ?? [];
+    return tags;
+  } catch (err) {
+    console.warn("[expense_categorize] LLM tag fallback:", err instanceof Error ? err.message : err);
+    return rows.map(r => ({ idx: r.idx, category: "other" as PnlCategory, confidence: 0.2, rationale: "LLM error" }));
+  }
+}
+
 const expense_categorize = defineCapability({
   id: "expense_categorize",
   domain: "payments",
   description:
-    "Tag recent outgoing transactions into a P&L taxonomy (payroll / vendor / grant / marketing / opex / capex / other) using LLM + heuristics.",
+    "Categorize outgoing transactions from the last N days into a P&L taxonomy using Helius enhanced transactions + heuristics + Lovable AI. Returns per-tx tags and category totals.",
   inputSchema: z.object({
     lookbackDays: z.number().int().min(1).max(365).optional().default(30),
     walletOverride: z.string().optional(),
+    maxTransactions: z.number().int().min(10).max(500).optional().default(200),
   }),
   sideEffects: "read",
   requiredAuth: "wallet",
   sensitivity: "low",
-  execute: async ({ lookbackDays, walletOverride }, ctx) => {
+  execute: async ({ lookbackDays, walletOverride, maxTransactions }, ctx) => {
     const wallet = walletOverride || ctx.walletAddress;
     if (!wallet) return { success: false, operation: "expense_categorize", message: "Wallet required." };
-    return {
-      success: true,
-      operation: "expense_categorize",
-      wallet,
-      lookbackDays,
-      categories: ["payroll", "vendor", "grant", "marketing", "opex", "capex", "other"],
-      status: "DEFERRED_TO_INDEXER",
-      message: `Expense categorization queued for last ${lookbackDays}d on ${wallet.slice(0, 8)}…. Result streams when the Helius/RPC indexer pass completes.`,
-    };
+
+    try {
+      const { fetchHeliusTransactions } = await import("@/lib/agents/artifacts/helius");
+      const { parseTxFacts } = await import("@/lib/agents/tx-stream/categorize");
+      const sinceUnix = Math.floor(Date.now() / 1000) - lookbackDays * 86_400;
+      const txs = await fetchHeliusTransactions(wallet, { sinceUnix, limit: maxTransactions });
+
+      // Keep only outgoing flows (we're categorizing expenses).
+      const outgoing = txs
+        .map(tx => {
+          const facts = parseTxFacts(tx, wallet);
+          return {
+            signature: tx.signature,
+            timestamp: tx.timestamp,
+            type: tx.type ?? null,
+            source: tx.source ?? null,
+            facts,
+          };
+        })
+        .filter(r => r.facts.direction === "out" && (r.facts.amount ?? 0) > 0);
+
+      // Apply heuristics; defer the rest to the LLM.
+      const heuristicTagged: CategorizedExpense[] = [];
+      const llmRows: Array<{ idx: number; counterparty: string | null; symbol: string | null; amount: number; type: string | null; source: string | null }> = [];
+      const llmIndex: number[] = [];
+
+      outgoing.forEach((row, i) => {
+        const h = heuristicCategory({ source: row.source, type: row.type, symbol: row.facts.tokenSymbol ?? null, counterparty: row.facts.counterparty ?? null });
+        if (h) {
+          heuristicTagged.push({
+            signature: row.signature,
+            timestamp: row.timestamp,
+            counterparty: row.facts.counterparty ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
+            amount: row.facts.amount ?? 0,
+            category: h.category,
+            confidence: h.confidence,
+            rationale: h.rationale,
+            source: "heuristic",
+          });
+        } else {
+          llmRows.push({
+            idx: i,
+            counterparty: row.facts.counterparty ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
+            amount: row.facts.amount ?? 0,
+            type: row.type,
+            source: row.source,
+          });
+          llmIndex.push(i);
+        }
+      });
+
+      // Batch LLM tagging in chunks of 25 to stay under token limits.
+      const llmTagged: CategorizedExpense[] = [];
+      for (let i = 0; i < llmRows.length; i += 25) {
+        const chunk = llmRows.slice(i, i + 25);
+        const tags = await llmTagExpenses(chunk);
+        const tagMap = new Map(tags.map(t => [t.idx, t]));
+        for (const r of chunk) {
+          const tag = tagMap.get(r.idx) ?? { category: "other" as PnlCategory, confidence: 0.2, rationale: "Untagged" };
+          const row = outgoing[r.idx];
+          llmTagged.push({
+            signature: row.signature,
+            timestamp: row.timestamp,
+            counterparty: row.facts.counterparty ?? null,
+            symbol: row.facts.tokenSymbol ?? null,
+            amount: row.facts.amount ?? 0,
+            category: tag.category,
+            confidence: tag.confidence,
+            rationale: tag.rationale,
+            source: "llm",
+          });
+        }
+      }
+
+      const all = [...heuristicTagged, ...llmTagged].sort((a, b) => b.timestamp - a.timestamp);
+
+      // Aggregate totals per category (count + summed amount per symbol).
+      const totals: Record<string, { count: number; bySymbol: Record<string, number> }> = {};
+      for (const c of PNL_CATEGORIES) totals[c] = { count: 0, bySymbol: {} };
+      for (const row of all) {
+        totals[row.category].count += 1;
+        const sym = row.symbol || "UNKNOWN";
+        totals[row.category].bySymbol[sym] = (totals[row.category].bySymbol[sym] ?? 0) + row.amount;
+      }
+
+      return {
+        success: true,
+        operation: "expense_categorize",
+        wallet,
+        lookbackDays,
+        scanned: txs.length,
+        outgoingCount: outgoing.length,
+        heuristicCount: heuristicTagged.length,
+        llmCount: llmTagged.length,
+        categories: PNL_CATEGORIES,
+        totals,
+        transactions: all,
+        message: `Categorized ${all.length} outgoing tx(s) over the last ${lookbackDays}d (${heuristicTagged.length} via heuristics, ${llmTagged.length} via Lovable AI).`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:expense_categorize]", msg);
+      return { success: false, operation: "expense_categorize", wallet, message: `Categorization failed: ${msg}` };
+    }
   },
 });
 
