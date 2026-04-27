@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
+import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
 
 /** Period in seconds for Streamflow stream cadence. */
 const PERIOD_SECONDS: Record<"daily" | "weekly" | "biweekly" | "monthly", number> = {
@@ -106,7 +107,7 @@ const recurring_payment = defineCapability({
       };
 
       const built = await client.buildCreateTransaction(streamData, {
-        senderPublicKey,
+        sender: { publicKey: senderPublicKey },
         isNative: isSol,
       });
 
