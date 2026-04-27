@@ -339,6 +339,9 @@ export default function AdminMonitoringRoom() {
                             />
                         </MetricGrid>
                     </AdminMetricsPanel>
+
+                    {/* PANEL 9: Inngest agent runtime */}
+                    <InngestHealthPanel />
                 </div>
             </main>
         </div>
