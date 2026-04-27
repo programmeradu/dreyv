@@ -113,6 +113,35 @@ const recurring_payment = defineCapability({
 
       const serialized = Buffer.from(built.tx.serialize()).toString("base64");
 
+      // Phase 7B.1 — Persist a pending row so the reconciler can verify on-chain
+      // state after the user signs in the browser. Best-effort — never blocks.
+      try {
+        const { db } = await import("@/db");
+        const { streamflowStreams } = await import("@/db/schema");
+        if (db) {
+          await db
+            .insert(streamflowStreams)
+            .values({
+              streamId: built.metadataId,
+              walletAddress: ctx.walletAddress,
+              recipient: input.recipient,
+              mint,
+              tokenSymbol: input.token.toUpperCase(),
+              amountPerPeriod: String(input.amountPerPeriod),
+              periodSeconds,
+              durationPeriods: input.durationPeriods,
+              totalAmount: String(totalAmount),
+              cliffSeconds: input.cliffPeriods * periodSeconds,
+              cancellable: input.cancellable,
+              startTs: startTs,
+              status: "pending_signature",
+            })
+            .onConflictDoNothing({ target: streamflowStreams.streamId });
+        }
+      } catch (persistErr) {
+        console.warn("[capability:recurring_payment] Persist pending row failed (best-effort):", persistErr);
+      }
+
       return {
         success: true,
         operation: "recurring_payment",
