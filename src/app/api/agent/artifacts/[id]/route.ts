@@ -3,18 +3,19 @@ import { jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { agentArtifacts } from "@/db/schema";
+import { presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Phase 7A — Signed download endpoint for agent-generated artifacts.
+ * Phase 7A.2 — Signed download endpoint for agent-generated artifacts.
  *
  *   GET /api/agent/artifacts/:id?t=<jwt>&inline=1
  *
- * The JWT is short-lived (issued by uploadArtifact). Token mismatch / expiry /
- * missing artifact => 403 / 404. By default the file is served as an
- * attachment; pass `inline=1` to display in-browser (e.g. PDF preview).
+ * Validates the JWT, then:
+ *   - if `r2_key` present → 302 redirect to a fresh R2 presigned GET URL.
+ *   - else legacy `body` bytea → stream inline (back-compat).
  */
 function getSecret(): Uint8Array {
     const s = process.env.ARTIFACT_SIGNING_SECRET || process.env.JWT_SECRET;
@@ -61,20 +62,42 @@ export async function GET(
         }
 
         const inline = request.nextUrl.searchParams.get("inline") === "1";
-        const disposition = inline
-            ? `inline; filename="${row.filename}"`
-            : `attachment; filename="${row.filename}"`;
 
-        const body = Buffer.isBuffer(row.body) ? row.body : Buffer.from(row.body as Uint8Array);
-        return new NextResponse(new Uint8Array(body), {
-            status: 200,
-            headers: {
-                "Content-Type": row.mime,
-                "Content-Length": String(row.bytes),
-                "Content-Disposition": disposition,
-                "Cache-Control": "private, max-age=300",
-            },
-        });
+        // Preferred path — bytes in R2.
+        if (row.r2Key && isR2Configured()) {
+            const url = await presignR2Get({
+                key: row.r2Key,
+                filename: row.filename,
+                mime: row.mime,
+                inline,
+                ttlSeconds: 600,
+            });
+            return NextResponse.redirect(url, 302);
+        }
+
+        // Legacy path — bytes inline in Postgres.
+        if (row.body) {
+            const disposition = inline
+                ? `inline; filename="${row.filename}"`
+                : `attachment; filename="${row.filename}"`;
+            const body = Buffer.isBuffer(row.body)
+                ? row.body
+                : Buffer.from(row.body as unknown as Uint8Array);
+            return new NextResponse(new Uint8Array(body), {
+                status: 200,
+                headers: {
+                    "Content-Type": row.mime,
+                    "Content-Length": String(row.bytes),
+                    "Content-Disposition": disposition,
+                    "Cache-Control": "private, max-age=300",
+                },
+            });
+        }
+
+        return NextResponse.json(
+            { error: "artifact body unavailable (no r2_key and no inline body)" },
+            { status: 410 },
+        );
     } catch (err) {
         console.error("[artifacts/:id] error:", err);
         return NextResponse.json(

@@ -1023,8 +1023,9 @@ export const dacsHandoffs = pgTable('dacs_handoffs', {
 }));
 
 // ─── DACS Phase 7A — Agent-generated artifacts (PDF/CSV/ZIP/JSON) ────
-// Bytes stored inline in Neon (bytea). Served via signed JWT through
-// /api/agent/artifacts/[id]. Capped at 50MB at the application layer.
+// Bytes live in Cloudflare R2 (`r2Key`). Neon stores metadata only.
+// Legacy rows may still carry inline `body` (bytea). Served via
+// /api/agent/artifacts/[id] which 302s to a fresh R2 presigned URL.
 export const agentArtifacts = pgTable('agent_artifacts', {
   id: uuid('id').defaultRandom().primaryKey(),
   ownerKey: text('owner_key').notNull(), // wallet address or vault PDA
@@ -1035,7 +1036,10 @@ export const agentArtifacts = pgTable('agent_artifacts', {
   filename: text('filename').notNull(),
   mime: text('mime').notNull(),
   bytes: integer('bytes').notNull(),
-  body: bytea('body').notNull(),
+  // R2 object key (e.g. `<owner>/<folder>/<id>-<filename>`). Null for legacy rows.
+  r2Key: text('r2_key'),
+  // Legacy inline body (pre-R2). Kept nullable for backward compatibility.
+  body: bytea('body'),
   meta: jsonb('meta').notNull().default('{}'),
   expiresAt: timestamp('expires_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1044,6 +1048,28 @@ export const agentArtifacts = pgTable('agent_artifacts', {
   walletIdx: index('agent_artifacts_wallet_idx').on(t.walletAddress),
   kindIdx: index('agent_artifacts_kind_idx').on(t.kind),
   createdIdx: index('agent_artifacts_created_idx').on(t.createdAt),
+}));
+
+// Failure log for artifact pipeline — surfaces retry actions in UI.
+export const artifactFailures = pgTable('artifact_failures', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ownerKey: text('owner_key').notNull(),
+  walletAddress: text('wallet_address'),
+  capabilityId: text('capability_id').notNull(),
+  commandId: text('command_id'),
+  kind: text('kind').notNull(),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  bytes: integer('bytes').notNull(),
+  stage: text('stage').notNull(), // render | upload | sign | insert
+  error: text('error').notNull(),
+  meta: jsonb('meta').notNull().default('{}'),
+  retryCount: integer('retry_count').notNull().default(0),
+  resolvedArtifactId: uuid('resolved_artifact_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  ownerIdx: index('artifact_failures_owner_idx').on(t.ownerKey),
+  createdIdx: index('artifact_failures_created_idx').on(t.createdAt),
 }));
 
 // ─── DACS Phase 7B — Helius transaction streaming ────────────────────
