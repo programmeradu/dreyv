@@ -29,9 +29,23 @@ export function SubagentSpawnChip({ block, defaultRawText }: Props) {
   const [state, setState] = useState<"idle" | "spawning" | "ok" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
 
-  const promoted = Boolean(
-    (block.payload as Record<string, unknown> | undefined)?.suggestSubagent,
-  );
+  const payload = (block.payload as Record<string, unknown> | undefined) ?? {};
+  const promoted = Boolean(payload.suggestSubagent);
+
+  // Only show on block types where recurring monitoring makes sense.
+  // Conversational/Q&A/empty-state blocks (narrative, suggestion, artifact)
+  // get nothing unless Dreyv explicitly promoted it.
+  const WATCHABLE: ReadonlyArray<string> = [
+    "metric",
+    "chart",
+    "watcher",
+    "plan",
+    "decision",
+    "capability-result",
+    "research-brief",
+  ];
+  const watchable = WATCHABLE.includes(block.type);
+  if (!watchable && !promoted) return null;
 
   async function handleSpawn() {
     if (state === "spawning") return;
