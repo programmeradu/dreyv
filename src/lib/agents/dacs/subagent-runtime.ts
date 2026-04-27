@@ -12,7 +12,8 @@
 import { randomUUID } from "node:crypto";
 import { inngest } from "../inngest-client";
 import { publish } from "../bus";
-import { dueSubagents, getSubagent, recordTick } from "./subagent-store";
+import { dueSubagents, getSubagent, recordTick, recordTriggerEval } from "./subagent-store";
+import { evaluateTrigger, type TriggerSpec } from "./triggers";
 
 export const subagentTickerCron = inngest.createFunction(
   {
