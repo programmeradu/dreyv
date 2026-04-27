@@ -125,20 +125,23 @@ export default function AppHomePage() {
         </StreamIn>
       </section>
 
-      {/* The Canvas */}
+      {/* The Canvas + Agents Rail */}
       <section className="relative z-10 mx-auto mt-14 max-w-6xl px-6 pb-32">
         <SectionHeader
           eyebrow="Your canvas"
           title="A living surface"
           description="Everything you ask Dreyv, every insight, every plan it draws up — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
         />
-        <div className="mt-6">
-          <CanvasStream />
+        <div className="mt-6 flex gap-6">
+          <div className="min-w-0 flex-1">
+            <CanvasStream />
+            <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
+              <span className="h-1 w-1 rounded-full bg-violet-500" />
+              Pinned blocks are saved to this account. Everything else is ephemeral.
+            </p>
+          </div>
+          <AgentsRail />
         </div>
-        <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
-          <span className="h-1 w-1 rounded-full bg-violet-500" />
-          Pinned blocks are saved to this account. Everything else is ephemeral.
-        </p>
       </section>
     </div>
   );
