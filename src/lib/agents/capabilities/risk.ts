@@ -16,9 +16,9 @@ const counterparty_risk_score = defineCapability({
   id: "counterparty_risk_score",
   domain: "risk",
   description:
-    "Score a wallet or protocol before interacting: TVL trend, audit recency, admin-key concentration, governance attack surface, oracle dependencies.",
+    "Score a wallet or protocol before interacting. Real fan-out across DefiLlama (TVL trend), GitHub (repo/audit activity), Helius (wallet concentration), Pyth (oracle liveness). Returns 0-100 sub-scores + composite + risk band.",
   inputSchema: z.object({
-    target: z.string().describe("Wallet address or protocol identifier (e.g. 'kamino', 'marginfi')"),
+    target: z.string().describe("Wallet address or protocol slug (e.g. 'kamino', 'marginfi', 'drift')"),
     targetType: z.enum(["wallet", "protocol"]),
     depth: z.enum(["quick", "deep"]).optional().default("quick"),
   }),
@@ -26,23 +26,30 @@ const counterparty_risk_score = defineCapability({
   requiredAuth: "none",
   sensitivity: "low",
   execute: async ({ target, targetType, depth }) => {
-    return {
-      success: true,
-      operation: "counterparty_risk_score",
-      target,
-      targetType,
-      depth,
-      // Placeholder scoring; deep mode will fan out to DefiLlama + GitHub + audit registry.
-      scores: {
-        tvlTrend: null,
-        auditRecency: null,
-        adminKeyConcentration: null,
-        governanceAttackSurface: null,
-        oracleDependencyRisk: null,
-      },
-      compositeRisk: "UNKNOWN",
-      message: `Counterparty scan queued for ${targetType}: ${target.slice(0, 16)}… (${depth}). Scores stream once intel agents return.`,
-    };
+    try {
+      const { scoreCounterparty } = await import("@/lib/agents/dacs/counterparty-scorer");
+      const report = await scoreCounterparty(target, targetType, depth);
+      return {
+        success: true,
+        operation: "counterparty_risk_score",
+        target,
+        targetType,
+        depth,
+        scores: report.scores,
+        composite: report.composite,
+        band: report.band,
+        coverage: report.coverage,
+        warnings: report.warnings,
+        fetchedAt: report.fetchedAt,
+        message: report.composite != null
+          ? `Composite ${report.composite}/100 (${report.band} risk) for ${targetType} ${target.slice(0, 16)}…. Coverage ${report.coverage.available}/${report.coverage.total} sub-scores.`
+          : `Could not score ${target.slice(0, 16)}… — all sub-scores returned no data. Check warnings.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:counterparty_risk_score]", msg);
+      return { success: false, operation: "counterparty_risk_score", target, targetType, message: `Scorer failed: ${msg}` };
+    }
   },
 });
 
