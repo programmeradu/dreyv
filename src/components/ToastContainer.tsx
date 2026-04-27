@@ -52,7 +52,6 @@ export function ToastContainer() {
           <ToastItem
             key={t.id}
             toast={t}
-            index={i}
             onDismiss={() => dismissToast(t.id)}
           />
         ))}
@@ -62,10 +61,10 @@ export function ToastContainer() {
 }
 
 /**
- * Individual premium light toast — white card, colored left bar, soft ring,
+ * Individual premium light toast — white card, Dreyv mark,
  * optional uppercase badge, optional filled pill action button.
  */
-function ToastItem({ toast, index, onDismiss }: { toast: Toast; index: number; onDismiss: () => void }) {
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const isDismissing = !!toast.dismissedAt;
 
   // Progress bar (subtle, sits at bottom)
