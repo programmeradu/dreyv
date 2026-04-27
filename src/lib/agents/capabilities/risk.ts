@@ -245,7 +245,7 @@ const tax_lot_tracker = defineCapability({
   id: "tax_lot_tracker",
   domain: "risk",
   description:
-    "Run FIFO/LIFO/HIFO lot accounting on every swap/transfer over a window and produce a capital-gains report (TokenTax/Cryptio CSV ready).",
+    "Run FIFO/LIFO/HIFO lot accounting on every swap/transfer over a window using real Helius enhanced txs + CoinGecko historical prices. Returns realized gain rows + open lots; supports JSON / TokenTax CSV / Cryptio CSV exports.",
   inputSchema: z.object({
     method: z.enum(["FIFO", "LIFO", "HIFO"]).default("FIFO"),
     fromDate: z.string().describe("ISO date, e.g. 2026-01-01"),
@@ -259,17 +259,29 @@ const tax_lot_tracker = defineCapability({
   execute: async ({ method, fromDate, toDate, walletOverride, exportFormat }, ctx) => {
     const wallet = walletOverride || ctx.walletAddress;
     if (!wallet) return { success: false, operation: "tax_lot_tracker", message: "Wallet required." };
-    return {
-      success: true,
-      operation: "tax_lot_tracker",
-      method,
-      fromDate,
-      toDate,
-      wallet,
-      exportFormat,
-      status: "DEFERRED_TO_INDEXER",
-      message: `Tax-lot run (${method}) queued for ${fromDate} → ${toDate} on ${wallet.slice(0, 8)}…. Report streams as ${exportFormat} when indexer completes.`,
-    };
+    try {
+      const { runTaxLots } = await import("@/lib/agents/dacs/tax-lot-engine");
+      const report = await runTaxLots({ wallet, method, fromDate, toDate, exportFormat });
+      return {
+        success: true,
+        operation: "tax_lot_tracker",
+        method,
+        fromDate,
+        toDate,
+        wallet,
+        exportFormat,
+        totals: report.totals,
+        rows: report.rows,
+        openLots: report.openLots,
+        warnings: report.warnings,
+        csv: report.csv,
+        message: `Computed ${report.totals.rowCount} disposal row(s) over ${fromDate}→${toDate} (${method}). Realized gain $${report.totals.realizedGainUsd.toFixed(2)} (LT $${report.totals.longTermGainUsd.toFixed(2)} / ST $${report.totals.shortTermGainUsd.toFixed(2)}). ${report.openLots.length} open lot(s). ${report.warnings.length} warning(s).`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:tax_lot_tracker]", msg);
+      return { success: false, operation: "tax_lot_tracker", wallet, message: `Tax-lot run failed: ${msg}` };
+    }
   },
 });
 
