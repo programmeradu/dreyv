@@ -700,8 +700,18 @@ interface MassSendRecipient {
   error?: string;
 }
 
-/** Parse a CSV-ish blob: lines of `address,amount[,token[,memo]]`. */
-function parseRecipients(raw: string, defaultToken: string): MassSendRecipient[] {
+/** Convert parsed DistributionEntry rows into MassSendRecipient (apply default token). */
+function entriesToRecipients(entries: DistributionEntry[], defaultToken: string): MassSendRecipient[] {
+  return entries.map((e) => ({
+    address: e.address,
+    amount: e.amount,
+    token: (e.token || defaultToken).toUpperCase(),
+    memo: e.label,
+  }));
+}
+
+/** Lightweight inline parser for the textarea fallback — defers to the shared CSV parser shape. */
+function parseRecipientsText(raw: string, defaultToken: string): MassSendRecipient[] {
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -724,17 +734,63 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
   const [raw, setRaw] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [queuedId, setQueuedId] = useState<string | null>(null);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [activeFileName, setActiveFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
 
-  const recipients = useMemo(() => parseRecipients(raw, defaultToken), [raw, defaultToken]);
+  const { files: savedFiles, saveFile, deleteFile } = useDistributionFiles();
+
+  const recipients = useMemo(() => parseRecipientsText(raw, defaultToken), [raw, defaultToken]);
   const valid = recipients.filter((r) => !r.error);
   const totalAmount = valid.reduce((s, r) => s + r.amount, 0);
   const invalidCount = recipients.length - valid.length;
 
+  const ingestFile = async (file: File) => {
+    setParseErrors([]);
+    setActiveFileName(file.name);
+    const result = await parseDistributionFile(file);
+    if (result.errors.length) setParseErrors(result.errors.slice(0, 5));
+    if (result.entries.length) {
+      // Auto-detect token if uniform & not USDC default
+      const tokens = new Set(result.entries.map((e) => e.token).filter(Boolean));
+      if (tokens.size === 1) {
+        const t = [...tokens][0]!.toUpperCase();
+        if (["USDC", "USDT", "SOL", "JUP", "BONK"].includes(t)) setDefaultToken(t);
+      }
+      // Render into textarea so the user can still edit before queuing
+      const text = result.entries
+        .map((e) => [e.address, e.amount, e.token || "", e.label || ""].filter(Boolean).join(","))
+        .join("\n");
+      setRaw(text);
+      // Persist to saved files for reuse
+      saveFile(file.name, result.entries, result.sourceType);
+    }
+  };
+
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
+    await ingestFile(file);
+    e.target.value = "";
+  };
+
+  const onDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await ingestFile(file);
+  };
+
+  const loadSaved = (id: string) => {
+    const f = savedFiles.find((x) => x.id === id);
+    if (!f) return;
+    setActiveFileName(f.name);
+    const text = f.entries
+      .map((e) => [e.address, e.amount, e.token || "", e.label || ""].filter(Boolean).join(","))
+      .join("\n");
     setRaw(text);
+    setShowSaved(false);
   };
 
   const queue = async () => {
@@ -754,7 +810,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
             op: "transfer",
             params: { recipient: r.address, amount: r.amount, token: r.token, memo: r.memo || undefined },
           })),
-          meta: { source: "treasury/mass-send", recipientCount: valid.length, totalAmount, defaultToken },
+          meta: { source: "treasury/mass-send", recipientCount: valid.length, totalAmount, defaultToken, sourceFile: activeFileName },
           ttlMinutes: 240,
         }),
       });
@@ -762,6 +818,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
       if (data?.ok) {
         setQueuedId(data.id);
         setRaw("");
+        setActiveFileName(null);
       } else {
         setQueuedId(null);
       }
@@ -783,11 +840,78 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
   return (
     <BlockShell block={block} accent="violet">
       <div className="space-y-3">
-        <p className="text-sm text-slate-700">
-          Paste recipients (<code className="rounded bg-slate-100 px-1 text-[11px]">address,amount[,token[,memo]]</code>) or upload a CSV.
-          Dreyv batches them into one HITL approval — nothing signs without you.
-        </p>
+        {/* Drop zone */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={onDrop}
+          className={`relative rounded-xl border-2 border-dashed px-3 py-3 text-center transition-colors ${
+            isDragging ? "border-violet-500 bg-violet-50" : "border-violet-200 bg-violet-50/40 hover:bg-violet-50"
+          }`}
+        >
+          <p className="text-[12px] text-slate-700">
+            <span className="font-semibold text-violet-700">Drop a CSV or JSON</span>
+            <span className="text-slate-500"> · or </span>
+            <label className="cursor-pointer font-semibold text-violet-700 underline-offset-2 hover:underline">
+              browse
+              <input type="file" accept=".csv,.tsv,.txt,.json" className="hidden" onChange={onPickFile} />
+            </label>
+            {savedFiles.length > 0 && (
+              <>
+                <span className="text-slate-500"> · </span>
+                <button
+                  type="button"
+                  onClick={() => setShowSaved((s) => !s)}
+                  className="font-semibold text-violet-700 hover:underline"
+                >
+                  reuse saved ({savedFiles.length})
+                </button>
+              </>
+            )}
+          </p>
+          <p className="mt-0.5 text-[10px] text-slate-500">
+            Columns auto-detected: address, amount, token, label · addresses validated · saved for reuse
+          </p>
+          {activeFileName && (
+            <p className="mt-1 text-[10px] font-mono text-violet-700">📄 {activeFileName}</p>
+          )}
+        </div>
 
+        {/* Saved files dropdown */}
+        {showSaved && savedFiles.length > 0 && (
+          <div className="rounded-xl border border-violet-100 bg-white">
+            <ul className="max-h-32 divide-y divide-violet-100/70 overflow-y-auto">
+              {savedFiles.slice(0, 10).map((f) => (
+                <li key={f.id} className="flex items-center justify-between px-3 py-1.5 text-[12px]">
+                  <button
+                    onClick={() => loadSaved(f.id)}
+                    className="flex-1 text-left hover:text-violet-700"
+                  >
+                    <span className="font-medium text-slate-800">{f.name}</span>
+                    <span className="ml-2 text-[10px] text-slate-500">
+                      {f.recipientCount} · {f.totalAmount.toLocaleString()} {f.tokenSummary}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => deleteFile(f.id)}
+                    className="text-[10px] text-slate-400 hover:text-rose-600"
+                    aria-label="Delete saved file"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {parseErrors.length > 0 && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+            {parseErrors.map((e, i) => <div key={i}>· {e}</div>)}
+          </div>
+        )}
+
+        {/* Default token + manual paste */}
         <div className="flex items-center gap-2">
           <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default token</label>
           <select
@@ -799,10 +923,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <label className="ml-auto cursor-pointer rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">
-            Upload CSV
-            <input type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={onPickFile} />
-          </label>
+          <span className="ml-auto text-[10px] text-slate-500">or paste below</span>
         </div>
 
         <textarea
