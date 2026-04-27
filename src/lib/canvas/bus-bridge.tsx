@@ -89,21 +89,22 @@ export function BusBridge() {
 
       // Modern path: components/agents that explicitly target the canvas.
       // Payload shape is `Omit<CanvasBlock,'id'|'createdAt'>`.
-      // We tolerate missing fields with sensible defaults.
-      // eslint-disable-next-line no-fallthrough
+      case "CANVAS_ADD_BLOCK": {
+        const p = (event.payload ?? {}) as Record<string, unknown>;
+        addBlock({
+          type: (p.type as never) ?? "narrative",
+          source: (p.source as never) ?? "agent",
+          title: typeof p.title === "string" ? (p.title as string) : "Update",
+          subtitle: typeof p.subtitle === "string" ? (p.subtitle as string) : undefined,
+          origin: typeof p.origin === "string" ? (p.origin as string) : undefined,
+          payload: (p.payload as Record<string, unknown>) ?? {},
+          pinned: p.pinned === true,
+        });
+        break;
+      }
+
       default:
-        if (event.type === ("CANVAS_ADD_BLOCK" as unknown)) {
-          const p = (event.payload ?? {}) as Record<string, unknown>;
-          addBlock({
-            type: (p.type as never) ?? "narrative",
-            source: (p.source as never) ?? "agent",
-            title: typeof p.title === "string" ? (p.title as string) : "Update",
-            subtitle: typeof p.subtitle === "string" ? (p.subtitle as string) : undefined,
-            origin: typeof p.origin === "string" ? (p.origin as string) : undefined,
-            payload: (p.payload as Record<string, unknown>) ?? {},
-            pinned: p.pinned === true,
-          });
-        }
+        break;
     }
   });
 

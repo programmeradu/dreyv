@@ -11,6 +11,7 @@ import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store
 import { SigningCard } from "@/components/commandbar/SigningCard";
 import { ForesightChart, type ForesightChartProps } from "@/components/commandbar/ForesightChart";
 import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
+import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
   toolName: string;
@@ -84,6 +85,56 @@ export function ToolCard({
     isDone && typeof output?.sourceTool === "string" ? output.sourceTool : null;
   const sourceField =
     isDone && typeof output?.sourceField === "string" ? output.sourceField : null;
+
+  // ── Bridge artifacts + research brief into the Living Canvas ─────────
+  // Fires once per tool completion; the Canvas de-dupes by id.
+  const emittedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isDone || success !== true || emittedRef.current) return;
+    const artifacts = extractArtifacts(output);
+
+    // Special-case: protocol research brief gets a richer block with insights
+    // + suggestions ("how Dreyv can help your treasury") in addition to the file.
+    if (
+      (toolName === "protocol_research_brief" ||
+        operation === "protocol_research_brief") &&
+      output
+    ) {
+      const protocol = typeof output.protocol === "string" ? output.protocol : "Protocol";
+      AppEventBus.emit("CANVAS_ADD_BLOCK", {
+        id: `research-${toolCallId}`,
+        type: "research-brief",
+        source: "agent",
+        origin: "/app",
+        title: `Research: ${protocol}`,
+        subtitle: typeof output.summary === "string" ? output.summary.slice(0, 120) : undefined,
+        pinned: true,
+        payload: {
+          protocol,
+          summary: output.summary,
+          insights: output.insights,
+          suggestions: output.suggestions,
+          artifacts,
+        },
+      });
+    } else if (artifacts.length > 0) {
+      AppEventBus.emit("CANVAS_ADD_BLOCK", {
+        id: `artifact-${toolCallId}`,
+        type: "artifact",
+        source: "agent",
+        origin: "/app",
+        title: artifacts[0].filename,
+        subtitle: `${artifacts.length} deliverable${artifacts.length > 1 ? "s" : ""} from ${operation}`,
+        pinned: true,
+        payload: {
+          artifacts,
+          message: typeof output?.message === "string" ? output.message : undefined,
+          operation,
+        },
+      });
+    }
+    emittedRef.current = true;
+  }, [isDone, success, output, operation, toolName, toolCallId]);
 
   return (
     <div className="my-1.5 rounded-xl border border-zinc-700/60 bg-zinc-900/70 px-3 py-2.5 text-sm">
