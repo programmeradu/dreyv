@@ -55,10 +55,24 @@ export function BlockShell({
     slate: "bg-slate-400",
   };
 
+  // accent retained for API compatibility but no longer rendered as a bar
+  void accent;
+  void accentBar;
+
   return (
-    <Surface className="overflow-hidden">
-      <div className="flex items-stretch">
-        <div className={cn("w-[3px] shrink-0", accentBar[accent ?? "violet"])} />
+    <Surface className="relative overflow-hidden">
+      {/* Dreyv logo watermark */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-8 -bottom-10 h-44 w-44 opacity-[0.045]"
+        style={{
+          backgroundImage: "url(/dreyv-mark.svg)",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+          backgroundSize: "contain",
+        }}
+      />
+      <div className="relative flex items-stretch">
         <div className="flex-1 p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
