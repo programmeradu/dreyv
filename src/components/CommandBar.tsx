@@ -559,6 +559,82 @@ export function CommandBar() {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
+  // Programmatic submit — used by AGENT_COMMAND listeners (suggestion buttons,
+  // capability palette, dashboard widgets). Mirrors handleFormSubmit but runs
+  // with an explicit `text` argument instead of reading from `input` state.
+  const submitText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || agentBusy) return;
+      setSubmitPulse(true);
+      if (canvas) {
+        const id = canvas.addBlock({
+          type: "plan",
+          source: "commandbar",
+          origin: "/commandbar",
+          title: trimmed.length > 64 ? trimmed.slice(0, 61) + "…" : trimmed,
+          subtitle: "Planning…",
+          pinned: true,
+          payload: { prompt: trimmed, status: "planning", summary: "Agent is analysing your command.", steps: [] },
+        });
+        activePlanBlockIdRef.current = id;
+      }
+      try {
+        await sendMessage(
+          { text: trimmed },
+          {
+            body: {
+              walletAddress: publicKey?.toBase58() || "",
+              vaultState: { tokens: vaultTokens || [] },
+              walletState: { balances: vaultTokens || [] },
+            },
+          },
+        );
+      } catch (err) {
+        console.error("[CommandBar] submitText error:", err);
+        const planId = activePlanBlockIdRef.current;
+        if (canvas && planId) {
+          canvas.updateBlock(planId, {
+            subtitle: "Failed",
+            payload: { status: "error", summary: err instanceof Error ? err.message : "Command failed." },
+          });
+        }
+      }
+    },
+    [agentBusy, canvas, sendMessage, publicKey, vaultTokens],
+  );
+
+  // ─── External AGENT_COMMAND bridge ─────────────────────────────────────────
+  // Suggestion buttons on the canvas (research-brief, capability palette,
+  // dashboard widgets) emit AGENT_COMMAND. We open the bar, prefill or run.
+  useEffect(() => {
+    const off = (() => {
+      if (typeof window === "undefined") return () => {};
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail as
+          | { type?: string; payload?: { command?: string; prompt?: string; autoSubmit?: boolean; suggestion?: string } }
+          | undefined;
+        if (!detail || detail.type !== "AGENT_COMMAND") return;
+        const p = detail.payload ?? {};
+        const cmd = p.command || p.prompt || p.suggestion;
+        if (!cmd || typeof cmd !== "string") return;
+        setOpen(true);
+        const auto = p.autoSubmit !== false; // default: execute
+        if (auto) {
+          // Defer one tick so the modal mounts before sending.
+          setTimeout(() => { submitText(cmd); }, 30);
+        } else {
+          setInput(cmd);
+          setPromptMode(parsePromptModeFromInput(cmd));
+          setTimeout(() => inputRef.current?.focus(), 60);
+        }
+      };
+      window.addEventListener("keystone-app-event", handler);
+      return () => window.removeEventListener("keystone-app-event", handler);
+    })();
+    return off;
+  }, [submitText]);
+
   // ─── Wallet display ────────────────────────────────────────────────────────
 
   const walletDisplay = publicKey
