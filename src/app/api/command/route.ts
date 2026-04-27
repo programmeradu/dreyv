@@ -1,14 +1,7 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { z } from "zod";
-import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
-import { knowledgeBase } from "@/lib/knowledge";
-import { knowledgeMemory } from "@/lib/knowledge-memory";
-import { ExecutionCoordinator } from "@/lib/agents/coordinator";
-import { getJupiterQuote } from "@/lib/jupiter-executor";
 import { estimateCompatibilityBudget } from "@/lib/llm/model-compatibility";
-import { evaluateSandboxPlan } from "@/lib/dynamic-tools/sandbox-runner";
 import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilities/legacy-shim";
 
 const groq = createGroq({
