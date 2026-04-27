@@ -463,6 +463,22 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
             producer="@react-pdf/renderer"
         >
             <Page size="A4" style={styles.page}>
+                {/* Footer (declared early so `fixed` repeats correctly on every page) */}
+                <View style={styles.footer} fixed>
+                    <Text style={styles.footerText}>DREYV</Text>
+                    <View style={styles.footerCenter}>
+                        <Text style={styles.footerText}>TREASURY REPORT</Text>
+                        <View style={styles.footerMark} />
+                        <Text style={styles.footerText}>{periodLabel.toUpperCase()}</Text>
+                    </View>
+                    <Text
+                        style={styles.footerText}
+                        render={({ pageNumber, totalPages }) =>
+                            `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
+                        }
+                    />
+                </View>
+
                 {/* Masthead */}
                 <View fixed>
                     <View style={styles.mastheadAccent} />
