@@ -463,12 +463,25 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
         >
             <Page size="A4" style={styles.page}>
                 {/* Masthead */}
-                <View style={styles.masthead} fixed>
-                    <Text style={styles.brand}>DREYV</Text>
-                    <View>
-                        <Text style={styles.mastheadMeta}>TREASURY REPORT</Text>
-                        <Text style={styles.mastheadMeta}>{fmtGenerated(input.generatedAt)}</Text>
+                <View fixed>
+                    <View style={styles.mastheadAccent} />
+                    <View style={styles.mastheadRule} />
+                    <View style={styles.masthead}>
+                        <View style={styles.brandRow}>
+                            <View style={styles.brandMark} />
+                            <Text style={styles.brand}>DREYV</Text>
+                        </View>
+                        <View>
+                            <Text style={styles.mastheadMetaStrong}>TREASURY REPORT</Text>
+                            <Text style={styles.mastheadMeta}>{fmtGenerated(input.generatedAt)}</Text>
+                        </View>
                     </View>
+                </View>
+
+                {/* Classification strip */}
+                <View style={styles.classification}>
+                    <Text style={styles.classificationText}>CONFIDENTIAL · FOR INTERNAL USE</Text>
+                    <Text style={styles.classificationText}>DOC ID · {docId}</Text>
                 </View>
 
                 {/* Title */}
@@ -508,7 +521,10 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {/* Proposals */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>PROPOSALS</Text>
+                        <View style={styles.sectionTitleRow}>
+                            <View style={styles.sectionTick} />
+                            <Text style={styles.sectionTitle}>PROPOSALS</Text>
+                        </View>
                         <Text style={styles.sectionCount}>{proposals.length} TOTAL</Text>
                     </View>
                     {proposals.length === 0 ? (
@@ -544,7 +560,10 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {/* Transactions */}
                 <View style={styles.section} wrap>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>TRANSACTIONS</Text>
+                        <View style={styles.sectionTitleRow}>
+                            <View style={styles.sectionTick} />
+                            <Text style={styles.sectionTitle}>TRANSACTIONS</Text>
+                        </View>
                         <Text style={styles.sectionCount}>{transactions.length} TOTAL</Text>
                     </View>
                     {transactions.length === 0 ? (
@@ -589,7 +608,10 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                 {policyActions && policyActions.length > 0 ? (
                     <View style={styles.section} wrap>
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>POLICY ACTIONS</Text>
+                            <View style={styles.sectionTitleRow}>
+                                <View style={styles.sectionTick} />
+                                <Text style={styles.sectionTitle}>POLICY ACTIONS</Text>
+                            </View>
                             <Text style={styles.sectionCount}>{policyActions.length} TOTAL</Text>
                         </View>
                         <View>
@@ -615,13 +637,39 @@ function ReportDoc({ input }: { input: TreasuryReportInput }) {
                     </View>
                 ) : null}
 
+                {/* Signature / attestation */}
+                <View style={styles.signatureBlock} wrap={false}>
+                    <Text style={styles.attestation}>
+                        This statement was generated automatically from on-chain settlement data and on-platform governance records. Figures are denominated in USD using the spot price at execution. No representation is made as to future performance.
+                    </Text>
+                    <View style={styles.signatureRow}>
+                        <View style={styles.signatureCol}>
+                            <Text style={styles.signatureLabel}>PREPARED BY</Text>
+                            <Text style={styles.signatureValue}>Dreyv Treasury OS</Text>
+                        </View>
+                        <View style={styles.signatureCol}>
+                            <Text style={styles.signatureLabel}>ISSUED</Text>
+                            <Text style={styles.signatureValue}>{fmtGenerated(input.generatedAt)}</Text>
+                        </View>
+                        <View style={styles.signatureCol}>
+                            <Text style={styles.signatureLabel}>DOCUMENT</Text>
+                            <Text style={styles.signatureValue}>{docId}</Text>
+                        </View>
+                    </View>
+                </View>
+
                 {/* Footer */}
                 <View style={styles.footer} fixed>
-                    <Text style={styles.footerText}>DREYV / TREASURY OS</Text>
+                    <Text style={styles.footerText}>DREYV</Text>
+                    <View style={styles.footerCenter}>
+                        <Text style={styles.footerText}>TREASURY REPORT</Text>
+                        <View style={styles.footerMark} />
+                        <Text style={styles.footerText}>{periodLabel.toUpperCase()}</Text>
+                    </View>
                     <Text
                         style={styles.footerText}
                         render={({ pageNumber, totalPages }) =>
-                            `PAGE ${pageNumber} OF ${totalPages}`
+                            `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
                         }
                     />
                 </View>
