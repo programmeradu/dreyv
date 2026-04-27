@@ -201,7 +201,7 @@ export const gasTankWatcher = inngest.createFunction(
 
       const floor = parseFloat(rule.floorSol);
       const target = parseFloat(rule.targetSol);
-      if (balanceResult.sol >= floor) {
+      if (balanceSol >= floor) {
         skippedAboveFloor += 1;
         continue;
       }
@@ -223,7 +223,7 @@ export const gasTankWatcher = inngest.createFunction(
         continue;
       }
 
-      const refillSol = Math.max(target - balanceResult.sol, 0.001);
+      const refillSol = Math.max(target - balanceSol, 0.001);
 
       // 2. Quote + build swap.
       try {
@@ -243,7 +243,7 @@ export const gasTankWatcher = inngest.createFunction(
             .values({
               ruleId: rule.id,
               walletAddress: rule.walletAddress,
-              triggerBalanceSol: String(balanceResult.sol),
+              triggerBalanceSol: String(balanceSol),
               targetSol: rule.targetSol,
               refillSol: String(refillSol),
               inAmount: swap.inAmount,
@@ -274,7 +274,7 @@ export const gasTankWatcher = inngest.createFunction(
               intentKind: "gas_tank_refill_drafted",
               capabilityIds: ["gas_tank_topup"] as unknown as Record<string, unknown>,
               outcome: "needs_signature",
-              notes: `Gas-tank refill drafted: balance ${balanceResult.sol.toFixed(4)} SOL < floor ${floor} SOL → swap ${(Number(swap.inAmount) / 10 ** decimalsFor(rule.fundingToken)).toFixed(4)} ${rule.fundingToken} for ~${refillSol.toFixed(4)} SOL`,
+              notes: `Gas-tank refill drafted: balance ${balanceSol.toFixed(4)} SOL < floor ${floor} SOL → swap ${(Number(swap.inAmount) / 10 ** decimalsFor(rule.fundingToken)).toFixed(4)} ${rule.fundingToken} for ~${refillSol.toFixed(4)} SOL`,
             });
           } catch (epErr) {
             logger.warn(`[gas-tank-watcher] episode insert failed for refill: ${epErr}`);
