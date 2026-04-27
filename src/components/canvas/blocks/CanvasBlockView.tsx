@@ -130,6 +130,14 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <ArtifactBlock block={block} />;
     case "research-brief":
       return <ResearchBriefBlock block={block} />;
+    case "tokens-table":
+      return <TokensTableBlock block={block} />;
+    case "wallets-roster":
+      return <WalletsRosterBlock block={block} />;
+    case "runway":
+      return <RunwayBlock block={block} />;
+    case "empty-bucket":
+      return <EmptyBucketBlock block={block} />;
     default:
       return null;
   }
@@ -471,6 +479,200 @@ function ResearchBriefBlock({ block }: { block: CanvasBlock }) {
           </div>
         )}
       </div>
+    </BlockShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Treasury foundation blocks                                                 */
+/* -------------------------------------------------------------------------- */
+
+interface TokenRow {
+  symbol: string;
+  label?: string;
+  balance?: number;
+  value?: number;
+  share?: number; // 0..1
+  change24h?: number; // %
+  source?: string; // wallet label
+}
+
+function fmtUsd(n: number | null | undefined, decimals = 2): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtNum(n: number | null | undefined, decimals = 4): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: decimals });
+}
+
+function TokensTableBlock({ block }: { block: CanvasBlock }) {
+  const rows = asArray<TokenRow>(block.payload.rows);
+  const total = asNumber(block.payload.totalValue);
+  const empty = rows.length === 0;
+
+  const handleAct = (verb: string, sym: string) => {
+    AppEventBus.emit("AGENT_COMMAND", { command: `${verb} ${sym}`, autoSubmit: false });
+  };
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {empty ? (
+        <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 px-4 py-6 text-center">
+          <p className="text-sm text-slate-600">No tokens detected yet. Connect or paste a wallet to populate this view.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-violet-100">
+          <div className="hidden grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] gap-3 bg-violet-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 md:grid">
+            <span>Asset</span>
+            <span className="text-right">Balance</span>
+            <span className="text-right">Value</span>
+            <span className="text-right">24h</span>
+            <span />
+          </div>
+          <ul className="divide-y divide-violet-100/70">
+            {rows.slice(0, 12).map((r) => {
+              const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
+              return (
+                <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-4 py-3 text-sm md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] md:gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{r.label ?? r.symbol}</p>
+                    <p className="text-[11px] uppercase tracking-wider text-slate-500">{r.symbol}{r.source ? ` · ${r.source}` : ""}</p>
+                  </div>
+                  <p className="text-right tabular-nums text-slate-700">{fmtNum(r.balance)}</p>
+                  <p className="text-right tabular-nums font-medium text-slate-900">{fmtUsd(r.value)}</p>
+                  <p className={`text-right tabular-nums ${tone}`}>
+                    {r.change24h === undefined || r.change24h === null ? "—" : `${r.change24h >= 0 ? "+" : ""}${r.change24h.toFixed(2)}%`}
+                  </p>
+                  <div className="col-span-2 mt-1 flex justify-end gap-1.5 md:col-span-1 md:mt-0">
+                    <button onClick={() => handleAct("Send", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Send</button>
+                    <button onClick={() => handleAct("Swap", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Swap</button>
+                    <button onClick={() => handleAct("Earn yield on", r.symbol)} className="rounded-lg px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50">Earn</button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {total !== null && (
+            <div className="flex items-center justify-between border-t border-violet-100 bg-violet-50/40 px-4 py-2 text-xs">
+              <span className="text-slate-500">{rows.length} assets</span>
+              <span className="font-semibold tabular-nums text-slate-900">Total {fmtUsd(total)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </BlockShell>
+  );
+}
+
+interface WalletRow {
+  address: string;
+  label?: string;
+  kind?: "hot" | "cold" | "multisig" | "watch";
+  threshold?: number;
+  members?: number;
+  value?: number;
+  pendingApprovals?: number;
+}
+
+function shortAddr(addr: string): string {
+  if (!addr || addr.length < 10) return addr;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
+}
+
+function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
+  const wallets = asArray<WalletRow>(block.payload.wallets);
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {wallets.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 px-4 py-6 text-center">
+          <p className="text-sm text-slate-600">No wallets connected. Link Phantom, Solflare, a Squads multisig, or paste an address to watch.</p>
+          <button
+            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+          >
+            Connect or paste address
+          </button>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {wallets.map((w) => (
+            <li key={w.address} className="flex items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-4 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-semibold text-slate-900">{w.label ?? shortAddr(w.address)}</p>
+                  {w.kind && <Pill tone={w.kind === "multisig" ? "violet" : w.kind === "watch" ? "slate" : "emerald"}>{w.kind}</Pill>}
+                </div>
+                <p className="text-[11px] uppercase tracking-wider text-slate-500">
+                  {shortAddr(w.address)}
+                  {w.threshold && w.members ? ` · ${w.threshold}-of-${w.members}` : ""}
+                  {w.pendingApprovals ? ` · ${w.pendingApprovals} pending` : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="tabular-nums font-medium text-slate-900">{fmtUsd(w.value)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </BlockShell>
+  );
+}
+
+function RunwayBlock({ block }: { block: CanvasBlock }) {
+  const months = asNumber(block.payload.months);
+  const burn = asNumber(block.payload.monthlyBurn);
+  const balance = asNumber(block.payload.stableBalance);
+  const insufficient = block.payload.insufficient === true;
+
+  if (insufficient || months === null) {
+    return (
+      <BlockShell block={block} accent="slate">
+        <p className="text-sm text-slate-600">
+          Not enough on-chain history yet to estimate runway. Once Dreyv has watched a few weeks of outflows, this will fill in automatically.
+        </p>
+      </BlockShell>
+    );
+  }
+
+  const tone = months >= 18 ? "emerald" : months >= 9 ? "violet" : "rose";
+
+  return (
+    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Runway</p>
+          <p className="mt-1 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+            <StreamingNumber value={months} decimals={1} suffix=" months" />
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            at {fmtUsd(burn)}/mo burn · {fmtUsd(balance)} stable balance
+          </p>
+        </div>
+        <Pill tone={tone as "violet" | "emerald" | "rose"}>
+          {months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : "Tight"}
+        </Pill>
+      </div>
+    </BlockShell>
+  );
+}
+
+function EmptyBucketBlock({ block }: { block: CanvasBlock }) {
+  const description = asString(block.payload.description);
+  const prompt = asString(block.payload.prompt);
+  return (
+    <BlockShell block={block} accent="slate">
+      {description && <p className="text-sm text-slate-700">{description}</p>}
+      <button
+        onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: prompt || `Set up ${block.title}`, autoSubmit: false })}
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
+      >
+        Ask Dreyv to set this up
+        <GlyphArrow />
+      </button>
     </BlockShell>
   );
 }
