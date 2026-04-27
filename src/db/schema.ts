@@ -1302,3 +1302,32 @@ export const grantMilestones = pgTable('grant_milestones', {
   grantIdx: index('grant_milestones_grant_idx').on(t.grantId),
   statusIdx: index('grant_milestones_status_idx').on(t.status),
 }));
+
+// ─── Liquidation watches (DACS Phase 7C.5) ────────────────────────────
+// One row per (wallet, venue) pair. `positionAccount` is the on-chain account
+// (Kamino obligation, MarginFi account, Drift user) that exposes the position;
+// supplied at watch creation since wallet→position discovery requires
+// per-protocol PDA derivation. Without it the watch is `discovery_pending`.
+export const liquidationWatches = pgTable('liquidation_watches', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(),
+  venue: text('venue').notNull(), // kamino | marginfi | drift
+  positionAccount: text('position_account'),
+  healthFactorFloor: numeric('health_factor_floor').notNull().default('1.25'),
+  autoDeleverage: boolean('auto_deleverage').notNull().default(false),
+  alertWebhook: text('alert_webhook'),
+  enabled: boolean('enabled').notNull().default(true),
+  /** active | discovery_pending | breached | disabled */
+  status: text('status').notNull().default('active'),
+  lastHealthFactor: numeric('last_health_factor'),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastCheckError: text('last_check_error'),
+  lastBreachedAt: timestamp('last_breached_at'),
+  checkAttempts: integer('check_attempts').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('liq_watches_wallet_idx').on(t.walletAddress),
+  enabledIdx: index('liq_watches_enabled_idx').on(t.enabled),
+  statusIdx: index('liq_watches_status_idx').on(t.status),
+}));
