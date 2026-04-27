@@ -147,6 +147,12 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <MassSendBlock block={block} />;
     case "policy-approvals":
       return <PolicyApprovalsBlock block={block} />;
+    case "recurring-payouts":
+      return <RecurringPayoutsBlock block={block} />;
+    case "gas-tank":
+      return <GasTankBlock block={block} />;
+    case "invoice-inbox":
+      return <InvoiceInboxBlock block={block} />;
     default:
       return null;
   }
