@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
         fontSize: 8,
         color: INK_50,
         textAlign: "right",
-        textTransform: "uppercase",
+
     },
 
     // Title block
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     eyebrow: {
         fontSize: 8,
         color: VIOLET,
-        textTransform: "uppercase",
+
         fontFamily: "Helvetica-Bold",
         marginBottom: 10,
     },
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     kpiLabel: {
         fontSize: 7,
         color: INK_50,
-        textTransform: "uppercase",
+
         marginBottom: 8,
         fontFamily: "Helvetica-Bold",
     },
@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontFamily: "Helvetica-Bold",
         color: INK,
-        textTransform: "uppercase",
+
     },
     sectionCount: {
         fontSize: 8,
         color: INK_50,
-        textTransform: "uppercase",
+
         fontFamily: "Helvetica-Bold",
     },
 
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     th: {
         fontSize: 7,
         color: INK_50,
-        textTransform: "uppercase",
+
         fontFamily: "Helvetica-Bold",
         paddingHorizontal: 6,
     },
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     // Status pill (text-only, no fills)
     statusBase: {
         fontSize: 7.5,
-        textTransform: "uppercase",
+
         fontFamily: "Helvetica-Bold",
         paddingHorizontal: 6,
     },
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     footerText: {
         fontSize: 7.5,
         color: INK_30,
-        textTransform: "uppercase",
+
         fontFamily: "Helvetica-Bold",
     },
 });
