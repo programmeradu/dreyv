@@ -622,29 +622,6 @@ export function LivePreview({
             return null;
         });
 
-        // ─── Turnkey Wallet Bridge ────────────────────────
-        bridge.on(BridgeMethods.TURNKEY_GET_PK, async () => {
-            const pk = walletAddress || "7KeY...StUdIo (Mock)";
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Public key requested: ${pk}`]);
-            return pk;
-        });
-
-        bridge.on(BridgeMethods.TURNKEY_SIGN, async (params) => {
-            if (!walletAddress) {
-                throw new Error("No wallet connected. Open Vault Keys to create a signer.");
-            }
-
-            const description = String(params.description || "Sign transaction");
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Sign request: ${description}`]);
-
-            // TODO Phase 2.1: Simulation Firewall — fork, simulate, present state diff
-            // For now, mock signing with delay
-            await new Promise(r => setTimeout(r, 800));
-            const sig = "sig_turnkey_" + crypto.randomUUID().slice(0, 12);
-
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Signed: ${sig}`]);
-            return { signature: sig };
-        });
 
         // ─── Proxy Gate (Phase 2.3) ──────────────────────
         bridge.on(BridgeMethods.PROXY_REQUEST, async (params) => {
