@@ -12,7 +12,8 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { AmbientGlow, StreamIn, SectionHeader } from "@/components/app-shell/primitives";
-import { HeadlineValue, TrendCurve } from "@/components/app-shell/Composition";
+import { HeadlineValue } from "@/components/app-shell/Composition";
+import { TreasuryPulseCarousel } from "@/components/app-shell/TreasuryPulseCarousel";
 import { CanvasStream } from "@/components/canvas/CanvasStream";
 import { AgentsRail } from "@/components/canvas/AgentsRail";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
@@ -117,11 +118,7 @@ export default function AppHomePage() {
         </StreamIn>
 
         <StreamIn delay={0.12}>
-          <TrendCurve
-            values={trend.series.length > 0 ? trend.series : [100, 100, 100, 100, 100]}
-            label="Treasury trend · 7d"
-            changePct={trend.changePct}
-          />
+          <TreasuryPulseCarousel />
         </StreamIn>
       </section>
 
