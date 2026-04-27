@@ -65,17 +65,25 @@ export async function GET(req: NextRequest) {
     inngestSigningKey: Boolean(signingKey),
   };
 
-  // 1. Local serve endpoint introspection
+  // 1. Serve endpoint introspection — use the public app URL so the probe
+  //    reflects what Inngest actually sees in cloud, not the internal
+  //    localhost the Next server happens to bind to.
   const hdrs = await headers();
-  const host = hdrs.get("host");
+  const headerHost = hdrs.get("host") ?? "";
   const proto = hdrs.get("x-forwarded-proto") || "https";
-  const serveUrl = host ? `${proto}://${host}/api/inngest` : null;
+  const headerUrl =
+    headerHost && !headerHost.includes("localhost")
+      ? `${proto}://${headerHost}/api/inngest`
+      : null;
+  const publicUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const serveUrl = publicUrl ? `${publicUrl}/api/inngest` : headerUrl;
 
   let serve: {
     url: string | null;
     reachable: boolean;
     appId?: string;
     functionCount?: number;
+    mode?: string;
     error?: string;
   } = { url: serveUrl, reachable: false };
 
@@ -87,11 +95,16 @@ export async function GET(req: NextRequest) {
         url: serveUrl,
         reachable: r.ok,
         appId: body?.appId ?? body?.appName,
-        functionCount: Array.isArray(body?.functions) ? body.functions.length : body?.functionsFound,
+        functionCount: Array.isArray(body?.functions)
+          ? body.functions.length
+          : (body?.function_count ?? body?.functionsFound),
+        mode: body?.mode,
       };
     } catch (e: any) {
       serve = { url: serveUrl, reachable: false, error: String(e?.message ?? e) };
     }
+  } else {
+    serve = { url: null, reachable: false, error: "Set NEXT_PUBLIC_APP_URL to probe the prod serve endpoint" };
   }
 
   // 2. Gateway credential verification
