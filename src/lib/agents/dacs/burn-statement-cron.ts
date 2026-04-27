@@ -21,10 +21,11 @@
 import { Inngest, type InngestHandlerArgs } from "inngest";
 import { and, eq, sql as dsql } from "drizzle-orm";
 import { db } from "@/db";
-import { runwayAutopilotRules, agentEpisodes } from "@/db/schema";
+import { runwayAutopilotRules, agentEpisodes, users, userSettings } from "@/db/schema";
 import { buildTreasuryReportData } from "@/lib/agents/artifacts/build-report";
 import { renderTreasuryReportPdf } from "@/lib/agents/artifacts/pdf";
 import { uploadArtifact } from "@/lib/agents/artifacts/storage";
+import { sendNotificationEmail } from "@/lib/email-service";
 
 const inngest = new Inngest({ id: "dacs-monthly-burn-statement" });
 
@@ -49,6 +50,31 @@ async function fireAlert(webhook: string | null, payload: Record<string, unknown
     });
   } catch (err) {
     console.warn("[burn-statement] webhook failed:", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Resolve the recipient email for a wallet, but only if the user has explicitly
+ * opted into email alerts (`user_settings.email_alerts = true`). Returns null
+ * when there is no user, no email on file, or alerts are disabled — the cron
+ * MUST NOT email users who didn't opt in.
+ */
+async function resolveOptedInEmail(wallet: string): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const rows = await db
+      .select({ email: users.email, emailAlerts: userSettings.emailAlerts })
+      .from(users)
+      .leftJoin(userSettings, eq(userSettings.userId, users.id))
+      .where(eq(users.walletAddress, wallet))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.email) return null;
+    if (row.emailAlerts !== true) return null;
+    return row.email;
+  } catch (err) {
+    console.warn("[burn-statement] email lookup failed:", err instanceof Error ? err.message : err);
+    return null;
   }
 }
 
@@ -89,6 +115,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
     let skippedEmpty = 0;
     let skippedDup = 0;
     let failed = 0;
+    let emailed = 0;
 
     for (const sub of subscribers) {
       const wallet = sub.walletAddress;
@@ -139,6 +166,50 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             meta: { month, wallet, source: "cron" },
           });
 
+          const signedUrl = (artifact as { signedUrl?: string }).signedUrl ?? null;
+
+          // Phase 7F.2 — email delivery (opt-in via user_settings.email_alerts).
+          let emailStatus: "sent" | "skipped" | "failed" | "no-url" = "skipped";
+          let emailNote = "no-opt-in";
+          const recipient = await resolveOptedInEmail(wallet);
+          if (recipient) {
+            if (!signedUrl) {
+              emailStatus = "no-url";
+              emailNote = "no-signed-url";
+            } else {
+              const netFlow = data.summary.netFlowUsd;
+              const flowLine =
+                netFlow == null
+                  ? "Net flow: n/a"
+                  : `Net flow: ${netFlow >= 0 ? "+" : "-"}$${Math.abs(netFlow).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+              const message = [
+                `Your dreyv monthly burn statement for ${month} is ready.`,
+                "",
+                `Wallet: ${wallet.slice(0, 4)}…${wallet.slice(-4)}`,
+                `Transactions: ${data.transactions.length}`,
+                `Proposals: ${data.proposals.length}`,
+                flowLine,
+                "",
+                "Click below to download the full PDF report (link expires in 7 days).",
+              ].join("\n");
+              const result = await sendNotificationEmail({
+                to: recipient,
+                title: `Monthly burn statement — ${month}`,
+                message,
+                actionUrl: signedUrl,
+                actionLabel: "Download PDF report",
+              });
+              if (result.success) {
+                emailStatus = "sent";
+                emailNote = `id=${result.id ?? "n/a"}`;
+                emailed += 1;
+              } else {
+                emailStatus = "failed";
+                emailNote = (result.error ?? "unknown").slice(0, 120);
+              }
+            }
+          }
+
           await db!.insert(agentEpisodes).values({
             commandId,
             walletAddress: wallet,
@@ -146,7 +217,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             capabilityIds: ["monthly_burn_statement"],
             outcome: "produced",
             valueUsd: data.summary.netFlowUsd != null ? String(Math.abs(data.summary.netFlowUsd)) : null,
-            notes: `period=${month} txs=${data.transactions.length} proposals=${data.proposals.length} netFlowUsd=${data.summary.netFlowUsd ?? "n/a"} | artifact=${artifact.kind}:${artifact.path}`,
+            notes: `period=${month} txs=${data.transactions.length} proposals=${data.proposals.length} netFlowUsd=${data.summary.netFlowUsd ?? "n/a"} | artifact=${artifact.kind}:${artifact.path} | email=${emailStatus}:${emailNote}`,
           });
 
           await fireAlert(sub.alertWebhook, {
@@ -154,8 +225,9 @@ export const monthlyBurnStatementCron = inngest.createFunction(
             wallet,
             month,
             artifactPath: artifact.path,
-            signedUrl: (artifact as { signedUrl?: string }).signedUrl ?? null,
+            signedUrl,
             summary: data.summary,
+            email: { status: emailStatus, recipient: recipient ? `${recipient.split("@")[0].slice(0, 2)}***@${recipient.split("@")[1] ?? ""}` : null },
             at: new Date().toISOString(),
           });
 
@@ -180,6 +252,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
       month,
       subscribers: subscribers.length,
       generated,
+      emailed,
       skippedEmpty,
       skippedDup,
       failed,
