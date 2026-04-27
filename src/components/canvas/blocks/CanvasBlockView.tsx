@@ -139,6 +139,10 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <RunwayBlock block={block} />;
     case "empty-bucket":
       return <EmptyBucketBlock block={block} />;
+    case "mass-send":
+      return <MassSendBlock block={block} />;
+    case "policy-approvals":
+      return <PolicyApprovalsBlock block={block} />;
     default:
       return null;
   }
