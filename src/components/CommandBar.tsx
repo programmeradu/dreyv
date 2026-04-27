@@ -435,6 +435,28 @@ export function CommandBar() {
       setInput("");
       setPromptMode("auto");
       setSubmitPulse(true);
+
+      // Spawn a pinned Plan block immediately so the dashboard reflects the
+      // command before the model has even responded. We update it as tool
+      // parts stream in (see effect below) and finalize on `onFinish`.
+      if (canvas) {
+        const id = canvas.addBlock({
+          type: "plan",
+          source: "commandbar",
+          origin: "/commandbar",
+          title: text.length > 64 ? text.slice(0, 61) + "…" : text,
+          subtitle: "Planning…",
+          pinned: true,
+          payload: {
+            prompt: text,
+            status: "planning",
+            summary: "Agent is analysing your command.",
+            steps: [],
+          },
+        });
+        activePlanBlockIdRef.current = id;
+      }
+
       try {
         await sendMessage(
           { text },
@@ -448,9 +470,19 @@ export function CommandBar() {
         );
       } catch (err) {
         console.error("[CommandBar] Send error:", err);
+        const planId = activePlanBlockIdRef.current;
+        if (canvas && planId) {
+          canvas.updateBlock(planId, {
+            subtitle: "Failed",
+            payload: {
+              status: "error",
+              summary: err instanceof Error ? err.message : "Command failed.",
+            },
+          });
+        }
       }
     },
-    [input, agentBusy, sendMessage, vaultTokens, publicKey],
+    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas],
   );
 
   const handleChipClick = useCallback((text: string) => {
