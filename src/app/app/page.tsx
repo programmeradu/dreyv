@@ -133,7 +133,7 @@ export default function AppHomePage() {
         />
         <div className="mt-6 flex gap-6">
           <div className="min-w-0 flex-1">
-            <CanvasStream />
+            <CanvasStream scope="dashboard" />
             <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
               <span className="h-1 w-1 rounded-full bg-violet-500" />
               Pinned blocks are saved to this account. Everything else is ephemeral.
