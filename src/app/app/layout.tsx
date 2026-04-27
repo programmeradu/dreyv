@@ -26,32 +26,17 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";
-import { CapabilityPalette } from "@/components/canvas/CapabilityPalette";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
-    const [paletteOpen, setPaletteOpen] = useState(false);
 
     useAppEvent((event) => {
         if (event.type === "NAVIGATE" && event.payload) {
             router.push(event.payload);
         }
     });
-
-    // ⌘K / Ctrl+K opens the Capability Palette anywhere in /app/*
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            const isK = e.key === "k" || e.key === "K";
-            if (isK && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                setPaletteOpen((v) => !v);
-            }
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, []);
 
     // Lazy sync Neon Auth user to DB on first load
     const syncedRef = useRef(false);
@@ -118,11 +103,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                     {children}
                 </Suspense>
 
-                {/* Floating Command Bar */}
+                {/* Floating Command Bar — single entry point. ⌘K is handled inside CommandBar. */}
                 <CommandBar />
-
-                {/* ⌘K Capability Palette — exposes all 48 capabilities */}
-                <CapabilityPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
             </main>
         </div>
         </CanvasProvider>
