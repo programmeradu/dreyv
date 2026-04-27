@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs';
 const url = process.env.DATABASE_URL?.replace(/['"\r\n]/g, '').trim();
 const sql = neon(url);
 const text = readFileSync('scripts/migrations/0019_treasury_payments_ops.sql', 'utf8');
-const statements = text.split(/;\s*\n/).map(s => s.trim()).filter(s => s && !s.startsWith('--'));
-for (const stmt of statements) {
-  try { await sql.query(stmt); console.log('OK:', stmt.slice(0, 60).replace(/\s+/g, ' ')); }
-  catch (e) { console.error('FAIL:', stmt.slice(0, 80), '\n  ->', e.message); process.exit(1); }
+// Run as one transaction-ish blob
+try {
+  await sql.query(text);
+  console.log('done');
+} catch (e) {
+  console.error('FAIL:', e.message);
+  process.exit(1);
 }
-console.log('done');
