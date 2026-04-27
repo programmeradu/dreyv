@@ -258,10 +258,10 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
       <div className="flex items-start gap-3">
         <span
           className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-            success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+            success ? "text-violet-600" : "bg-rose-100 text-rose-700"
           }`}
         >
-          {success ? <GlyphCheck className="h-3.5 w-3.5" /> : <GlyphAlert className="h-3.5 w-3.5" />}
+          {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0">
           {operation && (
