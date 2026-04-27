@@ -185,6 +185,228 @@ const recurring_payment = defineCapability({
   },
 });
 
+/**
+ * Phase 7B.2 — Invoice OCR + URL parse.
+ *
+ *   - URL input  → Cloudflare Browser Rendering `jsonExtract` (renders JS,
+ *                  passes a JSON schema + extraction prompt to Workers AI).
+ *   - Image/PDF  → Lovable AI gateway with `image_url` content (Gemini vision)
+ *                  using tool-calling for structured output.
+ *   - Raw text   → Lovable AI gateway, same tool-calling schema, text-only.
+ *
+ * Returns extracted fields + per-field `confidence` (0..1), `overallConfidence`
+ * (mean of present fields), and `warnings[]` for anything heuristically suspect.
+ * The downstream `invoice_pay` capability accepts the `extracted` payload.
+ */
+const INVOICE_FIELD_SCHEMA = {
+  type: "object",
+  properties: {
+    recipient: { type: "string", description: "On-chain Solana wallet address (base58, 32-44 chars). Empty string if absent." },
+    amount: { type: "number", description: "Total amount due as a positive number. 0 if unknown." },
+    token: { type: "string", description: "Token/currency symbol (USDC, SOL, USDT). Default 'USDC' for fiat USD." },
+    invoiceNumber: { type: "string" },
+    issueDate: { type: "string", description: "ISO YYYY-MM-DD or empty." },
+    dueDate: { type: "string", description: "ISO YYYY-MM-DD or empty." },
+    payer: { type: "string" },
+    payee: { type: "string" },
+    memo: { type: "string", description: "Short on-chain memo (<=64 chars)." },
+    lineItems: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          description: { type: "string" },
+          quantity: { type: "number" },
+          unitPrice: { type: "number" },
+          total: { type: "number" },
+        },
+        required: ["description", "total"],
+      },
+    },
+    fieldConfidence: {
+      type: "object",
+      description: "Per-field confidence 0..1. Use 0 for guessed/empty fields.",
+      properties: {
+        recipient: { type: "number" },
+        amount: { type: "number" },
+        token: { type: "number" },
+        invoiceNumber: { type: "number" },
+        issueDate: { type: "number" },
+        dueDate: { type: "number" },
+        payer: { type: "number" },
+        payee: { type: "number" },
+      },
+    },
+  },
+  required: ["recipient", "amount", "token", "fieldConfidence"],
+} as const;
+
+const EXTRACTION_PROMPT = `You are an invoice parser for a crypto treasury app. Extract structured payment fields. Rules:
+- Solana addresses are base58, 32-44 chars (no 0OIl). EVM (0x…) → leave recipient empty.
+- amount = TOTAL DUE (after tax/fees). Not the subtotal.
+- token: prefer on-chain symbols (USDC/SOL/USDT). USD → USDC.
+- For each field set fieldConfidence[name] in [0,1]. Honest: 0 if guessed, 1 if verbatim.
+- Never fabricate. Empty/0 for missing.`;
+
+const SOLANA_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+interface ExtractedInvoice {
+  recipient: string;
+  amount: number;
+  token: string;
+  invoiceNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+  payer?: string;
+  payee?: string;
+  memo?: string;
+  lineItems?: Array<{ description: string; quantity?: number; unitPrice?: number; total: number }>;
+  fieldConfidence: Record<string, number>;
+}
+
+async function callLovableAI(payload: Record<string, unknown>, timeoutMs = 25_000): Promise<Response> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured — cannot run invoice OCR.");
+  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
+
+async function extractViaLovableAI(content: Array<Record<string, unknown>> | string): Promise<ExtractedInvoice> {
+  const messages = [
+    { role: "system", content: EXTRACTION_PROMPT },
+    { role: "user", content: typeof content === "string" ? content : content },
+  ];
+  const res = await callLovableAI({
+    model: "google/gemini-3-flash-preview",
+    messages,
+    tools: [{
+      type: "function",
+      function: {
+        name: "extract_invoice",
+        description: "Return structured invoice fields with per-field confidence.",
+        parameters: INVOICE_FIELD_SCHEMA,
+      },
+    }],
+    tool_choice: { type: "function", function: { name: "extract_invoice" } },
+  });
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("Rate limited by Lovable AI. Retry shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits exhausted.");
+    throw new Error(`Lovable AI ${res.status}: ${await res.text().catch(() => "")}`);
+  }
+  const json = await res.json();
+  const toolCall = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!toolCall) throw new Error("Lovable AI returned no tool call — extraction failed.");
+  return JSON.parse(toolCall) as ExtractedInvoice;
+}
+
+async function extractFromUrl(url: string): Promise<ExtractedInvoice> {
+  try {
+    const { jsonExtract } = await import("@/lib/cloudflare/cf-browser");
+    const result = await jsonExtract({
+      url,
+      prompt: EXTRACTION_PROMPT,
+      response_format: { type: "json_schema", schema: INVOICE_FIELD_SCHEMA as unknown as Record<string, unknown> },
+      waitForTimeout: 3000,
+    });
+    if (result?.success && result.result) return result.result as ExtractedInvoice;
+  } catch (err) {
+    console.warn("[invoice_extract] CF Browser failed, falling back to AI text mode:", err);
+  }
+  const html = await fetch(url, { signal: AbortSignal.timeout(15_000) }).then((r) => r.text());
+  const stripped = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").slice(0, 30_000);
+  return extractViaLovableAI(`Source URL: ${url}\n\nHTML:\n${stripped}`);
+}
+
+function postProcess(extracted: ExtractedInvoice): { extracted: ExtractedInvoice; warnings: string[]; overallConfidence: number } {
+  const warnings: string[] = [];
+  const fc = extracted.fieldConfidence ?? {};
+  if (extracted.recipient && !SOLANA_ADDR_RE.test(extracted.recipient)) {
+    warnings.push(`recipient '${extracted.recipient.slice(0, 12)}…' is not a valid Solana address`);
+    fc.recipient = 0;
+  }
+  if (!extracted.recipient) warnings.push("recipient missing — manual entry required before payment");
+  if (!extracted.amount || extracted.amount <= 0) warnings.push("amount missing or non-positive");
+  if (extracted.token && !/^[A-Z]{2,8}$/.test(extracted.token)) warnings.push(`token symbol '${extracted.token}' looks unusual`);
+  for (const dateField of ["issueDate", "dueDate"] as const) {
+    const v = extracted[dateField];
+    if (v && !ISO_DATE_RE.test(v)) warnings.push(`${dateField} '${v}' is not ISO YYYY-MM-DD`);
+  }
+  const presentScores: number[] = [];
+  if (extracted.recipient) presentScores.push(fc.recipient ?? 0);
+  if (extracted.amount > 0) presentScores.push(fc.amount ?? 0);
+  if (extracted.token) presentScores.push(fc.token ?? 0);
+  if (extracted.invoiceNumber) presentScores.push(fc.invoiceNumber ?? 0);
+  if (extracted.dueDate) presentScores.push(fc.dueDate ?? 0);
+  const overallConfidence = presentScores.length === 0
+    ? 0
+    : Math.round((presentScores.reduce((a, b) => a + b, 0) / presentScores.length) * 100) / 100;
+  return { extracted, warnings, overallConfidence };
+}
+
+const invoice_extract = defineCapability({
+  id: "invoice_extract",
+  domain: "payments",
+  description:
+    "Extract structured payment fields (recipient, amount, token, invoice #, dates, line items) from an invoice URL, image (data URL), PDF (data URL), or raw text. Returns per-field confidence + overall confidence + warnings. Read-only. Pipe into `invoice_pay`.",
+  inputSchema: z
+    .object({
+      url: z.string().url().optional(),
+      imageDataUrl: z
+        .string()
+        .regex(/^data:(image\/(png|jpe?g|webp|gif)|application\/pdf);base64,/, "Must be a base64 data URL for image/* or application/pdf")
+        .optional(),
+      text: z.string().min(20).optional(),
+    })
+    .refine((v) => !!(v.url || v.imageDataUrl || v.text), { message: "Provide one of: url, imageDataUrl, text" }),
+  sideEffects: "read",
+  requiredAuth: "none",
+  sensitivity: "low",
+  protocols: ["lovable-ai", "cf-browser"],
+  execute: async (input, _ctx) => {
+    const sourceKind = input.url ? "url" : input.imageDataUrl ? "image" : "text";
+    try {
+      let raw: ExtractedInvoice;
+      if (input.url) {
+        raw = await extractFromUrl(input.url);
+      } else if (input.imageDataUrl) {
+        raw = await extractViaLovableAI([
+          { type: "text", text: "Extract invoice fields from this document." },
+          { type: "image_url", image_url: { url: input.imageDataUrl } },
+        ]);
+      } else {
+        raw = await extractViaLovableAI(input.text!);
+      }
+      const { extracted, warnings, overallConfidence } = postProcess(raw);
+      return {
+        success: true,
+        operation: "invoice_extract",
+        sourceKind,
+        extracted,
+        overallConfidence,
+        warnings,
+        nextStep:
+          extracted.recipient && extracted.amount > 0
+            ? `Call invoice_pay with extracted={recipient,amount,token,memo} + overallConfidence=${overallConfidence}`
+            : "Resolve missing fields (recipient/amount) before invoice_pay.",
+        message: `Parsed invoice from ${sourceKind} — ${extracted.amount || "?"} ${extracted.token || "?"} → ${extracted.recipient ? extracted.recipient.slice(0, 8) + "…" : "(no recipient)"} · ${Math.round(overallConfidence * 100)}% confidence${warnings.length ? ` · ${warnings.length} warning(s)` : ""}`,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        operation: "invoice_extract",
+        sourceKind,
+        message: err instanceof Error ? err.message : "Invoice extraction failed.",
+      };
+    }
+  },
+});
+
 const invoice_pay = defineCapability({
   id: "invoice_pay",
   domain: "payments",
