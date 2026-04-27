@@ -518,6 +518,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
             recentTransactions,
             stakeAccounts,
             totalStakedSol,
+            registeredVaults,
+            registryLoading,
+            registryError,
+            tierLimit,
+            refreshRegistry,
+            addVault,
+            renameVault,
+            removeVault,
         }}>
             {children}
         </VaultContext.Provider>
