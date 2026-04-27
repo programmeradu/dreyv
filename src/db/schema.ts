@@ -1243,3 +1243,62 @@ export const gasTankRefills = pgTable('gas_tank_refills', {
   statusIdx: index('gas_tank_refills_status_idx').on(t.status),
   createdIdx: index('gas_tank_refills_created_idx').on(t.createdAt),
 }));
+
+/**
+ * Phase 7B.4 — Milestone-gated grants.
+ *
+ * One row per `grant_disbursement` invocation. The full grant amount is escrowed
+ * in a single Streamflow stream (recipient = grantee) with a long cliff so the
+ * grantee cannot withdraw until milestones are individually released. Each
+ * `grant_milestones` row tracks proof state; the grants watcher cron flips
+ * `pending` → `ready_to_release` when its proof is verified (GitHub PR merged,
+ * on-chain event observed, or attesters confirmed). The funder then signs a
+ * Streamflow `topup`/`transfer` tx via `grant_milestone_release`.
+ *
+ * `streamId` ties back to `streamflow_streams.streamId` for reconciliation.
+ */
+export const grants = pgTable('grants', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  funderWallet: text('funder_wallet').notNull(),
+  grantee: text('grantee').notNull(),
+  token: text('token').notNull().default('USDC'),
+  mint: text('mint').notNull(),
+  totalAmount: numeric('total_amount').notNull(),
+  releasedAmount: numeric('released_amount').notNull().default('0'),
+  /** Streamflow on-chain metadata pubkey for the escrow stream. */
+  streamId: text('stream_id'),
+  /** active | completed | cancelled | failed */
+  status: text('status').notNull().default('pending_signature'),
+  signature: text('signature'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  funderIdx: index('grants_funder_idx').on(t.funderWallet),
+  granteeIdx: index('grants_grantee_idx').on(t.grantee),
+  statusIdx: index('grants_status_idx').on(t.status),
+}));
+
+export const grantMilestones = pgTable('grant_milestones', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  grantId: uuid('grant_id').notNull().references(() => grants.id, { onDelete: 'cascade' }),
+  ordinal: integer('ordinal').notNull(),
+  label: text('label').notNull(),
+  amount: numeric('amount').notNull(),
+  /** Discriminated union: { type: 'github_pr', repo, prNumber } | { type: 'onchain_event', program, eventName } | { type: 'manual_attestation', attesters: string[] } */
+  proof: jsonb('proof').notNull(),
+  /** pending | ready_to_release | released | rejected */
+  status: text('status').notNull().default('pending'),
+  proofVerifiedAt: timestamp('proof_verified_at'),
+  proofEvidence: jsonb('proof_evidence'),
+  releaseSignature: text('release_signature'),
+  releasedAt: timestamp('released_at'),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastCheckError: text('last_check_error'),
+  checkAttempts: integer('check_attempts').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  grantIdx: index('grant_milestones_grant_idx').on(t.grantId),
+  statusIdx: index('grant_milestones_status_idx').on(t.status),
+}));

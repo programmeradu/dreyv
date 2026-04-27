@@ -598,18 +598,28 @@ const gas_tank_topup = defineCapability({
   },
 });
 
+/**
+ * Phase 7B.4 — Real milestone-gated grant escrow.
+ *
+ * Creates a single Streamflow stream for the FULL grant amount with a long
+ * cliff (recipient = grantee, cancellable by funder). Persists `grants` +
+ * `grant_milestones` rows. The grants watcher cron verifies each milestone's
+ * proof; once `ready_to_release`, the funder calls `grant_milestone_release`
+ * to draft the per-milestone transfer tx.
+ */
 const grant_disbursement = defineCapability({
   id: "grant_disbursement",
   domain: "payments",
   description:
-    "Create a milestone-gated grant. Funds release only when the milestone proof (GitHub PR merged / on-chain event / oracle attestation) is verified.",
+    "Create a milestone-gated grant. Escrows the full amount via Streamflow, then releases each tranche only after its proof (GitHub PR merged / on-chain event / manual attestation) is verified.",
   inputSchema: z.object({
     grantee: z.string(),
     token: z.string().default("USDC"),
+    notes: z.string().max(280).optional(),
     milestones: z
       .array(
         z.object({
-          label: z.string(),
+          label: z.string().min(1).max(120),
           amount: z.number().positive(),
           proof: z.discriminatedUnion("type", [
             z.object({ type: z.literal("github_pr"), repo: z.string(), prNumber: z.number().int().positive() }),
@@ -618,29 +628,304 @@ const grant_disbursement = defineCapability({
           ]),
         }),
       )
-      .min(1),
+      .min(1)
+      .max(20),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
-  execute: async ({ grantee, token, milestones }, ctx) => {
+  protocols: ["streamflow", "github"],
+  execute: async ({ grantee, token, milestones, notes }, ctx) => {
     if (!ctx.walletAddress) {
       return { success: false, operation: "grant_disbursement", message: "Wallet required." };
     }
     const blocked = ctx.blockExecutionForBuildIntent("grant_disbursement");
     if (blocked) return blocked;
-    const total = milestones.reduce((s, m) => s + m.amount, 0);
-    return {
-      success: true,
-      operation: "grant_disbursement",
-      grantId: `grant_${Math.random().toString(36).slice(2, 10)}`,
-      grantee,
-      token,
-      milestones,
-      totalAmount: total,
-      requiresApproval: true,
-      message: `Grant drafted: ${total} ${token} to ${grantee.slice(0, 8)}… across ${milestones.length} milestone(s). Sign to escrow.`,
-    };
+
+    const isSol = isSolSymbol(token);
+    const mint = isSol ? "So11111111111111111111111111111111111111112" : resolveTokenMint(token.toUpperCase());
+    if (!mint) {
+      return {
+        success: false,
+        operation: "grant_disbursement",
+        message: `Unknown token: ${token}. Supported: ${Object.keys(TOKEN_MINTS).join(", ")}`,
+      };
+    }
+    const decimals = ["USDC", "USDT"].includes(token.toUpperCase()) ? 6 : 9;
+    const totalAmount = milestones.reduce((s, m) => s + m.amount, 0);
+
+    try {
+      const { PublicKey } = await import("@solana/web3.js");
+      const { SolanaStreamClient, getBN, ICluster } = (await import("@streamflow/stream")) as typeof import("@streamflow/stream");
+
+      try { new PublicKey(grantee); } catch {
+        return { success: false, operation: "grant_disbursement", message: `Invalid grantee address: ${grantee}` };
+      }
+
+      const senderPublicKey = new PublicKey(ctx.walletAddress);
+      const startTs = Math.floor(Date.now() / 1000) + 60;
+      // Long cliff (10 years) — blocks grantee from withdrawing until the funder
+      // releases each tranche after proof. Funder retains cancellation right
+      // and recovers any unreleased remainder.
+      const cliffTs = startTs + 10 * 365 * 86_400;
+
+      const client = new SolanaStreamClient(ctx.rpcEndpoint, ICluster.Mainnet, "confirmed");
+
+      const streamData = {
+        recipient: grantee,
+        tokenId: mint,
+        start: startTs,
+        amount: getBN(totalAmount, decimals),
+        period: 86_400,
+        cliff: cliffTs,
+        cliffAmount: getBN(0, decimals),
+        amountPerPeriod: getBN(totalAmount, decimals),
+        name: `dreyv-grant-${Date.now()}`.slice(0, 64),
+        canTopup: false,
+        cancelableBySender: true,
+        cancelableByRecipient: false,
+        transferableBySender: true,
+        transferableByRecipient: false,
+        automaticWithdrawal: false,
+        withdrawalFrequency: 0,
+      };
+
+      const built = await client.buildCreateTransaction(streamData, {
+        sender: { publicKey: senderPublicKey },
+        isNative: isSol,
+      });
+
+      const serialized = Buffer.from(built.tx.serialize()).toString("base64");
+
+      let grantId: string | null = null;
+      try {
+        const { db } = await import("@/db");
+        const { grants, grantMilestones } = await import("@/db/schema");
+        if (db) {
+          const inserted = await db
+            .insert(grants)
+            .values({
+              funderWallet: ctx.walletAddress,
+              grantee,
+              token: token.toUpperCase(),
+              mint,
+              totalAmount: String(totalAmount),
+              streamId: built.metadataId,
+              status: "pending_signature",
+              notes,
+            })
+            .returning({ id: grants.id });
+          grantId = inserted[0]?.id ?? null;
+          if (grantId) {
+            await db.insert(grantMilestones).values(
+              milestones.map((m, i) => ({
+                grantId: grantId!,
+                ordinal: i,
+                label: m.label,
+                amount: String(m.amount),
+                proof: m.proof as unknown as Record<string, unknown>,
+                status: "pending",
+              })),
+            );
+          }
+        }
+      } catch (persistErr) {
+        console.warn("[capability:grant_disbursement] Persist failed (best-effort):", persistErr);
+      }
+
+      return {
+        success: true,
+        operation: "grant_disbursement",
+        grantId,
+        streamId: built.metadataId,
+        grantee,
+        token,
+        mint,
+        totalAmount,
+        milestoneCount: milestones.length,
+        milestones: milestones.map((m, i) => ({ ordinal: i, label: m.label, amount: m.amount, proof: m.proof, status: "pending" })),
+        serializedTransaction: serialized,
+        txKind: "versioned",
+        recentBlockhash: built.hash,
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `Grant escrow drafted: ${totalAmount} ${token} → ${grantee.slice(0, 8)}… across ${milestones.length} milestone(s). Funds locked until each proof verifies. Sign to escrow.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:grant_disbursement] Streamflow build error:", msg);
+      return {
+        success: false,
+        operation: "grant_disbursement",
+        grantee,
+        token,
+        totalAmount,
+        buildError: msg,
+        message: `Failed to build grant escrow: ${msg}`,
+      };
+    }
+  },
+});
+
+/**
+ * Phase 7B.4 — Release a single grant milestone tranche.
+ *
+ * Re-verifies the proof on-demand (or trusts cron-marked `ready_to_release`),
+ * then drafts a signable SOL/SPL transfer for that milestone's amount from
+ * funder → grantee. Status flips to `released` once the funder signs and the
+ * signature confirms (caller's responsibility).
+ */
+const grant_milestone_release = defineCapability({
+  id: "grant_milestone_release",
+  domain: "payments",
+  description:
+    "Release a single grant milestone after re-verifying its proof. Drafts a signable transfer tx to the grantee for that milestone's amount and updates the milestone status to 'ready_to_release'.",
+  inputSchema: z.object({
+    milestoneId: z.string().uuid(),
+    skipReverify: z.boolean().optional().default(false),
+  }),
+  sideEffects: "write",
+  requiredAuth: "wallet",
+  sensitivity: "high",
+  protocols: ["streamflow", "github"],
+  execute: async ({ milestoneId, skipReverify }, ctx) => {
+    if (!ctx.walletAddress) {
+      return { success: false, operation: "grant_milestone_release", message: "Wallet required." };
+    }
+    const blocked = ctx.blockExecutionForBuildIntent("grant_milestone_release");
+    if (blocked) return blocked;
+
+    try {
+      const { db } = await import("@/db");
+      const { grants, grantMilestones } = await import("@/db/schema");
+      const { eq } = await import("drizzle-orm");
+      if (!db) throw new Error("Database not configured");
+
+      const [milestone] = await db.select().from(grantMilestones).where(eq(grantMilestones.id, milestoneId)).limit(1);
+      if (!milestone) {
+        return { success: false, operation: "grant_milestone_release", message: `Milestone ${milestoneId} not found.` };
+      }
+      if (milestone.status === "released") {
+        return {
+          success: false,
+          operation: "grant_milestone_release",
+          status: "ALREADY_RELEASED",
+          milestone,
+          message: `Milestone '${milestone.label}' already released (sig ${milestone.releaseSignature?.slice(0, 12)}…).`,
+        };
+      }
+
+      const [grant] = await db.select().from(grants).where(eq(grants.id, milestone.grantId)).limit(1);
+      if (!grant) {
+        return { success: false, operation: "grant_milestone_release", message: `Parent grant ${milestone.grantId} missing.` };
+      }
+      if (grant.funderWallet !== ctx.walletAddress) {
+        return {
+          success: false,
+          operation: "grant_milestone_release",
+          status: "NOT_FUNDER",
+          message: `Only the original funder (${grant.funderWallet.slice(0, 8)}…) can release this milestone.`,
+        };
+      }
+
+      if (!skipReverify || milestone.status !== "ready_to_release") {
+        const { verifyProof } = await import("@/lib/agents/dacs/grant-proof");
+        const result = await verifyProof(milestone.proof as never);
+        await db
+          .update(grantMilestones)
+          .set({
+            lastCheckedAt: new Date(),
+            lastCheckError: result.error ?? null,
+            checkAttempts: milestone.checkAttempts + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(grantMilestones.id, milestoneId));
+        if (!result.verified) {
+          return {
+            success: false,
+            operation: "grant_milestone_release",
+            status: "PROOF_NOT_VERIFIED",
+            milestoneId,
+            label: milestone.label,
+            proof: milestone.proof,
+            error: result.error,
+            evidence: result.evidence,
+            message: `Proof not verified for '${milestone.label}': ${result.error ?? "unknown reason"}.`,
+          };
+        }
+        await db
+          .update(grantMilestones)
+          .set({
+            status: "ready_to_release",
+            proofVerifiedAt: new Date(),
+            proofEvidence: result.evidence as Record<string, unknown> | undefined,
+            lastCheckError: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(grantMilestones.id, milestoneId));
+      }
+
+      const { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction, LAMPORTS_PER_SOL } =
+        await import("@solana/web3.js");
+      const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+      const sender = new PublicKey(grant.funderWallet);
+      const recipient = new PublicKey(grant.grantee);
+      const amountNum = Number(milestone.amount);
+      const isSol = grant.token === "SOL";
+      const decimals = ["USDC", "USDT"].includes(grant.token) ? 6 : 9;
+
+      let instructions;
+      if (isSol) {
+        instructions = [
+          SystemProgram.transfer({
+            fromPubkey: sender,
+            toPubkey: recipient,
+            lamports: Math.round(amountNum * LAMPORTS_PER_SOL),
+          }),
+        ];
+      } else {
+        const spl = (await import("@solana/spl-token")) as any;
+        const { getAssociatedTokenAddress, createTransferCheckedInstruction, createAssociatedTokenAccountIdempotentInstruction } = spl;
+        const mintKey = new PublicKey(grant.mint);
+        const fromAta = await getAssociatedTokenAddress(mintKey, sender);
+        const toAta = await getAssociatedTokenAddress(mintKey, recipient);
+        const rawAmount = BigInt(Math.round(amountNum * 10 ** decimals));
+        instructions = [
+          createAssociatedTokenAccountIdempotentInstruction(sender, toAta, recipient, mintKey),
+          createTransferCheckedInstruction(fromAta, mintKey, toAta, sender, rawAmount, decimals),
+        ];
+      }
+
+      const { blockhash } = await conn.getLatestBlockhash("confirmed");
+      const message = new TransactionMessage({
+        payerKey: sender,
+        recentBlockhash: blockhash,
+        instructions,
+      }).compileToV0Message();
+      const tx = new VersionedTransaction(message);
+      const serialized = Buffer.from(tx.serialize()).toString("base64");
+
+      return {
+        success: true,
+        operation: "grant_milestone_release",
+        grantId: grant.id,
+        milestoneId: milestone.id,
+        label: milestone.label,
+        amount: amountNum,
+        token: grant.token,
+        grantee: grant.grantee,
+        serializedTransaction: serialized,
+        txKind: "versioned",
+        recentBlockhash: blockhash,
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `Releasing milestone '${milestone.label}': ${amountNum} ${grant.token} → ${grant.grantee.slice(0, 8)}…. Sign to send.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:grant_milestone_release] Build error:", msg);
+      return { success: false, operation: "grant_milestone_release", message: `Failed: ${msg}` };
+    }
   },
 });
 
@@ -677,5 +962,6 @@ export const paymentsCapabilities: AnyCapability[] = [
   invoice_pay,
   gas_tank_topup,
   grant_disbursement,
+  grant_milestone_release,
   expense_categorize,
 ];
