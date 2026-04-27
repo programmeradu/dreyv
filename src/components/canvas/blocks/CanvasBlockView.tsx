@@ -227,14 +227,16 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
 
   return (
     <BlockShell block={block} accent="violet">
-      <div className="mb-2 flex">
-        <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
-          {status === "running" || status === "streaming" ? (
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-          ) : null}
-          {status}
-        </Pill>
-      </div>
+      {status !== "error" && status !== "failed" && (
+        <div className="mb-2 flex">
+          <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
+            {status === "running" || status === "streaming" ? (
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+            ) : null}
+            {status}
+          </Pill>
+        </div>
+      )}
       {summary && <ClampedBody text={summary} />}
       {steps.length > 0 && (
         <ol className="mt-3 space-y-2">
