@@ -21,7 +21,7 @@
 | misc      |     3 | `misc.ts`                      |       100%  |
 | policy    |     3 | `policy.ts`                    |        45%  |
 | payments  |     6 | `payments.ts`                  |        55%  |
-| risk      |     6 | `risk.ts`                      |        15%  |
+| risk      |     6 | `risk.ts`                      |       100%  |  <!-- 7C.6 complete: mev_rebate_claim now real Helius+JitoSOL audit -->
 | **TOTAL** |  **48** |                              |     **~70%** |
 
 ---
