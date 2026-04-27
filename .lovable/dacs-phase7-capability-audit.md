@@ -118,7 +118,7 @@ These don't exist yet and unlock the reporting use case the user asked about.
 | `treasury_report_csv`    | intel  | Same data as PDF but spreadsheet-friendly (TokenTax/Cryptio). |
 | `proposal_export`        | treasury | Export single multisig proposal as signed PDF + JSON for auditors. |
 | `audit_pack_generate`    | intel  | Bundle: vault state + 90d txs + active policies + open proposals → ZIP. |
-| `monthly_burn_statement` | intel  | Auto-generated monthly P&L PDF, scheduled via Inngest. |
+| `monthly_burn_statement` | intel  | ✅ 7F.1: Inngest cron `0 3 1 * *` (`burn-statement-cron.ts`) — enumerates wallets with enabled `runway_autopilot_rules`, builds previous-month PDF via existing `buildTreasuryReportData` + `renderTreasuryReportPdf` + `uploadArtifact`, logs idempotent `agent_episodes` row per (wallet, month), posts signed URL to rule's `alertWebhook`. Skips zero-activity wallets honestly. |
 
 ### Artifact pipeline (shared infra)
 
