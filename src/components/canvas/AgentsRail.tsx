@@ -24,13 +24,14 @@ const MAX_VISIBLE = 5;
 const RECENT_WINDOW_MS = 60 * 60 * 1000; // 1h
 const ACTIVE_WINDOW_MS = 30_000;
 
-/** Tiny baseline so the rail isn't empty before any agent has fired. */
-const BASELINE: Array<{ id: string; name: string; watching: string; tone: string }> = [
-  { id: "treasury-watcher", name: "Treasury Watcher", watching: "balance & flows", tone: "text-violet-600" },
-  { id: "yield-optimizer", name: "Yield Optimizer", watching: "Kamino · Marinade · MarginFi", tone: "text-emerald-600" },
-  { id: "risk-sentinel", name: "Risk Sentinel", watching: "drawdown & exposure", tone: "text-amber-600" },
-  { id: "mev-guard", name: "MEV Guard", watching: "swap routes", tone: "text-sky-600" },
-  { id: "simulation-firewall", name: "Simulation Firewall", watching: "outgoing transactions", tone: "text-rose-600" },
+/** Tiny baseline so the rail isn't empty before any agent has fired.
+ *  IDs must match TOOL_META keys so labels/subtitles stay consistent. */
+const BASELINE: Array<{ id: string; tone: string }> = [
+  { id: "treasury_watcher", tone: "text-violet-600" },
+  { id: "yield_optimizer", tone: "text-emerald-600" },
+  { id: "risk_sentinel", tone: "text-amber-600" },
+  { id: "mev_guard", tone: "text-sky-600" },
+  { id: "simulation_firewall", tone: "text-rose-600" },
 ];
 
 const TONE_PALETTE = [
