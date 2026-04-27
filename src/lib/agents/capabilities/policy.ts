@@ -15,7 +15,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { defineCapability, type AnyCapability } from "./types";
 import { db } from "@/db";
-import { userAgentPolicy } from "@/db/schema";
+import { userAgentPolicy, runwayAutopilotRules } from "@/db/schema";
 import { randomUUID } from "node:crypto";
 
 const set_treasury_policy = defineCapability({
@@ -159,50 +159,83 @@ const treasury_runway_autopilot = defineCapability({
   id: "treasury_runway_autopilot",
   domain: "policy",
   description:
-    "Set a target runway floor (e.g. 18 months). Agent monitors burn rate and auto-rebalances stables ↔ yield ↔ hedge to maintain it. Requires an active policy.",
+    "Persist a target runway floor (months). Inngest watcher polls treasury USD value (Helius DAS + Jupiter prices) every 5 min and computes runway = treasuryUsd / monthlyBurnUsd. If burn isn't provided, watcher infers from 90d net outflows. On breach: writes agent_episodes (needs_attention) + fires alert webhook. Persisted to runway_autopilot_rules; supports create + update by ruleId + pause via enabled:false.",
   inputSchema: z.object({
     targetRunwayMonths: z.number().min(1).max(120),
-    monthlyBurnUsd: z.number().optional().describe("If omitted, agent infers from last 90d of outflows"),
+    monthlyBurnUsd: z.number().positive().optional()
+      .describe("If omitted, watcher infers from 90d of on-chain outflows."),
     rebalanceMode: z.enum(["conservative", "balanced", "aggressive"]).optional().default("balanced"),
     actionsAllowed: z
       .array(z.enum(["yield_withdraw", "swap_to_stable", "open_hedge", "alert_only"]))
       .optional()
       .default(["yield_withdraw", "swap_to_stable", "alert_only"]),
+    alertWebhook: z.string().url().optional(),
+    ruleId: z.string().uuid().optional().describe("Update an existing rule."),
+    enabled: z.boolean().optional().default(true),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
   protocols: ["kamino", "marinade", "drift", "jupiter"],
-  execute: async ({ targetRunwayMonths, monthlyBurnUsd, rebalanceMode, actionsAllowed }, ctx) => {
+  execute: async ({ targetRunwayMonths, monthlyBurnUsd, rebalanceMode, actionsAllowed, alertWebhook, ruleId, enabled }, ctx) => {
     if (!ctx.walletAddress) {
-      return {
-        success: false,
-        operation: "treasury_runway_autopilot",
-        message: "Wallet required. Connect to enable runway autopilot.",
-      };
+      return { success: false, operation: "treasury_runway_autopilot", message: "Wallet required." };
     }
-    if (!monthlyBurnUsd) {
-      return {
-        success: false,
-        operation: "treasury_runway_autopilot",
-        status: "NEEDS_INPUT",
-        message:
-          "Missing monthlyBurnUsd. Provide your monthly burn (or call after we infer from 90d of on-chain outflows).",
-      };
+    if (!db) {
+      return { success: false, operation: "treasury_runway_autopilot", message: "Database not configured." };
     }
-    const autopilotId = `auto_${Math.random().toString(36).slice(2, 10)}`;
-    return {
-      success: true,
-      operation: "treasury_runway_autopilot",
-      autopilotId,
-      targetRunwayMonths,
-      monthlyBurnUsd,
-      rebalanceMode,
-      actionsAllowed,
-      status: "ARMED",
-      requiresApproval: true,
-      message: `Runway autopilot armed: maintain ≥${targetRunwayMonths}mo at $${monthlyBurnUsd.toLocaleString()}/mo burn (${rebalanceMode}). Sign to activate.`,
-    };
+
+    try {
+      const now = new Date();
+      const values = {
+        walletAddress: ctx.walletAddress,
+        targetRunwayMonths: String(targetRunwayMonths),
+        monthlyBurnUsd: monthlyBurnUsd != null ? String(monthlyBurnUsd) : null,
+        rebalanceMode,
+        actionsAllowed,
+        alertWebhook: alertWebhook ?? null,
+        enabled,
+        status: enabled ? "active" : "disabled",
+        updatedAt: now,
+      };
+
+      let row: typeof runwayAutopilotRules.$inferSelect | undefined;
+      if (ruleId) {
+        const updated = await db
+          .update(runwayAutopilotRules)
+          .set(values)
+          .where(eq(runwayAutopilotRules.id, ruleId))
+          .returning();
+        row = updated[0];
+        if (!row) {
+          return { success: false, operation: "treasury_runway_autopilot", message: `Rule ${ruleId} not found.` };
+        }
+      } else {
+        const inserted = await db.insert(runwayAutopilotRules).values(values).returning();
+        row = inserted[0];
+      }
+
+      return {
+        success: true,
+        operation: "treasury_runway_autopilot",
+        ruleId: row!.id,
+        targetRunwayMonths,
+        monthlyBurnUsd: monthlyBurnUsd ?? null,
+        rebalanceMode,
+        actionsAllowed,
+        alertWebhook: alertWebhook ?? null,
+        enabled,
+        status: row!.status,
+        watcherCron: "*/5 * * * *",
+        message: monthlyBurnUsd
+          ? `Runway autopilot ${ruleId ? "updated" : "armed"} (${row!.id}): maintain ≥${targetRunwayMonths}mo at $${monthlyBurnUsd.toLocaleString()}/mo burn (${rebalanceMode}). Watcher polls every 5 min.`
+          : `Runway autopilot ${ruleId ? "updated" : "armed"} (${row!.id}): maintain ≥${targetRunwayMonths}mo. Burn will be inferred from 90d on-chain outflows on first tick.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:treasury_runway_autopilot]", msg);
+      return { success: false, operation: "treasury_runway_autopilot", message: `Autopilot persistence failed: ${msg}` };
+    }
   },
 });
 
