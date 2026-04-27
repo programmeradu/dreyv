@@ -151,16 +151,15 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // SameSite=Lax works in normal top-level navigation AND in the
-        // Lovable preview iframe (same-origin app shell) without requiring
-        // cross-site cookie permissions. SameSite=None would be silently
-        // dropped by Chrome/Safari inside cross-site iframes, leaving the
-        // user "signed in" client-side but with no cookie on the next
-        // request.
+        // The app often runs inside the Lovable preview iframe, where the
+        // app origin is third-party relative to the editor shell. Use a
+        // Secure + SameSite=None + Partitioned cookie so the JWT is retained
+        // for embedded preview requests and still works in top-level visits.
         response.cookies.set(COOKIE_NAME, token, {
             httpOnly: true,
             secure: true,
-            sameSite: 'lax',
+            sameSite: 'none',
+            partitioned: true,
             path: '/',
             maxAge: SESSION_MAX_AGE,
         });
@@ -212,7 +211,8 @@ export async function DELETE() {
     response.cookies.set(COOKIE_NAME, '', {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
+        partitioned: true,
         path: '/',
         maxAge: 0,
     });
