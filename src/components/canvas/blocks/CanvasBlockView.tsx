@@ -141,8 +141,8 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
   const stepBadge = (s: string | undefined, idx: number) => {
     if (s === "success" || s === "complete" || s === "done") {
       return (
-        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <GlyphCheck />
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-violet-600">
+          <GlyphCheck className="h-3.5 w-3.5" />
         </span>
       );
     }
