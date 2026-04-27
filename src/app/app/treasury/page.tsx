@@ -18,9 +18,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
+import { Urbanist } from "next/font/google";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const wordmark = Urbanist({ subsets: ["latin"], weight: "600", display: "swap", adjustFontFallback: true });
 import {
   AmbientGlow,
   SectionHeader,
@@ -90,32 +94,29 @@ export default function TreasuryPage() {
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="right-[-160px] top-[-200px]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/app" className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-violet-700">
-          <ArrowLeft className="h-4 w-4" />
+      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/app" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-violet-700">
+          <ArrowLeft className="h-3.5 w-3.5" />
           Home
         </Link>
-        <Link href="/app" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" />
-          </span>
-          dreyv
+        <Link href="/app" className="rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500/40" aria-label="dreyv home">
+          <span className={cn(wordmark.className, "text-lg font-semibold tracking-tight text-violet-700 lowercase leading-none antialiased")}>dreyv</span>
         </Link>
         <WalletButton />
       </header>
 
-      {/* HERO */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-4">
-        <StreamIn className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">A clear picture, nothing more.</h1>
-          <p className="max-w-lg text-base text-slate-600">
+      {/* HERO — compact */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-2">
+        <StreamIn className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">A clear picture, nothing more.</h1>
+          <p className="max-w-xl text-sm text-slate-600">
             What you own, who can move it, and where it could be working a little harder. Ask Dreyv anything below — the canvas fills in.
           </p>
         </StreamIn>
 
-        <StreamIn delay={0.1} className="mt-10 grid gap-6 md:grid-cols-[1.05fr_1fr]">
-          <Surface glow className="p-7">
+        <StreamIn delay={0.1} className="mt-5 grid gap-4 md:grid-cols-[1.05fr_1fr]">
+          <Surface glow className="p-5">
             <HeadlineValue
               label="Total value"
               value={vaultValue}
@@ -125,7 +126,7 @@ export default function TreasuryPage() {
                   : undefined
               }
             />
-            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-violet-100 pt-6">
+            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-violet-100 pt-4">
               <SmallStat label="Assets" value={holdings.length} />
               <SmallStat label="24h change" value={vaultChange24h} suffix="%" decimals={2} signed />
               <SmallStat label="Largest position" text={holdings[0]?.label ?? "—"} />
@@ -138,23 +139,23 @@ export default function TreasuryPage() {
 
       {/* PULSE — empty/connect state if no vault */}
       {!activeVault && (
-        <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6">
-          <Surface className="p-8 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Get started</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Connect a treasury to begin</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-6">
+          <Surface className="p-5 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Get started</p>
+            <h2 className="mt-1.5 text-lg font-semibold tracking-tight">Connect a treasury to begin</h2>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
               Link a Phantom wallet, a Squads multisig, or paste any address to watch — Dreyv will populate everything below.
             </p>
-            <div className="mt-5 flex justify-center gap-3">
+            <div className="mt-3 flex justify-center gap-2">
               <button
                 onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
-                className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+                className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700"
               >
                 Connect or paste address
               </button>
               <button
                 onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Show me an example treasury walkthrough", autoSubmit: false })}
-                className="rounded-xl border border-violet-200 px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-50"
+                className="rounded-xl border border-violet-200 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50"
               >
                 Show me how it works
               </button>
@@ -164,13 +165,13 @@ export default function TreasuryPage() {
       )}
 
       {/* CANVAS STREAM — generative bucket surface */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-40">
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-6 pb-32">
         <SectionHeader
           eyebrow="Live canvas"
           title="Everything Dreyv is watching for you"
           description="Tokens, wallets, runway, payouts, policy. Each card is live — pin the ones you want to keep, dismiss the rest, and ask Dreyv to add more."
         />
-        <div className="mt-6">
+        <div className="mt-4">
           <CanvasStream />
         </div>
       </section>
