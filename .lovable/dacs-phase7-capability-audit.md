@@ -91,7 +91,8 @@
 | ID                    | Status | Gap |
 |-----------------------|--------|-----|
 | `recurring_payment`   | 🔴     | `streamId` = random. **Wire `@streamflow/stream` SDK** — package present but unused. |
-| `invoice_pay`         | 🟡     | Structured path works; URL/text path returns `NEEDS_PARSE`. Wire **OCR via Lovable AI Gateway** + **Firecrawl** for URL invoices. |
+| `invoice_pay`         | ✅     | Structured + `extracted` payload paths fully wired. URL/text/image extraction handled by sibling `invoice_extract` (CF Browser jsonExtract + Lovable AI vision); `invoice_pay` enforces `minConfidence` gate (default 0.7) before proposing. |
+| `invoice_extract`     | ✅     | **NEW (7B.2).** Real OCR via Lovable AI vision (image/PDF data URLs) + CF Browser jsonExtract (URLs) + Lovable AI text mode. Per-field confidence + warnings + Solana address/ISO date validation. |
 | `gas_tank_topup`      | 🔴     | Returns `ARMED` only. Needs Inngest cron polling balance + Jupiter swap trigger. |
 | `grant_disbursement`  | 🔴     | No escrow. Wire **Streamflow vesting with conditional release** OR custom escrow program; verify GitHub PR proof via Octokit. |
 | `expense_categorize`  | 🔴     | Returns `DEFERRED_TO_INDEXER`. Wire **Helius enhanced transactions** + Lovable AI for categorization. |
