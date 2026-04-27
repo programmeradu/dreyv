@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       {
         success: false,
         error: "invalid input — open the CommandBar to provide details.",
-        issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+        issues: parsed.error.issues.map((i: { path: (string | number)[]; message: string }) => ({ path: i.path, message: i.message })),
       },
       { status: 400 },
     );
