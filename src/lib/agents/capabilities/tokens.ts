@@ -37,7 +37,7 @@ export function resolveTokenMint(symbol: string): string | null {
 }
 
 export function tokenDecimals(symbol: string): number {
-  return ["USDC", "USDT"].includes(symbol.toUpperCase()) ? 6 : 9;
+  return ["USDC", "USDT", "PYUSD", "USDS"].includes(symbol.toUpperCase()) ? 6 : 9;
 }
 
 export function isSolSymbol(symbol: string): boolean {
