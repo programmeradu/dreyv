@@ -18,18 +18,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { cn } from "@/lib/utils";
+import { toolLabel, toolWatching } from "@/lib/commandbar/tool-meta";
 
 const MAX_VISIBLE = 5;
 const RECENT_WINDOW_MS = 60 * 60 * 1000; // 1h
 const ACTIVE_WINDOW_MS = 30_000;
 
-/** Tiny baseline so the rail isn't empty before any agent has fired. */
-const BASELINE: Array<{ id: string; name: string; watching: string; tone: string }> = [
-  { id: "treasury-watcher", name: "Treasury Watcher", watching: "balance & flows", tone: "text-violet-600" },
-  { id: "yield-optimizer", name: "Yield Optimizer", watching: "Kamino · Marinade · MarginFi", tone: "text-emerald-600" },
-  { id: "risk-sentinel", name: "Risk Sentinel", watching: "drawdown & exposure", tone: "text-amber-600" },
-  { id: "mev-guard", name: "MEV Guard", watching: "swap routes", tone: "text-sky-600" },
-  { id: "simulation-firewall", name: "Simulation Firewall", watching: "outgoing transactions", tone: "text-rose-600" },
+/** Tiny baseline so the rail isn't empty before any agent has fired.
+ *  IDs must match TOOL_META keys so labels/subtitles stay consistent. */
+const BASELINE: Array<{ id: string; tone: string }> = [
+  { id: "treasury_watcher", tone: "text-violet-600" },
+  { id: "yield_optimizer", tone: "text-emerald-600" },
+  { id: "risk_sentinel", tone: "text-amber-600" },
+  { id: "mev_guard", tone: "text-sky-600" },
+  { id: "simulation_firewall", tone: "text-rose-600" },
 ];
 
 const TONE_PALETTE = [
@@ -63,11 +65,10 @@ function timeAgo(ms: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-function humanize(id: string): string {
-  return id
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
+// Normalize ids so `execute-swap`, `execute_swap`, `EXECUTE_SWAP` all collapse
+// to the same persona key (and match TOOL_META lookups).
+function normalizeId(id: string): string {
+  return String(id).toLowerCase().trim().replace(/-+/g, "_");
 }
 
 export function AgentsRail() {
@@ -101,9 +102,15 @@ export function AgentsRail() {
     const now = Date.now();
     const acc = new Map<string, DerivedAgent>();
 
-    // Seed baseline (idle by default).
+    // Seed baseline (idle by default). Names/watching come from TOOL_META so
+    // we never leak codenames.
     for (const b of BASELINE) {
-      acc.set(b.id, { id: b.id, name: b.name, watching: b.watching, tone: b.tone });
+      acc.set(b.id, {
+        id: b.id,
+        name: toolLabel(b.id),
+        watching: toolWatching(b.id),
+        tone: b.tone,
+      });
     }
 
     // Walk canvas blocks; attribute activity to personas. We look at:
@@ -114,22 +121,23 @@ export function AgentsRail() {
     //      and the rail looks dead.
     let toneIdx = 0;
     const bumpPersona = (rawId: string, at: number, title?: string) => {
-      const id = String(rawId).toLowerCase().trim();
+      const id = normalizeId(rawId);
       if (!id) return;
+      const friendlyTitle = title ? toolLabel(normalizeId(title)) : undefined;
       const existing = acc.get(id);
       if (existing) {
         if (!existing.lastAt || existing.lastAt < at) {
           existing.lastAt = at;
-          if (title) existing.lastTitle = title;
+          if (friendlyTitle) existing.lastTitle = friendlyTitle;
         }
       } else {
         acc.set(id, {
           id,
-          name: humanize(id),
-          watching: "live capability",
+          name: toolLabel(id),
+          watching: toolWatching(id),
           tone: TONE_PALETTE[toneIdx++ % TONE_PALETTE.length],
           lastAt: at,
-          lastTitle: title,
+          lastTitle: friendlyTitle,
         });
       }
     };
