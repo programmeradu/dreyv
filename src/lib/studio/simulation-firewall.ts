@@ -152,18 +152,27 @@ export class SimulationFirewall {
     inAmount?: string;
     outAmount?: string;
     outAmountWithSlippage?: string;
+    otherAmountThreshold?: string;
+    slippageBps?: number;
     routePlan?: unknown[];
   }): FirewallReport {
     const priceImpact = parseFloat(quote.priceImpactPct || "0");
     const outAmount = parseFloat(quote.outAmount || "0");
     const inAmount = parseFloat(quote.inAmount || "0");
 
+    // Jupiter v6 uses `otherAmountThreshold` + `slippageBps`; v4 used
+    // `outAmountWithSlippage`. Accept any of those as a valid slippage guard.
+    const hasSlippageGuard =
+      Boolean(quote.outAmountWithSlippage) ||
+      Boolean(quote.otherAmountThreshold) ||
+      typeof quote.slippageBps === "number";
+
     const checks: Record<string, "pass" | "fail" | "warn"> = {
       priceImpact: priceImpact > 1 ? "fail" : priceImpact > 0.5 ? "warn" : "pass",
       outputNonZero: outAmount > 0 ? "pass" : "fail",
       inputNonZero: inAmount > 0 ? "pass" : "fail",
       routeExists: (quote.routePlan?.length || 0) > 0 ? "pass" : "fail",
-      slippageGuard: quote.outAmountWithSlippage ? "pass" : "fail",
+      slippageGuard: hasSlippageGuard ? "pass" : "fail",
     };
 
     const failedChecks = Object.entries(checks)
