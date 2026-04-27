@@ -35,10 +35,10 @@ const KIND_META: Record<
   ArtifactDescriptor["kind"],
   { label: string; Icon: React.ComponentType<{ className?: string }> }
 > = {
-  pdf: { label: "PDF report", Icon: FileText },
-  csv: { label: "CSV export", Icon: FileSpreadsheet },
-  zip: { label: "Audit pack", Icon: FileArchive },
-  json: { label: "JSON data", Icon: FileJson },
+  pdf: { label: "PDF", Icon: FileText },
+  csv: { label: "CSV", Icon: FileSpreadsheet },
+  zip: { label: "ZIP", Icon: FileArchive },
+  json: { label: "JSON", Icon: FileJson },
 };
 
 function formatBytes(n: number): string {
