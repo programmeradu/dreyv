@@ -333,8 +333,16 @@ export async function middleware(request: NextRequest) {
     const isAuthenticatedForApi = hasSiws;
 
     // ─── Public API routes (no auth required) ───────────────────────
+    // Artifact download routes self-authenticate via signed JWT in `?t=`
+    // (see /api/agent/artifacts/[id]) — they must be reachable without
+    // a session cookie so download links work in any browser tab.
     const publicApiPaths = ['/api/studio/marketplace'];
-    if (publicApiPaths.some((p) => pathname === p || (pathname.startsWith(p) && request.method === 'GET'))) {
+    const isPublicArtifactRoute =
+        pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
+    if (
+        isPublicArtifactRoute ||
+        publicApiPaths.some((p) => pathname === p || (pathname.startsWith(p) && request.method === 'GET'))
+    ) {
         return withSeoHeaders(
             NextResponse.next({ request: { headers: request.headers } }),
             pathname,
