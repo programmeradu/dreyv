@@ -115,6 +115,7 @@ export const monthlyBurnStatementCron = inngest.createFunction(
     let skippedEmpty = 0;
     let skippedDup = 0;
     let failed = 0;
+    let emailed = 0;
 
     for (const sub of subscribers) {
       const wallet = sub.walletAddress;
