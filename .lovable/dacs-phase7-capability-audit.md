@@ -94,7 +94,7 @@
 | `invoice_pay`         | 🟡     | Structured path works; URL/text path returns `NEEDS_PARSE`. Wire **OCR via Lovable AI Gateway** + **Firecrawl** for URL invoices. |
 | `gas_tank_topup`      | 🔴     | Returns `ARMED` only. Needs Inngest cron polling balance + Jupiter swap trigger. |
 | `grant_disbursement`  | 🔴     | No escrow. Wire **Streamflow vesting with conditional release** OR custom escrow program; verify GitHub PR proof via Octokit. |
-| `expense_categorize`  | 🔴     | Returns `DEFERRED_TO_INDEXER`. Wire **Helius enhanced transactions** + Lovable AI for categorization. |
+| `expense_categorize`  | ✅     | Fetches Helius enhanced txs (lookbackDays), filters outgoing, applies heuristics (Jupiter→swap_fee, Streamflow→payroll, stake/unstake→capex, NFT→marketing), then Lovable AI (gemini-3-flash) tags the rest in batches of 25 with per-row confidence + rationale. Returns per-tx tags + per-category totals by symbol. |
 
 ### Risk (6) — **MOSTLY STUBS**
 | ID                          | Status | Gap |
