@@ -73,8 +73,8 @@ export default function AppHomePage() {
             label="Total value"
             value={vaultValue}
             hint={
-              vaultChange24h !== null
-                ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
+              displayChange !== null
+                ? `${displayChange >= 0 ? "+" : ""}${displayChange.toFixed(2)}% in the last ${trend.source ? "7 days" : "24 hours"}`
                 : "Connect a wallet to begin"
             }
           />
@@ -117,7 +117,11 @@ export default function AppHomePage() {
         </StreamIn>
 
         <StreamIn delay={0.12}>
-          <TrendCurve values={trend} label="Treasury trend · 7d" changePct={vaultChange24h ?? null} />
+          <TrendCurve
+            values={trend.series.length > 0 ? trend.series : [100, 100, 100, 100, 100]}
+            label="Treasury trend · 7d"
+            changePct={trend.changePct}
+          />
         </StreamIn>
       </section>
 
