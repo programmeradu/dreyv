@@ -217,6 +217,16 @@ export async function assessTokenSafety(
   const cached = safetyCache.get(mint);
   if (cached && Date.now() - cached.at < SAFETY_TTL_MS) return cached.report;
 
+  // Persistent registry: skip the full re-check if we have a fresh DB entry.
+  const registry = await import("./token-registry-store").catch(() => null);
+  if (registry) {
+    const stored = await registry.loadSafetyReport(mint);
+    if (stored) {
+      safetyCache.set(mint, { at: Date.now(), report: stored });
+      return stored;
+    }
+  }
+
   const warnings: string[] = [];
   let verified = false;
   let mintAuthorityActive = false;
@@ -284,5 +294,6 @@ export async function assessTokenSafety(
             : "none",
   };
   safetyCache.set(mint, { at: Date.now(), report });
+  if (registry) registry.saveSafetyReport(report).catch(() => {});
   return report;
 }
