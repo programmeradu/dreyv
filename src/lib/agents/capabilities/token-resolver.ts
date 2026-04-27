@@ -133,6 +133,10 @@ export async function resolveTokenAny(
   const key = symbolOrMint.trim();
   if (tokenCache.has(key)) return tokenCache.get(key)!;
 
+  // Lazy-import the persistent registry so this module stays usable in
+  // contexts where the DB isn't initialised (tests, CLI tools).
+  const registry = await import("./token-registry-store").catch(() => null);
+
   // 1. Static map (fast path for common tokens).
   const upper = key.toUpperCase();
   if (TOKEN_MINTS[upper]) {
@@ -147,28 +151,43 @@ export async function resolveTokenAny(
     return resolved;
   }
 
-  // 2. Looks like a mint → try Jupiter then on-chain.
+  // 2. Persistent registry (cross-process, cross-user learning).
+  if (registry) {
+    const stored = await registry.loadResolvedToken(key);
+    if (stored) {
+      tokenCache.set(key, stored);
+      tokenCache.set(stored.mint, stored);
+      tokenCache.set(stored.symbol, stored);
+      return stored;
+    }
+  }
+
+  const remember = (resolved: ResolvedToken) => {
+    tokenCache.set(key, resolved);
+    tokenCache.set(resolved.mint, resolved);
+    tokenCache.set(resolved.symbol, resolved);
+    // Fire-and-forget: never block resolution on persistence.
+    if (registry) registry.saveResolvedToken(resolved).catch(() => {});
+    return resolved;
+  };
+
+  // 3. Looks like a mint → try Jupiter then on-chain.
   if (isLikelyMint(key)) {
     const j = await fetchJupiterByMint(key);
-    if (j) {
-      tokenCache.set(key, j);
-      return j;
-    }
+    if (j) return remember(j);
     if (rpcEndpoint) {
       const onChain = await fetchOnChainMint(rpcEndpoint, key);
       if (onChain) {
-        const resolved: ResolvedToken = {
+        return remember({
           symbol: key.slice(0, 4).toUpperCase(),
           mint: key,
           decimals: onChain.decimals,
           source: "onchain",
           verified: false,
-        };
-        tokenCache.set(key, resolved);
-        return resolved;
+        });
       }
     }
-    // Last-ditch: trust the input but flag it.
+    // Last-ditch: trust the input but flag it (don't persist — unverified mint).
     const fallback: ResolvedToken = {
       symbol: key.slice(0, 4).toUpperCase(),
       mint: key,
@@ -180,12 +199,9 @@ export async function resolveTokenAny(
     return fallback;
   }
 
-  // 3. Symbol lookup via Jupiter verified list.
+  // 4. Symbol lookup via Jupiter verified list.
   const sym = await fetchJupiterBySymbol(key);
-  if (sym) {
-    tokenCache.set(key, sym);
-    return sym;
-  }
+  if (sym) return remember(sym);
 
   return null;
 }
