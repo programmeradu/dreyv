@@ -14,6 +14,7 @@ import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { TokenAvatar } from "@/components/TokenAvatar";
+import { useDistributionFiles, parseDistributionFile, type DistributionEntry } from "@/lib/hooks/useDistributionFiles";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
