@@ -21,6 +21,7 @@ import { z } from "zod";
 import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
+import { resolveTokenAny, assessTokenSafety } from "./token-resolver";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared swap executor — `swap` and `execute_swap` legacy tools were identical
@@ -28,14 +29,18 @@ import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
 // compatibility, but they share one body.
 // ─────────────────────────────────────────────────────────────────────────────
 const swapInputSchema = z.object({
-  inputToken: z.string().describe("Token symbol to swap FROM"),
-  outputToken: z.string().describe("Token symbol to swap TO"),
+  inputToken: z.string().describe("Token symbol OR mint address to swap FROM"),
+  outputToken: z.string().describe("Token symbol OR mint address to swap TO"),
   amount: z.number().describe("Amount of inputToken to swap"),
   slippage: z
     .number()
     .optional()
     .default(0.5)
     .describe("Slippage tolerance %"),
+  acknowledgeRisk: z
+    .boolean()
+    .optional()
+    .describe("Set true to proceed past medium/high safety warnings on unverified tokens"),
 });
 
 async function runSwap(
