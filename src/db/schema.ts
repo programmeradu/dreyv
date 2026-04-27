@@ -1160,3 +1160,86 @@ export const streamflowStreams = pgTable('streamflow_streams', {
   statusIdx: index('streamflow_streams_status_idx').on(t.status),
   createdIdx: index('streamflow_streams_created_idx').on(t.createdAt),
 }));
+
+/**
+ * Phase 7B.3 — Gas-tank watcher rules.
+ *
+ * One row per `gas_tank_topup` capability invocation. The watcher cron polls
+ * each enabled rule, checks the wallet's SOL balance via Helius, and emits a
+ * `gas_tank_refills` row (status=`pending_signature`) when balance < `floor_sol`
+ * and the daily cap hasn't been hit. The refill row carries a Jupiter swap
+ * quote/instructions for the user to sign.
+ */
+export const gasTankRules = pgTable('gas_tank_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  walletAddress: text('wallet_address').notNull(),
+  /** Refill trigger threshold in SOL (e.g. 0.1). */
+  floorSol: numeric('floor_sol').notNull(),
+  /** Refill target balance in SOL (must be > floorSol). */
+  targetSol: numeric('target_sol').notNull(),
+  /** Symbol of the token to swap from (USDC, USDT, …). */
+  fundingToken: text('funding_token').notNull().default('USDC'),
+  fundingMint: text('funding_mint').notNull(),
+  /** Hard cap on refills emitted per UTC day. */
+  maxRefillsPerDay: integer('max_refills_per_day').notNull().default(3),
+  /** Slippage tolerance for the Jupiter swap, basis points (50 = 0.5%). */
+  slippageBps: integer('slippage_bps').notNull().default(50),
+  enabled: boolean('enabled').notNull().default(true),
+  /** Last time the watcher emitted a refill for this rule. */
+  lastTriggeredAt: timestamp('last_triggered_at'),
+  /** Last balance reading (SOL), set by the watcher every poll. */
+  lastBalanceSol: numeric('last_balance_sol'),
+  lastCheckedAt: timestamp('last_checked_at'),
+  /** UTC date YYYY-MM-DD of the daily counter; reset on rollover. */
+  refillDayBucket: text('refill_day_bucket'),
+  refillsToday: integer('refills_today').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('gas_tank_rules_wallet_idx').on(t.walletAddress),
+  enabledIdx: index('gas_tank_rules_enabled_idx').on(t.enabled),
+}));
+
+/**
+ * Phase 7B.3 — Gas-tank refill events (audit trail).
+ *
+ * One row per refill the watcher proposes to the user. Carries the Jupiter
+ * quote at proposal time + the swap instructions/transaction that the user
+ * must sign. Status moves: pending_signature → signed → confirmed | failed
+ * | expired (4h TTL on unsigned).
+ */
+export const gasTankRefills = pgTable('gas_tank_refills', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  ruleId: uuid('rule_id').notNull().references(() => gasTankRules.id, { onDelete: 'cascade' }),
+  walletAddress: text('wallet_address').notNull(),
+  /** Wallet SOL balance at trigger time (numeric for precision). */
+  triggerBalanceSol: numeric('trigger_balance_sol').notNull(),
+  /** Target SOL after refill. */
+  targetSol: numeric('target_sol').notNull(),
+  /** SOL amount the swap is sized to deliver. */
+  refillSol: numeric('refill_sol').notNull(),
+  /** Smallest-unit amount of the funding token quoted as input. */
+  inAmount: text('in_amount').notNull(),
+  /** Smallest-unit amount of SOL quoted as output. */
+  outAmount: text('out_amount').notNull(),
+  fundingToken: text('funding_token').notNull(),
+  fundingMint: text('funding_mint').notNull(),
+  slippageBps: integer('slippage_bps').notNull(),
+  /** Base64 unsigned VersionedTransaction from Jupiter `/swap`. */
+  serializedTransaction: text('serialized_transaction'),
+  /** Jupiter quote response JSON for audit. */
+  quoteJson: text('quote_json'),
+  /** pending_signature | signed | confirmed | failed | expired | skipped */
+  status: text('status').notNull().default('pending_signature'),
+  signature: text('signature'),
+  failureReason: text('failure_reason'),
+  signedAt: timestamp('signed_at'),
+  confirmedAt: timestamp('confirmed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  ruleIdx: index('gas_tank_refills_rule_idx').on(t.ruleId),
+  walletIdx: index('gas_tank_refills_wallet_idx').on(t.walletAddress),
+  statusIdx: index('gas_tank_refills_status_idx').on(t.status),
+  createdIdx: index('gas_tank_refills_created_idx').on(t.createdAt),
+}));

@@ -495,17 +495,20 @@ const gas_tank_topup = defineCapability({
   id: "gas_tank_topup",
   domain: "payments",
   description:
-    "Configure an auto-refill rule: when wallet SOL drops below `floorSol`, swap stables → SOL up to `targetSol`.",
+    "Persist an auto-refill rule: when wallet SOL drops below `floorSol`, the gas-tank watcher cron will draft a Jupiter swap (stables → SOL) up to `targetSol`. The user signs each refill in-app. Set `enabled: false` to pause; pass an existing `ruleId` to update.",
   inputSchema: z.object({
     floorSol: z.number().positive().describe("Refill trigger threshold in SOL"),
     targetSol: z.number().positive().describe("Refill target balance in SOL"),
     fundingToken: z.string().default("USDC"),
     maxRefillsPerDay: z.number().int().positive().optional().default(3),
+    slippageBps: z.number().int().min(1).max(1000).optional().default(50),
+    enabled: z.boolean().optional().default(true),
+    ruleId: z.string().uuid().optional().describe("If set, update this rule instead of creating a new one"),
   }),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "medium",
-  protocols: ["jupiter"],
+  protocols: ["jupiter", "helius"],
   execute: async (input, ctx) => {
     if (!ctx.walletAddress) {
       return { success: false, operation: "gas_tank_topup", message: "Wallet required." };
@@ -517,15 +520,81 @@ const gas_tank_topup = defineCapability({
         message: `targetSol (${input.targetSol}) must be greater than floorSol (${input.floorSol}).`,
       };
     }
-    return {
-      success: true,
-      operation: "gas_tank_topup",
-      ruleId: `gas_${Math.random().toString(36).slice(2, 10)}`,
-      ...input,
-      status: "ARMED",
-      requiresApproval: true,
-      message: `Gas tank armed: refill to ${input.targetSol} SOL when balance < ${input.floorSol} SOL (funded from ${input.fundingToken}, max ${input.maxRefillsPerDay}/day).`,
-    };
+    const fundingMint = resolveTokenMint(input.fundingToken);
+    if (!fundingMint || isSolSymbol(input.fundingToken)) {
+      return {
+        success: false,
+        operation: "gas_tank_topup",
+        message: `Funding token must be a non-SOL token with a known mint. Got '${input.fundingToken}'.`,
+      };
+    }
+
+    try {
+      const { db } = await import("@/db");
+      const { gasTankRules } = await import("@/db/schema");
+      const { eq } = await import("drizzle-orm");
+      if (!db) throw new Error("Database not configured");
+
+      const baseValues = {
+        walletAddress: ctx.walletAddress,
+        floorSol: String(input.floorSol),
+        targetSol: String(input.targetSol),
+        fundingToken: input.fundingToken.toUpperCase(),
+        fundingMint,
+        maxRefillsPerDay: input.maxRefillsPerDay,
+        slippageBps: input.slippageBps,
+        enabled: input.enabled,
+        updatedAt: new Date(),
+      };
+
+      let ruleId: string;
+      let action: "created" | "updated";
+      if (input.ruleId) {
+        const updated = await db
+          .update(gasTankRules)
+          .set(baseValues)
+          .where(eq(gasTankRules.id, input.ruleId))
+          .returning({ id: gasTankRules.id });
+        if (updated.length === 0) {
+          return {
+            success: false,
+            operation: "gas_tank_topup",
+            message: `Rule ${input.ruleId} not found.`,
+          };
+        }
+        ruleId = updated[0].id;
+        action = "updated";
+      } else {
+        const inserted = await db
+          .insert(gasTankRules)
+          .values(baseValues)
+          .returning({ id: gasTankRules.id });
+        ruleId = inserted[0].id;
+        action = "created";
+      }
+
+      return {
+        success: true,
+        operation: "gas_tank_topup",
+        ruleId,
+        action,
+        ...input,
+        fundingMint,
+        status: input.enabled ? "ARMED" : "PAUSED",
+        requiresApproval: false,
+        message: input.enabled
+          ? `Gas tank ${action}: refill to ${input.targetSol} SOL when balance < ${input.floorSol} SOL (funded from ${input.fundingToken}, max ${input.maxRefillsPerDay}/day, ${input.slippageBps}bps slippage). Watcher polls every 2 minutes.`
+          : `Gas tank rule ${action} and PAUSED — no refills will be drafted until enabled=true.`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:gas_tank_topup] Persist failed:", msg);
+      return {
+        success: false,
+        operation: "gas_tank_topup",
+        message: `Failed to persist rule: ${msg}`,
+      };
+    }
   },
 });
 
