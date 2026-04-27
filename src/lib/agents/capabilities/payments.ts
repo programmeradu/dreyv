@@ -642,6 +642,7 @@ const expense_categorize = defineCapability({
 
 export const paymentsCapabilities: AnyCapability[] = [
   recurring_payment,
+  invoice_extract,
   invoice_pay,
   gas_tank_topup,
   grant_disbursement,
