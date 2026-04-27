@@ -698,10 +698,14 @@ export const vaults = pgTable('vaults', {
   address: text('address').notNull().unique(),
   label: text('label').notNull().default('My Vault'),
   isMultisig: boolean('is_multisig').notNull().default(false),
+  // 'connected' = signed-in wallet, 'watch' = pasted address (read-only),
+  // 'multisig' = Squads vault. Drives UI affordances + capability gating.
+  kind: text('kind').notNull().default('connected'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   userIdx: index('vaults_user_idx').on(table.userId),
   addressIdx: index('vaults_address_idx').on(table.address),
+  kindIdx: index('vaults_kind_idx').on(table.kind),
 }));
 
 // ─── Dreyv Connector Gateway ──────────────────────────────────────────
