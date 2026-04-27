@@ -217,31 +217,43 @@ const protocol_research_brief = defineCapability({
       walletSummary,
     });
 
-    // 3. Render and upload PDF.
+    // 3. Render and upload PDF (best-effort — never lose the brief if storage fails).
     const generatedAt = new Date().toISOString();
-    const pdf = await renderResearchBriefPdf({
-      protocol,
-      generatedAt,
-      walletAddress: ctx.walletAddress,
-      summary: brief.summary,
-      insights: brief.insights,
-      suggestions: brief.suggestions,
-      sources,
-      rawMarkdown,
-    });
-
     const ownerKey = ctx.walletAddress || "anon";
     const slug = protocol.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32);
-    const artifact = await uploadArtifact({
-      body: pdf,
-      filename: `dreyv-research-${slug}-${generatedAt.slice(0, 10)}.pdf`,
-      mime: "application/pdf",
-      kind: "pdf",
-      ownerKey,
-      folder: `research/${slug}`,
-      capabilityId: "protocol_research_brief",
-      meta: { protocol, intent, sources: sources.length },
-    });
+
+    const artifactsOut: Awaited<ReturnType<typeof uploadArtifact>>[] = [];
+    let artifactError: string | null = null;
+    try {
+      const pdf = await renderResearchBriefPdf({
+        protocol,
+        generatedAt,
+        walletAddress: ctx.walletAddress,
+        summary: brief.summary,
+        insights: brief.insights,
+        suggestions: brief.suggestions,
+        sources,
+        rawMarkdown,
+      });
+      console.log(
+        `[protocol_research_brief] PDF rendered ${pdf.byteLength} bytes for "${protocol}"`,
+      );
+      const artifact = await uploadArtifact({
+        body: pdf,
+        filename: `dreyv-research-${slug}-${generatedAt.slice(0, 10)}.pdf`,
+        mime: "application/pdf",
+        kind: "pdf",
+        ownerKey,
+        folder: `research/${slug}`,
+        capabilityId: "protocol_research_brief",
+        meta: { protocol, intent, sources: sources.length },
+      });
+      artifactsOut.push(artifact);
+      console.log(`[protocol_research_brief] artifact uploaded id=${artifact.id}`);
+    } catch (err) {
+      artifactError = err instanceof Error ? err.message : String(err);
+      console.error("[protocol_research_brief] artifact pipeline failed:", err);
+    }
 
     // 4. Persist the brief to long-term knowledge memory (best-effort).
     try {
@@ -262,6 +274,7 @@ const protocol_research_brief = defineCapability({
       /* non-fatal */
     }
 
+    const baseMsg = `Research brief on ${protocol} ready — ${brief.insights.length} insight${brief.insights.length === 1 ? "" : "s"}, ${brief.suggestions.length} suggestion${brief.suggestions.length === 1 ? "" : "s"} tailored to your treasury.`;
     return {
       success: true,
       operation: "protocol_research_brief",
@@ -271,8 +284,11 @@ const protocol_research_brief = defineCapability({
       insights: brief.insights,
       suggestions: brief.suggestions,
       sources,
-      artifacts: [artifact],
-      message: `Research brief on ${protocol} ready — ${brief.insights.length} insight${brief.insights.length === 1 ? "" : "s"}, ${brief.suggestions.length} suggestion${brief.suggestions.length === 1 ? "" : "s"} tailored to your treasury.`,
+      artifacts: artifactsOut,
+      artifactError,
+      message: artifactError
+        ? `${baseMsg} (PDF could not be saved: ${artifactError})`
+        : baseMsg,
     };
   },
 });
