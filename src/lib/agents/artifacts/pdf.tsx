@@ -87,8 +87,7 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 9,
         color: INK_50,
-        fontFamily: "Courier",
-        letterSpacing: 0.2,
+        fontFamily: "Helvetica",
     },
 
     // KPI strip
@@ -98,28 +97,27 @@ const styles = StyleSheet.create({
         borderTopColor: RULE,
         borderBottomWidth: 0.5,
         borderBottomColor: RULE,
-        paddingVertical: 14,
+        paddingVertical: 16,
         marginBottom: 28,
     },
     kpiCell: {
         flex: 1,
-        paddingHorizontal: 4,
+        paddingHorizontal: 14,
         borderLeftWidth: 0.5,
         borderLeftColor: RULE,
     },
-    kpiCellFirst: { paddingHorizontal: 4, flex: 1 },
+    kpiCellFirst: { paddingHorizontal: 0, paddingRight: 14, flex: 1 },
     kpiLabel: {
         fontSize: 7,
         color: INK_50,
         textTransform: "uppercase",
-        letterSpacing: 1,
-        marginBottom: 6,
+        marginBottom: 8,
+        fontFamily: "Helvetica-Bold",
     },
     kpiValue: {
         fontSize: 18,
         fontFamily: "Helvetica",
         color: INK,
-        letterSpacing: -0.3,
     },
     kpiAccent: { color: VIOLET },
 
@@ -138,14 +136,13 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontFamily: "Helvetica-Bold",
         color: INK,
-        letterSpacing: 0.4,
         textTransform: "uppercase",
     },
     sectionCount: {
         fontSize: 8,
         color: INK_50,
-        letterSpacing: 0.6,
         textTransform: "uppercase",
+        fontFamily: "Helvetica-Bold",
     },
 
     // Borderless tables
@@ -159,22 +156,22 @@ const styles = StyleSheet.create({
         fontSize: 7,
         color: INK_50,
         textTransform: "uppercase",
-        letterSpacing: 0.8,
         fontFamily: "Helvetica-Bold",
+        paddingHorizontal: 6,
     },
     tr: {
         flexDirection: "row",
-        paddingVertical: 7,
+        paddingVertical: 8,
         borderBottomWidth: 0.5,
         borderBottomColor: RULE_SOFT,
     },
     trLast: {
         flexDirection: "row",
-        paddingVertical: 7,
+        paddingVertical: 8,
     },
-    td: { fontSize: 9, color: INK },
-    tdMuted: { fontSize: 9, color: INK_50 },
-    tdMono: { fontSize: 8.5, color: INK_70, fontFamily: "Courier" },
+    td: { fontSize: 9, color: INK, paddingHorizontal: 6 },
+    tdMuted: { fontSize: 9, color: INK_50, paddingHorizontal: 6 },
+    tdMono: { fontSize: 8.5, color: INK_70, fontFamily: "Courier", paddingHorizontal: 6 },
     right: { textAlign: "right" },
 
     // Status pill (text-only, no fills)
