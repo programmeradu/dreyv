@@ -21,6 +21,7 @@ import { z } from "zod";
 import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
+import { resolveTokenAny, assessTokenSafety } from "./token-resolver";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared swap executor — `swap` and `execute_swap` legacy tools were identical
@@ -28,14 +29,18 @@ import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
 // compatibility, but they share one body.
 // ─────────────────────────────────────────────────────────────────────────────
 const swapInputSchema = z.object({
-  inputToken: z.string().describe("Token symbol to swap FROM"),
-  outputToken: z.string().describe("Token symbol to swap TO"),
+  inputToken: z.string().describe("Token symbol OR mint address to swap FROM"),
+  outputToken: z.string().describe("Token symbol OR mint address to swap TO"),
   amount: z.number().describe("Amount of inputToken to swap"),
   slippage: z
     .number()
     .optional()
     .default(0.5)
     .describe("Slippage tolerance %"),
+  acknowledgeRisk: z
+    .boolean()
+    .optional()
+    .describe("Set true to proceed past medium/high safety warnings on unverified tokens"),
 });
 
 async function runSwap(
@@ -46,25 +51,60 @@ async function runSwap(
   const blocked = ctx.blockExecutionForBuildIntent(toolId);
   if (blocked) return blocked;
 
-  const { inputToken, outputToken, amount, slippage } = input;
+  const { inputToken, outputToken, amount, slippage, acknowledgeRisk } = input;
   console.log(`[capability:${toolId}] ${amount} ${inputToken} → ${outputToken}`);
 
-  const inMint = resolveTokenMint(inputToken);
-  const outMint = resolveTokenMint(outputToken);
-  if (!inMint) {
+  // Universal resolution: any symbol or mint address, via static map →
+  // Jupiter token list → on-chain mint inspection.
+  const [inResolved, outResolved] = await Promise.all([
+    resolveTokenAny(inputToken, ctx.rpcEndpoint),
+    resolveTokenAny(outputToken, ctx.rpcEndpoint),
+  ]);
+  if (!inResolved) {
     return {
       success: false,
-      error: `Unknown input token: ${inputToken}. Supported: ${Object.keys(TOKEN_MINTS).join(", ")}`,
+      error: `Could not resolve input token "${inputToken}". Try a verified symbol (e.g. ${Object.keys(TOKEN_MINTS).slice(0, 6).join(", ")}) or paste the mint address.`,
     };
   }
-  if (!outMint) {
+  if (!outResolved) {
     return {
       success: false,
-      error: `Unknown output token: ${outputToken}. Supported: ${Object.keys(TOKEN_MINTS).join(", ")}`,
+      error: `Could not resolve output token "${outputToken}". Try a verified symbol or paste the mint address.`,
+    };
+  }
+  const inMint = inResolved.mint;
+  const outMint = outResolved.mint;
+
+  // Safety gate — assess both tokens. If either is medium/high and the
+  // caller hasn't acknowledged the risk, return an approval-required result
+  // so the UI can surface warnings instead of silently quoting.
+  const [inSafety, outSafety] = await Promise.all([
+    assessTokenSafety(inMint, ctx.rpcEndpoint),
+    assessTokenSafety(outMint, ctx.rpcEndpoint),
+  ]);
+  const worstBand = (a: typeof inSafety.band, b: typeof outSafety.band) => {
+    const order = { high: 3, medium: 2, unknown: 1, low: 0 } as const;
+    return order[a] >= order[b] ? a : b;
+  };
+  const overall = worstBand(inSafety.band, outSafety.band);
+  if ((overall === "medium" || overall === "high" || overall === "unknown") && !acknowledgeRisk) {
+    return {
+      success: false,
+      requiresApproval: true,
+      operation: toolId,
+      inputToken: inResolved.symbol,
+      outputToken: outResolved.symbol,
+      inputMint: inMint,
+      outputMint: outMint,
+      safety: { input: inSafety, output: outSafety, overall },
+      message:
+        `Safety check on ${overall === "high" ? "🚨 high" : overall === "medium" ? "⚠️ medium" : "❔ unknown"}-risk token detected. ` +
+        `Re-run with acknowledgeRisk: true to proceed. Warnings: ` +
+        [...inSafety.warnings, ...outSafety.warnings].join(" | ") || "no specific warnings",
     };
   }
 
-  const decimals = tokenDecimals(inputToken);
+  const decimals = inResolved.decimals;
   const coordinator = new ExecutionCoordinator(ctx.rpcEndpoint);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await coordinator.executeStrategy(
@@ -82,7 +122,7 @@ async function runSwap(
 
   if (result.success && result.result?.swap_result) {
     const sr = result.result.swap_result;
-    const outDecimals = tokenDecimals(outputToken);
+    const outDecimals = outResolved.decimals;
     const rawOut =
       typeof sr.outAmount === "string" ? sr.outAmount : String(sr.outAmount ?? "0");
     const outAmount = Number(rawOut) / Math.pow(10, outDecimals);
