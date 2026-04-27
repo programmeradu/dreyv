@@ -130,6 +130,14 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <ArtifactBlock block={block} />;
     case "research-brief":
       return <ResearchBriefBlock block={block} />;
+    case "tokens-table":
+      return <TokensTableBlock block={block} />;
+    case "wallets-roster":
+      return <WalletsRosterBlock block={block} />;
+    case "runway":
+      return <RunwayBlock block={block} />;
+    case "empty-bucket":
+      return <EmptyBucketBlock block={block} />;
     default:
       return null;
   }
