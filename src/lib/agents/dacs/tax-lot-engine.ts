@@ -140,10 +140,9 @@ function pickLotIndex(lots: OpenLot[], method: LotMethod): number {
 }
 
 function toCsvTokenTax(rows: RealizedGainRow[]): string {
-  // TokenTax CSV columns (commonly): Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,Fee,FeeCurrency,Exchange,Group,Comment,Date
   const header = "Type,SellAmount,SellCurrency,BuyAmount,BuyCurrency,FeeAmount,FeeCurrency,Exchange,Comment,Date";
   const lines = rows.map(r =>
-    `Trade,${r.amount},${r.symbol},${r.proceedsUsd.toFixed(2)},USD,0,USD,Solana,${r.signature.slice(0, 12)} ${r.method ?? ""},${r.disposedAt}`
+    `Trade,${r.amount},${r.symbol},${r.proceedsUsd.toFixed(2)},USD,0,USD,Solana,${r.signature.slice(0, 12)},${r.disposedAt}`
   );
   return [header, ...lines].join("\n");
 }
