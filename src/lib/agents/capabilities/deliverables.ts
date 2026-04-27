@@ -141,7 +141,17 @@ const treasury_report_csv = defineCapability({
     sensitivity: "low",
     execute: async (input, ctx) => {
         const target = input.walletOrVault ?? ctx.walletAddress;
-        if (!target) throw new Error("treasury_report_csv: no wallet/vault provided");
+        if (!target) {
+            return {
+                success: false,
+                operation: "treasury_report_csv",
+                status: "needs_wallet" as const,
+                requiresApproval: false,
+                artifacts: [],
+                error: "WALLET_REQUIRED",
+                message: `Connect a wallet (or pass walletOrVault) to export treasury CSV for ${input.month}.`,
+            };
+        }
 
         const data = await buildTreasuryReportData({
             walletOrVault: target,
