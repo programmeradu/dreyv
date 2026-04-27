@@ -22,6 +22,14 @@ export interface StakeAccountInfo {
 
 const VAULT_STORAGE_KEY = "keystone_active_vault";
 
+export interface RegisteredVault {
+    address: string;
+    label: string;
+    isMultisig: boolean;
+    kind: "connected" | "watch" | "multisig";
+    createdAt?: string;
+}
+
 interface VaultContextType {
     activeVault: string | null;
     setActiveVault: (address: string | null) => void;
@@ -40,6 +48,15 @@ interface VaultContextType {
     sqClient: SquadsClient | null;
     isMultisig: boolean; // true when connected address is a Squads multisig
     importedMints: string[]; // user-imported token mints that bypass spam filter
+    // Phase 5 — multi-vault registry
+    registeredVaults: RegisteredVault[];
+    registryLoading: boolean;
+    registryError: string | null;
+    tierLimit: { tier: string; limit: number; used: number } | null;
+    refreshRegistry: () => Promise<void>;
+    addVault: (input: { address: string; label?: string; kind?: "connected" | "watch" | "multisig" }) => Promise<{ ok: true; vault: RegisteredVault } | { ok: false; error: string; code?: string }>;
+    renameVault: (address: string, label: string) => Promise<boolean>;
+    removeVault: (address: string) => Promise<boolean>;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
