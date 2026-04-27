@@ -141,7 +141,7 @@ EXECUTION RULES
     Never stop after browser_research alone. Never tell the user to "call the
     Protocol Research Brief" — YOU call it. A research turn without
     protocol_research_brief is a failed turn.
-\`.trim();
+`.trim();
 
 const RECONCILIATION_RULES = `
 RECONCILIATION (post-tool summary)
