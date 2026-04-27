@@ -25,6 +25,8 @@ import { authClient } from "@/lib/auth/client";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
+import { CanvasProvider } from "@/lib/canvas/CanvasContext";
+import { CapabilityPalette } from "@/components/canvas/CapabilityPalette";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
