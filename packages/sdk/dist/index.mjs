@@ -14,8 +14,8 @@ function useVault() {
   return useMemo(() => ({ ...DEFAULT_VAULT }), []);
 }
 
-// src/hooks/useTurnkey.ts
-import { useMemo as useMemo2 } from "react";
+// src/hooks/useFetch.ts
+import { useState, useEffect, useCallback } from "react";
 
 // src/bridge-context.ts
 var bridgeInstance = null;
@@ -37,8 +37,6 @@ function getBridge() {
 // src/bridge.ts
 var BridgeMethods = {
   // Core
-  TURNKEY_GET_PK: "turnkey.getPublicKey",
-  TURNKEY_SIGN: "turnkey.signTransaction",
   PROXY_REQUEST: "proxy.fetch",
   EVENT_EMIT: "event.emit",
   // Sovereign OS 2026
@@ -60,29 +58,7 @@ var BridgeMethods = {
   TAX_FORENSICS: "tax.forensics"
 };
 
-// src/hooks/useTurnkey.ts
-function useTurnkey() {
-  return useMemo2(
-    () => ({
-      getPublicKey: async () => {
-        const bridge = getBridge();
-        return await bridge.call(BridgeMethods.TURNKEY_GET_PK);
-      },
-      signTransaction: async (transaction, description) => {
-        const bridge = getBridge();
-        const result = await bridge.call(BridgeMethods.TURNKEY_SIGN, {
-          transaction,
-          description: description ?? "Sign transaction"
-        });
-        return result;
-      }
-    }),
-    []
-  );
-}
-
 // src/hooks/useFetch.ts
-import { useState, useEffect, useCallback } from "react";
 function useFetch(url, options = {}) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -430,10 +406,10 @@ function useGaslessTx() {
 }
 
 // src/hooks/usePortfolio.ts
-import { useMemo as useMemo3 } from "react";
+import { useMemo as useMemo2 } from "react";
 function usePortfolio() {
   const vault = useVault();
-  const data = useMemo3(() => {
+  const data = useMemo2(() => {
     const totalValue = vault.tokens.reduce(
       (sum, t) => sum + t.balance * t.price,
       0
@@ -649,7 +625,6 @@ export {
   useTaxForensics,
   useTheme,
   useTokenPrice,
-  useTurnkey,
   useVault,
   useYieldOptimizer,
   verifyZKSP

@@ -15,23 +15,6 @@ interface VaultState {
     balances: Record<string, number>;
     tokens: Token[];
 }
-interface TurnkeyState {
-    getPublicKey: () => Promise<string>;
-    signTransaction: (transaction: unknown, description?: string) => Promise<{
-        signature: string;
-    }>;
-    wallets?: {
-        id: string;
-        name: string;
-        address: string;
-    }[];
-    activeWallet?: string;
-    createWallet?: (opts: {
-        name: string;
-    }) => Promise<{
-        address: string;
-    }>;
-}
 interface ObservabilityConfig {
     provider?: "langfuse" | "helicone";
     traceId?: string;
@@ -113,12 +96,6 @@ interface AgentHandoffPayload {
  * In Studio iframe, the host injects a version with live prices/logos.
  */
 declare function useVault(): VaultState;
-
-/**
- * Hook for Turnkey wallet operations (getPublicKey, signTransaction).
- * All signing routes through the host — Glass Safety Standard.
- */
-declare function useTurnkey(): TurnkeyState;
 
 /**
  * Proxy-gated fetch. Routes through Keystone host — no direct fetch in sandbox.
@@ -388,8 +365,6 @@ interface KeystoneBridge {
     notify(method: string, params?: object): void;
 }
 declare const BridgeMethods: {
-    readonly TURNKEY_GET_PK: "turnkey.getPublicKey";
-    readonly TURNKEY_SIGN: "turnkey.signTransaction";
     readonly PROXY_REQUEST: "proxy.fetch";
     readonly EVENT_EMIT: "event.emit";
     readonly LIT_ENCRYPT: "lit.encryptSecret";
@@ -453,4 +428,4 @@ interface ZKSPVerifyResult {
  */
 declare function verifyZKSP(params: ZKSPVerifyParams): Promise<ZKSPVerifyResult>;
 
-export { type AgentHandoffPayload, AppEventBus, BridgeMethods, type EventBus, type FetchOptions, type FetchResult, type ImpactReport, type JupiterSwapParams, type JupiterSwapResult, type KeystoneBridge, type ObservabilityConfig, type SIWSState, type Token, type TurnkeyState, type VaultState, type YieldPath, setBridge, toBlink, useACEReport, useAgentHandoff, useEncryptedSecret, useFetch, useGaslessTx, useImpactReport, useJupiterSwap, useMCPClient, useMCPServer, useNotification, usePortfolio, useSIWS, useStorage, useTaxForensics, useTheme, useTokenPrice, useTurnkey, useVault, useYieldOptimizer, verifyZKSP };
+export { type AgentHandoffPayload, AppEventBus, BridgeMethods, type EventBus, type FetchOptions, type FetchResult, type ImpactReport, type JupiterSwapParams, type JupiterSwapResult, type KeystoneBridge, type ObservabilityConfig, type SIWSState, type Token, type VaultState, type YieldPath, setBridge, toBlink, useACEReport, useAgentHandoff, useEncryptedSecret, useFetch, useGaslessTx, useImpactReport, useJupiterSwap, useMCPClient, useMCPServer, useNotification, usePortfolio, useSIWS, useStorage, useTaxForensics, useTheme, useTokenPrice, useVault, useYieldOptimizer, verifyZKSP };
