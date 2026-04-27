@@ -106,27 +106,21 @@ export function AgentsRail() {
       acc.set(b.id, { id: b.id, name: b.name, watching: b.watching, tone: b.tone });
     }
 
-    // Walk canvas blocks; for each agent-sourced block, attribute to a persona.
+    // Walk canvas blocks; attribute activity to personas. We look at:
+    //   1. Agent-sourced blocks (background observations)
+    //   2. CommandBar plan blocks — their payload.steps[].title contains the
+    //      actual capability ids that ran (execute_swap, simulate_route, …).
+    //      Without this, every command appears as a single "commandbar" entry
+    //      and the rail looks dead.
     let toneIdx = 0;
-    for (const block of blocks) {
-      if (block.source !== "agent") continue;
-      if (now - block.createdAt > RECENT_WINDOW_MS) continue;
-
-      const payload = (block.payload ?? {}) as { agentId?: string; capability?: string; actor?: string };
-      const rawId =
-        payload.agentId ||
-        payload.capability ||
-        payload.actor ||
-        // Fallback: attribute by first word of the title (e.g. "Treasury …").
-        block.title.split(/[\s·:—-]/)[0]?.toLowerCase();
-      if (!rawId) continue;
-      const id = String(rawId).toLowerCase();
-
+    const bumpPersona = (rawId: string, at: number, title?: string) => {
+      const id = String(rawId).toLowerCase().trim();
+      if (!id) return;
       const existing = acc.get(id);
       if (existing) {
-        if (!existing.lastAt || existing.lastAt < block.createdAt) {
-          existing.lastAt = block.createdAt;
-          existing.lastTitle = block.title;
+        if (!existing.lastAt || existing.lastAt < at) {
+          existing.lastAt = at;
+          if (title) existing.lastTitle = title;
         }
       } else {
         acc.set(id, {
@@ -134,10 +128,37 @@ export function AgentsRail() {
           name: humanize(id),
           watching: "live capability",
           tone: TONE_PALETTE[toneIdx++ % TONE_PALETTE.length],
-          lastAt: block.createdAt,
-          lastTitle: block.title,
+          lastAt: at,
+          lastTitle: title,
         });
       }
+    };
+
+    for (const block of blocks) {
+      if (now - block.createdAt > RECENT_WINDOW_MS) continue;
+      const payload = (block.payload ?? {}) as {
+        agentId?: string;
+        capability?: string;
+        actor?: string;
+        steps?: Array<{ title?: string; status?: string }>;
+      };
+
+      // CommandBar plan blocks — surface each capability step as its own persona.
+      if (Array.isArray(payload.steps) && payload.steps.length) {
+        for (const step of payload.steps) {
+          if (step?.title) bumpPersona(step.title, block.createdAt, step.title);
+        }
+        continue;
+      }
+
+      // Agent-sourced blocks.
+      if (block.source !== "agent") continue;
+      const rawId =
+        payload.agentId ||
+        payload.capability ||
+        payload.actor ||
+        block.title.split(/[\s·:—-]/)[0]?.toLowerCase();
+      if (rawId) bumpPersona(String(rawId), block.createdAt, block.title);
     }
 
     // Rank: agents with recent activity first (most recent first), then idle baseline.
