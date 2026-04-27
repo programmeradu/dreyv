@@ -119,7 +119,7 @@ export default function AppHomePage() {
           </div>
         </StreamIn>
 
-        <StreamIn delay={0.12}>
+        <StreamIn delay={0.12} className="md:pt-12">
           <TreasuryPulseCarousel />
         </StreamIn>
       </section>
