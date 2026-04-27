@@ -84,12 +84,40 @@ export default function AppHomePage() {
                 : "Connect a wallet to begin"
             }
           />
-          <div className="flex items-center gap-5 pt-2 text-sm font-medium text-slate-500">
-            <Link href="/app/treasury" className="hover:text-violet-700">
-              Treasury →
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Link
+              href="/app/treasury"
+              className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400 hover:shadow-[0_20px_60px_-30px_rgba(124,58,237,0.5)]"
+            >
+              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-400/20 blur-2xl transition group-hover:bg-violet-400/40" />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Treasury</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">Holdings & flows</p>
+                </div>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition group-hover:scale-110">
+                  <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+                  </svg>
+                </span>
+              </div>
             </Link>
-            <Link href="/app/analytics" className="hover:text-violet-700">
-              Analytics →
+            <Link
+              href="/app/analytics"
+              className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400 hover:shadow-[0_20px_60px_-30px_rgba(124,58,237,0.5)]"
+            >
+              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-300/20 blur-2xl transition group-hover:bg-violet-300/40" />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Analytics</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">Performance & risk</p>
+                </div>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition group-hover:scale-110">
+                  <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+                  </svg>
+                </span>
+              </div>
             </Link>
           </div>
         </StreamIn>

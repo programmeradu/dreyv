@@ -9,8 +9,29 @@ import type { CanvasBlock } from "@/lib/canvas/types";
 import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
-import { ArrowRight, Check, ShieldAlert, Sparkles } from "lucide-react";
 import Link from "next/link";
+
+/** Brand glyphs — flat SVG marks instead of stock Lucide icons. */
+const GlyphCheck = ({ className = "h-3 w-3" }: { className?: string }) => (
+  <svg viewBox="0 0 12 12" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.5 6.4 5 8.8 9.5 3.6" />
+  </svg>
+);
+const GlyphAlert = ({ className = "h-3 w-3" }: { className?: string }) => (
+  <svg viewBox="0 0 12 12" className={className} fill="currentColor">
+    <path d="M6 1 11 10.5H1Zm0 3.6v3.2m0 1.4v.6" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+  </svg>
+);
+const GlyphArrow = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg viewBox="0 0 14 14" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+  </svg>
+);
+const GlyphSpark = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg viewBox="0 0 14 14" className={className} fill="currentColor">
+    <path d="M7 1.5 8 5.5l4 1-4 1L7 11.5 6 7.5l-4-1 4-1Z" />
+  </svg>
+);
 
 function asString(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;
@@ -115,7 +136,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     if (s === "success" || s === "complete" || s === "done") {
       return (
         <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-          <Check className="h-3 w-3" />
+          <GlyphCheck />
         </span>
       );
     }
@@ -129,7 +150,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     if (s === "error" || s === "failed") {
       return (
         <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-          <ShieldAlert className="h-3 w-3" />
+          <GlyphAlert />
         </span>
       );
     }
@@ -171,7 +192,7 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
             className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
           >
             {asString(action.label, "Open")}
-            <ArrowRight className="h-4 w-4" />
+            <GlyphArrow className="h-4 w-4" />
           </Link>
         </div>
       )}
@@ -234,7 +255,7 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
             success ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
           }`}
         >
-          {success ? <Check className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+          {success ? <GlyphCheck className="h-3.5 w-3.5" /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0">
           {operation && (
@@ -255,7 +276,7 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
     <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-          <Sparkles className="h-3.5 w-3.5" />
+          <GlyphSpark />
         </span>
         <div className="min-w-0 flex-1">
           {typeof block.payload.message === "string" && block.payload.message && (
@@ -267,7 +288,7 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
             >
               {asString(cta.label, "Open")}
-              <ArrowRight className="h-3.5 w-3.5" />
+              <GlyphArrow />
             </Link>
           )}
         </div>
