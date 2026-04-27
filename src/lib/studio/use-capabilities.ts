@@ -7,7 +7,6 @@ export interface StudioCapabilities {
     save: boolean;
     ship: boolean;
     arweave: boolean;
-    turnkey: boolean;
     testMode: "real" | "static-lint";
 }
 
@@ -16,7 +15,6 @@ const DEFAULTS: StudioCapabilities = {
     save: false,
     ship: false,
     arweave: false,
-    turnkey: false,
     testMode: "static-lint",
 };
 

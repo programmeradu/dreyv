@@ -18,16 +18,6 @@ export interface VaultState {
   tokens: Token[];
 }
 
-export interface TurnkeyState {
-  getPublicKey: () => Promise<string>;
-  signTransaction: (
-    transaction: unknown,
-    description?: string
-  ) => Promise<{ signature: string }>;
-  wallets?: { id: string; name: string; address: string }[];
-  activeWallet?: string;
-  createWallet?: (opts: { name: string }) => Promise<{ address: string }>;
-}
 
 export interface ObservabilityConfig {
   provider?: "langfuse" | "helicone";

@@ -12,7 +12,7 @@ const partners = [
   { name: "Marinade", category: "Liquid Staking", logo: "/logos/marinade.png" },
   { name: "Jito", category: "MEV & Staking", logo: "/logos/jito.png" },
   { name: "Liveblocks", category: "Collaboration", logo: "/logos/liveblocks.png" },
-  { name: "Turnkey", category: "Key Management", logo: "/logos/turnkey.png" },
+  
 ];
 
 const proofs = [

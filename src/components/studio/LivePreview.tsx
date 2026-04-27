@@ -236,16 +236,16 @@ export function LivePreview({
                 return { activeVault: _walletConnected ? 'Connected Wallet' : 'Demo Portfolio', balances: balances, tokens: tokens };
             };
 
+            // useTurnkey was removed — mini-apps should use the host's wallet
+            // adapter via serialized-tx flows instead. Keep a noop stub so
+            // legacy generated apps don't crash at import time.
             var useTurnkey = function() {
                 return {
                     getPublicKey: function() {
-                        return keystoneBridge.call('turnkey.getPublicKey');
+                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
                     },
-                    signTransaction: function(tx, description) {
-                        return keystoneBridge.call('turnkey.signTransaction', {
-                            transaction: tx,
-                            description: description || 'Sign transaction',
-                        });
+                    signTransaction: function() {
+                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
                     },
                 };
             };
@@ -622,29 +622,6 @@ export function LivePreview({
             return null;
         });
 
-        // ─── Turnkey Wallet Bridge ────────────────────────
-        bridge.on(BridgeMethods.TURNKEY_GET_PK, async () => {
-            const pk = walletAddress || "7KeY...StUdIo (Mock)";
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Public key requested: ${pk}`]);
-            return pk;
-        });
-
-        bridge.on(BridgeMethods.TURNKEY_SIGN, async (params) => {
-            if (!walletAddress) {
-                throw new Error("No wallet connected. Open Vault Keys to create a signer.");
-            }
-
-            const description = String(params.description || "Sign transaction");
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Sign request: ${description}`]);
-
-            // TODO Phase 2.1: Simulation Firewall — fork, simulate, present state diff
-            // For now, mock signing with delay
-            await new Promise(r => setTimeout(r, 800));
-            const sig = "sig_turnkey_" + crypto.randomUUID().slice(0, 12);
-
-            setLogs(prev => [...prev.slice(-500), `[info] [Turnkey] Signed: ${sig}`]);
-            return { signature: sig };
-        });
 
         // ─── Proxy Gate (Phase 2.3) ──────────────────────
         bridge.on(BridgeMethods.PROXY_REQUEST, async (params) => {

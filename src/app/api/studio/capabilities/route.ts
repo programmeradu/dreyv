@@ -17,14 +17,12 @@ export async function GET() {
 
     const db = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL);
     const arweave = !!(process.env.ARWEAVE_KEY || process.env.BUNDLR_KEY);
-    const turnkey = !!(process.env.TURNKEY_API_PUBLIC_KEY && process.env.TURNKEY_API_PRIVATE_KEY);
 
     return NextResponse.json({
         browserRendering, // preview-screenshot, pdf-export, real smoke test
         save: db,         // ship to library requires DB
-        ship: db,         // ship requires DB; arweave/turnkey strengthen it
+        ship: db,         // ship requires DB
         arweave,
-        turnkey,
         // Test mode the server can actually deliver
         testMode: browserRendering ? "real" : "static-lint",
     });

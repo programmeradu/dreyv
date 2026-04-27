@@ -43,7 +43,7 @@ export interface StudioHeaderProps {
 
     // Wallet
     walletLabel: string;
-    onWalletClick: () => void;
+    onWalletClick?: () => void;
 
     // Overflow actions
     onNewProject: () => void;
@@ -202,14 +202,13 @@ export function StudioHeader(props: StudioHeaderProps) {
 
             {/* ── Right: wallet + overflow + save + ship ───────────── */}
             <div className="flex items-center gap-2">
-                <button
-                    onClick={onWalletClick}
-                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-colors"
+                <div
+                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80"
                     title="Connected signer"
                 >
                     <Shield size={11} className="opacity-70" />
                     <span>{walletLabel}</span>
-                </button>
+                </div>
 
                 <div className="h-4 w-px bg-slate-200 mx-0.5" />
 

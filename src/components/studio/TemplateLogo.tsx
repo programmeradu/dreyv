@@ -44,7 +44,7 @@ const PROVIDER_LOGO_MAP: Record<string, string> = {
     solana: "/logos/solana.png",
     squads: "/logos/squads.png",
     phantom: "/logos/phantom.png",
-    turnkey: "/logos/turnkey.png",
+    
     jito: "/logos/jito.png",
     kamino: "/logos/kamino.png",
     discord: "/logos/discord.png",
