@@ -3,6 +3,68 @@ import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// SSRF defense: strict allowlist of RPC host suffixes that callers may target
+// via the `rpcUrl` body field. Anything outside this list is rejected.
+const ALLOWED_HOST_SUFFIXES = [
+  "nownodes.io",
+  "llamarpc.com",
+  "publicnode.com",
+  "ankr.com",
+  "infura.io",
+  "alchemy.com",
+  "blockpi.network",
+  "1rpc.io",
+  "arbitrum.io",
+  "base.org",
+  "polygon-rpc.com",
+  "binance.org",
+  "tenderly.co",
+  "helius-rpc.com",
+  "quiknode.pro",
+];
+
+// Block private/loopback/link-local/cloud-metadata destinations.
+function isBlockedHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "localhost" || h.endsWith(".localhost")) return true;
+  if (h === "metadata.google.internal") return true;
+
+  // IPv4 literal check
+  const ipv4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [a, b] = ipv4.slice(1).map((n) => parseInt(n, 10));
+    if (a === 10) return true;                       // 10.0.0.0/8
+    if (a === 127) return true;                      // loopback
+    if (a === 0) return true;                        // 0.0.0.0/8
+    if (a === 169 && b === 254) return true;         // link-local / IMDS
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true;         // 192.168.0.0/16
+    if (a >= 224) return true;                       // multicast / reserved
+  }
+  // IPv6 loopback / link-local / unique-local
+  if (h === "::1" || h === "[::1]") return true;
+  if (h.startsWith("fe80:") || h.startsWith("[fe80:")) return true;
+  if (h.startsWith("fc") || h.startsWith("fd") || h.startsWith("[fc") || h.startsWith("[fd")) return true;
+
+  return false;
+}
+
+function isAllowedRpcUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  if (u.username || u.password) return false;
+  const host = u.hostname.toLowerCase();
+  if (isBlockedHost(host)) return false;
+  return ALLOWED_HOST_SUFFIXES.some(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`)
+  );
+}
+
 // Basic mapping for demo-default chains -> NowNodes RPC hostnames
 const HOSTS: Record<string, string> = {
   ethereum: "https://eth.nownodes.io",
