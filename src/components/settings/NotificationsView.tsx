@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Bell, ShieldAlert, ShoppingCart, Store, Cpu, Mail, MessageSquare, Trash2 } from "lucide-react";
+import { Bell, ShieldAlert, ShoppingCart, Store, Cpu, Mail, Trash2 } from "lucide-react";
 import { useNotificationStore, type NotificationPreferences } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "@/lib/toast-notifications";
+import { ExternalChannelsPanel } from "./ExternalChannelsPanel";
 
 type PrefKey = keyof NotificationPreferences;
 
@@ -100,19 +100,15 @@ export const NotificationsView = () => {
                     </div>
                     <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]" />
                 </div>
-                <div className="bg-card border border-border p-4 rounded-xl flex items-center justify-between opacity-50 shadow-sm border-dashed">
-                    <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-foreground rounded-full flex items-center justify-center">
-                            <span className="text-[8px] font-black text-background">T</span>
-                        </div>
-                        <div>
-                            <span className="text-xs font-black text-foreground block uppercase">Telegram Bot</span>
-                            <span className="text-[10px] text-muted-foreground uppercase font-black">Not Connected</span>
-                        </div>
-                    </div>
-                    <button onClick={() => toast.info("Telegram integration coming soon.")} className="text-[10px] font-black text-primary uppercase hover:underline">Connect</button>
-                </div>
             </div>
+
+            {/* Phase 15 — External delivery channels (Telegram + Slack) */}
+            <ExternalChannelsPanel />
+
+            <div className="hidden">
+                {/* placeholder kept for layout symmetry */}
+            </div>
+
 
             {/* Recent Notification History */}
             <div>

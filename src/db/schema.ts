@@ -624,9 +624,30 @@ export const notificationPreferences = pgTable('notification_preferences', {
   txApprovals: boolean('tx_approvals').notNull().default(true),
   systemAlerts: boolean('system_alerts').notNull().default(true),
   tierExpiry: boolean('tier_expiry').notNull().default(true),
+  // Phase 15: external channels
+  telegramEnabled: boolean('telegram_enabled').notNull().default(false),
+  telegramChatId: text('telegram_chat_id'),
+  slackEnabled: boolean('slack_enabled').notNull().default(false),
+  slackWebhookUrl: text('slack_webhook_url'),
+  slackChannel: text('slack_channel'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   userIdx: index('notification_prefs_user_idx').on(table.userId),
+}));
+
+// ─── Notification Deliveries (Phase 15) ───────────────────────────────
+// One row per (notification, channel) attempt. Powers per-channel audit + retry.
+export const notificationDeliveries = pgTable('notification_deliveries', {
+  id: serial('id').primaryKey(),
+  notificationId: integer('notification_id').references(() => notifications.id, { onDelete: 'cascade' }).notNull(),
+  channel: text('channel').notNull(), // email | telegram | slack | inapp
+  status: text('status').notNull(),   // queued | sent | failed | skipped
+  error: text('error'),
+  providerId: text('provider_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  notifIdx: index('notif_deliveries_notif_idx').on(table.notificationId),
+  channelIdx: index('notif_deliveries_channel_idx').on(table.channel, table.status, table.createdAt),
 }));
 
 // ─── Organizations (Workspaces) ───────────────────────────────────────

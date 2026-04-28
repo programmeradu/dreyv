@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
         txApprovals: true,
         systemAlerts: true,
         tierExpiry: true,
+        telegramEnabled: false,
+        telegramChatId: null,
+        slackEnabled: false,
+        slackWebhookUrl: null,
+        slackChannel: null,
       },
     });
   } catch (err) {
@@ -51,8 +56,32 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const updates: Record<string, unknown> = { updatedAt: new Date() };
 
-    for (const key of ['emailEnabled', 'teamInvites', 'roleChanges', 'txApprovals', 'systemAlerts', 'tierExpiry']) {
+    const boolKeys = [
+      'emailEnabled', 'teamInvites', 'roleChanges', 'txApprovals',
+      'systemAlerts', 'tierExpiry', 'telegramEnabled', 'slackEnabled',
+    ];
+    for (const key of boolKeys) {
       if (body[key] !== undefined) updates[key] = Boolean(body[key]);
+    }
+
+    // String fields — normalize empties to null so we don't store "".
+    const stringKeys = ['telegramChatId', 'slackWebhookUrl', 'slackChannel'];
+    for (const key of stringKeys) {
+      if (body[key] !== undefined) {
+        const v = typeof body[key] === 'string' ? body[key].trim() : body[key];
+        updates[key] = v ? v : null;
+      }
+    }
+
+    // Light validation: Slack webhook must look like a Slack URL if provided.
+    if (typeof updates.slackWebhookUrl === 'string') {
+      const url = updates.slackWebhookUrl as string;
+      if (!/^https:\/\/hooks\.slack\.com\//.test(url)) {
+        return NextResponse.json(
+          { error: 'Slack webhook must start with https://hooks.slack.com/' },
+          { status: 400 },
+        );
+      }
     }
 
     // Upsert

@@ -4,14 +4,17 @@ import { notifications, notificationPreferences, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { sendNotificationEmail } from '@/lib/email-service';
+import { fanOutNotification } from '@/lib/notification-delivery';
 
 /**
  * POST /api/notifications/send
- * Internal: Creates a notification record AND emails it if the user has emailEnabled.
- * Body: { userId, type, title, message, severity?, actionUrl?, actionLabel?, relatedEntityType?, relatedEntityId? }
+ * Internal: Creates a notification record AND fans it out to every
+ * external channel the user has enabled (email, Telegram, Slack).
+ *
+ * Body: { userId, type, title, message, severity?, actionUrl?, actionLabel?,
+ *         relatedEntityType?, relatedEntityId? }
  */
 export async function POST(request: NextRequest) {
-  // This endpoint can be called server-to-server or by authenticated users
   const authUser = await getAuthUser(request);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!db) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const targetUserId = body.userId || authUser.id;
 
-    // Insert notification into DB
+    // 1) Persist the in-app notification first.
     const [notif] = await db.insert(notifications).values({
       userId: targetUserId,
       type: body.type || 'system',
@@ -34,33 +37,57 @@ export async function POST(request: NextRequest) {
       metadata: body.metadata,
     }).returning({ id: notifications.id });
 
-    // Check if user wants email notifications
+    // 2) Load the user's channel preferences + email in one shot.
     const [prefs] = await db
-      .select({ emailEnabled: notificationPreferences.emailEnabled })
+      .select()
       .from(notificationPreferences)
       .where(eq(notificationPreferences.userId, targetUserId))
       .limit(1);
 
-    const emailEnabled = prefs?.emailEnabled ?? true; // default to true
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, targetUserId))
+      .limit(1);
 
-    if (emailEnabled) {
-      // Look up user email
-      const [user] = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.id, targetUserId))
-        .limit(1);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dreyv.com';
+    const fullActionUrl = body.actionUrl
+      ? (body.actionUrl.startsWith('http') ? body.actionUrl : `${baseUrl}${body.actionUrl}`)
+      : undefined;
 
-      if (user?.email) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://stauniverse.tech';
-        sendNotificationEmail({
-          to: user.email,
+    // 3) Email (kept inline so the Resend templates render correctly).
+    const emailEnabled = prefs?.emailEnabled ?? true;
+    if (emailEnabled && user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        title: body.title,
+        message: body.message,
+        actionUrl: fullActionUrl,
+        actionLabel: body.actionLabel,
+      }).catch((err) => console.error('[Notifications] Email failed:', err));
+    }
+
+    // 4) Fan out to external channels (Telegram + Slack).
+    if (prefs) {
+      fanOutNotification(
+        {
+          notificationId: notif.id,
           title: body.title,
           message: body.message,
-          actionUrl: body.actionUrl ? `${baseUrl}${body.actionUrl}` : undefined,
+          severity: body.severity || 'info',
+          actionUrl: fullActionUrl,
           actionLabel: body.actionLabel,
-        }).catch((err) => console.error('[Notifications] Email failed:', err));
-      }
+        },
+        {
+          emailEnabled,
+          email: user?.email ?? null,
+          telegramEnabled: prefs.telegramEnabled ?? false,
+          telegramChatId: prefs.telegramChatId,
+          slackEnabled: prefs.slackEnabled ?? false,
+          slackWebhookUrl: prefs.slackWebhookUrl,
+          slackChannel: prefs.slackChannel,
+        },
+      ).catch((err) => console.error('[Notifications] Fan-out failed:', err));
     }
 
     return NextResponse.json({ success: true, id: notif.id });
