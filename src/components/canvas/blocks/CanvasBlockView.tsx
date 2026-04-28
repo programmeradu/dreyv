@@ -161,6 +161,8 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <ReportsShareBlock block={block} />;
     case "wallet-security":
       return <WalletSecurityBlock block={block} />;
+    case "foresight-whatif":
+      return <ForesightWhatIfBlock block={block} />;
     default:
       return null;
   }
