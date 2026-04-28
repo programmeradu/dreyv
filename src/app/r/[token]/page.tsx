@@ -24,7 +24,7 @@ interface ReportPayload {
 }
 
 async function fetchReport(token: string): Promise<{ ok: boolean; status?: number; report?: ReportPayload; error?: string }> {
-  const base = getSiteUrl();
+  const base = getSiteOrigin();
   const res = await fetch(`${base}/api/treasury/reports?token=${encodeURIComponent(token)}`, {
     cache: "no-store",
   });
