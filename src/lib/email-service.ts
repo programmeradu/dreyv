@@ -90,8 +90,8 @@ export async function sendTeamInviteEmail({
   role: string;
   inviteToken: string;
 }) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://stauniverse.tech';
-  const acceptUrl = `${baseUrl}/app/team?accept=${inviteToken}`;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dreyv.com';
+  const acceptUrl = `${baseUrl}/accept-team-invite/${inviteToken}`;
 
   return sendEmail({
     to,
