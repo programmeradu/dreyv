@@ -15,7 +15,7 @@ import { WalletProvider, ConnectionProvider } from "@solana/wallet-adapter-react
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { TorusWalletAdapter } from "@solana/wallet-adapter-torus";
+// Torus adapter intentionally removed — its transitive `base64url` dep ships a broken build that fails webpack module resolution.
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo, useCallback } from "react";
@@ -76,7 +76,6 @@ function Web3ProvidersContent({ children }: { children: ReactNode }) {
   const solanaWallets = useMemo(() => [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter(),
-    new TorusWalletAdapter(),
   ], []);
 
   // Surface wallet errors to the user
