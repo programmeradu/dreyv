@@ -16,7 +16,7 @@ import { useSimulationStore, type SimulationResult } from "@/lib/stores/simulati
 import { useVault } from "@/lib/contexts/VaultContext";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { VersionedTransaction, Transaction } from "@solana/web3.js";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
 import { ChatMessage } from "@/components/commandbar/ChatMessage";

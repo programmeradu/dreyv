@@ -22,7 +22,7 @@ import { Sun, Moon, ShoppingBag, Library, LogOut } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { authClient } from "@/lib/auth/client";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";

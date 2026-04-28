@@ -17,7 +17,7 @@ import { PremiumModal, PremiumModalHeader, PremiumModalTitle, PremiumModalDescri
 import { ListingModal } from "@/components/studio/ListingModal";
 import { NotificationBell } from "@/components/NotificationBell";
 import Link from "next/link";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 
 const CATEGORIES: { key: string; crystal: CrystalName }[] = [
     { key: "All", crystal: "all" },

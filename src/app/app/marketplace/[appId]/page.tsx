@@ -13,7 +13,7 @@ import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
 import { toast } from "@/lib/toast-notifications";
 import { NotificationBell } from "@/components/NotificationBell";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 
 async function loadAppDetails(appId: string): Promise<any | null> {
     try {

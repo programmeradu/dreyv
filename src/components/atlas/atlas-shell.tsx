@@ -3,8 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
 import { Urbanist } from "next/font/google";
 import { Menu, LayoutDashboard, Shield, Radar, Compass, History, FlaskConical, Settings, ChevronDown, Copy, ExternalLink, LogOut } from "lucide-react";
 import { motion } from "framer-motion";

@@ -2,8 +2,8 @@
 
 import React, { useEffect } from "react";
 import { Wallet, ExternalLink, CheckCircle } from "lucide-react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
 import type { OnboardingData } from "@/app/app/onboarding/page";
 
 interface StepProps {

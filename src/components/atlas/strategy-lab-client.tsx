@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet, useConnection } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
 import { VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { toast, toastNotifications } from "@/lib/toast-notifications";
 import { sendAndConfirmSigned } from "@/lib/solana/send-and-confirm";

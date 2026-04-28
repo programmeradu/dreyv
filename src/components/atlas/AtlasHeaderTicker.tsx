@@ -15,7 +15,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Bell, BellOff, Activity, Newspaper, Radio, ExternalLink, Check, Trash2, ShoppingCart, Store, Download, X, Cpu, Shield, AlertTriangle } from "lucide-react";
 import { useAtlasData, CORE_TOKENS } from "@/hooks/use-atlas-data";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

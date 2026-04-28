@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { 
   WalletTransactionExecutor, 

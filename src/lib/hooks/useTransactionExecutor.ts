@@ -11,7 +11,7 @@
  */
 
 import { useCallback } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@/lib/wallet/compat";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { toast } from "@/lib/toast-notifications";

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
 import { ArrowLeftRight } from "lucide-react";
 
 /**

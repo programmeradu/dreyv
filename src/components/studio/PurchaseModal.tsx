@@ -3,8 +3,8 @@ import { PremiumModal, PremiumModalHeader, PremiumModalTitle, PremiumModalDescri
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck, CheckCircle2, Wallet, ExternalLink, AlertTriangle, Award } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
+import { useConnection } from "@/lib/wallet/compat";
 import { marketplacePayments, isValidSolanaAddress } from "@/lib/studio/marketplace-payments";
 import { buildPurchaseTransaction, isAppOnChain } from "@/lib/marketplace/client";
 import { PublicKey } from "@solana/web3.js";

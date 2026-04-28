@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
+import { useConnection } from "@/lib/wallet/compat";
 import {
   SystemProgram,
   PublicKey,
@@ -184,7 +184,7 @@ export function FeeSaver() {
       const vtx = new VersionedTransaction(messageV0);
 
       // Sign via wallet
-      const sig = await sendTransaction(vtx, connection, { skipPreflight: true });
+      const sig = await sendTransaction(vtx, connection);
 
       // Submit through Jito bundle endpoint for priority inclusion
       const serialized = vtx.serialize();

@@ -5,7 +5,7 @@ import { CreditCard, CheckCircle2, BarChart3, Package, Zap, Store, ShoppingCart 
 import { Logo } from "@/components/icons";
 import { useNotificationStore } from "@/lib/notifications";
 import { formatDistanceToNow } from "date-fns";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { toast } from "@/lib/toast-notifications";
 import { billingStatusPath } from "@/lib/billing-endpoints";
 

@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
+import { useConnection } from "@/lib/wallet/compat";
 import { PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } from "@solana/web3.js";
 import dynamic from "next/dynamic";
 import { Urbanist } from "next/font/google";

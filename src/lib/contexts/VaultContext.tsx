@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { SquadsClient } from "@/lib/squads";
 import { PublicKey } from "@solana/web3.js";
 import { toast } from "@/lib/toast-notifications";
