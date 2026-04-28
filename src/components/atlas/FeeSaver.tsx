@@ -184,7 +184,7 @@ export function FeeSaver() {
       const vtx = new VersionedTransaction(messageV0);
 
       // Sign via wallet
-      const sig = await sendTransaction(vtx, connection, { skipPreflight: true });
+      const sig = await sendTransaction(vtx, connection);
 
       // Submit through Jito bundle endpoint for priority inclusion
       const serialized = vtx.serialize();

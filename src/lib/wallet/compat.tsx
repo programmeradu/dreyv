@@ -67,12 +67,12 @@ export function PhantomCompatProvider({
 // useWallet() shim — exact shape of @solana/wallet-adapter-react useWallet
 // --------------------------------------------------------------------------
 
-interface WalletAdapterShape {
+export interface WalletAdapterShape {
   publicKey: PublicKey | null;
   connected: boolean;
   connecting: boolean;
   disconnecting: boolean;
-  wallet: { adapter: { name: string } } | null;
+  wallet: { adapter: { name: string; icon?: string } } | null;
   signMessage: ((msg: Uint8Array) => Promise<Uint8Array>) | undefined;
   signTransaction:
     | (<T extends Transaction | VersionedTransaction>(tx: T) => Promise<T>)
