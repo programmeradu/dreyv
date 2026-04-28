@@ -1395,7 +1395,7 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
         {/* Compact policy editor */}
         <div className="rounded-xl border border-violet-100 p-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Guardrails</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <PolicyNum
               label="Auto-approve ≤"
               value={policy.autoApproveBelowUsd}
@@ -1788,7 +1788,7 @@ function GasTankBlock({ block }: { block: CanvasBlock }) {
     return (
       <BlockShell block={block} accent="violet">
         <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Field label="Floor (SOL)"><input type="number" step="0.1" value={minSol} onChange={(e) => setMinSol(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
             <Field label="Target (SOL)"><input type="number" step="0.1" value={targetSol} onChange={(e) => setTargetSol(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
             <Field label="Cap / top-up"><input type="number" step="0.1" value={cap} onChange={(e) => setCap(Number(e.target.value))} className="w-full rounded-md border border-violet-200 bg-white px-2 py-1 text-sm" /></Field>
@@ -2068,7 +2068,7 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
                 <input value={payToAddress} onChange={(e) => setPayToAddress(e.target.value)} placeholder="Pay-to address"
                   className="rounded-md border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px]" />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount"
                   className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
                 <select value={token} onChange={(e) => setToken(e.target.value)}
@@ -2243,7 +2243,7 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
             </button>
           ) : (
             <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <select value={token} onChange={(e) => setToken(e.target.value)}
                   className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm">
                   <option value="USDC">USDC</option>
