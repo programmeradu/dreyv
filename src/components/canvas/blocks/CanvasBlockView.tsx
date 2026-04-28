@@ -1943,3 +1943,440 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
     </BlockShell>
   );
 }
+
+/* ---- Phase 7: Yield routing ---------------------------------------------- */
+
+interface YieldRoute {
+  id: string;
+  token: string;
+  venue: string;
+  riskBand: "conservative" | "balanced" | "aggressive";
+  targetAmount: string;
+  minApyBps: number | null;
+  status: "draft" | "active" | "paused" | "exited";
+  lastApyBps: number | null;
+  notes: string | null;
+}
+
+const YIELD_VENUES = [
+  { id: "kamino", label: "Kamino" },
+  { id: "marginfi", label: "MarginFi" },
+  { id: "lulo", label: "Lulo" },
+  { id: "drift", label: "Drift" },
+  { id: "marinade", label: "Marinade" },
+];
+
+function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const stableBalance = asNumber(block.payload.stableBalance) ?? 0;
+  const [routes, setRoutes] = useState<YieldRoute[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const [token, setToken] = useState("USDC");
+  const [venue, setVenue] = useState("kamino");
+  const [riskBand, setRiskBand] = useState<"conservative" | "balanced" | "aggressive">("conservative");
+  const [targetAmount, setTargetAmount] = useState<string>("");
+  const [minApy, setMinApy] = useState<string>("");
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/yield-routes?wallet=${wallet}`);
+      const json = await res.json();
+      setRoutes(json.routes ?? []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const submit = async () => {
+    if (!wallet || !venue || !targetAmount) return;
+    setBusy("create");
+    await fetch("/api/treasury/yield-routes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wallet, token, venue, riskBand,
+        targetAmount: Number(targetAmount),
+        minApyBps: minApy ? Math.round(Number(minApy) * 100) : null,
+      }),
+    });
+    setBusy(null); setShowForm(false);
+    setTargetAmount(""); setMinApy("");
+    refresh();
+  };
+
+  const action = async (id: string, a: string) => {
+    setBusy(`${id}:${a}`);
+    await fetch("/api/treasury/yield-routes", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, wallet, action: a }),
+    });
+    setBusy(null); refresh();
+  };
+
+  const remove = async (id: string) => {
+    setBusy(`${id}:del`);
+    await fetch(`/api/treasury/yield-routes?id=${id}&wallet=${wallet}`, { method: "DELETE" });
+    setBusy(null); refresh();
+  };
+
+  if (!wallet) {
+    return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to route idle stables to vetted yield venues.</p></BlockShell>;
+  }
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {loading && routes.length === 0 ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <>
+          {routes.length === 0 ? (
+            <p className="text-sm text-slate-700">
+              {stableBalance > 0
+                ? `${stableBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} in stables sitting idle. Route a slice to a vetted venue — Dreyv keeps it inside your risk band and proposes deploys via HITL.`
+                : "Set up a yield route now and it'll activate the moment idle stables land."}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {routes.map((r) => {
+                const venueLabel = YIELD_VENUES.find((v) => v.id === r.venue)?.label ?? r.venue;
+                const tone = r.status === "active" ? "emerald" : r.status === "exited" ? "slate" : r.status === "paused" ? "amber" : "violet";
+                return (
+                  <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-violet-100 bg-white px-2.5 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm font-semibold text-slate-900">{venueLabel}</span>
+                        <span className="text-[12px] text-slate-500">{r.token} · {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <Pill tone={tone === "emerald" ? "emerald" : tone === "amber" ? "amber" : tone === "slate" ? "slate" : "violet"}>{r.status}</Pill>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {r.riskBand} band{r.minApyBps != null ? ` · min ${(r.minApyBps / 100).toFixed(2)}% APY` : ""}
+                        {r.lastApyBps != null ? ` · live ${(r.lastApyBps / 100).toFixed(2)}%` : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {r.status === "draft" && (
+                        <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
+                          className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                          {busy === `${r.id}:deploy` ? "Queueing…" : "Deploy"}
+                        </button>
+                      )}
+                      {r.status === "active" && (
+                        <>
+                          <button onClick={() => action(r.id, "pause")} disabled={busy != null}
+                            className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Pause</button>
+                          <button onClick={() => action(r.id, "exit")} disabled={busy != null}
+                            className="rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Exit</button>
+                        </>
+                      )}
+                      {r.status === "paused" && (
+                        <button onClick={() => action(r.id, "resume")} disabled={busy != null}
+                          className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Resume</button>
+                      )}
+                      <button onClick={() => remove(r.id)} disabled={busy != null}
+                        className="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-rose-600">×</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!showForm ? (
+            <button onClick={() => setShowForm(true)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900">
+              + Add yield route
+            </button>
+          ) : (
+            <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+              <div className="grid grid-cols-3 gap-2">
+                <select value={token} onChange={(e) => setToken(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm">
+                  <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
+                  <option value="PYUSD">PYUSD</option>
+                  <option value="SOL">SOL</option>
+                </select>
+                <select value={venue} onChange={(e) => setVenue(e.target.value)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm">
+                  {YIELD_VENUES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                </select>
+                <select value={riskBand} onChange={(e) => setRiskBand(e.target.value as any)}
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm">
+                  <option value="conservative">Conservative</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" step="0.01" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)}
+                  placeholder="Target amount"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
+                <input type="number" step="0.1" value={minApy} onChange={(e) => setMinApy(e.target.value)}
+                  placeholder="Min APY % (optional)"
+                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm" />
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={submit} disabled={busy === "create" || !targetAmount}
+                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                  {busy === "create" ? "Saving…" : "Save route"}
+                </button>
+                <button onClick={() => setShowForm(false)} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </BlockShell>
+  );
+}
+
+/* ---- Phase 7: Reports & shareable links ---------------------------------- */
+
+interface TreasuryReport {
+  id: string;
+  title: string;
+  status: "draft" | "published" | "revoked";
+  shareToken: string | null;
+  shareExpiresAt: string | null;
+  createdAt: string;
+  snapshot: Record<string, unknown>;
+}
+
+function ReportsShareBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const valuation = asNumber(block.payload.valuation);
+  const change24h = asNumber(block.payload.change24h);
+  const tokens = asArray<{ symbol?: string; value?: number }>(block.payload.tokens);
+
+  const [reports, setReports] = useState<TreasuryReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/reports?wallet=${wallet}`);
+      const json = await res.json();
+      setReports(json.reports ?? []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const generate = async () => {
+    if (!wallet) return;
+    setBusy("create");
+    const snapshot = {
+      valuation, change24h,
+      tokens: tokens.map((t) => ({ symbol: t.symbol, value: t.value })),
+      generatedAt: new Date().toISOString(),
+    };
+    await fetch("/api/treasury/reports", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, snapshot }),
+    });
+    setBusy(null); refresh();
+  };
+
+  const publish = async (id: string) => {
+    setBusy(`${id}:pub`);
+    await fetch("/api/treasury/reports", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, wallet, action: "publish", expiresInDays: 30 }),
+    });
+    setBusy(null); refresh();
+  };
+
+  const revoke = async (id: string) => {
+    setBusy(`${id}:rev`);
+    await fetch("/api/treasury/reports", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, wallet, action: "revoke" }),
+    });
+    setBusy(null); refresh();
+  };
+
+  const remove = async (id: string) => {
+    setBusy(`${id}:del`);
+    await fetch(`/api/treasury/reports?id=${id}&wallet=${wallet}`, { method: "DELETE" });
+    setBusy(null); refresh();
+  };
+
+  const copyLink = async (r: TreasuryReport) => {
+    if (!r.shareToken) return;
+    const url = `${window.location.origin}/r/${r.shareToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(r.id);
+      setTimeout(() => setCopiedId(null), 1600);
+    } catch { /* ignore */ }
+  };
+
+  if (!wallet) {
+    return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to generate a treasury report.</p></BlockShell>;
+  }
+
+  return (
+    <BlockShell block={block} accent="violet">
+      {loading && reports.length === 0 ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <>
+          {reports.length === 0 ? (
+            <p className="text-sm text-slate-700">Generate a board-ready snapshot of your treasury — composition, valuation, 24h move — then publish a read-only link for accountants and stakeholders.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {reports.slice(0, 5).map((r) => {
+                const isPublished = r.status === "published" && r.shareToken;
+                return (
+                  <div key={r.id} className="rounded-lg border border-violet-100 bg-white px-2.5 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-semibold text-slate-900 truncate">{r.title}</span>
+                          <Pill tone={isPublished ? "emerald" : r.status === "revoked" ? "slate" : "violet"}>{r.status}</Pill>
+                        </div>
+                        <div className="text-[11px] text-slate-500">{new Date(r.createdAt).toLocaleString()}</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!isPublished && r.status !== "revoked" && (
+                          <button onClick={() => publish(r.id)} disabled={busy != null}
+                            className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                            {busy === `${r.id}:pub` ? "…" : "Publish link"}
+                          </button>
+                        )}
+                        {isPublished && (
+                          <>
+                            <button onClick={() => copyLink(r)}
+                              className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+                              {copiedId === r.id ? "Copied!" : "Copy link"}
+                            </button>
+                            <button onClick={() => revoke(r.id)} disabled={busy != null}
+                              className="rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Revoke</button>
+                          </>
+                        )}
+                        <button onClick={() => remove(r.id)} disabled={busy != null}
+                          className="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-rose-600">×</button>
+                      </div>
+                    </div>
+                    {isPublished && r.shareExpiresAt && (
+                      <div className="mt-1 text-[10px] text-slate-500">Expires {new Date(r.shareExpiresAt).toLocaleDateString()}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <button onClick={generate} disabled={busy === "create"}
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+            {busy === "create" ? "Generating…" : "Generate report"}
+          </button>
+        </>
+      )}
+    </BlockShell>
+  );
+}
+
+/* ---- Phase 7: Wallet & Asset Security ------------------------------------ */
+
+interface SecurityAudit {
+  id: string;
+  score: number;
+  findings: { severity: "info" | "warn" | "high"; code: string; message: string }[];
+  signers: { address: string; label?: string }[];
+  threshold: number | null;
+  isMultisig: boolean;
+  lastAuditAt: string | null;
+}
+
+function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
+  const wallet = asString(block.payload.wallet);
+  const [audit, setAudit] = useState<SecurityAudit | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/treasury/security?wallet=${wallet}`);
+      const json = await res.json();
+      setAudit(json.audit);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+
+  const runAudit = async () => {
+    setBusy(true);
+    await fetch("/api/treasury/security", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet }),
+    });
+    setBusy(false); refresh();
+  };
+
+  if (!wallet) {
+    return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to audit signer hygiene and key security.</p></BlockShell>;
+  }
+
+  const scoreTone = audit == null ? "slate" : audit.score >= 80 ? "emerald" : audit.score >= 50 ? "amber" : "rose";
+
+  return (
+    <BlockShell block={block} accent={scoreTone === "rose" ? "rose" : "violet"}>
+      {loading && !audit ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : !audit ? (
+        <>
+          <p className="text-sm text-slate-700">Run a security audit on this vault — Dreyv inspects signer setup, multisig threshold, and surfaces hygiene findings.</p>
+          <button onClick={runAudit} disabled={busy}
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+            {busy ? "Auditing…" : "Run security audit"}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tracking-tight text-slate-900">{audit.score}</span>
+              <span className="text-xs text-slate-500">hygiene score · {audit.isMultisig ? `multisig${audit.threshold ? ` ${audit.threshold}/${audit.signers.length}` : ""}` : "single signer"}</span>
+            </div>
+            <Pill tone={scoreTone === "rose" ? "rose" : scoreTone === "amber" ? "amber" : scoreTone === "emerald" ? "emerald" : "violet"}>
+              {audit.score >= 80 ? "Healthy" : audit.score >= 50 ? "Improve" : "At risk"}
+            </Pill>
+          </div>
+          {audit.findings.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {audit.findings.slice(0, 4).map((f, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px]">
+                  <span className={`mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full ${
+                    f.severity === "high" ? "bg-rose-500" : f.severity === "warn" ? "bg-amber-500" : "bg-violet-400"
+                  }`} />
+                  <span className="text-slate-700">{f.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {audit.signers.length > 0 && (
+            <div className="mt-2 text-[11px] text-slate-500">
+              Signers: {audit.signers.map((s) => s.label ?? `${s.address.slice(0, 4)}…${s.address.slice(-4)}`).join(", ")}
+            </div>
+          )}
+          <div className="mt-3 flex items-center gap-1.5">
+            <button onClick={runAudit} disabled={busy}
+              className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy ? "Re-auditing…" : "Re-audit"}
+            </button>
+            {audit.lastAuditAt && (
+              <span className="text-[11px] text-slate-400">last {new Date(audit.lastAuditAt).toLocaleString()}</span>
+            )}
+          </div>
+        </>
+      )}
+    </BlockShell>
+  );
+}
