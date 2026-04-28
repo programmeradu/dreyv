@@ -1486,6 +1486,7 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   // Form state
   const [label, setLabel] = useState("");
@@ -1497,17 +1498,55 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
   const refresh = async () => {
     if (!wallet) return;
     setLoading(true);
+    setErr(null);
     try {
       const res = await fetch(`/api/treasury/recurring-payouts?wallet=${wallet}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setSchedules(json.schedules ?? []);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load schedules");
+    }
     setLoading(false);
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
 
+  const onCsv = async (file: File) => {
+    setErr(null);
+    try {
+      const text = await readFileAsText(file);
+      const { headers, rows } = parseCsv(text);
+      // Best-effort column mapping — accept (address, amount, label) in any order
+      // when headers are present, otherwise assume positional order.
+      let addrIdx = 0, amtIdx = 1, labIdx = 2;
+      if (headers) {
+        const find = (re: RegExp) => headers.findIndex((h) => re.test(h));
+        const a = find(/address|wallet|recipient|to/i);
+        const m = find(/amount|value|qty/i);
+        const l = find(/label|name|memo|note/i);
+        if (a >= 0) addrIdx = a;
+        if (m >= 0) amtIdx = m;
+        if (l >= 0) labIdx = l;
+      }
+      const lines = rows
+        .map((r) => {
+          const addr = (r[addrIdx] ?? "").trim();
+          const amt = Number(r[amtIdx]);
+          const lab = (r[labIdx] ?? "").trim();
+          if (!addr || !(amt > 0)) return null;
+          return lab ? `${addr},${amt},${lab}` : `${addr},${amt}`;
+        })
+        .filter(Boolean) as string[];
+      if (lines.length === 0) { setErr("No valid recipients found in CSV."); return; }
+      setRecipientsRaw((prev) => (prev.trim() ? prev + "\n" : "") + lines.join("\n"));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to read CSV");
+    }
+  };
+
   const submit = async () => {
-    if (!label.trim() || !recipientsRaw.trim()) return;
+    setErr(null);
+    if (!label.trim() || !recipientsRaw.trim()) { setErr("Label and recipients are required."); return; }
     setBusy("create");
     const recipients = recipientsRaw
       .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -1516,12 +1555,19 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
         return { address, amount: Number(amountRaw), label: lab || undefined };
       })
       .filter((r) => r.address && r.amount > 0);
-    await fetch("/api/treasury/recurring-payouts", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet, label, cadence, anchorDay, defaultToken, recipients }),
-    });
-    setLabel(""); setRecipientsRaw(""); setShowForm(false); setBusy(null);
-    refresh();
+    if (recipients.length === 0) { setErr("No valid recipients parsed."); setBusy(null); return; }
+    try {
+      const res = await fetch("/api/treasury/recurring-payouts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, label, cadence, anchorDay, defaultToken, recipients }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setLabel(""); setRecipientsRaw(""); setShowForm(false);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save schedule");
+    }
+    setBusy(null);
   };
 
   const action = async (id: string, action: string) => {
