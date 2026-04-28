@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Bell, ShieldAlert, ShoppingCart, Store, Cpu, Mail, MessageSquare, Trash2 } from "lucide-react";
+import { Bell, ShieldAlert, ShoppingCart, Store, Cpu, Mail, Trash2 } from "lucide-react";
 import { useNotificationStore, type NotificationPreferences } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "@/lib/toast-notifications";
+import { ExternalChannelsPanel } from "./ExternalChannelsPanel";
 
 type PrefKey = keyof NotificationPreferences;
 
