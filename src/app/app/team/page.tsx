@@ -398,6 +398,7 @@ export default function TeamPage() {
     const vaultAddress = activeVault || "";
 
     const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+    const [vaultWizardOpen, setVaultWizardOpen] = useState(false);
     const logRef = useRef<HTMLDivElement>(null);
 
     const appendLog = useCallback((entry: Omit<LogEntry, "time">) => {
