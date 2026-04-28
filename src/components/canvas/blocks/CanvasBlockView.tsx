@@ -18,6 +18,7 @@ import { useDistributionFiles, parseDistributionFile, type DistributionEntry } f
 import { useVault, type RegisteredVault } from "@/lib/contexts/VaultContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { parseCsv, readFileAsText } from "@/lib/csv";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
