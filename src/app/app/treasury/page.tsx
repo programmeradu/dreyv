@@ -180,6 +180,7 @@ export default function TreasuryPage() {
         activeVault={activeVault}
         vaultTokens={vaultTokens}
         vaultValue={vaultValue}
+        vaultChange24h={vaultChange24h}
         stableBalance={stableBalance}
         vaultConfig={vaultConfig}
         isMultisig={isMultisig}
