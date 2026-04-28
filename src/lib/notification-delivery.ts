@@ -141,7 +141,8 @@ export async function fanOutNotification(
   const results = await Promise.all(tasks);
 
   // Log every attempt; never let logging failure crash the request.
-  if (db && results.length > 0) {
+  // notificationId === 0 is a synthetic test send — skip persistence.
+  if (db && results.length > 0 && payload.notificationId > 0) {
     try {
       await db.insert(notificationDeliveries).values(
         results.map((r) => ({
