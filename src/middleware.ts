@@ -312,6 +312,8 @@ export async function middleware(request: NextRequest) {
         publicPages.includes(pathname) ||
         pathname.startsWith('/legal') ||
         pathname.startsWith('/guides') ||
+        pathname.startsWith('/accept-team-invite') ||
+        pathname.startsWith('/accept-vault-invite') ||
         pathname.includes('.')
     ) {
         return withSeoHeaders(NextResponse.next(), pathname);
