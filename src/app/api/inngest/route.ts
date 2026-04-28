@@ -14,6 +14,7 @@ import { ALL_FUNCTIONS } from "@/lib/agents/functions";
 import { BRAIN_FUNCTIONS } from "@/lib/agents/brains/functions";
 import { DACS_FUNCTIONS } from "@/lib/agents/dacs/functions";
 import { TX_STREAM_FUNCTIONS } from "@/lib/agents/tx-stream/functions";
+import { TREASURY_WATCHERS } from "@/lib/agents/treasury/watchers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,5 +26,6 @@ export const { GET, POST, PUT } = serve({
     ...BRAIN_FUNCTIONS,
     ...DACS_FUNCTIONS,
     ...TX_STREAM_FUNCTIONS,
+    ...TREASURY_WATCHERS,
   ],
 });
