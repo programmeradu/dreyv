@@ -196,7 +196,7 @@ export function useWalletModal(): {
   visible: boolean;
   setVisible: (v: boolean) => void;
 } {
-  const { open, close, isOpen } = useModal();
+  const { open, close, isOpened } = useModal();
   const setVisible = useCallback(
     (v: boolean) => {
       if (v) open();
@@ -204,7 +204,7 @@ export function useWalletModal(): {
     },
     [open, close]
   );
-  return { visible: isOpen, setVisible };
+  return { visible: isOpened, setVisible };
 }
 
 // --------------------------------------------------------------------------
