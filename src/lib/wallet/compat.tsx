@@ -41,9 +41,11 @@ export function PhantomCompatProvider({
 }: PhantomCompatProviderProps) {
   const config = useMemo(
     () => ({
-      providerType: "embedded" as const,
       appId: appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "",
       addressTypes: [AddressType.solana] as AddressType[],
+      providers: ["google", "apple", "phantom", "device", "injected"] as Array<
+        "google" | "apple" | "phantom" | "device" | "injected" | "deeplink"
+      >,
       embeddedWalletType: "user-wallet" as const,
       authOptions: {
         redirectUrl:
