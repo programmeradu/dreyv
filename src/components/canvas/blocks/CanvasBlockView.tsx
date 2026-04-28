@@ -1152,22 +1152,24 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
         />
 
         {recipients.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-violet-100">
-            <div className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] gap-2 bg-violet-50/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-              <span>Recipient</span><span className="text-right">Amount</span><span>Token</span><span className="text-right">Status</span>
+          <div className="overflow-x-auto rounded-xl border border-violet-100">
+            <div className="min-w-[420px]">
+              <div className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] gap-2 bg-violet-50/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <span>Recipient</span><span className="text-right">Amount</span><span>Token</span><span className="text-right">Status</span>
+              </div>
+              <ul className="max-h-40 divide-y divide-violet-100/70 overflow-y-auto">
+                {recipients.slice(0, 50).map((r, i) => (
+                  <li key={`${r.address}-${i}`} className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] items-center gap-2 px-3 py-1.5 text-[12px]">
+                    <span className="truncate font-mono text-slate-700">{r.address ? `${r.address.slice(0,4)}…${r.address.slice(-4)}` : "—"}</span>
+                    <span className="text-right tabular-nums text-slate-900">{Number.isFinite(r.amount) ? r.amount.toLocaleString() : "—"}</span>
+                    <span className="text-slate-600">{r.token}</span>
+                    <span className={`text-right text-[10px] font-semibold uppercase tracking-wider ${r.error ? "text-rose-600" : "text-emerald-600"}`}>
+                      {r.error ?? "ok"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="max-h-40 divide-y divide-violet-100/70 overflow-y-auto">
-              {recipients.slice(0, 50).map((r, i) => (
-                <li key={`${r.address}-${i}`} className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] items-center gap-2 px-3 py-1.5 text-[12px]">
-                  <span className="truncate font-mono text-slate-700">{r.address ? `${r.address.slice(0,4)}…${r.address.slice(-4)}` : "—"}</span>
-                  <span className="text-right tabular-nums text-slate-900">{Number.isFinite(r.amount) ? r.amount.toLocaleString() : "—"}</span>
-                  <span className="text-slate-600">{r.token}</span>
-                  <span className={`text-right text-[10px] font-semibold uppercase tracking-wider ${r.error ? "text-rose-600" : "text-emerald-600"}`}>
-                    {r.error ?? "ok"}
-                  </span>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
 
