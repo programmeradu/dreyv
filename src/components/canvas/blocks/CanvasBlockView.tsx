@@ -1173,7 +1173,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-violet-100 pt-3">
+        <div className="flex flex-col items-stretch justify-between gap-2 border-t border-violet-100 pt-3 sm:flex-row sm:items-center sm:gap-3">
           <p className="text-[11px] text-slate-500">
             {valid.length} valid · {invalidCount} skipped · total {totalAmount.toLocaleString()} {defaultToken}
             {isMultisig && " · routes via Squads"}
