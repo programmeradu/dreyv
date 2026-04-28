@@ -708,6 +708,34 @@ export const vaults = pgTable('vaults', {
   kindIdx: index('vaults_kind_idx').on(table.kind),
 }));
 
+// ─── Vault Proposals (mirror of on-chain Squads proposals) ───────────
+// Cached snapshot updated by /api/squads/proposals/sync after read or write.
+// Drives War Room timelines, presence-aware approval counts, and team chat
+// without re-hammering the Solana RPC on every render.
+export const vaultProposals = pgTable('vault_proposals', {
+  id: serial('id').primaryKey(),
+  vaultAddress: text('vault_address').notNull(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }),
+  transactionIndex: integer('transaction_index').notNull(),
+  status: text('status').notNull().default('Draft'), // Draft | Active | Approved | Rejected | Executed | Cancelled
+  approvals: integer('approvals').notNull().default(0),
+  rejections: integer('rejections').notNull().default(0),
+  threshold: integer('threshold').notNull().default(1),
+  approvedBy: jsonb('approved_by').notNull().default([]),
+  rejectedBy: jsonb('rejected_by').notNull().default([]),
+  summary: text('summary'),
+  raw: jsonb('raw'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  executedAt: timestamp('executed_at'),
+}, (table) => ({
+  vaultIdx: index('vault_proposals_vault_idx').on(table.vaultAddress),
+  teamIdx: index('vault_proposals_team_idx').on(table.teamId),
+  statusIdx: index('vault_proposals_status_idx').on(table.status),
+  vaultTxUnique: uniqueIndex('vault_proposals_vault_tx_unique').on(table.vaultAddress, table.transactionIndex),
+}));
+
 // ─── Dreyv Connector Gateway ──────────────────────────────────────────
 // Per-user encrypted credentials for third-party providers (Helius,
 // Jupiter, Birdeye, Marinade, Pyth, Resend, Telegram, Slack, ...).
