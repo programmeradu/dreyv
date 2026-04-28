@@ -1,7 +1,7 @@
 "use client";
 
 import { RoomProvider } from "@/liveblocks.config";
-import { LiveList } from "@liveblocks/client";
+import { LiveList, LiveMap } from "@liveblocks/client";
 import { LiveCursors } from "@/components/LiveCursors";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
