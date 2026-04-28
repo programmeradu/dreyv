@@ -13,7 +13,7 @@ ALTER TABLE notification_preferences
 -- Lets the UI surface "delivered to: email ✓, telegram ✓, slack ✗" and lets us retry.
 CREATE TABLE IF NOT EXISTS notification_deliveries (
   id              bigserial PRIMARY KEY,
-  notification_id uuid NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  notification_id integer NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
   channel         text NOT NULL CHECK (channel IN ('email','telegram','slack','inapp')),
   status          text NOT NULL CHECK (status IN ('queued','sent','failed','skipped')),
   error           text,
