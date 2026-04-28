@@ -18,7 +18,7 @@ let _liveblocks: Liveblocks | null = null;
 function getLiveblocks() {
     if (!_liveblocks) {
         const secret = process.env.LIVEBLOCKS_SECRET_KEY;
-        if (!secret) throw new Error("LIVEBLOCKS_SECRET_KEY is not set");
+        if (!secret) return null;
         _liveblocks = new Liveblocks({ secret });
     }
     return _liveblocks;
@@ -162,6 +162,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Prepare identity and authorize ─────────────────────────────
+    const lb = getLiveblocks();
+    if (!lb) {
+        // Liveblocks not configured — return 503 (graceful) so the client
+        // backs off instead of spamming 500s.
+        return NextResponse.json(
+            { error: "Realtime presence is not configured", code: "liveblocks_disabled" },
+            { status: 503 }
+        );
+    }
+
     const colorPalette = [
         "#E57373", "#64B5F6", "#81C784", "#FFD54F",
         "#BA68C8", "#4DD0E1", "#FF8A65", "#A1887F",
@@ -170,7 +180,7 @@ export async function POST(request: NextRequest) {
         userId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) %
         colorPalette.length;
 
-    const session = getLiveblocks().prepareSession(userId, {
+    const session = lb.prepareSession(userId, {
         userInfo: {
             name: userName || "Anonymous",
             color: colorPalette[colorIndex],

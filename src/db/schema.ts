@@ -1540,3 +1540,63 @@ export const treasuryInvoices = pgTable('treasury_invoices', {
   statusIdx: index('treasury_invoices_status_idx').on(t.status),
   dueIdx: index('treasury_invoices_due_idx').on(t.dueAt),
 }));
+
+// ─── Phase 7 — Yield routing, reports, security audits ───────────────
+// Three vault-scoped tables for the remaining /app/treasury buckets.
+
+export const treasuryYieldRoutes = pgTable('treasury_yield_routes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  token: text('token').notNull().default('USDC'),
+  venue: text('venue').notNull(),
+  riskBand: text('risk_band').notNull().default('conservative'),
+  targetAmount: numeric('target_amount', { precision: 28, scale: 9 }).notNull().default('0'),
+  minApyBps: integer('min_apy_bps'),
+  status: text('status').notNull().default('draft'),
+  lastApyBps: integer('last_apy_bps'),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_yield_user_idx').on(t.userId),
+  vaultIdx: index('treasury_yield_vault_idx').on(t.vaultAddress),
+  statusIdx: index('treasury_yield_status_idx').on(t.status),
+}));
+
+export const treasuryReports = pgTable('treasury_reports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  title: text('title').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }),
+  periodEnd: timestamp('period_end', { withTimezone: true }),
+  shareToken: text('share_token').unique(),
+  shareExpiresAt: timestamp('share_expires_at', { withTimezone: true }),
+  snapshot: jsonb('snapshot').notNull().default('{}'),
+  status: text('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_reports_user_idx').on(t.userId),
+  vaultIdx: index('treasury_reports_vault_idx').on(t.vaultAddress),
+  shareIdx: index('treasury_reports_share_idx').on(t.shareToken),
+}));
+
+export const treasurySecurityAudits = pgTable('treasury_security_audits', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  score: integer('score').notNull().default(0),
+  findings: jsonb('findings').notNull().default('[]'),
+  signers: jsonb('signers').notNull().default('[]'),
+  threshold: integer('threshold'),
+  isMultisig: boolean('is_multisig').notNull().default(false),
+  lastAuditAt: timestamp('last_audit_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_security_user_idx').on(t.userId),
+  vaultIdx: index('treasury_security_vault_idx').on(t.vaultAddress),
+}));

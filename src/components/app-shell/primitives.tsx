@@ -99,7 +99,7 @@ export function Pill({
   className,
 }: {
   children: ReactNode;
-  tone?: "violet" | "emerald" | "rose" | "slate";
+  tone?: "violet" | "emerald" | "rose" | "slate" | "amber";
   className?: string;
 }) {
   const tones: Record<string, string> = {
@@ -107,6 +107,7 @@ export function Pill({
     emerald: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     rose: "bg-rose-50 text-rose-700 ring-rose-200",
     slate: "bg-slate-50 text-slate-600 ring-slate-200",
+    amber: "bg-amber-50 text-amber-700 ring-amber-200",
   };
   return (
     <span

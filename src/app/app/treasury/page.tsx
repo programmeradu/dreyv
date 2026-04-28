@@ -180,6 +180,7 @@ export default function TreasuryPage() {
         activeVault={activeVault}
         vaultTokens={vaultTokens}
         vaultValue={vaultValue}
+        vaultChange24h={vaultChange24h}
         stableBalance={stableBalance}
         vaultConfig={vaultConfig}
         isMultisig={isMultisig}
@@ -197,6 +198,7 @@ function TreasuryBlockSeeder({
   activeVault,
   vaultTokens,
   vaultValue,
+  vaultChange24h,
   stableBalance,
   vaultConfig,
   isMultisig,
@@ -205,6 +207,7 @@ function TreasuryBlockSeeder({
   activeVault: string | null;
   vaultTokens: any[];
   vaultValue: number | null;
+  vaultChange24h: number | null;
   stableBalance: number;
   vaultConfig: { threshold: number; members: number } | null;
   isMultisig: boolean;
@@ -385,40 +388,52 @@ function TreasuryBlockSeeder({
       ids.push(id);
     }
 
-    // 6. YIELD ROUTING
-    if (activeVault && stableBalance > 0) {
+    // 6. YIELD ROUTING (Phase 7)
+    if (activeVault) {
       const id = `tr-yield-${activeVault}`;
       addBlock({
         id,
-        type: "empty-bucket",
+        type: "yield-routing",
         source: "page",
         origin: "/app/treasury",
         title: "Earn on idle stables",
-        subtitle: "Curated, policy-bounded yield routing",
+        subtitle: "Policy-bounded yield routing · HITL deploys",
+        payload: { wallet: activeVault, stableBalance },
+      });
+      ids.push(id);
+    }
+
+    // 7. REPORTING & SHAREABLE LINK (Phase 7)
+    if (activeVault) {
+      const id = `tr-report-${activeVault}`;
+      addBlock({
+        id,
+        type: "reports-share",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Reports & shareable link",
+        subtitle: "Board-ready snapshot · public read-only link",
         payload: {
-          description:
-            "Dreyv can route your stables to vetted venues that match your risk band, with autopilot rails that respect your approvals.",
-          prompt: "Find safe yield for my idle stables",
+          wallet: activeVault,
+          valuation: vaultValue,
+          change24h: vaultChange24h,
+          tokens: vaultTokens ?? [],
         },
       });
       ids.push(id);
     }
 
-    // 7. REPORTING
+    // 8. WALLET & ASSET SECURITY (Phase 7)
     if (activeVault) {
-      const id = `tr-report-${activeVault}`;
+      const id = `tr-security-${activeVault}`;
       addBlock({
         id,
-        type: "empty-bucket",
+        type: "wallet-security",
         source: "page",
         origin: "/app/treasury",
-        title: "Reports & shareable link",
-        subtitle: "Live treasury report — public link, board-ready",
-        payload: {
-          description:
-            "Generate a Karpatkey-style monthly report on demand, or share a live, read-only link with board members and accountants.",
-          prompt: "Generate a treasury report I can share",
-        },
+        title: "Wallet & asset security",
+        subtitle: "Signer hygiene · key risk audit",
+        payload: { wallet: activeVault },
       });
       ids.push(id);
     }
