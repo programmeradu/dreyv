@@ -1,15 +1,19 @@
 "use client";
 
 /**
- * `/app/analytics` — generative analytics (rebuilt).
- * Replaced the previous widget-grid analytics dashboard.
+ * `/app/analytics` — Phase 14: real foundation.
+ *
+ * Replaces the synthetic sin-wave trend with the user's actual treasury
+ * snapshot history (/api/treasury/snapshots), surfaces USD attribution
+ * (/api/treasury/events), and mounts the Monte Carlo + LLM-narrated
+ * ForesightPanel.
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, ArrowDownRight, ArrowUpRight, Coins, Receipt } from "lucide-react";
 import {
   AmbientGlow,
   SectionHeader,
@@ -19,47 +23,38 @@ import {
   Pill,
 } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
+import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
+import { ForesightPanel } from "@/components/analytics/ForesightPanel";
+
+function fmtCompact(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
 
 export default function AnalyticsPage() {
-  const { vaultValue, vaultChange24h, vaultTokens } = useVault();
+  const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
 
-  // ── Loop detector ─────────────────────────────────────────────────
-  // If this page re-renders >40 times in a 250ms window, log a single
-  // warning with a stack so we can trace what's driving the update loop.
-  const renderTimes = useRef<number[]>([]);
-  const warned = useRef(false);
-  if (typeof window !== "undefined") {
-    const now = performance.now();
-    renderTimes.current.push(now);
-    renderTimes.current = renderTimes.current.filter((t) => now - t < 250);
-    if (renderTimes.current.length > 40 && !warned.current) {
-      warned.current = true;
-      // eslint-disable-next-line no-console
-      console.error("[AnalyticsPage] update loop detected", {
-        rendersIn250ms: renderTimes.current.length,
-        vaultValue,
-        vaultChange24h,
-        vaultTokensLen: Array.isArray(vaultTokens) ? vaultTokens.length : "n/a",
-        stack: new Error().stack,
-      });
-    }
-  }
-  useEffect(() => {
-    return () => {
-      warned.current = false;
-      renderTimes.current = [];
-    };
-  }, []);
+  const {
+    snapshots,
+    events,
+    foresight,
+    valueSeries,
+    loading,
+  } = useForesightFoundation({ range: "30d", timeframeMonths: 12, paths: 200 });
 
+  // Real treasury value series (snapshots) — falls back to a single-point
+  // shim using the live vault value so the chart never collapses entirely.
   const trend = useMemo(() => {
-    const out: number[] = [];
-    let v = 100;
-    for (let i = 0; i < 30; i++) {
-      v += Math.sin(i / 4) * 1.6 + Math.cos(i / 7) * 1.1;
-      out.push(v);
+    if (valueSeries.length >= 2) return valueSeries.map((p) => p.value);
+    if (typeof vaultValue === "number" && vaultValue > 0) {
+      return [vaultValue * 0.985, vaultValue * 0.99, vaultValue, vaultValue * 1.005, vaultValue];
     }
-    return out;
-  }, []);
+    return [];
+  }, [valueSeries, vaultValue]);
 
   const concentration = useMemo(() => {
     const tokens = (vaultTokens ?? []) as any[];
@@ -74,10 +69,8 @@ export default function AnalyticsPage() {
     };
   }, [vaultTokens]);
 
-  const yieldEstimate = useMemo(() => {
-    if (typeof vaultValue !== "number") return null;
-    return (vaultValue * 0.045) / 12;
-  }, [vaultValue]);
+  const aggregates = events?.aggregates ?? null;
+  const hasAttribution = !!aggregates && aggregates.sampleSize > 0;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">
@@ -99,27 +92,94 @@ export default function AnalyticsPage() {
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 pt-4">
         <StreamIn className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Analytics</p>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Three stories, told gently.</h1>
-          <p className="max-w-lg text-base text-slate-600">
-            How you’re growing, where your risk concentrates, and how much you’re quietly earning.
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Analytics · Foresight</p>
+          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Where you are. Where you’re heading.</h1>
+          <p className="max-w-xl text-base text-slate-600">
+            Real snapshots of your treasury, real attribution of every dollar in or out, and 200 forward simulations of where the next year could land.
           </p>
         </StreamIn>
       </section>
 
+      {/* ── Growth: real snapshots ─────────────────────────────────── */}
       <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6">
-        <SectionHeader eyebrow="Growth" title="Your treasury, over time" />
+        <SectionHeader
+          eyebrow="Growth"
+          title="Your treasury, over time"
+          description={
+            snapshots && snapshots.snapshots.length >= 2
+              ? `${snapshots.snapshots.length} snapshots over the last 30 days.`
+              : "Keep this page open — snapshots will accumulate every few minutes as your vault changes."
+          }
+        />
         <StreamIn delay={0.05} className="mt-6">
-          <TrendCurve values={trend} label="30-day shape" changePct={vaultChange24h ?? null} />
+          <TrendCurve values={trend} label="Real value series" changePct={vaultChange24h ?? null} />
         </StreamIn>
       </section>
 
+      {/* ── Foresight: Monte Carlo + LLM narrative ─────────────────── */}
       <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
         <SectionHeader
-          eyebrow="Composition & earning"
-          title="Where your treasury leans"
-          description="One position can quietly become most of your treasury. We watch for that."
+          eyebrow="Foresight"
+          title="The next 12 months, simulated 200 times"
+          description="A Monte Carlo run anchored on your real volatility and burn rate. The shaded band is the middle 80% of outcomes."
         />
+        <StreamIn delay={0.05} className="mt-6">
+          <ForesightPanel
+            projection={foresight?.projection ?? []}
+            summary={foresight?.summary ?? null}
+            attribution={aggregates}
+            timeframeMonths={12}
+            loading={loading}
+          />
+        </StreamIn>
+      </section>
+
+      {/* ── Attribution: where the money flowed ────────────────────── */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader
+          eyebrow="Attribution"
+          title="Where every dollar went"
+          description={hasAttribution
+            ? `${aggregates!.sampleSize} treasury events recorded in the last 30 days.`
+            : "Tag your first inflow or outflow from the treasury page to start building your attribution view."}
+        />
+        <div className="mt-6 grid gap-5 md:grid-cols-4">
+          <AttributionCard
+            tone="emerald"
+            icon={<ArrowDownRight className="h-4 w-4" />}
+            label="Inflows"
+            usd={aggregates?.inflowUsd ?? 0}
+            sub={`${fmtCompact(aggregates?.monthlyInflow ?? 0)}/mo`}
+          />
+          <AttributionCard
+            tone="rose"
+            icon={<ArrowUpRight className="h-4 w-4" />}
+            label="Outflows"
+            usd={aggregates?.outflowUsd ?? 0}
+            sub={`${fmtCompact(aggregates?.monthlyBurnRate ?? 0)}/mo burn`}
+          />
+          <AttributionCard
+            tone="violet"
+            icon={<Coins className="h-4 w-4" />}
+            label="Yield earned"
+            usd={aggregates?.yieldUsd ?? 0}
+            sub={aggregates?.annualYieldRate
+              ? `${(aggregates.annualYieldRate * 100).toFixed(2)}% APY realized`
+              : "—"}
+          />
+          <AttributionCard
+            tone="slate"
+            icon={<Receipt className="h-4 w-4" />}
+            label="Fees paid"
+            usd={aggregates?.feeUsd ?? 0}
+            sub={hasAttribution ? "Network + protocol" : "—"}
+          />
+        </div>
+      </section>
+
+      {/* ── Composition ────────────────────────────────────────────── */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader eyebrow="Composition" title="Where your treasury leans" />
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <StreamIn delay={0.05}>
             <Surface className="p-7">
@@ -148,16 +208,24 @@ export default function AnalyticsPage() {
 
           <StreamIn delay={0.12}>
             <Surface className="p-7">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Quietly earning</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Net 30-day delta</p>
               <div className="mt-3 font-manrope text-4xl font-semibold tracking-tight text-slate-900">
-                <StreamingNumber value={yieldEstimate} prefix="$" decimals={2} />
+                {hasAttribution ? (
+                  <StreamingNumber value={aggregates!.netUsd ?? 0} prefix="$" decimals={0} />
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                A soft estimate of how much your treasury is on track to earn this month at its current shape.
+                Inflows minus outflows over the last month, derived from the events you’ve recorded.
               </p>
-              <div className="mt-4">
-                <Pill tone="emerald">Conservative</Pill>
-              </div>
+              {hasAttribution && (
+                <div className="mt-4">
+                  <Pill tone={aggregates!.netUsd >= 0 ? "emerald" : "rose"}>
+                    {aggregates!.netUsd >= 0 ? "Net positive" : "Net outflow"}
+                  </Pill>
+                </div>
+              )}
             </Surface>
           </StreamIn>
         </div>
@@ -166,14 +234,50 @@ export default function AnalyticsPage() {
       <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-24">
         <Surface className="p-7 text-center">
           <p className="font-manrope text-lg text-slate-700">
-            Want a closer look at any of these? Just open{" "}
+            Want to bend the simulation with what-ifs? Open{" "}
             <Link href="/app/treasury" className="font-semibold text-violet-700 hover:text-violet-800">
               your treasury
             </Link>
-            .
+            {" "}or chat with{" "}
+            <Link href="/app" className="font-semibold text-violet-700 hover:text-violet-800">CommandBar</Link>.
           </p>
         </Surface>
       </section>
     </div>
+  );
+}
+
+function AttributionCard({
+  tone,
+  icon,
+  label,
+  usd,
+  sub,
+}: {
+  tone: "emerald" | "rose" | "violet" | "slate";
+  icon: React.ReactNode;
+  label: string;
+  usd: number;
+  sub: string;
+}) {
+  const toneMap: Record<string, string> = {
+    emerald: "text-emerald-600",
+    rose: "text-rose-600",
+    violet: "text-violet-700",
+    slate: "text-slate-700",
+  };
+  return (
+    <StreamIn>
+      <Surface className="p-5">
+        <div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] ${toneMap[tone]}`}>
+          {icon}
+          {label}
+        </div>
+        <div className="mt-3 font-manrope text-2xl font-semibold tracking-tight text-slate-900">
+          {fmtCompact(usd)}
+        </div>
+        <div className="mt-1 text-[11px] text-slate-500">{sub}</div>
+      </Surface>
+    </StreamIn>
   );
 }
