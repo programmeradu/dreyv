@@ -29,6 +29,9 @@ export type CanvasBlockType =
   | "runway"
   | "mass-send"
   | "policy-approvals"
+  | "recurring-payouts"
+  | "gas-tank"
+  | "invoice-inbox"
   | "empty-bucket";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {

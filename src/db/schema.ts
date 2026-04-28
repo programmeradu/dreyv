@@ -1475,3 +1475,68 @@ export const sniperBotEvents = pgTable('sniper_bot_events', {
   statusIdx: index('sniper_events_status_idx').on(t.status),
   createdIdx: index('sniper_events_created_idx').on(t.createdAt),
 }));
+
+// ─── Phase 6 — Payments & Treasury Operations ────────────────────────
+// Three vault-scoped tables backing the new /app/treasury canvas blocks:
+// recurring payouts, gas-tank watchers, and an invoice inbox.
+// HITL execution still flows through agent_tx_proposals — these tables
+// only persist intent, schedule, and audit trail.
+
+export const treasuryRecurringPayouts = pgTable('treasury_recurring_payouts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  label: text('label').notNull(),
+  cadence: text('cadence').notNull().default('monthly'), // monthly | biweekly | weekly | manual
+  anchorDay: integer('anchor_day'),
+  defaultToken: text('default_token').notNull().default('USDC'),
+  recipients: jsonb('recipients').notNull().default('[]'),
+  status: text('status').notNull().default('active'), // active | paused | archived
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_recurring_user_idx').on(t.userId),
+  vaultIdx: index('treasury_recurring_vault_idx').on(t.vaultAddress),
+}));
+
+export const treasuryGasTankWatchers = pgTable('treasury_gas_tank_watchers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  minSol: numeric('min_sol', { precision: 18, scale: 9 }).notNull().default('0.5'),
+  targetSol: numeric('target_sol', { precision: 18, scale: 9 }).notNull().default('2'),
+  fundingAddress: text('funding_address'),
+  capPerTopupSol: numeric('cap_per_topup_sol', { precision: 18, scale: 9 }).notNull().default('1'),
+  status: text('status').notNull().default('active'), // active | paused
+  lastBalanceSol: numeric('last_balance_sol', { precision: 18, scale: 9 }),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  lastTopupAt: timestamp('last_topup_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_gas_tank_user_idx').on(t.userId),
+}));
+
+export const treasuryInvoices = pgTable('treasury_invoices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  vaultAddress: text('vault_address').notNull(),
+  vendorName: text('vendor_name').notNull(),
+  payToAddress: text('pay_to_address').notNull(),
+  amount: numeric('amount', { precision: 28, scale: 9 }).notNull(),
+  token: text('token').notNull().default('USDC'),
+  memo: text('memo'),
+  dueAt: timestamp('due_at', { withTimezone: true }),
+  status: text('status').notNull().default('pending'), // pending | queued | paid | rejected
+  txProposalId: uuid('tx_proposal_id'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_invoices_user_idx').on(t.userId),
+  vaultIdx: index('treasury_invoices_vault_idx').on(t.vaultAddress),
+  statusIdx: index('treasury_invoices_status_idx').on(t.status),
+  dueIdx: index('treasury_invoices_due_idx').on(t.dueAt),
+}));
