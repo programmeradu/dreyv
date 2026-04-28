@@ -1629,3 +1629,48 @@ export const treasurySecurityAudits = pgTable('treasury_security_audits', {
   userIdx: index('treasury_security_user_idx').on(t.userId),
   vaultIdx: index('treasury_security_vault_idx').on(t.vaultAddress),
 }));
+
+// ─── Phase 14: Treasury + Foresight foundation ───────────────────────
+// USD-attributed event stream. Source of truth for foresight burn/inflow
+// derivation and the Analytics attribution feed. Signed amount_usd: positive
+// = treasury grew, negative = treasury shrank.
+export const treasuryEvents = pgTable('treasury_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  walletAddress: text('wallet_address').notNull(),
+  vaultAddress: text('vault_address'),
+  occurredAt: timestamp('occurred_at').notNull(),
+  kind: text('kind').notNull(), // inflow | outflow | yield | fee | swap | rebalance | airdrop | unknown
+  category: text('category'),
+  amountUsd: numeric('amount_usd', { precision: 20, scale: 6 }).notNull(),
+  tokenSymbol: text('token_symbol'),
+  tokenMint: text('token_mint'),
+  counterparty: text('counterparty'),
+  signature: text('signature'),
+  source: text('source').notNull().default('derived'),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_events_user_idx').on(t.userId, t.occurredAt),
+  walletIdx: index('treasury_events_wallet_idx').on(t.walletAddress, t.occurredAt),
+  kindIdx: index('treasury_events_kind_idx').on(t.kind, t.occurredAt),
+}));
+
+// Periodic vault USD valuation. Drives the real treasury growth chart on
+// /app/analytics and seeds Monte Carlo drift from realized history.
+export const treasurySnapshots = pgTable('treasury_snapshots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  walletAddress: text('wallet_address').notNull(),
+  vaultAddress: text('vault_address'),
+  totalUsd: numeric('total_usd', { precision: 20, scale: 6 }).notNull(),
+  stableUsd: numeric('stable_usd', { precision: 20, scale: 6 }).notNull().default('0'),
+  volatileUsd: numeric('volatile_usd', { precision: 20, scale: 6 }).notNull().default('0'),
+  yieldUsd: numeric('yield_usd', { precision: 20, scale: 6 }).notNull().default('0'),
+  composition: jsonb('composition').notNull().default('[]'), // { symbol, amount, priceUsd, valueUsd, isStable }[]
+  source: text('source').notNull().default('wallet'),
+  capturedAt: timestamp('captured_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('treasury_snapshots_user_idx').on(t.userId, t.capturedAt),
+  walletIdx: index('treasury_snapshots_wallet_idx').on(t.walletAddress, t.capturedAt),
+}));
