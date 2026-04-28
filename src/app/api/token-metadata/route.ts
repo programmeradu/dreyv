@@ -174,17 +174,26 @@ export async function POST(req: NextRequest) {
 
     const noPrice = mints.filter((m) => !metadata[m]?.price || metadata[m].price === 0);
     if (noPrice.length > 0) {
-      try {
-        const json = await fetchJsonWithRetry(`https://lite-api.jup.ag/price/v2?ids=${noPrice.join(",")}`, 2);
-        for (const mint of noPrice) {
-          const price = Number(json?.data?.[mint]?.price || 0);
-          if (price > 0) {
-            metadata[mint] = { ...metadata[mint], price };
-          }
-        }
-      } catch (error) {
-        console.warn("[token-metadata] Jupiter price fallback failed:", error);
+      // Jupiter's price endpoint returns 414 (URI too long) when too many ids
+      // are crammed into one query string. Chunk into batches of 50.
+      const CHUNK = 50;
+      const chunks: string[][] = [];
+      for (let i = 0; i < noPrice.length; i += CHUNK) {
+        chunks.push(noPrice.slice(i, i + CHUNK));
       }
+      await Promise.all(chunks.map(async (chunk) => {
+        try {
+          const json = await fetchJsonWithRetry(`https://lite-api.jup.ag/price/v2?ids=${chunk.join(",")}`, 2);
+          for (const mint of chunk) {
+            const price = Number(json?.data?.[mint]?.price || 0);
+            if (price > 0) {
+              metadata[mint] = { ...metadata[mint], price };
+            }
+          }
+        } catch (error) {
+          console.warn(`[token-metadata] Jupiter price fallback failed for chunk of ${chunk.length}:`, error instanceof Error ? error.message : error);
+        }
+      }));
     }
 
     for (const mint of mints) {
