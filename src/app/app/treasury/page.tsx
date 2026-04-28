@@ -340,6 +340,51 @@ function TreasuryBlockSeeder({
       ids.push(id);
     }
 
+    // 5b. RECURRING PAYOUTS — Phase 6
+    if (activeVault) {
+      const id = `tr-recurring-${activeVault}`;
+      addBlock({
+        id,
+        type: "recurring-payouts",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Recurring payouts",
+        subtitle: "Payroll, grants, contributors — on a schedule",
+        payload: { wallet: activeVault },
+      });
+      ids.push(id);
+    }
+
+    // 5c. GAS-TANK WATCHER — Phase 6
+    if (activeVault) {
+      const id = `tr-gastank-${activeVault}`;
+      addBlock({
+        id,
+        type: "gas-tank",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Gas tank",
+        subtitle: "Auto-refill SOL when this vault dips below your floor",
+        payload: { wallet: activeVault },
+      });
+      ids.push(id);
+    }
+
+    // 5d. INVOICE INBOX — Phase 6
+    if (activeVault) {
+      const id = `tr-invoices-${activeVault}`;
+      addBlock({
+        id,
+        type: "invoice-inbox",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Invoice inbox",
+        subtitle: "Bills you've received — batch them by due date",
+        payload: { wallet: activeVault },
+      });
+      ids.push(id);
+    }
+
     // 6. YIELD ROUTING
     if (activeVault && stableBalance > 0) {
       const id = `tr-yield-${activeVault}`;
