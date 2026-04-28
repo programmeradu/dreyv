@@ -76,7 +76,6 @@ function Web3ProvidersContent({ children }: { children: ReactNode }) {
   const solanaWallets = useMemo(() => [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter(),
-    new TorusWalletAdapter(),
   ], []);
 
   // Surface wallet errors to the user
