@@ -18,6 +18,7 @@ import { useDistributionFiles, parseDistributionFile, type DistributionEntry } f
 import { useVault, type RegisteredVault } from "@/lib/contexts/VaultContext";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { parseCsv, readFileAsText } from "@/lib/csv";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
@@ -1485,6 +1486,7 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   // Form state
   const [label, setLabel] = useState("");
@@ -1496,17 +1498,55 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
   const refresh = async () => {
     if (!wallet) return;
     setLoading(true);
+    setErr(null);
     try {
       const res = await fetch(`/api/treasury/recurring-payouts?wallet=${wallet}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setSchedules(json.schedules ?? []);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load schedules");
+    }
     setLoading(false);
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
 
+  const onCsv = async (file: File) => {
+    setErr(null);
+    try {
+      const text = await readFileAsText(file);
+      const { headers, rows } = parseCsv(text);
+      // Best-effort column mapping — accept (address, amount, label) in any order
+      // when headers are present, otherwise assume positional order.
+      let addrIdx = 0, amtIdx = 1, labIdx = 2;
+      if (headers) {
+        const find = (re: RegExp) => headers.findIndex((h) => re.test(h));
+        const a = find(/address|wallet|recipient|to/i);
+        const m = find(/amount|value|qty/i);
+        const l = find(/label|name|memo|note/i);
+        if (a >= 0) addrIdx = a;
+        if (m >= 0) amtIdx = m;
+        if (l >= 0) labIdx = l;
+      }
+      const lines = rows
+        .map((r) => {
+          const addr = (r[addrIdx] ?? "").trim();
+          const amt = Number(r[amtIdx]);
+          const lab = (r[labIdx] ?? "").trim();
+          if (!addr || !(amt > 0)) return null;
+          return lab ? `${addr},${amt},${lab}` : `${addr},${amt}`;
+        })
+        .filter(Boolean) as string[];
+      if (lines.length === 0) { setErr("No valid recipients found in CSV."); return; }
+      setRecipientsRaw((prev) => (prev.trim() ? prev + "\n" : "") + lines.join("\n"));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to read CSV");
+    }
+  };
+
   const submit = async () => {
-    if (!label.trim() || !recipientsRaw.trim()) return;
+    setErr(null);
+    if (!label.trim() || !recipientsRaw.trim()) { setErr("Label and recipients are required."); return; }
     setBusy("create");
     const recipients = recipientsRaw
       .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -1515,12 +1555,19 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
         return { address, amount: Number(amountRaw), label: lab || undefined };
       })
       .filter((r) => r.address && r.amount > 0);
-    await fetch("/api/treasury/recurring-payouts", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet, label, cadence, anchorDay, defaultToken, recipients }),
-    });
-    setLabel(""); setRecipientsRaw(""); setShowForm(false); setBusy(null);
-    refresh();
+    if (recipients.length === 0) { setErr("No valid recipients parsed."); setBusy(null); return; }
+    try {
+      const res = await fetch("/api/treasury/recurring-payouts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, label, cadence, anchorDay, defaultToken, recipients }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setLabel(""); setRecipientsRaw(""); setShowForm(false);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save schedule");
+    }
+    setBusy(null);
   };
 
   const action = async (id: string, action: string) => {
@@ -1546,6 +1593,9 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
         <p className="text-sm text-slate-600">Connect a wallet to schedule recurring payouts.</p>
       ) : (
         <>
+          {err && !showForm && (
+            <p className="mb-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{err}</p>
+          )}
           {loading && active.length === 0 ? (
             <p className="text-sm text-slate-500">Loading schedules…</p>
           ) : active.length === 0 ? (
@@ -1625,12 +1675,23 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
                 placeholder="address,amount,label per line"
                 className="w-full rounded-md border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px] text-slate-900 placeholder:text-slate-400"
               />
+              <div className="flex items-center justify-between gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+                  Upload CSV
+                  <input
+                    type="file" accept=".csv,text/csv,text/plain" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsv(f); e.currentTarget.value = ""; }}
+                  />
+                </label>
+                <p className="text-[10px] text-slate-400">Headers <span className="font-mono">address,amount,label</span> auto-detected</p>
+              </div>
+              {err && <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{err}</p>}
               <div className="flex items-center gap-2">
                 <button onClick={submit} disabled={busy === "create"}
                   className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                   {busy === "create" ? "Saving…" : "Save schedule"}
                 </button>
-                <button onClick={() => setShowForm(false)}
+                <button onClick={() => { setShowForm(false); setErr(null); }}
                   className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
               </div>
             </div>
@@ -1809,6 +1870,8 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
   const [vendorName, setVendorName] = useState("");
   const [payToAddress, setPayToAddress] = useState("");
@@ -1820,35 +1883,110 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
   const refresh = async () => {
     if (!wallet) return;
     setLoading(true);
+    setErr(null);
     try {
       const res = await fetch(`/api/treasury/invoices?wallet=${wallet}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setRows(json.invoices ?? []);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load invoices");
+    }
     setLoading(false);
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
 
   const submit = async () => {
-    if (!vendorName || !payToAddress || !(Number(amount) > 0)) return;
+    setErr(null);
+    if (!vendorName || !payToAddress || !(Number(amount) > 0)) { setErr("Vendor, pay-to address and amount are required."); return; }
     setBusy("create");
-    await fetch("/api/treasury/invoices", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet, vendorName, payToAddress, amount: Number(amount), token, memo: memo || null, dueAt: dueAt || null }),
-    });
-    setVendorName(""); setPayToAddress(""); setAmount(""); setMemo(""); setDueAt("");
-    setShowForm(false); setBusy(null); refresh();
+    try {
+      const res = await fetch("/api/treasury/invoices", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, vendorName, payToAddress, amount: Number(amount), token, memo: memo || null, dueAt: dueAt || null }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setVendorName(""); setPayToAddress(""); setAmount(""); setMemo(""); setDueAt("");
+      setShowForm(false);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save invoice");
+    }
+    setBusy(null);
+  };
+
+  const onCsv = async (file: File) => {
+    setErr(null); setBulkMsg(null);
+    try {
+      const text = await readFileAsText(file);
+      const { headers, rows: parsed } = parseCsv(text);
+      let vIdx = 0, addrIdx = 1, amtIdx = 2, tokIdx = 3, dueIdx = 4, memoIdx = 5;
+      if (headers) {
+        const find = (re: RegExp) => headers.findIndex((h) => re.test(h));
+        const v = find(/vendor|name|payee/i);
+        const a = find(/address|wallet|pay.?to|recipient/i);
+        const m = find(/amount|value/i);
+        const t = find(/token|asset|currency/i);
+        const d = find(/due|date/i);
+        const me = find(/memo|note|desc/i);
+        if (v >= 0) vIdx = v;
+        if (a >= 0) addrIdx = a;
+        if (m >= 0) amtIdx = m;
+        if (t >= 0) tokIdx = t;
+        if (d >= 0) dueIdx = d;
+        if (me >= 0) memoIdx = me;
+      }
+      const invoices = parsed
+        .map((r) => {
+          const vendor = (r[vIdx] ?? "").trim();
+          const addr = (r[addrIdx] ?? "").trim();
+          const amt = Number(r[amtIdx]);
+          const tok = (r[tokIdx] ?? "USDC").trim().toUpperCase() || "USDC";
+          const due = (r[dueIdx] ?? "").trim();
+          const me = (r[memoIdx] ?? "").trim();
+          if (!vendor || !addr || !(amt > 0)) return null;
+          return {
+            wallet, vendorName: vendor, payToAddress: addr, amount: amt,
+            token: tok, memo: me || null,
+            dueAt: due ? new Date(due).toISOString() : null,
+          };
+        })
+        .filter(Boolean) as Array<Record<string, unknown>>;
+      if (invoices.length === 0) { setErr("No valid invoices found in CSV."); return; }
+      setBusy("bulk");
+      let ok = 0, failed = 0;
+      for (const inv of invoices) {
+        try {
+          const res = await fetch("/api/treasury/invoices", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(inv),
+          });
+          if (res.ok) ok++; else failed++;
+        } catch { failed++; }
+      }
+      setBusy(null);
+      setBulkMsg(`Imported ${ok}${failed ? ` · ${failed} failed` : ""}`);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to read CSV");
+      setBusy(null);
+    }
   };
 
   const action = async (id: string, a: string) => {
     setBusy(id);
-    if (a === "delete") {
-      await fetch(`/api/treasury/invoices?id=${id}`, { method: "DELETE" });
-    } else {
-      await fetch("/api/treasury/invoices", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action: a }),
-      });
+    setErr(null);
+    try {
+      if (a === "delete") {
+        await fetch(`/api/treasury/invoices?id=${id}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/treasury/invoices", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, action: a }),
+        });
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Action failed");
     }
     setBusy(null); refresh();
   };
@@ -1861,6 +1999,11 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
         <p className="text-sm text-slate-600">Connect a wallet to track invoices.</p>
       ) : (
         <>
+          {(err || bulkMsg) && (
+            <p className={`mb-2 rounded-md px-2 py-1 text-[11px] ${err ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-violet-200 bg-violet-50 text-violet-800"}`}>
+              {err ?? bulkMsg}
+            </p>
+          )}
           {loading && open.length === 0 ? (
             <p className="text-sm text-slate-500">Loading invoices…</p>
           ) : open.length === 0 ? (
@@ -1903,11 +2046,21 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
             </ul>
           )}
 
-          {!showForm ? (
-            <button onClick={() => setShowForm(true)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900">
-              + Add invoice
-            </button>
-          ) : (
+          <div className="mt-3 flex items-center gap-2">
+            {!showForm && (
+              <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900">
+                + Add invoice
+              </button>
+            )}
+            <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+              {busy === "bulk" ? "Importing…" : "Import CSV"}
+              <input
+                type="file" accept=".csv,text/csv,text/plain" className="hidden" disabled={busy === "bulk"}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsv(f); e.currentTarget.value = ""; }}
+              />
+            </label>
+          </div>
+          {showForm && (
             <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <input value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Vendor"
@@ -1934,7 +2087,7 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
                   className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                   {busy === "create" ? "Saving…" : "Save invoice"}
                 </button>
-                <button onClick={() => setShowForm(false)} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+                <button onClick={() => { setShowForm(false); setErr(null); }} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
               </div>
             </div>
           )}
