@@ -77,21 +77,21 @@ export function BlockShell({
         }}
       />
       <div className="relative flex items-stretch">
-        <div className="flex-1 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
+        <div className="flex-1 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
                 <span>{SOURCE_LABEL[block.source]}</span>
                 <span className="text-slate-300">·</span>
                 <span>{ago}</span>
                 {block.origin && (
                   <>
-                    <span className="text-slate-300">·</span>
-                    <span className="truncate">{block.origin}</span>
+                    <span className="hidden text-slate-300 sm:inline">·</span>
+                    <span className="hidden truncate sm:inline">{block.origin}</span>
                   </>
                 )}
               </div>
-              <h3 className="mt-1 truncate text-base font-semibold tracking-tight text-slate-900">
+              <h3 className="mt-1 break-words text-base font-semibold tracking-tight text-slate-900">
                 {block.title}
               </h3>
               {block.subtitle && (

@@ -94,10 +94,10 @@ export default function TreasuryPage() {
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="right-[-160px] top-[-200px]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <Link href="/app" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-violet-700">
           <ArrowLeft className="h-3.5 w-3.5" />
-          Home
+          <span className="hidden sm:inline">Home</span>
         </Link>
         <Link href="/app" className="rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500/40" aria-label="dreyv home">
           <span className={cn(wordmark.className, "text-lg font-semibold tracking-tight text-violet-700 lowercase leading-none antialiased")}>dreyv</span>
@@ -106,17 +106,17 @@ export default function TreasuryPage() {
       </header>
 
       {/* HERO — compact */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-2">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-2 sm:px-6">
         <StreamIn className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">A clear picture, nothing more.</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">A clear picture, nothing more.</h1>
           <p className="max-w-xl text-sm text-slate-600">
             What you own, who can move it, and where it could be working a little harder. Ask Dreyv anything below — the canvas fills in.
           </p>
         </StreamIn>
 
         <StreamIn delay={0.1} className="mt-5 grid gap-4 md:grid-cols-[1.05fr_1fr]">
-          <Surface glow className="p-5">
+          <Surface glow className="p-4 sm:p-5">
             <HeadlineValue
               label="Total value"
               value={vaultValue}
@@ -126,10 +126,10 @@ export default function TreasuryPage() {
                   : undefined
               }
             />
-            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-violet-100 pt-4">
+            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-violet-100 pt-4 sm:gap-3">
               <SmallStat label="Assets" value={holdings.length} />
               <SmallStat label="24h change" value={vaultChange24h} suffix="%" decimals={2} signed />
-              <SmallStat label="Largest position" text={holdings[0]?.label ?? "—"} />
+              <SmallStat label="Largest" text={holdings[0]?.label ?? "—"} />
             </div>
           </Surface>
 
@@ -139,14 +139,14 @@ export default function TreasuryPage() {
 
       {/* PULSE — empty/connect state if no vault */}
       {!activeVault && (
-        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-6">
-          <Surface className="p-5 text-center">
+        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+          <Surface className="p-4 text-center sm:p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Get started</p>
             <h2 className="mt-1.5 text-lg font-semibold tracking-tight">Connect a treasury to begin</h2>
             <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
               Link a Phantom wallet, a Squads multisig, or paste any address to watch — Dreyv will populate everything below.
             </p>
-            <div className="mt-3 flex justify-center gap-2">
+            <div className="mt-3 flex flex-col justify-center gap-2 sm:flex-row">
               <button
                 onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
                 className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700"
@@ -165,7 +165,7 @@ export default function TreasuryPage() {
       )}
 
       {/* CANVAS STREAM — generative bucket surface */}
-      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-6 pb-32">
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-32 sm:px-6">
         <SectionHeader
           eyebrow="Live canvas"
           title="Everything Dreyv is watching for you"
