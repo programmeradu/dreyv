@@ -198,6 +198,7 @@ function TreasuryBlockSeeder({
   activeVault,
   vaultTokens,
   vaultValue,
+  vaultChange24h,
   stableBalance,
   vaultConfig,
   isMultisig,
@@ -206,6 +207,7 @@ function TreasuryBlockSeeder({
   activeVault: string | null;
   vaultTokens: any[];
   vaultValue: number | null;
+  vaultChange24h: number | null;
   stableBalance: number;
   vaultConfig: { threshold: number; members: number } | null;
   isMultisig: boolean;
