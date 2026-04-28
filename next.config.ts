@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
             value: "strict-origin-when-cross-origin",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // Allow Phantom embedded wallet iframe (Track A of Phantom SDK migration)
+          {
+            key: "Content-Security-Policy",
+            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app;",
+          },
         ],
       },
     ];
