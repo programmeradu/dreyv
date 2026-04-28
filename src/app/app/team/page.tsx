@@ -40,6 +40,7 @@ import { useSearchParams } from "next/navigation";
 import { useTeam } from "@/lib/hooks/useTeam";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 import { PendingInvitationsPanel } from "@/components/team/PendingInvitationsPanel";
+import { CreateVaultFromTeamModal } from "@/components/team/CreateVaultFromTeamModal";
 import {
     AmbientGlow,
     Surface,
