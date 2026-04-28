@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { User, Shield, Key, Fingerprint, Award, Wallet, Package, Store, Pencil, Check, RefreshCw, Loader2, Mail, X } from "lucide-react";
 import { Logo } from "@/components/icons";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@/lib/wallet/compat";
+import { useWalletModal } from "@/lib/wallet/compat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast-notifications";

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { PublicKey, VersionedTransaction } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { ExecutionStatus, StrategyType } from "@/lib/agents/types";
 import { notify } from "@/lib/notifications";
 

@@ -7,7 +7,7 @@
  * pause/resume/cancel actions. Wired to /api/dacs/subagents.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Bot, Pause, Play, X, Loader2, Clock } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 

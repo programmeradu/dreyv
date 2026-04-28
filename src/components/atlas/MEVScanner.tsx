@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
+import { useConnection } from "@/lib/wallet/compat";
 import {
   VersionedTransaction,
   LAMPORTS_PER_SOL,

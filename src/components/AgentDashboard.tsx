@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentExecutor } from "@/components/AgentExecutor";

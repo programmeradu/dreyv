@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { getInstalledApps } from "@/actions/studio-actions";
 import { useSelf } from "@/liveblocks.config";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

@@ -8,7 +8,7 @@
  * /api/dacs/handoffs.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Network, Loader2, CheckCircle2, XCircle, Clock, PauseCircle } from "lucide-react";
 
 interface HandoffRow {

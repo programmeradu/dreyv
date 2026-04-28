@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { SquadsClient } from "@/lib/squads";
 import { useBroadcastEvent, useEventListener } from "@/liveblocks.config";
 import { AppEventBus } from "@/lib/events";

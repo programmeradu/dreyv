@@ -37,7 +37,7 @@ import { StudioHeader } from "@/components/studio/StudioHeader";
 import { useStudioCapabilities } from "@/lib/studio/use-capabilities";
 import { buildPreviewHtml } from "@/lib/studio/preview-html";
 import { useSearchParams } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { TemplateGallery } from "@/components/studio/TemplateGallery";
 import { SDKReferencePanel } from "@/components/studio/SDKReferencePanel";
 import { CommandPalette, type PaletteCommand } from "@/components/studio/CommandPalette";

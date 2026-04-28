@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Sparkles, Check, X, Loader2, TrendingUp, Plus, ShieldOff, ArrowDown } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 

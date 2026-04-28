@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Shield, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { WalletButton } from "@/components/WalletButton";
 

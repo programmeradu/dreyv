@@ -7,7 +7,7 @@
  * lists + dynamic-write opt-in. Reads/writes /api/dacs/policy.
  */
 import React, { useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { Shield, Loader2, Check, AlertTriangle } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 

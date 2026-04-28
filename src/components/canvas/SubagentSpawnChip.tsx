@@ -14,7 +14,7 @@
  */
 
 import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import type { CanvasBlock } from "@/lib/canvas/types";
 import { cn } from "@/lib/utils";
 

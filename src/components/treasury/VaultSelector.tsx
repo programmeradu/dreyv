@@ -6,7 +6,7 @@ import { Shield, Eye, ChevronDown, Unplug, ExternalLink, Copy, Check } from "luc
 import { useVault } from "@/lib/contexts/VaultContext";
 import { toast } from "@/lib/toast-notifications";
 import { SquadsClient } from "@/lib/squads";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { PublicKey } from "@solana/web3.js";
 
 export function VaultSelector() {

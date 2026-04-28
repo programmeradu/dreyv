@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 import { useWalletTransaction } from "@/hooks/use-wallet-transaction";
 import { WalletSigningDialog } from "@/components/WalletSigningDialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
