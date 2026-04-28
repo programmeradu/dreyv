@@ -51,7 +51,13 @@ export function useSquadsMultisig(vaultAddress: string) {
             AppEventBus.emit("UI_NOTIFICATION", {
                 message: ` ${event.payload.signer} just signed Proposal #${event.payload.proposalId}`,
             });
-            fetchProposals(); // Refresh to show new signature count
+            fetchProposals();
+        }
+        if (event.type === "PROPOSAL_REJECTED") {
+            AppEventBus.emit("UI_NOTIFICATION", {
+                message: ` ${event.payload.signer} rejected Proposal #${event.payload.proposalId}`,
+            });
+            fetchProposals();
         }
     });
 
