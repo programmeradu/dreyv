@@ -40,6 +40,7 @@ import { useSearchParams } from "next/navigation";
 import { useTeam } from "@/lib/hooks/useTeam";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 import { PendingInvitationsPanel } from "@/components/team/PendingInvitationsPanel";
+import { CreateVaultFromTeamModal } from "@/components/team/CreateVaultFromTeamModal";
 import {
     AmbientGlow,
     Surface,
@@ -398,6 +399,7 @@ export default function TeamPage() {
     const vaultAddress = activeVault || "";
 
     const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+    const [vaultWizardOpen, setVaultWizardOpen] = useState(false);
     const logRef = useRef<HTMLDivElement>(null);
 
     const appendLog = useCallback((entry: Omit<LogEntry, "time">) => {
@@ -605,15 +607,21 @@ export default function TeamPage() {
 
                     {/* Right column: war room + quorum + chat */}
                     <div className="space-y-6">
-                        {!activeVault && (
+                        {!activeVault && activeTeam && (
                             <Surface className="p-7 text-center">
                                 <Shield className="mx-auto h-8 w-8 text-violet-500" />
                                 <p className="mt-3 text-sm font-medium text-slate-900">
                                     No vault connected
                                 </p>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Connect a vault from the sidebar to unlock the War Room.
+                                    Deploy a Squads multisig for {activeTeam.teamName} to unlock the War Room.
                                 </p>
+                                <button
+                                    onClick={() => setVaultWizardOpen(true)}
+                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                                >
+                                    <Shield className="h-4 w-4" /> Create vault
+                                </button>
                             </Surface>
                         )}
 
@@ -640,6 +648,14 @@ export default function TeamPage() {
                     </div>
                 </div>
             </section>
+            {activeTeam && (
+                <CreateVaultFromTeamModal
+                    open={vaultWizardOpen}
+                    onOpenChange={setVaultWizardOpen}
+                    teamId={activeTeam.teamId}
+                    teamName={activeTeam.teamName}
+                />
+            )}
         </div>
     );
 }

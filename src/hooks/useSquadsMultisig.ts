@@ -17,17 +17,27 @@ export function useSquadsMultisig(vaultAddress: string) {
         if (!vaultAddress) return;
         setLoading(true);
         try {
-            // Use backend proxy to avoid client-side RPC 429 errors
-            const res = await fetch(`/api/squads/proposals?vault=${encodeURIComponent(vaultAddress)}`);
-            if (res.ok) {
-                const data = await res.json();
-                setProposals(data);
-            } else {
-                // Fallback to direct client call if proxy is unavailable
-                const client = new SquadsClient(connection, wallet);
-                const data = await client.getProposals(vaultAddress);
-                setProposals(data);
+            // Prefer mirror cache (DB) for instant render, no RPC hit.
+            const mirrorRes = await fetch(`/api/squads/proposals/sync?vault=${encodeURIComponent(vaultAddress)}`);
+            if (mirrorRes.ok) {
+                const data = await mirrorRes.json();
+                if (Array.isArray(data?.proposals) && data.proposals.length > 0) {
+                    setProposals(data.proposals);
+                }
             }
+            // Then trigger background sync from chain → mirror.
+            fetch(`/api/squads/proposals/sync`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vaultAddress }),
+            }).then(async (r) => {
+                if (!r.ok) return;
+                const refreshed = await fetch(`/api/squads/proposals/sync?vault=${encodeURIComponent(vaultAddress)}`);
+                if (refreshed.ok) {
+                    const d = await refreshed.json();
+                    if (Array.isArray(d?.proposals)) setProposals(d.proposals);
+                }
+            }).catch(() => {});
         } catch (error) {
             console.error("Failed to fetch proposals", error);
         } finally {
