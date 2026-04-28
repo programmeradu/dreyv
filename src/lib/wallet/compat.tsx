@@ -212,3 +212,6 @@ export function useWalletModal(): {
 // --------------------------------------------------------------------------
 
 export { useConnect, useDisconnect, usePhantom, useSolana };
+
+
+export type WalletContextState = WalletAdapterShape;
