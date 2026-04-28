@@ -1593,6 +1593,9 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
         <p className="text-sm text-slate-600">Connect a wallet to schedule recurring payouts.</p>
       ) : (
         <>
+          {err && !showForm && (
+            <p className="mb-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{err}</p>
+          )}
           {loading && active.length === 0 ? (
             <p className="text-sm text-slate-500">Loading schedules…</p>
           ) : active.length === 0 ? (
