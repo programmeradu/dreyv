@@ -648,6 +648,14 @@ export default function TeamPage() {
                     </div>
                 </div>
             </section>
+            {activeTeam && (
+                <CreateVaultFromTeamModal
+                    open={vaultWizardOpen}
+                    onOpenChange={setVaultWizardOpen}
+                    teamId={activeTeam.teamId}
+                    teamName={activeTeam.teamName}
+                />
+            )}
         </div>
     );
 }
