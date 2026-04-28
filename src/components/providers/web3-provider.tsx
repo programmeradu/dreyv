@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { mainnet, base, arbitrum, polygon, bsc } from "viem/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -70,6 +70,27 @@ export function Web3Providers({ children }: { children: ReactNode }) {
 function Web3ProvidersContent({ children }: { children: ReactNode }) {
   const { endpoint } = useNetwork();
   const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
+
+  // Initialize Phantom embedded wallet (Track A: Wallet Standard auto-discovery).
+  // Adds Google/Apple/email onboarding alongside extension wallets without touching
+  // any existing useWallet() callsites.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { createPhantom } = await import("@phantom/wallet-sdk");
+        if (cancelled) return;
+        await createPhantom({
+          namespace: "dreyv",
+          hideLauncherBeforeOnboarded: true,
+          zIndex: 10_000,
+        });
+      } catch (err) {
+        console.warn("[Phantom embedded] init skipped:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Memoize wallet adapters to prevent re-instantiation on every render
   // Phantom adapter explicit; Backpack auto-registers via Wallet Standard inside WalletProvider
