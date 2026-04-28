@@ -178,7 +178,8 @@ function AppLayoutWithRoom({ children }: { children: React.ReactNode }) {
             initialPresence={{ cursor: null }}
             initialStorage={{
                 teamNotes: "",
-                chatMessages: new LiveList([])
+                chatMessages: new LiveList([]),
+                proposalThreads: new LiveMap(),
             }}
         >
             <AppLayoutContent>{children}</AppLayoutContent>
