@@ -18,7 +18,7 @@ let _liveblocks: Liveblocks | null = null;
 function getLiveblocks() {
     if (!_liveblocks) {
         const secret = process.env.LIVEBLOCKS_SECRET_KEY;
-        if (!secret) throw new Error("LIVEBLOCKS_SECRET_KEY is not set");
+        if (!secret) return null;
         _liveblocks = new Liveblocks({ secret });
     }
     return _liveblocks;
