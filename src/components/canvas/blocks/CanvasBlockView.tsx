@@ -1870,6 +1870,8 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
   const [vendorName, setVendorName] = useState("");
   const [payToAddress, setPayToAddress] = useState("");
@@ -1881,35 +1883,110 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
   const refresh = async () => {
     if (!wallet) return;
     setLoading(true);
+    setErr(null);
     try {
       const res = await fetch(`/api/treasury/invoices?wallet=${wallet}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setRows(json.invoices ?? []);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load invoices");
+    }
     setLoading(false);
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
 
   const submit = async () => {
-    if (!vendorName || !payToAddress || !(Number(amount) > 0)) return;
+    setErr(null);
+    if (!vendorName || !payToAddress || !(Number(amount) > 0)) { setErr("Vendor, pay-to address and amount are required."); return; }
     setBusy("create");
-    await fetch("/api/treasury/invoices", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet, vendorName, payToAddress, amount: Number(amount), token, memo: memo || null, dueAt: dueAt || null }),
-    });
-    setVendorName(""); setPayToAddress(""); setAmount(""); setMemo(""); setDueAt("");
-    setShowForm(false); setBusy(null); refresh();
+    try {
+      const res = await fetch("/api/treasury/invoices", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, vendorName, payToAddress, amount: Number(amount), token, memo: memo || null, dueAt: dueAt || null }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setVendorName(""); setPayToAddress(""); setAmount(""); setMemo(""); setDueAt("");
+      setShowForm(false);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save invoice");
+    }
+    setBusy(null);
+  };
+
+  const onCsv = async (file: File) => {
+    setErr(null); setBulkMsg(null);
+    try {
+      const text = await readFileAsText(file);
+      const { headers, rows: parsed } = parseCsv(text);
+      let vIdx = 0, addrIdx = 1, amtIdx = 2, tokIdx = 3, dueIdx = 4, memoIdx = 5;
+      if (headers) {
+        const find = (re: RegExp) => headers.findIndex((h) => re.test(h));
+        const v = find(/vendor|name|payee/i);
+        const a = find(/address|wallet|pay.?to|recipient/i);
+        const m = find(/amount|value/i);
+        const t = find(/token|asset|currency/i);
+        const d = find(/due|date/i);
+        const me = find(/memo|note|desc/i);
+        if (v >= 0) vIdx = v;
+        if (a >= 0) addrIdx = a;
+        if (m >= 0) amtIdx = m;
+        if (t >= 0) tokIdx = t;
+        if (d >= 0) dueIdx = d;
+        if (me >= 0) memoIdx = me;
+      }
+      const invoices = parsed
+        .map((r) => {
+          const vendor = (r[vIdx] ?? "").trim();
+          const addr = (r[addrIdx] ?? "").trim();
+          const amt = Number(r[amtIdx]);
+          const tok = (r[tokIdx] ?? "USDC").trim().toUpperCase() || "USDC";
+          const due = (r[dueIdx] ?? "").trim();
+          const me = (r[memoIdx] ?? "").trim();
+          if (!vendor || !addr || !(amt > 0)) return null;
+          return {
+            wallet, vendorName: vendor, payToAddress: addr, amount: amt,
+            token: tok, memo: me || null,
+            dueAt: due ? new Date(due).toISOString() : null,
+          };
+        })
+        .filter(Boolean) as Array<Record<string, unknown>>;
+      if (invoices.length === 0) { setErr("No valid invoices found in CSV."); return; }
+      setBusy("bulk");
+      let ok = 0, failed = 0;
+      for (const inv of invoices) {
+        try {
+          const res = await fetch("/api/treasury/invoices", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(inv),
+          });
+          if (res.ok) ok++; else failed++;
+        } catch { failed++; }
+      }
+      setBusy(null);
+      setBulkMsg(`Imported ${ok}${failed ? ` · ${failed} failed` : ""}`);
+      refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to read CSV");
+      setBusy(null);
+    }
   };
 
   const action = async (id: string, a: string) => {
     setBusy(id);
-    if (a === "delete") {
-      await fetch(`/api/treasury/invoices?id=${id}`, { method: "DELETE" });
-    } else {
-      await fetch("/api/treasury/invoices", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action: a }),
-      });
+    setErr(null);
+    try {
+      if (a === "delete") {
+        await fetch(`/api/treasury/invoices?id=${id}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/treasury/invoices", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, action: a }),
+        });
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Action failed");
     }
     setBusy(null); refresh();
   };
