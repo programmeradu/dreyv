@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useWallet } from '@/lib/wallet/compat';
+import { useWalletModal } from '@/lib/wallet/compat';
 import { 
   Connection, 
   VersionedTransaction, 
