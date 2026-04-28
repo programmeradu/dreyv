@@ -153,6 +153,12 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <GasTankBlock block={block} />;
     case "invoice-inbox":
       return <InvoiceInboxBlock block={block} />;
+    case "yield-routing":
+      return <YieldRoutingBlock block={block} />;
+    case "reports-share":
+      return <ReportsShareBlock block={block} />;
+    case "wallet-security":
+      return <WalletSecurityBlock block={block} />;
     default:
       return null;
   }
