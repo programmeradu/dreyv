@@ -19,6 +19,7 @@ import { useVault, type RegisteredVault } from "@/lib/contexts/VaultContext";
 import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
 import { parseCsv, readFileAsText } from "@/lib/csv";
+import { ForesightWhatIfBlock } from "./ForesightWhatIfBlock";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
@@ -160,6 +161,8 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
       return <ReportsShareBlock block={block} />;
     case "wallet-security":
       return <WalletSecurityBlock block={block} />;
+    case "foresight-whatif":
+      return <ForesightWhatIfBlock block={block} />;
     default:
       return null;
   }

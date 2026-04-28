@@ -306,7 +306,22 @@ function TreasuryBlockSeeder({
       ids.push(id);
     }
 
-    // 4. MASS SEND-OUTS
+    // 3b. FORESIGHT WHAT-IF — Phase 14 Monte Carlo + LLM narrative
+    if (activeVault) {
+      const id = `tr-foresight-${activeVault}`;
+      addBlock({
+        id,
+        type: "foresight-whatif",
+        source: "page",
+        origin: "/app/treasury",
+        title: "Foresight · what-if simulator",
+        subtitle: "Drag the levers — see 200 Monte Carlo paths and an AI read-out",
+        payload: { wallet: activeVault, timeframeMonths: 12 },
+        pinned: true,
+      });
+      ids.push(id);
+    }
+
     if (activeVault) {
       const id = `tr-masssend-${activeVault}`;
       addBlock({

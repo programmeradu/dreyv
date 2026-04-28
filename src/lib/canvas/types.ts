@@ -35,6 +35,7 @@ export type CanvasBlockType =
   | "yield-routing"
   | "reports-share"
   | "wallet-security"
+  | "foresight-whatif"
   | "empty-bucket";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {
