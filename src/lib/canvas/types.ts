@@ -32,6 +32,9 @@ export type CanvasBlockType =
   | "recurring-payouts"
   | "gas-tank"
   | "invoice-inbox"
+  | "yield-routing"
+  | "reports-share"
+  | "wallet-security"
   | "empty-bucket";
 
 export interface CanvasBlockBase<T extends CanvasBlockType = CanvasBlockType> {
