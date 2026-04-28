@@ -1,7 +1,7 @@
 "use client";
 
 import { RoomProvider } from "@/liveblocks.config";
-import { LiveList } from "@liveblocks/client";
+import { LiveList, LiveMap } from "@liveblocks/client";
 import { LiveCursors } from "@/components/LiveCursors";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
@@ -178,7 +178,8 @@ function AppLayoutWithRoom({ children }: { children: React.ReactNode }) {
             initialPresence={{ cursor: null }}
             initialStorage={{
                 teamNotes: "",
-                chatMessages: new LiveList([])
+                chatMessages: new LiveList([]),
+                proposalThreads: new LiveMap(),
             }}
         >
             <AppLayoutContent>{children}</AppLayoutContent>

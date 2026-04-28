@@ -41,6 +41,7 @@ import { useTeam } from "@/lib/hooks/useTeam";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 import { PendingInvitationsPanel } from "@/components/team/PendingInvitationsPanel";
 import { CreateVaultFromTeamModal } from "@/components/team/CreateVaultFromTeamModal";
+import { ProposalThread } from "@/components/team/ProposalThread";
 import {
     AmbientGlow,
     Surface,
@@ -211,8 +212,9 @@ function ActivityRow({ user, action, target, time }: LogEntry) {
 
 // ─── War Room (live proposals) ──────────────────────────────────────
 function WarRoom({ vaultAddress }: { vaultAddress: string }) {
-    const { proposals, loading, signProposal, executeProposal } = useSquadsMultisig(vaultAddress);
+    const { proposals, loading, signProposal, rejectProposal, executeProposal } = useSquadsMultisig(vaultAddress);
     const broadcast = useBroadcastEvent();
+    const others = useOthers();
     const [simulating, setSimulating] = useState<number | null>(null);
 
     useEventListener(({ event }) => {
@@ -250,7 +252,7 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                 </div>
                 <span className="flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
                     <Radio className="h-3 w-3" />
-                    Live
+                    {others.length + 1} live
                 </span>
             </div>
 
@@ -259,7 +261,7 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                     <p className="rounded-xl border border-dashed border-violet-200 bg-violet-50/30 p-4 text-sm text-slate-500">
                         Connect a vault from the sidebar to see live proposals.
                     </p>
-                ) : loading ? (
+                ) : loading && proposals.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-violet-600">
                         <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
@@ -269,11 +271,21 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                     </p>
                 ) : (
                     proposals.map((p: any) => {
-                        const ratio = p.threshold > 0 ? p.signatures / p.threshold : 0;
-                        const ready = p.signatures >= p.threshold;
+                        // Support both mirror shape (approvals/transactionIndex) and legacy chain shape (signatures/index)
+                        const txIndex = Number(p.transactionIndex ?? p.index ?? 0);
+                        const approvals = Number(p.approvals ?? p.signatures ?? 0);
+                        const rejections = Number(p.rejections ?? 0);
+                        const threshold = Number(p.threshold ?? 1);
+                        const status = String(p.status ?? "Active");
+                        const ratio = threshold > 0 ? approvals / threshold : 0;
+                        const ready = approvals >= threshold;
+                        const executed = status === "Executed";
+                        const cancelled = status === "Cancelled" || status === "Rejected";
+                        const approvedBy: string[] = Array.isArray(p.approvedBy) ? p.approvedBy : [];
+                        const rejectedBy: string[] = Array.isArray(p.rejectedBy) ? p.rejectedBy : [];
                         return (
                             <motion.div
-                                key={p.index}
+                                key={txIndex}
                                 layout
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -281,10 +293,13 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                             >
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-semibold text-slate-900">
-                                        Proposal #{p.index}
+                                        Proposal #{txIndex}
+                                        {p.summary && (
+                                            <span className="ml-2 font-normal text-slate-500">— {p.summary}</span>
+                                        )}
                                     </span>
-                                    <Pill tone={ready ? "emerald" : p.status === "Active" ? "violet" : "amber"}>
-                                        {p.status}
+                                    <Pill tone={executed ? "emerald" : cancelled ? "amber" : ready ? "emerald" : "violet"}>
+                                        {status}
                                     </Pill>
                                 </div>
 
@@ -296,37 +311,69 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                                         />
                                     </div>
                                     <span className="text-xs font-semibold tabular-nums text-violet-700">
-                                        {p.signatures}/{p.threshold}
+                                        {approvals}/{threshold}
                                     </span>
-                                </div>
-
-                                <div className="mt-3 flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleSimulate(p.index)}
-                                        disabled={simulating === p.index}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50"
-                                    >
-                                        <Play className={`h-3 w-3 ${simulating === p.index ? "animate-pulse" : ""}`} />
-                                        {simulating === p.index ? "Simulating…" : "Simulate"}
-                                    </button>
-                                    {ready ? (
-                                        <button
-                                            onClick={() => executeProposal(p.index)}
-                                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-600"
-                                        >
-                                            <Zap className="h-3 w-3" />
-                                            Execute
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => signProposal(p.index)}
-                                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
-                                        >
-                                            <CheckCircle2 className="h-3 w-3" />
-                                            Sign
-                                        </button>
+                                    {rejections > 0 && (
+                                        <span className="text-xs font-semibold tabular-nums text-red-600">
+                                            ✕ {rejections}
+                                        </span>
                                     )}
                                 </div>
+
+                                {(approvedBy.length > 0 || rejectedBy.length > 0) && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        {approvedBy.map((s) => (
+                                            <span key={`a-${s}`} className="rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[10px] text-violet-700">
+                                                ✓ {s.slice(0, 4)}…{s.slice(-4)}
+                                            </span>
+                                        ))}
+                                        {rejectedBy.map((s) => (
+                                            <span key={`r-${s}`} className="rounded-full bg-red-50 px-2 py-0.5 font-mono text-[10px] text-red-700">
+                                                ✕ {s.slice(0, 4)}…{s.slice(-4)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {!executed && !cancelled && (
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleSimulate(txIndex)}
+                                            disabled={simulating === txIndex}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50"
+                                        >
+                                            <Play className={`h-3 w-3 ${simulating === txIndex ? "animate-pulse" : ""}`} />
+                                            {simulating === txIndex ? "Simulating…" : "Simulate"}
+                                        </button>
+                                        {ready ? (
+                                            <button
+                                                onClick={() => executeProposal(txIndex)}
+                                                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
+                                            >
+                                                <Zap className="h-3 w-3" />
+                                                Execute
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => signProposal(txIndex)}
+                                                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
+                                                >
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    onClick={() => rejectProposal(txIndex)}
+                                                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+                                <ProposalThread vaultAddress={vaultAddress} transactionIndex={txIndex} />
                             </motion.div>
                         );
                     })

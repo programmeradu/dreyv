@@ -51,7 +51,13 @@ export function useSquadsMultisig(vaultAddress: string) {
             AppEventBus.emit("UI_NOTIFICATION", {
                 message: ` ${event.payload.signer} just signed Proposal #${event.payload.proposalId}`,
             });
-            fetchProposals(); // Refresh to show new signature count
+            fetchProposals();
+        }
+        if (event.type === "PROPOSAL_REJECTED") {
+            AppEventBus.emit("UI_NOTIFICATION", {
+                message: ` ${event.payload.signer} rejected Proposal #${event.payload.proposalId}`,
+            });
+            fetchProposals();
         }
     });
 
@@ -106,6 +112,23 @@ export function useSquadsMultisig(vaultAddress: string) {
         }
     };
 
+    const rejectProposal = async (proposalId: number) => {
+        if (!wallet.publicKey) return;
+        try {
+            const client = new SquadsClient(connection, wallet);
+            const sig = await client.voteOnProposal(vaultAddress, proposalId, "Reject");
+            broadcast({
+                type: "PROPOSAL_REJECTED",
+                payload: { proposalId, signer: wallet.publicKey.toBase58().substring(0, 4) + "..." },
+            });
+            AppEventBus.emit("UI_NOTIFICATION", { message: "You rejected the proposal." });
+            await fetchProposals();
+            return sig;
+        } catch (e) {
+            console.error("Reject failed", e);
+        }
+    };
+
     useEffect(() => {
         fetchProposals();
     }, [vaultAddress]);
@@ -115,6 +138,7 @@ export function useSquadsMultisig(vaultAddress: string) {
         loading,
         refresh: fetchProposals,
         signProposal,
+        rejectProposal,
         executeProposal,
     };
 }
