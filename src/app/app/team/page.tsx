@@ -616,6 +616,21 @@ export default function TeamPage() {
                                     : `${others.length + 1} online now`}
                         </span>
                     </div>
+
+                    {activeTeam && !activeVault && (
+                        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50/60 px-4 py-3">
+                            <Shield className="h-4 w-4 text-violet-600" />
+                            <p className="text-sm text-slate-700">
+                                <span className="font-semibold text-slate-900">{activeTeam.teamName}</span> doesn’t have a vault yet — deploy a Squads multisig to enable co-signed transactions.
+                            </p>
+                            <button
+                                onClick={() => setVaultWizardOpen(true)}
+                                className="ml-auto inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                            >
+                                Create team vault <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    )}
                 </StreamIn>
             </section>
 
