@@ -27,6 +27,7 @@ import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
 import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
+import { AreWeOkHero } from "@/components/analytics/AreWeOkHero";
 
 function fmtCompact(n: number): string {
   const abs = Math.abs(n);
@@ -100,6 +101,26 @@ export default function AnalyticsPage() {
             Real snapshots of your treasury, real attribution of every dollar in or out, and 200 forward simulations of where the next year could land.
           </p>
         </StreamIn>
+      </section>
+
+      {/* ── Are we OK? composite verdict ──────────────────────────── */}
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+        <AreWeOkHero
+          activeVault={activeVault ?? null}
+          vaultValue={vaultValue ?? null}
+          vaultTokens={vaultTokens ?? []}
+          attribution={aggregates}
+          snapshotStats={snapshots?.stats ?? null}
+          foresight={foresight?.summary
+            ? {
+                depletionProbability: foresight.summary.depletionProbability,
+                medianDepletionMonths: foresight.summary.medianDepletionMonths,
+              }
+            : null}
+          asOf={snapshots?.snapshots?.length
+            ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
+            : null}
+        />
       </section>
 
       {/* ── Growth: real snapshots ─────────────────────────────────── */}
