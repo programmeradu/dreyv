@@ -26,11 +26,17 @@ export function AmbientGlow({ className }: { className?: string }) {
   );
 }
 
-/** Soft violet card surface used everywhere in the new shell. */
+/**
+ * Flat surface card. No shadows, no blur, no gradients, no ring.
+ * Cards lie flat on the page background — borders only.
+ *
+ * `glow` is kept as a no-op for prop compatibility; it intentionally
+ * adds NO visual effect (per analytics design rules: flat only).
+ */
 export function Surface({
   children,
   className,
-  glow = false,
+  glow: _glow = false,
 }: {
   children: ReactNode;
   className?: string;
@@ -39,18 +45,10 @@ export function Surface({
   return (
     <div
       className={cn(
-        "relative rounded-3xl border border-violet-200/60 bg-white/80 backdrop-blur-sm",
-        "shadow-[0_1px_0_0_rgba(124,58,237,0.04),0_24px_48px_-24px_rgba(124,58,237,0.18)]",
-        glow && "ring-1 ring-violet-200/50",
+        "relative rounded-3xl border border-violet-100 bg-white",
         className,
       )}
     >
-      {glow && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-x-4 -top-6 h-24 rounded-full bg-violet-300/25 blur-2xl -z-10"
-        />
-      )}
       {children}
     </div>
   );
@@ -92,7 +90,7 @@ export function StreamingNumber({
   return <motion.span className={className}>{display}</motion.span>;
 }
 
-/** Soft violet pill used for status / tags — never used for ID chips. */
+/** Flat status pill — bordered, no ring/shadow. */
 export function Pill({
   children,
   tone = "violet",
@@ -103,16 +101,16 @@ export function Pill({
   className?: string;
 }) {
   const tones: Record<string, string> = {
-    violet: "bg-violet-50 text-violet-700 ring-violet-200",
-    emerald: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    rose: "bg-rose-50 text-rose-700 ring-rose-200",
-    slate: "bg-slate-50 text-slate-600 ring-slate-200",
-    amber: "bg-amber-50 text-amber-700 ring-amber-200",
+    violet: "bg-violet-50 text-violet-700 border-violet-200",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    rose: "bg-rose-50 text-rose-700 border-rose-200",
+    slate: "bg-slate-50 text-slate-600 border-slate-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
         tones[tone],
         className,
       )}
