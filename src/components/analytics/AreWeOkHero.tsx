@@ -103,7 +103,7 @@ export function AreWeOkHero({
           </div>
           <Link
             href="/app"
-            className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+            className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
           >
             <Wallet className="h-4 w-4" />
             Connect wallet
@@ -257,7 +257,7 @@ export function AreWeOkHero({
       {/* Verdict + lead */}
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <StreamIn className="flex items-start gap-4">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white ring-1 ${verdictMeta.ring}`}>
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white ${verdictMeta.ring}`}>
             <Icon className={`h-5 w-5 ${verdictMeta.title}`} />
           </div>
           <div>
@@ -306,7 +306,7 @@ export function AreWeOkHero({
                   type="button"
                   onClick={() => setOpenSignal(open ? null : s.id)}
                   className={`group w-full rounded-2xl border bg-white p-4 text-left transition-all ${
-                    open ? "border-violet-300 shadow-sm" : "border-violet-100 hover:border-violet-200"
+                    open ? "border-violet-300" : "border-violet-100 hover:border-violet-200"
                   }`}
                 >
                   <div className="flex items-center justify-between">
