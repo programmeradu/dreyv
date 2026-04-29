@@ -28,7 +28,7 @@ enabled = true
 invocation_logs = true
 
 [observability.traces]
-enabled = false
+enabled = true
 
 [vars]
 DREYV_BRAIN_BASE_URL = "https://dreyv.com"
