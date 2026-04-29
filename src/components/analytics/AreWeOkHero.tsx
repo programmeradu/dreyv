@@ -87,7 +87,7 @@ export function AreWeOkHero({
   // ── Empty state: no wallet ─────────────────────────────────────
   if (!activeVault) {
     return (
-      <Surface className="p-7" glow>
+      <Surface className="p-7" >
         <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">
@@ -253,7 +253,7 @@ export function AreWeOkHero({
   const Icon = verdictMeta.icon;
 
   return (
-    <Surface className="overflow-hidden p-7" glow>
+    <Surface className="overflow-hidden p-7" >
       {/* Verdict + lead */}
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <StreamIn className="flex items-start gap-4">
