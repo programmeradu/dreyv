@@ -103,6 +103,26 @@ export default function AnalyticsPage() {
         </StreamIn>
       </section>
 
+      {/* ── Are we OK? composite verdict ──────────────────────────── */}
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+        <AreWeOkHero
+          activeVault={activeVault ?? null}
+          vaultValue={vaultValue ?? null}
+          vaultTokens={vaultTokens ?? []}
+          attribution={aggregates}
+          snapshotStats={snapshots?.stats ?? null}
+          foresight={foresight?.summary
+            ? {
+                depletionProbability: foresight.summary.depletionProbability,
+                medianDepletionMonths: foresight.summary.medianDepletionMonths,
+              }
+            : null}
+          asOf={snapshots?.snapshots?.length
+            ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
+            : null}
+        />
+      </section>
+
       {/* ── Growth: real snapshots ─────────────────────────────────── */}
       <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6">
         <SectionHeader
