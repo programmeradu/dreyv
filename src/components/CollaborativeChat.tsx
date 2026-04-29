@@ -88,7 +88,16 @@ export const CollaborativeChat = () => {
     };
 
     const meName = self?.info?.name || "You";
-    const onlineCount = others.length + (self ? 1 : 0);
+    const status = useStatus();
+    const isConnected = status === "connected";
+    // Count yourself as online whenever the room is connected, even if Liveblocks
+    // hasn't hydrated `self` yet (which is what made it briefly say "0 people online").
+    const onlineCount = others.length + (isConnected || self ? 1 : 0);
+    const presenceLabel = !isConnected
+        ? "connecting…"
+        : onlineCount === 1
+            ? "just you"
+            : `${onlineCount} people online`;
 
     // Group consecutive messages by sender + render day separators
     const grouped = useMemo(() => {
