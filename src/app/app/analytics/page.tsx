@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
           <TrendCurve values={trend} label="Real value series" changePct={vaultChange24h ?? null} />
         </StreamIn>
         <StreamIn delay={0.1} className="mt-6">
-          <BaselineVsSimulated baseline={valueSeries.map((p: any) => ({ date: p.date ?? p.x ?? "", value: p.value }))} />
+          <BaselineVsSimulated baseline={valueSeries} />
         </StreamIn>
       </section>
 
