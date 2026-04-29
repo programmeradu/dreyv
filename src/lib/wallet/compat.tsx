@@ -41,7 +41,10 @@ export function PhantomCompatProvider({
 }: PhantomCompatProviderProps) {
   const config = useMemo(() => {
     const resolvedAppId =
-      appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "";
+      appId ??
+      (import.meta as any).env?.VITE_PHANTOM_APP_ID ??
+      (import.meta as any).env?.NEXT_PUBLIC_PHANTOM_APP_ID ??
+      "";
     // Phantom SDK treats `google`, `apple`, AND `phantom` as embedded
     // providers — all of them require a valid Phantom dashboard appId.
     // Without one, only `injected` (browser extension) and `deeplink`
