@@ -27,6 +27,15 @@ import {
     ArrowRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Urbanist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const wordmark = Urbanist({
+    subsets: ["latin"],
+    weight: "600",
+    display: "swap",
+    adjustFontFallback: true,
+});
 import { CollaborativeChat } from "@/components/CollaborativeChat";
 import { useSquadsMultisig } from "@/hooks/useSquadsMultisig";
 import { Input } from "@/components/ui/input";
