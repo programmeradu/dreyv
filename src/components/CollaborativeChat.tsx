@@ -167,9 +167,14 @@ export const CollaborativeChat = () => {
             <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
                 {(!messages || messages.length === 0) ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                            <Sparkles className="h-5 w-5" />
-                        </div>
+                        <Image
+                            src={sparkCrystal}
+                            alt=""
+                            width={64}
+                            height={64}
+                            className="h-14 w-14"
+                            loading="lazy"
+                        />
                         <div>
                             <p className="text-sm font-semibold text-slate-900">Start the conversation</p>
                             <p className="mt-1 text-xs text-slate-500">
