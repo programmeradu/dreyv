@@ -42,9 +42,10 @@ export function PhantomCompatProvider({
   const config = useMemo(() => {
     const resolvedAppId =
       appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "";
-    // Embedded providers (google/apple/phantom) require an appId from the
-    // Phantom dashboard. If it's not configured, fall back to wallet-only
-    // providers so the app still loads instead of crashing the React tree.
+    // Phantom SDK treats `google`, `apple`, AND `phantom` as embedded
+    // providers — all of them require a valid Phantom dashboard appId.
+    // Without one, only `injected` (browser extension) and `deeplink`
+    // (mobile) are safe; otherwise the SDK throws and crashes the tree.
     const hasAppId = resolvedAppId.length > 0;
     const providers = (
       hasAppId
@@ -52,17 +53,24 @@ export function PhantomCompatProvider({
         : ["injected", "deeplink"]
     ) as Array<"google" | "apple" | "phantom" | "injected" | "deeplink">;
 
-    return {
-      appId: resolvedAppId,
+    const baseConfig: Record<string, unknown> = {
       addressTypes: [AddressType.solana] as AddressType[],
       providers,
-      embeddedWalletType: "user-wallet" as const,
       authOptions: {
         redirectUrl:
           (typeof window !== "undefined" ? window.location.origin : "") +
           "/auth/callback",
       },
     };
+
+    // Only include appId + embeddedWalletType when we actually have an appId.
+    // Passing an empty string still triggers the SDK's validation error.
+    if (hasAppId) {
+      baseConfig.appId = resolvedAppId;
+      baseConfig.embeddedWalletType = "user-wallet" as const;
+    }
+
+    return baseConfig as Parameters<typeof PhantomProvider>[0]["config"];
   }, [appId]);
 
   return (
