@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { useStorage, useMutation, useSelf, useOthers } from "@/liveblocks.config";
-import { Send, Smile, Sparkles } from "lucide-react";
+import sendCrystal from "@/assets/chat/icon-send-crystal.png";
+import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
+import sparkCrystal from "@/assets/chat/icon-spark-crystal.png";
 
 type ChatMessage = { text: string; sender: string; timestamp: number };
 
@@ -164,9 +167,14 @@ export const CollaborativeChat = () => {
             <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
                 {(!messages || messages.length === 0) ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                            <Sparkles className="h-5 w-5" />
-                        </div>
+                        <Image
+                            src={sparkCrystal}
+                            alt=""
+                            width={64}
+                            height={64}
+                            className="h-14 w-14"
+                            loading="lazy"
+                        />
                         <div>
                             <p className="text-sm font-semibold text-slate-900">Start the conversation</p>
                             <p className="mt-1 text-xs text-slate-500">
@@ -234,7 +242,14 @@ export const CollaborativeChat = () => {
             {/* Composer */}
             <div className="border-t border-violet-100 bg-white px-3 py-3">
                 <div className="flex items-end gap-2 rounded-2xl border border-violet-200 bg-white px-3 py-2 focus-within:border-violet-500">
-                    <Smile className="mt-1.5 h-4 w-4 shrink-0 text-slate-400" />
+                    <Image
+                        src={bubbleCrystal}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="mt-1.5 h-5 w-5 shrink-0"
+                        loading="lazy"
+                    />
                     <textarea
                         ref={inputRef}
                         rows={1}
@@ -258,10 +273,17 @@ export const CollaborativeChat = () => {
                         type="button"
                         onClick={handleSend}
                         disabled={!message.trim()}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white transition hover:bg-violet-700 disabled:bg-violet-200"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 transition hover:bg-violet-700 disabled:bg-violet-200"
                         aria-label="Send message"
                     >
-                        <Send className="h-3.5 w-3.5" />
+                        <Image
+                            src={sendCrystal}
+                            alt=""
+                            width={18}
+                            height={18}
+                            className="h-4 w-4"
+                            loading="lazy"
+                        />
                     </button>
                 </div>
                 <p className="mt-1.5 px-1 text-[10px] text-slate-400">
