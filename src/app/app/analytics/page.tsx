@@ -249,6 +249,17 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
+      {/* ── Coverage: concentration · fees · flows · benchmark ─────── */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader eyebrow="Coverage" title="Every angle of your treasury" />
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <StreamIn delay={0.02}><ConcentrationHHI vaultTokens={vaultTokens ?? []} /></StreamIn>
+          <StreamIn delay={0.06}><FeesBreakdown events={(events?.events ?? null) as any} totalFeeUsd={aggregates?.feeUsd ?? 0} /></StreamIn>
+          <StreamIn delay={0.10}><FlowsByCategory events={(events?.events ?? null) as any} /></StreamIn>
+          <StreamIn delay={0.14}><BenchmarkVsMarket valueSeries={valueSeries} benchmark="SOL" /></StreamIn>
+        </div>
+      </section>
+
       {/* ── Composition ────────────────────────────────────────────── */}
       <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
         <SectionHeader eyebrow="Composition" title="Where your treasury leans" />
