@@ -28,6 +28,13 @@ import { ForesightPanel } from "@/components/analytics/ForesightPanel";
 import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
 import { AreWeOkHero } from "@/components/analytics/AreWeOkHero";
+import { SmartInsights } from "@/components/analytics/SmartInsights";
+import { AnomalyChips } from "@/components/analytics/AnomalyChips";
+import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
+import { FeesBreakdown } from "@/components/analytics/FeesBreakdown";
+import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
+import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
+import { useRouter } from "next/navigation";
 
 function fmtCompact(n: number): string {
   const abs = Math.abs(n);
