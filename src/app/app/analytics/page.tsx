@@ -34,6 +34,9 @@ import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
 import { FeesBreakdown } from "@/components/analytics/FeesBreakdown";
 import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
 import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
+import { ScenarioBanner } from "@/components/analytics/ScenarioBanner";
+import { BaselineVsSimulated } from "@/components/analytics/BaselineVsSimulated";
+import { useScenarioRun } from "@/lib/foresight/useScenarioRun";
 import { useRouter } from "next/navigation";
 
 function fmtCompact(n: number): string {
@@ -48,6 +51,11 @@ function fmtCompact(n: number): string {
 export default function AnalyticsPage() {
   const router = useRouter();
   const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
+
+  // Wire the simulation store -> /api/simulation. When a what-if prompt
+  // flips `active=true`, this hook fires the run and the page-wide
+  // scenario overlay (banner, baseline-vs-simulated chart) lights up.
+  useScenarioRun();
 
   const handleAsk = (question: string) => {
     // Pipe the suggested question into CommandBar via query string.
