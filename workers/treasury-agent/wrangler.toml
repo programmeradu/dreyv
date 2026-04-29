@@ -23,8 +23,12 @@ new_classes = ["TreasuryAgent"]
 # binding = "SHARED_CACHE"
 # id = "<your-kv-namespace-id>"
 
-[observability]
+[observability.logs]
 enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
 
 [vars]
 DREYV_BRAIN_BASE_URL = "https://dreyv.com"
