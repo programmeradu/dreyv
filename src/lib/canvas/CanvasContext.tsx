@@ -35,6 +35,26 @@ function makeId(): string {
   return `b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isEqualValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, index) => isEqualValue(item, b[index]));
+  }
+  if (isPlainRecord(a) || isPlainRecord(b)) {
+    if (!isPlainRecord(a) || !isPlainRecord(b)) return false;
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key) => Object.prototype.hasOwnProperty.call(b, key) && isEqualValue(a[key], b[key]));
+  }
+  return false;
+}
+
 export function CanvasProvider({ children }: { children: ReactNode }) {
   const { user } = useKeystoneAuth();
   const userId = user?.id ?? null;
@@ -91,17 +111,22 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateBlock: CanvasContextValue["updateBlock"] = useCallback((id, patch) => {
-    setBlocks((prev) =>
-      prev.map((b) => {
+    setBlocks((prev) => {
+      let changed = false;
+      const nextBlocks = prev.map((b) => {
         if (b.id !== id) return b;
         const { payload: payloadPatch, ...rest } = patch;
-        return {
+        const nextBlock = {
           ...b,
           ...rest,
           payload: payloadPatch ? { ...b.payload, ...payloadPatch } : b.payload,
         };
-      }),
-    );
+        if (isEqualValue(b, nextBlock)) return b;
+        changed = true;
+        return nextBlock;
+      });
+      return changed ? nextBlocks : prev;
+    });
   }, []);
 
   const removeBlock = useCallback((id: string) => {
