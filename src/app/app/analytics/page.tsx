@@ -28,6 +28,13 @@ import { ForesightPanel } from "@/components/analytics/ForesightPanel";
 import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
 import { AreWeOkHero } from "@/components/analytics/AreWeOkHero";
+import { SmartInsights } from "@/components/analytics/SmartInsights";
+import { AnomalyChips } from "@/components/analytics/AnomalyChips";
+import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
+import { FeesBreakdown } from "@/components/analytics/FeesBreakdown";
+import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
+import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
+import { useRouter } from "next/navigation";
 
 function fmtCompact(n: number): string {
   const abs = Math.abs(n);
@@ -39,7 +46,14 @@ function fmtCompact(n: number): string {
 }
 
 export default function AnalyticsPage() {
+  const router = useRouter();
   const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
+
+  const handleAsk = (question: string) => {
+    // Pipe the suggested question into CommandBar via query string.
+    const q = encodeURIComponent(question);
+    router.push(`/app?ask=${q}`);
+  };
 
   const {
     snapshots,
@@ -120,6 +134,28 @@ export default function AnalyticsPage() {
           asOf={snapshots?.snapshots?.length
             ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
             : null}
+        />
+        <div className="mt-4">
+          <AnomalyChips
+            attribution={aggregates}
+            snapshotStats={snapshots?.stats ?? null}
+            foresight={foresight?.summary ?? null}
+            vaultChange24h={vaultChange24h ?? null}
+          />
+        </div>
+      </section>
+
+      {/* ── Smart layer: what changed + suggestions (streamed) ─────── */}
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+        <SmartInsights
+          vaultValue={vaultValue ?? null}
+          vaultChange24h={vaultChange24h ?? null}
+          vaultTokens={vaultTokens ?? []}
+          attribution={aggregates}
+          snapshots={(snapshots?.snapshots ?? []) as any[]}
+          snapshotStats={snapshots?.stats ?? null}
+          foresight={foresight?.summary ?? null}
+          onAskQuestion={handleAsk}
         />
       </section>
 
@@ -210,6 +246,17 @@ export default function AnalyticsPage() {
             usd={aggregates?.feeUsd ?? 0}
             sub={hasAttribution ? "Network + protocol" : "—"}
           />
+        </div>
+      </section>
+
+      {/* ── Coverage: concentration · fees · flows · benchmark ─────── */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader eyebrow="Coverage" title="Every angle of your treasury" />
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <StreamIn delay={0.02}><ConcentrationHHI vaultTokens={vaultTokens ?? []} /></StreamIn>
+          <StreamIn delay={0.06}><FeesBreakdown events={(events?.events ?? null) as any} totalFeeUsd={aggregates?.feeUsd ?? 0} /></StreamIn>
+          <StreamIn delay={0.10}><FlowsByCategory events={(events?.events ?? null) as any} /></StreamIn>
+          <StreamIn delay={0.14}><BenchmarkVsMarket valueSeries={valueSeries} benchmark="SOL" /></StreamIn>
         </div>
       </section>
 
