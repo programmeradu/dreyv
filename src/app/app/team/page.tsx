@@ -438,6 +438,31 @@ function QuorumCore({ others, threshold = 1 }: { others: any[]; threshold?: numb
 // ─── Page ───────────────────────────────────────────────────────────
 export default function TeamPage() {
     const connectionStatus = useStatus();
+    // Detect whether realtime presence is intentionally disabled on the server
+    // (e.g. LIVEBLOCKS_SECRET_KEY not configured). When that's the case the
+    // client will sit in "reconnecting" forever, so we surface a friendly
+    // "Solo mode" label instead of misleading the user.
+    const [realtimeDisabled, setRealtimeDisabled] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        // Only probe if we're not already happily connected.
+        if (connectionStatus === "connected") return;
+        (async () => {
+            try {
+                const res = await fetch("/api/liveblocks-auth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ room: "probe" }),
+                });
+                if (cancelled) return;
+                if (res.status === 503) {
+                    const body = await res.json().catch(() => ({}));
+                    if (body?.code === "liveblocks_disabled") setRealtimeDisabled(true);
+                }
+            } catch {}
+        })();
+        return () => { cancelled = true; };
+    }, [connectionStatus]);
     const isSpectator = connectionStatus !== "connected";
     const others = useOthers();
     const self = useSelf();
