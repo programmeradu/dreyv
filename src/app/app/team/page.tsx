@@ -591,11 +591,19 @@ export default function TeamPage() {
                     <div className="flex items-center gap-2 pt-2 text-sm text-slate-500">
                         <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                                isSpectator ? "bg-amber-500" : "bg-violet-600"
+                                realtimeDisabled
+                                    ? "bg-slate-400"
+                                    : isSpectator
+                                        ? "bg-amber-500"
+                                        : "bg-violet-600"
                             }`}
                         />
                         <span>
-                            {isSpectator ? "Reconnecting…" : `${others.length + 1} online now`}
+                            {realtimeDisabled
+                                ? "Solo mode · realtime presence is off"
+                                : isSpectator
+                                    ? "Reconnecting…"
+                                    : `${others.length + 1} online now`}
                         </span>
                     </div>
                 </StreamIn>
