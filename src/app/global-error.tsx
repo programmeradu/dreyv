@@ -10,7 +10,7 @@ export default function GlobalError({
   reset,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  reset?: () => void;
 }) {
   useEffect(() => {
     console.error("[Dreyv Global Error]", error);
@@ -271,7 +271,10 @@ export default function GlobalError({
               }}
             >
               <button
-                onClick={() => reset()}
+                onClick={() => {
+                  if (typeof reset === "function") reset();
+                  else window.location.reload();
+                }}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
