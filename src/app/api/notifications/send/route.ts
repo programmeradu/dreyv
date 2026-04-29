@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
           emailEnabled,
           email: user?.email ?? null,
           telegramEnabled: prefs.telegramEnabled ?? false,
+          telegramBotToken: prefs.telegramBotToken,
           telegramChatId: prefs.telegramChatId,
           slackEnabled: prefs.slackEnabled ?? false,
           slackWebhookUrl: prefs.slackWebhookUrl,

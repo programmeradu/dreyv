@@ -34,8 +34,11 @@ export async function POST(request: NextRequest) {
   if (!prefs) {
     return NextResponse.json({ error: 'Save your preferences first.' }, { status: 400 });
   }
-  if (channel === 'telegram' && !prefs.telegramChatId) {
-    return NextResponse.json({ error: 'Telegram chat ID not configured.' }, { status: 400 });
+  if (channel === 'telegram' && (!prefs.telegramBotToken || !prefs.telegramChatId)) {
+    return NextResponse.json(
+      { error: 'Telegram bot token and chat ID are both required.' },
+      { status: 400 },
+    );
   }
   if (channel === 'slack' && !prefs.slackWebhookUrl) {
     return NextResponse.json({ error: 'Slack webhook URL not configured.' }, { status: 400 });
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest) {
     {
       emailEnabled: false,
       telegramEnabled: channel === 'telegram',
+      telegramBotToken: prefs.telegramBotToken,
       telegramChatId: prefs.telegramChatId,
       slackEnabled: channel === 'slack',
       slackWebhookUrl: prefs.slackWebhookUrl,

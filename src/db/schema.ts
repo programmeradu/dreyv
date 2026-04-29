@@ -626,6 +626,7 @@ export const notificationPreferences = pgTable('notification_preferences', {
   tierExpiry: boolean('tier_expiry').notNull().default(true),
   // Phase 15: external channels
   telegramEnabled: boolean('telegram_enabled').notNull().default(false),
+  telegramBotToken: text('telegram_bot_token'), // BYO bot — user pastes their own @BotFather token
   telegramChatId: text('telegram_chat_id'),
   slackEnabled: boolean('slack_enabled').notNull().default(false),
   slackWebhookUrl: text('slack_webhook_url'),

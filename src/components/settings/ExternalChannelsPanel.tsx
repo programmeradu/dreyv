@@ -13,6 +13,7 @@ import { toast } from "@/lib/toast-notifications";
 
 interface ExternalPrefs {
     telegramEnabled: boolean;
+    telegramBotToken: string | null;
     telegramChatId: string | null;
     slackEnabled: boolean;
     slackWebhookUrl: string | null;
@@ -21,6 +22,7 @@ interface ExternalPrefs {
 
 const EMPTY: ExternalPrefs = {
     telegramEnabled: false,
+    telegramBotToken: "",
     telegramChatId: "",
     slackEnabled: false,
     slackWebhookUrl: "",
@@ -40,6 +42,7 @@ export const ExternalChannelsPanel: React.FC = () => {
                 const p = d?.preferences ?? {};
                 setPrefs({
                     telegramEnabled: !!p.telegramEnabled,
+                    telegramBotToken: p.telegramBotToken ?? "",
                     telegramChatId: p.telegramChatId ?? "",
                     slackEnabled: !!p.slackEnabled,
                     slackWebhookUrl: p.slackWebhookUrl ?? "",
@@ -122,7 +125,7 @@ export const ExternalChannelsPanel: React.FC = () => {
                         <div>
                             <h4 className="text-sm font-black text-foreground uppercase tracking-tight">Telegram</h4>
                             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
-                                Direct messages from the Dreyv bot
+                                Bring your own bot — Dreyv hosts none
                             </p>
                         </div>
                     </div>
@@ -133,22 +136,32 @@ export const ExternalChannelsPanel: React.FC = () => {
                 </div>
 
                 <Field
+                    label="Bot token"
+                    placeholder="123456789:AA...your-bot-token"
+                    value={prefs.telegramBotToken ?? ""}
+                    onChange={(v) => setPrefs({ ...prefs, telegramBotToken: v })}
+                    hint="Open @BotFather on Telegram → /newbot → copy the HTTP API token it gives you."
+                    secret
+                />
+                <Field
                     label="Chat ID"
                     placeholder="e.g. 123456789"
                     value={prefs.telegramChatId ?? ""}
                     onChange={(v) => setPrefs({ ...prefs, telegramChatId: v })}
-                    hint='Open @DreyvBot on Telegram, send /start, paste the numeric chat ID it returns.'
+                    hint="Message your bot once, then visit api.telegram.org/bot<token>/getUpdates to find your numeric chat ID."
                 />
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <span className="text-[10px] text-muted-foreground">
-                        {prefs.telegramChatId ? <>Configured · ID <code>{prefs.telegramChatId}</code></> : "Not configured"}
+                        {prefs.telegramBotToken && prefs.telegramChatId
+                            ? <>Configured · ID <code>{prefs.telegramChatId}</code></>
+                            : "Not configured"}
                     </span>
                     <Button
                         size="sm"
                         variant="outline"
                         onClick={() => test("telegram")}
-                        disabled={!prefs.telegramChatId || testing === "telegram"}
+                        disabled={!prefs.telegramBotToken || !prefs.telegramChatId || testing === "telegram"}
                         className="h-7 text-[10px] font-black uppercase tracking-wider gap-1.5"
                     >
                         {testing === "telegram" ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
@@ -233,14 +246,17 @@ const Field: React.FC<{
     value: string;
     onChange: (v: string) => void;
     hint?: string;
-}> = ({ label, placeholder, value, onChange, hint }) => (
+    secret?: boolean;
+}> = ({ label, placeholder, value, onChange, hint, secret }) => (
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</label>
         <input
-            type="text"
+            type={secret ? "password" : "text"}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
+            autoComplete="off"
+            spellCheck={false}
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
         />
         {hint && <p className="text-[10px] text-muted-foreground/70 flex items-start gap-1"><XCircle size={10} className="opacity-0" />{hint}</p>}
