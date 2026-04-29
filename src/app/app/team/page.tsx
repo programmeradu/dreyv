@@ -679,19 +679,7 @@ export default function TeamPage() {
                             threshold={vaultConfig?.threshold ?? 1}
                         />
 
-                        <Surface className="p-0 overflow-hidden">
-                            <div className="border-b border-violet-100 px-6 py-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">
-                                    Team chat
-                                </p>
-                                <h3 className="mt-1 text-base font-semibold tracking-tight text-slate-900">
-                                    Talk it through
-                                </h3>
-                            </div>
-                            <div className="p-2">
-                                <CollaborativeChat />
-                            </div>
-                        </Surface>
+                        <CollaborativeChat />
                     </div>
                 </div>
             </section>
