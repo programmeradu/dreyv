@@ -22,6 +22,8 @@ import {
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
 
+const DEFAULT_PHANTOM_APP_ID = "7eeb0207-f5c1-4841-a6a9-1a0501438d1a";
+
 // --------------------------------------------------------------------------
 // Provider
 // --------------------------------------------------------------------------
@@ -40,20 +42,30 @@ export function PhantomCompatProvider({
   appIcon,
 }: PhantomCompatProviderProps) {
   const config = useMemo(() => {
+    const viteEnv = (import.meta as any).env;
+    const nextPublicAppId =
+      typeof process !== "undefined"
+        ? process.env.NEXT_PUBLIC_PHANTOM_APP_ID
+        : undefined;
     const resolvedAppId =
-      appId ??
-      (import.meta as any).env?.VITE_PHANTOM_APP_ID ??
-      (import.meta as any).env?.NEXT_PUBLIC_PHANTOM_APP_ID ??
-      "";
+      [
+        appId,
+        nextPublicAppId,
+        viteEnv?.VITE_PHANTOM_APP_ID,
+        viteEnv?.NEXT_PUBLIC_PHANTOM_APP_ID,
+        DEFAULT_PHANTOM_APP_ID,
+      ]
+        .find((value) => typeof value === "string" && value.trim().length > 0)
+        ?.trim() ?? "";
     // Phantom SDK treats `google`, `apple`, AND `phantom` as embedded
     // providers — all of them require a valid Phantom dashboard appId.
-    // Without one, only `injected` (browser extension) and `deeplink`
-    // (mobile) are safe; otherwise the SDK throws and crashes the tree.
+    // The SDK also validates `deeplink` as appId-gated, so without an appId
+    // only `injected` is safe; otherwise the SDK throws and crashes the tree.
     const hasAppId = resolvedAppId.length > 0;
     const providers = (
       hasAppId
         ? ["google", "apple", "phantom", "injected", "deeplink"]
-        : ["injected", "deeplink"]
+        : ["injected"]
     ) as Array<"google" | "apple" | "phantom" | "injected" | "deeplink">;
 
     const baseConfig: Record<string, unknown> = {
