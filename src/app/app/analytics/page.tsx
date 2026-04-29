@@ -125,6 +125,11 @@ export default function AnalyticsPage() {
         </StreamIn>
       </section>
 
+      {/* ── Scenario overlay banner (only when a what-if is active) ── */}
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-6">
+        <ScenarioBanner />
+      </section>
+
       {/* ── Are we OK? composite verdict ──────────────────────────── */}
       <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
         <AreWeOkHero
