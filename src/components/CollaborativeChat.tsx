@@ -144,9 +144,7 @@ export const CollaborativeChat = () => {
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                     </span>
                     <p className="text-sm font-semibold tracking-tight text-slate-900">Team chat</p>
-                    <span className="text-xs text-slate-500">
-                        · {onlineCount} {onlineCount === 1 ? "person" : "people"} online
-                    </span>
+                    <span className="text-xs text-slate-500">· {presenceLabel}</span>
                 </div>
                 {/* Presence avatars */}
                 <div className="flex -space-x-1.5">
