@@ -26,6 +26,7 @@ export interface UserChannelPrefs {
   emailEnabled: boolean;
   email?: string | null;
   telegramEnabled: boolean;
+  telegramBotToken?: string | null; // BYO bot — per-user token from @BotFather
   telegramChatId?: string | null;
   slackEnabled: boolean;
   slackWebhookUrl?: string | null;
@@ -39,16 +40,12 @@ interface ChannelResult {
   providerId?: string;
 }
 
-// ─── Telegram ─────────────────────────────────────────────────────────
+// ─── Telegram (BYO bot — token comes from the user's own @BotFather bot) ──
 async function deliverTelegram(
   p: DeliveryPayload,
+  botToken: string,
   chatId: string,
 ): Promise<ChannelResult> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!botToken) {
-    return { channel: 'telegram', status: 'skipped', error: 'TELEGRAM_BOT_TOKEN not set' };
-  }
-
   const sevEmoji = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '🚨' }[p.severity ?? 'info'];
   const text = [
     `${sevEmoji} <b>${escapeHtml(p.title)}</b>`,
