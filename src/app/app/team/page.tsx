@@ -530,11 +530,15 @@ export default function TeamPage() {
 
             {/* Header */}
             <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6">
-                <div className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
-                        <Sparkles className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2.5">
+                    <img
+                        src="/dreyv-mark.svg"
+                        alt=""
+                        className="h-7 w-7 rounded-lg"
+                    />
+                    <span className="text-sm font-semibold tracking-tight text-slate-900">
+                        dreyv<span className="text-slate-400"> · Team</span>
                     </span>
-                    <span className="text-sm font-semibold tracking-tight">dreyv · Team</span>
                 </div>
 
                 <div className="flex items-center gap-3">
