@@ -25,6 +25,8 @@ import {
 import { TrendCurve } from "@/components/app-shell/Composition";
 import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
+import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
+import { ExportButtons } from "@/components/analytics/ExportButtons";
 
 function fmtCompact(n: number): string {
   const abs = Math.abs(n);
@@ -114,6 +116,19 @@ export default function AnalyticsPage() {
         <StreamIn delay={0.05} className="mt-6">
           <TrendCurve values={trend} label="Real value series" changePct={vaultChange24h ?? null} />
         </StreamIn>
+      </section>
+
+      {/* ── Daily PnL waterfall ────────────────────────────────────── */}
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+        <SectionHeader
+          eyebrow="PnL"
+          title="Day-by-day, where the money moved"
+          description="Inflow, outflow, yield and fees bucketed per day, scaled relative to the largest day in your window."
+        />
+        <div className="mt-6 flex flex-col gap-4">
+          <PnlWaterfall wallet={activeVault ?? null} range="30d" />
+          <ExportButtons range="30d" />
+        </div>
       </section>
 
       {/* ── Foresight: Monte Carlo + LLM narrative ─────────────────── */}
