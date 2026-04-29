@@ -128,8 +128,8 @@ export async function fanOutNotification(
 ): Promise<ChannelResult[]> {
   const tasks: Promise<ChannelResult>[] = [];
 
-  if (prefs.telegramEnabled && prefs.telegramChatId) {
-    tasks.push(deliverTelegram(payload, prefs.telegramChatId));
+  if (prefs.telegramEnabled && prefs.telegramBotToken && prefs.telegramChatId) {
+    tasks.push(deliverTelegram(payload, prefs.telegramBotToken, prefs.telegramChatId));
   }
   if (prefs.slackEnabled && prefs.slackWebhookUrl) {
     tasks.push(deliverSlack(payload, prefs.slackWebhookUrl, prefs.slackChannel));

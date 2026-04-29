@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         systemAlerts: true,
         tierExpiry: true,
         telegramEnabled: false,
+        telegramBotToken: null,
         telegramChatId: null,
         slackEnabled: false,
         slackWebhookUrl: null,
@@ -65,7 +66,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // String fields — normalize empties to null so we don't store "".
-    const stringKeys = ['telegramChatId', 'slackWebhookUrl', 'slackChannel'];
+    const stringKeys = ['telegramBotToken', 'telegramChatId', 'slackWebhookUrl', 'slackChannel'];
     for (const key of stringKeys) {
       if (body[key] !== undefined) {
         const v = typeof body[key] === 'string' ? body[key].trim() : body[key];
