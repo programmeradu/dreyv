@@ -27,6 +27,15 @@ import {
     ArrowRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Urbanist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const wordmark = Urbanist({
+    subsets: ["latin"],
+    weight: "600",
+    display: "swap",
+    adjustFontFallback: true,
+});
 import { CollaborativeChat } from "@/components/CollaborativeChat";
 import { useSquadsMultisig } from "@/hooks/useSquadsMultisig";
 import { Input } from "@/components/ui/input";
@@ -555,16 +564,17 @@ export default function TeamPage() {
 
             {/* Header */}
             <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6">
-                <div className="flex items-center gap-2.5">
-                    <img
-                        src="/dreyv-mark.svg"
-                        alt=""
-                        className="h-7 w-7 rounded-lg"
-                    />
-                    <span className="text-sm font-semibold tracking-tight text-slate-900">
-                        dreyv<span className="text-slate-400"> · Team</span>
+                <a href="/" aria-label="dreyv home" className="flex items-baseline gap-2">
+                    <span
+                        className={cn(
+                            wordmark.className,
+                            "text-xl font-semibold tracking-tight text-violet-700 lowercase leading-none antialiased hover:text-violet-600 transition-colors",
+                        )}
+                    >
+                        dreyv
                     </span>
-                </div>
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">Team</span>
+                </a>
 
                 <div className="flex items-center gap-3">
                     <TeamSwitcher />
