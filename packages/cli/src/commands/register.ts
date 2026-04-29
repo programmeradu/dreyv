@@ -43,7 +43,7 @@ export async function runRegister(options: RegisterOptions): Promise<RegisterRes
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as { error?: string };
       return { ok: false, error: err.error || `Registration failed (${res.status})` };
     }
 

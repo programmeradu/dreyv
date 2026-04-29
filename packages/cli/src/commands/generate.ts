@@ -133,7 +133,7 @@ OUTPUT: Return ONLY raw JSON (no markdown blocks) in this format:
         throw new Error(`${provider} API error (${res.status}): ${err.slice(0, 200)}`);
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
     let content = json.choices?.[0]?.message?.content || "{}";
 
     // Strip markdown code fences if present
@@ -167,7 +167,7 @@ async function callServerGenerate(
         throw new Error(`Server returned ${res.status}: ${await res.text()}`);
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
     if (json.error) {
         throw new Error(json.error === "no_api_key" ? json.details : json.error);
     }
