@@ -135,6 +135,28 @@ export default function AnalyticsPage() {
             ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
             : null}
         />
+        <div className="mt-4">
+          <AnomalyChips
+            attribution={aggregates}
+            snapshotStats={snapshots?.stats ?? null}
+            foresight={foresight?.summary ?? null}
+            vaultChange24h={vaultChange24h ?? null}
+          />
+        </div>
+      </section>
+
+      {/* ── Smart layer: what changed + suggestions (streamed) ─────── */}
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+        <SmartInsights
+          vaultValue={vaultValue ?? null}
+          vaultChange24h={vaultChange24h ?? null}
+          vaultTokens={vaultTokens ?? []}
+          attribution={aggregates}
+          snapshots={(snapshots?.snapshots ?? []) as any[]}
+          snapshotStats={snapshots?.stats ?? null}
+          foresight={foresight?.summary ?? null}
+          onAskQuestion={handleAsk}
+        />
       </section>
 
       {/* ── Growth: real snapshots ─────────────────────────────────── */}
