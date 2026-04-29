@@ -43,8 +43,8 @@ export function PhantomCompatProvider({
     () => ({
       appId: appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "",
       addressTypes: [AddressType.solana] as AddressType[],
-      providers: ["google", "apple", "phantom", "device", "injected"] as Array<
-        "google" | "apple" | "phantom" | "device" | "injected" | "deeplink"
+      providers: ["google", "apple", "phantom", "injected", "deeplink"] as Array<
+        "google" | "apple" | "phantom" | "injected" | "deeplink"
       >,
       embeddedWalletType: "user-wallet" as const,
       authOptions: {
