@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { useStorage, useMutation, useSelf, useOthers } from "@/liveblocks.config";
-import { Send, Smile, Sparkles } from "lucide-react";
+import sendCrystal from "@/assets/chat/icon-send-crystal.png";
+import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
+import sparkCrystal from "@/assets/chat/icon-spark-crystal.png";
 
 type ChatMessage = { text: string; sender: string; timestamp: number };
 
