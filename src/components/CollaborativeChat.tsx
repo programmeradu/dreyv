@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { useStorage, useMutation, useSelf, useOthers } from "@/liveblocks.config";
-import sendCrystal from "@/assets/chat/icon-send-crystal.png";
+import { Send } from "lucide-react";
+import { useStorage, useMutation, useSelf, useOthers, useStatus } from "@/liveblocks.config";
 import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
 import sparkCrystal from "@/assets/chat/icon-spark-crystal.png";
 
@@ -88,7 +88,16 @@ export const CollaborativeChat = () => {
     };
 
     const meName = self?.info?.name || "You";
-    const onlineCount = others.length + (self ? 1 : 0);
+    const status = useStatus();
+    const isConnected = status === "connected";
+    // Count yourself as online whenever the room is connected, even if Liveblocks
+    // hasn't hydrated `self` yet (which is what made it briefly say "0 people online").
+    const onlineCount = others.length + (isConnected || self ? 1 : 0);
+    const presenceLabel = !isConnected
+        ? "connecting…"
+        : onlineCount === 1
+            ? "just you"
+            : `${onlineCount} people online`;
 
     // Group consecutive messages by sender + render day separators
     const grouped = useMemo(() => {
@@ -135,9 +144,7 @@ export const CollaborativeChat = () => {
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                     </span>
                     <p className="text-sm font-semibold tracking-tight text-slate-900">Team chat</p>
-                    <span className="text-xs text-slate-500">
-                        · {onlineCount} {onlineCount === 1 ? "person" : "people"} online
-                    </span>
+                    <span className="text-xs text-slate-500">· {presenceLabel}</span>
                 </div>
                 {/* Presence avatars */}
                 <div className="flex -space-x-1.5">
@@ -276,14 +283,7 @@ export const CollaborativeChat = () => {
                         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 transition hover:bg-violet-700 disabled:bg-violet-200"
                         aria-label="Send message"
                     >
-                        <Image
-                            src={sendCrystal}
-                            alt=""
-                            width={18}
-                            height={18}
-                            className="h-4 w-4"
-                            loading="lazy"
-                        />
+                        <Send className="h-4 w-4 text-white pointer-events-none" />
                     </button>
                 </div>
                 <p className="mt-1.5 px-1 text-[10px] text-slate-400">
