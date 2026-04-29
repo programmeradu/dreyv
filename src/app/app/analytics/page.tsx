@@ -25,6 +25,8 @@ import {
 import { TrendCurve } from "@/components/app-shell/Composition";
 import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
+import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
+import { ExportButtons } from "@/components/analytics/ExportButtons";
 
 function fmtCompact(n: number): string {
   const abs = Math.abs(n);
