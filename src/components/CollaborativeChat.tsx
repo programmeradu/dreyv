@@ -283,14 +283,7 @@ export const CollaborativeChat = () => {
                         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 transition hover:bg-violet-700 disabled:bg-violet-200"
                         aria-label="Send message"
                     >
-                        <Image
-                            src={sendCrystal}
-                            alt=""
-                            width={18}
-                            height={18}
-                            className="h-4 w-4"
-                            loading="lazy"
-                        />
+                        <Send className="h-4 w-4 text-white pointer-events-none" />
                     </button>
                 </div>
                 <p className="mt-1.5 px-1 text-[10px] text-slate-400">
