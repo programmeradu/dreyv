@@ -46,7 +46,14 @@ function fmtCompact(n: number): string {
 }
 
 export default function AnalyticsPage() {
+  const router = useRouter();
   const { vaultValue, vaultChange24h, vaultTokens, activeVault } = useVault();
+
+  const handleAsk = (question: string) => {
+    // Pipe the suggested question into CommandBar via query string.
+    const q = encodeURIComponent(question);
+    router.push(`/app?ask=${q}`);
+  };
 
   const {
     snapshots,
