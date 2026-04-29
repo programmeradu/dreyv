@@ -438,6 +438,31 @@ function QuorumCore({ others, threshold = 1 }: { others: any[]; threshold?: numb
 // ─── Page ───────────────────────────────────────────────────────────
 export default function TeamPage() {
     const connectionStatus = useStatus();
+    // Detect whether realtime presence is intentionally disabled on the server
+    // (e.g. LIVEBLOCKS_SECRET_KEY not configured). When that's the case the
+    // client will sit in "reconnecting" forever, so we surface a friendly
+    // "Solo mode" label instead of misleading the user.
+    const [realtimeDisabled, setRealtimeDisabled] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        // Only probe if we're not already happily connected.
+        if (connectionStatus === "connected") return;
+        (async () => {
+            try {
+                const res = await fetch("/api/liveblocks-auth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ room: "probe" }),
+                });
+                if (cancelled) return;
+                if (res.status === 503) {
+                    const body = await res.json().catch(() => ({}));
+                    if (body?.code === "liveblocks_disabled") setRealtimeDisabled(true);
+                }
+            } catch {}
+        })();
+        return () => { cancelled = true; };
+    }, [connectionStatus]);
     const isSpectator = connectionStatus !== "connected";
     const others = useOthers();
     const self = useSelf();
@@ -530,11 +555,15 @@ export default function TeamPage() {
 
             {/* Header */}
             <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6">
-                <div className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white">
-                        <Sparkles className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2.5">
+                    <img
+                        src="/dreyv-mark.svg"
+                        alt=""
+                        className="h-7 w-7 rounded-lg"
+                    />
+                    <span className="text-sm font-semibold tracking-tight text-slate-900">
+                        dreyv<span className="text-slate-400"> · Team</span>
                     </span>
-                    <span className="text-sm font-semibold tracking-tight">dreyv · Team</span>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -562,11 +591,19 @@ export default function TeamPage() {
                     <div className="flex items-center gap-2 pt-2 text-sm text-slate-500">
                         <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                                isSpectator ? "bg-amber-500" : "bg-violet-600"
+                                realtimeDisabled
+                                    ? "bg-slate-400"
+                                    : isSpectator
+                                        ? "bg-amber-500"
+                                        : "bg-violet-600"
                             }`}
                         />
                         <span>
-                            {isSpectator ? "Reconnecting…" : `${others.length + 1} online now`}
+                            {realtimeDisabled
+                                ? "Solo mode · realtime presence is off"
+                                : isSpectator
+                                    ? "Reconnecting…"
+                                    : `${others.length + 1} online now`}
                         </span>
                     </div>
                 </StreamIn>
