@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { useStorage, useMutation, useSelf, useOthers } from "@/liveblocks.config";
-import sendCrystal from "@/assets/chat/icon-send-crystal.png";
+import { Send } from "lucide-react";
+import { useStorage, useMutation, useSelf, useOthers, useStatus } from "@/liveblocks.config";
 import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
 import sparkCrystal from "@/assets/chat/icon-spark-crystal.png";
 
