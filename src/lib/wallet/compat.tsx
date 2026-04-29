@@ -39,22 +39,31 @@ export function PhantomCompatProvider({
   appName = "Dreyv",
   appIcon,
 }: PhantomCompatProviderProps) {
-  const config = useMemo(
-    () => ({
-      appId: appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "",
+  const config = useMemo(() => {
+    const resolvedAppId =
+      appId ?? process.env.NEXT_PUBLIC_PHANTOM_APP_ID ?? "";
+    // Embedded providers (google/apple/phantom) require an appId from the
+    // Phantom dashboard. If it's not configured, fall back to wallet-only
+    // providers so the app still loads instead of crashing the React tree.
+    const hasAppId = resolvedAppId.length > 0;
+    const providers = (
+      hasAppId
+        ? ["google", "apple", "phantom", "injected", "deeplink"]
+        : ["injected", "deeplink"]
+    ) as Array<"google" | "apple" | "phantom" | "injected" | "deeplink">;
+
+    return {
+      appId: resolvedAppId,
       addressTypes: [AddressType.solana] as AddressType[],
-      providers: ["google", "apple", "phantom", "injected", "deeplink"] as Array<
-        "google" | "apple" | "phantom" | "injected" | "deeplink"
-      >,
+      providers,
       embeddedWalletType: "user-wallet" as const,
       authOptions: {
         redirectUrl:
           (typeof window !== "undefined" ? window.location.origin : "") +
           "/auth/callback",
       },
-    }),
-    [appId]
-  );
+    };
+  }, [appId]);
 
   return (
     <PhantomProvider config={config} appName={appName} appIcon={appIcon}>
