@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     ],
   });
 
-  return new Response(buf, {
+  return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="dreyv-treasury-${range}-${wallet.slice(0, 8)}.csv"`,
