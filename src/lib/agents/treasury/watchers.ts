@@ -385,10 +385,23 @@ export const securityReauditWatcher = inngest.createFunction(
   },
 );
 
+// Phase 14 / Block B — data spine watchers (snapshots, events translator, MV refresh)
+export { treasurySnapshotsWatcher } from "./snapshots-watcher";
+export { translateTxToTreasuryEvent } from "./events-translator";
+export { treasuryMvRefreshWatcher } from "./mv-refresh";
+
+import { treasurySnapshotsWatcher } from "./snapshots-watcher";
+import { translateTxToTreasuryEvent } from "./events-translator";
+import { treasuryMvRefreshWatcher } from "./mv-refresh";
+
 export const TREASURY_WATCHERS = [
   recurringPayoutsWatcher,
   treasuryGasTankWatcher,
   invoiceDueWatcher,
   yieldRouteRefreshWatcher,
   securityReauditWatcher,
+  // Block B — Treasury data spine
+  treasurySnapshotsWatcher,
+  translateTxToTreasuryEvent,
+  treasuryMvRefreshWatcher,
 ];
