@@ -40,12 +40,12 @@ const MV_DDL = [
 
 let ensureRan = false;
 
-async function ensureMv(sql: ReturnType<typeof neon>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureMv(sql: any) {
   if (ensureRan) return;
   for (const stmt of MV_DDL) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (sql as any).query(stmt);
+      await sql.query(stmt);
     } catch {
       /* idempotent — ignore */
     }
@@ -63,7 +63,8 @@ export async function GET(req: Request) {
   if (!dbUrl) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
 
   const days = RANGE_DAYS[range] ?? 30;
-  const sql = neon(dbUrl);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sql: any = neon(dbUrl);
   await ensureMv(sql);
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
