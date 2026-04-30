@@ -663,7 +663,7 @@ export function CommandBar() {
         }
       }
     },
-    [agentBusy, canvas, sendMessage, publicKey, vaultTokens],
+    [agentBusy, canvas, sendMessage, publicKey, vaultTokens, activeVault],
   );
 
   // ─── External AGENT_COMMAND bridge ─────────────────────────────────────────
