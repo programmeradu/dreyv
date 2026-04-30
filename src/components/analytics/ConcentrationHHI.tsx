@@ -101,7 +101,7 @@ export function ConcentrationHHI({ vaultTokens }: Props) {
 
         <ul className="flex-1 space-y-2">
           {data.shares.map((s, i) => (
-            <StreamIn key={s.symbol} delay={0.04 * i}>
+            <StreamIn key={`${s.symbol}-${i}`} delay={0.04 * i}>
               <li className="flex items-center gap-3">
                 <span className="w-12 shrink-0 text-xs font-medium text-slate-700">{s.symbol}</span>
                 <div className="relative h-2 flex-1 rounded-full bg-violet-50">
