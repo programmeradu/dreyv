@@ -189,7 +189,25 @@ function isComplexIntent(intent: Intent): boolean {
   return verbCount >= 2;
 }
 
-export async function synthesizePlan(intent: Intent): Promise<Plan> {
+export interface PlanWalletContext {
+  walletAddress: string | null;
+  isMultisig: boolean;
+  multisigAddress?: string;
+  threshold?: number;
+  memberCount?: number;
+}
+
+function formatWalletContext(ctx?: PlanWalletContext | null): string {
+  if (!ctx || !ctx.walletAddress) {
+    return "No wallet connected. Plans that need a signer will be queued for later.";
+  }
+  if (ctx.isMultisig) {
+    return `Connected wallet IS a Squads V4 multisig (${ctx.multisigAddress ?? ctx.walletAddress}). Threshold ${ctx.threshold ?? "?"}/${ctx.memberCount ?? "?"}. ANY value movement OUT of this vault MUST go through multisig_proposal — do not use direct transfer/swap/yield_deposit. Pass multisigAddress="${ctx.multisigAddress ?? ctx.walletAddress}" in the proposal input.`;
+  }
+  return `Connected wallet ${ctx.walletAddress} is a standard Solana account (not a multisig). Direct write capabilities are fine.`;
+}
+
+export async function synthesizePlan(intent: Intent, walletCtx?: PlanWalletContext | null): Promise<Plan> {
   if (intent.kind === "chitchat" || intent.kind === "unknown") {
     return emptyPlan(
       intent.kind === "chitchat" ? "Conversational input — no capability call." : "Intent unclear.",
@@ -198,11 +216,12 @@ export async function synthesizePlan(intent: Intent): Promise<Plan> {
   }
 
   const catalog = capabilityCatalogForLLM();
+  const walletCtxStr = formatWalletContext(walletCtx);
   const useDeep = isComplexIntent(intent);
 
   let plan: Plan | null = null;
-  if (useDeep) plan = await callGemini(intent, catalog);
-  if (!plan) plan = await callGroq(intent, catalog);
+  if (useDeep) plan = await callGemini(intent, catalog, walletCtxStr);
+  if (!plan) plan = await callGroq(intent, catalog, walletCtxStr);
 
   if (!plan) {
     return emptyPlan("Planner unavailable; no LLM responded.", ["Planner could not produce a plan; please retry."]);
