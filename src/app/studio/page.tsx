@@ -8,8 +8,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { STUDIO_PASS_COOKIE, STUDIO_PASS_VALUE } from "@/lib/media-studio/access";
-import MediaStudioClient from "@/app/app/studio/media/MediaStudioClient";
-import StudioPasswordGate from "./StudioPasswordGate";
+import StudioShell from "./StudioShell";
 
 export const metadata: Metadata = {
   title: "Studio · Dreyv",
@@ -19,8 +18,5 @@ export const metadata: Metadata = {
 
 export default async function StudioRootPage() {
   const pass = (await cookies()).get(STUDIO_PASS_COOKIE)?.value;
-  if (pass !== STUDIO_PASS_VALUE) {
-    return <StudioPasswordGate />;
-  }
-  return <MediaStudioClient />;
+  return <StudioShell unlocked={pass === STUDIO_PASS_VALUE} />;
 }

@@ -32,9 +32,11 @@ export async function requireTeamMember(req: NextRequest): Promise<
   | { ok: true; user: TeamMember }
   | { ok: false; status: number; error: string }
 > {
-  // Simple shared-password gate (cookie set via /api/studio/unlock).
+  // Simple shared-password gate. Cookie is primary; header is a preview-safe
+  // fallback because some embedded preview flows can drop Set-Cookie.
   const pass = req.cookies.get(STUDIO_PASS_COOKIE)?.value;
-  if (pass === STUDIO_PASS_VALUE) {
+  const headerPass = req.headers.get("x-dreyv-studio-pass");
+  if (pass === STUDIO_PASS_VALUE || headerPass === STUDIO_PASS_VALUE) {
     return {
       ok: true,
       user: {
