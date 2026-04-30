@@ -30,7 +30,7 @@ export function CompositionStrip({ holdings }: { holdings: Holding[] }) {
           const tones = ["bg-violet-600", "bg-violet-400", "bg-violet-300", "bg-violet-200", "bg-violet-100"];
           return (
             <motion.div
-              key={h.symbol}
+              key={`${h.symbol}-${i}`}
               initial={{ width: 0 }}
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.9, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -43,7 +43,7 @@ export function CompositionStrip({ holdings }: { holdings: Holding[] }) {
         {holdings.map((h, i) => {
           const tones = ["bg-violet-600", "bg-violet-400", "bg-violet-300", "bg-violet-200", "bg-violet-100"];
           return (
-            <div key={h.symbol} className="flex items-center gap-2.5">
+            <div key={`${h.symbol}-${i}`} className="flex items-center gap-2.5">
               <span className={`h-2.5 w-2.5 rounded-full ${tones[i % tones.length]}`} />
               <div className="flex flex-1 items-baseline justify-between gap-3">
                 <span className="text-sm font-medium text-slate-700">{h.label}</span>

@@ -35,6 +35,7 @@ export interface ToolCardProps {
 export function ToolCard({
   toolName,
   toolCallId,
+  input,
   state,
   output,
   onSign,
@@ -214,6 +215,8 @@ export function ToolCard({
           rawMessage={errorMessage}
           toolName={toolName}
           operation={operation}
+          input={input}
+          output={output}
           onSuggest={(prompt) => {
             if (typeof window === "undefined") return;
             window.dispatchEvent(
