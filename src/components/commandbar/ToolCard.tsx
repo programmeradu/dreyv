@@ -14,6 +14,7 @@ import { ForesightChart, type ForesightChartProps } from "@/components/commandba
 import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
 import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
 import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
+import { ToolBody } from "@/components/commandbar/ToolBody";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
@@ -194,7 +195,13 @@ export function ToolCard({
       {/* Per-tool headline strip — big numbers/chips for the result */}
       {isDone && success === true && <ToolHeadline toolName={toolName} operation={operation} output={output} />}
 
-      {/* Result body */}
+      {/* Per-tool structured body — registry-driven, replaces the generic paragraph
+          when we have a richer shape for this tool. */}
+      {isDone && success === true && (
+        <ToolBody toolName={toolName} operation={operation} output={output} />
+      )}
+
+      {/* Fallback summary paragraph (only when no structured body matched) */}
       {isDone && success === true && resultSummary && (
         <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
           {resultSummary}
