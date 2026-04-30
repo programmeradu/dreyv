@@ -80,6 +80,20 @@ type Watcher = {
   lastScanAt: string | null;
 };
 
+type CommandApproval = {
+  id: string;
+  commandId: string;
+  walletAddress: string | null;
+  status: string;
+  reason: string;
+  riskScore: string | number | null;
+  estimatedValueUsd: string | number | null;
+  createdAt: string;
+  expiresAt: string | null;
+  intent: { rawText?: string; goal?: string } | null;
+  plan: { rationale?: string; steps?: Array<{ capabilityId: string }> } | null;
+};
+
 type TxProposal = {
   id: string;
   proposalId: string | null;
@@ -108,6 +122,7 @@ export default function InboxPage() {
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
   const [watchers, setWatchers] = useState<Watcher[]>([]);
   const [txProposals, setTxProposals] = useState<TxProposal[]>([]);
+  const [commandApprovals, setCommandApprovals] = useState<CommandApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -121,18 +136,22 @@ export default function InboxPage() {
     setLoading(true);
     try {
       const q = wallet ? `?wallet=${wallet}` : "";
-      const [p, s, w, tx] = await Promise.all([
+      const [p, s, w, tx, ca] = await Promise.all([
         fetch(`/api/inbox/proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/inbox/subagents${q}`, { cache: "no-store" }).then((r) => r.json()),
         wallet
           ? fetch(`/api/inbox/watchers?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json())
           : Promise.resolve({ watchers: [] }),
         fetch(`/api/inbox/tx-proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/inbox/command-approvals${q}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ approvals: [] })),
       ]);
       setProposals(p?.proposals ?? []);
       setSubagents(s?.subagents ?? []);
       setWatchers(w?.watchers ?? []);
       setTxProposals(tx?.txProposals ?? []);
+      setCommandApprovals(ca?.approvals ?? []);
     } finally {
       setLoading(false);
     }
@@ -304,11 +323,34 @@ export default function InboxPage() {
     }
   };
 
+  const actApproval = async (id: string, status: "approved" | "rejected") => {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/inbox/command-approvals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) throw new Error("approval_patch_failed");
+      setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
+      toast.success(status === "approved" ? "Approved — executor running" : "Rejected");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to update approval");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   type TabKey = "pending" | "proposals" | "subagents" | "watchers";
   const [tab, setTab] = useState<TabKey>("pending");
 
   const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
-    { key: "pending", label: "Pending", count: txProposals.length, glyph: glyphPurchase },
+    {
+      key: "pending",
+      label: "Pending",
+      count: txProposals.length + commandApprovals.length,
+      glyph: glyphPurchase,
+    },
     { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
     { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
     { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
@@ -419,7 +461,64 @@ export default function InboxPage() {
       <section className="mx-auto max-w-4xl px-6 pb-16 space-y-3">
         {tab === "pending" && (
           <>
-            {txProposals.length === 0
+            {/* Router-queued plans (DACS HITL) — chat surfaces these as "queued for approval" */}
+            {commandApprovals.map((a) => {
+              const value = a.estimatedValueUsd != null ? Number(a.estimatedValueUsd) : null;
+              const risk = a.riskScore != null ? Number(a.riskScore) : null;
+              const stepCount = a.plan?.steps?.length ?? 0;
+              const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
+              return (
+                <article
+                  key={a.id}
+                  className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
+                      plan
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-2">
+                        <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
+                          {title}
+                        </h4>
+                        <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
+                          {stepCount} step{stepCount === 1 ? "" : "s"}
+                          {risk != null ? ` · risk ${risk.toFixed(2)}` : ""}
+                          {value != null ? ` · ~$${value.toLocaleString()}` : ""}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-neutral-500">
+                        queued {new Date(a.createdAt).toLocaleTimeString()}
+                        {a.expiresAt
+                          ? ` · expires ${new Date(a.expiresAt).toLocaleTimeString()}`
+                          : ""}
+                      </div>
+                      <div className="mt-2 rounded-md border border-violet-100 bg-violet-50/50 px-3 py-2 text-[11px] text-violet-900">
+                        {a.reason}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          disabled={busyId === a.id}
+                          onClick={() => actApproval(a.id, "approved")}
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Approve
+                        </button>
+                        <button
+                          disabled={busyId === a.id}
+                          onClick={() => actApproval(a.id, "rejected")}
+                          className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                        >
+                          <X className="h-3.5 w-3.5" /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {txProposals.length === 0 && commandApprovals.length === 0
               ? sectionEmpty(
                   "No transactions queued. High-confidence proposals (≥75%) auto-queue here for your approval — nothing signs without you.",
                 )
