@@ -83,7 +83,16 @@ Rules:
 - For "build" intent kind, use studio_init_miniapp.
 - For "research" intent kind, use browser_research / risk_assessment / sentiment_analysis as appropriate.
 - For multi-step ops (e.g. "swap then deposit"), order steps so each step's
-  output can feed the next; the runtime will resolve split amounts.`;
+  output can feed the next; the runtime will resolve split amounts.
+- MULTISIG ROUTING: if the WALLET CONTEXT below says the source is a Squads
+  multisig, NEVER use direct write capabilities (transfer, swap, mass_dispatch,
+  yield_deposit) for value movement out of that vault. Wrap the action in a
+  multisig_proposal step with actions:[{ type:"transfer", params:{...} }] and
+  multisigAddress set to the vault address. Co-signers will approve from the
+  inbox.
+- VAULT CREATION: if the user asks to create a multisig / squad / vault / DAO
+  treasury and provides members + threshold, use create_multisig directly.
+  If members or threshold are missing, ask via needsClarification.`;
 
 async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
   const key = process.env.GROQ_API_KEY;
