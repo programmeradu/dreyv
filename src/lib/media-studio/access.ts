@@ -26,6 +26,7 @@ function teamWallets(): Set<string> {
 
 export const STUDIO_PASS_COOKIE = "dreyv-studio-pass";
 export const STUDIO_PASS_VALUE = "opensesame";
+export const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 export async function requireTeamMember(req: NextRequest): Promise<
   | { ok: true; user: TeamMember }
@@ -37,7 +38,7 @@ export async function requireTeamMember(req: NextRequest): Promise<
     return {
       ok: true,
       user: {
-        id: "studio-pass",
+        id: STUDIO_PASS_USER_ID,
         walletAddress: "studio-pass",
         tier: "max",
         role: "creator",

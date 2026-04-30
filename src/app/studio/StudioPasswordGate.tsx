@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 
 export default function StudioPasswordGate() {
-  const router = useRouter();
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -13,18 +11,19 @@ export default function StudioPasswordGate() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const cleanPassword = password.trim();
     try {
       const res = await fetch("/api/studio/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: cleanPassword }),
       });
       if (!res.ok) {
         setError("Wrong password");
         setLoading(false);
         return;
       }
-      router.refresh();
+      window.location.assign("/studio");
     } catch {
       setError("Something went wrong");
       setLoading(false);

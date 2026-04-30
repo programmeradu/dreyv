@@ -9,13 +9,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember } from "@/lib/media-studio/access";
+import { requireTeamMember, STUDIO_PASS_USER_ID } from "@/lib/media-studio/access";
 import { brandSystemPrompt } from "@/lib/media-studio/brand";
 import { chatJson } from "@/lib/media-studio/ai";
 import { db } from "@/db";
 import { mediaStudioAssets } from "@/db/schema";
 
 export const runtime = "nodejs";
+
+function persistedUserId(id: string) {
+  return id === STUDIO_PASS_USER_ID ? null : id;
+}
 
 const SCHEMA = {
   name: "dreyv_video_storyboard",
@@ -78,7 +82,7 @@ export async function POST(req: NextRequest) {
     let saved = null;
     if (db) {
       const [row] = await db.insert(mediaStudioAssets).values({
-        userId: gate.user.id,
+        userId: persistedUserId(gate.user.id),
         kind: "video",
         channel: null,
         title: (spec.title as string) ?? null,

@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember } from "@/lib/media-studio/access";
+import { requireTeamMember, STUDIO_PASS_USER_ID } from "@/lib/media-studio/access";
 import { imageStylePrompt, type AssetKind, type Channel } from "@/lib/media-studio/brand";
 import { generateImage } from "@/lib/media-studio/ai";
 import { putR2Object, presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
@@ -19,6 +19,10 @@ import { mediaStudioAssets } from "@/db/schema";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
+
+function persistedUserId(id: string) {
+  return id === STUDIO_PASS_USER_ID ? null : id;
+}
 
 function aspectToSize(a: string | undefined): { w: number; h: number } {
   switch (a) {
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     const [row] = await db.insert(mediaStudioAssets).values({
-      userId: gate.user.id,
+      userId: persistedUserId(gate.user.id),
       kind,
       channel: body.channel ?? null,
       title: body.title ?? null,
