@@ -134,7 +134,7 @@ async function callGroq(intent: Intent, catalog: string, walletCtx: string): Pro
   }
 }
 
-async function callGemini(intent: Intent, catalog: string): Promise<Plan | null> {
+async function callGemini(intent: Intent, catalog: string, walletCtx: string): Promise<Plan | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
   try {
@@ -149,7 +149,7 @@ async function callGemini(intent: Intent, catalog: string): Promise<Plan | null>
               role: "user",
               parts: [
                 {
-                  text: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nINTENT:\n${JSON.stringify(intent)}\n\nRespond with the JSON Plan only, no prose.`,
+                  text: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nWALLET CONTEXT:\n${walletCtx}\n\nINTENT:\n${JSON.stringify(intent)}\n\nRespond with the JSON Plan only, no prose.`,
                 },
               ],
             },
