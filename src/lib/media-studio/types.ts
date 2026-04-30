@@ -14,6 +14,17 @@ export type CopyResult = {
   suggestedHashtags: string[];
 };
 
+export type ContentSuggestion = {
+  id: string;
+  kind: AssetKind;
+  channel: Channel;
+  title: string;
+  brief: string;
+  audience?: string;
+  aspect?: "1:1" | "16:9" | "9:16" | "4:5";
+  durationSeconds?: number;
+};
+
 export type InfographicSpec = {
   title: string;
   subtitle?: string;
