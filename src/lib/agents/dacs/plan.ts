@@ -94,7 +94,7 @@ Rules:
   treasury and provides members + threshold, use create_multisig directly.
   If members or threshold are missing, ask via needsClarification.`;
 
-async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
+async function callGroq(intent: Intent, catalog: string, walletCtx: string): Promise<Plan | null> {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
   try {
@@ -106,7 +106,13 @@ async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}` },
+          { role: "system", content: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nWALLET CONTEXT:\n${walletCtx}` },
+          { role: "user", content: JSON.stringify(intent).slice(0, 6000) },
+        ],
+      }),
+      signal: AbortSignal.timeout(9_000),
+    });
+    if (!res.ok) return null;
           { role: "user", content: JSON.stringify(intent).slice(0, 6000) },
         ],
       }),
