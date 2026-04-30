@@ -611,7 +611,7 @@ export function CommandBar() {
         }
       }
     },
-    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas],
+    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas, activeVault],
   );
 
   const handleChipClick = useCallback((text: string) => {
