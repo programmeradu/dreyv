@@ -70,6 +70,8 @@ export interface RouteDecision {
 export interface CommandSubmittedPayload {
   commandId: string;
   walletAddress: string | null;
+  /** Active vault address from VaultContext — may be a Squads multisig or a plain wallet. Falls back to walletAddress when null. */
+  vaultAddress?: string | null;
   rawText: string;
   promptMode: "auto" | "build" | "execute";
   vaultState: { tokens?: Array<Record<string, unknown>> } | null;
