@@ -1696,3 +1696,30 @@ export const treasurySnapshots = pgTable('treasury_snapshots', {
   userIdx: index('treasury_snapshots_user_idx').on(t.userId, t.capturedAt),
   walletIdx: index('treasury_snapshots_wallet_idx').on(t.walletAddress, t.capturedAt),
 }));
+
+// ─── Media Studio (Dreyv internal brand/content studio) ───────────────
+// Generated marketing/social assets: copy, infographic specs, images, videos.
+// Access is restricted to authenticated Dreyv team members (server-side role check).
+export const mediaStudioAssets = pgTable('media_studio_assets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id), // creator (team member)
+  kind: text('kind').notNull(), // post | infographic | announcement | video
+  channel: text('channel'),     // x | linkedin | instagram | generic
+  title: text('title'),
+  prompt: text('prompt').notNull(),
+  // Structured generation result — copy variants, infographic spec, image meta, etc.
+  spec: jsonb('spec').notNull().default('{}'),
+  // R2 storage pointers (when an image/video is generated)
+  storageKey: text('storage_key'),
+  mimeType: text('mime_type'),
+  width: integer('width'),
+  height: integer('height'),
+  durationMs: integer('duration_ms'),
+  status: text('status').notNull().default('ready'), // generating | ready | failed
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('media_studio_user_idx').on(t.userId, t.createdAt),
+  kindIdx: index('media_studio_kind_idx').on(t.kind, t.createdAt),
+}));
