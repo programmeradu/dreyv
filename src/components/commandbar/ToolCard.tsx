@@ -178,12 +178,7 @@ export function ToolCard({
 
         {/* Status indicator — right side */}
         <div className="ml-auto flex items-center gap-1.5">
-          {isLoading && (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
-              <span className="text-[11px] font-medium text-violet-600">Executing…</span>
-            </>
-          )}
+          {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />}
           {isDone && success === true && (
             <CheckCircle2 className="h-4 w-4 text-violet-600" strokeWidth={2.25} />
           )}
@@ -192,6 +187,12 @@ export function ToolCard({
           )}
         </div>
       </div>
+
+      {/* Streaming progress — phased violet sweep while the tool is running */}
+      {isLoading && <StreamingProgress toolName={toolName} />}
+
+      {/* Per-tool headline strip — big numbers/chips for the result */}
+      {isDone && success === true && <ToolHeadline toolName={toolName} operation={operation} output={output} />}
 
       {/* Result body */}
       {isDone && success === true && resultSummary && (
