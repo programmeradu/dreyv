@@ -6,6 +6,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { Loader2, CheckCircle2, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { TOOL_META } from "@/lib/commandbar/tool-meta";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
 import { SigningCard } from "@/components/commandbar/SigningCard";
@@ -162,48 +163,51 @@ export function ToolCard({
   }, [isDone, success, output, operation, toolName, toolCallId]);
 
   return (
-    <div className="my-1.5 rounded-xl border border-zinc-700/60 bg-zinc-900/70 px-3 py-2.5 text-sm">
+    <div className="my-1.5 rounded-3xl border border-violet-100 bg-white px-3.5 py-3 font-manrope text-sm text-slate-900">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <span className="text-base leading-none">{meta.icon}</span>
-        <span className={`text-xs font-semibold ${meta.color}`}>
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 text-base leading-none text-violet-700">
+          {meta.icon}
+        </span>
+        <span className="text-xs font-semibold tracking-tight text-violet-700">
           {meta.label}
         </span>
-        <span className="text-xs text-zinc-400 truncate">{toolName}</span>
+        <span className="truncate text-[11px] font-medium text-slate-400">{toolName}</span>
 
         {/* Status indicator — right side */}
         <div className="ml-auto flex items-center gap-1.5">
           {isLoading && (
             <>
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-200" />
-              <span className="text-xs text-zinc-500">Executing…</span>
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
+              <span className="text-[11px] font-medium text-violet-600">Executing…</span>
             </>
           )}
           {isDone && success === true && (
-            <span className="text-emerald-400 text-sm">✓</span>
+            <CheckCircle2 className="h-4 w-4 text-violet-600" strokeWidth={2.25} />
           )}
           {isDone && success === false && (
-            <span className="text-red-400 text-sm">⚠</span>
+            <AlertTriangle className="h-4 w-4 text-rose-500" strokeWidth={2.25} />
           )}
         </div>
       </div>
 
       {/* Result body */}
       {isDone && success === true && resultSummary && (
-        <p className="mt-1.5 text-xs text-zinc-300 leading-relaxed">
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
           {resultSummary}
         </p>
       )}
 
       {isDone && success === false && errorMessage && (
-        <p className="mt-1.5 text-xs text-red-400 leading-relaxed">
+        <p className="mt-1.5 text-xs leading-relaxed text-rose-600">
           {errorMessage}
         </p>
       )}
 
       {isDone && success === true && (sourceTool || sourceField) && (
-        <p className="mt-1 text-[10px] text-zinc-500">
-          Evidence: {sourceTool ? <span className="font-mono">{sourceTool}</span> : "tool"}{sourceField ? <> · field <span className="font-mono">{sourceField}</span></> : null}
+        <p className="mt-1 text-[10px] text-slate-400">
+          Evidence: {sourceTool ? <span className="font-mono text-slate-500">{sourceTool}</span> : "tool"}
+          {sourceField ? <> · field <span className="font-mono text-slate-500">{sourceField}</span></> : null}
         </p>
       )}
 
@@ -211,12 +215,13 @@ export function ToolCard({
         <div className="mt-2">
           <Link
             href={`/app/studio?appId=${encodeURIComponent(studioAppId)}`}
-            className="inline-flex items-center justify-center rounded-lg bg-emerald-600/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
           >
             Open in Studio
+            <ArrowUpRight className="h-3 w-3" />
           </Link>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            Loads this project via <span className="font-mono">appId</span>
+          <p className="mt-1 text-[10px] text-slate-400">
+            Loads this project via <span className="font-mono text-slate-500">appId</span>
           </p>
         </div>
       )}
