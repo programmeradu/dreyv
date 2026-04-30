@@ -21,6 +21,10 @@ function persistedUserId(id: string) {
   return id === STUDIO_PASS_USER_ID ? null : id;
 }
 
+function isMigrationPending(err: unknown) {
+  return err instanceof Error && err.message.includes("media_studio_assets");
+}
+
 const SCHEMA = {
   name: "dreyv_video_storyboard",
   description: "Short-form video storyboard for a Dreyv social clip",
@@ -81,16 +85,20 @@ export async function POST(req: NextRequest) {
 
     let saved = null;
     if (db) {
-      const [row] = await db.insert(mediaStudioAssets).values({
-        userId: persistedUserId(gate.user.id),
-        kind: "video",
-        channel: null,
-        title: (spec.title as string) ?? null,
-        prompt,
-        spec,
-        status: "ready",
-      }).returning();
-      saved = row;
+      try {
+        const [row] = await db.insert(mediaStudioAssets).values({
+          userId: persistedUserId(gate.user.id),
+          kind: "video",
+          channel: null,
+          title: (spec.title as string) ?? null,
+          prompt,
+          spec,
+          status: "ready",
+        }).returning();
+        saved = row;
+      } catch (err) {
+        if (!isMigrationPending(err)) throw err;
+      }
     }
     return NextResponse.json({ spec, asset: saved });
   } catch (err) {

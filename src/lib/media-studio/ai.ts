@@ -21,7 +21,7 @@ export async function chatJson<T = unknown>(opts: {
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
 }): Promise<T> {
-  const model = opts.model ?? "google/gemini-2.5-flash";
+  const model = opts.model ?? "google/gemini-3-flash-preview";
   const body: Record<string, unknown> = {
     model,
     messages: opts.messages,
@@ -43,6 +43,8 @@ export async function chatJson<T = unknown>(opts: {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
     throw new Error(`AI gateway ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
@@ -77,6 +79,8 @@ export async function generateImage(opts: {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
     throw new Error(`AI gateway image ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
