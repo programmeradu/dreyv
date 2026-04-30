@@ -7,6 +7,7 @@ import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
 import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
+import { studioJsonHeaders } from "@/lib/media-studio/client-auth";
 
 /**
  * Dreyv Media Studio — internal brand/content workbench.
@@ -65,7 +66,7 @@ export default function MediaStudioClient() {
         setCopyResult(null);
         const res = await fetch("/api/studio/media/generate-copy", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: studioJsonHeaders(),
           body: JSON.stringify({ kind: mode, channel, prompt, audience }),
         });
         const json = await res.json();
@@ -76,7 +77,7 @@ export default function MediaStudioClient() {
         setInfographic(null);
         const res = await fetch("/api/studio/media/generate-infographic", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: studioJsonHeaders(),
           body: JSON.stringify({ prompt }),
         });
         const json = await res.json();
@@ -87,7 +88,7 @@ export default function MediaStudioClient() {
         setStoryboard(null);
         const res = await fetch("/api/studio/media/generate-video", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: studioJsonHeaders(),
           body: JSON.stringify({ prompt, durationSeconds: duration, aspect: aspect === "9:16" ? "9:16" : "1:1" }),
         });
         const json = await res.json();
@@ -110,7 +111,7 @@ export default function MediaStudioClient() {
     try {
       const res = await fetch("/api/studio/media/generate-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioJsonHeaders(),
         body: JSON.stringify({ prompt, kind: mode, channel, aspect, title: prompt.slice(0, 80) }),
       });
       const json = await res.json();
@@ -127,7 +128,7 @@ export default function MediaStudioClient() {
   async function saveCopy(variant: { headline?: string; body: string; cta?: string }) {
     await fetch("/api/studio/media/assets", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studioJsonHeaders(),
       body: JSON.stringify({
         kind: mode,
         channel,
@@ -143,7 +144,7 @@ export default function MediaStudioClient() {
     if (!infographic) return;
     await fetch("/api/studio/media/assets", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studioJsonHeaders(),
       body: JSON.stringify({
         kind: "infographic",
         title: infographic.title,
