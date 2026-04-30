@@ -68,6 +68,26 @@ export function ToolCard({
       return [output.serializedTransaction as string];
     return [];
   })();
+  // Ephemeral co-signers (e.g. Squads createKey) that must partial-sign each
+  // tx before the wallet sees it. Either an array-of-arrays index-aligned with
+  // serializedTransactions, or a flat array applied to every tx.
+  const extraSignersFromOutput: Array<
+    Array<{ publicKey: string; secretKeyBase64: string }>
+  > = (() => {
+    if (!requiresApproval) return [];
+    const raw = (output as { extraSigners?: unknown })?.extraSigners;
+    if (!Array.isArray(raw)) return [];
+    if (raw.length === 0) return [];
+    const isFlat =
+      raw[0] &&
+      typeof raw[0] === "object" &&
+      typeof (raw[0] as { secretKeyBase64?: unknown }).secretKeyBase64 === "string";
+    if (isFlat) {
+      const flat = raw as Array<{ publicKey: string; secretKeyBase64: string }>;
+      return serializedTransactions.map(() => flat);
+    }
+    return raw as Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
+  })();
 
   // Foresight visualization
   const triggerVisualization = isDone && output?.triggerVisualization === true;
