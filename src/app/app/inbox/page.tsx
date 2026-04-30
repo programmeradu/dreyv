@@ -323,11 +323,34 @@ export default function InboxPage() {
     }
   };
 
+  const actApproval = async (id: string, status: "approved" | "rejected") => {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/inbox/command-approvals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) throw new Error("approval_patch_failed");
+      setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
+      toast.success(status === "approved" ? "Approved — executor running" : "Rejected");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to update approval");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   type TabKey = "pending" | "proposals" | "subagents" | "watchers";
   const [tab, setTab] = useState<TabKey>("pending");
 
   const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
-    { key: "pending", label: "Pending", count: txProposals.length, glyph: glyphPurchase },
+    {
+      key: "pending",
+      label: "Pending",
+      count: txProposals.length + commandApprovals.length,
+      glyph: glyphPurchase,
+    },
     { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
     { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
     { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
