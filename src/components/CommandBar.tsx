@@ -143,7 +143,7 @@ export function CommandBar() {
 
   const router = useRouter();
   const simStore = useSimulationStore();
-  const { vaultTokens } = useVault();
+  const { vaultTokens, activeVault } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
   const canvas = useOptionalCanvas();
@@ -591,6 +591,7 @@ export function CommandBar() {
           {
             body: {
               walletAddress: publicKey?.toBase58() || "",
+              vaultAddress: activeVault || null,
               vaultState: { tokens: vaultTokens || [] },
               walletState: { balances: vaultTokens || [] },
             },
@@ -610,7 +611,7 @@ export function CommandBar() {
         }
       }
     },
-    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas],
+    [input, agentBusy, sendMessage, vaultTokens, publicKey, canvas, activeVault],
   );
 
   const handleChipClick = useCallback((text: string) => {
@@ -645,6 +646,7 @@ export function CommandBar() {
           {
             body: {
               walletAddress: publicKey?.toBase58() || "",
+              vaultAddress: activeVault || null,
               vaultState: { tokens: vaultTokens || [] },
               walletState: { balances: vaultTokens || [] },
             },
@@ -661,7 +663,7 @@ export function CommandBar() {
         }
       }
     },
-    [agentBusy, canvas, sendMessage, publicKey, vaultTokens],
+    [agentBusy, canvas, sendMessage, publicKey, vaultTokens, activeVault],
   );
 
   // ─── External AGENT_COMMAND bridge ─────────────────────────────────────────

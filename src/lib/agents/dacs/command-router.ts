@@ -56,7 +56,7 @@ export const commandRouter = inngest.createFunction(
   { event: "agent.command.submitted" },
   async ({ event, step }) => {
     const payload = event.data as CommandSubmittedPayload;
-    const { commandId, walletAddress, rawText, promptMode } = payload;
+    const { commandId, walletAddress, vaultAddress, rawText, promptMode } = payload;
     const startedAt = Date.now();
 
     const intent = await step.run("classify-intent", async () => {
@@ -68,12 +68,17 @@ export const commandRouter = inngest.createFunction(
       return i;
     });
 
-    // Detect whether the connected wallet is itself a Squads multisig so the
-    // planner can route value-movement through multisig_proposal instead of
-    // direct transfer/swap. Best-effort — RPC failures fall back to "not multisig".
+    // Detect whether the SOURCE OF FUNDS (active vault, falling back to the
+    // connected wallet) is itself a Squads multisig so the planner can route
+    // value-movement through multisig_proposal instead of direct transfer/swap.
+    // Best-effort — RPC failures fall back to "not multisig".
     const walletCtx = await step.run("detect-vault-source", async () => {
-      if (!walletAddress) {
-        return { walletAddress: null, isMultisig: false } as const;
+      // Prefer the explicitly active vault from VaultContext — the user may be
+      // signed in with a personal member wallet while the active vault is a
+      // Squads multisig. Only fall back to walletAddress when no vault is set.
+      const candidate = vaultAddress || walletAddress;
+      if (!candidate) {
+        return { walletAddress: walletAddress ?? null, isMultisig: false } as const;
       }
       try {
         const { Connection } = await import("@solana/web3.js");
@@ -81,18 +86,18 @@ export const commandRouter = inngest.createFunction(
         const rpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
         const conn = new Connection(rpc, "confirmed");
         const client = new SquadsClient(conn, null);
-        const ms = await client.getVault(walletAddress);
-        if (!ms) return { walletAddress, isMultisig: false } as const;
+        const ms = await client.getVault(candidate);
+        if (!ms) return { walletAddress: walletAddress ?? null, isMultisig: false } as const;
         return {
-          walletAddress,
+          walletAddress: walletAddress ?? null,
           isMultisig: true,
-          multisigAddress: walletAddress,
+          multisigAddress: candidate,
           threshold: Number(ms.threshold),
           memberCount: (ms.members as any[]).length,
         };
       } catch (e: any) {
         console.warn("[command-router] vault detection failed", e?.message);
-        return { walletAddress, isMultisig: false } as const;
+        return { walletAddress: walletAddress ?? null, isMultisig: false } as const;
       }
     });
 

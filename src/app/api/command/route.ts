@@ -175,7 +175,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { messages, prompt, walletState, vaultState } = body;
+    const { messages, prompt, walletState, vaultState, vaultAddress } = body;
     // Always trust the authenticated session wallet — never the request body.
     const walletAddress = authUser.walletAddress;
     const strictGroundingGlobal = process.env.STRICT_GROUNDING === "1" || process.env.STRICT_GROUNDING === "true";
@@ -237,6 +237,7 @@ export async function POST(req: Request) {
           const { submitCommand } = await import("@/lib/agents/dacs/submit");
           await submitCommand({
             walletAddress,
+            vaultAddress: vaultAddress || null,
             rawText: userRequestText,
             promptMode,
             vaultState,
