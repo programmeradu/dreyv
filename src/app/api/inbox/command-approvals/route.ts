@@ -51,8 +51,15 @@ export async function GET(req: Request) {
   }
 }
 
+interface ExtraSigner {
+  publicKey: string;
+  secretKeyBase64: string;
+}
+
 interface SigningEnvelope {
   serializedTransactions: string[];
+  /** Per-tx ephemeral signers (e.g. Squads createKey). Index-aligned with serializedTransactions. */
+  extraSigners: ExtraSigner[][];
   operation: string;
   capabilityIds: string[];
   builtAt: number;
@@ -61,8 +68,9 @@ interface SigningEnvelope {
 
 /**
  * Walk the queued plan, run each capability with the user's wallet on
- * context, and collect any returned `serializedTransactions`. Read/sim/meta
- * steps are skipped — only write steps yield txs to sign.
+ * context, and collect any returned `serializedTransactions` plus optional
+ * `extraSigners` (ephemeral keypairs that must co-sign before the wallet,
+ * e.g. Squads `createKey`). Read/sim/meta steps are skipped.
  */
 async function buildSigningEnvelope(
   plan: Plan,
@@ -87,6 +95,7 @@ async function buildSigningEnvelope(
   };
 
   const serialized: string[] = [];
+  const extraSigners: ExtraSigner[][] = [];
   const capabilityIds: string[] = [];
   const buildErrors: string[] = [];
   let operation = "Approved plan";
@@ -98,7 +107,6 @@ async function buildSigningEnvelope(
       continue;
     }
     if (cap.sideEffects !== "write") {
-      // Read/sim/meta steps don't produce txs — skip them silently.
       continue;
     }
     try {
@@ -107,8 +115,23 @@ async function buildSigningEnvelope(
       capabilityIds.push(cap.id);
       if (out && typeof out === "object") {
         const txs = (out as { serializedTransactions?: unknown }).serializedTransactions;
+        const sigs = (out as { extraSigners?: unknown }).extraSigners;
+        const stepSigners: ExtraSigner[] = Array.isArray(sigs)
+          ? (sigs as any[]).filter(
+              (s) =>
+                s &&
+                typeof s.publicKey === "string" &&
+                typeof s.secretKeyBase64 === "string",
+            )
+          : [];
         if (Array.isArray(txs)) {
-          for (const t of txs) if (typeof t === "string") serialized.push(t);
+          for (const t of txs) {
+            if (typeof t === "string") {
+              serialized.push(t);
+              // Apply this step's extra signers to every tx the step produced.
+              extraSigners.push(stepSigners);
+            }
+          }
         }
         const op = (out as { operation?: unknown }).operation;
         if (typeof op === "string" && op.length > 0) operation = op;
@@ -120,6 +143,7 @@ async function buildSigningEnvelope(
 
   return {
     serializedTransactions: serialized,
+    extraSigners,
     operation,
     capabilityIds,
     builtAt: Date.now(),

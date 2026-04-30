@@ -83,9 +83,18 @@ Rules:
 - For "build" intent kind, use studio_init_miniapp.
 - For "research" intent kind, use browser_research / risk_assessment / sentiment_analysis as appropriate.
 - For multi-step ops (e.g. "swap then deposit"), order steps so each step's
-  output can feed the next; the runtime will resolve split amounts.`;
+  output can feed the next; the runtime will resolve split amounts.
+- MULTISIG ROUTING: if the WALLET CONTEXT below says the source is a Squads
+  multisig, NEVER use direct write capabilities (transfer, swap, mass_dispatch,
+  yield_deposit) for value movement out of that vault. Wrap the action in a
+  multisig_proposal step with actions:[{ type:"transfer", params:{...} }] and
+  multisigAddress set to the vault address. Co-signers will approve from the
+  inbox.
+- VAULT CREATION: if the user asks to create a multisig / squad / vault / DAO
+  treasury and provides members + threshold, use create_multisig directly.
+  If members or threshold are missing, ask via needsClarification.`;
 
-async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
+async function callGroq(intent: Intent, catalog: string, walletCtx: string): Promise<Plan | null> {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
   try {
@@ -97,7 +106,7 @@ async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}` },
+          { role: "system", content: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nWALLET CONTEXT:\n${walletCtx}` },
           { role: "user", content: JSON.stringify(intent).slice(0, 6000) },
         ],
       }),
@@ -125,7 +134,7 @@ async function callGroq(intent: Intent, catalog: string): Promise<Plan | null> {
   }
 }
 
-async function callGemini(intent: Intent, catalog: string): Promise<Plan | null> {
+async function callGemini(intent: Intent, catalog: string, walletCtx: string): Promise<Plan | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
   try {
@@ -140,7 +149,7 @@ async function callGemini(intent: Intent, catalog: string): Promise<Plan | null>
               role: "user",
               parts: [
                 {
-                  text: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nINTENT:\n${JSON.stringify(intent)}\n\nRespond with the JSON Plan only, no prose.`,
+                  text: `${SYSTEM}\n\nCAPABILITIES:\n${catalog}\n\nWALLET CONTEXT:\n${walletCtx}\n\nINTENT:\n${JSON.stringify(intent)}\n\nRespond with the JSON Plan only, no prose.`,
                 },
               ],
             },
@@ -180,7 +189,25 @@ function isComplexIntent(intent: Intent): boolean {
   return verbCount >= 2;
 }
 
-export async function synthesizePlan(intent: Intent): Promise<Plan> {
+export interface PlanWalletContext {
+  walletAddress: string | null;
+  isMultisig: boolean;
+  multisigAddress?: string;
+  threshold?: number;
+  memberCount?: number;
+}
+
+function formatWalletContext(ctx?: PlanWalletContext | null): string {
+  if (!ctx || !ctx.walletAddress) {
+    return "No wallet connected. Plans that need a signer will be queued for later.";
+  }
+  if (ctx.isMultisig) {
+    return `Connected wallet IS a Squads V4 multisig (${ctx.multisigAddress ?? ctx.walletAddress}). Threshold ${ctx.threshold ?? "?"}/${ctx.memberCount ?? "?"}. ANY value movement OUT of this vault MUST go through multisig_proposal — do not use direct transfer/swap/yield_deposit. Pass multisigAddress="${ctx.multisigAddress ?? ctx.walletAddress}" in the proposal input.`;
+  }
+  return `Connected wallet ${ctx.walletAddress} is a standard Solana account (not a multisig). Direct write capabilities are fine.`;
+}
+
+export async function synthesizePlan(intent: Intent, walletCtx?: PlanWalletContext | null): Promise<Plan> {
   if (intent.kind === "chitchat" || intent.kind === "unknown") {
     return emptyPlan(
       intent.kind === "chitchat" ? "Conversational input — no capability call." : "Intent unclear.",
@@ -189,11 +216,12 @@ export async function synthesizePlan(intent: Intent): Promise<Plan> {
   }
 
   const catalog = capabilityCatalogForLLM();
+  const walletCtxStr = formatWalletContext(walletCtx);
   const useDeep = isComplexIntent(intent);
 
   let plan: Plan | null = null;
-  if (useDeep) plan = await callGemini(intent, catalog);
-  if (!plan) plan = await callGroq(intent, catalog);
+  if (useDeep) plan = await callGemini(intent, catalog, walletCtxStr);
+  if (!plan) plan = await callGroq(intent, catalog, walletCtxStr);
 
   if (!plan) {
     return emptyPlan("Planner unavailable; no LLM responded.", ["Planner could not produce a plan; please retry."]);

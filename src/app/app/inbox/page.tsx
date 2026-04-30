@@ -338,6 +338,7 @@ export default function InboxPage() {
         ok: boolean;
         signingEnvelope?: {
           serializedTransactions: string[];
+          extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
           operation: string;
           buildErrors: string[];
         } | null;
@@ -371,13 +372,34 @@ export default function InboxPage() {
         return;
       }
 
-      const deserialized = env.serializedTransactions.map((b64) => {
+      // Lazy-import Keypair only when we actually need ephemeral co-signers
+      // (e.g. Squads createMultisig's createKey).
+      const needsEphemeral = (env.extraSigners ?? []).some((s) => s && s.length > 0);
+      const Keypair = needsEphemeral ? (await import("@solana/web3.js")).Keypair : null;
+
+      const deserialized = env.serializedTransactions.map((b64, i) => {
         const buf = Buffer.from(b64, "base64");
+        let tx: VersionedTransaction | Transaction;
         try {
-          return VersionedTransaction.deserialize(buf);
+          tx = VersionedTransaction.deserialize(buf);
         } catch {
-          return Transaction.from(buf);
+          tx = Transaction.from(buf);
         }
+        // Apply this tx's ephemeral signers (e.g. Squads createKey) before
+        // handing to the wallet — otherwise the wallet will refuse to sign
+        // because the partial signature slot is empty.
+        const stepSigners = (env.extraSigners ?? [])[i] ?? [];
+        if (stepSigners.length > 0 && Keypair) {
+          const kps = stepSigners.map((s) =>
+            Keypair.fromSecretKey(Buffer.from(s.secretKeyBase64, "base64")),
+          );
+          if (tx instanceof VersionedTransaction) {
+            tx.sign(kps);
+          } else {
+            tx.partialSign(...kps);
+          }
+        }
+        return tx;
       });
 
       let signed: (VersionedTransaction | Transaction)[] = [];

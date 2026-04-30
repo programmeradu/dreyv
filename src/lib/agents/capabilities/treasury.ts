@@ -25,22 +25,137 @@ const create_multisig = defineCapability({
   id: "create_multisig",
   domain: "treasury",
   description:
-    "Deploys a new Squads V4 Multisig Treasury for the user on the Solana blockchain. Use this exclusively when the user asks to create a multisig, create a squad, or launch a new treasury.",
-  inputSchema: z.object({}),
-  sideEffects: "meta",
+    "Deploys a new Squads V4 Multisig Treasury (vault) on Solana. Returns a signable transaction so the user can create the multisig directly from the CommandBar/Inbox without leaving the chat. Use when the user asks to create a multisig, create a squad, launch a new treasury, set up a vault, or invite co-signers.",
+  inputSchema: z.object({
+    members: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Member wallet addresses (base58). The connected wallet is auto-included as the proposer if not listed.",
+      ),
+    threshold: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Number of signatures required to approve a transaction (k of n)."),
+    timeLock: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("Optional time-lock in seconds before approved txs can execute. Default 0."),
+  }),
+  sideEffects: "write",
   requiredAuth: "wallet",
-  sensitivity: "low",
+  sensitivity: "high",
   protocols: ["squads-v4"],
-  execute: async () => {
-    return {
-      success: true,
-      operation: "navigate",
-      path: "/app/treasury",
-      validated: true,
-      message:
-        "To deploy your new Squads V4 Multisig natively, please use the 'Launch new treasury / Create Squad' button in your Vault Selector panel on the dashboard.",
-      requiresApproval: false,
-    };
+  execute: async ({ members, threshold, timeLock = 0 }, ctx) => {
+    if (!ctx.walletAddress) {
+      return {
+        success: true,
+        operation: "create_multisig",
+        memberCount: members.length,
+        threshold,
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `Multisig (${threshold}/${members.length}) prepared. Connect a wallet to build and sign the create-vault transaction.`,
+      };
+    }
+
+    try {
+      const { Connection, PublicKey, Transaction, Keypair } = await import("@solana/web3.js");
+      const squads = (await import("@sqds/multisig")) as any;
+      const { getMultisigPda, getVaultPda } = squads;
+
+      const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+      const creator = new PublicKey(ctx.walletAddress);
+
+      // De-dup + ensure creator is a member with full permissions (mask 7 = Initiate|Vote|Execute).
+      const memberSet = new Set<string>(members);
+      memberSet.add(creator.toBase58());
+      if (memberSet.size < threshold) {
+        return {
+          success: false,
+          operation: "create_multisig",
+          error: `Threshold ${threshold} exceeds member count ${memberSet.size}.`,
+        };
+      }
+
+      const memberList = Array.from(memberSet).map((addr) => ({
+        key: new PublicKey(addr),
+        permissions: { mask: 7 },
+      }));
+
+      // Fresh ephemeral createKey — its public key derives the multisig PDA, its
+      // secret key must co-sign the create tx (we surface it via extraSigners).
+      const createKey = Keypair.generate();
+      const [multisigPda] = getMultisigPda({ createKey: createKey.publicKey });
+      const [vaultPda] = getVaultPda({ multisigPda, index: 0 });
+
+      // Resolve treasury (program config) — fall back to creator on devnet.
+      const [programConfigPda] = squads.getProgramConfigPda({});
+      let treasury: any;
+      try {
+        const programConfig = await squads.accounts.ProgramConfig.fromAccountAddress(
+          conn,
+          programConfigPda,
+        );
+        treasury = programConfig.treasury;
+      } catch {
+        treasury = creator;
+      }
+
+      const ix = squads.instructions.multisigCreateV2({
+        treasury,
+        creator,
+        multisigPda,
+        configAuthority: null,
+        threshold,
+        members: memberList,
+        timeLock,
+        createKey: createKey.publicKey,
+        rentCollector: null,
+      });
+
+      const { blockhash } = await conn.getLatestBlockhash("confirmed");
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: creator });
+      tx.add(ix);
+
+      const serialized = Buffer.from(tx.serialize({ verifySignatures: false })).toString("base64");
+
+      // The createKey ephemeral signer's secret must travel with the envelope so
+      // the inbox UI can partial-sign before passing the tx to the wallet.
+      const extraSigner = {
+        publicKey: createKey.publicKey.toBase58(),
+        secretKeyBase64: Buffer.from(createKey.secretKey).toString("base64"),
+      };
+
+      return {
+        success: true,
+        operation: "create_multisig",
+        memberCount: memberList.length,
+        threshold,
+        timeLock,
+        multisigPda: multisigPda.toBase58(),
+        vaultPda: vaultPda.toBase58(),
+        members: memberList.map((m) => m.key.toBase58()),
+        serializedTransactions: [serialized],
+        extraSigners: [extraSigner],
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `New ${threshold}-of-${memberList.length} Squads V4 multisig ready to deploy. Vault PDA: ${vaultPda
+          .toBase58()
+          .slice(0, 8)}…`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:create_multisig] build error:", msg);
+      return {
+        success: false,
+        operation: "create_multisig",
+        error: `Failed to build multisig create tx: ${msg}`,
+      };
+    }
   },
 });
 
@@ -345,20 +460,40 @@ const mass_dispatch = defineCapability({
 const multisig_proposal = defineCapability({
   id: "multisig_proposal",
   domain: "treasury",
-  description: "Create a multisig treasury proposal for War Room quorum execution.",
+  description:
+    "Build a Squads V4 multisig proposal (vaultTransactionCreate + proposalCreate + proposalActivate) for the connected vault. Returns a signable proposer transaction. Use whenever the source of funds is a Squads multisig and a write action is needed (transfer, payroll, swap-out). The proposer signs to broadcast the proposal; remaining co-signers approve from the inbox.",
   inputSchema: z.object({
-    title: z.string().describe("Proposal title"),
-    description: z.string().describe("Proposal description"),
+    title: z.string().describe("Proposal title shown in the inbox / Squads UI"),
+    description: z.string().describe("Human-readable description"),
+    multisigAddress: z
+      .string()
+      .optional()
+      .describe(
+        "Squads multisig address. Defaults to the connected wallet if it is itself a multisig.",
+      ),
     actions: z
-      .array(z.object({ type: z.string(), params: z.any() }))
-      .describe("Actions to execute"),
+      .array(
+        z.object({
+          type: z
+            .enum(["transfer"])
+            .describe("Action type. Only 'transfer' is supported in v1."),
+          params: z.object({
+            token: z.string().describe("SOL or SPL symbol (USDC, USDT, ...)"),
+            amount: z.number(),
+            recipient: z.string(),
+          }),
+        }),
+      )
+      .min(1)
+      .describe("Actions the vault PDA will execute when the proposal passes."),
+    vaultIndex: z.number().int().min(0).optional().describe("Vault sub-index. Default 0."),
   }),
   sideEffects: "write",
   requiredAuth: "multisig",
   sensitivity: "high",
   protocols: ["squads-v4"],
-  execute: async ({ title, description: desc, actions }, ctx) => {
-    console.log(`[capability:multisig_proposal] ${title}`);
+  execute: async ({ title, description: desc, multisigAddress, actions, vaultIndex = 0 }, ctx) => {
+    console.log(`[capability:multisig_proposal] ${title} (${actions.length} action(s))`);
 
     if (!ctx.walletAddress) {
       return {
@@ -368,59 +503,143 @@ const multisig_proposal = defineCapability({
         description: desc,
         actionCount: actions.length,
         status: "PENDING_SIGNATURES",
-        quorumRequired: null,
-        currentSignatures: 0,
-        isMultisig: false,
-        message: `Proposal "${title}" prepared. Connect a Squads multisig wallet to fetch quorum requirements.`,
+        message: `Proposal "${title}" prepared. Connect your proposer wallet to build the on-chain proposal tx.`,
       };
     }
 
     try {
-      const { Connection } = await import("@solana/web3.js");
+      const {
+        Connection,
+        PublicKey,
+        Transaction,
+        TransactionMessage,
+        SystemProgram,
+        LAMPORTS_PER_SOL,
+      } = await import("@solana/web3.js");
+      const squads = (await import("@sqds/multisig")) as any;
+      const { getVaultPda, getTransactionPda } = squads;
       const { SquadsClient } = await import("@/lib/squads");
-      const connection = new Connection(ctx.rpcEndpoint, "confirmed");
-      const squadsClient = new SquadsClient(connection, null);
 
-      const multisigAccount = await squadsClient.getVault(ctx.walletAddress);
+      const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+      const proposer = new PublicKey(ctx.walletAddress);
 
+      // Resolve which address holds the multisig config. If the user passed one,
+      // use that; otherwise assume the connected wallet IS the multisig.
+      const multisigAddr = multisigAddress ?? ctx.walletAddress;
+      const multisigPda = new PublicKey(multisigAddr);
+      const client = new SquadsClient(conn, null);
+      const multisigAccount = await client.getVault(multisigAddr);
       if (!multisigAccount) {
         return {
-          success: true,
+          success: false,
           operation: "multisig_proposal",
           title,
-          description: desc,
-          actionCount: actions.length,
-          status: "PENDING_SIGNATURES",
-          isMultisig: false,
-          quorumRequired: null,
-          currentSignatures: 0,
-          message: `Wallet ${ctx.walletAddress.slice(0, 8)}… is not a Squads multisig. Proposal "${title}" staged for standard execution.`,
-          requiresApproval: true,
+          error: `Address ${multisigAddr.slice(0, 8)}… is not a Squads V4 multisig. Use create_multisig first or pass an explicit multisigAddress.`,
         };
       }
 
       const threshold = Number(multisigAccount.threshold);
-      const members = (
-        multisigAccount.members as Array<{ key: { toBase58(): string }; permissions: unknown }>
-      ).map((m) => ({
-        key: m.key.toBase58(),
-        permissions: m.permissions,
-      }));
-      const transactionIndex = Number(multisigAccount.transactionIndex);
+      const memberCount = (multisigAccount.members as any[]).length;
+      const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1);
+      const [vaultPda] = getVaultPda({ multisigPda, index: vaultIndex });
+      const [vaultTxKey] = getTransactionPda({ multisigPda, index: transactionIndex });
 
-      let recentProposals: Array<{
-        index: number;
-        title: string;
-        status: string;
-        signatures: number;
-        threshold: number;
-        pda: string;
-      }> = [];
-      try {
-        recentProposals = await squadsClient.getProposals(ctx.walletAddress);
-      } catch {
-        /* proposals fetch is best-effort */
+      // Build inner instructions the vault PDA will execute on approval.
+      const inner: any[] = [];
+      for (const a of actions) {
+        if (a.type !== "transfer") continue;
+        const isSol = isSolSymbol(a.params.token);
+        const recipient = new PublicKey(a.params.recipient);
+        if (isSol) {
+          inner.push(
+            SystemProgram.transfer({
+              fromPubkey: vaultPda,
+              toPubkey: recipient,
+              lamports: Math.floor(a.params.amount * LAMPORTS_PER_SOL),
+            }),
+          );
+        } else {
+          const mint = resolveTokenMint(a.params.token.toUpperCase());
+          if (!mint) {
+            return {
+              success: false,
+              operation: "multisig_proposal",
+              title,
+              error: `Unknown token: ${a.params.token}`,
+            };
+          }
+          const spl = (await import("@solana/spl-token")) as any;
+          const {
+            createTransferInstruction,
+            createAssociatedTokenAccountIdempotentInstruction,
+            getAssociatedTokenAddress,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+          } = spl;
+          const mintPk = new PublicKey(mint);
+          const decimals = ["USDC", "USDT"].includes(a.params.token.toUpperCase()) ? 6 : 9;
+          const senderAta = await getAssociatedTokenAddress(mintPk, vaultPda, true);
+          const recipientAta = await getAssociatedTokenAddress(mintPk, recipient);
+          inner.push(
+            createAssociatedTokenAccountIdempotentInstruction(
+              proposer, // proposer pays for ATA creation
+              recipientAta,
+              recipient,
+              mintPk,
+              TOKEN_PROGRAM_ID,
+              ASSOCIATED_TOKEN_PROGRAM_ID,
+            ),
+            createTransferInstruction(
+              senderAta,
+              recipientAta,
+              vaultPda,
+              Math.floor(a.params.amount * Math.pow(10, decimals)),
+            ),
+          );
+        }
       }
+
+      if (inner.length === 0) {
+        return {
+          success: false,
+          operation: "multisig_proposal",
+          title,
+          error: "No executable inner instructions were produced.",
+        };
+      }
+
+      const { blockhash } = await conn.getLatestBlockhash("confirmed");
+
+      const innerMsg = new TransactionMessage({
+        payerKey: vaultPda,
+        recentBlockhash: blockhash,
+        instructions: inner,
+      });
+
+      const vaultTxIx = squads.instructions.vaultTransactionCreate({
+        multisigPda,
+        transactionIndex,
+        creator: proposer,
+        vaultIndex,
+        ephemeralSigners: 0,
+        transactionMessage: innerMsg,
+        memo: title.slice(0, 240),
+      });
+      const proposalIx = squads.instructions.proposalCreate({
+        multisigPda,
+        transactionIndex,
+        creator: proposer,
+        isDraft: false,
+      });
+      const activateIx = squads.instructions.proposalActivate({
+        multisigPda,
+        transactionIndex,
+        member: proposer,
+      });
+
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: proposer });
+      tx.add(vaultTxIx, proposalIx, activateIx);
+      const serialized = Buffer.from(tx.serialize({ verifySignatures: false })).toString("base64");
 
       return {
         success: true,
@@ -428,25 +647,27 @@ const multisig_proposal = defineCapability({
         title,
         description: desc,
         actionCount: actions.length,
-        status: "PENDING_SIGNATURES",
         isMultisig: true,
+        multisigAddress: multisigAddr,
+        vaultPda: vaultPda.toBase58(),
+        proposalPda: vaultTxKey.toBase58(),
+        nextTransactionIndex: Number(transactionIndex),
         quorumRequired: threshold,
-        currentSignatures: 0,
-        memberCount: members.length,
-        members: members.map((m) => m.key),
-        nextTransactionIndex: transactionIndex + 1,
-        recentProposals: recentProposals.slice(0, 5),
-        message: `Proposal "${title}" prepared for Squads multisig. Quorum: ${threshold}/${members.length} signatures required. Next tx index: ${transactionIndex + 1}. Submit client-side to create on-chain.`,
+        memberCount,
+        currentSignatures: 1, // proposer auto-approves on activate
+        serializedTransactions: [serialized],
+        status: "PENDING_SIGNATURES",
         requiresApproval: true,
+        message: `Proposal "${title}" built for Squads multisig ${multisigAddr.slice(0, 8)}… — ${threshold}/${memberCount} required. Sign to publish; co-signers approve from /app/inbox.`,
       };
-    } catch (err: unknown) {
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[capability:multisig_proposal] SquadsClient error:", msg);
+      console.error("[capability:multisig_proposal] build error:", msg);
       return {
         success: false,
         operation: "multisig_proposal",
         title,
-        error: `Failed to fetch multisig config: ${msg}`,
+        error: `Failed to build multisig proposal: ${msg}`,
       };
     }
   },

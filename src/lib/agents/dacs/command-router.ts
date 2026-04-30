@@ -68,8 +68,36 @@ export const commandRouter = inngest.createFunction(
       return i;
     });
 
+    // Detect whether the connected wallet is itself a Squads multisig so the
+    // planner can route value-movement through multisig_proposal instead of
+    // direct transfer/swap. Best-effort — RPC failures fall back to "not multisig".
+    const walletCtx = await step.run("detect-vault-source", async () => {
+      if (!walletAddress) {
+        return { walletAddress: null, isMultisig: false } as const;
+      }
+      try {
+        const { Connection } = await import("@solana/web3.js");
+        const { SquadsClient } = await import("@/lib/squads");
+        const rpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+        const conn = new Connection(rpc, "confirmed");
+        const client = new SquadsClient(conn, null);
+        const ms = await client.getVault(walletAddress);
+        if (!ms) return { walletAddress, isMultisig: false } as const;
+        return {
+          walletAddress,
+          isMultisig: true,
+          multisigAddress: walletAddress,
+          threshold: Number(ms.threshold),
+          memberCount: (ms.members as any[]).length,
+        };
+      } catch (e: any) {
+        console.warn("[command-router] vault detection failed", e?.message);
+        return { walletAddress, isMultisig: false } as const;
+      }
+    });
+
     const rawPlan = await step.run("synthesize-plan", async () => {
-      const p = await synthesizePlan(intent);
+      const p = await synthesizePlan(intent, walletCtx);
       await publish({
         name: "agent.plan.synthesized",
         data: { commandId, walletAddress, plan: p },
