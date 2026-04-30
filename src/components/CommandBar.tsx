@@ -757,6 +757,8 @@ export function CommandBar() {
                 />
               )}
 
+              <PendingApprovalsBanner wallet={publicKey?.toBase58() ?? null} />
+
               {/* ── Chat thread or empty state ── */}
               {messages.length === 0 ? (
                 <EmptyState onChipClick={handleChipClick} />
