@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { rememberStudioPass } from "@/lib/media-studio/client-auth";
 
 export default function StudioPasswordGate() {
   const [password, setPassword] = React.useState("");
@@ -23,6 +24,7 @@ export default function StudioPasswordGate() {
         setLoading(false);
         return;
       }
+      rememberStudioPass(cleanPassword);
       window.location.assign("/studio");
     } catch {
       setError("Something went wrong");
