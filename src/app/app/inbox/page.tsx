@@ -136,18 +136,22 @@ export default function InboxPage() {
     setLoading(true);
     try {
       const q = wallet ? `?wallet=${wallet}` : "";
-      const [p, s, w, tx] = await Promise.all([
+      const [p, s, w, tx, ca] = await Promise.all([
         fetch(`/api/inbox/proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/inbox/subagents${q}`, { cache: "no-store" }).then((r) => r.json()),
         wallet
           ? fetch(`/api/inbox/watchers?wallet=${wallet}`, { cache: "no-store" }).then((r) => r.json())
           : Promise.resolve({ watchers: [] }),
         fetch(`/api/inbox/tx-proposals${q}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/inbox/command-approvals${q}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ approvals: [] })),
       ]);
       setProposals(p?.proposals ?? []);
       setSubagents(s?.subagents ?? []);
       setWatchers(w?.watchers ?? []);
       setTxProposals(tx?.txProposals ?? []);
+      setCommandApprovals(ca?.approvals ?? []);
     } finally {
       setLoading(false);
     }
