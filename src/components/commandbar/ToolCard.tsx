@@ -210,9 +210,19 @@ export function ToolCard({
       )}
 
       {isDone && success === false && errorMessage && (
-        <p className="mt-1.5 text-xs leading-relaxed text-rose-600">
-          {errorMessage}
-        </p>
+        <ToolError
+          rawMessage={errorMessage}
+          toolName={toolName}
+          operation={operation}
+          onSuggest={(prompt) => {
+            if (typeof window === "undefined") return;
+            window.dispatchEvent(
+              new CustomEvent("keystone-app-event", {
+                detail: { type: "AGENT_COMMAND", payload: { command: prompt, autoSubmit: false } },
+              }),
+            );
+          }}
+        />
       )}
 
       {isDone && success === true && (sourceTool || sourceField) && (
