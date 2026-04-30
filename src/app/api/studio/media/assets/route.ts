@@ -8,10 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember } from "@/lib/media-studio/access";
+import { requireTeamMember, STUDIO_PASS_USER_ID } from "@/lib/media-studio/access";
 import { db } from "@/db";
 import { mediaStudioAssets } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
@@ -19,6 +19,10 @@ export const runtime = "nodejs";
 
 function isMigrationPending(err: unknown) {
   return err instanceof Error && err.message.includes("media_studio_assets");
+}
+
+function persistedUserId(id: string) {
+  return id === STUDIO_PASS_USER_ID ? null : id;
 }
 
 export async function GET(req: NextRequest) {
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const [row] = await db.insert(mediaStudioAssets).values({
-      userId: gate.user.id,
+      userId: persistedUserId(gate.user.id),
       kind: body.kind,
       channel: body.channel ?? null,
       title: body.title ?? null,
