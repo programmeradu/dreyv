@@ -19,6 +19,7 @@ export async function submitCommand(payload: Omit<CommandSubmittedPayload, "comm
   const full: CommandSubmittedPayload = {
     commandId,
     walletAddress: payload.walletAddress,
+    vaultAddress: payload.vaultAddress ?? null,
     rawText: payload.rawText,
     promptMode: payload.promptMode,
     vaultState: payload.vaultState,
