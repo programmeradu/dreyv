@@ -113,12 +113,6 @@ async function callGroq(intent: Intent, catalog: string, walletCtx: string): Pro
       signal: AbortSignal.timeout(9_000),
     });
     if (!res.ok) return null;
-          { role: "user", content: JSON.stringify(intent).slice(0, 6000) },
-        ],
-      }),
-      signal: AbortSignal.timeout(9_000),
-    });
-    if (!res.ok) return null;
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) return null;
