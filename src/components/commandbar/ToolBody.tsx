@@ -13,13 +13,13 @@ import {
   ShieldCheck,
   Clock,
   ExternalLink,
-  Sparkles,
   Activity,
   FileText,
   Globe,
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface Props {
   toolName: string;
@@ -292,7 +292,7 @@ function ResearchBody({ output }: { output: Record<string, unknown> }) {
         <ul className="space-y-1">
           {insights.slice(0, 4).map((ins, i) => (
             <li key={i} className="flex gap-1.5 text-[12px] text-slate-700">
-              <Sparkles className="mt-0.5 h-3 w-3 flex-shrink-0 text-violet-500" />
+              <DreyvStar size={12} className="mt-0.5 flex-shrink-0 text-violet-500" />
               <span>{ins}</span>
             </li>
           ))}
@@ -383,7 +383,7 @@ function StudioBody({ output }: { output: Record<string, unknown> }) {
   const files = Array.isArray(output.files) ? (output.files as string[]) : [];
 
   return (
-    <Section title="Mini-app scaffold" icon={<Sparkles className="h-3 w-3" />}>
+    <Section title="Mini-app scaffold" icon={<DreyvStar size={12} />}>
       {name && <Row label="Name">{name}</Row>}
       {template && <Row label="Template">{template}</Row>}
       {appId && (
