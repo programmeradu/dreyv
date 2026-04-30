@@ -341,8 +341,11 @@ export async function middleware(request: NextRequest) {
     const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media'];
     const isPublicArtifactRoute =
         pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
+    const isStudioGatedRoute =
+        pathname.startsWith('/api/studio/unlock') || pathname.startsWith('/api/studio/media');
     if (
         isPublicArtifactRoute ||
+        isStudioGatedRoute ||
         publicApiPaths.some((p) => pathname === p || (pathname.startsWith(p) && request.method === 'GET'))
     ) {
         return withSeoHeaders(
