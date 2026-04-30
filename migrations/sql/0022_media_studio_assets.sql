@@ -10,6 +10,8 @@
 -- team role check — we do not rely on Postgres RLS for this table because
 -- our app uses Neon directly (no Supabase Auth on the SQL connection).
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS media_studio_assets (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID REFERENCES users(id) ON DELETE SET NULL,
