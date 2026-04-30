@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { MediaAsset } from "@/lib/media-studio/types";
 import { Trash2, Image as ImageIcon, FileText, Layout, Video } from "lucide-react";
+import { studioAuthHeaders } from "@/lib/media-studio/client-auth";
 
 /**
  * Library grid for previously-generated media assets. Reads from
@@ -15,7 +16,7 @@ export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/studio/media/assets");
+      const res = await fetch("/api/studio/media/assets", { headers: studioAuthHeaders() });
       const json = await res.json();
       if (res.ok) setAssets(json.assets ?? []);
     } finally {
@@ -27,7 +28,7 @@ export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
 
   async function remove(id: string) {
     if (!confirm("Delete this asset?")) return;
-    const res = await fetch(`/api/studio/media/assets/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/studio/media/assets/${id}`, { method: "DELETE", headers: studioAuthHeaders() });
     if (res.ok) setAssets((a) => a.filter((x) => x.id !== id));
   }
 
