@@ -15,6 +15,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
 import { useWallet } from "@/lib/wallet/compat";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Buffer } from "buffer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -114,7 +116,7 @@ type TxProposal = {
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
 
 export default function InboxPage() {
-  const { publicKey } = useWallet();
+  const { publicKey, signAllTransactions, signTransaction } = useWallet();
   const wallet = publicKey?.toBase58() ?? null;
   const executor = useTransactionExecutor();
 
@@ -332,10 +334,94 @@ export default function InboxPage() {
         body: JSON.stringify({ id, status }),
       });
       if (!res.ok) throw new Error("approval_patch_failed");
+      const json = (await res.json()) as {
+        ok: boolean;
+        signingEnvelope?: {
+          serializedTransactions: string[];
+          operation: string;
+          buildErrors: string[];
+        } | null;
+      };
+
+      // Reject path or approve-with-no-write-steps → just clear from list.
+      if (status === "rejected") {
+        setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
+        toast.success("Rejected");
+        return;
+      }
+
+      const env = json.signingEnvelope;
+      if (!env || env.serializedTransactions.length === 0) {
+        setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
+        if (env?.buildErrors?.length) {
+          toast.warning("Approved — nothing to sign", {
+            description: env.buildErrors[0].slice(0, 200),
+          });
+        } else {
+          toast.success("Approved — read-only plan executed");
+        }
+        return;
+      }
+
+      // We have transactions to sign. Walk them through the connected wallet.
+      if (!signTransaction && !signAllTransactions) {
+        toast.error("Wallet not ready to sign", {
+          description: "Connect a wallet that supports signing to continue.",
+        });
+        return;
+      }
+
+      const deserialized = env.serializedTransactions.map((b64) => {
+        const buf = Buffer.from(b64, "base64");
+        try {
+          return VersionedTransaction.deserialize(buf);
+        } catch {
+          return Transaction.from(buf);
+        }
+      });
+
+      let signed: (VersionedTransaction | Transaction)[] = [];
+      if (signAllTransactions && deserialized.length > 1) {
+        signed = await signAllTransactions(deserialized as VersionedTransaction[]);
+      } else {
+        for (const tx of deserialized) {
+          const s = await (signTransaction as (
+            tx: VersionedTransaction | Transaction,
+          ) => Promise<VersionedTransaction | Transaction>)(tx);
+          signed.push(s);
+        }
+      }
+
+      const rpc =
+        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+      const conn = new Connection(rpc, "confirmed");
+      const sigs: string[] = [];
+      for (const tx of signed) {
+        const raw = tx.serialize();
+        const sig = await conn.sendRawTransaction(raw, {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+        sigs.push(sig);
+      }
+
+      // Settle the approval row to executed with the resulting signature.
+      await fetch("/api/inbox/command-approvals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "executed", signature: sigs[0] }),
+      });
       setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
-      toast.success(status === "approved" ? "Approved — executor running" : "Rejected");
+      toast.success(`${env.operation} signed & sent`, {
+        description: `${sigs.length} tx · ${sigs[0].slice(0, 12)}…`,
+      });
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to update approval");
+      const msg = e?.message ?? "Failed to update approval";
+      if (msg.includes("User rejected") || msg.includes("cancelled")) {
+        toast.error("Signing cancelled");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusyId(null);
     }
