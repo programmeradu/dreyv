@@ -24,10 +24,27 @@ function teamWallets(): Set<string> {
   return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
 }
 
+export const STUDIO_PASS_COOKIE = "dreyv-studio-pass";
+export const STUDIO_PASS_VALUE = "opensesame";
+
 export async function requireTeamMember(req: NextRequest): Promise<
   | { ok: true; user: TeamMember }
   | { ok: false; status: number; error: string }
 > {
+  // Simple shared-password gate (cookie set via /api/studio/unlock).
+  const pass = req.cookies.get(STUDIO_PASS_COOKIE)?.value;
+  if (pass === STUDIO_PASS_VALUE) {
+    return {
+      ok: true,
+      user: {
+        id: "studio-pass",
+        walletAddress: "studio-pass",
+        tier: "max",
+        role: "creator",
+      },
+    };
+  }
+
   const auth = await getAuthUser(req);
   if (!auth) return { ok: false, status: 401, error: "Sign in required" };
   if (!db) return { ok: false, status: 500, error: "Database unavailable" };

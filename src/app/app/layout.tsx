@@ -18,7 +18,7 @@ import { CommandBar } from "@/components/CommandBar";
 import { VaultStatusBar } from "@/components/VaultStatusBar";
 import { useAppEvent } from "@/lib/events";
 import { ThemeProvider, useTheme } from "@/lib/contexts/ThemeContext";
-import { Sun, Moon, ShoppingBag, Library, LogOut, Sparkles } from "lucide-react";
+import { Sun, Moon, ShoppingBag, Library, LogOut } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { authClient } from "@/lib/auth/client";
@@ -67,8 +67,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                     <div className="flex-1 flex flex-col items-center justify-center w-full px-3 gap-1.5 min-h-0">
                         <div className="flex flex-col gap-1.5 w-full items-center justify-center overflow-y-auto scrollbar-none">
                             <NavButton icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} />
-                            <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname === "/app/studio" || (pathname?.startsWith("/app/studio") && !pathname?.startsWith("/app/studio/media"))} />
-                            <NavButton icon={Sparkles} label="Media" href="/app/studio/media" active={pathname?.startsWith("/app/studio/media")} />
+                            <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} />
                             <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
                             <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
                             <NavButton icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} />
