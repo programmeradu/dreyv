@@ -25,22 +25,137 @@ const create_multisig = defineCapability({
   id: "create_multisig",
   domain: "treasury",
   description:
-    "Deploys a new Squads V4 Multisig Treasury for the user on the Solana blockchain. Use this exclusively when the user asks to create a multisig, create a squad, or launch a new treasury.",
-  inputSchema: z.object({}),
-  sideEffects: "meta",
+    "Deploys a new Squads V4 Multisig Treasury (vault) on Solana. Returns a signable transaction so the user can create the multisig directly from the CommandBar/Inbox without leaving the chat. Use when the user asks to create a multisig, create a squad, launch a new treasury, set up a vault, or invite co-signers.",
+  inputSchema: z.object({
+    members: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Member wallet addresses (base58). The connected wallet is auto-included as the proposer if not listed.",
+      ),
+    threshold: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Number of signatures required to approve a transaction (k of n)."),
+    timeLock: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("Optional time-lock in seconds before approved txs can execute. Default 0."),
+  }),
+  sideEffects: "write",
   requiredAuth: "wallet",
-  sensitivity: "low",
+  sensitivity: "high",
   protocols: ["squads-v4"],
-  execute: async () => {
-    return {
-      success: true,
-      operation: "navigate",
-      path: "/app/treasury",
-      validated: true,
-      message:
-        "To deploy your new Squads V4 Multisig natively, please use the 'Launch new treasury / Create Squad' button in your Vault Selector panel on the dashboard.",
-      requiresApproval: false,
-    };
+  execute: async ({ members, threshold, timeLock = 0 }, ctx) => {
+    if (!ctx.walletAddress) {
+      return {
+        success: true,
+        operation: "create_multisig",
+        memberCount: members.length,
+        threshold,
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `Multisig (${threshold}/${members.length}) prepared. Connect a wallet to build and sign the create-vault transaction.`,
+      };
+    }
+
+    try {
+      const { Connection, PublicKey, Transaction, Keypair } = await import("@solana/web3.js");
+      const squads = (await import("@sqds/multisig")) as any;
+      const { getMultisigPda, getVaultPda } = squads;
+
+      const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+      const creator = new PublicKey(ctx.walletAddress);
+
+      // De-dup + ensure creator is a member with full permissions (mask 7 = Initiate|Vote|Execute).
+      const memberSet = new Set<string>(members);
+      memberSet.add(creator.toBase58());
+      if (memberSet.size < threshold) {
+        return {
+          success: false,
+          operation: "create_multisig",
+          error: `Threshold ${threshold} exceeds member count ${memberSet.size}.`,
+        };
+      }
+
+      const memberList = Array.from(memberSet).map((addr) => ({
+        key: new PublicKey(addr),
+        permissions: { mask: 7 },
+      }));
+
+      // Fresh ephemeral createKey — its public key derives the multisig PDA, its
+      // secret key must co-sign the create tx (we surface it via extraSigners).
+      const createKey = Keypair.generate();
+      const [multisigPda] = getMultisigPda({ createKey: createKey.publicKey });
+      const [vaultPda] = getVaultPda({ multisigPda, index: 0 });
+
+      // Resolve treasury (program config) — fall back to creator on devnet.
+      const [programConfigPda] = squads.getProgramConfigPda({});
+      let treasury: any;
+      try {
+        const programConfig = await squads.accounts.ProgramConfig.fromAccountAddress(
+          conn,
+          programConfigPda,
+        );
+        treasury = programConfig.treasury;
+      } catch {
+        treasury = creator;
+      }
+
+      const ix = squads.instructions.multisigCreateV2({
+        treasury,
+        creator,
+        multisigPda,
+        configAuthority: null,
+        threshold,
+        members: memberList,
+        timeLock,
+        createKey: createKey.publicKey,
+        rentCollector: null,
+      });
+
+      const { blockhash } = await conn.getLatestBlockhash("confirmed");
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: creator });
+      tx.add(ix);
+
+      const serialized = Buffer.from(tx.serialize({ verifySignatures: false })).toString("base64");
+
+      // The createKey ephemeral signer's secret must travel with the envelope so
+      // the inbox UI can partial-sign before passing the tx to the wallet.
+      const extraSigner = {
+        publicKey: createKey.publicKey.toBase58(),
+        secretKeyBase64: Buffer.from(createKey.secretKey).toString("base64"),
+      };
+
+      return {
+        success: true,
+        operation: "create_multisig",
+        memberCount: memberList.length,
+        threshold,
+        timeLock,
+        multisigPda: multisigPda.toBase58(),
+        vaultPda: vaultPda.toBase58(),
+        members: memberList.map((m) => m.key.toBase58()),
+        serializedTransactions: [serialized],
+        extraSigners: [extraSigner],
+        status: "READY_FOR_SIGNATURE",
+        requiresApproval: true,
+        message: `New ${threshold}-of-${memberList.length} Squads V4 multisig ready to deploy. Vault PDA: ${vaultPda
+          .toBase58()
+          .slice(0, 8)}…`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[capability:create_multisig] build error:", msg);
+      return {
+        success: false,
+        operation: "create_multisig",
+        error: `Failed to build multisig create tx: ${msg}`,
+      };
+    }
   },
 });
 
