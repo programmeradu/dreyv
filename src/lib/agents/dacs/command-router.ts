@@ -56,7 +56,7 @@ export const commandRouter = inngest.createFunction(
   { event: "agent.command.submitted" },
   async ({ event, step }) => {
     const payload = event.data as CommandSubmittedPayload;
-    const { commandId, walletAddress, rawText, promptMode } = payload;
+    const { commandId, walletAddress, vaultAddress, rawText, promptMode } = payload;
     const startedAt = Date.now();
 
     const intent = await step.run("classify-intent", async () => {
