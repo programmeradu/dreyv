@@ -12,6 +12,8 @@ import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store
 import { SigningCard } from "@/components/commandbar/SigningCard";
 import { ForesightChart, type ForesightChartProps } from "@/components/commandbar/ForesightChart";
 import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
+import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
+import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
