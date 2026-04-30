@@ -19,7 +19,12 @@ export interface ToolCardProps {
   input: Record<string, unknown>;
   state: "partial-call" | "call" | "output-available";
   output?: Record<string, unknown>;
-  onSign: (toolCallId: string, serialized: string[], operation: string) => void;
+  onSign: (
+    toolCallId: string,
+    serialized: string[],
+    operation: string,
+    extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+  ) => void;
 }
 
 export function ToolCard({
@@ -62,6 +67,26 @@ export function ToolCard({
     if (typeof output?.serializedTransaction === "string")
       return [output.serializedTransaction as string];
     return [];
+  })();
+  // Ephemeral co-signers (e.g. Squads createKey) that must partial-sign each
+  // tx before the wallet sees it. Either an array-of-arrays index-aligned with
+  // serializedTransactions, or a flat array applied to every tx.
+  const extraSignersFromOutput: Array<
+    Array<{ publicKey: string; secretKeyBase64: string }>
+  > = (() => {
+    if (!requiresApproval) return [];
+    const raw = (output as { extraSigners?: unknown })?.extraSigners;
+    if (!Array.isArray(raw)) return [];
+    if (raw.length === 0) return [];
+    const isFlat =
+      raw[0] &&
+      typeof raw[0] === "object" &&
+      typeof (raw[0] as { secretKeyBase64?: unknown }).secretKeyBase64 === "string";
+    if (isFlat) {
+      const flat = raw as Array<{ publicKey: string; secretKeyBase64: string }>;
+      return serializedTransactions.map(() => flat);
+    }
+    return raw as Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
   })();
 
   // Foresight visualization
@@ -204,7 +229,9 @@ export function ToolCard({
           serializedTransactions={serializedTransactions}
           signingStatus={signingToolId === toolCallId ? signingStatus : "idle"}
           txSignatures={signingToolId === toolCallId ? txSignatures : []}
-          onConfirm={() => onSign(toolCallId, serializedTransactions, operation)}
+          onConfirm={() =>
+            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput)
+          }
         />
       )}
 

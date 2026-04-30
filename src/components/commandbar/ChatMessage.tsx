@@ -181,7 +181,12 @@ function getTextContent(message: UIMessage): string {
 export interface ChatMessageProps {
   message: UIMessage;
   tokenLogos: Record<string, string>;
-  onSign: (toolCallId: string, serialized: string[], operation: string) => void;
+  onSign: (
+    toolCallId: string,
+    serialized: string[],
+    operation: string,
+    extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+  ) => void;
 }
 
 // ─── ChatMessage ──────────────────────────────────────────────────────────────

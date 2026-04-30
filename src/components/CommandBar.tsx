@@ -157,7 +157,12 @@ export function CommandBar() {
   // ─── Signing ───────────────────────────────────────────────────────────────
 
   const handleSignTransactions = useCallback(
-    async (toolCallId: string, serialized: string[], operation: string) => {
+    async (
+      toolCallId: string,
+      serialized: string[],
+      operation: string,
+      extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+    ) => {
       if (!connected || !publicKey || (!signAllTransactions && !signTransaction)) {
         toast.error("Wallet not connected", {
           description: "Please connect your wallet to sign transactions.",
@@ -170,13 +175,32 @@ export function CommandBar() {
       setTxSignatures([]);
 
       try {
-        const deserialized = serialized.map((b64) => {
+        const needsEphemeral = (extraSigners ?? []).some((s) => s && s.length > 0);
+        const Keypair = needsEphemeral ? (await import("@solana/web3.js")).Keypair : null;
+
+        const deserialized = serialized.map((b64, i) => {
           const buf = Buffer.from(b64, "base64");
+          let tx: VersionedTransaction | Transaction;
           try {
-            return VersionedTransaction.deserialize(buf);
+            tx = VersionedTransaction.deserialize(buf);
           } catch {
-            return Transaction.from(buf);
+            tx = Transaction.from(buf);
           }
+          // Apply ephemeral co-signers (e.g. Squads createKey) before the
+          // wallet sees the tx — otherwise the wallet refuses to sign because
+          // a required signature slot is empty.
+          const stepSigners = (extraSigners ?? [])[i] ?? [];
+          if (stepSigners.length > 0 && Keypair) {
+            const kps = stepSigners.map((s) =>
+              Keypair.fromSecretKey(Buffer.from(s.secretKeyBase64, "base64")),
+            );
+            if (tx instanceof VersionedTransaction) {
+              tx.sign(kps);
+            } else {
+              tx.partialSign(...kps);
+            }
+          }
+          return tx;
         });
 
         let signed: (VersionedTransaction | Transaction)[];
