@@ -80,6 +80,20 @@ type Watcher = {
   lastScanAt: string | null;
 };
 
+type CommandApproval = {
+  id: string;
+  commandId: string;
+  walletAddress: string | null;
+  status: string;
+  reason: string;
+  riskScore: string | number | null;
+  estimatedValueUsd: string | number | null;
+  createdAt: string;
+  expiresAt: string | null;
+  intent: { rawText?: string; goal?: string } | null;
+  plan: { rationale?: string; steps?: Array<{ capabilityId: string }> } | null;
+};
+
 type TxProposal = {
   id: string;
   proposalId: string | null;
