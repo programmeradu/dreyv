@@ -383,7 +383,7 @@ function StudioBody({ output }: { output: Record<string, unknown> }) {
   const files = Array.isArray(output.files) ? (output.files as string[]) : [];
 
   return (
-    <Section title="Mini-app scaffold" icon={<Sparkles className="h-3 w-3" />}>
+    <Section title="Mini-app scaffold" icon={<DreyvStar size={12} />}>
       {name && <Row label="Name">{name}</Row>}
       {template && <Row label="Template">{template}</Row>}
       {appId && (
