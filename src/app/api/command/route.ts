@@ -237,6 +237,7 @@ export async function POST(req: Request) {
           const { submitCommand } = await import("@/lib/agents/dacs/submit");
           await submitCommand({
             walletAddress,
+            vaultAddress: vaultAddress || null,
             rawText: userRequestText,
             promptMode,
             vaultState,
