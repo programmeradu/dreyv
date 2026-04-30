@@ -39,8 +39,9 @@ export async function requireTeamMember(req: NextRequest): Promise<
       user: {
         id: "studio-pass",
         walletAddress: "studio-pass",
+        tier: "max",
         role: "creator",
-      } as TeamMember,
+      },
     };
   }
 
