@@ -122,6 +122,7 @@ export default function InboxPage() {
   const [subagents, setSubagents] = useState<SubAgent[]>([]);
   const [watchers, setWatchers] = useState<Watcher[]>([]);
   const [txProposals, setTxProposals] = useState<TxProposal[]>([]);
+  const [commandApprovals, setCommandApprovals] = useState<CommandApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
