@@ -35,6 +35,7 @@ export interface ToolCardProps {
 export function ToolCard({
   toolName,
   toolCallId,
+  input,
   state,
   output,
   onSign,
