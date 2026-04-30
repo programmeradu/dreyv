@@ -116,7 +116,7 @@ type TxProposal = {
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
 
 export default function InboxPage() {
-  const { publicKey } = useWallet();
+  const { publicKey, signAllTransactions, signTransaction } = useWallet();
   const wallet = publicKey?.toBase58() ?? null;
   const executor = useTransactionExecutor();
 
