@@ -18,7 +18,7 @@ import { CommandBar } from "@/components/CommandBar";
 import { VaultStatusBar } from "@/components/VaultStatusBar";
 import { useAppEvent } from "@/lib/events";
 import { ThemeProvider, useTheme } from "@/lib/contexts/ThemeContext";
-import { Sun, Moon, ShoppingBag, Library, LogOut } from "lucide-react";
+import { Sun, Moon, ShoppingBag, Library, LogOut, Sparkles } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { authClient } from "@/lib/auth/client";
