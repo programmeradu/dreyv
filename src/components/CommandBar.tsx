@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
 import { HandoffStream } from "@/components/commandbar/HandoffStream";
 import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
+import { PendingApprovalsBanner } from "@/components/commandbar/PendingApprovalsBanner";
 import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
