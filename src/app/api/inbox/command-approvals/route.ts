@@ -184,19 +184,24 @@ export async function PATCH(req: Request) {
       .where(eq(commandApprovals.id, body.id))
       .returning();
 
-    // Fire DACS resolution event so the executor records episodes / post-mortems.
-    try {
-      await publish({
-        name: "agent.approval.resolved",
-        data: {
-          approvalId: row.id,
-          status: body.status,
-          commandId: row.commandId,
-          walletAddress: row.walletAddress,
-        },
-      });
-    } catch (e: any) {
-      console.warn("[inbox:command-approvals] publish failed", e?.message);
+    // Fire DACS resolution event ONLY for rejected/expired so the executor
+    // records a learning episode. Approved plans are signed in-UI by the
+    // wallet path; settling the row to `executed` (with the resulting
+    // signature) closes the loop without re-running capabilities headlessly.
+    if (body.status === "rejected") {
+      try {
+        await publish({
+          name: "agent.approval.resolved",
+          data: {
+            approvalId: row.id,
+            status: body.status,
+            commandId: row.commandId,
+            walletAddress: row.walletAddress,
+          },
+        });
+      } catch (e: any) {
+        console.warn("[inbox:command-approvals] publish failed", e?.message);
+      }
     }
 
     return NextResponse.json({ ok: true, approval: row, signingEnvelope: envelope });
