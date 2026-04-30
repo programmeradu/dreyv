@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
   const rows = await db
     .select()
     .from(mediaStudioAssets)
-    .where(eq(mediaStudioAssets.userId, gate.user.id))
     .orderBy(desc(mediaStudioAssets.createdAt))
     .limit(limit);
 
