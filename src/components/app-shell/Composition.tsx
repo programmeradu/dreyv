@@ -30,7 +30,7 @@ export function CompositionStrip({ holdings }: { holdings: Holding[] }) {
           const tones = ["bg-violet-600", "bg-violet-400", "bg-violet-300", "bg-violet-200", "bg-violet-100"];
           return (
             <motion.div
-              key={h.symbol}
+              key={`${h.symbol}-${i}`}
               initial={{ width: 0 }}
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.9, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
