@@ -143,7 +143,7 @@ export function CommandBar() {
 
   const router = useRouter();
   const simStore = useSimulationStore();
-  const { vaultTokens } = useVault();
+  const { vaultTokens, activeVault } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
   const canvas = useOptionalCanvas();
