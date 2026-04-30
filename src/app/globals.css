@@ -144,6 +144,13 @@
   --color-marketing-muted: var(--marketing-muted);
   --color-marketing-violet: var(--marketing-violet);
   --color-marketing-violet-mid: var(--marketing-violet-mid);
+  --color-studio-bg: var(--studio-bg);
+  --color-studio-surface: var(--studio-surface);
+  --color-studio-fg: var(--studio-fg);
+  --color-studio-muted: var(--studio-muted);
+  --color-studio-border: var(--studio-border);
+  --color-studio-violet: var(--studio-violet);
+  --color-studio-violet-soft: var(--studio-violet-soft);
   --font-manrope: var(--font-manrope);
   --font-inter-label: var(--font-inter-label);
 }
@@ -186,6 +193,13 @@
   --marketing-muted: #5b5e68;
   --marketing-violet: #5a00e4;
   --marketing-violet-mid: #7336ff;
+  --studio-bg: hsl(0 0% 100%);
+  --studio-surface: hsl(0 0% 100%);
+  --studio-fg: hsl(251 60% 8%);
+  --studio-muted: hsl(245 11% 47%);
+  --studio-border: hsl(257 82% 91%);
+  --studio-violet: hsl(262 83% 58%);
+  --studio-violet-soft: hsl(262 100% 97%);
   --keystone-void: #09090b;
   --keystone-green: #36e27b;
   --dreyv-void: var(--keystone-void);
