@@ -3,10 +3,6 @@
 import * as React from "react";
 import { Copy, Check } from "lucide-react";
 
-/**
- * Renders a copy variant card with a one-click copy-to-clipboard button.
- * Used by the Post + Announcement tabs in the Media Studio.
- */
 export function CopyVariantCard({
   index,
   headline,
@@ -24,16 +20,16 @@ export function CopyVariantCard({
   const fullText = [headline, body, cta].filter(Boolean).join("\n\n");
 
   return (
-    <div className="rounded-3xl border border-violet-200 bg-white p-5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+    <div className="rounded-3xl border border-studio-border bg-studio-surface p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-studio-violet">
           Variant {String.fromCharCode(64 + index)}
         </span>
         <div className="flex items-center gap-2">
           {onSave && (
             <button
               onClick={onSave}
-              className="rounded-full border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-50"
+              className="rounded-full border border-studio-border px-3 py-1 text-xs font-semibold text-studio-violet hover:bg-studio-violet-soft"
             >
               Save
             </button>
@@ -46,7 +42,7 @@ export function CopyVariantCard({
                 setTimeout(() => setCopied(false), 1500);
               } catch {}
             }}
-            className="flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+            className="flex items-center gap-1.5 rounded-full bg-studio-violet px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : "Copy"}
@@ -54,10 +50,10 @@ export function CopyVariantCard({
         </div>
       </div>
 
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-[#0B0820]">
-        {headline && <div className="text-base font-bold tracking-tight">{headline}</div>}
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-studio-fg">
+        {headline && <div className="text-base font-bold tracking-normal">{headline}</div>}
         <p className="whitespace-pre-wrap">{body}</p>
-        {cta && <div className="text-sm font-semibold text-violet-700">{cta}</div>}
+        {cta && <div className="text-sm font-semibold text-studio-violet">{cta}</div>}
       </div>
     </div>
   );
