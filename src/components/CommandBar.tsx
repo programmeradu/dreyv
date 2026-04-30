@@ -591,6 +591,7 @@ export function CommandBar() {
           {
             body: {
               walletAddress: publicKey?.toBase58() || "",
+              vaultAddress: activeVault || null,
               vaultState: { tokens: vaultTokens || [] },
               walletState: { balances: vaultTokens || [] },
             },
