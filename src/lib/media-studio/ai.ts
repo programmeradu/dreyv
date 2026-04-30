@@ -79,6 +79,8 @@ export async function generateImage(opts: {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
     throw new Error(`AI gateway image ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
