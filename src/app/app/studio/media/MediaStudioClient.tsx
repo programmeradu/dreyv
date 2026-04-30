@@ -1,95 +1,152 @@
 "use client";
 
 import * as React from "react";
-import { FileText, Layout, Megaphone, Video, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
-import type { AssetKind, Channel, CopyResult, InfographicSpec, VideoStoryboard } from "@/lib/media-studio/types";
+import { FileText, Layout, Megaphone, Video, Sparkles, Loader2, Image as ImageIcon, RefreshCw } from "lucide-react";
+import type { AssetKind, Channel, ContentSuggestion, CopyResult, InfographicSpec, VideoStoryboard } from "@/lib/media-studio/types";
 import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
 import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
-import { studioJsonHeaders } from "@/lib/media-studio/client-auth";
-
-/**
- * Dreyv Media Studio — internal brand/content workbench.
- *
- * Four generation modes. Light Stitch-inspired surface (white + solid
- * violet). All generation goes through /api/studio/media/* which enforces
- * Dreyv-team-only access server-side.
- */
+import { studioAuthHeaders, studioJsonHeaders } from "@/lib/media-studio/client-auth";
 
 type Mode = AssetKind;
 
+type StudioJob = ContentSuggestion & {
+  aspect: "1:1" | "16:9" | "9:16" | "4:5";
+  durationSeconds: number;
+};
+
 const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ className?: string }>; hint: string }> = [
-  { id: "post", label: "Post", icon: FileText, hint: "X / LinkedIn / Instagram copy + image" },
-  { id: "infographic", label: "Infographic", icon: Layout, hint: "Data-driven brand card" },
-  { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch / news visual" },
+  { id: "post", label: "Post", icon: FileText, hint: "Copy + image direction" },
+  { id: "infographic", label: "Infographic", icon: Layout, hint: "Structured brand card" },
+  { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual + copy" },
   { id: "video", label: "Video", icon: Video, hint: "Short-form storyboard" },
 ];
 
-const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
+const FALLBACK_JOBS: StudioJob[] = [
+  {
+    id: "runway-drift",
+    kind: "post",
+    channel: "x",
+    title: "Runway drift is silent until it is not",
+    brief: "Write a sharp X post for crypto-native founders about treasury drift: stablecoin runway changes, token volatility, and why Dreyv turns drift into a directive before it becomes a meeting.",
+    audience: "crypto founders",
+    aspect: "1:1",
+    durationSeconds: 15,
+  },
+  {
+    id: "foresight-loop",
+    kind: "infographic",
+    channel: "linkedin",
+    title: "From balance sheet to next move",
+    brief: "Create an infographic showing Dreyv's treasury operating loop: observe balances, detect drift, forecast runway, propose a directive, execute through multisig. Do not invent metrics.",
+    audience: "DAO operators",
+    aspect: "4:5",
+    durationSeconds: 15,
+  },
+  {
+    id: "atlas-front-door",
+    kind: "announcement",
+    channel: "linkedin",
+    title: "Atlas as the read-only front door",
+    brief: "Draft a launch-style announcement for Atlas: a read-only Solana treasury intelligence surface for comparing tokens, routes, and risk before connecting a wallet.",
+    audience: "Solana teams",
+    aspect: "16:9",
+    durationSeconds: 15,
+  },
+  {
+    id: "one-calm-command",
+    kind: "video",
+    channel: "x",
+    title: "One calm command",
+    brief: "Storyboard a short motion post showing a founder moving from spreadsheet anxiety to one Dreyv command that explains runway, drift, and the next treasury directive.",
+    audience: "founder-operators",
+    aspect: "9:16",
+    durationSeconds: 15,
+  },
+];
+
+function normalizeJob(suggestion: ContentSuggestion): StudioJob {
+  return {
+    ...suggestion,
+    aspect: suggestion.aspect ?? (suggestion.kind === "video" ? "9:16" : "1:1"),
+    durationSeconds: suggestion.durationSeconds ?? 15,
+  };
+}
 
 export default function MediaStudioClient() {
-  const [mode, setMode] = React.useState<Mode>("post");
-  const [channel, setChannel] = React.useState<Channel>("x");
-  const [prompt, setPrompt] = React.useState("");
-  const [audience, setAudience] = React.useState("");
-  const [aspect, setAspect] = React.useState<"1:1" | "16:9" | "9:16" | "4:5">("1:1");
-  const [duration, setDuration] = React.useState(15);
+  const [jobs, setJobs] = React.useState<StudioJob[]>(FALLBACK_JOBS);
+  const [selectedId, setSelectedId] = React.useState(FALLBACK_JOBS[0].id);
+  const [mode, setMode] = React.useState<Mode>(FALLBACK_JOBS[0].kind);
+  const [channel, setChannel] = React.useState<Channel>(FALLBACK_JOBS[0].channel);
+  const [aspect, setAspect] = React.useState<"1:1" | "16:9" | "9:16" | "4:5">(FALLBACK_JOBS[0].aspect);
+  const [duration, setDuration] = React.useState(FALLBACK_JOBS[0].durationSeconds);
 
-  const [busy, setBusy] = React.useState<null | "copy" | "image" | "infographic" | "video">(null);
+  const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video">(null);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
   const [infographic, setInfographic] = React.useState<InfographicSpec | null>(null);
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const autoStartedRef = React.useRef(false);
 
-  const promptPlaceholder = React.useMemo(() => {
-    switch (mode) {
-      case "post":
-        return "e.g. We just shipped Foresight v2 — a 30-day burn-rate forecast with one-click rebalance directives. Tell the story to crypto-native founders.";
-      case "infographic":
-        return "e.g. Three reasons treasury teams switch to Dreyv: real-time drift, foresight, and command-line directives. Use these stats: 30s drift detection, 12s foresight, 0.05% slippage.";
-      case "announcement":
-        return "e.g. Announcing Dreyv Cloud — managed, multi-sig-native. Available today on dreyv.com.";
-      case "video":
-        return "e.g. 15-second hook video for X explaining what Foresight does — open with a CFO scrolling spreadsheets, end on the Dreyv command line.";
-    }
-  }, [mode]);
+  const selectedJob = React.useMemo(
+    () => jobs.find((job) => job.id === selectedId) ?? jobs[0] ?? FALLBACK_JOBS[0],
+    [jobs, selectedId],
+  );
 
-  async function generate() {
+  const resetOutput = React.useCallback(() => {
+    setCopyResult(null);
+    setInfographic(null);
+    setStoryboard(null);
+    setImagePreview(null);
     setError(null);
-    if (!prompt.trim()) return;
+  }, []);
+
+  const applyJob = React.useCallback((job: StudioJob) => {
+    setSelectedId(job.id);
+    setMode(job.kind);
+    setChannel(job.channel);
+    setAspect(job.aspect);
+    setDuration(job.durationSeconds);
+    resetOutput();
+  }, [resetOutput]);
+
+  const generateFor = React.useCallback(async (job: StudioJob) => {
+    setError(null);
+    setNotice(null);
     try {
-      if (mode === "post" || mode === "announcement") {
+      if (job.kind === "post" || job.kind === "announcement") {
         setBusy("copy");
         setCopyResult(null);
         const res = await fetch("/api/studio/media/generate-copy", {
           method: "POST",
           headers: studioJsonHeaders(),
-          body: JSON.stringify({ kind: mode, channel, prompt, audience }),
+          body: JSON.stringify({ kind: job.kind, channel: job.channel, prompt: job.brief, audience: job.audience }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Copy generation failed");
         setCopyResult(json);
-      } else if (mode === "infographic") {
+      } else if (job.kind === "infographic") {
         setBusy("infographic");
         setInfographic(null);
         const res = await fetch("/api/studio/media/generate-infographic", {
           method: "POST",
           headers: studioJsonHeaders(),
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ prompt: job.brief }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Infographic generation failed");
         setInfographic(json.spec);
-      } else if (mode === "video") {
+      } else {
         setBusy("video");
         setStoryboard(null);
         const res = await fetch("/api/studio/media/generate-video", {
           method: "POST",
           headers: studioJsonHeaders(),
-          body: JSON.stringify({ prompt, durationSeconds: duration, aspect: aspect === "9:16" ? "9:16" : "1:1" }),
+          body: JSON.stringify({ prompt: job.brief, durationSeconds: job.durationSeconds, aspect: job.aspect === "9:16" ? "9:16" : "1:1" }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Video generation failed");
@@ -101,18 +158,45 @@ export default function MediaStudioClient() {
     } finally {
       setBusy(null);
     }
-  }
+  }, []);
+
+  const loadSuggestions = React.useCallback(async ({ autoRun }: { autoRun: boolean }) => {
+    setBusy("suggestions");
+    setError(null);
+    try {
+      const res = await fetch("/api/studio/media/suggestions", { headers: studioAuthHeaders() });
+      const json = await res.json();
+      const nextJobs = ((json.suggestions as ContentSuggestion[] | undefined) ?? FALLBACK_JOBS).map(normalizeJob);
+      setJobs(nextJobs);
+      const first = nextJobs[0] ?? FALLBACK_JOBS[0];
+      applyJob(first);
+      if (json.fallback || !res.ok) setNotice(json.error ?? "Using prepared Dreyv suggestions for now.");
+      if (autoRun) await generateFor(first);
+    } catch (e) {
+      setJobs(FALLBACK_JOBS);
+      applyJob(FALLBACK_JOBS[0]);
+      setNotice(e instanceof Error ? e.message : "Using prepared Dreyv suggestions for now.");
+      if (autoRun) await generateFor(FALLBACK_JOBS[0]);
+    } finally {
+      setBusy(null);
+    }
+  }, [applyJob, generateFor]);
+
+  React.useEffect(() => {
+    if (autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    void loadSuggestions({ autoRun: true });
+  }, [loadSuggestions]);
 
   async function generateImage() {
     setError(null);
-    if (!prompt.trim()) return;
     setBusy("image");
     setImagePreview(null);
     try {
       const res = await fetch("/api/studio/media/generate-image", {
         method: "POST",
         headers: studioJsonHeaders(),
-        body: JSON.stringify({ prompt, kind: mode, channel, aspect, title: prompt.slice(0, 80) }),
+        body: JSON.stringify({ prompt: selectedJob.brief, kind: mode, channel, aspect, title: selectedJob.title }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Image generation failed");
@@ -133,7 +217,7 @@ export default function MediaStudioClient() {
         kind: mode,
         channel,
         title: variant.headline ?? variant.body.slice(0, 80),
-        prompt,
+        prompt: selectedJob.brief,
         spec: { variant, altText: copyResult?.altText, hashtags: copyResult?.suggestedHashtags },
       }),
     });
@@ -145,236 +229,166 @@ export default function MediaStudioClient() {
     await fetch("/api/studio/media/assets", {
       method: "POST",
       headers: studioJsonHeaders(),
-      body: JSON.stringify({
-        kind: "infographic",
-        title: infographic.title,
-        prompt,
-        spec: infographic,
-      }),
+      body: JSON.stringify({ kind: "infographic", title: infographic.title, prompt: selectedJob.brief, spec: infographic }),
     });
     setRefreshKey((k) => k + 1);
   }
 
   return (
-    <div
-      className="min-h-screen w-full bg-white text-[#0B0820]"
-      style={{ fontFamily: "Manrope, ui-sans-serif, system-ui" }}
-    >
-      {/* Ambient glow */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[60vh] overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-[120px]" />
-        <div className="absolute -top-20 right-10 h-[300px] w-[300px] rounded-full bg-violet-400/30 blur-[100px]" />
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        {/* Header */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="min-h-screen w-full bg-studio-bg font-manrope text-studio-fg">
+      <div className="mx-auto max-w-7xl px-6 py-8 lg:py-10">
+        <header className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-700">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-studio-violet">
               <Sparkles className="h-3.5 w-3.5" />
               Dreyv · Media Studio
             </div>
-            <h1 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
-              Make on-brand content,<br className="hidden sm:block" /> in one calm sweep.
+            <h1 className="mt-2 max-w-3xl text-4xl font-bold leading-none tracking-normal md:text-5xl">
+              Ready content, on brand by default.
             </h1>
-            <p className="mt-3 max-w-xl text-sm text-[#0B0820]/65">
-              Internal workbench. Every variant is generated in Dreyv's voice — calm, precise,
-              founder-to-founder. No emoji-spam, no buzzwords, no stock icons.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-studio-muted">
+              The studio now proposes the briefs and starts the first generation automatically. Pick a direction, then regenerate or export.
             </p>
           </div>
-          <div className="rounded-full border border-violet-200 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-violet-700">
+          <div className="justify-self-start rounded-full border border-studio-border bg-studio-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-studio-violet lg:justify-self-end">
             Private · Team only
           </div>
         </header>
 
-        {/* Mode tabs */}
-        <div className="mt-8 grid grid-cols-2 gap-2 rounded-2xl border border-violet-100 bg-white p-2 sm:grid-cols-4">
+        <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl border border-studio-border bg-studio-surface p-2 sm:grid-cols-4">
           {MODES.map((m) => {
             const Icon = m.icon;
             const active = mode === m.id;
             return (
               <button
                 key={m.id}
-                onClick={() => setMode(m.id)}
+                onClick={() => {
+                  const next = jobs.find((job) => job.kind === m.id) ?? selectedJob;
+                  applyJob(next);
+                }}
                 className={
-                  "flex flex-col items-start gap-1 rounded-xl px-4 py-3 text-left transition " +
-                  (active ? "bg-violet-600 text-white" : "hover:bg-violet-50 text-[#0B0820]")
+                  "flex min-h-20 flex-col items-start gap-1 rounded-xl px-4 py-3 text-left transition " +
+                  (active ? "bg-studio-violet text-primary-foreground" : "text-studio-fg hover:bg-studio-violet-soft")
                 }
               >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <Icon className="h-4 w-4" />
                   {m.label}
                 </div>
-                <span className={"text-[11px] " + (active ? "text-white/80" : "text-[#0B0820]/55")}>
-                  {m.hint}
-                </span>
+                <span className={"text-[11px] " + (active ? "text-primary-foreground/80" : "text-studio-muted")}>{m.hint}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Workbench */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
-          {/* Left — composer */}
-          <div className="rounded-3xl border border-violet-200 bg-white p-5">
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">
-              Brief
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={promptPlaceholder}
-              rows={8}
-              className="mt-2 w-full resize-none rounded-2xl border border-violet-100 bg-white p-3 text-sm leading-relaxed text-[#0B0820] placeholder:text-[#0B0820]/35 focus:border-violet-400 focus:outline-none"
-            />
-
-            {(mode === "post" || mode === "announcement") && (
-              <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[430px_1fr]">
+          <div className="space-y-4">
+            <section className="rounded-3xl border border-studio-border bg-studio-surface p-5">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Channel</label>
-                  <select
-                    value={channel}
-                    onChange={(e) => setChannel(e.target.value as Channel)}
-                    className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
-                  >
-                    {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Generated directions</div>
+                  <h2 className="mt-1 text-xl font-bold tracking-normal">Pick one, or let the first run.</h2>
                 </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Audience</label>
-                  <input
-                    value={audience}
-                    onChange={(e) => setAudience(e.target.value)}
-                    placeholder="e.g. crypto-CFOs"
-                    className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
-                  />
-                </div>
+                <button
+                  onClick={() => loadSuggestions({ autoRun: false })}
+                  disabled={busy !== null}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-studio-border text-studio-violet hover:bg-studio-violet-soft disabled:opacity-50"
+                  aria-label="Refresh suggestions"
+                >
+                  {busy === "suggestions" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </button>
               </div>
-            )}
 
-            {(mode === "post" || mode === "announcement" || mode === "infographic") && (
-              <div className="mt-4">
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Aspect</label>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {(["1:1", "4:5", "16:9", "9:16"] as const).map((a) => (
+              <div className="mt-4 space-y-2">
+                {jobs.map((job) => {
+                  const active = selectedJob.id === job.id;
+                  return (
                     <button
-                      key={a}
-                      onClick={() => setAspect(a)}
+                      key={job.id}
+                      onClick={() => applyJob(job)}
                       className={
-                        "rounded-full border px-3 py-1 text-xs font-semibold " +
-                        (aspect === a
-                          ? "border-violet-600 bg-violet-600 text-white"
-                          : "border-violet-200 bg-white text-[#0B0820]/70 hover:bg-violet-50")
+                        "w-full rounded-2xl border p-3 text-left transition " +
+                        (active ? "border-studio-violet bg-studio-violet-soft" : "border-studio-border bg-studio-surface hover:bg-studio-violet-soft")
                       }
                     >
-                      {a}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold tracking-normal">{job.title}</span>
+                        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-studio-violet">{job.kind}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-studio-muted">{job.brief}</p>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-studio-border bg-studio-surface p-5">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Selected brief</div>
+              <h3 className="mt-2 text-lg font-bold tracking-normal">{selectedJob.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-studio-muted">{selectedJob.brief}</p>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl border border-studio-border bg-studio-surface p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Channel</div>
+                  <div className="mt-1 font-semibold">{channel}</div>
+                </div>
+                <div className="rounded-2xl border border-studio-border bg-studio-surface p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Format</div>
+                  <div className="mt-1 font-semibold">{mode === "video" ? `${duration}s · ${aspect}` : aspect}</div>
                 </div>
               </div>
-            )}
 
-            {mode === "video" && (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Duration</label>
-                  <select
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
-                  >
-                    {[5, 10, 15, 30].map((d) => <option key={d} value={d}>{d}s</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Aspect</label>
-                  <select
-                    value={aspect}
-                    onChange={(e) => setAspect(e.target.value as typeof aspect)}
-                    className="mt-1 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none"
-                  >
-                    <option value="9:16">9:16</option>
-                    <option value="1:1">1:1</option>
-                    <option value="16:9">16:9</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-5 flex flex-col gap-2">
-              <button
-                onClick={generate}
-                disabled={busy !== null || !prompt.trim()}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-              >
-                {busy === "copy" || busy === "infographic" || busy === "video" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {mode === "post" || mode === "announcement"
-                  ? "Generate copy variants"
-                  : mode === "infographic"
-                  ? "Generate infographic"
-                  : "Generate storyboard"}
-              </button>
-
-              {(mode === "post" || mode === "announcement") && (
+              <div className="mt-5 flex flex-col gap-2">
                 <button
-                  onClick={generateImage}
-                  disabled={busy !== null || !prompt.trim()}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-violet-300 bg-white px-4 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                  onClick={() => generateFor(selectedJob)}
+                  disabled={busy !== null}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
-                  {busy === "image" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                  Generate matching image
+                  {busy === "copy" || busy === "infographic" || busy === "video" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Generate this direction
                 </button>
-              )}
-            </div>
-
-            {error && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                {error}
+                {(mode === "post" || mode === "announcement") && (
+                  <button
+                    onClick={generateImage}
+                    disabled={busy !== null}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-studio-border bg-studio-surface px-4 py-3 text-sm font-semibold text-studio-violet hover:bg-studio-violet-soft disabled:opacity-50"
+                  >
+                    {busy === "image" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                    Generate matching image
+                  </button>
+                )}
               </div>
-            )}
+
+              {notice && <div className="mt-4 rounded-2xl border border-studio-border bg-studio-violet-soft p-3 text-xs leading-5 text-studio-muted">{notice}</div>}
+              {error && <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-xs leading-5 text-destructive">{error}</div>}
+            </section>
           </div>
 
-          {/* Right — preview */}
           <div className="space-y-5">
             {(mode === "post" || mode === "announcement") && copyResult && (
               <div className="space-y-3">
                 {copyResult.variants.map((v, i) => (
-                  <CopyVariantCard
-                    key={i}
-                    index={i + 1}
-                    headline={v.headline}
-                    body={v.body}
-                    cta={v.cta}
-                    onSave={() => saveCopy(v)}
-                  />
+                  <CopyVariantCard key={i} index={i + 1} headline={v.headline} body={v.body} cta={v.cta} onSave={() => saveCopy(v)} />
                 ))}
                 {(copyResult.suggestedHashtags?.length || 0) > 0 && (
-                  <div className="rounded-2xl border border-violet-100 bg-white p-3 text-xs text-[#0B0820]/70">
-                    <span className="font-semibold text-violet-700">Hashtags:</span>{" "}
-                    {copyResult.suggestedHashtags.map((h) => `#${h}`).join("  ")}
+                  <div className="rounded-2xl border border-studio-border bg-studio-surface p-3 text-xs text-studio-muted">
+                    <span className="font-semibold text-studio-violet">Hashtags:</span> {copyResult.suggestedHashtags.map((h) => `#${h}`).join("  ")}
                   </div>
                 )}
               </div>
             )}
 
             {imagePreview && (mode === "post" || mode === "announcement") && (
-              <div className="overflow-hidden rounded-3xl border border-violet-200 bg-white">
+              <div className="overflow-hidden rounded-3xl border border-studio-border bg-studio-surface">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Generated" className="w-full" />
+                <img src={imagePreview} alt="Generated Dreyv social visual" className="w-full" />
               </div>
             )}
 
             {mode === "infographic" && infographic && (
               <div className="space-y-3">
                 <InfographicCanvas spec={infographic} aspect={aspect === "9:16" ? "4:5" : (aspect as "1:1" | "4:5" | "16:9")} />
-                <button
-                  onClick={saveInfographic}
-                  className="rounded-full border border-violet-200 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50"
-                >
+                <button onClick={saveInfographic} className="rounded-full border border-studio-border px-4 py-2 text-xs font-semibold text-studio-violet hover:bg-studio-violet-soft">
                   Save to library
                 </button>
               </div>
@@ -383,21 +397,20 @@ export default function MediaStudioClient() {
             {mode === "video" && storyboard && <StoryboardCanvas spec={storyboard} />}
 
             {!copyResult && !infographic && !storyboard && !imagePreview && (
-              <div className="flex aspect-[4/3] items-center justify-center rounded-3xl border border-dashed border-violet-200 bg-white text-sm text-[#0B0820]/45">
-                Your generation will appear here.
+              <div className="flex aspect-[4/3] items-center justify-center rounded-3xl border border-dashed border-studio-border bg-studio-surface text-sm text-studio-muted">
+                {busy ? "Generating the first direction…" : "Choose a direction to generate."}
               </div>
             )}
           </div>
         </div>
 
-        {/* Library */}
         <section className="mt-12">
           <div className="flex items-end justify-between">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-700">Library</div>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight">Recent assets</h2>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-studio-violet">Library</div>
+              <h2 className="mt-1 text-2xl font-bold tracking-normal">Recent assets</h2>
             </div>
-            <span className="text-xs text-[#0B0820]/55">Only you can see your assets.</span>
+            <span className="text-xs text-studio-muted">Studio assets saved from generated outputs.</span>
           </div>
           <div className="mt-4">
             <AssetLibrary refreshKey={refreshKey} />
