@@ -3,7 +3,7 @@
 import * as React from "react";
 import { rememberStudioPass } from "@/lib/media-studio/client-auth";
 
-export default function StudioPasswordGate() {
+export default function StudioPasswordGate({ onUnlocked }: { onUnlocked?: () => void }) {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -25,6 +25,10 @@ export default function StudioPasswordGate() {
         return;
       }
       rememberStudioPass(cleanPassword);
+      if (onUnlocked) {
+        onUnlocked();
+        return;
+      }
       window.location.assign("/studio");
     } catch {
       setError("Something went wrong");
