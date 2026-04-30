@@ -701,7 +701,7 @@ export class SquadsClient {
     /**
      * Fetches recent transaction signatures and parses details for the vault.
      */
-    async getRecentTransactions(vaultAddress: string, limit: number = 50): Promise<{
+    async getRecentTransactions(vaultAddress: string, limit: number = 12): Promise<{
         signature: string;
         blockTime: number | null;
         success: boolean;
@@ -741,8 +741,10 @@ export class SquadsClient {
             // Parse ALL transactions for detailed info using balance diffs
             const vaultKey = resolvedKey.toBase58();
 
-            // Batch in groups of 50 to maximize RPC throughput
-            const BATCH = 50;
+            // Batch in groups of 25 to balance throughput vs RPC pressure.
+            // The browser shares this RPC with wallet polling, balance refreshes,
+            // Squads PDA reads, etc. — bursting 50 here was triggering 429 storms.
+            const BATCH = 25;
             for (let batch = 0; batch < transactions.length; batch += BATCH) {
                 const slice = transactions.slice(batch, batch + BATCH);
 
@@ -768,14 +770,28 @@ export class SquadsClient {
                             parsedTxBreaker.failures = 0;
                             console.warn("[Squads] Parsed transaction breaker opened for 30s due to repeated 429s.");
                         }
+                        // If we just got rate-limited on the batch call, do NOT
+                        // immediately fan out 25 single-tx calls — that's what
+                        // causes the 429 retry-storm. Skip deep parsing for
+                        // this cycle and let the breaker cool things down.
+                        console.warn("[Squads] Skipping per-signature fallback after batch 429 to avoid amplifying rate limit.");
+                        break;
                     }
-                    console.error("[Squads] Failed to fetch parsed transactions batch, falling back to per-signature fetch:", error);
+                    console.error("[Squads] Failed to fetch parsed transactions batch, falling back to throttled per-signature fetch:", error);
 
+                    // Throttled fallback: process at most 3 in flight at a time
+                    // and bail early if the breaker trips mid-flight.
                     const signatures = slice.map(t => t.signature);
-                    parsedTxsResponse = await Promise.all(
-                        signatures.map(async (signature) => {
+                    const CONCURRENCY = 3;
+                    parsedTxsResponse = new Array(signatures.length).fill(null);
+                    let cursor = 0;
+                    const workers = Array.from({ length: CONCURRENCY }, async () => {
+                        while (cursor < signatures.length) {
+                            const myIdx = cursor++;
+                            if (Date.now() < parsedTxBreaker.openUntil) return;
+                            const signature = signatures[myIdx];
                             try {
-                                return await this.withRpcRetry(
+                                parsedTxsResponse[myIdx] = await this.withRpcRetry(
                                     "getParsedTransaction",
                                     () => this.connection.getParsedTransaction(signature, {
                                         maxSupportedTransactionVersion: 0,
@@ -783,15 +799,23 @@ export class SquadsClient {
                                     2,
                                 );
                             } catch (singleError) {
+                                if (isRateLimitLike(singleError)) {
+                                    parsedTxBreaker.failures += 1;
+                                    if (parsedTxBreaker.failures >= PARSED_TX_BREAKER_THRESHOLD) {
+                                        parsedTxBreaker.openUntil = Date.now() + PARSED_TX_BREAKER_OPEN_MS;
+                                        parsedTxBreaker.failures = 0;
+                                    }
+                                }
                                 console.error(
                                     "[Squads] Failed to fetch parsed transaction for signature:",
                                     signature,
                                     singleError
                                 );
-                                return null;
+                                parsedTxsResponse[myIdx] = null;
                             }
-                        })
-                    );
+                        }
+                    });
+                    await Promise.all(workers);
                 }
 
                 parsedTxsResponse.forEach((tx, i) => {
