@@ -14,6 +14,7 @@ import { ForesightChart, type ForesightChartProps } from "@/components/commandba
 import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
 import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
 import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
+import { ToolBody } from "@/components/commandbar/ToolBody";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
