@@ -6,6 +6,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { Loader2, CheckCircle2, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { TOOL_META } from "@/lib/commandbar/tool-meta";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
 import { SigningCard } from "@/components/commandbar/SigningCard";
