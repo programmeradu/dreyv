@@ -15,6 +15,7 @@ import { ArtifactList, extractArtifacts } from "@/components/commandbar/Artifact
 import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
 import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
 import { ToolBody } from "@/components/commandbar/ToolBody";
+import { ToolError } from "@/components/commandbar/ToolError";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
@@ -209,9 +210,19 @@ export function ToolCard({
       )}
 
       {isDone && success === false && errorMessage && (
-        <p className="mt-1.5 text-xs leading-relaxed text-rose-600">
-          {errorMessage}
-        </p>
+        <ToolError
+          rawMessage={errorMessage}
+          toolName={toolName}
+          operation={operation}
+          onSuggest={(prompt) => {
+            if (typeof window === "undefined") return;
+            window.dispatchEvent(
+              new CustomEvent("keystone-app-event", {
+                detail: { type: "AGENT_COMMAND", payload: { command: prompt, autoSubmit: false } },
+              }),
+            );
+          }}
+        />
       )}
 
       {isDone && success === true && (sourceTool || sourceField) && (
