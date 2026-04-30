@@ -229,7 +229,9 @@ export function ToolCard({
           serializedTransactions={serializedTransactions}
           signingStatus={signingToolId === toolCallId ? signingStatus : "idle"}
           txSignatures={signingToolId === toolCallId ? txSignatures : []}
-          onConfirm={() => onSign(toolCallId, serializedTransactions, operation)}
+          onConfirm={() =>
+            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput)
+          }
         />
       )}
 
