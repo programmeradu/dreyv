@@ -292,7 +292,7 @@ function ResearchBody({ output }: { output: Record<string, unknown> }) {
         <ul className="space-y-1">
           {insights.slice(0, 4).map((ins, i) => (
             <li key={i} className="flex gap-1.5 text-[12px] text-slate-700">
-              <Sparkles className="mt-0.5 h-3 w-3 flex-shrink-0 text-violet-500" />
+              <DreyvStar size={12} className="mt-0.5 flex-shrink-0 text-violet-500" />
               <span>{ins}</span>
             </li>
           ))}
