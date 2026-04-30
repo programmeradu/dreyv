@@ -811,10 +811,11 @@ export class SquadsClient {
                                     signature,
                                     singleError
                                 );
-                                return null;
+                                parsedTxsResponse[myIdx] = null;
                             }
-                        })
-                    );
+                        }
+                    });
+                    await Promise.all(workers);
                 }
 
                 parsedTxsResponse.forEach((tx, i) => {
