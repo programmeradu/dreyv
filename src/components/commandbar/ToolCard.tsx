@@ -19,7 +19,12 @@ export interface ToolCardProps {
   input: Record<string, unknown>;
   state: "partial-call" | "call" | "output-available";
   output?: Record<string, unknown>;
-  onSign: (toolCallId: string, serialized: string[], operation: string) => void;
+  onSign: (
+    toolCallId: string,
+    serialized: string[],
+    operation: string,
+    extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+  ) => void;
 }
 
 export function ToolCard({
