@@ -701,7 +701,7 @@ export class SquadsClient {
     /**
      * Fetches recent transaction signatures and parses details for the vault.
      */
-    async getRecentTransactions(vaultAddress: string, limit: number = 50): Promise<{
+    async getRecentTransactions(vaultAddress: string, limit: number = 12): Promise<{
         signature: string;
         blockTime: number | null;
         success: boolean;
