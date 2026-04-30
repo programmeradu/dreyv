@@ -15,6 +15,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
 import { useWallet } from "@/lib/wallet/compat";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Buffer } from "buffer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
