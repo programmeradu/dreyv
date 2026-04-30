@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { FileText, Layout, Megaphone, Video, Sparkles, Loader2, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { FileText, Layout, Megaphone, Video, Loader2, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import type { AssetKind, Channel, ContentSuggestion, CopyResult, InfographicSpec, VideoStoryboard } from "@/lib/media-studio/types";
 import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
 import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
@@ -240,7 +241,7 @@ export default function MediaStudioClient() {
         <header className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-studio-violet">
-              <Sparkles className="h-3.5 w-3.5" />
+              <DreyvStar size={14} />
               Dreyv · Media Studio
             </div>
             <h1 className="mt-2 max-w-3xl text-4xl font-bold leading-none tracking-normal md:text-5xl">
@@ -344,7 +345,7 @@ export default function MediaStudioClient() {
                   disabled={busy !== null}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
-                  {busy === "copy" || busy === "infographic" || busy === "video" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {busy === "copy" || busy === "infographic" || busy === "video" ? <Loader2 className="h-4 w-4 animate-spin" /> : <DreyvStar size={14} />}
                   Generate this direction
                 </button>
                 {(mode === "post" || mode === "announcement") && (

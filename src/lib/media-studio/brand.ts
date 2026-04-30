@@ -71,7 +71,13 @@ export function brandSystemPrompt(): string {
 }
 
 export function imageStylePrompt(kind: AssetKind): string {
-  const base = `Premium fintech brand visual for Dreyv. Solid violet (#7c3aed) accents on a clean white background. Manrope-style typography. Flat, editorial, calm — never gradient-mush or generic SaaS. Subtle violet ambient glow allowed.`;
+  const base = `Premium fintech brand visual for Dreyv. Solid violet (#7c3aed) accents on a clean white background. Manrope-style typography. Flat, editorial, calm — never gradient-mush or generic SaaS. Subtle violet ambient glow allowed.
+
+STRICT BRAND RULES — DO NOT VIOLATE:
+- Do NOT render any Dreyv logo, wordmark, monogram, "D" mark, or the literal word "Dreyv" anywhere in the image. The official logo will be composited separately. Any attempt to draw the brand mark is a failure.
+- Do NOT include any text, letters, words, captions, UI chrome, browser frames, terminal windows, or device mockups unless explicitly requested in the subject.
+- No fake screenshots, no fake CLI output, no invented product UI.
+- Pure abstract / editorial composition only: violet geometry, light, crystal, prism, orbits, gradients of light on white. Subject-driven, never brand-driven.`;
   switch (kind) {
     case "infographic":
       return `${base} Infographic layout: clear hierarchy, generous negative space, one bold stat as the hero, supporting labels in small caps. Avoid stock icons.`;

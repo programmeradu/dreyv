@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { rememberStudioPass } from "@/lib/media-studio/client-auth";
 
 export default function StudioPasswordGate({ onUnlocked }: { onUnlocked?: () => void }) {
@@ -44,7 +44,7 @@ export default function StudioPasswordGate({ onUnlocked }: { onUnlocked?: () => 
         className="w-full max-w-sm rounded-3xl border border-studio-border bg-studio-surface p-8"
       >
         <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-studio-violet">
-          <Sparkles className="h-3.5 w-3.5" />
+          <DreyvStar size={14} />
           Dreyv · Studio
         </div>
         <h1 className="mt-3 text-2xl font-bold tracking-tight">Enter password</h1>
