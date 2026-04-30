@@ -13,13 +13,13 @@ import {
   ShieldCheck,
   Clock,
   ExternalLink,
-  Sparkles,
   Activity,
   FileText,
   Globe,
   AlertTriangle,
   Layers,
 } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface Props {
   toolName: string;
