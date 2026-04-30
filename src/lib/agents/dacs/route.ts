@@ -100,7 +100,7 @@ export function routePlan(intent: Intent, plan: Plan, options: RouteOptions = {}
   }
 
   // 5. Write path: gate on risk + value + policy.
-  const valueUsd = plan.estimatedValueUsd ?? 0;
+  const valueUsd = plan.estimatedValueUsd;
   const autoCap = options.policy?.autoApproveBelowUsd ?? DEFAULT_AUTO_APPROVE_USD;
 
   if (plan.riskScore >= HIGH_RISK_THRESHOLD) {
@@ -111,11 +111,25 @@ export function routePlan(intent: Intent, plan: Plan, options: RouteOptions = {}
     return { kind: "queue_for_approval", plan, reason: "Plan is irreversible." };
   }
 
-  if (valueUsd > autoCap) {
+  // Unknown value on a write path → never silently auto-execute. The
+  // synthesizer often omits estimatedValueUsd for trades; treating that as
+  // $0 (≤ autoCap) caused real swaps to bypass HITL entirely. Require a
+  // numeric value AND an explicit policy opt-in (autoCap > 0) to auto-run.
+  if (valueUsd == null || !Number.isFinite(valueUsd)) {
     return {
       kind: "queue_for_approval",
       plan,
-      reason: `Value $${valueUsd} exceeds auto-approve cap $${autoCap}.`,
+      reason: "Write step has no estimated USD value — routing to approval.",
+    };
+  }
+
+  if (autoCap <= 0 || valueUsd > autoCap) {
+    return {
+      kind: "queue_for_approval",
+      plan,
+      reason: autoCap <= 0
+        ? "No auto-approve policy set — write requires approval."
+        : `Value $${valueUsd} exceeds auto-approve cap $${autoCap}.`,
     };
   }
 
