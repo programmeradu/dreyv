@@ -193,7 +193,7 @@ export default function MediaStudioClient() {
             headers: studioJsonHeaders(),
             body: JSON.stringify({ kind: job.kind, channel: effChannel, prompt: job.brief, audience: job.audience }),
           });
-          const json = await res.json();
+          const json = await readJsonSafe(res);
           if (!res.ok) throw new Error(json.error ?? "Copy generation failed");
           setCopyResult(json);
         } else if (job.kind === "infographic") {
@@ -204,7 +204,7 @@ export default function MediaStudioClient() {
             headers: studioJsonHeaders(),
             body: JSON.stringify({ prompt: job.brief }),
           });
-          const json = await res.json();
+          const json = await readJsonSafe(res);
           if (!res.ok) throw new Error(json.error ?? "Infographic generation failed");
           setInfographic(json.spec);
         } else {
@@ -219,7 +219,7 @@ export default function MediaStudioClient() {
               aspect: effAspect === "9:16" ? "9:16" : "1:1",
             }),
           });
-          const json = await res.json();
+          const json = await readJsonSafe(res);
           if (!res.ok) throw new Error(json.error ?? "Video generation failed");
           setStoryboard(json.spec);
           setRefreshKey((k) => k + 1);
@@ -239,7 +239,7 @@ export default function MediaStudioClient() {
       setError(null);
       try {
         const res = await fetch("/api/studio/media/suggestions", { headers: studioAuthHeaders() });
-        const json = await res.json();
+        const json = await readJsonSafe(res);
         const nextJobs = ((json.suggestions as ContentSuggestion[] | undefined) ?? FALLBACK_JOBS).map(normalizeJob);
         setJobs(nextJobs);
         const first = nextJobs[0] ?? FALLBACK_JOBS[0];
@@ -274,7 +274,7 @@ export default function MediaStudioClient() {
         headers: studioJsonHeaders(),
         body: JSON.stringify({ prompt: selectedJob.brief, kind: mode, channel, aspect, title: selectedJob.title }),
       });
-      const json = await res.json();
+      const json = await readJsonSafe(res);
       if (!res.ok) throw new Error(json.error ?? "Image generation failed");
       setImagePreview(json.previewUrl);
       setRefreshKey((k) => k + 1);
