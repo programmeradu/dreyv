@@ -28,6 +28,31 @@ import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
 import { studioAuthHeaders, studioJsonHeaders } from "@/lib/media-studio/client-auth";
 
+/**
+ * Safely parse a fetch Response that we expect to be JSON. Production edges
+ * (Vercel timeouts, gateway errors, HTML error pages) can return empty or
+ * non-JSON bodies — surface a real, actionable message instead of the cryptic
+ * "Unexpected end of JSON input".
+ */
+async function readJsonSafe(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? "The server returned an empty response. Please try again."
+        : `Request failed (${res.status} ${res.statusText || "no response body"}). The generation may have timed out — try a shorter prompt or retry.`,
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    const snippet = text.slice(0, 160).replace(/\s+/g, " ").trim();
+    throw new Error(
+      `Unexpected response from server (${res.status}): ${snippet || "non-JSON body"}`,
+    );
+  }
+}
+
 type Mode = AssetKind;
 type Aspect = "1:1" | "16:9" | "9:16" | "4:5";
 
