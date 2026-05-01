@@ -194,9 +194,9 @@ export async function generateImage(opts: {
     const parts: Array<{ inlineData?: { data?: string; mimeType?: string }; inline_data?: { data?: string; mime_type?: string } }> =
       data?.candidates?.[0]?.content?.parts ?? [];
     for (const p of parts) {
-      const inline = p.inlineData ?? p.inline_data;
+      const inline = (p.inlineData ?? p.inline_data) as { data?: string; mimeType?: string; mime_type?: string } | undefined;
       if (inline?.data) {
-        const mime = inline.mimeType || (p as { inline_data?: { mime_type?: string } }).inline_data?.mime_type || "image/png";
+        const mime = inline.mimeType || inline.mime_type || "image/png";
         return { buffer: Buffer.from(inline.data, "base64"), mime };
       }
     }
