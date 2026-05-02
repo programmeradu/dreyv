@@ -33,20 +33,47 @@ export async function POST(req: NextRequest) {
         // static checks against the source code. Honest about what it is.
         if (!browserAvailable || (!html && !url)) {
             const src: string = code || html || "";
-            const checks = [
-                { name: "Source provided", passed: !!src, details: src ? `${src.length} chars` : "No code submitted" },
-                { name: "Has default export", passed: /export\s+default/.test(src), details: /export\s+default/.test(src) ? "Found" : "Missing default export" },
-                { name: "No eval()", passed: !/\beval\s*\(/.test(src), details: "No dynamic eval calls" },
-                { name: "No document.cookie", passed: !/document\.cookie/.test(src), details: "No cookie access" },
-                { name: "Uses dreyv SDK", passed: /@keystone-os\/sdk|@dreyv\/sdk/.test(src), details: /@keystone-os\/sdk|@dreyv\/sdk/.test(src) ? "SDK import found" : "Consider using SDK hooks" },
+            const has = (re: RegExp) => re.test(src);
+            const balanced = (open: string, close: string) => {
+                let depth = 0;
+                for (const ch of src) {
+                    if (ch === open) depth++;
+                    else if (ch === close) { depth--; if (depth < 0) return false; }
+                }
+                return depth === 0;
+            };
+            const balancedBraces = balanced("{", "}");
+            const balancedParens = balanced("(", ")");
+
+            const checks: { name: string; passed: boolean; details: string }[] = [
+                { name: "Source provided", passed: src.length > 0, details: src.length > 0 ? `${src.length} chars` : "No code submitted" },
+                { name: "Has default export", passed: has(/export\s+default/), details: has(/export\s+default/) ? "Found `export default`" : "Missing — Studio entry must `export default function App()`" },
+                { name: "Imports React or SDK", passed: has(/from\s+['"](react|@keystone-os\/sdk|@dreyv\/sdk)['"]/), details: has(/from\s+['"]react['"]/) ? "React import present" : "No React/SDK import detected" },
+                { name: "Balanced braces", passed: balancedBraces, details: balancedBraces ? "All { } pairs match" : "Unbalanced { } — likely a syntax error" },
+                { name: "Balanced parentheses", passed: balancedParens, details: balancedParens ? "All ( ) pairs match" : "Unbalanced ( ) — likely a syntax error" },
+                { name: "No raw fetch()", passed: !/(?<!use)\bfetch\s*\(/.test(src), details: /(?<!use)\bfetch\s*\(/.test(src) ? "Uses raw fetch() — blocked by CSP, use useFetch()" : "OK" },
+                { name: "No local/sessionStorage", passed: !has(/\b(local|session)Storage\b/), details: has(/\b(local|session)Storage\b/) ? "Blocked by sandbox" : "OK" },
+                { name: "No eval / new Function", passed: !has(/\beval\s*\(|\bnew\s+Function\s*\(/), details: has(/\beval\s*\(|\bnew\s+Function\s*\(/) ? "Dynamic code execution detected" : "OK" },
+                { name: "No document.cookie", passed: !has(/document\.cookie/), details: has(/document\.cookie/) ? "Blocked by sandbox" : "OK" },
+                { name: "No process.env / __dirname", passed: !has(/\bprocess\.env\b|\b__dirname\b/), details: has(/\bprocess\.env\b|\b__dirname\b/) ? "Node-only API in browser sandbox" : "OK" },
+                { name: "No mock/placeholder data", passed: !has(/\b(mock|placeholder|dummy|fake|lorem)\w*\s*[:=]/i), details: has(/\b(mock|placeholder|dummy|fake|lorem)\w*\s*[:=]/i) ? "Mock-like identifier — fetch real data via useFetch()" : "OK" },
+                { name: "No HTML shell", passed: !has(/<!DOCTYPE|<html[\s>]|<head[\s>]|<body[\s>]/i), details: has(/<!DOCTYPE|<html[\s>]|<head[\s>]/i) ? "Generated HTML shell detected — Studio runtime owns the shell" : "OK" },
+                { name: "No forbidden web3 imports", passed: !has(/from\s+['"](?:@solana\/web3\.js|ethers|axios|wagmi)['"]/), details: has(/from\s+['"](?:@solana\/web3\.js|ethers|axios|wagmi)['"]/) ? "Not bundled in sandbox — use SDK hooks" : "OK" },
             ];
-            const passedCount = checks.filter((c) => c.passed).length;
-            const score = Math.round((passedCount / checks.length) * 100);
+
+            const failed = checks.filter((c) => !c.passed);
+            const score = Math.round(((checks.length - failed.length) / checks.length) * 100);
+            const hardFails = new Set([
+                "Has default export", "Balanced braces", "Balanced parentheses",
+                "No raw fetch()", "No local/sessionStorage", "No eval / new Function", "No HTML shell",
+            ]);
+            const hasHardFail = failed.some((c) => hardFails.has(c.name));
+
             return NextResponse.json({
-                passed: score >= 60,
+                passed: !hasHardFail && score >= 80,
                 score,
                 checks,
-                errors: [],
+                errors: failed.map((c) => `${c.name}: ${c.details}`),
                 mode: "static-lint",
                 note: browserAvailable
                     ? "Static lint only — no html/url provided."
