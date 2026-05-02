@@ -918,7 +918,15 @@ export function LivePreview({
                         "date-fns": "^3.6.0",
                     },
                 }}
-                options={{ recompileMode: "delayed", recompileDelay: 300 }}
+                options={{
+                    recompileMode: "delayed",
+                    recompileDelay: 300,
+                    // Pin to the stable v2 hosted sandpack bundler — the default
+                    // CRA bundler frequently times out ("Couldn't connect to server").
+                    bundlerURL: "https://sandpack-bundler.codesandbox.io",
+                    bundlerTimeOut: 60000,
+                    skipEval: false,
+                }}
             >
                 <BridgeBinder
                     walletAddress={walletAddress}
