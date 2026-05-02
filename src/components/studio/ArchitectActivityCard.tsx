@@ -127,11 +127,19 @@ export function ArchitectActivityCard({ card, onOpenFile, onToggleThinking }: Pr
     }
 
     if (card.kind === "analyzing") {
+        const done = card.done;
         return (
-            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-[12px] flex items-center gap-2">
-                <Loader2 size={12} className="text-yellow-400 shrink-0 animate-spin" />
-                <span className="text-foreground/80">
-                    Analyzing {card.fileCount} file{card.fileCount === 1 ? "" : "s"}…
+            <div className={cn(
+                "rounded-lg border px-3 py-2 text-[12px] flex items-center gap-2",
+                done ? "border-slate-200 bg-slate-50/60" : "border-yellow-500/30 bg-yellow-500/5"
+            )}>
+                {done ? (
+                    <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                ) : (
+                    <Loader2 size={12} className="text-yellow-500 shrink-0 animate-spin" />
+                )}
+                <span className={cn(done ? "text-slate-500" : "text-foreground/80")}>
+                    {done ? "Analyzed" : "Analyzing"} {card.fileCount} file{card.fileCount === 1 ? "" : "s"}{done ? "" : "…"}
                 </span>
             </div>
         );
@@ -158,13 +166,21 @@ export function ArchitectActivityCard({ card, onOpenFile, onToggleThinking }: Pr
     }
 
     if (card.kind === "fixing") {
+        const done = card.done;
         return (
-            <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 px-3 py-2 text-[12px] flex items-center gap-2">
-                <Wrench size={12} className="text-orange-400 shrink-0 animate-pulse" />
-                <span className="text-foreground/80">
-                    Fixing — attempt {card.attempt}/{card.max}
+            <div className={cn(
+                "rounded-lg border px-3 py-2 text-[12px] flex items-center gap-2 min-w-0",
+                done ? "border-slate-200 bg-slate-50/60" : "border-orange-500/30 bg-orange-500/5"
+            )}>
+                {done ? (
+                    <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                ) : (
+                    <Wrench size={12} className="text-orange-500 shrink-0 animate-pulse" />
+                )}
+                <span className={cn("min-w-0 truncate", done ? "text-slate-500" : "text-foreground/80")}>
+                    {done ? "Fix attempt" : "Fixing — attempt"} {card.attempt}/{card.max}{done ? " complete" : ""}
                 </span>
-                {card.issues[0] && (
+                {!done && card.issues[0] && (
                     <span className="text-[10px] text-muted-foreground/70 ml-auto truncate max-w-[40%]">
                         {card.issues[0]}
                     </span>
