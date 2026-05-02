@@ -165,6 +165,26 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     }, [messages]);
 
+    // Safety net: when generation stops, mark any lingering in-progress cards as done
+    useEffect(() => {
+        if (isGenerating) return;
+        setMessages((prev) =>
+            prev.map((m) => ({
+                ...m,
+                blocks: m.blocks.map((b) => {
+                    if (b.type !== "activity") return b;
+                    if ((b.card.kind === "analyzing" || b.card.kind === "fixing") && !(b.card as { done?: boolean }).done) {
+                        return { ...b, card: { ...b.card, done: true } };
+                    }
+                    if (b.card.kind === "thinking" && !b.card.done) {
+                        return { ...b, card: { ...b.card, done: true, collapsed: true } };
+                    }
+                    return b;
+                }),
+            }))
+        );
+    }, [isGenerating]);
+
     const getEngine = useCallback(() => {
         if (!engineRef.current) {
             engineRef.current = new ArchitectEngine({
@@ -266,6 +286,21 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                 )
             );
             setCollapsedThinking((prev) => ({ ...prev, [thinkingCardId]: true }));
+        };
+
+        const finalizeProgressCards = () => {
+            updateAssistant((blocks) =>
+                blocks.map((b) => {
+                    if (b.type !== "activity") return b;
+                    if (b.card.kind === "analyzing" || b.card.kind === "fixing") {
+                        return { ...b, card: { ...b.card, done: true } };
+                    }
+                    if (b.card.kind === "thinking" && !b.card.done) {
+                        return { ...b, card: { ...b.card, done: true, collapsed: true } };
+                    }
+                    return b;
+                })
+            );
         };
 
         let summaryAccumulator = "";
@@ -379,6 +414,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             break;
                         case "done":
                             finishThinking();
+                            finalizeProgressCards();
                             appendBlock({
                                 type: "activity",
                                 card: {
@@ -397,6 +433,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             break;
                         case "failed":
                             finishThinking();
+                            finalizeProgressCards();
                             appendBlock({
                                 type: "activity",
                                 card: {
@@ -512,7 +549,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const isEmpty = messages.length === 0;
 
     return (
-        <div className="flex flex-col h-full min-h-0 bg-white">
+        <div className="flex flex-col h-full min-h-0 min-w-0 w-full overflow-hidden bg-white">
             {/* Subtle live status — only when working */}
             {isGenerating && liveStatusLabel && (
                 <div className="flex items-center gap-2 px-4 py-1.5 border-b border-violet-100 bg-violet-50/40 shrink-0">
@@ -552,17 +589,18 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                 </div>
             ) : (
                 /* Messages */
-                <ScrollArea className="flex-1 px-3 py-3 scrollbar-thin min-h-0" ref={scrollRef}>
-                    <div className="space-y-3">
+                <ScrollArea className="flex-1 px-3 py-3 scrollbar-thin min-h-0 min-w-0 [&_[data-radix-scroll-area-viewport]]:!overflow-x-hidden" ref={scrollRef}>
+                    <div className="space-y-3 min-w-0 break-words">
+
                         {messages.map((message) => (
                             <div
                                 key={message.id}
                                 className={cn(
-                                    "flex",
+                                    "flex w-full min-w-0",
                                     message.role === "user" ? "justify-end" : "justify-start"
                                 )}
                             >
-                                <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "w-full")}>
+                                <div className={cn("flex flex-col gap-2 min-w-0", message.role === "user" ? "max-w-[88%]" : "w-full")}>
                                     {message.blocks.map((block, idx) => {
                                         if (block.type === "text") {
                                             return (
