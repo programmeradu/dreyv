@@ -19,11 +19,9 @@ import type {
   Channel,
   ContentSuggestion,
   CopyResult,
-  InfographicSpec,
   VideoStoryboard,
 } from "@/lib/media-studio/types";
 import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
-import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
 import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
@@ -143,7 +141,7 @@ export default function MediaStudioClient() {
 
   const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video">(null);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
-  const [infographic, setInfographic] = React.useState<InfographicSpec | null>(null);
+  // (Infographics now generate as images and live on imagePreview, same as posts.)
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
@@ -161,7 +159,6 @@ export default function MediaStudioClient() {
 
   const resetOutput = React.useCallback(() => {
     setCopyResult(null);
-    setInfographic(null);
     setStoryboard(null);
     setImagePreview(null);
     setError(null);
@@ -200,15 +197,22 @@ export default function MediaStudioClient() {
           setCopyResult(json);
         } else if (job.kind === "infographic") {
           setBusy("infographic");
-          setInfographic(null);
+          setImagePreview(null);
           const res = await fetch("/api/studio/media/generate-infographic", {
             method: "POST",
             headers: studioJsonHeaders(),
-            body: JSON.stringify({ prompt: job.brief }),
+            body: JSON.stringify({
+              prompt: job.brief,
+              channel: effChannel,
+              aspect: effAspect,
+              title: job.title,
+            }),
           });
           const json = await readJsonSafe(res);
           if (!res.ok) throw new Error(json.error ?? "Infographic generation failed");
-          setInfographic(json.spec);
+          if (json.previewUrl) setImagePreview(json.previewUrl);
+          if (json.error) setNotice(json.error);
+          setRefreshKey((k) => k + 1);
         } else {
           setBusy("video");
           setStoryboard(null);
@@ -302,18 +306,8 @@ export default function MediaStudioClient() {
     setRefreshKey((k) => k + 1);
   }
 
-  async function saveInfographic() {
-    if (!infographic) return;
-    await fetch("/api/studio/media/assets", {
-      method: "POST",
-      headers: studioJsonHeaders(),
-      body: JSON.stringify({ kind: "infographic", title: infographic.title, prompt: selectedJob.brief, spec: infographic }),
-    });
-    setRefreshKey((k) => k + 1);
-  }
-
-  const isGenerating = busy === "copy" || busy === "infographic" || busy === "video";
-  const hasOutput = !!(copyResult || infographic || storyboard || imagePreview);
+  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video";
+  const hasOutput = !!(copyResult || storyboard || imagePreview);
   const aspects = ASPECTS_BY_MODE[mode];
 
   return (
@@ -625,19 +619,19 @@ export default function MediaStudioClient() {
                   </div>
                 )}
 
-                {/* Image preview */}
-                {imagePreview && (mode === "post" || mode === "announcement") && (
+                {/* Image preview (post / announcement / infographic) */}
+                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic") && (
                   <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imagePreview}
-                      alt="Generated Dreyv social visual"
+                      alt={`Generated Dreyv ${mode} visual`}
                       className="w-full cursor-zoom-in"
                       onClick={() => setLightboxUrl(imagePreview)}
                     />
                     <ImageActions
                       url={imagePreview}
-                      alt="Generated Dreyv social visual"
+                      alt={`Generated Dreyv ${mode} visual`}
                       filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
                       onView={() => setLightboxUrl(imagePreview)}
                     />
@@ -647,22 +641,6 @@ export default function MediaStudioClient() {
                       </span>
                       <Check className="h-3.5 w-3.5 text-studio-violet" />
                     </div>
-                  </div>
-                )}
-
-                {/* Infographic */}
-                {mode === "infographic" && infographic && (
-                  <div className="space-y-3">
-                    <InfographicCanvas
-                      spec={infographic}
-                      aspect={aspect === "9:16" ? "4:5" : (aspect as "1:1" | "4:5" | "16:9")}
-                    />
-                    <button
-                      onClick={saveInfographic}
-                      className="rounded-full border border-studio-border bg-white px-4 py-2 text-xs font-semibold text-studio-violet hover:bg-studio-violet-soft"
-                    >
-                      Save to library
-                    </button>
                   </div>
                 )}
 
