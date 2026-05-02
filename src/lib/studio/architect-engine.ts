@@ -408,7 +408,19 @@ export class ArchitectEngine {
             if (event.summary) {
               this.callbacks.onSummary?.(event.summary);
             }
-            result = event.files || null;
+
+            // ─── Patch application path ──────────────────
+            // When the model returns line-range patches (iterative edits),
+            // apply them to the existing files instead of returning empty.
+            if (event.isPatches && Array.isArray(event.patches) && event.patches.length > 0) {
+              const baseFiles: Record<string, string> = {};
+              for (const [name, file] of Object.entries(contextFiles)) {
+                baseFiles[name] = file.content || "";
+              }
+              result = this.applyPatches(baseFiles, event.patches);
+            } else {
+              result = event.files || null;
+            }
           } else if (event.type === "error" && !event.recoverable) {
             throw new Error(event.message || "Stream error");
           }
@@ -580,27 +592,49 @@ Do NOT return the standard JSON file format. Do not return markdown code blocks.
       return null;
     }
 
-    const updatedFiles = { ...currentFiles };
+    return this.applyPatches(currentFiles, patches);
+  }
 
+  /**
+   * Apply line-range patches to a file map and return the updated map.
+   * Patch shape: { file, startLine, endLine, replacement } (1-indexed inclusive).
+   * Patches for the same file are sorted bottom-up so earlier line numbers
+   * remain valid as we splice.
+   */
+  private applyPatches(
+    baseFiles: Record<string, string>,
+    patches: any[]
+  ): Record<string, string> {
+    const updatedFiles = { ...baseFiles };
+
+    // Group patches by file and sort each group by startLine descending,
+    // so that splices don't shift the indices of later (earlier-line) patches.
+    const byFile = new Map<string, any[]>();
     for (const patch of patches) {
-      if (!patch.file || !patch.replacement || typeof patch.startLine !== "number" || typeof patch.endLine !== "number") {
-        continue;
-      }
+      if (!patch || typeof patch.file !== "string") continue;
+      if (typeof patch.startLine !== "number" || typeof patch.endLine !== "number") continue;
+      if (typeof patch.replacement !== "string") continue;
+      if (!byFile.has(patch.file)) byFile.set(patch.file, []);
+      byFile.get(patch.file)!.push(patch);
+    }
 
-      const fileContent = updatedFiles[patch.file];
-      if (!fileContent) continue;
+    for (const [fileName, filePatches] of byFile.entries()) {
+      const fileContent = updatedFiles[fileName];
+      if (fileContent == null) continue;
 
       const lines = fileContent.split("\n");
+      filePatches.sort((a, b) => b.startLine - a.startLine);
 
-      const startIndex = Math.max(0, patch.startLine - 1);
-      const endIndex = Math.max(0, patch.endLine - 1);
-      const deleteCount = endIndex - startIndex + 1;
-
-      if (startIndex < lines.length) {
+      for (const patch of filePatches) {
+        const startIndex = Math.max(0, patch.startLine - 1);
+        const endIndex = Math.max(startIndex, patch.endLine - 1);
+        const deleteCount = endIndex - startIndex + 1;
+        if (startIndex >= lines.length) continue;
         const replacementLines = patch.replacement.split("\n");
         lines.splice(startIndex, deleteCount, ...replacementLines);
-        updatedFiles[patch.file] = lines.join("\n");
       }
+
+      updatedFiles[fileName] = lines.join("\n");
     }
 
     return updatedFiles;
