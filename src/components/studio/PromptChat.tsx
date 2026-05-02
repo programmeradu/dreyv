@@ -394,6 +394,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             break;
                         case "done":
                             finishThinking();
+                            finalizeProgressCards();
                             appendBlock({
                                 type: "activity",
                                 card: {
