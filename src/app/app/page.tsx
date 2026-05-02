@@ -125,13 +125,13 @@ export default function AppHomePage() {
       </section>
 
       {/* The Canvas + Agents Rail */}
-      <section className="relative z-10 mx-auto mt-14 max-w-6xl px-6 pb-32">
+      <section className="relative z-10 mx-auto mt-14 w-full max-w-6xl px-4 pb-32 sm:px-6">
         <SectionHeader
           eyebrow="Your canvas"
           title="A living surface"
           description="Everything you ask Dreyv, every insight, every plan it draws up — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
         />
-        <div className="mt-6 flex gap-6">
+        <div className="mt-6 flex w-full min-w-0 gap-6">
           <div className="min-w-0 flex-1">
             <CanvasStream scope="dashboard" />
             <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
