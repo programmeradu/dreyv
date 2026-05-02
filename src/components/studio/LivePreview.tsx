@@ -925,7 +925,7 @@ export function LivePreview({
                     showOpenInCodeSandbox={false}
                     showRefreshButton={false}
                     showRestartButton={false}
-                    style={{ height: "100%", width: "100%", border: "none", background: "#09090b" }}
+                    style={{ height: "100%", width: "100%", border: "none", background: "#ffffff" }}
                 />
             </SandpackProvider>
         </div>
