@@ -317,40 +317,6 @@ export const Separator      = mk("div", "h-px w-full bg-violet-100");
 export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
 `;
 
-const VITE_CONFIG_SOURCE = `
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-
-export default defineConfig({
-  server: { host: "0.0.0.0", port: 5173, strictPort: true },
-  resolve: {
-    alias: {
-      "@/components/ui": "/src/components/ui",
-    },
-  },
-});
-`;
-
-const TSCONFIG_SOURCE = JSON.stringify({
-    compilerOptions: {
-        target: "ES2020",
-        useDefineForClassFields: true,
-        lib: ["ES2020", "DOM", "DOM.Iterable"],
-        module: "ESNext",
-        skipLibCheck: true,
-        moduleResolution: "bundler",
-        allowImportingTsExtensions: true,
-        resolveJsonModule: true,
-        isolatedModules: true,
-        noEmit: true,
-        jsx: "react-jsx",
-        strict: false,
-        allowJs: true,
-        esModuleInterop: true,
-    },
-    include: ["src"],
-}, null, 2);
-
 type CompiledRuntime = {
     entry: string;
     modules: Record<string, string>;
