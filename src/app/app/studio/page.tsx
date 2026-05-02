@@ -788,7 +788,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
     }, []);
 
     return (
-        <div className="h-screen flex flex-col bg-background text-foreground selection:bg-primary/20 overflow-hidden min-h-0">
+        <div className="h-screen flex flex-col bg-white text-slate-900 selection:bg-violet-200 overflow-hidden min-h-0 font-[Manrope,sans-serif]">
             {/* Studio Header v2 — capabilities-aware status bar */}
             <StudioHeader
                 appName={appName}
