@@ -586,26 +586,84 @@ export function LivePreview({
         // ─── Boot ────────────────────────────────────────────
         (function() {
             try {
-                // 1. Compile user TSX → CommonJS JS
+                // 1. Normalize browser-hosted imports/exports before Babel.
+                // Babel standalone compiles a single file; it is not a bundler.
+                // Removing ESM imports here avoids CommonJS require() escaping
+                // into the iframe runtime.
                 var rawCode = ${userCodeJson};
-                var compiled = Babel.transform(rawCode, {
+                function importBindings(spec, moduleExpr) {
+                    spec = String(spec || '').trim();
+                    if (!spec) return '';
+                    if (spec.indexOf('* as ') === 0) {
+                        return 'var ' + spec.replace('* as ', '').trim() + ' = ' + moduleExpr + ';\n';
+                    }
+                    var out = '';
+                    var named = spec;
+                    if (spec[0] !== '{') {
+                        var comma = spec.indexOf(',');
+                        if (comma === -1) {
+                            return 'var ' + spec.trim() + ' = ' + moduleExpr + '.default || ' + moduleExpr + ';\n';
+                        }
+                        out += 'var ' + spec.slice(0, comma).trim() + ' = ' + moduleExpr + '.default || ' + moduleExpr + ';\n';
+                        named = spec.slice(comma + 1).trim();
+                    }
+                    named = named.replace(/^\{/, '').replace(/\}$/, '').trim();
+                    if (named) {
+                        named.split(',').forEach(function(part) {
+                            var bits = part.trim().split(/\s+as\s+/);
+                            var imported = bits[0] && bits[0].trim();
+                            var local = (bits[1] || bits[0] || '').trim();
+                            if (imported && local) out += 'var ' + local + ' = ' + moduleExpr + '[' + JSON.stringify(imported) + '];\n';
+                        });
+                    }
+                    return out;
+                }
+                function rewriteSingleFileModule(source) {
+                    var lines = String(source || '').split('\n');
+                    var prelude = [];
+                    var body = [];
+                    lines.forEach(function(line) {
+                        var match = line.match(/^\s*import\s+(.+?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/);
+                        if (match) {
+                            var spec = match[1];
+                            var mod = match[2];
+                            if (mod === 'react') prelude.push(importBindings(spec, 'window.React'));
+                            else if (mod === 'react-dom' || mod === 'react-dom/client') prelude.push(importBindings(spec, 'window.ReactDOM'));
+                            else if (mod === '@keystone-os/sdk' || mod === '@dreyv/sdk') prelude.push(importBindings(spec, 'window.__ks_require("@keystone-os/sdk")'));
+                            else if (/^@\/components\/ui\//.test(mod)) prelude.push(importBindings(spec, 'window.__ks_require("' + mod + '")'));
+                            else if (mod === 'lucide-react') prelude.push(importBindings(spec, 'window.__ks_require("lucide-react")'));
+                            else body.push(line);
+                            return;
+                        }
+                        if (/^\s*import\s+['"][^'"]+['"]\s*;?\s*$/.test(line)) return;
+                        body.push(line);
+                    });
+                    var defaultName = null;
+                    var rewritten = prelude.join('') + body.join('\n');
+                    rewritten = rewritten.replace(/export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/, function(_, name) { defaultName = name; return 'function ' + name + '('; });
+                    rewritten = rewritten.replace(/export\s+default\s+class\s+([A-Za-z_$][\w$]*)\s*/, function(_, name) { defaultName = name; return 'class ' + name + ' '; });
+                    rewritten = rewritten.replace(/export\s+default\s+function\s*\(/, 'module.exports.default = function(');
+                    rewritten = rewritten.replace(/export\s+default\s+([A-Za-z_$][\w$]*)\s*;?/g, 'module.exports.default = $1;');
+                    rewritten = rewritten.replace(/export\s+default\s+/g, 'module.exports.default = ');
+                    rewritten = rewritten.replace(/export\s+(function|class|const|let|var)\s+/g, '$1 ');
+                    if (defaultName) rewritten += '\nmodule.exports.default = ' + defaultName + ';';
+                    return rewritten;
+                }
+                var compiled = Babel.transform(rewriteSingleFileModule(rawCode), {
                     presets: ['typescript', 'react'],
-                    plugins: ['transform-modules-commonjs'],
                     filename: 'App.tsx',
                     retainLines: true,
                 });
 
-                // 2. Execute compiled code with require shim.
-                //    Also expose require/module/exports on window as a safety
-                //    net so any escaped reference (dynamic import helpers,
-                //    deferred callbacks compiled outside the IIFE) still resolves.
+                // 2. Execute compiled code. Imports have already been bound to
+                //    sandbox globals, so no runtime CommonJS require is needed.
                 var _module = { exports: {} };
                 var _exports = _module.exports;
                 window.require = window.__ks_require;
                 window.module = _module;
                 window.exports = _exports;
-                var fn = new Function('require', 'module', 'exports', compiled.code);
-                fn(window.__ks_require, _module, _exports);
+                var fn = new Function('module', 'exports', compiled.code);
+                fn(_module, _exports);
 
                 // 3. Get the default export
                 var App = _module.exports.default || _module.exports;
