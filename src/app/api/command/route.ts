@@ -39,6 +39,30 @@ const lovableProvider = lovableApiKey
     })
   : null;
 
+// Lovable AI via Supabase edge-function proxy — lets Vercel use Lovable AI
+// WITHOUT placing LOVABLE_API_KEY on Vercel. The proxy forwards to the gateway
+// using the managed key in the Lovable Cloud workspace.
+function resolveLovableProxyBase(): string | null {
+  const explicit = process.env.LOVABLE_AI_PROXY_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const supa =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL;
+  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+const lovableProxyBase = resolveLovableProxyBase();
+const lovableProxyProvider = lovableProxyBase
+  ? createOpenAICompatible({
+      name: "lovable-proxy",
+      // The edge function reads LOVABLE_API_KEY server-side; no auth needed
+      // from the client. We pass a placeholder because the SDK requires one.
+      apiKey: "supabase-edge-managed",
+      baseURL: lovableProxyBase,
+    })
+  : null;
+
 const LOVABLE_FALLBACK_MODELS = [
   "google/gemini-3-flash-preview",
   "google/gemini-2.5-flash",
@@ -390,7 +414,8 @@ export async function POST(req: Request) {
     // Model chain order (per product decision):
     //   1. Groq (primary — fastest + cheapest at scale)
     //   2. Cloudflare Workers AI (secondary — high free tier, good 70B fallback)
-    //   3. Lovable AI Gateway (last-resort — used only if BOTH above are unavailable/exhausted)
+    //   3. Lovable AI via Supabase proxy (tertiary on Vercel — uses managed key, no Vercel secrets)
+    //   4. Lovable AI Gateway direct (last-resort — only when LOVABLE_API_KEY is local)
     const modelChain: { name: string; model: Parameters<typeof streamText>[0]["model"]; maxChars: number }[] = [];
     if (process.env.GROQ_API_KEY) {
       modelChain.push({
@@ -409,6 +434,16 @@ export async function POST(req: Request) {
         });
       }
     }
+    if (lovableProxyProvider) {
+      for (const modelId of LOVABLE_FALLBACK_MODELS) {
+        const modelName = `lovable-proxy/${modelId}`;
+        modelChain.push({
+          name: modelName,
+          model: lovableProxyProvider.chatModel(modelId),
+          maxChars: estimateCompatibilityBudget(`lovable/${modelId}`),
+        });
+      }
+    }
     if (lovableProvider) {
       for (const modelId of LOVABLE_FALLBACK_MODELS) {
         const modelName = `lovable/${modelId}`;
@@ -422,7 +457,7 @@ export async function POST(req: Request) {
 
     if (modelChain.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No AI provider configured. Set LOVABLE_API_KEY, GROQ_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN." }),
+        JSON.stringify({ error: "No AI provider configured. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY." }),
         { status: 503, headers: { "Content-Type": "application/json" } },
       );
     }
