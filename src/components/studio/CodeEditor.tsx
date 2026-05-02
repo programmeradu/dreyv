@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 
 import { KEYSTONE_SDK_TYPES } from "@/generated/keystone-sdk-types";
@@ -146,200 +146,51 @@ function defineKeystoneTheme(monaco: any) {
   });
 }
 
-// ─── Matrix Rain Canvas ─────────────────────────────────────────────
-
-interface ColumnState {
-  y: number;
-  speed: number;
-  chars: string[];
-}
-
-const MATRIX_CHARS = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ{}[]<>/\\|=+*&@#$";
-const MATRIX_FONT_SIZE = 14;
-
-function MatrixRain({ active }: { active: boolean }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
-  const columnsRef = useRef<ColumnState[]>([]);
-  const fadingRef = useRef(false);
-  const opacityRef = useRef(0);
-
-  const initColumns = useCallback((w: number, h: number) => {
-    const colCount = Math.floor(w / MATRIX_FONT_SIZE);
-    const maxRow = Math.floor(h / MATRIX_FONT_SIZE);
-    columnsRef.current = Array.from({ length: colCount }, () => ({
-      y: Math.floor(Math.random() * maxRow),
-      speed: 0.5 + Math.random() * 1.5,
-      chars: Array.from({ length: maxRow + 10 }, () =>
-        MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)]
-      ),
-    }));
-  }, []);
-
-  const draw = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    ctx.fillStyle = "rgba(10, 14, 23, 0.06)";
-    ctx.fillRect(0, 0, w, h);
-
-    ctx.font = `${MATRIX_FONT_SIZE}px 'JetBrains Mono', monospace`;
-
-    const cols = columnsRef.current;
-    for (let i = 0; i < cols.length; i++) {
-      const col = cols[i];
-      const x = i * MATRIX_FONT_SIZE;
-      const headY = Math.floor(col.y);
-      const headPx = headY * MATRIX_FONT_SIZE;
-
-      // Head character: bright white-green with strong glow
-      ctx.shadowColor = "#36e27b";
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = "rgba(220, 255, 230, 0.95)";
-      const headChar = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-      ctx.fillText(headChar, x, headPx);
-
-      // Trail: 3-5 chars behind the head with decreasing brightness
-      ctx.shadowBlur = 3;
-      const trailLen = 3 + Math.floor(Math.random() * 3);
-      for (let t = 1; t <= trailLen; t++) {
-        const trailY = (headY - t) * MATRIX_FONT_SIZE;
-        if (trailY < 0) break;
-        const alpha = 0.6 - (t / trailLen) * 0.5;
-        ctx.fillStyle = `rgba(54, 226, 123, ${alpha})`;
-        ctx.fillText(col.chars[(headY - t + col.chars.length) % col.chars.length], x, trailY);
-      }
-
-      ctx.shadowBlur = 0;
-
-      // Random character flicker in the column
-      if (Math.random() > 0.95) {
-        const flickerRow = Math.floor(Math.random() * headY);
-        const flickerY = flickerRow * MATRIX_FONT_SIZE;
-        ctx.fillStyle = `rgba(54, 226, 123, ${0.15 + Math.random() * 0.2})`;
-        ctx.fillText(MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)], x, flickerY);
-      }
-
-      // Advance at per-column speed
-      col.y += col.speed;
-
-      // Reset when past bottom
-      if (headPx > h + MATRIX_FONT_SIZE * 8 && Math.random() > 0.98) {
-        col.y = 0;
-        col.speed = 0.5 + Math.random() * 1.5;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = parent.clientWidth;
-      canvas.height = parent.clientHeight;
-      initColumns(canvas.width, canvas.height);
-    };
-
-    if (active) {
-      fadingRef.current = false;
-      opacityRef.current = 0;
-      resize();
-      ctx.fillStyle = "#0a0e17";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    } else if (opacityRef.current > 0) {
-      fadingRef.current = true;
-    }
-
-    let lastTime = 0;
-    const FPS_INTERVAL = 1000 / 30;
-
-    const loop = (timestamp: number) => {
-      const elapsed = timestamp - lastTime;
-      if (elapsed >= FPS_INTERVAL) {
-        lastTime = timestamp - (elapsed % FPS_INTERVAL);
-
-        if (active && opacityRef.current < 0.35) {
-          opacityRef.current = Math.min(0.35, opacityRef.current + 0.02);
-        }
-        if (fadingRef.current) {
-          opacityRef.current = Math.max(0, opacityRef.current - 0.015);
-          if (opacityRef.current <= 0) {
-            fadingRef.current = false;
-            cancelAnimationFrame(animRef.current);
-            return;
-          }
-        }
-
-        canvas.style.opacity = String(opacityRef.current);
-        draw(ctx, canvas.width, canvas.height);
-      }
-
-      if (active || fadingRef.current) {
-        animRef.current = requestAnimationFrame(loop);
-      }
-    };
-
-    if (active || fadingRef.current) {
-      animRef.current = requestAnimationFrame(loop);
-    }
-
-    const observer = new ResizeObserver(resize);
-    observer.observe(parent);
-
-    return () => {
-      cancelAnimationFrame(animRef.current);
-      observer.disconnect();
-    };
-  }, [active, draw, initColumns]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 z-10 pointer-events-none"
-      style={{ opacity: 0 }}
-    />
-  );
-}
-
-// ─── Ghost Cursor CSS ───────────────────────────────────────────────
+// ─── Ghost Cursor CSS (refined violet, no matrix rain) ─────────────
 
 const GHOST_CURSOR_STYLES = `
 .ghost-typed-line {
-  background: rgba(54, 226, 123, 0.05);
-  border-left: 2px solid rgba(54, 226, 123, 0.5);
-  animation: ghost-line-reveal 0.5s ease-out forwards;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.07), rgba(124, 58, 237, 0));
+  border-left: 2px solid rgba(124, 58, 237, 0.55);
+  animation: ghost-line-reveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   opacity: 0;
 }
 @keyframes ghost-line-reveal {
-  0% { opacity: 0; transform: translateX(-4px); }
+  0% { opacity: 0; transform: translateX(-3px); }
   60% { opacity: 1; }
-  100% { opacity: 1; transform: translateX(0); background: rgba(54, 226, 123, 0.02); }
+  100% { opacity: 1; transform: translateX(0); background: linear-gradient(90deg, rgba(124, 58, 237, 0.025), rgba(124, 58, 237, 0)); }
 }
 .ghost-cursor-after::after {
   content: '';
   display: inline-block;
   width: 2px;
-  height: 18px;
-  background: #36e27b;
-  box-shadow: 0 0 6px rgba(54, 226, 123, 1), 0 0 16px rgba(54, 226, 123, 0.5), 0 0 30px rgba(54, 226, 123, 0.2);
-  animation: ghost-blink 0.6s ease-in-out infinite;
+  height: 16px;
+  background: #7c3aed;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.55), 0 0 18px rgba(124, 58, 237, 0.25);
+  animation: ghost-blink 0.85s ease-in-out infinite;
   vertical-align: text-bottom;
   margin-left: 1px;
   border-radius: 1px;
 }
 @keyframes ghost-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.15; }
+  50% { opacity: 0.2; }
 }
 .ghost-text-inline {
-  color: #36e27b !important;
-  animation: ghost-text-fade 1.2s ease-out forwards;
+  color: #7c3aed !important;
+  animation: ghost-text-fade 1.1s ease-out forwards;
 }
 @keyframes ghost-text-fade {
-  0% { color: #36e27b; text-shadow: 0 0 4px rgba(54, 226, 123, 0.4); }
-  100% { color: inherit; text-shadow: none; }
+  0% { color: #7c3aed; }
+  100% { color: inherit; }
+}
+@keyframes dreyv-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes dreyv-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
 }
 `;
 
@@ -513,17 +364,25 @@ export function CodeEditor({ code, language, onChange, fileName, allFiles = {}, 
   }, []);
 
   return (
-    <div className="flex-1 h-full relative">
+    <div className="flex-1 h-full relative bg-white">
       <style dangerouslySetInnerHTML={{ __html: GHOST_CURSOR_STYLES }} />
 
-      {/* Matrix Rain Canvas Overlay */}
-      <MatrixRain active={isGenerating} />
-
-      {/* Agent Status Badge (corner) */}
+      {/* Architect writing — refined violet pill with shimmer */}
       {isGenerating && (
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 bg-black/80 border border-[#36e27b]/40 rounded-full text-[#36e27b] text-[10px] font-mono tracking-widest uppercase shadow-[0_0_15px_rgba(54,226,123,0.2)] pointer-events-none">
-          <span className="w-1.5 h-3 bg-[#36e27b] rounded-[1px] animate-pulse" />
-          Agent Typing
+        <div className="absolute top-3 right-3 z-20 pointer-events-none">
+          <div className="relative flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full bg-white/95 backdrop-blur-sm border border-violet-200 shadow-[0_4px_16px_-4px_rgba(124,58,237,0.25)] overflow-hidden">
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-violet-600"
+              style={{ animation: "dreyv-pulse-dot 1.1s ease-in-out infinite" }}
+            />
+            <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-violet-700">
+              Architect writing
+            </span>
+            <span
+              className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-violet-200/60 to-transparent"
+              style={{ animation: "dreyv-shimmer 1.8s ease-in-out infinite" }}
+            />
+          </div>
         </div>
       )}
 

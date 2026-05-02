@@ -19,6 +19,7 @@ import {
     FolderOpen,
     BookOpen,
     Plus,
+    Code2,
 } from "lucide-react";
 import { useSelf } from "@/liveblocks.config";
 import { getAvatarUrl } from "@/lib/avatars";
@@ -175,6 +176,7 @@ export default function StudioPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCompiling, setIsCompiling] = useState(false);
     const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
+    const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
     
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
@@ -764,10 +766,11 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         { id: "ship", label: "Ship to Library", category: "Project", action: handleShip },
         { id: "sdk-ref", label: "Toggle SDK Reference", category: "View", action: () => setShowSDKReference(prev => !prev) },
         { id: "global-search", label: "Search in Files", category: "View", shortcut: "⌘⇧F", action: () => setShowGlobalSearch(true) },
-        { id: "toggle-console", label: "Toggle Console", category: "View", action: () => setActiveTab(prev => prev === "code" ? "preview" : "code") },
-        { id: "toggle-preview", label: "Toggle Preview", category: "View", action: () => setActiveTab("preview") },
+        { id: "toggle-view", label: "Toggle Code / Preview", category: "View", action: () => setViewMode(prev => prev === "code" ? "preview" : "code") },
+        { id: "show-code", label: "Show Code", category: "View", action: () => setViewMode("code") },
+        { id: "show-preview", label: "Show Preview", category: "View", action: () => { setViewMode("preview"); setActiveTab("preview"); } },
+        { id: "show-console", label: "Show Console", category: "View", action: () => { setViewMode("preview"); setActiveTab("code"); } },
     ], []);
-
     // ─── GlobalSearch Handlers ──────────────────────────────────
     const handleSearchNavigate = useCallback((fileName: string, _line: number) => {
         setActiveFile(fileName);
@@ -890,73 +893,98 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
                 <ResizableHandle withHandle />
 
-                {/* Middle Panel: Code Editor */}
-                <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-slate-50/40">
-                        {/* File Tabs — compact light */}
-                        <div className="flex items-center gap-0.5 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0 overflow-x-auto">
-                            {Object.keys(files).map((fileName) => (
+                {/* Right Panel: Code OR Preview (toggle) */}
+                <ResizablePanel defaultSize={70} minSize={40}>
+                    <div className="h-full flex flex-col bg-white min-h-0">
+                        {/* Top bar: Code/Preview segmented toggle + contextual sub-tabs */}
+                        <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0">
+                            {/* Segmented Code | Preview toggle */}
+                            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
                                 <button
-                                    key={fileName}
-                                    onClick={() => setActiveFile(fileName)}
-                                    className={`group flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors relative whitespace-nowrap ${activeFile === fileName
-                                        ? "bg-violet-50 text-violet-700"
-                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                                        }`}
+                                    onClick={() => setViewMode("code")}
+                                    className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold rounded-md transition-all ${
+                                        viewMode === "code"
+                                            ? "bg-white text-violet-700 shadow-sm border border-violet-100"
+                                            : "text-slate-500 hover:text-slate-800"
+                                    }`}
                                 >
-                                    <FileIcon fileName={fileName} active={activeFile === fileName} />
-                                    <span>{fileName}</span>
+                                    <Code2 size={13} strokeWidth={2.4} />
+                                    <span>Code</span>
                                 </button>
-                            ))}
-                        </div>
-                        <div className="flex-1 relative overflow-hidden bg-[#1e1e1e]">
-                            <CodeEditor
-                                code={files[activeFile]?.content || ""}
-                                language={files[activeFile]?.language || "typescript"}
-                                onChange={handleCodeChange}
-                                fileName={activeFile}
-                                allFiles={files}
-                                isGenerating={isGenerating}
-                            />
-                        </div>
-                    </div>
-                </ResizablePanel>
+                                <button
+                                    onClick={() => setViewMode("preview")}
+                                    className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold rounded-md transition-all ${
+                                        viewMode === "preview"
+                                            ? "bg-white text-violet-700 shadow-sm border border-violet-100"
+                                            : "text-slate-500 hover:text-slate-800"
+                                    }`}
+                                >
+                                    <Eye size={13} strokeWidth={2.4} />
+                                    <span>Preview</span>
+                                </button>
+                            </div>
 
-                <ResizableHandle withHandle />
-
-                {/* Right Panel: Live Preview */}
-                <ResizablePanel defaultSize={35} minSize={20}>
-                    <div className="h-full flex flex-col bg-white">
-                        {/* Preview Tabs — compact light */}
-                        <div className="flex items-center gap-1 px-2 h-9 border-b border-slate-200/70 bg-white shrink-0">
-                            {([
-                                { id: "preview", label: "Preview", icon: Eye },
-                                { id: "code", label: "Console", icon: Terminal },
-                                { id: "contract", label: "Contracts", icon: Cpu },
-                            ] as const).map((t) => {
-                                const active = activeTab === t.id;
-                                const Icon = t.icon;
-                                return (
-                                    <button
-                                        key={t.id}
-                                        onClick={() => setActiveTab(t.id)}
-                                        className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-medium rounded-md transition-colors ${
-                                            active
-                                                ? "bg-violet-50 text-violet-700"
-                                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                                        }`}
-                                    >
-                                        <Icon size={13} strokeWidth={2.2} />
-                                        <span>{t.label}</span>
-                                        {t.id === "code" && runtimeLogs.length > 0 && (
-                                            <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                            {/* Contextual right side */}
+                            {viewMode === "code" ? (
+                                <div className="flex items-center gap-0.5 overflow-x-auto">
+                                    {Object.keys(files).map((fileName) => (
+                                        <button
+                                            key={fileName}
+                                            onClick={() => setActiveFile(fileName)}
+                                            className={`group flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap ${
+                                                activeFile === fileName
+                                                    ? "bg-violet-50 text-violet-700"
+                                                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                            }`}
+                                        >
+                                            <FileIcon fileName={fileName} active={activeFile === fileName} />
+                                            <span>{fileName}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1">
+                                    {([
+                                        { id: "preview", label: "Preview", icon: Eye },
+                                        { id: "code", label: "Console", icon: Terminal },
+                                        { id: "contract", label: "Contracts", icon: Cpu },
+                                    ] as const).map((t) => {
+                                        const active = activeTab === t.id;
+                                        const Icon = t.icon;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => setActiveTab(t.id)}
+                                                className={`flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors ${
+                                                    active
+                                                        ? "bg-violet-50 text-violet-700"
+                                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                                }`}
+                                            >
+                                                <Icon size={13} strokeWidth={2.2} />
+                                                <span>{t.label}</span>
+                                                {t.id === "code" && runtimeLogs.length > 0 && (
+                                                    <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                        <div className="flex-1 relative overflow-hidden">
-                            {activeTab === "contract" ? (
+
+                        {/* Body */}
+                        <div className="flex-1 relative overflow-hidden min-h-0">
+                            {viewMode === "code" ? (
+                                <CodeEditor
+                                    code={files[activeFile]?.content || ""}
+                                    language={files[activeFile]?.language || "typescript"}
+                                    onChange={handleCodeChange}
+                                    fileName={activeFile}
+                                    allFiles={files}
+                                    isGenerating={isGenerating}
+                                />
+                            ) : activeTab === "contract" ? (
                                 <ContractEditor
                                     files={files}
                                     onCompile={handleCompile}
