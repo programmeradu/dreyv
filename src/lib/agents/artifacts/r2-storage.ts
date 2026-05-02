@@ -1,10 +1,10 @@
 /**
  * Phase 7A.2 — Cloudflare R2 adapter for agent artifacts.
  *
- * R2 is S3-compatible. We use the official AWS SDK (already a project dep)
- * because hand-rolled SigV4 was producing SignatureDoesNotMatch errors on
- * presigned GETs (Cloudflare requires virtual-hosted-style + a precise
- * canonical query that's easy to get wrong). The SDK handles all of this.
+ * R2 is S3-compatible. This adapter intentionally avoids the AWS SDK because
+ * Vercel's production runtime can trip over the SDK's CJS/ESM XML dependency
+ * chain (`@aws-sdk/xml-builder` -> `@nodable/entities`). A tiny SigV4 signer is
+ * enough for the three operations we need here: PUT, presigned GET, DELETE.
  *
  * Required env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
  * Optional: R2_PUBLIC_BASE (CDN base) — currently unused; we always serve via
@@ -13,13 +13,7 @@
  * Throws loudly if env is missing — callers catch and degrade gracefully.
  */
 
-import {
-    DeleteObjectCommand,
-    GetObjectCommand,
-    PutObjectCommand,
-    S3Client,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createHash, createHmac } from "node:crypto";
 
 const PRESIGN_TTL = 60 * 10; // 10 min — refreshed on each download
 
@@ -31,7 +25,6 @@ type R2Config = {
 };
 
 let _config: R2Config | null = null;
-let _client: S3Client | null = null;
 
 function getConfig(): R2Config {
     if (_config) return _config;
@@ -46,22 +39,6 @@ function getConfig(): R2Config {
     }
     _config = { accountId, accessKeyId, secretAccessKey, bucket };
     return _config;
-}
-
-function getClient(): S3Client {
-    if (_client) return _client;
-    const config = getConfig();
-    _client = new S3Client({
-        region: "auto",
-        endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
-        credentials: {
-            accessKeyId: config.accessKeyId,
-            secretAccessKey: config.secretAccessKey,
-        },
-        // R2 supports virtual-hosted-style; this is the SDK default.
-        forcePathStyle: false,
-    });
-    return _client;
 }
 
 export function isR2Configured(): boolean {
