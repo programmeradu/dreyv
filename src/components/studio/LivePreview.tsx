@@ -870,25 +870,25 @@ export function LivePreview({
 
     // ─── Preview tab ─────────────────────────────────────────────────
     return (
-        <div className="h-full w-full relative bg-[#09090b]">
+        <div className="h-full w-full relative bg-white font-manrope">
             {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b] z-10 transition-opacity duration-300 pointer-events-none">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 transition-opacity duration-300 pointer-events-none">
+                    <Loader2 className="w-8 h-8 animate-spin text-violet-600 mb-4" />
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
                 </div>
             )}
             {error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b]/95 z-20 p-8 backdrop-blur-sm">
-                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-xl max-w-md w-full">
-                        <div className="flex items-center gap-3 mb-3 text-red-500">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 p-8 backdrop-blur-sm">
+                    <div className="bg-red-50 border border-red-200 p-6 rounded-3xl max-w-md w-full">
+                        <div className="flex items-center gap-3 mb-3 text-red-600">
                             <AlertTriangle className="w-5 h-5" />
                             <span className="font-bold uppercase tracking-wider text-xs">Runtime Error</span>
                         </div>
-                        <p className="text-sm text-zinc-300 font-mono break-words leading-relaxed">{error}</p>
+                        <p className="text-sm text-slate-700 font-mono break-words leading-relaxed">{error}</p>
                     </div>
                     <button
                         onClick={() => { setError(null); setIsLoading(true); setRetryKey(k => k + 1); }}
-                        className="mt-6 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-bold rounded uppercase tracking-wider transition-colors"
+                        className="mt-6 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-full uppercase tracking-wider transition-colors"
                     >
                         Retry Render
                     </button>
