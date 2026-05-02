@@ -122,24 +122,34 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                     <Menu className="w-5 h-5" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-72 p-0 bg-sidebar">
+                            <SheetContent side="left" className="w-[86%] max-w-sm p-0 bg-sidebar border-r border-border">
                                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                                 <div className="flex flex-col h-full">
-                                    <div className="px-4 py-4 border-b border-border flex items-center gap-2">
-                                        <span className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                    <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                                        <span className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                                             <DreyvMark size={36} />
                                         </span>
-                                        <span className="font-semibold tracking-tight">Dreyv</span>
-                                    </div>
-                                    <TooltipProvider>
-                                        <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col items-center gap-2">
-                                            {navItems}
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-semibold tracking-tight leading-tight">Dreyv</span>
+                                            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Command layer</span>
                                         </div>
-                                        <div className="px-3 py-3 border-t border-border flex flex-col items-center gap-2">
+                                    </div>
+                                    <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+                                        <MobileNavRow icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} onNavigate={() => setMobileNavOpen(false)} />
+                                    </nav>
+                                    <div className="px-3 py-3 border-t border-border flex items-center justify-between gap-2">
+                                        <TooltipProvider>
                                             <VaultStatusBar />
                                             <ThemeToggle />
-                                        </div>
-                                    </TooltipProvider>
+                                        </TooltipProvider>
+                                    </div>
                                 </div>
                             </SheetContent>
                         </Sheet>
