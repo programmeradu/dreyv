@@ -98,9 +98,9 @@ export function ProjectBrowser({
                                 transition={{ type: "spring", damping: 26, stiffness: 360 }}
                                 style={{ colorScheme: "light" }}
                                 className={cn(
-                                    "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl",
+                                    "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md",
                                     "-translate-x-1/2 -translate-y-1/2 outline-none",
-                                    "rounded-3xl border border-violet-100 bg-white text-slate-900",
+                                    "rounded-2xl border border-violet-100 bg-white text-slate-900",
                                     "overflow-hidden font-[family-name:Manrope,system-ui,sans-serif]"
                                 )}
                             >
