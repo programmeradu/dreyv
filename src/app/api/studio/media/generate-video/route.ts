@@ -16,6 +16,7 @@ import { db } from "@/db";
 import { mediaStudioAssets } from "@/db/schema";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function persistedUserId(id: string) {
   return id === STUDIO_PASS_USER_ID ? null : id;

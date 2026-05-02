@@ -17,6 +17,7 @@ import { brandSystemPrompt, DREYV_BRAND, type Channel, type AssetKind } from "@/
 import { chatJson } from "@/lib/media-studio/ai";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const SCHEMA = {
   name: "dreyv_copy",
