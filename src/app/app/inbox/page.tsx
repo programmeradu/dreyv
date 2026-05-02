@@ -471,44 +471,44 @@ export default function InboxPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif]">
+    <div className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-white text-slate-900 relative font-[Manrope,sans-serif]">
       {/* ─── Universal app header ───────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-violet-100 bg-white z-10 shrink-0">
-        <div className="flex flex-col gap-1">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-violet-100 bg-white z-10 shrink-0">
+        <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-violet-600 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 truncate">
               dreyv // Command workspace
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 uppercase">Inbox</h1>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 uppercase">Inbox</h1>
             <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
               HITL
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <NotificationBell />
           <button
             onClick={refresh}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-2.5 sm:px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-violet-700 hover:bg-violet-50 transition-colors disabled:opacity-60"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
 
-          <Suspense fallback={<div className="h-8 w-24 bg-muted animate-pulse rounded-full" />}>
-            <CollaborativeHeader />
+          <Suspense fallback={<div className="hidden sm:block h-8 w-24 bg-muted animate-pulse rounded-full" />}>
+            <div className="hidden sm:block"><CollaborativeHeader /></div>
           </Suspense>
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
           <WalletButton />
         </div>
@@ -519,8 +519,8 @@ export default function InboxPage() {
         <div className="absolute -top-32 left-1/2 h-[340px] w-[680px] -translate-x-1/2 rounded-full bg-violet-300/20 blur-3xl" />
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <section className="mx-auto max-w-4xl px-6 pt-6 pb-4">
+      <div className="flex-1 md:overflow-y-auto scrollbar-thin">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 pt-6 pb-4">
           {/* Subtitle */}
           <p className="text-[12.5px] text-muted-foreground mb-4">
             {wallet
