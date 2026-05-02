@@ -58,12 +58,12 @@ export default function AppHomePage() {
   }, [activeVault, blocks.length, addBlock]);
 
   return (
-    <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
+    <div className="relative h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="left-1/2 top-[-220px] -translate-x-1/2" />
       <AppTopRightBar />
 
       {/* Hero — top padding leaves room for the floating top-right bar */}
-      <section className="relative z-10 mx-auto grid max-w-6xl gap-10 px-6 pt-24 md:grid-cols-[1.05fr_1fr] md:pt-28">
+      <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-10 px-4 pt-24 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-28">
         <StreamIn className="space-y-6">
           <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-600 shadow-[0_0_10px_currentColor]" />
