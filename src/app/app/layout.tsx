@@ -160,7 +160,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto md:overflow-hidden">
+                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] md:overflow-hidden">
                     <Suspense fallback={
                         <div className="flex-1 flex items-center justify-center">
                             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
