@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
     <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">
       <AmbientGlow className="left-[-160px] top-[-200px]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <header className="relative z-10 mx-auto hidden max-w-6xl items-center justify-between px-4 py-6 md:flex md:px-6">
         <Link href="/app" className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-violet-700">
           <ArrowLeft className="h-4 w-4" />
           Home
@@ -115,11 +115,11 @@ export default function AnalyticsPage() {
         <WalletButton />
       </header>
 
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-4">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-4">
         <StreamIn className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Analytics · Foresight</p>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Where you are. Where you’re heading.</h1>
-          <p className="max-w-xl text-base text-slate-600">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">Where you are. Where you’re heading.</h1>
+          <p className="max-w-xl text-sm text-slate-600 sm:text-base">
             Real snapshots of your treasury, real attribution of every dollar in or out, and 200 forward simulations of where the next year could land.
           </p>
         </StreamIn>
