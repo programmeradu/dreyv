@@ -70,7 +70,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return (
         <CanvasProvider>
         <div
-            className="flex bg-background font-sans text-foreground h-dvh md:h-screen md:overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
+            className="flex bg-background font-sans text-foreground h-dvh overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
         >
             <Suspense fallback={null}>
