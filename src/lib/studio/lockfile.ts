@@ -206,7 +206,8 @@ export class LockfileResolver {
         specifier.startsWith('.') ||
         specifier.startsWith('/') ||
         specifier.startsWith('http') ||
-        specifier === '@keystone-os/sdk'
+        specifier === '@keystone-os/sdk' ||
+        specifier === '@dreyv/sdk'
       ) {
         continue;
       }
@@ -229,12 +230,13 @@ export class LockfileResolver {
 
     // 2. Virtual SDK module
     imports["@keystone-os/sdk"] = sdkBlobUrl;
+    imports["@dreyv/sdk"] = sdkBlobUrl;
 
     // 3. Resolve user imports
     const specifiers = LockfileResolver.extractImports(userCode);
     for (const spec of specifiers) {
       if (spec === "react" || spec === "react-dom" || spec === "react-dom/client") continue;
-      if (spec === "@keystone-os/sdk") continue;
+      if (spec === "@keystone-os/sdk" || spec === "@dreyv/sdk") continue;
       imports[spec] = this.resolveWithFallback(spec);
     }
 
