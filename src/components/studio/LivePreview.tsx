@@ -1,7 +1,32 @@
 "use client";
 
+/**
+ * LivePreview — Sandpack-based runtime for Dreyv mini-apps.
+ *
+ * Replaces the previous hand-rolled `srcDoc` iframe + Babel-standalone +
+ * regex import rewriter + require shim. Sandpack runs a real esbuild-based
+ * bundler inside its iframe, so multi-file projects, real npm packages,
+ * TS/TSX, CSS and lucide-react / shadcn imports all "just work".
+ *
+ * The Dreyv bridge (BridgeController <-> postMessage) is preserved exactly:
+ * we attach to Sandpack's iframe via `useSandpack().clients[id].iframe`
+ * and keep all the existing `bridge.on(...)` handlers (proxy fetch, SDK
+ * stubs, dreyv connector gateway, console capture).
+ *
+ * The SDK that user code imports (`@keystone-os/sdk` / `@dreyv/sdk`) is
+ * shipped as virtual files inside `node_modules/@keystone-os/sdk/` so the
+ * Sandpack bundler resolves them as a real dependency without us shipping
+ * any code through the wire.
+ */
+
 import React, { useEffect, useRef, useMemo, useCallback } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
+import {
+    SandpackProvider,
+    SandpackPreview as SandpackIframe,
+    useSandpack,
+    type SandpackFiles,
+} from "@codesandbox/sandpack-react";
 import {
     BridgeController,
     BridgeMethods,
@@ -38,834 +63,582 @@ interface LivePreviewProps {
     appId?: string;
 }
 
-// ─── Component ──────────────────────────────────────────────────────
+// ─── Mint registry for live-price/holdings injection ───────────────
 
-export function LivePreview({
-    files,
-    tab = "preview",
-    onLogsChange,
-    walletAddress = null,
-    appId,
-}: LivePreviewProps) {
-    const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const bridgeRef = useRef<BridgeController | null>(null);
-    const [error, setError] = React.useState<string | null>(null);
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [logs, setLogs] = React.useState<string[]>([]);
-    const [retryKey, setRetryKey] = React.useState(0);
+const MINTS: Record<string, string> = {
+    SOL: "So11111111111111111111111111111111111111112",
+    USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+};
 
-    // ─── Fetch real prices + logos in parent (iframe sandbox blocks external fetch) ──
-    const MINTS: Record<string, string> = React.useMemo(() => ({
-        SOL: 'So11111111111111111111111111111111111111112',
-        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-        JUP: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-    }), []);
+// ─── SDK source (runs inside Sandpack iframe as a real ESM module) ──
 
-    const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
-    const [tokenLogos, setTokenLogos] = React.useState<Record<string, string>>({});
-    const [liveHoldings, setLiveHoldings] = React.useState<{ symbol: string; name: string; balance: number; mint: string; decimals: number }[] | null>(null);
+/**
+ * This string is written into Sandpack's virtual filesystem at
+ * `/node_modules/@keystone-os/sdk/index.js`. It exports every hook and
+ * primitive Dreyv mini-apps consume. The bridge instance it talks to
+ * (`window.keystoneBridge`) is created by `_dreyv-bootstrap.js`, which
+ * runs first because `index.tsx` imports it before anything else.
+ *
+ * Live data (prices, logos, real wallet holdings) is read from
+ * `window.__dreyvInjected` which the bootstrap copies in from postMessage.
+ */
+const SDK_MODULE_SOURCE = `
+import React from "react";
 
-    // Fetch real wallet holdings when wallet is connected
-    useEffect(() => {
-        if (!walletAddress) {
-            setLiveHoldings(null);
-            return;
-        }
-        let cancelled = false;
-        fetch(`/api/helius/das/wallet-holdings?address=${walletAddress}`, { signal: AbortSignal.timeout(10000) })
-            .then(r => r.json())
-            .then(json => {
-                if (cancelled) return;
-                const holdings = json?.holdings || [];
-                const mintToSym: Record<string, string> = {};
-                for (const [sym, mint] of Object.entries(MINTS)) mintToSym[mint] = sym;
-                const mapped = holdings.map((h: any) => ({
-                    symbol: mintToSym[h.mint] || h.symbol || 'UNKNOWN',
-                    name: h.name || h.symbol || 'Unknown',
-                    balance: Number(h.balance) / Math.pow(10, h.decimals || 0),
-                    mint: h.mint,
-                    decimals: h.decimals || 0,
-                }));
-                setLiveHoldings(mapped);
-            })
-            .catch(() => { if (!cancelled) setLiveHoldings(null); });
-        return () => { cancelled = true; };
-    }, [walletAddress, MINTS]);
+const bridge = () => window.keystoneBridge;
+const injected = () => window.__dreyvInjected || {};
 
-    useEffect(() => {
-        // Fetch prices
-        const ids = Object.values(MINTS).join(',');
-        fetch(`https://lite-api.jup.ag/price/v2?ids=${ids}`, { signal: AbortSignal.timeout(6000) })
-            .then(r => r.json())
-            .then(json => {
-                const data = json?.data || {};
-                const prices: Record<string, number> = {};
-                for (const [sym, mint] of Object.entries(MINTS)) {
-                    prices[sym] = parseFloat(data[mint]?.price) || 0;
-                }
-                setLivePrices(prices);
-            })
-            .catch(() => setLivePrices({ SOL: 23.40, USDC: 1.00, BONK: 0.000024, JUP: 1.12 }));
+export function useVault() {
+  const inj = injected();
+  const prices = inj.prices || {};
+  const logos = inj.logos || {};
+  const live = inj.holdings;
+  const walletConnected = !!inj.walletAddress;
+  let tokens;
+  if (walletConnected && Array.isArray(live) && live.length > 0) {
+    tokens = live.map(h => ({
+      symbol: h.symbol, name: h.name, balance: h.balance,
+      price: prices[h.symbol] || 0, mint: h.mint, logoURI: logos[h.symbol] || "",
+    }));
+  } else {
+    tokens = [
+      { symbol: "SOL",  name: "Solana",   balance: 124.5,    price: prices.SOL  || 0,    mint: "So11111111111111111111111111111111111111112",  logoURI: logos.SOL  || "" },
+      { symbol: "USDC", name: "USD Coin", balance: 5400.2,   price: prices.USDC || 1,    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", logoURI: logos.USDC || "" },
+      { symbol: "BONK", name: "Bonk",     balance: 15000000, price: prices.BONK || 0,    mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", logoURI: logos.BONK || "" },
+      { symbol: "JUP",  name: "Jupiter",  balance: 850,      price: prices.JUP  || 0,    mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  logoURI: logos.JUP  || "" },
+    ];
+  }
+  const balances = {};
+  tokens.forEach(t => { balances[t.symbol] = t.balance; });
+  return {
+    activeVault: walletConnected ? "Connected Wallet" : "Demo Portfolio",
+    balances, tokens,
+  };
+}
 
-        // Fetch logos — get logoURIs from Jupiter token list, then convert to base64
-        // (srcDoc iframes can’t load external images due to null origin)
-        fetch('https://token.jup.ag/strict', { signal: AbortSignal.timeout(8000) })
-            .then(r => r.json())
-            .then(async (list: any[]) => {
-                const mintToSym: Record<string, string> = {};
-                for (const [sym, mint] of Object.entries(MINTS)) mintToSym[mint] = sym;
-                const relevant = list.filter((t: any) => mintToSym[t.address] && t.logoURI);
+export function useTurnkey() {
+  const reject = () => Promise.reject(new Error(
+    "useTurnkey was removed. Build a transaction and return it for the host wallet to sign."
+  ));
+  return { getPublicKey: reject, signTransaction: reject };
+}
 
-                const logos: Record<string, string> = {};
-                await Promise.allSettled(relevant.map(async (t: any) => {
-                    try {
-                        const res = await fetch(t.logoURI, { signal: AbortSignal.timeout(5000) });
-                        if (!res.ok) return;
-                        const blob = await res.blob();
-                        const dataUri: string = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result as string);
-                            reader.readAsDataURL(blob);
-                        });
-                        logos[mintToSym[t.address]] = dataUri;
-                    } catch { /* skip failed logos */ }
-                }));
-                setTokenLogos(logos);
-            })
-            .catch(() => { /* logos remain empty — fallback initials shown */ });
-    }, [MINTS]);
+export function useFetch(url, options = {}) {
+  const [data, setData] = React.useState(null);
+  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const fetchData = React.useCallback(() => {
+    setLoading(true); setError(null);
+    return bridge().call("proxy.fetch", {
+      url, method: options.method || "GET",
+      headers: options.headers || {}, body: options.body,
+    }).then(setData).catch(err => {
+      setError(err.message);
+      console.error("[useFetch] " + url + ": " + err.message);
+    }).finally(() => setLoading(false));
+  }, [url, options.method, options.body]);
+  React.useEffect(() => { fetchData(); }, [fetchData]);
+  return { data, error, loading, refetch: fetchData };
+}
 
-    // Sync logs to parent
-    useEffect(() => {
-        onLogsChange?.(logs);
-    }, [logs, onLogsChange]);
+export const AppEventBus = {
+  emit(type, payload) {
+    bridge().notify("event.emit", { type, payload });
+    console.log("[EventBus]", type, payload);
+  },
+};
 
-    const appCode = files["App.tsx"]?.content || "";
+export function useEncryptedSecret() {
+  return {
+    encrypt: (plaintext, keyId) => bridge().call("lit.encryptSecret", { plaintext, keyId: keyId || "default" }),
+    decrypt: (ciphertext, keyId) => bridge().call("lit.decryptSecret", { ciphertext, keyId: keyId || "default" }),
+    loading: false, error: null,
+  };
+}
 
-    // ─── Serialize user code safely for injection ────────────
-    // SECURITY: JSON.stringify alone doesn't escape HTML special chars like </script>
-    // which could break out of the <script> tag context. After JSON-serializing,
-    // replace < and > with Unicode escapes so HTML parsing can't be hijacked.
-    const userCodeJson = useMemo(() => {
-        const normalized = appCode
-            .replace(/from\s+['"]\.\/keystone['"]/g, 'from "@keystone-os/sdk"')
-            .replace(/from\s+['"]keystone-api['"]/g, 'from "@keystone-os/sdk"')
-            .replace(/from\s+['"]@dreyv\/sdk['"]/g, 'from "@keystone-os/sdk"');
-        return JSON.stringify(normalized)
-            .replace(/</g, '\\u003c')
-            .replace(/>/g, '\\u003e');
-    }, [appCode]);
+export function useACEReport(options = {}) {
+  return {
+    report: [], loading: false, error: null,
+    refetch: () => bridge().call("ace.report", { since: options.since ? options.since.toISOString() : undefined }),
+  };
+}
 
-    // ─── Build iframe HTML ──────────────────────────────────
-    // Strategy: React/ReactDOM as UMD globals, Babel compiles to CommonJS,
-    // require() shim maps module names to globals. No import maps needed.
-    const finalIframeContent = useMemo(() => {
-        return `<!DOCTYPE html>
+export function useAgentHandoff(fromAgent) {
+  return { handoffTo: (toAgent, context) => bridge().call("agent.handoff", { fromAgent, toAgent, context }) };
+}
+
+export function useMCPClient(serverUrl) {
+  return {
+    call: (tool, params) => bridge().call("mcp.call", { serverUrl, tool, params: params || {} }),
+    loading: false, error: null,
+  };
+}
+
+export function useMCPServer(tools, handlers) {
+  return {
+    registerTools: () => bridge().notify("mcp.serve", { tools }),
+    handleCall: (tool, params) => handlers[tool]
+      ? handlers[tool](params)
+      : Promise.reject(new Error("Unknown tool")),
+  };
+}
+
+export function useSIWS() {
+  return {
+    signIn: () => bridge().call("siws.sign", {}),
+    verify: (message, signature) => bridge().call("siws.verify", { message, signature }),
+    session: null,
+  };
+}
+
+export function useJupiterSwap() {
+  return {
+    swap: (params) => bridge().call("jupiter.swap", params),
+    getQuote: (params) => bridge().call("jupiter.quote", params),
+    loading: false, error: null,
+  };
+}
+
+export function useImpactReport() {
+  return {
+    simulate: (transaction) => bridge().call("simulation.impactReport", { transaction }),
+    report: null, loading: false, error: null,
+  };
+}
+
+export function useTaxForensics(options = {}) {
+  const [result, setResult] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const fetchResult = React.useCallback(() => {
+    setLoading(true); setError(null);
+    return bridge().call("tax.forensics", { since: options.since ? options.since.toISOString() : undefined })
+      .then(setResult).catch(err => setError(err.message)).finally(() => setLoading(false));
+  }, []);
+  React.useEffect(() => { fetchResult(); }, [fetchResult]);
+  return { result, loading, error, refetch: fetchResult };
+}
+
+export function useYieldOptimizer(asset) {
+  const [paths, setPaths] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const fetchPaths = React.useCallback(() => {
+    setLoading(true); setError(null);
+    return bridge().call("yield.optimize", { asset })
+      .then(data => setPaths(data || []))
+      .catch(err => { setError(err.message); setPaths([]); })
+      .finally(() => setLoading(false));
+  }, [asset]);
+  React.useEffect(() => { fetchPaths(); }, [fetchPaths]);
+  return { paths, loading, error, refetch: fetchPaths };
+}
+
+export function useGaslessTx() {
+  return {
+    submit: (transaction, description) => bridge().call("gasless.submit", { transaction, description }),
+    loading: false, error: null,
+  };
+}
+
+export function usePortfolio() {
+  const vault = useVault();
+  let totalValue = 0;
+  const enriched = vault.tokens.map(t => {
+    const usdValue = t.balance * (t.price || 0);
+    totalValue += usdValue;
+    return { symbol: t.symbol, name: t.name, balance: t.balance, price: t.price, usdValue, mint: t.mint, logoURI: t.logoURI, percentage: 0 };
+  });
+  enriched.forEach(t => { t.percentage = totalValue > 0 ? Math.round((t.usdValue / totalValue) * 10000) / 100 : 0; });
+  return { tokens: enriched, totalValue, loading: false };
+}
+
+export function useTheme() {
+  const [theme, setTheme] = React.useState("dark");
+  return { theme, setTheme, isDark: theme === "dark" };
+}
+
+export function useTokenPrice(mint) {
+  const [price, setPrice] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  React.useEffect(() => {
+    if (!mint) return;
+    setLoading(true);
+    bridge().call("proxy.fetch", { url: "https://lite-api.jup.ag/price/v2?ids=" + mint, method: "GET", headers: {} })
+      .then(data => {
+        const p = data && data.data && data.data[mint];
+        setPrice(p ? parseFloat(p.price) : null);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [mint]);
+  return { price, loading, error };
+}
+
+export function useNotification() {
+  const [notifications, setNotifications] = React.useState([]);
+  return {
+    notifications,
+    send: (message, type) => setNotifications(prev => prev.concat([{
+      id: "n_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+      message, type: type || "info", time: new Date(),
+    }])),
+    dismiss: (id) => setNotifications(prev => prev.filter(n => n.id !== id)),
+    clearAll: () => setNotifications([]),
+    unreadCount: notifications.length,
+  };
+}
+
+export function useStorage(namespace) {
+  const ns = namespace || "__ks_storage";
+  const ref = React.useRef({});
+  React.useEffect(() => {
+    try { const saved = window.__ksStorageData && window.__ksStorageData[ns]; if (saved) ref.current = saved; } catch (e) {}
+  }, []);
+  const persist = () => { if (!window.__ksStorageData) window.__ksStorageData = {}; window.__ksStorageData[ns] = ref.current; };
+  return {
+    get: (key) => ref.current[key] !== undefined ? ref.current[key] : null,
+    set: (key, value) => { ref.current[key] = value; persist(); },
+    remove: (key) => { delete ref.current[key]; persist(); },
+    keys: () => Object.keys(ref.current),
+    clear: () => { ref.current = {}; persist(); },
+  };
+}
+`;
+
+/**
+ * The bootstrap module runs as a side-effect import at the very top of
+ * `index.tsx`. It installs `window.keystoneBridge` (via the existing
+ * IFRAME_BRIDGE_CLIENT string), wires `console.*` forwarding, and listens
+ * for a one-shot `__dreyv_inject__` postMessage from the host carrying live
+ * prices / logos / wallet holdings.
+ *
+ * It also installs `window.dreyv` (Connector Gateway) and a basic shadcn-
+ * style passthrough for `@/components/ui/*` for AI-generated apps that
+ * import host UI primitives.
+ */
+const BOOTSTRAP_MODULE_SOURCE = `
+${IFRAME_BRIDGE_CLIENT}
+window.keystoneBridge = keystoneBridge;
+
+// Console forwarding
+(function () {
+  const fwd = (level, args) => {
+    try {
+      keystoneBridge.notify("console." + level, {
+        message: args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "),
+      });
+    } catch (e) {}
+  };
+  const orig = { log: console.log, warn: console.warn, error: console.error };
+  console.log = function () { orig.log.apply(console, arguments); fwd("log", Array.from(arguments)); };
+  console.warn = function () { orig.warn.apply(console, arguments); fwd("warn", Array.from(arguments)); };
+  console.error = function () { orig.error.apply(console, arguments); fwd("error", Array.from(arguments)); };
+  window.addEventListener("error", (e) => keystoneBridge.notify("runtime.error", {
+    message: String(e.message), line: e.lineno, col: e.colno,
+  }));
+  window.addEventListener("unhandledrejection", (e) => keystoneBridge.notify("runtime.error", {
+    message: "Unhandled Promise: " + String(e.reason && e.reason.message || e.reason),
+  }));
+})();
+
+// Live data inbox
+window.__dreyvInjected = window.__dreyvInjected || {};
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "__dreyv_inject__") return;
+  Object.assign(window.__dreyvInjected, data.payload || {});
+  window.dispatchEvent(new CustomEvent("dreyv:inject"));
+});
+
+// Dreyv Connector Gateway
+const DREYV_PROVIDERS = ["helius","jupiter","birdeye","marinade","pyth","resend","telegram","slack"];
+const dreyv = {
+  invoke: (provider, operation, params) =>
+    keystoneBridge.call("dreyv.invoke", { provider, operation, params: params || {} }),
+  listConnections: () => keystoneBridge.call("dreyv.listConnections", {}),
+};
+DREYV_PROVIDERS.forEach((p) => {
+  dreyv[p] = new Proxy({}, {
+    get: (_t, op) => (params) => dreyv.invoke(p, String(op), params || {}),
+  });
+});
+window.dreyv = dreyv;
+
+// Signal ready to host
+keystoneBridge.notify("runtime.ready", {});
+`;
+
+/**
+ * Wrapper /index.tsx — boots bridge, then mounts user's App.
+ * User's App is always at /App.tsx by Studio convention.
+ */
+const INDEX_TSX_SOURCE = `
+import "./_dreyv-bootstrap.js";
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+class ErrorBoundary extends React.Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) {
+    try {
+      window.keystoneBridge.notify("runtime.error", {
+        message: error && error.message ? error.message : String(error),
+        componentStack: info && info.componentStack ? info.componentStack.slice(0, 500) : undefined,
+      });
+    } catch (e) {}
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ color: "#ef4444", padding: 20, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6 }}>
+          <strong style={{ color: "#f87171" }}>Component Error</strong>
+          <br />
+          <span style={{ color: "#fca5a5" }}>{this.state.error.message || String(this.state.error)}</span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<ErrorBoundary><App /></ErrorBoundary>);
+`;
+
+const INDEX_HTML_SOURCE = `<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { margin: 0; background: #09090b; color: white; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
-        #root { min-height: 100vh; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #09090b; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
-    </style>
-    <script>
-        // ─── Bridge + Console Hijack ─────────────────────────
-        (function() {
-            ${IFRAME_BRIDGE_CLIENT}
-            window.keystoneBridge = keystoneBridge;
-
-            var origLog = console.log, origWarn = console.warn, origError = console.error;
-            function fwd(level, args) {
-                try { keystoneBridge.notify('console.' + level, { message: args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a) : String(a); }).join(' ') }); } catch(e) {}
-            }
-            console.log = function() { origLog.apply(console, arguments); fwd('log', Array.from(arguments)); };
-            console.warn = function() { origWarn.apply(console, arguments); fwd('warn', Array.from(arguments)); };
-            console.error = function() { origError.apply(console, arguments); fwd('error', Array.from(arguments)); };
-            window.onerror = function(msg, url, line, col) { keystoneBridge.notify('runtime.error', { message: String(msg), line: line, col: col }); };
-            window.onunhandledrejection = function(event) { keystoneBridge.notify('runtime.error', { message: 'Unhandled Promise: ' + String(event.reason) }); };
-        })();
-    </script>
-    <script>
-        // ─── SDK (uses global React) ─────────────────────────
-        (function() {
-            var React = window.React;
-            var useState = React.useState;
-            var useEffect = React.useEffect;
-            var useCallback = React.useCallback;
-            var useRef = React.useRef;
-
-            // Prices + logos injected from parent (iframe sandbox blocks external fetch/images)
-            var _injectedPrices = ${JSON.stringify(livePrices)};
-            var _injectedLogos = ${JSON.stringify(tokenLogos)};
-            var _liveHoldings = ${JSON.stringify(liveHoldings)};
-            var _walletConnected = ${JSON.stringify(!!walletAddress)};
-
-            var useVault = function() {
-                var tokens;
-                if (_walletConnected && _liveHoldings && _liveHoldings.length > 0) {
-                    // Real wallet data — use live holdings with live prices
-                    tokens = _liveHoldings.map(function(h) {
-                        return {
-                            symbol: h.symbol,
-                            name: h.name,
-                            balance: h.balance,
-                            price: _injectedPrices[h.symbol] || 0,
-                            mint: h.mint,
-                            logoURI: _injectedLogos[h.symbol] || '',
-                        };
-                    });
-                } else {
-                    // Demo mode — show example balances with live prices
-                    tokens = [
-                        { symbol: 'SOL',  name: 'Solana',   balance: 124.5,    price: _injectedPrices.SOL  || 0, mint: 'So11111111111111111111111111111111111111112',  logoURI: _injectedLogos.SOL  || '' },
-                        { symbol: 'USDC', name: 'USD Coin', balance: 5400.2,   price: _injectedPrices.USDC || 1.00, mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', logoURI: _injectedLogos.USDC || '' },
-                        { symbol: 'BONK', name: 'Bonk',     balance: 15000000, price: _injectedPrices.BONK || 0, mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', logoURI: _injectedLogos.BONK || '' },
-                        { symbol: 'JUP',  name: 'Jupiter',  balance: 850,      price: _injectedPrices.JUP  || 0, mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',  logoURI: _injectedLogos.JUP  || '' },
-                    ];
-                }
-                var balances = {};
-                tokens.forEach(function(t) { balances[t.symbol] = t.balance; });
-                return { activeVault: _walletConnected ? 'Connected Wallet' : 'Demo Portfolio', balances: balances, tokens: tokens };
-            };
-
-            // useTurnkey was removed — mini-apps should use the host's wallet
-            // adapter via serialized-tx flows instead. Keep a noop stub so
-            // legacy generated apps don't crash at import time.
-            var useTurnkey = function() {
-                return {
-                    getPublicKey: function() {
-                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
-                    },
-                    signTransaction: function() {
-                        return Promise.reject(new Error('useTurnkey was removed. Build a transaction and return it for the host wallet to sign.'));
-                    },
-                };
-            };
-
-            var useFetch = function(url, options) {
-                options = options || {};
-                var _s = useState(null), data = _s[0], setData = _s[1];
-                var _e = useState(null), error = _e[0], setError = _e[1];
-                var _l = useState(true), loading = _l[0], setLoading = _l[1];
-
-                var fetchData = useCallback(function() {
-                    setLoading(true);
-                    setError(null);
-                    return keystoneBridge.call('proxy.fetch', {
-                        url: url,
-                        method: options.method || 'GET',
-                        headers: options.headers || {},
-                        body: options.body,
-                    }).then(function(result) {
-                        setData(result);
-                    }).catch(function(err) {
-                        setError(err.message);
-                        console.error('[useFetch] ' + url + ': ' + err.message);
-                    }).finally(function() {
-                        setLoading(false);
-                    });
-                }, [url, options.method, options.body]);
-
-                useEffect(function() { fetchData(); }, [fetchData]);
-                return { data: data, error: error, loading: loading, refetch: fetchData };
-            };
-
-            var AppEventBus = {
-                emit: function(type, payload) {
-                    keystoneBridge.notify('event.emit', { type: type, payload: payload });
-                    console.log('[EventBus]', type, payload);
-                },
-            };
-
-            var useEncryptedSecret = function() {
-                var encrypt = function(plaintext, keyId) { return keystoneBridge.call('lit.encryptSecret', { plaintext: plaintext, keyId: keyId || 'default' }); };
-                var decrypt = function(ciphertext, keyId) { return keystoneBridge.call('lit.decryptSecret', { ciphertext: ciphertext, keyId: keyId || 'default' }); };
-                return { encrypt: encrypt, decrypt: decrypt, loading: false, error: null };
-            };
-
-            var useACEReport = function(options) {
-                var fetchReport = function() { return keystoneBridge.call('ace.report', { since: options && options.since ? options.since.toISOString() : undefined }); };
-                return { report: [], loading: false, error: null, refetch: fetchReport };
-            };
-
-            var useAgentHandoff = function(fromAgent) {
-                return { handoffTo: function(toAgent, context) { return keystoneBridge.call('agent.handoff', { fromAgent: fromAgent, toAgent: toAgent, context: context }); } };
-            };
-
-            var useMCPClient = function(serverUrl) {
-                return { call: function(tool, params) { return keystoneBridge.call('mcp.call', { serverUrl: serverUrl, tool: tool, params: params || {} }); }, loading: false, error: null };
-            };
-
-            var useMCPServer = function(tools, handlers) {
-                var registerTools = function() { keystoneBridge.notify('mcp.serve', { tools: tools }); };
-                var handleCall = function(tool, params) { return handlers[tool] ? handlers[tool](params) : Promise.reject(new Error('Unknown tool')); };
-                return { registerTools: registerTools, handleCall: handleCall };
-            };
-
-            var useSIWS = function() {
-                return {
-                    signIn: function() { return keystoneBridge.call('siws.sign', {}); },
-                    verify: function(msg, sig) { return keystoneBridge.call('siws.verify', { message: msg, signature: sig }); },
-                    session: null
-                };
-            };
-
-            var useJupiterSwap = function() {
-                return {
-                    swap: function(params) { return keystoneBridge.call('jupiter.swap', params); },
-                    getQuote: function(params) { return keystoneBridge.call('jupiter.quote', params); },
-                    loading: false, error: null
-                };
-            };
-
-            var useImpactReport = function() {
-                return { simulate: function(tx) { return keystoneBridge.call('simulation.impactReport', { transaction: tx }); }, report: null, loading: false, error: null };
-            };
-
-            var useTaxForensics = function(options) {
-                var _s = useState(null), result = _s[0], setResult = _s[1];
-                var _l = useState(true), loading = _l[0], setLoading = _l[1];
-                var _e = useState(null), error = _e[0], setError = _e[1];
-                var fetchResult = useCallback(function() {
-                    setLoading(true); setError(null);
-                    return keystoneBridge.call('tax.forensics', { since: options && options.since ? options.since.toISOString() : undefined })
-                        .then(function(data) { setResult(data); })
-                        .catch(function(err) { setError(err.message); })
-                        .finally(function() { setLoading(false); });
-                }, []);
-                useEffect(function() { fetchResult(); }, [fetchResult]);
-                return { result: result, loading: loading, error: error, refetch: fetchResult };
-            };
-
-            var useYieldOptimizer = function(asset) {
-                var _s = useState([]), paths = _s[0], setPaths = _s[1];
-                var _l = useState(true), loading = _l[0], setLoading = _l[1];
-                var _e = useState(null), error = _e[0], setError = _e[1];
-                var fetchPaths = useCallback(function() {
-                    setLoading(true); setError(null);
-                    return keystoneBridge.call('yield.optimize', { asset: asset })
-                        .then(function(data) { setPaths(data || []); })
-                        .catch(function(err) { setError(err.message); setPaths([]); })
-                        .finally(function() { setLoading(false); });
-                }, [asset]);
-                useEffect(function() { fetchPaths(); }, [fetchPaths]);
-                return { paths: paths, loading: loading, error: error, refetch: fetchPaths };
-            };
-
-            var useGaslessTx = function() {
-                return { submit: function(tx, desc) { return keystoneBridge.call('gasless.submit', { transaction: tx, description: desc }); }, loading: false, error: null };
-            };
-
-            // ─── Extended SDK v1.1 ───────────────────────────────
-
-            var usePortfolio = function() {
-                var vault = useVault();
-                var totalValue = 0;
-                var enriched = vault.tokens.map(function(t) {
-                    var usdValue = t.balance * (t.price || 0);
-                    totalValue += usdValue;
-                    return { symbol: t.symbol, name: t.name, balance: t.balance, price: t.price, usdValue: usdValue, mint: t.mint, logoURI: t.logoURI, percentage: 0 };
-                });
-                enriched.forEach(function(t) { t.percentage = totalValue > 0 ? Math.round((t.usdValue / totalValue) * 10000) / 100 : 0; });
-                return { tokens: enriched, totalValue: totalValue, loading: false };
-            };
-
-            var useTheme = function() {
-                var _s = useState('dark'), theme = _s[0], setTheme = _s[1];
-                return { theme: theme, setTheme: setTheme, isDark: theme === 'dark' };
-            };
-
-            var useTokenPrice = function(mint) {
-                var _s = useState(null), price = _s[0], setPrice = _s[1];
-                var _l = useState(true), loading = _l[0], setLoading = _l[1];
-                var _e = useState(null), error = _e[0], setError = _e[1];
-                useEffect(function() {
-                    if (!mint) return;
-                    setLoading(true);
-                    keystoneBridge.call('proxy.fetch', { url: 'https://lite-api.jup.ag/price/v2?ids=' + mint, method: 'GET', headers: {} })
-                        .then(function(data) { var p = data && data.data && data.data[mint]; setPrice(p ? parseFloat(p.price) : null); })
-                        .catch(function(err) { setError(err.message); })
-                        .finally(function() { setLoading(false); });
-                }, [mint]);
-                return { price: price, loading: loading, error: error };
-            };
-
-            var useNotification = function() {
-                var _s = useState([]), notifications = _s[0], setNotifications = _s[1];
-                var send = function(message, type) {
-                    var n = { id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), message: message, type: type || 'info', time: new Date() };
-                    setNotifications(function(prev) { return prev.concat([n]); });
-                };
-                var dismiss = function(id) { setNotifications(function(prev) { return prev.filter(function(n) { return n.id !== id; }); }); };
-                var clearAll = function() { setNotifications([]); };
-                var unreadCount = notifications.length;
-                return { notifications: notifications, send: send, dismiss: dismiss, clearAll: clearAll, unreadCount: unreadCount };
-            };
-
-            var useStorage = function(namespace) {
-                var ns = namespace || '__ks_storage';
-                var refStore = useRef({});
-                useEffect(function() {
-                    try { var saved = window.__ksStorageData && window.__ksStorageData[ns]; if (saved) refStore.current = saved; } catch(e) {}
-                }, []);
-                var persist = function() { if (!window.__ksStorageData) window.__ksStorageData = {}; window.__ksStorageData[ns] = refStore.current; };
-                return {
-                    get: function(key) { return refStore.current[key] !== undefined ? refStore.current[key] : null; },
-                    set: function(key, value) { refStore.current[key] = value; persist(); },
-                    remove: function(key) { delete refStore.current[key]; persist(); },
-                    keys: function() { return Object.keys(refStore.current); },
-                    clear: function() { refStore.current = {}; persist(); },
-                };
-            };
-
-            // Register as requireable module
-            var exportsObj = {
-                useVault: useVault,
-                useTurnkey: useTurnkey,
-                useFetch: useFetch,
-                AppEventBus: AppEventBus,
-                useEncryptedSecret: useEncryptedSecret,
-                useACEReport: useACEReport,
-                useAgentHandoff: useAgentHandoff,
-                useMCPClient: useMCPClient,
-                useMCPServer: useMCPServer,
-                useSIWS: useSIWS,
-                useJupiterSwap: useJupiterSwap,
-                useImpactReport: useImpactReport,
-                useTaxForensics: useTaxForensics,
-                useYieldOptimizer: useYieldOptimizer,
-                useGaslessTx: useGaslessTx,
-                usePortfolio: usePortfolio,
-                useTheme: useTheme,
-                useTokenPrice: useTokenPrice,
-                useNotification: useNotification,
-                useStorage: useStorage
-            };
-
-            window.__keystoneSDK = Object.assign({}, exportsObj, { default: exportsObj });
-            window.__keystoneSDK.__esModule = true;
-
-            // ─── Dreyv Connector Gateway ─────────────────────
-            // Lets templates call third-party APIs (Helius, Jupiter, Resend,
-            // Telegram, Slack, ...) through the user's encrypted credentials.
-            var DREYV_PROVIDERS = ['helius','jupiter','birdeye','marinade','pyth','resend','telegram','slack'];
-            var dreyv = {
-                invoke: function(provider, operation, params) {
-                    return keystoneBridge.call('dreyv.invoke', { provider: provider, operation: operation, params: params || {} });
-                },
-                listConnections: function() {
-                    return keystoneBridge.call('dreyv.listConnections', {});
-                }
-            };
-            DREYV_PROVIDERS.forEach(function(p) {
-                dreyv[p] = new Proxy({}, {
-                    get: function(_t, op) {
-                        return function(params) { return dreyv.invoke(p, String(op), params || {}); };
-                    }
-                });
-            });
-            window.dreyv = dreyv;
-        })();
-    </script>
-    <script>
-        // ─── CommonJS Require Shim ───────────────────────────
-        (function() {
-            var R = window.React;
-            var h = R.createElement;
-            // Minimal shadcn-style passthrough primitives so AI-generated
-            // mini-apps that import '@/components/ui/*' still render in
-            // the sandbox. These are intentionally minimal — the real
-            // design system lives in the host, not the iframe.
-            function mkTag(tag, baseCls) {
-                return R.forwardRef(function(props, ref) {
-                    var className = [baseCls, props.className || ''].filter(Boolean).join(' ');
-                    return h(tag, Object.assign({}, props, { ref: ref, className: className }));
-                });
-            }
-            var uiShim = {
-                Card: mkTag('div', 'rounded-3xl border border-violet-100 bg-white p-4'),
-                CardHeader: mkTag('div', 'mb-3 flex flex-col gap-1'),
-                CardTitle: mkTag('h3', 'text-base font-semibold text-slate-900'),
-                CardDescription: mkTag('p', 'text-sm text-slate-500'),
-                CardContent: mkTag('div', ''),
-                CardFooter: mkTag('div', 'mt-3 flex items-center gap-2'),
-                Button: mkTag('button', 'inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700'),
-                Input: mkTag('input', 'w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm'),
-                Label: mkTag('label', 'text-sm font-medium text-slate-700'),
-                Badge: mkTag('span', 'inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700'),
-                Separator: mkTag('div', 'h-px w-full bg-violet-100'),
-                Skeleton: mkTag('div', 'animate-pulse rounded-xl bg-violet-100/60'),
-            };
-            var moduleMap = {
-                'react': window.React,
-                'react-dom': window.ReactDOM,
-                'react-dom/client': window.ReactDOM,
-                '@keystone-os/sdk': window.__keystoneSDK,
-                '@dreyv/sdk': window.__keystoneSDK,
-            };
-            window.__ks_require = function(name) {
-                if (moduleMap[name]) return moduleMap[name];
-                // Shadcn-style alias: '@/components/ui/card' → { Card, CardHeader, ... }
-                // (handled below)
-                var m = /^@\/components\/ui\/([\w-]+)$/.exec(name);
-                if (m) {
-                    return uiShim;
-                }
-                // 'lucide-react' → return a Proxy of div-icons so any icon name works
-                if (name === 'lucide-react') {
-                    return new Proxy({}, {
-                        get: function(_t, key) {
-                            if (key === '__esModule') return true;
-                            return mkTag('span', 'inline-block h-4 w-4');
-                        }
-                    });
-                }
-                throw new Error('[Keystone] Module not found: ' + name + '. Add it to keystone.lock.json.');
-            };
-            // Expose require globally so any escaped/deferred reference resolves.
-            window.require = window.__ks_require;
-        })();
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; background: #09090b; color: white; font-family: system-ui,-apple-system,sans-serif; min-height: 100vh; }
+    #root { min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+  </style>
 </head>
-
-<body>
-    <div id="root"></div>
-    <script>
-        // ─── Error Boundary ──────────────────────────────────
-        (function() {
-            var _React = window.React;
-            class KeystoneErrorBoundary extends _React.Component {
-                constructor(props) {
-                    super(props);
-                    this.state = { hasError: false, error: null };
-                }
-                static getDerivedStateFromError(error) {
-                    return { hasError: true, error: error };
-                }
-                componentDidCatch(error, info) {
-                    var msg = (error && error.message) || String(error);
-                    console.error('[ErrorBoundary]', msg);
-                    keystoneBridge.notify('runtime.error', {
-                        message: msg,
-                        componentStack: info && info.componentStack ? info.componentStack.slice(0, 500) : undefined
-                    });
-                }
-                render() {
-                    if (this.state.hasError) {
-                        var msg = this.state.error ? (this.state.error.message || String(this.state.error)) : 'Unknown error';
-                        return _React.createElement('div', {
-                            style: { color: '#ef4444', padding: '20px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6' }
-                        },
-                            _React.createElement('strong', { style: { color: '#f87171' } }, 'Component Error'),
-                            _React.createElement('br'),
-                            _React.createElement('span', { style: { color: '#fca5a5' } }, msg),
-                            _React.createElement('br'),
-                            _React.createElement('br'),
-                            _React.createElement('button', {
-                                onClick: function() { location.reload(); },
-                                style: { color: '#a3a3a3', background: '#27272a', border: '1px solid #3f3f46', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }
-                            }, 'Reload Preview')
-                        );
-                    }
-                    return this.props.children;
-                }
-            }
-            window.__KeystoneErrorBoundary = KeystoneErrorBoundary;
-        })();
-    </script>
-    <script>
-        // ─── Boot ────────────────────────────────────────────
-        (function() {
-            try {
-                // 1. Normalize browser-hosted imports/exports before Babel.
-                // Babel standalone compiles a single file; it is not a bundler.
-                // Removing ESM imports here avoids CommonJS require() escaping
-                // into the iframe runtime.
-                var rawCode = ${userCodeJson};
-                function importBindings(spec, moduleExpr) {
-                    spec = String(spec || '').trim();
-                    if (!spec) return '';
-                    if (spec.indexOf('* as ') === 0) {
-                        return 'var ' + spec.replace('* as ', '').trim() + ' = ' + moduleExpr + ';\n';
-                    }
-                    var out = '';
-                    var named = spec;
-                    if (spec[0] !== '{') {
-                        var comma = spec.indexOf(',');
-                        if (comma === -1) {
-                            return 'var ' + spec.trim() + ' = ' + moduleExpr + '.default || ' + moduleExpr + ';\n';
-                        }
-                        out += 'var ' + spec.slice(0, comma).trim() + ' = ' + moduleExpr + '.default || ' + moduleExpr + ';\n';
-                        named = spec.slice(comma + 1).trim();
-                    }
-                    named = named.replace(/^\{/, '').replace(/\}$/, '').trim();
-                    if (named) {
-                        named.split(',').forEach(function(part) {
-                            var bits = part.trim().split(/\s+as\s+/);
-                            var imported = bits[0] && bits[0].trim();
-                            var local = (bits[1] || bits[0] || '').trim();
-                            if (imported && local) out += 'var ' + local + ' = ' + moduleExpr + '[' + JSON.stringify(imported) + '];\n';
-                        });
-                    }
-                    return out;
-                }
-                function resolveModule(spec, mod) {
-                    if (mod === 'react') return importBindings(spec, 'window.React');
-                    if (mod === 'react-dom' || mod === 'react-dom/client') return importBindings(spec, 'window.ReactDOM');
-                    if (mod === '@keystone-os/sdk' || mod === '@dreyv/sdk') return importBindings(spec, 'window.__ks_require("@keystone-os/sdk")');
-                    return importBindings(spec, 'window.__ks_require(' + JSON.stringify(mod) + ')');
-                }
-                function rewriteSingleFileModule(source) {
-                    var src = String(source || '');
-                    // Collapse multi-line imports to single line so the regex below catches them.
-                    src = src.replace(/import\s+([\s\S]*?)\s+from\s+(['"][^'"]+['"])\s*;?/g, function(_, spec, mod) {
-                        return 'import ' + spec.replace(/\s+/g, ' ').trim() + ' from ' + mod + ';';
-                    });
-                    var lines = src.split('\n');
-                    var prelude = [];
-                    var body = [];
-                    lines.forEach(function(line) {
-                        var match = line.match(/^\s*import\s+(.+?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/);
-                        if (match) {
-                            prelude.push(resolveModule(match[1], match[2]));
-                            return;
-                        }
-                        // Side-effect-only import: 'import "./x";' — strip
-                        if (/^\s*import\s+['"][^'"]+['"]\s*;?\s*$/.test(line)) return;
-                        // Bare 'import ...' that we couldn't parse — strip to avoid syntax error
-                        if (/^\s*import\s+/.test(line)) return;
-                        body.push(line);
-                    });
-                    var defaultName = null;
-                    var rewritten = prelude.join('') + body.join('\n');
-                    rewritten = rewritten.replace(/export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/, function(_, name) { defaultName = name; return 'function ' + name + '('; });
-                    rewritten = rewritten.replace(/export\s+default\s+class\s+([A-Za-z_$][\w$]*)\s*/, function(_, name) { defaultName = name; return 'class ' + name + ' '; });
-                    rewritten = rewritten.replace(/export\s+default\s+function\s*\(/, 'module.exports.default = function(');
-                    rewritten = rewritten.replace(/export\s+default\s+([A-Za-z_$][\w$]*)\s*;?/g, 'module.exports.default = $1;');
-                    rewritten = rewritten.replace(/export\s+default\s+/g, 'module.exports.default = ');
-                    rewritten = rewritten.replace(/export\s+(function|class|const|let|var)\s+/g, '$1 ');
-                    if (defaultName) rewritten += '\nmodule.exports.default = ' + defaultName + ';';
-                    return rewritten;
-                }
-                var compiled = Babel.transform(rewriteSingleFileModule(rawCode), {
-                    presets: ['typescript', 'react'],
-                    filename: 'App.tsx',
-                    retainLines: true,
-                });
-
-                // 2. Execute compiled code. Imports have already been bound to
-                //    sandbox globals, so no runtime CommonJS require is needed.
-                var _module = { exports: {} };
-                var _exports = _module.exports;
-                window.require = window.__ks_require;
-                window.module = _module;
-                window.exports = _exports;
-                var fn = new Function('module', 'exports', compiled.code);
-                fn(_module, _exports);
-
-                // 3. Get the default export
-                var App = _module.exports.default || _module.exports;
-                if (typeof App !== 'function') {
-                    throw new Error('App.tsx must export a default React component (got ' + typeof App + ')');
-                }
-
-                // 4. Mount with Error Boundary
-                var root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(
-                    React.createElement(window.__KeystoneErrorBoundary, null,
-                        React.createElement(App)
-                    )
-                );
-
-                keystoneBridge.notify('runtime.ready', { timestamp: Date.now() });
-            } catch (err) {
-                console.error('Runtime Boot Error:', err);
-                document.getElementById('root').innerHTML =
-                    '<div style="color:#ef4444;padding:20px;font-family:monospace;font-size:13px;line-height:1.6">' +
-                    '<strong style="color:#f87171">Runtime Error</strong><br/>' +
-                    '<span style="color:#fca5a5">' + (err.message || err) + '</span></div>';
-                keystoneBridge.notify('runtime.error', { message: err.message || String(err) });
-            }
-        })();
-    </script>
-</body>
+<body><div id="root"></div></body>
 </html>`;
-    }, [userCodeJson, livePrices, tokenLogos, liveHoldings, walletAddress, retryKey]);
 
-    // ─── Setup Bridge Controller ────────────────────────────
-    const setupBridge = useCallback(() => {
-        // Tear down previous bridge
-        bridgeRef.current?.stop();
+/**
+ * Minimal shadcn-style passthrough for `@/components/ui/*` imports —
+ * AI-generated mini-apps frequently use them but the host's real shadcn
+ * lives outside the iframe.
+ */
+const UI_SHIM_SOURCE = `
+import React from "react";
 
-        const bridge = new BridgeController(iframeRef);
+const mk = (Tag, base) => React.forwardRef(function Shim(props, ref) {
+  const { className = "", ...rest } = props;
+  return React.createElement(Tag, { ref, ...rest, className: (base + " " + className).trim() });
+});
 
-        // ─── Console Handlers ─────────────────────────────
-        bridge.on(BridgeMethods.CONSOLE_LOG, async (params) => {
-            setLogs(prev => [...prev.slice(-500), `[info] ${params.message}`]);
+export const Card           = mk("div", "rounded-3xl border border-violet-100 bg-white p-4");
+export const CardHeader     = mk("div", "mb-3 flex flex-col gap-1");
+export const CardTitle      = mk("h3", "text-base font-semibold text-slate-900");
+export const CardDescription= mk("p", "text-sm text-slate-500");
+export const CardContent    = mk("div", "");
+export const CardFooter     = mk("div", "mt-3 flex items-center gap-2");
+export const Button         = mk("button", "inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700");
+export const Input          = mk("input", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm");
+export const Label          = mk("label", "text-sm font-medium text-slate-700");
+export const Badge          = mk("span", "inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700");
+export const Separator      = mk("div", "h-px w-full bg-violet-100");
+export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
+`;
+
+// ─── BridgeBinder — wires the host BridgeController to Sandpack iframe ──
+
+interface BridgeBinderProps {
+    walletAddress: string | null;
+    appId?: string;
+    livePrices: Record<string, number>;
+    tokenLogos: Record<string, string>;
+    liveHoldings: unknown;
+    onLogsChange?: (logs: string[]) => void;
+    onError: (msg: string | null) => void;
+    onReady: () => void;
+}
+
+function BridgeBinder({
+    walletAddress,
+    appId,
+    livePrices,
+    tokenLogos,
+    liveHoldings,
+    onLogsChange,
+    onError,
+    onReady,
+}: BridgeBinderProps) {
+    const { sandpack } = useSandpack();
+    const bridgeRef = useRef<BridgeController | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const logsRef = useRef<string[]>([]);
+
+    const pushLog = useCallback((line: string) => {
+        logsRef.current = [...logsRef.current.slice(-500), line];
+        onLogsChange?.(logsRef.current);
+    }, [onLogsChange]);
+
+    // Pick up Sandpack's iframe whenever a new client registers.
+    useEffect(() => {
+        const ids = Object.keys(sandpack.clients);
+        if (ids.length === 0) return;
+        const client = sandpack.clients[ids[0]];
+        const iframe = client?.iframe ?? null;
+        if (!iframe || iframe === iframeRef.current) return;
+        iframeRef.current = iframe;
+
+        // Inject live prices/holdings into the iframe via postMessage. The
+        // bootstrap module listens for `__dreyv_inject__` and copies the
+        // payload to `window.__dreyvInjected`.
+        const sendInjection = () => {
+            try {
+                iframe.contentWindow?.postMessage({
+                    type: "__dreyv_inject__",
+                    payload: {
+                        prices: livePrices,
+                        logos: tokenLogos,
+                        holdings: liveHoldings,
+                        walletAddress,
+                    },
+                }, "*");
+            } catch {}
+        };
+        // Send shortly after mount so bootstrap has installed its listener.
+        const t = setTimeout(sendInjection, 200);
+        const t2 = setTimeout(sendInjection, 800); // belt-and-braces
+        return () => { clearTimeout(t); clearTimeout(t2); };
+    }, [sandpack.clients, livePrices, tokenLogos, liveHoldings, walletAddress]);
+
+    // Mount BridgeController against the iframe ref.
+    useEffect(() => {
+        if (!iframeRef.current) return;
+        const fakeRef = { current: iframeRef.current } as React.RefObject<HTMLIFrameElement | null>;
+        const bridge = new BridgeController(fakeRef);
+        bridgeRef.current = bridge;
+
+        // ─── Console + lifecycle ───
+        bridge.on(BridgeMethods.CONSOLE_LOG,   async (p) => { pushLog(`[info] ${p.message}`); return null; });
+        bridge.on(BridgeMethods.CONSOLE_WARN,  async (p) => { pushLog(`[warn] ${p.message}`); return null; });
+        bridge.on(BridgeMethods.CONSOLE_ERROR, async (p) => { pushLog(`[error] ${p.message}`); return null; });
+        bridge.on(BridgeMethods.RUNTIME_READY, async () => { onError(null); onReady(); return { status: "ok" }; });
+        bridge.on(BridgeMethods.RUNTIME_ERROR, async (p) => {
+            const msg = String(p.message || "Unknown runtime error");
+            onError(msg);
+            pushLog(`[error] ${msg}`);
             return null;
         });
 
-        bridge.on(BridgeMethods.CONSOLE_WARN, async (params) => {
-            setLogs(prev => [...prev.slice(-500), `[warn] ${params.message}`]);
-            return null;
-        });
-
-        bridge.on(BridgeMethods.CONSOLE_ERROR, async (params) => {
-            setLogs(prev => [...prev.slice(-500), `[error] ${params.message}`]);
-            return null;
-        });
-
-        // ─── Runtime Lifecycle ────────────────────────────
-        bridge.on(BridgeMethods.RUNTIME_READY, async () => {
-            setIsLoading(false);
-            setError(null);
-            return { status: "ok" };
-        });
-
-        bridge.on(BridgeMethods.RUNTIME_ERROR, async (params) => {
-            const msg = String(params.message || "Unknown runtime error");
-            setError(msg);
-            setIsLoading(false);
-            setLogs(prev => [...prev.slice(-500), `[error] ${msg}`]);
-            return null;
-        });
-
-
-        // ─── Proxy Gate (Phase 2.3) ──────────────────────
+        // ─── Proxy fetch ───
         bridge.on(BridgeMethods.PROXY_REQUEST, async (params) => {
             const { observability, ...rest } = params as Record<string, unknown>;
-            if (observability) {
-                setLogs(prev => [...prev.slice(-500), `[info] [Observability] ${JSON.stringify(observability)}`]);
-            }
-            const { url, method, headers, body } = params as {
-                url: string;
-                method?: string;
-                headers?: Record<string, string>;
-                body?: unknown;
+            if (observability) pushLog(`[info] [Observability] ${JSON.stringify(observability)}`);
+            const { url, method, headers, body } = rest as {
+                url: string; method?: string; headers?: Record<string, string>; body?: unknown;
             };
-
             const proxyRes = await fetch("/api/proxy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    url,
-                    method: method || "GET",
-                    headers: headers || {},
-                    body,
-                    appId,
-                }),
+                body: JSON.stringify({ url, method: method || "GET", headers: headers || {}, body, appId }),
             });
-
             const result = await proxyRes.json();
-
-            setLogs(prev => [...prev.slice(-500),
-            `[info] [Proxy] ${method || "GET"} ${url} → ${proxyRes.status}`
-            ]);
-
-            if (!proxyRes.ok) {
-                throw new Error(result.error || `Proxy returned ${proxyRes.status}`);
-            }
-
+            pushLog(`[info] [Proxy] ${method || "GET"} ${url} → ${proxyRes.status}`);
+            if (!proxyRes.ok) throw new Error(result.error || `Proxy returned ${proxyRes.status}`);
             return result.data;
         });
 
-        // ─── Event Bus ────────────────────────────────────
+        // ─── Event bus ───
         bridge.on(BridgeMethods.EVENT_EMIT, async (params) => {
-            setLogs(prev => [...prev.slice(-500), `[event] ${params.type}: ${JSON.stringify(params.payload)}`]);
+            pushLog(`[event] ${params.type}: ${JSON.stringify(params.payload)}`);
             return null;
         });
 
-        // ─── Sovereign OS 2026 — Full mock handlers (Phase 2) ──
+        // ─── Sovereign OS 2026 mock handlers ───
         bridge.on(BridgeMethods.LIT_ENCRYPT, async (p) => {
             const params = p as { plaintext: string; keyId?: string };
-            setLogs(prev => [...prev.slice(-500), `[lit] encrypt (keyId: ${params.keyId || 'default'})`]);
+            pushLog(`[lit] encrypt (keyId: ${params.keyId || "default"})`);
             return stubLitEncrypt(params);
         });
         bridge.on(BridgeMethods.LIT_DECRYPT, async (p) => {
             const params = p as { ciphertext: string; keyId?: string };
-            setLogs(prev => [...prev.slice(-500), `[lit] decrypt (keyId: ${params.keyId || 'default'})`]);
+            pushLog(`[lit] decrypt (keyId: ${params.keyId || "default"})`);
             return stubLitDecrypt(params);
         });
         bridge.on(BridgeMethods.ACE_REPORT, async (p) => {
-            const params = p as { since?: string };
-            setLogs(prev => [...prev.slice(-500), `[ace] report requested`]);
-            return stubACEReport(params);
+            pushLog(`[ace] report requested`);
+            return stubACEReport(p as { since?: string });
         });
         bridge.on(BridgeMethods.ZKSP_VERIFY, async () => ({ verified: false }));
         bridge.on(BridgeMethods.AGENT_HANDOFF, async (p) => {
             const params = p as { fromAgent?: string; toAgent?: string };
-            setLogs(prev => [...prev.slice(-500), `[agent] handoff ${params.fromAgent} → ${params.toAgent}`]);
+            pushLog(`[agent] handoff ${params.fromAgent} → ${params.toAgent}`);
             return { status: "handoff_received" };
         });
         bridge.on(BridgeMethods.MCP_CALL, async (p) => {
             const params = p as { serverUrl: string; tool: string; params?: Record<string, unknown> };
-            setLogs(prev => [...prev.slice(-500), `[mcp] call ${params.tool} via ${params.serverUrl}`]);
+            pushLog(`[mcp] call ${params.tool} via ${params.serverUrl}`);
             return stubMCPCall(params);
         });
         bridge.on(BridgeMethods.MCP_SERVE, async (p) => {
-            setLogs(prev => [...prev.slice(-500), `[mcp] serve tools: ${((p as { tools?: unknown[] }).tools ?? []).length}`]);
+            pushLog(`[mcp] serve tools: ${((p as { tools?: unknown[] }).tools ?? []).length}`);
             return null;
         });
         bridge.on(BridgeMethods.IMPACT_REPORT, async (p) => {
-            const params = p as { transaction?: unknown };
-            setLogs(prev => [...prev.slice(-500), `[simulation] impact report for tx`]);
-            return stubImpactReport(params);
+            pushLog(`[simulation] impact report for tx`);
+            return stubImpactReport(p as { transaction?: unknown });
         });
         bridge.on(BridgeMethods.SIWS_SIGN, async () => {
-            setLogs(prev => [...prev.slice(-500), `[siws] sign-in requested`]);
+            pushLog(`[siws] sign-in requested`);
             return stubSIWSSign(walletAddress ?? null);
         });
         bridge.on(BridgeMethods.SIWS_VERIFY, async () => true);
         bridge.on(BridgeMethods.JUPITER_SWAP, async (p) => {
             const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
-            setLogs(prev => [...prev.slice(-500), `[jupiter] swap ${params.amount} ${params.inputMint} → ${params.outputMint}`]);
+            pushLog(`[jupiter] swap ${params.amount} ${params.inputMint} → ${params.outputMint}`);
             return stubJupiterSwap(params);
         });
         bridge.on(BridgeMethods.JUPITER_QUOTE, async (p) => {
             const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
             const isLive = !!walletAddress;
-            setLogs(prev => [...prev.slice(-500), `[jupiter] quote ${params.amount} ${params.inputMint} → ${params.outputMint}${isLive ? " (LIVE)" : " (mock)"}`]);
+            pushLog(`[jupiter] quote ${params.amount} ${params.inputMint} → ${params.outputMint}${isLive ? " (LIVE)" : " (mock)"}`);
             return stubJupiterQuote(params, isLive);
         });
         bridge.on(BridgeMethods.YIELD_OPTIMIZE, async (p) => {
             const params = p as { asset: string };
             const isLive = !!walletAddress;
-            setLogs(prev => [...prev.slice(-500), `[yield] optimize for ${params.asset}${isLive ? " (LIVE)" : " (mock)"}`]);
+            pushLog(`[yield] optimize for ${params.asset}${isLive ? " (LIVE)" : " (mock)"}`);
             return stubYieldOptimize(params, isLive);
         });
         bridge.on(BridgeMethods.GASLESS_SUBMIT, async (p) => {
             const params = p as { transaction: unknown; description?: string };
-            setLogs(prev => [...prev.slice(-500), `[gasless] submit: ${params.description || 'gasless tx'}`]);
+            pushLog(`[gasless] submit: ${params.description || "gasless tx"}`);
             return stubGaslessSubmit(params);
         });
         bridge.on(BridgeMethods.BLINK_EXPORT, async (p) => {
             const params = p as { label?: string };
-            setLogs(prev => [...prev.slice(-500), `[blink] export action: ${params.label}`]);
+            pushLog(`[blink] export action: ${params.label}`);
             return stubBlinkExport(params);
         });
         bridge.on(BridgeMethods.TAX_FORENSICS, async (p) => {
-            const params = p as { since?: string };
-            setLogs(prev => [...prev.slice(-500), `[tax] forensics requested`]);
-            return stubTaxForensics(params);
+            pushLog(`[tax] forensics requested`);
+            return stubTaxForensics(p as { since?: string });
         });
 
-        // ─── Dreyv Connector Gateway ─────────────────────
+        // ─── Dreyv Connector Gateway ───
         bridge.on("dreyv.invoke", async (p) => {
             const { provider, operation, params } = p as {
-                provider: string;
-                operation: string;
-                params?: Record<string, unknown>;
+                provider: string; operation: string; params?: Record<string, unknown>;
             };
-            setLogs(prev => [...prev.slice(-500), `[dreyv] ${provider}.${operation}`]);
+            pushLog(`[dreyv] ${provider}.${operation}`);
             const res = await fetch(`/api/dreyv-gateway/${encodeURIComponent(provider)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -873,8 +646,7 @@ export function LivePreview({
             });
             const json = await res.json();
             if (!res.ok) {
-                setLogs(prev => [...prev.slice(-500), `[dreyv] error ${res.status}: ${json?.error || "unknown"}`]);
-                // 412 = connection_required → tell the Studio to open the Key Wizard.
+                pushLog(`[dreyv] error ${res.status}: ${json?.error || "unknown"}`);
                 if (res.status === 412 && typeof window !== "undefined") {
                     window.dispatchEvent(new CustomEvent("dreyv:connection_required", {
                         detail: { provider: json?.provider || provider, operation },
@@ -891,25 +663,137 @@ export function LivePreview({
         });
 
         bridge.start();
-        bridgeRef.current = bridge;
-    }, [walletAddress, appId]);
+        return () => { bridge.stop(); bridgeRef.current = null; };
+    }, [walletAddress, appId, pushLog, onError, onReady]);
 
-    // ─── Lifecycle ──────────────────────────────────────────
+    return null;
+}
+
+// ─── Main component ─────────────────────────────────────────────────
+
+export function LivePreview({
+    files,
+    tab = "preview",
+    onLogsChange,
+    walletAddress = null,
+    appId,
+}: LivePreviewProps) {
+    const [error, setError] = React.useState<string | null>(null);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [logs, setLogs] = React.useState<string[]>([]);
+    const [retryKey, setRetryKey] = React.useState(0);
+
+    // ─── Fetch live prices/logos/holdings (proxied from parent) ──
+    const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
+    const [tokenLogos, setTokenLogos] = React.useState<Record<string, string>>({});
+    const [liveHoldings, setLiveHoldings] = React.useState<unknown>(null);
+
     useEffect(() => {
-        setIsLoading(true);
-        setError(null);
-        setLogs([]);
-        setupBridge();
+        if (!walletAddress) { setLiveHoldings(null); return; }
+        let cancelled = false;
+        fetch(`/api/helius/das/wallet-holdings?address=${walletAddress}`, { signal: AbortSignal.timeout(10000) })
+            .then(r => r.json())
+            .then(json => {
+                if (cancelled) return;
+                const holdings = json?.holdings || [];
+                const mintToSym: Record<string, string> = {};
+                for (const [sym, mint] of Object.entries(MINTS)) mintToSym[mint] = sym;
+                setLiveHoldings(holdings.map((h: { mint: string; symbol?: string; name?: string; balance: number; decimals?: number }) => ({
+                    symbol: mintToSym[h.mint] || h.symbol || "UNKNOWN",
+                    name: h.name || h.symbol || "Unknown",
+                    balance: Number(h.balance) / Math.pow(10, h.decimals || 0),
+                    mint: h.mint,
+                    decimals: h.decimals || 0,
+                })));
+            })
+            .catch(() => { if (!cancelled) setLiveHoldings(null); });
+        return () => { cancelled = true; };
+    }, [walletAddress]);
 
-        return () => {
-            bridgeRef.current?.stop();
+    useEffect(() => {
+        const ids = Object.values(MINTS).join(",");
+        fetch(`https://lite-api.jup.ag/price/v2?ids=${ids}`, { signal: AbortSignal.timeout(6000) })
+            .then(r => r.json())
+            .then(json => {
+                const data = json?.data || {};
+                const prices: Record<string, number> = {};
+                for (const [sym, mint] of Object.entries(MINTS)) prices[sym] = parseFloat(data[mint]?.price) || 0;
+                setLivePrices(prices);
+            })
+            .catch(() => setLivePrices({ SOL: 23.4, USDC: 1.0, BONK: 0.000024, JUP: 1.12 }));
+
+        fetch("https://token.jup.ag/strict", { signal: AbortSignal.timeout(8000) })
+            .then(r => r.json())
+            .then(async (list: { address: string; logoURI?: string }[]) => {
+                const mintToSym: Record<string, string> = {};
+                for (const [sym, mint] of Object.entries(MINTS)) mintToSym[mint] = sym;
+                const relevant = list.filter((t) => mintToSym[t.address] && t.logoURI);
+                const logos: Record<string, string> = {};
+                await Promise.allSettled(relevant.map(async (t) => {
+                    try {
+                        const res = await fetch(t.logoURI as string, { signal: AbortSignal.timeout(5000) });
+                        if (!res.ok) return;
+                        const blob = await res.blob();
+                        const dataUri: string = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+                        logos[mintToSym[t.address]] = dataUri;
+                    } catch {}
+                }));
+                setTokenLogos(logos);
+            })
+            .catch(() => {});
+    }, []);
+
+    // ─── Build Sandpack file map ─────────────────────────────────────
+    // Convention: user code lives at /App.tsx (and any other paths it uses).
+    // We add /index.html, /index.tsx, /_dreyv-bootstrap.js, /_dreyv-ui.js
+    // and /node_modules/@keystone-os/sdk/{index.js,package.json}.
+    const sandpackFiles: SandpackFiles = useMemo(() => {
+        const map: SandpackFiles = {
+            "/index.html":            { code: INDEX_HTML_SOURCE, hidden: true },
+            "/index.tsx":             { code: INDEX_TSX_SOURCE, hidden: true },
+            "/_dreyv-bootstrap.js":   { code: BOOTSTRAP_MODULE_SOURCE, hidden: true },
+            "/components/ui/index.js":{ code: UI_SHIM_SOURCE, hidden: true },
+            "/node_modules/@keystone-os/sdk/package.json": {
+                code: JSON.stringify({ name: "@keystone-os/sdk", version: "1.0.0", main: "index.js" }),
+                hidden: true,
+            },
+            "/node_modules/@keystone-os/sdk/index.js": { code: SDK_MODULE_SOURCE, hidden: true },
+            // Alias @dreyv/sdk → @keystone-os/sdk
+            "/node_modules/@dreyv/sdk/package.json": {
+                code: JSON.stringify({ name: "@dreyv/sdk", version: "1.0.0", main: "index.js" }),
+                hidden: true,
+            },
+            "/node_modules/@dreyv/sdk/index.js": {
+                code: `module.exports = require("@keystone-os/sdk");`,
+                hidden: true,
+            },
         };
-    }, [finalIframeContent, setupBridge]);
+        // User files
+        for (const file of Object.values(files)) {
+            const path = file.name.startsWith("/") ? file.name : `/${file.name}`;
+            map[path] = { code: file.content };
+        }
+        // Ensure App.tsx exists so /index.tsx import doesn't fail
+        if (!map["/App.tsx"] && !map["/App.jsx"] && !map["/App.js"]) {
+            map["/App.tsx"] = {
+                code: `export default function App() {
+  return <div className="p-8 text-zinc-500 font-mono text-xs">No App.tsx provided.</div>;
+}`,
+            };
+        }
+        return map;
+    }, [files]);
 
-    // ─── Console State ────────────────────────────────────
+    // Sync logs callback up
+    useEffect(() => { onLogsChange?.(logs); }, [logs, onLogsChange]);
+    const handleLogsChange = useCallback((next: string[]) => setLogs(next), []);
+
+    // ─── Console tab (unchanged UI) ─────────────────────────────────
     const [consoleFilter, setConsoleFilter] = React.useState<"all" | "info" | "warn" | "error" | "event">("all");
-
-    // ─── Render: Console Tab ────────────────────────────────
     if (tab === "code") {
         const filteredLogs = consoleFilter === "all"
             ? logs
@@ -920,13 +804,10 @@ export function LivePreview({
                 if (consoleFilter === "event") return log.startsWith("[event]") || log.startsWith("[lit]") || log.startsWith("[mcp]") || log.startsWith("[jupiter]") || log.startsWith("[siws]");
                 return true;
             });
-
         const errorCount = logs.filter((l) => l.startsWith("[error]")).length;
         const warnCount = logs.filter((l) => l.startsWith("[warn]")).length;
-
         return (
             <div className="h-full w-full bg-[#011627] flex flex-col font-mono text-xs">
-                {/* Console Toolbar */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
                     <div className="flex items-center gap-1">
                         {(["all", "info", "warn", "error", "event"] as const).map((f) => (
@@ -943,45 +824,32 @@ export function LivePreview({
                                 }`}
                             >
                                 {f}
-                                {f === "error" && errorCount > 0 && (
-                                    <span className="ml-1 text-[9px]">({errorCount})</span>
-                                )}
-                                {f === "warn" && warnCount > 0 && (
-                                    <span className="ml-1 text-[9px]">({warnCount})</span>
-                                )}
+                                {f === "error" && errorCount > 0 && <span className="ml-1 text-[9px]">({errorCount})</span>}
+                                {f === "warn" && warnCount > 0 && <span className="ml-1 text-[9px]">({warnCount})</span>}
                             </button>
                         ))}
                     </div>
-                    <button
-                        onClick={() => setLogs([])}
-                        className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider"
-                    >
+                    <button onClick={() => setLogs([])} className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider">
                         Clear
                     </button>
                 </div>
-
-                {/* Log entries */}
                 <div className="flex-1 overflow-auto p-3">
                     {filteredLogs.length === 0 ? (
                         <div className="text-zinc-600 italic pt-4 text-center">
-                            {logs.length === 0 ? "No logs yet \u2014 interact with your Mini-App" : `No ${consoleFilter} logs`}
+                            {logs.length === 0 ? "No logs yet — interact with your Mini-App" : `No ${consoleFilter} logs`}
                         </div>
                     ) : (
                         filteredLogs.map((log, i) => {
                             const isError = log.startsWith("[error]");
                             const isWarn = log.startsWith("[warn]");
                             const isEvent = log.startsWith("[event]") || log.startsWith("[lit]") || log.startsWith("[mcp]") || log.startsWith("[jupiter]");
-
                             return (
-                                <div
-                                    key={i}
-                                    className={`py-1 border-b border-zinc-900/30 flex items-start gap-2 ${
-                                        isError ? "text-red-400 bg-red-500/5"
-                                        : isWarn ? "text-yellow-400"
-                                        : isEvent ? "text-cyan-400"
-                                        : "text-zinc-300"
-                                    }`}
-                                >
+                                <div key={i} className={`py-1 border-b border-zinc-900/30 flex items-start gap-2 ${
+                                    isError ? "text-red-400 bg-red-500/5"
+                                    : isWarn ? "text-yellow-400"
+                                    : isEvent ? "text-cyan-400"
+                                    : "text-zinc-300"
+                                }`}>
                                     <span className="text-zinc-700 shrink-0 select-none w-6 text-right">{i + 1}</span>
                                     <span className="break-all">{log}</span>
                                 </div>
@@ -989,8 +857,6 @@ export function LivePreview({
                         })
                     )}
                 </div>
-
-                {/* Status bar */}
                 <div className="px-3 py-1 border-t border-zinc-800 text-[10px] text-zinc-600 flex items-center justify-between shrink-0">
                     <span>{logs.length} log entries</span>
                     <span>{errorCount > 0 ? `${errorCount} errors` : "No errors"}</span>
@@ -999,11 +865,11 @@ export function LivePreview({
         );
     }
 
-    // ─── Render: Preview Tab ────────────────────────────────
+    // ─── Preview tab ─────────────────────────────────────────────────
     return (
         <div className="h-full w-full relative bg-[#09090b]">
             {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b] z-10 transition-opacity duration-300">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b] z-10 transition-opacity duration-300 pointer-events-none">
                     <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
                     <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
                 </div>
@@ -1025,13 +891,40 @@ export function LivePreview({
                     </button>
                 </div>
             )}
-            <iframe
-                ref={iframeRef}
-                srcDoc={finalIframeContent}
-                className="w-full h-full border-none"
-                sandbox="allow-scripts"
-                title="dreyv Mini-App Preview"
-            />
+            <SandpackProvider
+                key={retryKey}
+                template="react-ts"
+                files={sandpackFiles}
+                customSetup={{
+                    entry: "/index.tsx",
+                    dependencies: {
+                        "react": "^18.2.0",
+                        "react-dom": "^18.2.0",
+                        "lucide-react": "^0.400.0",
+                        "framer-motion": "^11.5.4",
+                        "recharts": "^2.12.7",
+                        "date-fns": "^3.6.0",
+                    },
+                }}
+                options={{ recompileMode: "delayed", recompileDelay: 300 }}
+            >
+                <BridgeBinder
+                    walletAddress={walletAddress}
+                    appId={appId}
+                    livePrices={livePrices}
+                    tokenLogos={tokenLogos}
+                    liveHoldings={liveHoldings}
+                    onLogsChange={handleLogsChange}
+                    onError={setError}
+                    onReady={() => setIsLoading(false)}
+                />
+                <SandpackIframe
+                    showOpenInCodeSandbox={false}
+                    showRefreshButton={false}
+                    showRestartButton={false}
+                    style={{ height: "100%", width: "100%", border: "none", background: "#09090b" }}
+                />
+            </SandpackProvider>
         </div>
     );
 }
