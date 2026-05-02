@@ -899,7 +899,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                         {/* Top bar: Code/Preview segmented toggle + contextual sub-tabs */}
                         <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0 min-w-0 overflow-hidden">
                             {/* Segmented Code | Preview toggle */}
-                            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
+                            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80 shrink-0">
                                 <button
                                     onClick={() => setViewMode("code")}
                                     className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold rounded-md transition-all ${
