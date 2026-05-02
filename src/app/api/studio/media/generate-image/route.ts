@@ -7,26 +7,20 @@
  *
  * Body: { prompt: string, kind: AssetKind, channel?: Channel,
  *         aspect?: '1:1' | '16:9' | '9:16' | '4:5', title?: string }
+ *
+ * IMPORTANT: heavy deps (drizzle, @aws-sdk/client-s3, AI SDKs) are dynamically
+ * imported inside the handler so a missing env / module-load throw on Vercel
+ * surfaces as a JSON 500 instead of a raw HTML FUNCTION_INVOCATION_FAILED.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember, STUDIO_PASS_USER_ID } from "@/lib/media-studio/access";
-import { imageStylePrompt, type AssetKind, type Channel } from "@/lib/media-studio/brand";
-import { generateImage } from "@/lib/media-studio/ai";
-import { putR2Object, presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
-import { db } from "@/db";
-import { mediaStudioAssets } from "@/db/schema";
-import { randomUUID } from "crypto";
+import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const FALLBACK_NOTICE =
   "Image storage is not configured on production yet, so Dreyv returned a lightweight brand preview instead of a raw server error.";
-
-function persistedUserId(id: string) {
-  return id === STUDIO_PASS_USER_ID ? null : id;
-}
 
 function aspectToSize(a: string | undefined): { w: number; h: number } {
   switch (a) {
@@ -45,12 +39,34 @@ function fallbackPreviewUrl(title: string | undefined, kind: AssetKind, aspect: 
 }
 
 export async function POST(req: NextRequest) {
+  let body: { prompt?: string; kind?: AssetKind; channel?: Channel; aspect?: string; title?: string } = {};
   try {
+    try { body = await req.json(); } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    // Lazy-load heavy deps so module-load failures surface as JSON, not HTML 500.
+    const [
+      { requireTeamMember, STUDIO_PASS_USER_ID },
+      { imageStylePrompt },
+      { generateImage },
+      { putR2Object, presignR2Get, isR2Configured },
+      dbModule,
+      schemaModule,
+      cryptoModule,
+    ] = await Promise.all([
+      import("@/lib/media-studio/access"),
+      import("@/lib/media-studio/brand"),
+      import("@/lib/media-studio/ai"),
+      import("@/lib/agents/artifacts/r2-storage"),
+      import("@/db"),
+      import("@/db/schema"),
+      import("crypto"),
+    ]);
+
     const gate = await requireTeamMember(req);
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-    let body: { prompt?: string; kind?: AssetKind; channel?: Channel; aspect?: string; title?: string };
-    try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
     const prompt = (body.prompt ?? "").trim();
     if (!prompt) return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     const kind: AssetKind = body.kind ?? "post";
@@ -68,12 +84,14 @@ export async function POST(req: NextRequest) {
     const fullPrompt = `${imageStylePrompt(kind)}\n\nSubject: ${prompt}\n\nAspect ratio: ${body.aspect ?? "1:1"}.`;
     const { buffer, mime } = await generateImage({ prompt: fullPrompt });
 
-    const storageKey = `media-studio/${gate.user.id}/${randomUUID()}.png`;
+    const storageKey = `media-studio/${gate.user.id}/${cryptoModule.randomUUID()}.png`;
     await putR2Object({ key: storageKey, body: buffer, mime, filename: `dreyv-${kind}.png` });
 
+    const db = dbModule.db;
+    const persistedUserId = gate.user.id === STUDIO_PASS_USER_ID ? null : gate.user.id;
     const [row] = db
-      ? await db.insert(mediaStudioAssets).values({
-          userId: persistedUserId(gate.user.id),
+      ? await db.insert(schemaModule.mediaStudioAssets).values({
+          userId: persistedUserId,
           kind,
           channel: body.channel ?? null,
           title: body.title ?? null,
@@ -92,8 +110,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ asset: row, previewUrl });
   } catch (err) {
     console.error("[generate-image] failed", err);
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : "Image generation failed";
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Image generation failed", fallback: true },
+      {
+        asset: null,
+        previewUrl: fallbackPreviewUrl(body.title, (body.kind ?? "post") as AssetKind, body.aspect),
+        fallback: true,
+        error: msg,
+      },
       { status: 200 },
     );
   }
