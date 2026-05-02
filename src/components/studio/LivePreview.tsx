@@ -68,9 +68,8 @@ const MINTS: Record<string, string> = {
     JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
 };
 
-// ─── SDK source (runs inside WebContainer Vite project as a local pkg) ──
-// Same surface as before: every Dreyv hook talks to window.keystoneBridge,
-// which the bootstrap module installs.
+// ─── SDK source (compiled into the iframe runtime as a virtual package) ──
+// Same surface as before: every Dreyv hook talks to window.keystoneBridge.
 const SDK_MODULE_SOURCE = `
 import React from "react";
 
@@ -295,116 +294,6 @@ export function useStorage(namespace) {
   };
 }
 `;
-
-// Bootstrap module — runs in iframe before user App renders.
-const BOOTSTRAP_MODULE_SOURCE = `
-${IFRAME_BRIDGE_CLIENT}
-window.keystoneBridge = keystoneBridge;
-
-(function () {
-  const fwd = (level, args) => {
-    try {
-      keystoneBridge.notify("console." + level, {
-        message: args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "),
-      });
-    } catch (e) {}
-  };
-  const orig = { log: console.log, warn: console.warn, error: console.error };
-  console.log = function () { orig.log.apply(console, arguments); fwd("log", Array.from(arguments)); };
-  console.warn = function () { orig.warn.apply(console, arguments); fwd("warn", Array.from(arguments)); };
-  console.error = function () { orig.error.apply(console, arguments); fwd("error", Array.from(arguments)); };
-  window.addEventListener("error", (e) => keystoneBridge.notify("runtime.error", {
-    message: String(e.message), line: e.lineno, col: e.colno,
-  }));
-  window.addEventListener("unhandledrejection", (e) => keystoneBridge.notify("runtime.error", {
-    message: "Unhandled Promise: " + String(e.reason && e.reason.message || e.reason),
-  }));
-})();
-
-window.__dreyvInjected = window.__dreyvInjected || {};
-window.addEventListener("message", (event) => {
-  const data = event.data;
-  if (!data || data.type !== "__dreyv_inject__") return;
-  Object.assign(window.__dreyvInjected, data.payload || {});
-  window.dispatchEvent(new CustomEvent("dreyv:inject"));
-});
-
-const DREYV_PROVIDERS = ["helius","jupiter","birdeye","marinade","pyth","resend","telegram","slack"];
-const dreyv = {
-  invoke: (provider, operation, params) =>
-    keystoneBridge.call("dreyv.invoke", { provider, operation, params: params || {} }),
-  listConnections: () => keystoneBridge.call("dreyv.listConnections", {}),
-};
-DREYV_PROVIDERS.forEach((p) => {
-  dreyv[p] = new Proxy({}, {
-    get: (_t, op) => (params) => dreyv.invoke(p, String(op), params || {}),
-  });
-});
-window.dreyv = dreyv;
-
-keystoneBridge.notify("runtime.ready", {});
-
-export {};
-`;
-
-const MAIN_TSX_SOURCE = `
-import "./_dreyv-bootstrap";
-import React from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-
-class ErrorBoundary extends React.Component {
-  state: { error: any } = { error: null };
-  static getDerivedStateFromError(error: any) { return { error }; }
-  componentDidCatch(error: any, info: any) {
-    try {
-      (window as any).keystoneBridge.notify("runtime.error", {
-        message: error && error.message ? error.message : String(error),
-        componentStack: info && info.componentStack ? info.componentStack.slice(0, 500) : undefined,
-      });
-    } catch (e) {}
-  }
-  render() {
-    if ((this.state as any).error) {
-      const e = (this.state as any).error;
-      return (
-        <div style={{ color: "#ef4444", padding: 20, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6 }}>
-          <strong style={{ color: "#f87171" }}>Component Error</strong>
-          <br />
-          <span style={{ color: "#fca5a5" }}>{e.message || String(e)}</span>
-        </div>
-      );
-    }
-    return (this.props as any).children;
-  }
-}
-
-const root = createRoot(document.getElementById("root")!);
-root.render(<ErrorBoundary><App /></ErrorBoundary>);
-`;
-
-const INDEX_HTML_SOURCE = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
-    #root { min-height: 100vh; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #ffffff; }
-    ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-</html>`;
 
 const UI_SHIM_SOURCE = `
 import React from "react";
