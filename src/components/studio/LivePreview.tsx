@@ -393,7 +393,10 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
 }
 
 function scriptJson(value: unknown): string {
-    return JSON.stringify(value).replace(/<\//g, "<\\/");
+    return JSON.stringify(value)
+        .replace(/<\//g, "<\\/")
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
 }
 
 function buildRuntimeHtml(runtime: CompiledRuntime): string {
@@ -472,7 +475,7 @@ window.dreyv = dreyv;
 
   function showError(error) {
     const message = error && error.stack ? error.stack : (error && error.message ? error.message : String(error));
-    document.getElementById("root").innerHTML = '<div class="runtime-error"><strong>Runtime Error</strong>\n' + message.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>';
+    document.getElementById("root").innerHTML = '<div class="runtime-error"><strong>Runtime Error</strong>\\n' + message.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>';
     try { keystoneBridge.notify("runtime.error", { message }); } catch (e) {}
   }
 
@@ -517,7 +520,7 @@ window.dreyv = dreyv;
     const module = { exports: {} };
     cache[id] = module;
     const require = (request) => execute(resolve(id, request));
-    new Function("require", "module", "exports", modules[id] + "\n//# sourceURL=dreyv-preview:" + id)(require, module, module.exports);
+    new Function("require", "module", "exports", modules[id] + "\\n//# sourceURL=dreyv-preview:" + id)(require, module, module.exports);
     return module.exports;
   }
 
@@ -529,7 +532,7 @@ window.dreyv = dreyv;
     }
     render() {
       if (this.state.error) {
-        return host.React.createElement("div", { className: "runtime-error" }, "Component Error\n" + (this.state.error.message || String(this.state.error)));
+        return host.React.createElement("div", { className: "runtime-error" }, "Component Error\\n" + (this.state.error.message || String(this.state.error)));
       }
       return this.props.children;
     }
