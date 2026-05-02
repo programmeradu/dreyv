@@ -286,13 +286,13 @@ function MobileNavRow({ icon: Icon, label, href, active, onNavigate }: { icon: a
         <Link
             href={href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium transition-colors border
+            className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors border
                 ${active
-                    ? 'bg-primary/10 text-primary border-primary/20'
-                    : 'bg-transparent text-foreground/80 border-transparent hover:bg-muted hover:text-foreground'}`}
+                    ? 'bg-violet-50 text-violet-700 border-violet-200'
+                    : 'bg-transparent text-neutral-700 border-transparent hover:bg-neutral-50 hover:text-neutral-900'}`}
         >
-            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-primary/15' : 'bg-muted'}`}>
-                <Icon strokeWidth={active ? 2.4 : 2} size={18} />
+            <span className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${active ? 'bg-violet-100 text-violet-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                <Icon strokeWidth={active ? 2.4 : 2} size={15} />
             </span>
             <span className="truncate">{label}</span>
         </Link>
