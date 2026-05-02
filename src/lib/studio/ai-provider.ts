@@ -351,6 +351,57 @@ export async function* streamProvider(
         }
       }
     }
+  } else if (provider === "lovable") {
+    // `key` is the Supabase edge function URL — auth handled server-side via managed LOVABLE_API_KEY.
+    const res = await fetch(key, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: temp,
+        max_tokens: maxTokens,
+        stream: true,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      throw new Error(`Lovable AI proxy error ${res.status}: ${err.slice(0, 200)}`);
+    }
+    if (!res.body) throw new Error("No response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(payload);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) yield content;
+        } catch {
+          // partial JSON across chunks — push back and wait
+          buffer = line + "\n" + buffer;
+          break;
+        }
+      }
+    }
   }
 }
 
