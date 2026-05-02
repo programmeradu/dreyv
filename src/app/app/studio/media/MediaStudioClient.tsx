@@ -19,11 +19,9 @@ import type {
   Channel,
   ContentSuggestion,
   CopyResult,
-  InfographicSpec,
   VideoStoryboard,
 } from "@/lib/media-studio/types";
 import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
-import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
 import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
