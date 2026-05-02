@@ -1,11 +1,15 @@
 /**
  * Generation wrapper for the Media Studio.
  *
- * Provider strategy:
- *   1. If GEMINI_API_KEY (or GOOGLE_AI_API_KEY / GOOGLE_GENAI_API_KEY) is set,
- *      call Google AI Studio (Generative Language API) directly. This is the
- *      production path on Vercel where LOVABLE_API_KEY is not available.
- *   2. Otherwise fall back to the Lovable AI Gateway (LOVABLE_API_KEY).
+ * Provider strategy (first match wins):
+ *   1. GEMINI_API_KEY (or GOOGLE_AI_API_KEY / GOOGLE_GENAI_API_KEY) → Google AI
+ *      Studio direct. Primary path on Vercel when set.
+ *   2. LOVABLE_AI_PROXY_URL (or NEXT_PUBLIC_SUPABASE_URL) → Supabase edge
+ *      function `lovable-ai-proxy` which forwards to the Lovable AI Gateway
+ *      using the managed LOVABLE_API_KEY in the Lovable Cloud workspace.
+ *      This lets Vercel use Lovable AI WITHOUT putting LOVABLE_API_KEY on Vercel.
+ *   3. LOVABLE_API_KEY → Lovable AI Gateway direct. Only works in environments
+ *      that have the key locally (e.g. dev with .env.local).
  *
  * We keep one place to swap models, retry, or log usage.
  */
@@ -15,18 +19,35 @@ const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-type Provider = "gemini" | "lovable";
+type Provider = "gemini" | "lovable-proxy" | "lovable";
 
-function pickProvider(): { provider: Provider; key: string } {
+/** Resolve the Supabase edge-function URL for the lovable-ai-proxy, if available. */
+function resolveProxyUrl(): string | null {
+  const explicit = process.env.LOVABLE_AI_PROXY_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const supa =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL;
+  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+
+function pickProvider(): { provider: Provider; key?: string; proxyUrl?: string } {
   const gem =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_AI_API_KEY ||
     process.env.GOOGLE_GENAI_API_KEY;
   if (gem) return { provider: "gemini", key: gem };
+
+  const proxyUrl = resolveProxyUrl();
+  if (proxyUrl) return { provider: "lovable-proxy", proxyUrl };
+
   const lov = process.env.LOVABLE_API_KEY;
   if (lov) return { provider: "lovable", key: lov };
+
   throw new Error(
-    "No AI provider configured. Set GEMINI_API_KEY (recommended for production) or LOVABLE_API_KEY.",
+    "No AI provider configured. Set GEMINI_API_KEY, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY.",
   );
 }
 
@@ -101,18 +122,21 @@ async function googleChatJson<T>(opts: {
   return JSON.parse(text) as T;
 }
 
-async function lovableChatJson<T>(opts: {
+/**
+ * Shared body builder for the OpenAI-compatible chat-completions schema used by
+ * both the Lovable AI Gateway and the lovable-ai-proxy edge function.
+ */
+function buildChatBody(opts: {
   model?: string;
-  apiKey: string;
   messages: ChatMessage[];
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
-}): Promise<T> {
-  const model = opts.model ?? "google/gemini-3-flash-preview";
+}): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    model,
+    model: opts.model ?? "google/gemini-3-flash-preview",
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
+    stream: false,
   };
   if (opts.schema) {
     body.tools = [
@@ -122,10 +146,32 @@ async function lovableChatJson<T>(opts: {
   } else {
     body.response_format = { type: "json_object" };
   }
+  return body;
+}
+
+function parseChatJsonResponse<T>(data: unknown, hasSchema: boolean): T {
+  const root = data as { choices?: Array<{ message?: { content?: unknown; tool_calls?: Array<{ function?: { arguments?: unknown } }> } }> };
+  if (hasSchema) {
+    const args = root?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (typeof args === "string") return JSON.parse(args) as T;
+    throw new Error("AI gateway returned no tool call");
+  }
+  const content = root?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return JSON.parse(content) as T;
+  throw new Error("AI gateway returned no content");
+}
+
+async function lovableChatJson<T>(opts: {
+  model?: string;
+  apiKey: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
   const res = await fetch(LOVABLE_GATEWAY_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(buildChatBody(opts)),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -133,15 +179,28 @@ async function lovableChatJson<T>(opts: {
     if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
     throw new Error(`AI gateway ${res.status}: ${text.slice(0, 300)}`);
   }
-  const data = await res.json();
-  if (opts.schema) {
-    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (typeof args === "string") return JSON.parse(args) as T;
-    throw new Error("AI gateway returned no tool call");
+  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
+}
+
+async function proxyChatJson<T>(opts: {
+  model?: string;
+  proxyUrl: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
+  const res = await fetch(opts.proxyUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildChatBody(opts)),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
+    throw new Error(`Lovable AI proxy ${res.status}: ${text.slice(0, 300)}`);
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return JSON.parse(content) as T;
-  throw new Error("AI gateway returned no content");
+  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
 }
 
 export async function chatJson<T = unknown>(opts: {
@@ -150,33 +209,37 @@ export async function chatJson<T = unknown>(opts: {
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
 }): Promise<T> {
-  const { provider, key } = pickProvider();
-  if (provider === "gemini") {
+  const picked = pickProvider();
+  if (picked.provider === "gemini") {
     return googleChatJson<T>({
       model: opts.model ?? "google/gemini-3-flash-preview",
-      apiKey: key,
+      apiKey: picked.key as string,
       messages: opts.messages,
       schema: opts.schema,
       temperature: opts.temperature,
     });
   }
-  return lovableChatJson<T>({ ...opts, apiKey: key });
+  if (picked.provider === "lovable-proxy") {
+    return proxyChatJson<T>({ ...opts, proxyUrl: picked.proxyUrl as string });
+  }
+  return lovableChatJson<T>({ ...opts, apiKey: picked.key as string });
 }
 
 /**
- * Generate an image. Uses Google AI Studio when GEMINI_API_KEY is set,
- * otherwise the Lovable AI gateway.
+ * Generate an image. Provider order: Gemini direct → lovable-ai-proxy
+ * (Supabase edge function) → Lovable AI Gateway direct.
  */
 export async function generateImage(opts: {
   prompt: string;
   model?: string;
   size?: "1024x1024" | "1024x1792" | "1792x1024";
 }): Promise<{ buffer: Buffer; mime: string }> {
-  const { provider, key } = pickProvider();
+  const picked = pickProvider();
 
-  if (provider === "gemini") {
+  if (picked.provider === "gemini") {
+    const apiKey = picked.key as string;
     const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
-    const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
+    const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -203,28 +266,35 @@ export async function generateImage(opts: {
     throw new Error("Gemini returned no image");
   }
 
+  // Both lovable-proxy and lovable speak the same OpenAI-compatible body.
+  const isProxy = picked.provider === "lovable-proxy";
+  const endpoint = isProxy ? (picked.proxyUrl as string) : LOVABLE_GATEWAY_URL;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (!isProxy) headers.Authorization = `Bearer ${picked.key as string}`;
+
   const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
-  const res = await fetch(LOVABLE_GATEWAY_URL, {
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: opts.prompt }],
       modalities: ["image", "text"],
+      stream: false,
     }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
     if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
-    throw new Error(`AI gateway image ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`Lovable AI image ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
   const images = data?.choices?.[0]?.message?.images;
   const url: string | undefined = images?.[0]?.image_url?.url;
-  if (!url) throw new Error("AI gateway returned no image");
+  if (!url) throw new Error("Lovable AI returned no image");
   const m = /^data:([^;]+);base64,(.+)$/.exec(url);
-  if (!m) throw new Error("AI gateway image was not a base64 data URL");
+  if (!m) throw new Error("Lovable AI image was not a base64 data URL");
   const mime = m[1] ?? "image/png";
   const buffer = Buffer.from(m[2] ?? "", "base64");
   return { buffer, mime };
