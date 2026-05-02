@@ -105,57 +105,53 @@ export function ProjectBrowser({
                                 )}
                             >
                                 {/* Ambient violet glows — flat, no shadows */}
-                                <div className="pointer-events-none absolute -top-32 -right-24 h-72 w-72 rounded-full bg-violet-300/40 blur-3xl" />
-                                <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-violet-400/30 blur-3xl" />
+                                <div className="pointer-events-none absolute -top-20 -right-16 h-44 w-44 rounded-full bg-violet-300/40 blur-3xl" />
+                                <div className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-violet-400/30 blur-3xl" />
 
                                 {/* Header */}
-                                <div className="relative flex items-start justify-between gap-4 px-7 pt-6 pb-5 border-b border-violet-100">
-                                    <div className="flex flex-col gap-1 min-w-0">
-                                        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">
+                                <div className="relative flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-violet-100">
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-violet-600">
                                             dreyv · studio
                                         </span>
-                                        <DialogPrimitive.Title className="text-[22px] font-semibold tracking-tight text-slate-900">
+                                        <DialogPrimitive.Title className="text-[16px] font-semibold tracking-tight text-slate-900">
                                             Your projects
                                         </DialogPrimitive.Title>
-                                        <DialogPrimitive.Description className="text-[13px] text-slate-500">
-                                            Pick up where you left off, or start a new mini-app.
-                                        </DialogPrimitive.Description>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div className="flex items-center gap-1.5 shrink-0">
                                         {onNewProject && (
                                             <button
                                                 onClick={() => { onNewProject(); onClose(); }}
-                                                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-violet-600 text-white text-[12px] font-semibold hover:bg-violet-700 transition-colors"
+                                                className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition-colors"
                                             >
-                                                <Plus size={14} />
-                                                New project
+                                                <Plus size={12} />
+                                                New
                                             </button>
                                         )}
                                         <DialogPrimitive.Close
-                                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-100 text-slate-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-violet-100 text-slate-500 hover:text-violet-700 hover:bg-violet-50 transition-colors"
                                             aria-label="Close"
                                         >
-                                            <XIcon className="h-4 w-4" />
+                                            <XIcon className="h-3.5 w-3.5" />
                                         </DialogPrimitive.Close>
                                     </div>
                                 </div>
 
                                 {/* Search */}
-                                <div className="relative px-7 pt-5 pb-3">
-                                    <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border border-violet-100 bg-white focus-within:border-violet-300 transition-colors">
-                                        <FolderOpen size={14} className="text-violet-500 shrink-0" />
+                                <div className="relative px-5 pt-3 pb-2">
+                                    <div className="flex items-center gap-2 h-8 px-3 rounded-lg border border-violet-100 bg-white focus-within:border-violet-300 transition-colors">
+                                        <FolderOpen size={12} className="text-violet-500 shrink-0" />
                                         <input
                                             value={query}
                                             onChange={(e) => setQuery(e.target.value)}
                                             placeholder="Search projects…"
-                                            className="flex-1 bg-transparent text-[13px] text-slate-800 placeholder:text-slate-400 outline-none"
+                                            className="flex-1 bg-transparent text-[12px] text-slate-800 placeholder:text-slate-400 outline-none"
                                         />
-                                        <span className="text-[11px] text-slate-400 tabular-nums">
+                                        <span className="text-[10px] text-slate-400 tabular-nums">
                                             {filtered.length}/{projects.length}
                                         </span>
                                     </div>
                                 </div>
-
                                 {/* Body */}
                                 <div className="relative px-7 pb-7">
                                     {loading ? (
