@@ -122,16 +122,20 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                     <Menu className="w-5 h-5" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-[86%] max-w-sm p-0 bg-sidebar border-r border-border">
+                            <SheetContent
+                                side="left"
+                                className="w-[86%] max-w-sm p-0 border-r border-border shadow-2xl !bg-background dark:!bg-[#0b0b14] [&>button]:text-foreground"
+                                style={{ backdropFilter: "none", WebkitBackdropFilter: "none" }}
+                            >
                                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                                <div className="flex flex-col h-full">
+                                <div className="flex flex-col h-full bg-background dark:bg-[#0b0b14]">
                                     <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-                                        <span className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                                        <span className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center shrink-0">
                                             <DreyvMark size={36} />
                                         </span>
                                         <div className="flex flex-col min-w-0">
-                                            <span className="font-semibold tracking-tight leading-tight">Dreyv</span>
-                                            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Command layer</span>
+                                            <span className="font-semibold tracking-tight leading-tight text-foreground">Dreyv</span>
+                                            <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Command layer</span>
                                         </div>
                                     </div>
                                     <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
