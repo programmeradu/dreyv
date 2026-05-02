@@ -122,18 +122,21 @@ async function googleChatJson<T>(opts: {
   return JSON.parse(text) as T;
 }
 
-async function lovableChatJson<T>(opts: {
+/**
+ * Shared body builder for the OpenAI-compatible chat-completions schema used by
+ * both the Lovable AI Gateway and the lovable-ai-proxy edge function.
+ */
+function buildChatBody(opts: {
   model?: string;
-  apiKey: string;
   messages: ChatMessage[];
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
-}): Promise<T> {
-  const model = opts.model ?? "google/gemini-3-flash-preview";
+}): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    model,
+    model: opts.model ?? "google/gemini-3-flash-preview",
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
+    stream: false,
   };
   if (opts.schema) {
     body.tools = [
@@ -143,10 +146,32 @@ async function lovableChatJson<T>(opts: {
   } else {
     body.response_format = { type: "json_object" };
   }
+  return body;
+}
+
+function parseChatJsonResponse<T>(data: unknown, hasSchema: boolean): T {
+  const root = data as { choices?: Array<{ message?: { content?: unknown; tool_calls?: Array<{ function?: { arguments?: unknown } }> } }> };
+  if (hasSchema) {
+    const args = root?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (typeof args === "string") return JSON.parse(args) as T;
+    throw new Error("AI gateway returned no tool call");
+  }
+  const content = root?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return JSON.parse(content) as T;
+  throw new Error("AI gateway returned no content");
+}
+
+async function lovableChatJson<T>(opts: {
+  model?: string;
+  apiKey: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
   const res = await fetch(LOVABLE_GATEWAY_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(buildChatBody(opts)),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -154,15 +179,28 @@ async function lovableChatJson<T>(opts: {
     if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
     throw new Error(`AI gateway ${res.status}: ${text.slice(0, 300)}`);
   }
-  const data = await res.json();
-  if (opts.schema) {
-    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (typeof args === "string") return JSON.parse(args) as T;
-    throw new Error("AI gateway returned no tool call");
+  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
+}
+
+async function proxyChatJson<T>(opts: {
+  model?: string;
+  proxyUrl: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
+  const res = await fetch(opts.proxyUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildChatBody(opts)),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
+    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
+    throw new Error(`Lovable AI proxy ${res.status}: ${text.slice(0, 300)}`);
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return JSON.parse(content) as T;
-  throw new Error("AI gateway returned no content");
+  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
 }
 
 export async function chatJson<T = unknown>(opts: {
@@ -171,17 +209,20 @@ export async function chatJson<T = unknown>(opts: {
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
 }): Promise<T> {
-  const { provider, key } = pickProvider();
-  if (provider === "gemini") {
+  const picked = pickProvider();
+  if (picked.provider === "gemini") {
     return googleChatJson<T>({
       model: opts.model ?? "google/gemini-3-flash-preview",
-      apiKey: key,
+      apiKey: picked.key as string,
       messages: opts.messages,
       schema: opts.schema,
       temperature: opts.temperature,
     });
   }
-  return lovableChatJson<T>({ ...opts, apiKey: key });
+  if (picked.provider === "lovable-proxy") {
+    return proxyChatJson<T>({ ...opts, proxyUrl: picked.proxyUrl as string });
+  }
+  return lovableChatJson<T>({ ...opts, apiKey: picked.key as string });
 }
 
 /**
