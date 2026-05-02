@@ -7,7 +7,21 @@
 
 import OpenAI from "openai";
 
-export type ProviderType = "openai" | "groq" | "google" | "anthropic" | "cloudflare" | "ollama";
+export type ProviderType = "openai" | "groq" | "google" | "anthropic" | "cloudflare" | "ollama" | "lovable";
+
+/**
+ * Resolve the Lovable AI proxy URL (Supabase edge function). Returns null when
+ * no Supabase project is configured (e.g. local dev without Cloud).
+ */
+function resolveLovableProxyBase(): string | null {
+  const raw =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    "";
+  if (!raw) return null;
+  return `${raw.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+}
 
 export interface ProviderEntry {
   provider: ProviderType;
@@ -29,6 +43,7 @@ export function getDefaultModel(provider: string): string {
     case "anthropic": return "claude-sonnet-4-20250514";
     case "cloudflare": return "@cf/qwen/qwen3-30b-a3b-fp8";
     case "ollama": return "qwen2.5-coder:7b";
+    case "lovable": return "google/gemini-3-flash-preview";
     default: return "gpt-4o";
   }
 }
@@ -52,6 +67,16 @@ export function buildProviderChain(aiConfig?: AIConfig | null): ProviderEntry[] 
   }
   if (process.env.OLLAMA_HOST || process.env.OLLAMA_ENABLED === "true") {
     chain.push({ provider: "ollama", key: "ollama", model: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b" });
+  }
+
+  // Lovable AI proxy (auto-detected when Supabase URL is present — managed key, no secret needed on Vercel)
+  const lovableBase = resolveLovableProxyBase();
+  if (lovableBase) {
+    chain.push({
+      provider: "lovable",
+      key: lovableBase,
+      model: process.env.LOVABLE_AI_MODEL || "google/gemini-3-flash-preview",
+    });
   }
 
   return chain;
@@ -169,6 +194,28 @@ export async function callProvider(
       temperature: temp,
     });
     return completion.choices[0]?.message?.content || "{}";
+
+  } else if (p === "lovable") {
+    // `key` is the proxy URL (Supabase edge function). Auth handled server-side.
+    const res = await fetch(key, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt + "\n\nIMPORTANT: Return ONLY raw JSON. Do not wrap in markdown code blocks." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: temp,
+        max_tokens: maxTokens,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      throw new Error(`Lovable AI proxy error ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "{}";
   }
 
   throw new Error(`Unsupported provider: ${p}`);
@@ -301,6 +348,57 @@ export async function* streamProvider(
             const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) yield text;
           } catch { /* skip */ }
+        }
+      }
+    }
+  } else if (provider === "lovable") {
+    // `key` is the Supabase edge function URL — auth handled server-side via managed LOVABLE_API_KEY.
+    const res = await fetch(key, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: temp,
+        max_tokens: maxTokens,
+        stream: true,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      throw new Error(`Lovable AI proxy error ${res.status}: ${err.slice(0, 200)}`);
+    }
+    if (!res.body) throw new Error("No response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(payload);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) yield content;
+        } catch {
+          // partial JSON across chunks — push back and wait
+          buffer = line + "\n" + buffer;
+          break;
         }
       }
     }
