@@ -372,6 +372,7 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
 
     for (const f of Object.values(files)) {
         const id = normalisePreviewPath(f.name);
+        if (!LOCAL_EXTENSIONS.some((ext) => id.endsWith(ext))) continue;
         modules[id] = compileModule(f.content, id);
         if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
     }
