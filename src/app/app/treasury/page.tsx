@@ -172,7 +172,7 @@ export default function TreasuryPage() {
       </section>
 
       {/* CANVAS STREAM — generative bucket surface */}
-      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-32 sm:px-6">
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-40 sm:px-6 sm:pb-32">
         <SectionHeader
           eyebrow="Live canvas"
           title="Everything Dreyv is watching for you"
