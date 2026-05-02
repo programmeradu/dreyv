@@ -20,7 +20,7 @@ function persistedUserId(id: string) {
   return id === STUDIO_PASS_USER_ID ? null : id;
 }
 
-const STUDIO_PASS_USER_ID = "studio-pass-user";
+const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,10 +72,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireTeamMember(req);
-  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 500 });
-
   let body: {
     kind?: AssetKind;
     channel?: Channel;
@@ -90,7 +86,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const [row] = await db.insert(mediaStudioAssets).values({
+    const [accessModule, dbModule, schemaModule] = await Promise.all([
+      import("@/lib/media-studio/access"),
+      import("@/db"),
+      import("@/db/schema"),
+    ]);
+
+    const gate = await accessModule.requireTeamMember(req);
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
+    const db = dbModule.db;
+    if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 200 });
+
+    const [row] = await db.insert(schemaModule.mediaStudioAssets).values({
       userId: persistedUserId(gate.user.id),
       kind: body.kind,
       channel: body.channel ?? null,
@@ -105,6 +113,7 @@ export async function POST(req: NextRequest) {
     if (isMigrationPending(err)) {
       return NextResponse.json({ error: "Media Studio migration pending", migrationPending: true }, { status: 503 });
     }
-    return NextResponse.json({ error: "Could not save asset" }, { status: 500 });
+    const message = err instanceof Error ? `${err.name}: ${err.message}` : "Could not save asset";
+    return NextResponse.json({ error: message }, { status: 200 });
   }
 }
