@@ -1,7 +1,9 @@
 /**
  * Phase 7A.2 — Cloudflare R2 adapter for agent artifacts.
  *
- * R2 is S3-compatible — we use @aws-sdk/client-s3 with R2's endpoint.
+ * R2 is S3-compatible. We sign requests directly with AWS SigV4 instead of
+ * importing the AWS SDK because the SDK's transitive XML parser can crash in
+ * Vercel's Node runtime with ESM/CJS interop errors.
  * Required env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
  * R2_BUCKET. Optional: R2_PUBLIC_BASE (CDN base) — unused; we always
  * use short-lived presigned GETs.
@@ -9,16 +11,21 @@
  * Throws loudly if env is missing — callers catch and degrade gracefully.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createHash, createHmac } from "crypto";
 
 const PRESIGN_TTL = 60 * 10; // 10 min — refreshed on each download
 
-let _client: S3Client | null = null;
-let _bucket: string | null = null;
+type R2Config = {
+    accountId: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucket: string;
+};
 
-function getClient(): { client: S3Client; bucket: string } {
-    if (_client && _bucket) return { client: _client, bucket: _bucket };
+let _config: R2Config | null = null;
+
+function getConfig(): R2Config {
+    if (_config) return _config;
     const accountId = process.env.R2_ACCOUNT_ID;
     const accessKeyId = process.env.R2_ACCESS_KEY_ID;
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -28,13 +35,8 @@ function getClient(): { client: S3Client; bucket: string } {
             "R2 not configured (need R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET)",
         );
     }
-    _client = new S3Client({
-        region: "auto",
-        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-        credentials: { accessKeyId, secretAccessKey },
-    });
-    _bucket = bucket;
-    return { client: _client, bucket: _bucket };
+    _config = { accountId, accessKeyId, secretAccessKey, bucket };
+    return _config;
 }
 
 export function isR2Configured(): boolean {
