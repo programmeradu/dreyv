@@ -1,11 +1,15 @@
 /**
  * Generation wrapper for the Media Studio.
  *
- * Provider strategy:
- *   1. If GEMINI_API_KEY (or GOOGLE_AI_API_KEY / GOOGLE_GENAI_API_KEY) is set,
- *      call Google AI Studio (Generative Language API) directly. This is the
- *      production path on Vercel where LOVABLE_API_KEY is not available.
- *   2. Otherwise fall back to the Lovable AI Gateway (LOVABLE_API_KEY).
+ * Provider strategy (first match wins):
+ *   1. GEMINI_API_KEY (or GOOGLE_AI_API_KEY / GOOGLE_GENAI_API_KEY) → Google AI
+ *      Studio direct. Primary path on Vercel when set.
+ *   2. LOVABLE_AI_PROXY_URL (or NEXT_PUBLIC_SUPABASE_URL) → Supabase edge
+ *      function `lovable-ai-proxy` which forwards to the Lovable AI Gateway
+ *      using the managed LOVABLE_API_KEY in the Lovable Cloud workspace.
+ *      This lets Vercel use Lovable AI WITHOUT putting LOVABLE_API_KEY on Vercel.
+ *   3. LOVABLE_API_KEY → Lovable AI Gateway direct. Only works in environments
+ *      that have the key locally (e.g. dev with .env.local).
  *
  * We keep one place to swap models, retry, or log usage.
  */
@@ -15,18 +19,35 @@ const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-type Provider = "gemini" | "lovable";
+type Provider = "gemini" | "lovable-proxy" | "lovable";
 
-function pickProvider(): { provider: Provider; key: string } {
+/** Resolve the Supabase edge-function URL for the lovable-ai-proxy, if available. */
+function resolveProxyUrl(): string | null {
+  const explicit = process.env.LOVABLE_AI_PROXY_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const supa =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL;
+  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+
+function pickProvider(): { provider: Provider; key?: string; proxyUrl?: string } {
   const gem =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_AI_API_KEY ||
     process.env.GOOGLE_GENAI_API_KEY;
   if (gem) return { provider: "gemini", key: gem };
+
+  const proxyUrl = resolveProxyUrl();
+  if (proxyUrl) return { provider: "lovable-proxy", proxyUrl };
+
   const lov = process.env.LOVABLE_API_KEY;
   if (lov) return { provider: "lovable", key: lov };
+
   throw new Error(
-    "No AI provider configured. Set GEMINI_API_KEY (recommended for production) or LOVABLE_API_KEY.",
+    "No AI provider configured. Set GEMINI_API_KEY, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY.",
   );
 }
 
