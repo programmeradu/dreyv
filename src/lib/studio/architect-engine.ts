@@ -144,7 +144,7 @@ export class ArchitectEngine {
 
     try {
       // ─── Phase 1: Initial Generation ──────────────────
-      const files = await this.callGenerateAPI(
+      const rawFiles = await this.callGenerateAPI(
         prompt,
         contextFiles,
         runtimeLogs,
@@ -152,6 +152,16 @@ export class ArchitectEngine {
         aiConfig,
         history
       );
+
+      // Drop any .html files the model emits — the Studio runtime owns the
+      // HTML shell, so any generated HTML is dead weight that confuses users.
+      const files = rawFiles
+        ? Object.fromEntries(
+            Object.entries(rawFiles).filter(
+              ([name]) => !name.toLowerCase().endsWith(".html")
+            )
+          )
+        : rawFiles;
 
       if (!files || Object.keys(files).length === 0) {
         this.transition("FAILED");
