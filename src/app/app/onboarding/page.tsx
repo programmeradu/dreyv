@@ -149,7 +149,7 @@ export default function OnboardingPage() {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             {/* Top bar */}
-            <div className="border-b border-border/50 px-6 py-4 flex items-center justify-between">
+            <div className="border-b border-border/50 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Logo size={28} />
                     <span className="text-sm font-black text-foreground uppercase tracking-widest">dreyv Setup</span>
@@ -161,7 +161,7 @@ export default function OnboardingPage() {
 
             {/* Progress bar */}
             <div className="border-b border-border/30">
-                <div className="max-w-3xl mx-auto px-6 py-3 flex items-center gap-2">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
                     {STEPS.map((step, i) => (
                         <React.Fragment key={step.id}>
                             <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Step content */}
-            <div className="flex-1 flex items-center justify-center p-6">
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
                 <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500" key={currentStep}>
                     {currentStep === 0 && <WelcomeStep {...stepProps} />}
                     {currentStep === 1 && <ProfileStep {...stepProps} />}
@@ -205,7 +205,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Navigation footer */}
-            <div className="border-t border-border/50 px-6 py-4">
+            <div className="border-t border-border/50 px-4 sm:px-6 py-3 sm:py-4">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <button
                         onClick={handleBack}
