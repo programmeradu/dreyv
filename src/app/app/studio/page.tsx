@@ -788,7 +788,29 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
     }, []);
 
     return (
-        <div className="h-screen flex flex-col bg-white text-slate-900 selection:bg-violet-200 overflow-hidden min-h-0 font-[Manrope,sans-serif]">
+        <div className="h-dvh md:h-screen flex flex-col bg-white text-slate-900 selection:bg-violet-200 overflow-hidden min-h-0 font-[Manrope,sans-serif]">
+            {/* Mobile gate — Studio is a desktop IDE */}
+            <div className="md:hidden flex-1 flex flex-col items-center justify-center px-6 py-10 text-center gap-5 overflow-y-auto">
+                <div className="w-16 h-16 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center">
+                    <DreyvStar size={28} className="text-violet-600" />
+                </div>
+                <div className="space-y-2 max-w-sm">
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900">Studio is desktop‑only</h1>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                        The AI Architect, code editor, and live preview need room to breathe. Open dreyv on a laptop or larger tablet to build and ship apps.
+                    </p>
+                </div>
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                    <a href="/app" className="inline-flex items-center justify-center h-10 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors">
+                        Back to dashboard
+                    </a>
+                    <a href="/app/marketplace" className="inline-flex items-center justify-center h-10 rounded-xl border border-violet-200 bg-white text-violet-700 text-sm font-semibold hover:bg-violet-50 transition-colors">
+                        Browse marketplace
+                    </a>
+                </div>
+            </div>
+
+            <div className="hidden md:flex md:flex-col md:flex-1 md:min-h-0">
             {/* Studio Header v2 — capabilities-aware status bar */}
             <StudioHeader
                 appName={appName}
@@ -953,6 +975,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+            </div>
             </div>
 
 

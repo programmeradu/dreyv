@@ -62,35 +62,36 @@ export default function BillingPage() {
     };
 
     return (
-        <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden font-mono text-foreground">
+        <div className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-background font-mono text-foreground">
             {/* Header */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10">
-                <div className="flex flex-col gap-1">
+            <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-border bg-background/50 backdrop-blur-md z-10">
+                <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">dreyv OS // Subscription Hub</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground truncate">dreyv OS // Subscription Hub</span>
                     </div>
                     <div className="flex items-center gap-3">
-                        <CreditCard className="text-primary" size={20} />
-                        <h1 className="text-lg font-bold tracking-tight text-foreground uppercase">Billing & Allocations</h1>
+                        <CreditCard className="text-primary shrink-0" size={20} />
+                        <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground uppercase truncate">Billing & Allocations</h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                     <Button
                         variant="outline"
                         onClick={handleVerify}
                         disabled={verifying}
+                        size="sm"
                         className="text-[10px] uppercase font-black border-border hover:border-primary"
                     >
                         {verifying ? "Verifying..." : "Verify Subscription"}
                     </Button>
-                    <div className="px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-black text-primary">Active Plan: {currentTier}</span>
+                    <div className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-black text-primary">Active: {currentTier}</span>
                     </div>
                 </div>
             </header>
 
-            <div className="flex-1 p-8 overflow-y-auto scrollbar-thin">
+            <div className="flex-1 p-4 sm:p-6 md:p-8 md:overflow-y-auto scrollbar-thin">
                 <div className="max-w-[1200px] mx-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         

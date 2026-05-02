@@ -109,35 +109,35 @@ export default function SettingsPage() {
         }
     };
     return (
-        <div className="flex flex-col h-screen bg-background overflow-hidden text-foreground font-mono">
+        <div className="flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-background text-foreground font-mono">
             {/* Standard Header */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10">
-                <div className="flex flex-col gap-1">
+            <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-border bg-background/50 backdrop-blur-md z-10">
+                <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">dreyv OS // Primary Node</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground truncate">dreyv OS // Primary Node</span>
                     </div>
                     <div className="flex items-center gap-3">
-                        <SettingsIcon className="text-primary" size={20} />
-                        <h1 className="text-lg font-black tracking-tight text-foreground uppercase">System Configuration</h1>
+                        <SettingsIcon className="text-primary shrink-0" size={20} />
+                        <h1 className="text-base sm:text-lg font-black tracking-tight text-foreground uppercase truncate">System Configuration</h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                     <NetworkSelector />
 
                     <Suspense fallback={<div className="h-8 w-24 bg-muted animate-pulse rounded-full" />}>
                         <CollaborativeHeader />
                     </Suspense>
 
-                    <div className="w-px h-6 bg-border mx-1" />
+                    <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
                     <WalletButton />
                 </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto scrollbar-thin p-8">
-                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <main className="flex-1 md:overflow-y-auto scrollbar-thin p-4 sm:p-6 md:p-8">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Main Column */}
                     {/* Main Column */}
                     <div className="lg:col-span-2">

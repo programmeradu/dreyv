@@ -563,7 +563,7 @@ export default function TeamPage() {
             <AmbientGlow className="right-[-160px] top-[300px]" />
 
             {/* Header */}
-            <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6">
+            <header className="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-5 sm:py-6">
                 <a href="/" aria-label="dreyv home" className="flex items-baseline gap-2">
                     <span
                         className={cn(
@@ -586,7 +586,7 @@ export default function TeamPage() {
             </header>
 
             {/* Hero */}
-            <section className="relative z-10 mx-auto max-w-6xl px-6 pt-2">
+            <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pt-2">
                 <StreamIn className="space-y-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">
                         Team workspace
@@ -635,7 +635,7 @@ export default function TeamPage() {
             </section>
 
             {/* Main grid */}
-            <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6 pb-24">
+            <section className="relative z-10 mx-auto mt-10 sm:mt-12 max-w-6xl px-4 sm:px-6 pb-20 sm:pb-24">
                 <div className="grid gap-6 lg:grid-cols-3">
                     {/* Left column: members + invite + activity */}
                     <div className="space-y-6 lg:col-span-2">

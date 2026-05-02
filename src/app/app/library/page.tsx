@@ -78,19 +78,19 @@ export default function LibraryPage() {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif] selection:bg-violet-200">
+        <div className="w-full max-w-full overflow-x-hidden md:h-screen flex flex-col bg-white text-slate-900 md:overflow-hidden relative font-[Manrope,sans-serif] selection:bg-violet-200">
             {/* Ambient violet glow */}
             <div className="pointer-events-none absolute -top-40 right-0 w-[500px] h-[500px] bg-violet-300/25 rounded-full blur-3xl" />
 
             {/* Header */}
-            <header className="h-16 border-b border-violet-100 flex items-center justify-between px-8 bg-white shrink-0 z-10">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center border border-violet-200 text-violet-700">
+            <header className="min-h-14 sm:h-16 border-b border-violet-100 flex items-center justify-between px-4 sm:px-8 py-2 bg-white shrink-0 z-10">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-50 flex items-center justify-center border border-violet-200 text-violet-700 shrink-0">
                         <LayoutGrid size={20} strokeWidth={2.5} />
                     </div>
-                    <div>
-                        <h1 className="text-lg font-black tracking-tight uppercase text-slate-900">App Library</h1>
-                        <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">
+                    <div className="min-w-0">
+                        <h1 className="text-base sm:text-lg font-black tracking-tight uppercase text-slate-900 truncate">App Library</h1>
+                        <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase truncate">
                             Your Installed & Created Software
                         </p>
                     </div>
@@ -98,7 +98,7 @@ export default function LibraryPage() {
             </header>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto p-8 scrollbar-thin z-0 relative">
+            <div className="flex-1 md:overflow-y-auto p-4 sm:p-6 md:p-8 scrollbar-thin z-0 relative">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500 animate-pulse gap-4">
                         <Loader2 className="animate-spin w-8 h-8 text-violet-500" />
@@ -107,8 +107,8 @@ export default function LibraryPage() {
                 ) : apps.length === 0 ? (
                     <div className="max-w-5xl mx-auto mt-4 space-y-8">
                         {/* Hero card */}
-                        <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-12">
-                            <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-10 items-center">
+                        <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-6 sm:p-12">
+                            <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-6 sm:gap-10 items-center">
                                 <div className="space-y-5 max-w-xl">
                                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[10px] font-bold uppercase tracking-[0.18em]">
                                         <span className="w-1.5 h-1.5 rounded-full bg-violet-600" />
