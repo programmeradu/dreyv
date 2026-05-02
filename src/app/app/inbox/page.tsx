@@ -471,18 +471,18 @@ export default function InboxPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative font-[Manrope,sans-serif]">
+    <div className="flex-1 flex flex-col h-screen bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif]">
       {/* ─── Universal app header ───────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10 shadow-sm shrink-0">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-violet-100 bg-white z-10 shrink-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent)]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-70">
+            <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
               dreyv // Command workspace
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight text-foreground uppercase">Inbox</h1>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 uppercase">Inbox</h1>
             <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
               HITL
             </span>
@@ -538,7 +538,7 @@ export default function InboxPage() {
                   onClick={() => setTab(t.key)}
                   className={`group relative inline-flex items-center gap-2 rounded-t-lg px-3 py-2 text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
                     active
-                      ? "bg-violet-600 text-white shadow-sm shadow-violet-600/20"
+                      ? "bg-violet-600 text-white"
                       : "text-neutral-600 hover:bg-violet-50 hover:text-violet-700"
                   }`}
                 >
@@ -578,7 +578,7 @@ export default function InboxPage() {
               return (
                 <article
                   key={a.id}
-                  className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                  className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                 >
                   <div className="flex items-start gap-3">
                     <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -608,7 +608,7 @@ export default function InboxPage() {
                         <button
                           disabled={busyId === a.id}
                           onClick={() => actApproval(a.id, "approved")}
-                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                         >
                           <Check className="h-3.5 w-3.5" /> Approve
                         </button>
@@ -633,7 +633,7 @@ export default function InboxPage() {
               : txProposals.map((t) => (
                   <article
                     key={t.id}
-                    className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                    className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                   >
                     <div className="flex items-start gap-3">
                       <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -666,7 +666,7 @@ export default function InboxPage() {
                           <button
                             disabled={busyId === t.id}
                             onClick={() => actTx(t.id, "approve")}
-                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                           >
                             <Check className="h-3.5 w-3.5" /> Approve
                           </button>
@@ -696,7 +696,7 @@ export default function InboxPage() {
                 : proposals.map((p) => (
                     <article
                       key={p.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                      className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                     >
                       <div className="flex items-start gap-3">
                         <span
@@ -754,7 +754,7 @@ export default function InboxPage() {
                             <button
                               disabled={busyId === p.id}
                               onClick={() => act(p.id, "acted")}
-                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                             >
                               <Check className="h-3.5 w-3.5" /> Mark acted
                             </button>
@@ -784,7 +784,7 @@ export default function InboxPage() {
                   {subagents.map((s) => (
                     <article
                       key={s.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)]"
+                      className="rounded-xl border border-violet-100 bg-white p-4"
                     >
                       <div className="flex items-center gap-2">
                         <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">

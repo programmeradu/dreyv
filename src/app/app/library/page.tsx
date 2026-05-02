@@ -78,19 +78,19 @@ export default function LibraryPage() {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden relative selection:bg-primary/20">
-            {/* Ambient Background */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="h-screen flex flex-col bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif] selection:bg-violet-200">
+            {/* Ambient violet glow */}
+            <div className="pointer-events-none absolute -top-40 right-0 w-[500px] h-[500px] bg-violet-300/25 rounded-full blur-3xl" />
 
             {/* Header */}
-            <header className="h-16 border-b border-border/40 flex items-center justify-between px-8 bg-background/50 backdrop-blur-md shrink-0 z-10">
+            <header className="h-16 border-b border-violet-100 flex items-center justify-between px-8 bg-white shrink-0 z-10">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 text-primary shadow-[0_0_15px_rgba(54,226,-123,0.15)]">
+                    <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center border border-violet-200 text-violet-700">
                         <LayoutGrid size={20} strokeWidth={2.5} />
                     </div>
                     <div>
-                        <h1 className="text-lg font-black tracking-tight uppercase">App Library</h1>
-                        <p className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">
+                        <h1 className="text-lg font-black tracking-tight uppercase text-slate-900">App Library</h1>
+                        <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">
                             Your Installed & Created Software
                         </p>
                     </div>
@@ -100,39 +100,36 @@ export default function LibraryPage() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-8 scrollbar-thin z-0 relative">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-muted-foreground animate-pulse gap-4">
-                        <Loader2 className="animate-spin w-8 h-8 text-primary/50" />
+                    <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500 animate-pulse gap-4">
+                        <Loader2 className="animate-spin w-8 h-8 text-violet-500" />
                         <span className="text-xs uppercase tracking-widest font-medium">Syncing Library...</span>
                     </div>
                 ) : apps.length === 0 ? (
                     <div className="max-w-5xl mx-auto mt-4 space-y-8">
                         {/* Hero card */}
-                        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.04] p-12 shadow-sm">
-                            <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-                            <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-primary/[0.06] rounded-full blur-3xl pointer-events-none" />
-
+                        <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-12">
                             <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-10 items-center">
                                 <div className="space-y-5 max-w-xl">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.18em]">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[10px] font-bold uppercase tracking-[0.18em]">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-violet-600" />
                                         Your library is ready
                                     </div>
-                                    <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-[1.05]">
+                                    <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 leading-[1.05]">
                                         Build the workspace<br />
-                                        <span className="text-primary">that works for you.</span>
+                                        <span className="text-violet-700">that works for you.</span>
                                     </h2>
-                                    <p className="text-base text-muted-foreground leading-relaxed">
+                                    <p className="text-base text-slate-600 leading-relaxed">
                                         Install ready-made apps from the Marketplace, or build your own in Studio.
                                         Everything you collect lives here — one click away.
                                     </p>
                                     <div className="flex flex-wrap gap-3 pt-2">
                                         <Link href="/app/studio">
-                                            <Button className="h-11 px-6 text-sm font-semibold rounded-xl shadow-sm">
+                                            <Button className="h-11 px-6 text-sm font-semibold rounded-xl bg-violet-600 text-white hover:bg-violet-700">
                                                 Create your first app
                                             </Button>
                                         </Link>
                                         <Link href="/app/marketplace">
-                                            <Button variant="outline" className="h-11 px-6 text-sm font-semibold rounded-xl">
+                                            <Button variant="outline" className="h-11 px-6 text-sm font-semibold rounded-xl border-violet-200 text-violet-700 hover:bg-violet-50">
                                                 Browse Marketplace
                                             </Button>
                                         </Link>
@@ -140,7 +137,6 @@ export default function LibraryPage() {
                                 </div>
 
                                 <div className="hidden md:flex relative w-48 h-48 items-center justify-center">
-                                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 blur-2xl" />
                                     <CrystalIcon name="all" size={180} alt="Your Library" />
                                 </div>
                             </div>
@@ -154,13 +150,13 @@ export default function LibraryPage() {
                                 { icon: Play, title: "View samples", desc: "Try template apps to see what's possible.", href: "/app/marketplace?filter=templates", cta: "See templates" },
                             ].map((item) => (
                                 <Link key={item.title} href={item.href} className="group">
-                                    <div className="h-full rounded-2xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/15 transition-colors">
+                                    <div className="h-full rounded-2xl border border-violet-100 bg-white p-5 hover:border-violet-300 transition-colors">
+                                        <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-violet-700 mb-4 group-hover:bg-violet-100 transition-colors">
                                             <item.icon size={18} />
                                         </div>
-                                        <h4 className="text-sm font-semibold text-foreground mb-1">{item.title}</h4>
-                                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{item.desc}</p>
-                                        <span className="text-xs font-semibold text-primary group-hover:underline">
+                                        <h4 className="text-sm font-semibold text-slate-900 mb-1">{item.title}</h4>
+                                        <p className="text-xs text-slate-500 leading-relaxed mb-3">{item.desc}</p>
+                                        <span className="text-xs font-semibold text-violet-700 group-hover:underline">
                                             {item.cta} →
                                         </span>
                                     </div>
@@ -171,18 +167,16 @@ export default function LibraryPage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {apps.map((app) => (
-                            <Card key={app.id} className="group bg-card border-border backdrop-blur hover:border-emerald-400/30 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md">
+                            <Card key={app.id} className="group bg-white border-violet-100 hover:border-violet-300 transition-colors overflow-hidden">
                                 <CardHeader className="p-0">
-                                    <div className="h-32 bg-gradient-to-br from-muted to-muted/50 dark:from-zinc-900 dark:to-black relative overflow-hidden group-hover:from-emerald-100 group-hover:to-muted dark:group-hover:from-emerald-950/30 dark:group-hover:to-zinc-900/80 transition-colors">
+                                    <div className="h-32 bg-violet-50 relative overflow-hidden group-hover:bg-violet-100 transition-colors">
                                         {app.iconUrl ? (
-                                            <img src={app.iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:opacity-40 transition-opacity" />
-                                        ) : (
-                                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                                        )}
+                                            <img src={app.iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" />
+                                        ) : null}
                                         <div className="absolute top-4 right-4">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-500 hover:text-slate-900">
                                                         <MoreVertical size={14} />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -195,7 +189,7 @@ export default function LibraryPage() {
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         onClick={() => setListingApp(app)}
-                                                        className="text-primary"
+                                                        className="text-violet-700"
                                                     >
                                                         <Store size={12} className="mr-2" />
                                                         {app.isPublished ? "Update Listing" : "List on Marketplace"}
@@ -205,7 +199,7 @@ export default function LibraryPage() {
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem
                                                                 onClick={() => handleDelist(app)}
-                                                                className="text-amber-400"
+                                                                className="text-amber-600"
                                                             >
                                                                 <XCircle size={12} className="mr-2" />
                                                                 Delist from Marketplace
@@ -215,7 +209,7 @@ export default function LibraryPage() {
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         onClick={() => handleUninstall(app)}
-                                                        className="text-red-400"
+                                                        className="text-rose-600"
                                                     >
                                                         <Trash2 size={12} className="mr-2" />
                                                         Uninstall
@@ -224,7 +218,7 @@ export default function LibraryPage() {
                                             </DropdownMenu>
                                         </div>
                                         <div className="absolute bottom-4 left-4">
-                                            <div className="w-10 h-10 rounded bg-background/80 dark:bg-black/50 backdrop-blur border border-border flex items-center justify-center text-foreground shadow-xl overflow-hidden">
+                                            <div className="w-10 h-10 rounded bg-white border border-violet-200 flex items-center justify-center text-violet-700 overflow-hidden">
                                                 {app.iconUrl ? (
                                                     <img src={app.iconUrl} alt="" className="w-full h-full object-cover" />
                                                 ) : (
@@ -236,18 +230,18 @@ export default function LibraryPage() {
                                 </CardHeader>
                                 <CardContent className="p-5">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-base text-foreground truncate pr-2">
+                                        <h3 className="font-bold text-base text-slate-900 truncate pr-2">
                                             {app.name}
                                         </h3>
-                                        <Badge variant="secondary" className="text-[9px] h-4 bg-muted text-muted-foreground border-border">
+                                        <Badge variant="secondary" className="text-[9px] h-4 bg-violet-50 text-violet-700 border-violet-200">
                                             {app.version}
                                         </Badge>
                                     </div>
-                                    <p className="text-xs text-muted-foreground line-clamp-2 h-8 mb-4">
+                                    <p className="text-xs text-slate-500 line-clamp-2 h-8 mb-4">
                                         {app.description}
                                     </p>
 
-                                    <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 font-mono">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                                         <span className="flex items-center gap-1">
                                             <Clock size={10} />
                                             {formatDistanceToNow(new Date(app.updatedAt), { addSuffix: true })}
@@ -259,7 +253,7 @@ export default function LibraryPage() {
                                 </CardContent>
                                 <CardFooter className="p-4 pt-0">
                                     <Link href={`/app/run/${app.id}`} className="w-full">
-                                        <Button className="w-full gap-2 text-xs font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:text-emerald-700 dark:hover:text-emerald-300">
+                                        <Button className="w-full gap-2 text-xs font-bold uppercase tracking-widest bg-violet-600 text-white hover:bg-violet-700">
                                             <Play size={12} fill="currentColor" />
                                             Launch App
                                         </Button>

@@ -153,34 +153,34 @@ export default function MarketplacePage() {
     }, [nowTs]);
 
     return (
-        <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative">
-            <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background/70 backdrop-blur-md z-20 shrink-0">
+        <div className="flex-1 flex flex-col h-screen bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif]">
+            <header className="flex items-center justify-between px-6 py-3 border-b border-violet-100 bg-white z-20 shrink-0">
                 <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent)]" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-70">dreyv OS // App Layer</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">dreyv OS // App Layer</span>
                     </div>
-                    <h1 className="text-base font-bold tracking-tight text-foreground uppercase">Marketplace</h1>
+                    <h1 className="text-base font-bold tracking-tight text-slate-900 uppercase">Marketplace</h1>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <NotificationBell />
                     <button
                         onClick={() => setNetwork(network === 'mainnet-beta' ? 'devnet' : 'mainnet-beta')}
-                        className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${network === 'mainnet-beta' ? 'bg-primary/10 border-primary/20 hover:bg-primary/20' : 'bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20'}`}
+                        className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${network === 'mainnet-beta' ? 'bg-violet-50 border-violet-200 hover:bg-violet-100' : 'bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
                     >
-                        <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] ${network === 'mainnet-beta' ? 'bg-primary' : 'bg-orange-500'}`} />
-                        <span className="text-xs font-medium text-foreground uppercase">{network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${network === 'mainnet-beta' ? 'bg-violet-600' : 'bg-amber-500'}`} />
+                        <span className="text-xs font-medium text-slate-700 uppercase">{network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}</span>
                     </button>
-                    <Suspense fallback={<div className="h-8 w-24 bg-muted animate-pulse rounded-full" />}>
+                    <Suspense fallback={<div className="h-8 w-24 bg-violet-50 animate-pulse rounded-full" />}>
                         <CollaborativeHeader />
                     </Suspense>
-                    <div className="w-px h-6 bg-border mx-1" />
+                    <div className="w-px h-6 bg-violet-100 mx-1" />
                     <WalletButton />
                 </div>
             </header>
 
-            <div className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur-lg shrink-0">
+            <div className="sticky top-0 z-10 border-b border-violet-100 bg-white shrink-0">
                 <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-3">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
