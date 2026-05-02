@@ -26,6 +26,7 @@ import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
 import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
+import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
 import { studioAuthHeaders, studioJsonHeaders } from "@/lib/media-studio/client-auth";
 
 /**
@@ -145,6 +146,7 @@ export default function MediaStudioClient() {
   const [infographic, setInfographic] = React.useState<InfographicSpec | null>(null);
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -315,6 +317,7 @@ export default function MediaStudioClient() {
   const aspects = ASPECTS_BY_MODE[mode];
 
   return (
+    <>
     <div className="relative min-h-screen w-full overflow-hidden bg-studio-bg font-manrope text-studio-fg">
       {/* Ambient violet glows */}
       <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-[120px]" />
@@ -624,9 +627,20 @@ export default function MediaStudioClient() {
 
                 {/* Image preview */}
                 {imagePreview && (mode === "post" || mode === "announcement") && (
-                  <div className="overflow-hidden rounded-3xl border border-studio-border bg-white">
+                  <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview} alt="Generated Dreyv social visual" className="w-full" />
+                    <img
+                      src={imagePreview}
+                      alt="Generated Dreyv social visual"
+                      className="w-full cursor-zoom-in"
+                      onClick={() => setLightboxUrl(imagePreview)}
+                    />
+                    <ImageActions
+                      url={imagePreview}
+                      alt="Generated Dreyv social visual"
+                      filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
+                      onView={() => setLightboxUrl(imagePreview)}
+                    />
                     <div className="flex items-center justify-between border-t border-studio-border p-3">
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">
                         Saved to library
@@ -673,6 +687,15 @@ export default function MediaStudioClient() {
         </div>
       </div>
     </div>
+    {lightboxUrl && (
+      <ImageLightbox
+        url={lightboxUrl}
+        alt="Generated Dreyv visual"
+        filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
+        onClose={() => setLightboxUrl(null)}
+      />
+    )}
+    </>
   );
 }
 

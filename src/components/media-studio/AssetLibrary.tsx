@@ -4,10 +4,12 @@ import * as React from "react";
 import type { MediaAsset } from "@/lib/media-studio/types";
 import { Trash2, Image as ImageIcon, FileText, Layout, Video } from "lucide-react";
 import { studioAuthHeaders } from "@/lib/media-studio/client-auth";
+import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
 
 export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
   const [assets, setAssets] = React.useState<MediaAsset[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [lightbox, setLightbox] = React.useState<{ url: string; alt: string; filename: string } | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -39,35 +41,62 @@ export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {assets.map((a) => (
-        <div key={a.id} className="group relative overflow-hidden rounded-3xl border border-studio-border bg-studio-surface">
-          {a.previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={a.previewUrl} alt={a.title ?? a.prompt} className="aspect-square w-full object-cover" />
-          ) : (
-            <TextPreview asset={a} />
-          )}
-          <div className="border-t border-studio-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-studio-violet">
-                <KindIcon kind={a.kind} />
-                {a.kind}
-                {a.channel && <span className="text-studio-muted">· {a.channel}</span>}
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {assets.map((a) => {
+          const alt = a.title ?? a.prompt ?? "Saved asset";
+          const filename = safeFilename(a.title ?? a.prompt ?? `dreyv-${a.kind}`);
+          return (
+            <div key={a.id} className="group relative overflow-hidden rounded-3xl border border-studio-border bg-studio-surface">
+              {a.previewUrl ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={a.previewUrl}
+                    alt={alt}
+                    className="aspect-square w-full cursor-zoom-in object-cover"
+                    onClick={() => setLightbox({ url: a.previewUrl!, alt, filename })}
+                  />
+                  <ImageActions
+                    url={a.previewUrl}
+                    alt={alt}
+                    filename={filename}
+                    onView={() => setLightbox({ url: a.previewUrl!, alt, filename })}
+                  />
+                </div>
+              ) : (
+                <TextPreview asset={a} />
+              )}
+              <div className="border-t border-studio-border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-studio-violet">
+                    <KindIcon kind={a.kind} />
+                    {a.kind}
+                    {a.channel && <span className="text-studio-muted">· {a.channel}</span>}
+                  </div>
+                  <button
+                    onClick={() => remove(a.id)}
+                    className="text-studio-muted opacity-0 transition group-hover:opacity-100 hover:text-destructive"
+                    aria-label="Delete asset"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="mt-1 line-clamp-2 text-xs text-studio-muted">{a.title ?? a.prompt}</div>
               </div>
-              <button
-                onClick={() => remove(a.id)}
-                className="text-studio-muted opacity-0 transition group-hover:opacity-100 hover:text-destructive"
-                aria-label="Delete asset"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
             </div>
-            <div className="mt-1 line-clamp-2 text-xs text-studio-muted">{a.title ?? a.prompt}</div>
-          </div>
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
+      {lightbox && (
+        <ImageLightbox
+          url={lightbox.url}
+          alt={lightbox.alt}
+          filename={lightbox.filename}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+    </>
   );
 }
 
