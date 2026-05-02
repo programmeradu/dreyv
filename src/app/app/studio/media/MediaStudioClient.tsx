@@ -141,7 +141,7 @@ export default function MediaStudioClient() {
 
   const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video">(null);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
-  const [infographic, setInfographic] = React.useState<InfographicSpec | null>(null);
+  // (Infographics now generate as images and live on imagePreview, same as posts.)
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
@@ -159,7 +159,6 @@ export default function MediaStudioClient() {
 
   const resetOutput = React.useCallback(() => {
     setCopyResult(null);
-    setInfographic(null);
     setStoryboard(null);
     setImagePreview(null);
     setError(null);
