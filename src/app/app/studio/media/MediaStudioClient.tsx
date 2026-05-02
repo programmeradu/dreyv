@@ -306,18 +306,8 @@ export default function MediaStudioClient() {
     setRefreshKey((k) => k + 1);
   }
 
-  async function saveInfographic() {
-    if (!infographic) return;
-    await fetch("/api/studio/media/assets", {
-      method: "POST",
-      headers: studioJsonHeaders(),
-      body: JSON.stringify({ kind: "infographic", title: infographic.title, prompt: selectedJob.brief, spec: infographic }),
-    });
-    setRefreshKey((k) => k + 1);
-  }
-
-  const isGenerating = busy === "copy" || busy === "infographic" || busy === "video";
-  const hasOutput = !!(copyResult || infographic || storyboard || imagePreview);
+  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video";
+  const hasOutput = !!(copyResult || storyboard || imagePreview);
   const aspects = ASPECTS_BY_MODE[mode];
 
   return (
