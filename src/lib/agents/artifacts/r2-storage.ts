@@ -1,17 +1,25 @@
 /**
  * Phase 7A.2 — Cloudflare R2 adapter for agent artifacts.
  *
- * R2 is S3-compatible. We sign requests directly with AWS SigV4 instead of
- * importing the AWS SDK because the SDK's transitive XML parser can crash in
- * Vercel's Node runtime with ESM/CJS interop errors.
- * Required env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
- * R2_BUCKET. Optional: R2_PUBLIC_BASE (CDN base) — unused; we always
- * use short-lived presigned GETs.
+ * R2 is S3-compatible. We use the official AWS SDK (already a project dep)
+ * because hand-rolled SigV4 was producing SignatureDoesNotMatch errors on
+ * presigned GETs (Cloudflare requires virtual-hosted-style + a precise
+ * canonical query that's easy to get wrong). The SDK handles all of this.
+ *
+ * Required env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+ * Optional: R2_PUBLIC_BASE (CDN base) — currently unused; we always serve via
+ * short-lived presigned GETs.
  *
  * Throws loudly if env is missing — callers catch and degrade gracefully.
  */
 
-import { createHash, createHmac } from "crypto";
+import {
+    DeleteObjectCommand,
+    GetObjectCommand,
+    PutObjectCommand,
+    S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const PRESIGN_TTL = 60 * 10; // 10 min — refreshed on each download
 
@@ -23,6 +31,7 @@ type R2Config = {
 };
 
 let _config: R2Config | null = null;
+let _client: S3Client | null = null;
 
 function getConfig(): R2Config {
     if (_config) return _config;
@@ -39,6 +48,22 @@ function getConfig(): R2Config {
     return _config;
 }
 
+function getClient(): S3Client {
+    if (_client) return _client;
+    const config = getConfig();
+    _client = new S3Client({
+        region: "auto",
+        endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+        credentials: {
+            accessKeyId: config.accessKeyId,
+            secretAccessKey: config.secretAccessKey,
+        },
+        // R2 supports virtual-hosted-style; this is the SDK default.
+        forcePathStyle: false,
+    });
+    return _client;
+}
+
 export function isR2Configured(): boolean {
     return Boolean(
         process.env.R2_ACCOUNT_ID &&
@@ -48,117 +73,30 @@ export function isR2Configured(): boolean {
     );
 }
 
-function awsEncode(value: string): string {
-    return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-}
-
-function encodeKey(key: string): string {
-    return key.split("/").map(awsEncode).join("/");
-}
-
-function sha256Hex(input: Buffer | string): string {
-    return createHash("sha256").update(input).digest("hex");
-}
-
-function hmac(key: Buffer | string, value: string): Buffer {
-    return createHmac("sha256", key).update(value).digest();
-}
-
-function amzNow(date = new Date()): { amzDate: string; dateStamp: string } {
-    const iso = date.toISOString().replace(/[:-]|\.\d{3}/g, "");
-    return { amzDate: iso, dateStamp: iso.slice(0, 8) };
-}
-
-function signingKey(secretAccessKey: string, dateStamp: string): Buffer {
-    const kDate = hmac(`AWS4${secretAccessKey}`, dateStamp);
-    const kRegion = hmac(kDate, "auto");
-    const kService = hmac(kRegion, "s3");
-    return hmac(kService, "aws4_request");
-}
-
-function canonicalQuery(params: Record<string, string>): string {
-    return Object.entries(params)
-        .sort(([aKey, aVal], [bKey, bVal]) => (aKey === bKey ? aVal.localeCompare(bVal) : aKey.localeCompare(bKey)))
-        .map(([key, value]) => `${awsEncode(key)}=${awsEncode(value)}`)
-        .join("&");
-}
-
-function r2Host(config: R2Config): string {
-    return `${config.accountId}.r2.cloudflarestorage.com`;
-}
-
-function r2Path(config: R2Config, key: string): string {
-    return `/${awsEncode(config.bucket)}/${encodeKey(key)}`;
-}
-
-function r2Url(config: R2Config, key: string, query = ""): string {
-    return `https://${r2Host(config)}${r2Path(config, key)}${query ? `?${query}` : ""}`;
-}
-
-function signedHeaders(opts: {
-    method: "PUT" | "DELETE";
-    key: string;
-    payloadHash: string;
-    contentType?: string;
-    contentDisposition?: string;
-}): { url: string; headers: Record<string, string> } {
-    const config = getConfig();
-    const { amzDate, dateStamp } = amzNow();
-    const host = r2Host(config);
-    const headers: Record<string, string> = {
-        host,
-        "x-amz-content-sha256": opts.payloadHash,
-        "x-amz-date": amzDate,
-    };
-    if (opts.contentType) headers["content-type"] = opts.contentType;
-    if (opts.contentDisposition) headers["content-disposition"] = opts.contentDisposition;
-
-    const signedHeaderNames = Object.keys(headers).sort();
-    const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${headers[name]}\n`).join("");
-    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const canonicalRequest = [
-        opts.method,
-        r2Path(config, opts.key),
-        "",
-        canonicalHeaders,
-        signedHeaderNames.join(";"),
-        opts.payloadHash,
-    ].join("\n");
-    const stringToSign = [
-        "AWS4-HMAC-SHA256",
-        amzDate,
-        credentialScope,
-        sha256Hex(canonicalRequest),
-    ].join("\n");
-    const signature = createHmac("sha256", signingKey(config.secretAccessKey, dateStamp)).update(stringToSign).digest("hex");
-
-    delete headers.host;
-    headers.Authorization = `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaderNames.join(";")}, Signature=${signature}`;
-    return { url: r2Url(config, opts.key), headers };
-}
-
 export async function putR2Object(opts: {
     key: string;
     body: Buffer;
     mime: string;
     filename: string;
 }): Promise<void> {
+    const config = getConfig();
+    const client = getClient();
     const disposition = `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
-    const signed = signedHeaders({
-        method: "PUT",
-        key: opts.key,
-        payloadHash: sha256Hex(opts.body),
-        contentType: opts.mime,
-        contentDisposition: disposition,
-    });
-    const res = await fetch(signed.url, {
-        method: "PUT",
-        headers: signed.headers,
-        body: new Uint8Array(opts.body),
-    });
-    if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`R2 upload failed (${res.status}): ${text.slice(0, 300)}`);
+    try {
+        await client.send(
+            new PutObjectCommand({
+                Bucket: config.bucket,
+                Key: opts.key,
+                Body: opts.body,
+                ContentType: opts.mime,
+                ContentDisposition: disposition,
+            }),
+        );
+    } catch (err) {
+        const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+        throw new Error(
+            `R2 upload failed (${e?.$metadata?.httpStatusCode ?? "?"} ${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
+        );
     }
 }
 
@@ -170,39 +108,32 @@ export async function presignR2Get(opts: {
     ttlSeconds?: number;
 }): Promise<string> {
     const config = getConfig();
-    const { amzDate, dateStamp } = amzNow();
+    const client = getClient();
     const disposition = opts.inline
         ? `inline; filename="${opts.filename.replace(/"/g, "")}"`
         : `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
-    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const host = r2Host(config);
-    const query = canonicalQuery({
-        "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
-        "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
-        "X-Amz-Date": amzDate,
-        "X-Amz-Expires": String(opts.ttlSeconds ?? PRESIGN_TTL),
-        "X-Amz-SignedHeaders": "host",
-        "response-content-disposition": disposition,
-        "response-content-type": opts.mime,
-    });
-    const canonicalRequest = [
-        "GET",
-        r2Path(config, opts.key),
-        query,
-        `host:${host}\n`,
-        "host",
-        "UNSIGNED-PAYLOAD",
-    ].join("\n");
-    const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
-    const signature = createHmac("sha256", signingKey(config.secretAccessKey, dateStamp)).update(stringToSign).digest("hex");
-    return r2Url(config, opts.key, `${query}&X-Amz-Signature=${signature}`);
+    return getSignedUrl(
+        client,
+        new GetObjectCommand({
+            Bucket: config.bucket,
+            Key: opts.key,
+            ResponseContentDisposition: disposition,
+            ResponseContentType: opts.mime,
+        }),
+        { expiresIn: opts.ttlSeconds ?? PRESIGN_TTL },
+    );
 }
 
 export async function deleteR2Object(key: string): Promise<void> {
-    const signed = signedHeaders({ method: "DELETE", key, payloadHash: sha256Hex("") });
-    const res = await fetch(signed.url, { method: "DELETE", headers: signed.headers });
-    if (!res.ok && res.status !== 404) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`R2 delete failed (${res.status}): ${text.slice(0, 300)}`);
+    const config = getConfig();
+    const client = getClient();
+    try {
+        await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+    } catch (err) {
+        const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+        if (e?.$metadata?.httpStatusCode === 404) return;
+        throw new Error(
+            `R2 delete failed (${e?.$metadata?.httpStatusCode ?? "?"} ${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
+        );
     }
 }
