@@ -766,9 +766,10 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         { id: "ship", label: "Ship to Library", category: "Project", action: handleShip },
         { id: "sdk-ref", label: "Toggle SDK Reference", category: "View", action: () => setShowSDKReference(prev => !prev) },
         { id: "global-search", label: "Search in Files", category: "View", shortcut: "⌘⇧F", action: () => setShowGlobalSearch(true) },
-        { id: "toggle-console", label: "Toggle Console", category: "View", action: () => setActiveTab(prev => prev === "code" ? "preview" : "code") },
-        { id: "toggle-preview", label: "Toggle Preview", category: "View", action: () => setActiveTab("preview") },
-    ], []);
+        { id: "toggle-view", label: "Toggle Code / Preview", category: "View", action: () => setViewMode(prev => prev === "code" ? "preview" : "code") },
+        { id: "show-code", label: "Show Code", category: "View", action: () => setViewMode("code") },
+        { id: "show-preview", label: "Show Preview", category: "View", action: () => { setViewMode("preview"); setActiveTab("preview"); } },
+        { id: "show-console", label: "Show Console", category: "View", action: () => { setViewMode("preview"); setActiveTab("code"); } },
 
     // ─── GlobalSearch Handlers ──────────────────────────────────
     const handleSearchNavigate = useCallback((fileName: string, _line: number) => {
