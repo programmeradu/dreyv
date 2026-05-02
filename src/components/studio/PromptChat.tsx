@@ -165,6 +165,26 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         }
     }, [messages]);
 
+    // Safety net: when generation stops, mark any lingering in-progress cards as done
+    useEffect(() => {
+        if (isGenerating) return;
+        setMessages((prev) =>
+            prev.map((m) => ({
+                ...m,
+                blocks: m.blocks.map((b) => {
+                    if (b.type !== "activity") return b;
+                    if ((b.card.kind === "analyzing" || b.card.kind === "fixing") && !(b.card as { done?: boolean }).done) {
+                        return { ...b, card: { ...b.card, done: true } };
+                    }
+                    if (b.card.kind === "thinking" && !b.card.done) {
+                        return { ...b, card: { ...b.card, done: true, collapsed: true } };
+                    }
+                    return b;
+                }),
+            }))
+        );
+    }, [isGenerating]);
+
     const getEngine = useCallback(() => {
         if (!engineRef.current) {
             engineRef.current = new ArchitectEngine({
