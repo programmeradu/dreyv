@@ -926,7 +926,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
                             {/* Contextual right side */}
                             {viewMode === "code" ? (
-                                <div className="flex items-center gap-0.5 overflow-x-auto">
+                                <div className="flex items-center gap-0.5 overflow-x-auto min-w-0 flex-1 scrollbar-thin">
                                     {Object.keys(files).map((fileName) => (
                                         <button
                                             key={fileName}
