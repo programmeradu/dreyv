@@ -672,17 +672,19 @@ export function LivePreview({
     }, [externalModules]);
 
     // ─── Compile TSX instantly into an iframe srcdoc ───────────────────
+    // On compile error, keep the previous successful previewUrl so the
+    // user keeps seeing the last working render instead of a blank screen.
     useEffect(() => {
         let cancelled = false;
         let completed = false;
         setBootPhase("Compiling preview…");
-        setError(null);
 
         const timer = window.setTimeout(() => {
             try {
                 const runtime = buildCompiledRuntime(files);
                 if (cancelled) return;
                 completed = true;
+                setError(null);
                 setPreviewUrl(buildRuntimeHtml(runtime));
                 setBootPhase("");
                 pushLog("[info] preview compiled");
@@ -693,6 +695,7 @@ export function LivePreview({
                 setError(msg);
                 setBootPhase("");
                 pushLog(`[error] ${msg}`);
+                // Intentionally do NOT clear previewUrl — last working render stays visible.
             }
         }, 80);
 
