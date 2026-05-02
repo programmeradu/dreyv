@@ -618,24 +618,31 @@ export function LivePreview({
                     }
                     return out;
                 }
+                function resolveModule(spec, mod) {
+                    if (mod === 'react') return importBindings(spec, 'window.React');
+                    if (mod === 'react-dom' || mod === 'react-dom/client') return importBindings(spec, 'window.ReactDOM');
+                    if (mod === '@keystone-os/sdk' || mod === '@dreyv/sdk') return importBindings(spec, 'window.__ks_require("@keystone-os/sdk")');
+                    return importBindings(spec, 'window.__ks_require(' + JSON.stringify(mod) + ')');
+                }
                 function rewriteSingleFileModule(source) {
-                    var lines = String(source || '').split('\n');
+                    var src = String(source || '');
+                    // Collapse multi-line imports to single line so the regex below catches them.
+                    src = src.replace(/import\s+([\s\S]*?)\s+from\s+(['"][^'"]+['"])\s*;?/g, function(_, spec, mod) {
+                        return 'import ' + spec.replace(/\s+/g, ' ').trim() + ' from ' + mod + ';';
+                    });
+                    var lines = src.split('\n');
                     var prelude = [];
                     var body = [];
                     lines.forEach(function(line) {
                         var match = line.match(/^\s*import\s+(.+?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/);
                         if (match) {
-                            var spec = match[1];
-                            var mod = match[2];
-                            if (mod === 'react') prelude.push(importBindings(spec, 'window.React'));
-                            else if (mod === 'react-dom' || mod === 'react-dom/client') prelude.push(importBindings(spec, 'window.ReactDOM'));
-                            else if (mod === '@keystone-os/sdk' || mod === '@dreyv/sdk') prelude.push(importBindings(spec, 'window.__ks_require("@keystone-os/sdk")'));
-                            else if (/^@\/components\/ui\//.test(mod)) prelude.push(importBindings(spec, 'window.__ks_require("' + mod + '")'));
-                            else if (mod === 'lucide-react') prelude.push(importBindings(spec, 'window.__ks_require("lucide-react")'));
-                            else body.push(line);
+                            prelude.push(resolveModule(match[1], match[2]));
                             return;
                         }
+                        // Side-effect-only import: 'import "./x";' — strip
                         if (/^\s*import\s+['"][^'"]+['"]\s*;?\s*$/.test(line)) return;
+                        // Bare 'import ...' that we couldn't parse — strip to avoid syntax error
+                        if (/^\s*import\s+/.test(line)) return;
                         body.push(line);
                     });
                     var defaultName = null;
