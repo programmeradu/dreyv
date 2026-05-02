@@ -687,6 +687,15 @@ export default function MediaStudioClient() {
         </div>
       </div>
     </div>
+    {lightboxUrl && (
+      <ImageLightbox
+        url={lightboxUrl}
+        alt="Generated Dreyv visual"
+        filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
+        onClose={() => setLightboxUrl(null)}
+      />
+    )}
+    </>
   );
 }
 
