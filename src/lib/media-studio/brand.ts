@@ -79,20 +79,49 @@ STRICT BRAND RULES — DO NOT VIOLATE:
 - No fake screenshots, no fake CLI output, no invented product UI.
 - Pure abstract / editorial composition only: violet geometry, light, crystal, prism, orbits, gradients of light on white. Subject-driven, never brand-driven.`;
 
-  // Infographics MUST contain legible typography (it's the whole point), so we
-  // override the no-text rule with an explicit, opinionated layout brief.
-  const infographicBase = `Premium editorial infographic for Dreyv (a treasury OS for crypto-native founders). Designed-by-a-master visual: clean white canvas, generous negative space, Swiss-grid composition, solid violet (#7c3aed) accents, soft violet-200 dividers, no gradients, no drop shadows, no fake UI chrome.
+  // Infographics: rich, varied, designed-by-a-master. We randomly pick a
+  // creative direction and a layout archetype each call so we don't ship the
+  // same Swiss-grid 4-bullet template every time. Brand guardrails stay tight
+  // (violet + white + sharp type, no logo, no fake UI), but composition,
+  // visual metaphors, charts, and accents have room to breathe.
+  const directions = [
+    "editorial magazine spread (think Bloomberg Businessweek / The Economist data feature) — confident hierarchy, oversized hero number, real-looking chart or diagram, refined annotations",
+    "Pentagram-style poster infographic — one massive typographic statement, minimal supporting marks, tons of whitespace, museum poster energy",
+    "Stripe Press / Linear changelog aesthetic — calm density, crisp small caps, thin violet rules, multiple aligned data blocks, premium and quiet",
+    "data-driven dashboard frame — abstract chart shapes (sparklines, donut, bar, line) rendered as clean editorial illustrations, not screenshots; numbers are the heroes",
+    "isometric diagram — flat-shaded violet geometric shapes (crystals, orbits, stacked planes) illustrating a flow or system, with crisp callouts",
+    "annual-report cover meets infographic — strong headline word, layered geometric violet shapes, single hero stat, footnote-style supporting data",
+    "minimalist Japanese editorial — extreme negative space, one vertical hero number, tiny precise labels, a single thin violet hairline structuring the page",
+    "comparison / before-vs-after split — two columns with contrasting numbers, one anchored in violet, the other in near-black, calm and decisive",
+  ];
+  const accents = [
+    "subtle violet-50 wash blocks behind groups of data",
+    "thin violet hairlines as the only structural device",
+    "one large abstract violet shape (prism, arc, half-circle) anchoring the composition",
+    "small violet glyph marks (dots, ticks, chevrons) used as bullets",
+    "one soft violet ambient glow in a corner, otherwise pure white",
+    "violet-tinted chart fills with near-black axis labels",
+  ];
+  const direction = directions[Math.floor(Math.random() * directions.length)];
+  const accent = accents[Math.floor(Math.random() * accents.length)];
 
-LAYOUT BIBLE:
-- One bold hero stat or short hero phrase (huge, Manrope-style, near-black) anchoring the composition.
-- 3–5 supporting points as small-caps labels with crisp short values, arranged on an invisible grid.
-- A small violet bullet or thin violet rule before each point.
-- Tiny brand line "DREYV" in the corner is OK; never render the official D-monogram or any logo lockup.
-- All numbers, labels, and percentages must come from the user brief — never invent metrics.
-- Type must be perfectly legible, sharp, kerned, never garbled or fake-letterform.
-- Palette: white (#ffffff) bg, near-black (#0f0a1f) text, violet-600 (#7c3aed) accents, violet-100/200 hairlines. Nothing else.
-- No people, no stock icons, no emoji, no 3D renders, no gradient mush, no glassmorphism.
-- Feel: museum infographic / Pentagram annual report / Stripe Press editorial — calm, expert, premium.`;
+  const infographicBase = `Premium editorial infographic for Dreyv (an agentic treasury OS for crypto-native founders). This must look designed-by-a-master — Pentagram, Stripe Press, Bloomberg Businessweek, MetaLab caliber. NEVER generic, NEVER template-y, NEVER a flat 4-bullet grid.
+
+CREATIVE DIRECTION FOR THIS PIECE: ${direction}.
+ACCENT TREATMENT: ${accent}.
+
+CRAFT BIBLE:
+- Treat this as a one-of-a-kind editorial artwork. Vary composition, hierarchy, and visual metaphor every time. No two infographics should look the same.
+- Use REAL visual storytelling: charts, diagrams, isometric forms, oversized typography, layered geometry, annotated callouts, sparklines, donut/bar/line abstractions — pick what fits the brief.
+- Hierarchy: one undeniable hero element (giant stat, headline phrase, or central diagram), then 2–5 supporting beats. Asymmetric layouts welcome.
+- Typography is part of the art: mix scales aggressively (huge display + tiny small-caps labels). Sharp, kerned, perfectly legible — never garbled or fake-letterform.
+- Numbers/labels/claims come ONLY from the user brief. Do not invent metrics, logos, or partner names.
+
+BRAND GUARDRAILS (non-negotiable):
+- Palette: white (#ffffff) canvas, near-black (#0f0a1f) text, violet-600 (#7c3aed) primary accent, plus violet-100/200/50 for soft tints. Subtle violet-400 ambient glow is allowed if it serves the composition. No other colors.
+- No Dreyv logo, no D-monogram, no wordmark lockup. A tiny "DREYV" caption in a corner is fine.
+- No people, no stock icons, no emoji, no fake screenshots, no fake CLI output, no device mockups, no gradient mush, no glassmorphism, no 3D photoreal renders.
+- Calm, confident, premium. Feels like it took a senior designer days to make.`;
 
   switch (kind) {
     case "infographic":

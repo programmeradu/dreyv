@@ -85,10 +85,18 @@ export async function POST(req: NextRequest) {
     const fullPrompt = [
       imageStylePrompt(kind),
       "",
-      `Brief from the user (the source of truth — do not invent any numbers, dates, or claims that are not in this brief):`,
+      `BRIEF FROM THE USER (source of truth — every number, label, and claim must come from here; do not invent):`,
       prompt,
       "",
-      `Output: a single self-contained infographic image at aspect ratio ${aspect}. Render all text crisply with sharp letterforms — no garbled type, no fake-language placeholder text.`,
+      `INTERPRETATION:`,
+      `- Pick the single most powerful visual metaphor for this brief and commit to it. Do NOT default to a 4-bullet grid.`,
+      `- If the brief implies change over time → use a chart or timeline.`,
+      `- If it implies comparison → use a split / before-vs-after composition.`,
+      `- If it implies a system or flow → use an isometric or diagrammatic illustration.`,
+      `- If it implies a single dramatic stat → make that number the entire hero, poster-style.`,
+      `- Surprise the viewer with composition while staying perfectly on-brand.`,
+      "",
+      `Output: a single self-contained editorial infographic image at aspect ratio ${aspect}. All text rendered crisply with sharp letterforms — no garbled type, no placeholder lorem-ipsum, no fake-language text.`,
     ].join("\n");
 
     const { buffer, mime } = await generateImage({ prompt: fullPrompt, model: INFOGRAPHIC_MODEL });
