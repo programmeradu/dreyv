@@ -153,17 +153,17 @@ export default function MarketplacePage() {
     }, [nowTs]);
 
     return (
-        <div className="flex-1 flex flex-col h-screen bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif]">
-            <header className="flex items-center justify-between px-6 py-3 border-b border-violet-100 bg-white z-20 shrink-0">
-                <div className="flex flex-col gap-0.5">
+        <div className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-white text-slate-900 relative font-[Manrope,sans-serif]">
+            <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-violet-100 bg-white z-20 shrink-0">
+                <div className="flex flex-col gap-0.5 min-w-0">
                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">dreyv OS // App Layer</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-violet-600 shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 truncate">dreyv OS // App Layer</span>
                     </div>
-                    <h1 className="text-base font-bold tracking-tight text-slate-900 uppercase">Marketplace</h1>
+                    <h1 className="text-base font-bold tracking-tight text-slate-900 uppercase truncate">Marketplace</h1>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     <NotificationBell />
                     <button
                         onClick={() => setNetwork(network === 'mainnet-beta' ? 'devnet' : 'mainnet-beta')}
@@ -172,16 +172,16 @@ export default function MarketplacePage() {
                         <div className={`w-1.5 h-1.5 rounded-full ${network === 'mainnet-beta' ? 'bg-violet-600' : 'bg-amber-500'}`} />
                         <span className="text-xs font-medium text-slate-700 uppercase">{network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}</span>
                     </button>
-                    <Suspense fallback={<div className="h-8 w-24 bg-violet-50 animate-pulse rounded-full" />}>
-                        <CollaborativeHeader />
+                    <Suspense fallback={<div className="hidden sm:block h-8 w-24 bg-violet-50 animate-pulse rounded-full" />}>
+                        <div className="hidden sm:block"><CollaborativeHeader /></div>
                     </Suspense>
-                    <div className="w-px h-6 bg-violet-100 mx-1" />
+                    <div className="hidden sm:block w-px h-6 bg-violet-100 mx-1" />
                     <WalletButton />
                 </div>
             </header>
 
             <div className="sticky top-0 z-10 border-b border-violet-100 bg-white shrink-0">
-                <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-3">
+                <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                         <Input
