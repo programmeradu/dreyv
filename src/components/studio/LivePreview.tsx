@@ -592,9 +592,15 @@ export function LivePreview({
                     retainLines: true,
                 });
 
-                // 2. Execute compiled code with require shim
+                // 2. Execute compiled code with require shim.
+                //    Also expose require/module/exports on window as a safety
+                //    net so any escaped reference (dynamic import helpers,
+                //    deferred callbacks compiled outside the IIFE) still resolves.
                 var _module = { exports: {} };
                 var _exports = _module.exports;
+                window.require = window.__ks_require;
+                window.module = _module;
+                window.exports = _exports;
                 var fn = new Function('require', 'module', 'exports', compiled.code);
                 fn(window.__ks_require, _module, _exports);
 
