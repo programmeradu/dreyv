@@ -414,7 +414,8 @@ export async function POST(req: Request) {
     // Model chain order (per product decision):
     //   1. Groq (primary — fastest + cheapest at scale)
     //   2. Cloudflare Workers AI (secondary — high free tier, good 70B fallback)
-    //   3. Lovable AI Gateway (last-resort — used only if BOTH above are unavailable/exhausted)
+    //   3. Lovable AI via Supabase proxy (tertiary on Vercel — uses managed key, no Vercel secrets)
+    //   4. Lovable AI Gateway direct (last-resort — only when LOVABLE_API_KEY is local)
     const modelChain: { name: string; model: Parameters<typeof streamText>[0]["model"]; maxChars: number }[] = [];
     if (process.env.GROQ_API_KEY) {
       modelChain.push({
@@ -433,6 +434,16 @@ export async function POST(req: Request) {
         });
       }
     }
+    if (lovableProxyProvider) {
+      for (const modelId of LOVABLE_FALLBACK_MODELS) {
+        const modelName = `lovable-proxy/${modelId}`;
+        modelChain.push({
+          name: modelName,
+          model: lovableProxyProvider.chatModel(modelId),
+          maxChars: estimateCompatibilityBudget(`lovable/${modelId}`),
+        });
+      }
+    }
     if (lovableProvider) {
       for (const modelId of LOVABLE_FALLBACK_MODELS) {
         const modelName = `lovable/${modelId}`;
@@ -446,7 +457,7 @@ export async function POST(req: Request) {
 
     if (modelChain.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No AI provider configured. Set LOVABLE_API_KEY, GROQ_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN." }),
+        JSON.stringify({ error: "No AI provider configured. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY." }),
         { status: 503, headers: { "Content-Type": "application/json" } },
       );
     }
