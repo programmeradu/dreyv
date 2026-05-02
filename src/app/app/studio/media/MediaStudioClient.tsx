@@ -146,6 +146,7 @@ export default function MediaStudioClient() {
   const [infographic, setInfographic] = React.useState<InfographicSpec | null>(null);
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
