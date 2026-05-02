@@ -24,7 +24,13 @@ type R2Config = {
     bucket: string;
 };
 
+type HeaderMap = Record<string, string>;
+
 let _config: R2Config | null = null;
+
+const SERVICE = "s3";
+const REGION = "auto";
+const ALGORITHM = "AWS4-HMAC-SHA256";
 
 function getConfig(): R2Config {
     if (_config) return _config;
@@ -39,6 +45,113 @@ function getConfig(): R2Config {
     }
     _config = { accountId, accessKeyId, secretAccessKey, bucket };
     return _config;
+}
+
+function hmac(key: Buffer | string, value: string) {
+    return createHmac("sha256", key).update(value).digest();
+}
+
+function sha256Hex(value: Buffer | string) {
+    return createHash("sha256").update(value).digest("hex");
+}
+
+function encodeRfc3986(value: string) {
+    return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function encodePath(path: string) {
+    return path.split("/").map(encodeRfc3986).join("/");
+}
+
+function amzDates(date = new Date()) {
+    const iso = date.toISOString().replace(/[:-]|\.\d{3}/g, "");
+    return { amzDate: iso, dateStamp: iso.slice(0, 8) };
+}
+
+function signingKey(secret: string, dateStamp: string) {
+    const kDate = hmac(`AWS4${secret}`, dateStamp);
+    const kRegion = hmac(kDate, REGION);
+    const kService = hmac(kRegion, SERVICE);
+    return hmac(kService, "aws4_request");
+}
+
+function canonicalQuery(params: URLSearchParams) {
+    return Array.from(params.entries())
+        .sort(([aKey, aValue], [bKey, bValue]) => aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey))
+        .map(([key, value]) => `${encodeRfc3986(key)}=${encodeRfc3986(value)}`)
+        .join("&");
+}
+
+function canonicalHeaders(headers: HeaderMap) {
+    const entries = Object.entries(headers)
+        .map(([key, value]) => [key.toLowerCase(), value.trim().replace(/\s+/g, " ")] as const)
+        .sort(([a], [b]) => a.localeCompare(b));
+    return {
+        block: entries.map(([key, value]) => `${key}:${value}\n`).join(""),
+        signedHeaders: entries.map(([key]) => key).join(";"),
+    };
+}
+
+function objectUrl(config: R2Config, key: string) {
+    return `https://${config.accountId}.r2.cloudflarestorage.com/${encodePath(config.bucket)}/${encodePath(key)}`;
+}
+
+function authorizationHeader(opts: {
+    config: R2Config;
+    method: "PUT" | "DELETE";
+    key: string;
+    headers: HeaderMap;
+    payloadHash: string;
+    amzDate: string;
+    dateStamp: string;
+}) {
+    const { block, signedHeaders } = canonicalHeaders(opts.headers);
+    const credentialScope = `${opts.dateStamp}/${REGION}/${SERVICE}/aws4_request`;
+    const canonicalRequest = [
+        opts.method,
+        `/${encodePath(opts.config.bucket)}/${encodePath(opts.key)}`,
+        "",
+        block,
+        signedHeaders,
+        opts.payloadHash,
+    ].join("\n");
+    const stringToSign = [ALGORITHM, opts.amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+    const signature = createHmac("sha256", signingKey(opts.config.secretAccessKey, opts.dateStamp))
+        .update(stringToSign)
+        .digest("hex");
+    return `${ALGORITHM} Credential=${opts.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+}
+
+async function signedFetch(opts: {
+    method: "PUT" | "DELETE";
+    key: string;
+    headers?: HeaderMap;
+    body?: Buffer;
+}) {
+    const config = getConfig();
+    const { amzDate, dateStamp } = amzDates();
+    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const payloadHash = sha256Hex(opts.body ?? "");
+    const headers: HeaderMap = {
+        host,
+        "x-amz-content-sha256": payloadHash,
+        "x-amz-date": amzDate,
+        ...(opts.headers ?? {}),
+    };
+    headers.authorization = authorizationHeader({
+        config,
+        method: opts.method,
+        key: opts.key,
+        headers,
+        payloadHash,
+        amzDate,
+        dateStamp,
+    });
+    return fetch(objectUrl(config, opts.key), {
+        method: opts.method,
+        headers,
+        body: opts.body,
+    });
 }
 
 export function isR2Configured(): boolean {
