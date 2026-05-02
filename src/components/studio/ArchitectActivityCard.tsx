@@ -17,9 +17,9 @@ export type ActivityCard =
     | { id: string; kind: "plan"; prompt: string }
     | { id: string; kind: "file_added"; file: string; lines: number }
     | { id: string; kind: "file_modified"; file: string; addedLines: number; removedLines: number }
-    | { id: string; kind: "analyzing"; fileCount: number }
+    | { id: string; kind: "analyzing"; fileCount: number; done?: boolean }
     | { id: string; kind: "issues_found"; count: number; preview: string[] }
-    | { id: string; kind: "fixing"; attempt: number; max: number; issues: string[] }
+    | { id: string; kind: "fixing"; attempt: number; max: number; issues: string[]; done?: boolean }
     | {
         id: string;
         kind: "done";
