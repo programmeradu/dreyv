@@ -176,14 +176,13 @@ export function StudioHeader(props: StudioHeaderProps) {
                     {savedLabel}
                 </span>
                 <span className="text-slate-300">·</span>
-                <button
-                    onClick={onOpenFiles}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-50 hover:text-violet-700 transition-colors"
-                    title="Open file browser"
+                <span
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-slate-500"
+                    title={`${fileCount} file${fileCount === 1 ? "" : "s"} in this project`}
                 >
                     <Files size={11} />
                     {fileCount} {fileCount === 1 ? "file" : "files"}
-                </button>
+                </span>
                 <span className="text-slate-300">·</span>
                 <button
                     onClick={onRunTest}
