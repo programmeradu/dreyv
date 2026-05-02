@@ -147,7 +147,7 @@ export async function putR2Object(opts: {
     const res = await fetch(signed.url, {
         method: "PUT",
         headers: signed.headers,
-        body: opts.body,
+        body: new Uint8Array(opts.body),
     });
     if (!res.ok) {
         const text = await res.text().catch(() => "");
