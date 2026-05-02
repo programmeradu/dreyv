@@ -505,14 +505,25 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
     const applyGeneratedFiles = useCallback((generatedFiles: Record<string, string>) => {
         const newFiles: Record<string, StudioFile> = {};
         for (const [name, content] of Object.entries(generatedFiles)) {
-            const ext = name.split(".").pop() || "";
+            const ext = (name.split(".").pop() || "").toLowerCase();
+            // The Studio runtime mounts App.tsx directly into a host-managed
+            // iframe — any HTML shell the model emits is dead weight and
+            // confuses users. Drop .html files at the boundary.
+            if (ext === "html") continue;
             const langMap: Record<string, string> = {
                 tsx: "typescript", ts: "typescript", js: "javascript", jsx: "javascript",
-                css: "css", json: "json", rs: "rust", html: "html", toml: "toml",
+                css: "css", json: "json", rs: "rust", toml: "toml",
             };
             newFiles[name] = { name, content, language: langMap[ext] || "plaintext" };
         }
-        setFiles((prev) => ({ ...prev, ...newFiles }));
+        setFiles((prev) => {
+            // Also strip any pre-existing .html files from prior generations.
+            const cleaned: Record<string, StudioFile> = {};
+            for (const [k, v] of Object.entries(prev)) {
+                if (!k.toLowerCase().endsWith(".html")) cleaned[k] = v;
+            }
+            return { ...cleaned, ...newFiles };
+        });
         if (generatedFiles["App.tsx"]) {
             setActiveFile("App.tsx");
         }
