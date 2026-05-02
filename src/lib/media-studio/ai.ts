@@ -226,19 +226,20 @@ export async function chatJson<T = unknown>(opts: {
 }
 
 /**
- * Generate an image. Uses Google AI Studio when GEMINI_API_KEY is set,
- * otherwise the Lovable AI gateway.
+ * Generate an image. Provider order: Gemini direct → lovable-ai-proxy
+ * (Supabase edge function) → Lovable AI Gateway direct.
  */
 export async function generateImage(opts: {
   prompt: string;
   model?: string;
   size?: "1024x1024" | "1024x1792" | "1792x1024";
 }): Promise<{ buffer: Buffer; mime: string }> {
-  const { provider, key } = pickProvider();
+  const picked = pickProvider();
 
-  if (provider === "gemini") {
+  if (picked.provider === "gemini") {
+    const apiKey = picked.key as string;
     const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
-    const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
+    const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -265,28 +266,35 @@ export async function generateImage(opts: {
     throw new Error("Gemini returned no image");
   }
 
+  // Both lovable-proxy and lovable speak the same OpenAI-compatible body.
+  const isProxy = picked.provider === "lovable-proxy";
+  const endpoint = isProxy ? (picked.proxyUrl as string) : LOVABLE_GATEWAY_URL;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (!isProxy) headers.Authorization = `Bearer ${picked.key as string}`;
+
   const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
-  const res = await fetch(LOVABLE_GATEWAY_URL, {
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: opts.prompt }],
       modalities: ["image", "text"],
+      stream: false,
     }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
     if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
-    throw new Error(`AI gateway image ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`Lovable AI image ${res.status}: ${text.slice(0, 300)}`);
   }
   const data = await res.json();
   const images = data?.choices?.[0]?.message?.images;
   const url: string | undefined = images?.[0]?.image_url?.url;
-  if (!url) throw new Error("AI gateway returned no image");
+  if (!url) throw new Error("Lovable AI returned no image");
   const m = /^data:([^;]+);base64,(.+)$/.exec(url);
-  if (!m) throw new Error("AI gateway image was not a base64 data URL");
+  if (!m) throw new Error("Lovable AI image was not a base64 data URL");
   const mime = m[1] ?? "image/png";
   const buffer = Buffer.from(m[2] ?? "", "base64");
   return { buffer, mime };
