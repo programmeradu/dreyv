@@ -114,7 +114,7 @@ export default function AdminMonitoringRoom() {
 
             {/* Header */}
             <header className="relative z-20 sticky top-0 backdrop-blur-md bg-white/75 border-b border-violet-100">
-                <div className="mx-auto max-w-[1800px] px-6 py-4 flex items-center justify-between gap-4">
+                <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-2xl bg-violet-100 border border-violet-200 flex items-center justify-center text-violet-700">
                             <Server size={18} />
@@ -152,8 +152,8 @@ export default function AdminMonitoringRoom() {
                 </div>
             </header>
 
-            <main className="relative z-10 px-6 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1800px] mx-auto pb-12">
+            <main className="relative z-10 px-4 sm:px-6 py-6 sm:py-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-[1800px] mx-auto pb-12">
 
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
                     <InngestHealthPanel />
