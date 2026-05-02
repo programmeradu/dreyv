@@ -197,7 +197,6 @@ export default function MediaStudioClient() {
           setCopyResult(json);
         } else if (job.kind === "infographic") {
           setBusy("infographic");
-          setInfographic(null);
           setImagePreview(null);
           const res = await fetch("/api/studio/media/generate-infographic", {
             method: "POST",
