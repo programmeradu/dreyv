@@ -126,12 +126,12 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Scenario overlay banner (only when a what-if is active) ── */}
-      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 sm:px-6">
         <ScenarioBanner />
       </section>
 
       {/* ── Are we OK? composite verdict ──────────────────────────── */}
-      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-4 sm:px-6">
         <AreWeOkHero
           activeVault={activeVault ?? null}
           vaultValue={vaultValue ?? null}
@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Smart layer: what changed + suggestions (streamed) ─────── */}
-      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-10 max-w-6xl px-4 sm:px-6">
         <SmartInsights
           vaultValue={vaultValue ?? null}
           vaultChange24h={vaultChange24h ?? null}
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Growth: real snapshots ─────────────────────────────────── */}
-      <section className="relative z-10 mx-auto mt-12 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-12 max-w-6xl px-4 sm:px-6">
         <SectionHeader
           eyebrow="Growth"
           title="Your treasury, over time"
@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Daily PnL waterfall ────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <SectionHeader
           eyebrow="PnL"
           title="Day-by-day, where the money moved"
@@ -205,7 +205,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Foresight: Monte Carlo + LLM narrative ─────────────────── */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <SectionHeader
           eyebrow="Foresight"
           title="The next 12 months, simulated 200 times"
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Attribution: where the money flowed ────────────────────── */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <SectionHeader
           eyebrow="Attribution"
           title="Where every dollar went"
@@ -266,7 +266,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Coverage: concentration · fees · flows · benchmark ─────── */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <SectionHeader eyebrow="Coverage" title="Every angle of your treasury" />
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <StreamIn delay={0.02}><ConcentrationHHI vaultTokens={vaultTokens ?? []} /></StreamIn>
@@ -277,7 +277,7 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ── Composition ────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <SectionHeader eyebrow="Composition" title="Where your treasury leans" />
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <StreamIn delay={0.05}>
@@ -330,7 +330,7 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-6 pb-24">
+      <section className="relative z-10 mx-auto mt-16 max-w-6xl px-4 pb-40 sm:px-6 sm:pb-32">
         <Surface className="p-7 text-center">
           <p className="font-manrope text-lg text-slate-700">
             Want to bend the simulation with what-ifs? Open{" "}
