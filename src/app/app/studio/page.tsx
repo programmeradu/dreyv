@@ -894,12 +894,12 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 <ResizableHandle withHandle />
 
                 {/* Right Panel: Code OR Preview (toggle) */}
-                <ResizablePanel defaultSize={70} minSize={40}>
-                    <div className="h-full flex flex-col bg-white min-h-0">
+                <ResizablePanel defaultSize={68} minSize={30}>
+                    <div className="h-full flex flex-col bg-white min-h-0 min-w-0 overflow-hidden">
                         {/* Top bar: Code/Preview segmented toggle + contextual sub-tabs */}
-                        <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0">
+                        <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0 min-w-0 overflow-hidden">
                             {/* Segmented Code | Preview toggle */}
-                            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
+                            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80 shrink-0">
                                 <button
                                     onClick={() => setViewMode("code")}
                                     className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold rounded-md transition-all ${
@@ -926,7 +926,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
 
                             {/* Contextual right side */}
                             {viewMode === "code" ? (
-                                <div className="flex items-center gap-0.5 overflow-x-auto">
+                                <div className="flex items-center gap-0.5 overflow-x-auto min-w-0 flex-1 scrollbar-thin">
                                     {Object.keys(files).map((fileName) => (
                                         <button
                                             key={fileName}
@@ -943,7 +943,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-thin">
                                     {([
                                         { id: "preview", label: "Preview", icon: Eye },
                                         { id: "code", label: "Console", icon: Terminal },
@@ -974,7 +974,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 relative overflow-hidden min-h-0">
+                        <div className="flex-1 relative overflow-hidden min-h-0 min-w-0">
                             {viewMode === "code" ? (
                                 <CodeEditor
                                     code={files[activeFile]?.content || ""}
