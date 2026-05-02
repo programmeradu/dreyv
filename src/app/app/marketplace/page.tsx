@@ -221,8 +221,8 @@ export default function MarketplacePage() {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto scrollbar-thin">
-                <div className="max-w-[1600px] mx-auto px-6 py-5 space-y-6">
+            <div className="flex-1 md:overflow-y-auto scrollbar-thin">
+                <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-5 space-y-6">
                     {!loadingApps && allApps.length > 0 && <ActivityTicker apps={allApps} />}
 
                     {!isFiltering && !loadingApps && allApps.length > 0 && (
