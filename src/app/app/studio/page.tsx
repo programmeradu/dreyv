@@ -770,7 +770,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
         { id: "show-code", label: "Show Code", category: "View", action: () => setViewMode("code") },
         { id: "show-preview", label: "Show Preview", category: "View", action: () => { setViewMode("preview"); setActiveTab("preview"); } },
         { id: "show-console", label: "Show Console", category: "View", action: () => { setViewMode("preview"); setActiveTab("code"); } },
-
+    ], []);
     // ─── GlobalSearch Handlers ──────────────────────────────────
     const handleSearchNavigate = useCallback((fileName: string, _line: number) => {
         setActiveFile(fileName);
