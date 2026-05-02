@@ -41,6 +41,7 @@ import { CanvasStream } from "@/components/canvas/CanvasStream";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
 import { TreasuryCommandDock } from "@/components/treasury/TreasuryCommandDock";
+import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
@@ -181,6 +182,8 @@ export default function TreasuryPage() {
           <CanvasStream scope="treasury" />
         </div>
       </section>
+
+      <WatcherCanvasBridge />
 
       <TreasuryBlockSeeder
         activeVault={activeVault}
