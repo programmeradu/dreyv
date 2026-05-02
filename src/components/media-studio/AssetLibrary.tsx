@@ -6,6 +6,16 @@ import { Trash2, Image as ImageIcon, FileText, Layout, Video } from "lucide-reac
 import { studioAuthHeaders } from "@/lib/media-studio/client-auth";
 import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
 
+async function readJsonSafe(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) return { assets: [] };
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { assets: [], error: `Unexpected server response (${res.status})` };
+  }
+}
+
 export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
   const [assets, setAssets] = React.useState<MediaAsset[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -15,7 +25,7 @@ export function AssetLibrary({ refreshKey }: { refreshKey: number }) {
     setLoading(true);
     try {
       const res = await fetch("/api/studio/media/assets", { headers: studioAuthHeaders() });
-      const json = await res.json();
+      const json = await readJsonSafe(res);
       if (res.ok) setAssets(json.assets ?? []);
     } finally {
       setLoading(false);

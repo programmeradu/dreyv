@@ -8,14 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember, STUDIO_PASS_USER_ID } from "@/lib/media-studio/access";
-import { db } from "@/db";
-import { mediaStudioAssets } from "@/db/schema";
-import { desc } from "drizzle-orm";
-import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
 export const runtime = "nodejs";
+
+const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 function isMigrationPending(err: unknown) {
   return err instanceof Error && err.message.includes("media_studio_assets");
@@ -26,25 +23,35 @@ function persistedUserId(id: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const gate = await requireTeamMember(req);
-  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 500 });
-
-  const { searchParams } = new URL(req.url);
-  const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
-
   try {
+    const [accessModule, dbModule, schemaModule, drizzleModule] = await Promise.all([
+      import("@/lib/media-studio/access"),
+      import("@/db"),
+      import("@/db/schema"),
+      import("drizzle-orm"),
+    ]);
+
+    const gate = await accessModule.requireTeamMember(req);
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
+    const db = dbModule.db;
+    if (!db) return NextResponse.json({ assets: [], error: "Database unavailable" }, { status: 200 });
+
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
+
     const rows = await db
       .select()
-      .from(mediaStudioAssets)
-      .orderBy(desc(mediaStudioAssets.createdAt))
+      .from(schemaModule.mediaStudioAssets)
+      .orderBy(drizzleModule.desc(schemaModule.mediaStudioAssets.createdAt))
       .limit(limit);
 
     // Presign image previews lazily so the gallery shows thumbnails.
+    const r2Module = await import("@/lib/agents/artifacts/r2-storage").catch(() => null);
     const enriched = await Promise.all(rows.map(async (r) => {
-      if (!r.storageKey) return { ...r, previewUrl: null };
+      if (!r.storageKey || !r2Module) return { ...r, previewUrl: null };
       try {
-        const previewUrl = await presignR2Get({
+        const previewUrl = await r2Module.presignR2Get({
           key: r.storageKey,
           filename: `dreyv-${r.kind}.png`,
           mime: r.mimeType ?? "image/png",
@@ -59,15 +66,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ assets: enriched });
   } catch (err) {
     if (isMigrationPending(err)) return NextResponse.json({ assets: [], migrationPending: true });
-    return NextResponse.json({ error: "Could not load media assets" }, { status: 500 });
+    const message = err instanceof Error ? `${err.name}: ${err.message}` : "Could not load media assets";
+    return NextResponse.json({ assets: [], error: message }, { status: 200 });
   }
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireTeamMember(req);
-  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 500 });
-
   let body: {
     kind?: AssetKind;
     channel?: Channel;
@@ -82,7 +86,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const [row] = await db.insert(mediaStudioAssets).values({
+    const [accessModule, dbModule, schemaModule] = await Promise.all([
+      import("@/lib/media-studio/access"),
+      import("@/db"),
+      import("@/db/schema"),
+    ]);
+
+    const gate = await accessModule.requireTeamMember(req);
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
+    const db = dbModule.db;
+    if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 200 });
+
+    const [row] = await db.insert(schemaModule.mediaStudioAssets).values({
       userId: persistedUserId(gate.user.id),
       kind: body.kind,
       channel: body.channel ?? null,
@@ -97,6 +113,7 @@ export async function POST(req: NextRequest) {
     if (isMigrationPending(err)) {
       return NextResponse.json({ error: "Media Studio migration pending", migrationPending: true }, { status: 503 });
     }
-    return NextResponse.json({ error: "Could not save asset" }, { status: 500 });
+    const message = err instanceof Error ? `${err.name}: ${err.message}` : "Could not save asset";
+    return NextResponse.json({ error: message }, { status: 200 });
   }
 }
