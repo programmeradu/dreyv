@@ -194,6 +194,28 @@ export async function callProvider(
       temperature: temp,
     });
     return completion.choices[0]?.message?.content || "{}";
+
+  } else if (p === "lovable") {
+    // `key` is the proxy URL (Supabase edge function). Auth handled server-side.
+    const res = await fetch(key, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt + "\n\nIMPORTANT: Return ONLY raw JSON. Do not wrap in markdown code blocks." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: temp,
+        max_tokens: maxTokens,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      throw new Error(`Lovable AI proxy error ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "{}";
   }
 
   throw new Error(`Unsupported provider: ${p}`);
