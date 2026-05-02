@@ -266,6 +266,24 @@ function NavButton({ icon: Icon, label, href, active }: { icon: any, label: stri
     )
 }
 
+function MobileNavRow({ icon: Icon, label, href, active, onNavigate }: { icon: any, label: string, href: string, active?: boolean, onNavigate?: () => void }) {
+    return (
+        <Link
+            href={href}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium transition-colors border
+                ${active
+                    ? 'bg-primary/10 text-primary border-primary/20'
+                    : 'bg-transparent text-foreground/80 border-transparent hover:bg-muted hover:text-foreground'}`}
+        >
+            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-primary/15' : 'bg-muted'}`}>
+                <Icon strokeWidth={active ? 2.4 : 2} size={18} />
+            </span>
+            <span className="truncate">{label}</span>
+        </Link>
+    )
+}
+
 function UserAccount() {
     const self = useSelf();
     const { signOut: siwsSignOut } = useKeystoneAuth();
