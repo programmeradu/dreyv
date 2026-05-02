@@ -637,7 +637,7 @@ export default function MediaStudioClient() {
                     <ImageActions
                       url={imagePreview}
                       alt="Generated Dreyv social visual"
-                      filename={safeFilename(prompt || `dreyv-${mode}`)}
+                      filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
                       onView={() => setLightboxUrl(imagePreview)}
                     />
                     <div className="flex items-center justify-between border-t border-studio-border p-3">
