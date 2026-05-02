@@ -283,7 +283,7 @@ export default function AnalyticsPage() {
           <StreamIn delay={0.05}>
             <Surface className="p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Largest exposure</p>
-              <div className="mt-3 font-manrope text-4xl font-semibold tracking-tight text-slate-900">
+              <div className="mt-3 font-manrope text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
                 {concentration ? (
                   <StreamingNumber value={concentration.share} suffix="%" decimals={1} />
                 ) : (
@@ -308,7 +308,7 @@ export default function AnalyticsPage() {
           <StreamIn delay={0.12}>
             <Surface className="p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Net 30-day delta</p>
-              <div className="mt-3 font-manrope text-4xl font-semibold tracking-tight text-slate-900">
+              <div className="mt-3 font-manrope text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
                 {hasAttribution ? (
                   <StreamingNumber value={aggregates!.netUsd ?? 0} prefix="$" decimals={0} />
                 ) : (
