@@ -60,16 +60,19 @@ export default function AppHomePage() {
   return (
     <div className="relative h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="left-1/2 top-[-220px] -translate-x-1/2" />
-      <AppTopRightBar />
+      {/* Floating team/wallet/bell — desktop only. Mobile uses the layout's top header. */}
+      <div className="hidden md:block">
+        <AppTopRightBar />
+      </div>
 
-      {/* Hero — top padding leaves room for the floating top-right bar */}
-      <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-10 px-4 pt-24 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-28">
-        <StreamIn className="space-y-6">
+      {/* Hero — extra top padding only on desktop where the floating bar lives */}
+      <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-8 px-4 pt-6 sm:px-6 sm:pt-10 md:grid-cols-[1.05fr_1fr] md:gap-10 md:pt-28">
+        <StreamIn className="space-y-5 md:space-y-6">
           <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-600 shadow-[0_0_10px_currentColor]" />
             Live
           </p>
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
             Good to see you. Your treasury is being looked after.
           </h1>
           <HeadlineValue
@@ -124,14 +127,14 @@ export default function AppHomePage() {
         </StreamIn>
       </section>
 
-      {/* The Canvas + Agents Rail */}
-      <section className="relative z-10 mx-auto mt-14 w-full max-w-6xl px-4 pb-32 sm:px-6">
+      {/* The Canvas + Agents Rail — rail is desktop-only (lg:block inside) */}
+      <section className="relative z-10 mx-auto mt-10 w-full max-w-6xl px-4 pb-40 sm:mt-14 sm:px-6 sm:pb-32">
         <SectionHeader
           eyebrow="Your canvas"
           title="A living surface"
           description="Everything you ask Dreyv, every insight, every plan it draws up — it all lands here. Drag to reorder, pin what matters, dismiss the rest."
         />
-        <div className="mt-6 flex w-full min-w-0 gap-6">
+        <div className="mt-6 flex w-full min-w-0 flex-col lg:flex-row lg:gap-6">
           <div className="min-w-0 flex-1">
             <CanvasStream scope="dashboard" />
             <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">

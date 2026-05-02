@@ -96,7 +96,7 @@ export default function TreasuryPage() {
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="right-[-160px] top-[-200px]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+      <header className="relative z-10 mx-auto hidden max-w-6xl items-center justify-between gap-3 px-4 py-3 md:flex md:px-6 md:py-4">
         <Link href="/app" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-violet-700">
           <ArrowLeft className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Home</span>
@@ -108,7 +108,7 @@ export default function TreasuryPage() {
       </header>
 
       {/* HERO — compact */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-2 sm:px-6">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-4 sm:px-6 sm:pt-2">
         <StreamIn className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">A clear picture, nothing more.</h1>
@@ -172,7 +172,7 @@ export default function TreasuryPage() {
       </section>
 
       {/* CANVAS STREAM — generative bucket surface */}
-      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-32 sm:px-6">
+      <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-40 sm:px-6 sm:pb-32">
         <SectionHeader
           eyebrow="Live canvas"
           title="Everything Dreyv is watching for you"
