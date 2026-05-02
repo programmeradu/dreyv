@@ -894,10 +894,10 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 <ResizableHandle withHandle />
 
                 {/* Right Panel: Code OR Preview (toggle) */}
-                <ResizablePanel defaultSize={70} minSize={40}>
-                    <div className="h-full flex flex-col bg-white min-h-0">
+                <ResizablePanel defaultSize={68} minSize={30}>
+                    <div className="h-full flex flex-col bg-white min-h-0 min-w-0 overflow-hidden">
                         {/* Top bar: Code/Preview segmented toggle + contextual sub-tabs */}
-                        <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0">
+                        <div className="flex items-center justify-between gap-3 px-3 h-10 border-b border-slate-200/70 bg-white shrink-0 min-w-0 overflow-hidden">
                             {/* Segmented Code | Preview toggle */}
                             <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
                                 <button
