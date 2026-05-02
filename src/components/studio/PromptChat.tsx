@@ -5,12 +5,8 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, MessageSquare, ListTree } from "lucide-react";
+import { ArrowUp, Loader2, Cpu, ChevronDown, MessageSquare, ListTree } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { ArchitectIcon } from "@/components/icons";
-import { getAvatarUrl } from "@/lib/avatars";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useSelf } from "@/liveblocks.config";
 import { cn } from "@/lib/utils";
 import {
     ArchitectEngine,
