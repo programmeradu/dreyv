@@ -239,10 +239,10 @@ export function AreWeOkHero({
   }, [signals]);
 
   const verdictMeta = {
-    ok:      { label: "We're OK",     icon: CheckCircle2,   tone: "emerald" as const, ring: "ring-emerald-200", dot: "bg-emerald-500", title: "text-emerald-700" },
-    watch:   { label: "Worth watching", icon: Info,         tone: "amber"   as const, ring: "ring-amber-200",   dot: "bg-amber-500",   title: "text-amber-700" },
-    risk:    { label: "Action needed", icon: AlertTriangle, tone: "rose"    as const, ring: "ring-rose-200",    dot: "bg-rose-500",    title: "text-rose-700" },
-    unknown: { label: "Not enough data", icon: Shield,      tone: "slate"   as const, ring: "ring-slate-200",   dot: "bg-slate-400",   title: "text-slate-700" },
+    ok:      { label: "We're OK",       icon: CheckCircle2,   tone: "emerald" as const, border: "border-emerald-200", dot: "bg-emerald-500", title: "text-emerald-700" },
+    watch:   { label: "Worth watching", icon: Info,           tone: "amber"   as const, border: "border-amber-200",   dot: "bg-amber-500",   title: "text-amber-700" },
+    risk:    { label: "Action needed",  icon: AlertTriangle,  tone: "rose"    as const, border: "border-rose-200",    dot: "bg-rose-500",    title: "text-rose-700" },
+    unknown: { label: "Not enough data", icon: Shield,        tone: "slate"   as const, border: "border-violet-100",  dot: "bg-slate-400",   title: "text-slate-700" },
   }[grade];
 
   // The one-line "why" surfaces the highest-severity signal
@@ -257,7 +257,7 @@ export function AreWeOkHero({
       {/* Verdict + lead */}
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <StreamIn className="flex items-start gap-4">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white ${verdictMeta.ring}`}>
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border bg-white ${verdictMeta.border}`}>
             <Icon className={`h-5 w-5 ${verdictMeta.title}`} />
           </div>
           <div>
