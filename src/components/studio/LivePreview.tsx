@@ -150,7 +150,8 @@ export function LivePreview({
     const userCodeJson = useMemo(() => {
         const normalized = appCode
             .replace(/from\s+['"]\.\/keystone['"]/g, 'from "@keystone-os/sdk"')
-            .replace(/from\s+['"]keystone-api['"]/g, 'from "@keystone-os/sdk"');
+            .replace(/from\s+['"]keystone-api['"]/g, 'from "@keystone-os/sdk"')
+            .replace(/from\s+['"]@dreyv\/sdk['"]/g, 'from "@keystone-os/sdk"');
         return JSON.stringify(normalized)
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e');
@@ -483,6 +484,7 @@ export function LivePreview({
                 'react-dom': window.ReactDOM,
                 'react-dom/client': window.ReactDOM,
                 '@keystone-os/sdk': window.__keystoneSDK,
+                '@dreyv/sdk': window.__keystoneSDK,
             };
             window.__ks_require = function(name) {
                 if (moduleMap[name]) return moduleMap[name];
