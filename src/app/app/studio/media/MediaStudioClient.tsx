@@ -201,14 +201,22 @@ export default function MediaStudioClient() {
         } else if (job.kind === "infographic") {
           setBusy("infographic");
           setInfographic(null);
+          setImagePreview(null);
           const res = await fetch("/api/studio/media/generate-infographic", {
             method: "POST",
             headers: studioJsonHeaders(),
-            body: JSON.stringify({ prompt: job.brief }),
+            body: JSON.stringify({
+              prompt: job.brief,
+              channel: effChannel,
+              aspect: effAspect,
+              title: job.title,
+            }),
           });
           const json = await readJsonSafe(res);
           if (!res.ok) throw new Error(json.error ?? "Infographic generation failed");
-          setInfographic(json.spec);
+          if (json.previewUrl) setImagePreview(json.previewUrl);
+          if (json.error) setNotice(json.error);
+          setRefreshKey((k) => k + 1);
         } else {
           setBusy("video");
           setStoryboard(null);
