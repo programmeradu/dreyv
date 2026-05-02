@@ -78,9 +78,25 @@ STRICT BRAND RULES — DO NOT VIOLATE:
 - Do NOT include any text, letters, words, captions, UI chrome, browser frames, terminal windows, or device mockups unless explicitly requested in the subject.
 - No fake screenshots, no fake CLI output, no invented product UI.
 - Pure abstract / editorial composition only: violet geometry, light, crystal, prism, orbits, gradients of light on white. Subject-driven, never brand-driven.`;
+
+  // Infographics MUST contain legible typography (it's the whole point), so we
+  // override the no-text rule with an explicit, opinionated layout brief.
+  const infographicBase = `Premium editorial infographic for Dreyv (a treasury OS for crypto-native founders). Designed-by-a-master visual: clean white canvas, generous negative space, Swiss-grid composition, solid violet (#7c3aed) accents, soft violet-200 dividers, no gradients, no drop shadows, no fake UI chrome.
+
+LAYOUT BIBLE:
+- One bold hero stat or short hero phrase (huge, Manrope-style, near-black) anchoring the composition.
+- 3–5 supporting points as small-caps labels with crisp short values, arranged on an invisible grid.
+- A small violet bullet or thin violet rule before each point.
+- Tiny brand line "DREYV" in the corner is OK; never render the official D-monogram or any logo lockup.
+- All numbers, labels, and percentages must come from the user brief — never invent metrics.
+- Type must be perfectly legible, sharp, kerned, never garbled or fake-letterform.
+- Palette: white (#ffffff) bg, near-black (#0f0a1f) text, violet-600 (#7c3aed) accents, violet-100/200 hairlines. Nothing else.
+- No people, no stock icons, no emoji, no 3D renders, no gradient mush, no glassmorphism.
+- Feel: museum infographic / Pentagram annual report / Stripe Press editorial — calm, expert, premium.`;
+
   switch (kind) {
     case "infographic":
-      return `${base} Infographic layout: clear hierarchy, generous negative space, one bold stat as the hero, supporting labels in small caps. Avoid stock icons.`;
+      return infographicBase;
     case "announcement":
       return `${base} Announcement key visual: one strong headline word, abstract violet geometry (crystal, prism, orbit), no people, no stock photography.`;
     case "post":
