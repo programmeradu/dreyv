@@ -108,7 +108,7 @@ export default function TreasuryPage() {
       </header>
 
       {/* HERO — compact */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-2 sm:px-6">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-4 sm:px-6 sm:pt-2">
         <StreamIn className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">A clear picture, nothing more.</h1>
