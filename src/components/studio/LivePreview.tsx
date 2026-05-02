@@ -531,6 +531,8 @@ export function LivePreview({
                 }
                 throw new Error('[Keystone] Module not found: ' + name + '. Add it to keystone.lock.json.');
             };
+            // Expose require globally so any escaped/deferred reference resolves.
+            window.require = window.__ks_require;
         })();
     </script>
 </head>
