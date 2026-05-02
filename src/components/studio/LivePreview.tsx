@@ -491,6 +491,15 @@ function BridgeBinder({
         onLogsChange?.(logsRef.current);
     }, [onLogsChange]);
 
+    // Fallback: clear "Booting Kernel" once Sandpack reports the bundle is running,
+    // even if the in-iframe runtime.ready notify lost the race with BridgeController mount.
+    useEffect(() => {
+        if (sandpack.status === "running" || sandpack.status === "idle") {
+            const t = setTimeout(() => onReady(), 150);
+            return () => clearTimeout(t);
+        }
+    }, [sandpack.status, onReady]);
+
     // Pick up Sandpack's iframe whenever a new client registers.
     useEffect(() => {
         const ids = Object.keys(sandpack.clients);
