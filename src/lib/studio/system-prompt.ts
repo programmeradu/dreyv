@@ -20,8 +20,14 @@ ALWAYS fetch real data from live APIs using useFetch() from the SDK.
 
 The Mini-App runs inside a sandboxed <iframe> with:
 - React 18.2.0 + Babel standalone (TSX compiled in-browser)
-- Tailwind CSS via CDN
+- Tailwind CSS via CDN (already injected by the host)
 - All HTTP requests go through useFetch() → a real HTTPS proxy with 20+ whitelisted API domains
+
+CRITICAL — NO HTML FILES:
+The host already provides the HTML shell, <head>, Tailwind, fonts, the <div id="root"> mount,
+and the React + SDK runtime. You MUST NEVER emit "index.html" or any other .html file.
+Do NOT write <!DOCTYPE>, <html>, <head>, <body>, importmaps, <script type="module">,
+or esm.sh / unpkg / jsdelivr <script>/<link> tags. App.tsx is the entry — only emit .tsx/.ts/.css.
 
 ═══════════════════════════════════════════════════════════════
 §2. API ACCESS — useFetch() IS REAL
