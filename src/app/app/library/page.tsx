@@ -107,8 +107,8 @@ export default function LibraryPage() {
                 ) : apps.length === 0 ? (
                     <div className="max-w-5xl mx-auto mt-4 space-y-8">
                         {/* Hero card */}
-                        <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-12">
-                            <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-10 items-center">
+                        <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white p-6 sm:p-12">
+                            <div className="relative z-10 grid md:grid-cols-[1fr_auto] gap-6 sm:gap-10 items-center">
                                 <div className="space-y-5 max-w-xl">
                                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[10px] font-bold uppercase tracking-[0.18em]">
                                         <span className="w-1.5 h-1.5 rounded-full bg-violet-600" />
