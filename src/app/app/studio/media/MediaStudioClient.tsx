@@ -633,19 +633,19 @@ export default function MediaStudioClient() {
                   </div>
                 )}
 
-                {/* Image preview */}
-                {imagePreview && (mode === "post" || mode === "announcement") && (
+                {/* Image preview (post / announcement / infographic) */}
+                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic") && (
                   <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imagePreview}
-                      alt="Generated Dreyv social visual"
+                      alt={`Generated Dreyv ${mode} visual`}
                       className="w-full cursor-zoom-in"
                       onClick={() => setLightboxUrl(imagePreview)}
                     />
                     <ImageActions
                       url={imagePreview}
-                      alt="Generated Dreyv social visual"
+                      alt={`Generated Dreyv ${mode} visual`}
                       filename={safeFilename(selectedJob?.title || `dreyv-${mode}`)}
                       onView={() => setLightboxUrl(imagePreview)}
                     />
@@ -655,22 +655,6 @@ export default function MediaStudioClient() {
                       </span>
                       <Check className="h-3.5 w-3.5 text-studio-violet" />
                     </div>
-                  </div>
-                )}
-
-                {/* Infographic */}
-                {mode === "infographic" && infographic && (
-                  <div className="space-y-3">
-                    <InfographicCanvas
-                      spec={infographic}
-                      aspect={aspect === "9:16" ? "4:5" : (aspect as "1:1" | "4:5" | "16:9")}
-                    />
-                    <button
-                      onClick={saveInfographic}
-                      className="rounded-full border border-studio-border bg-white px-4 py-2 text-xs font-semibold text-studio-violet hover:bg-studio-violet-soft"
-                    >
-                      Save to library
-                    </button>
                   </div>
                 )}
 
