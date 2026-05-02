@@ -91,7 +91,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
                         <div className="my-1 border-t border-border opacity-50 w-8 shrink-0" />
                         <VaultStatusBar />
-                        <ThemeToggle />
                     </div>
                 </TooltipProvider>
 
@@ -152,7 +151,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                     <div className="px-3 py-2.5 border-t border-violet-100 flex items-center justify-between gap-2 bg-white">
                                         <TooltipProvider>
                                             <VaultStatusBar />
-                                            <ThemeToggle />
                                         </TooltipProvider>
                                     </div>
                                 </div>
