@@ -165,6 +165,11 @@ export default function TreasuryPage() {
         </section>
       )}
 
+      {/* ACTION DOCK — contextual treasury prompts (treasury/payments/policy/risk/yield) */}
+      <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+        <TreasuryCommandDock />
+      </section>
+
       {/* CANVAS STREAM — generative bucket surface */}
       <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-32 sm:px-6">
         <SectionHeader
