@@ -198,7 +198,7 @@ export function TreasuryCommandDock() {
           type="button"
           onClick={() =>
             AppEventBus.emit("AGENT_COMMAND", {
-              command: "",
+              command: "What can you do for my treasury?",
               autoSubmit: false,
             })
           }
