@@ -626,9 +626,20 @@ export default function MediaStudioClient() {
 
                 {/* Image preview */}
                 {imagePreview && (mode === "post" || mode === "announcement") && (
-                  <div className="overflow-hidden rounded-3xl border border-studio-border bg-white">
+                  <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview} alt="Generated Dreyv social visual" className="w-full" />
+                    <img
+                      src={imagePreview}
+                      alt="Generated Dreyv social visual"
+                      className="w-full cursor-zoom-in"
+                      onClick={() => setLightboxUrl(imagePreview)}
+                    />
+                    <ImageActions
+                      url={imagePreview}
+                      alt="Generated Dreyv social visual"
+                      filename={safeFilename(prompt || `dreyv-${mode}`)}
+                      onView={() => setLightboxUrl(imagePreview)}
+                    />
                     <div className="flex items-center justify-between border-t border-studio-border p-3">
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">
                         Saved to library
