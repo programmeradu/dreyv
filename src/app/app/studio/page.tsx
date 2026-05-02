@@ -976,6 +976,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 </ResizablePanel>
             </ResizablePanelGroup>
             </div>
+            </div>
 
 
 
