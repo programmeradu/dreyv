@@ -8,7 +8,7 @@
  * Body: { prompt: string, kind: AssetKind, channel?: Channel,
  *         aspect?: '1:1' | '16:9' | '9:16' | '4:5', title?: string }
  *
- * IMPORTANT: heavy deps (drizzle, @aws-sdk/client-s3, AI SDKs) are dynamically
+ * IMPORTANT: heavy deps (drizzle, AI SDKs, storage) are dynamically
  * imported inside the handler so a missing env / module-load throw on Vercel
  * surfaces as a JSON 500 instead of a raw HTML FUNCTION_INVOCATION_FAILED.
  */

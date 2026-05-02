@@ -38,10 +38,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     'drizzle-orm',
     '@neondatabase/serverless',
-    '@aws-sdk/client-s3',
-    '@aws-sdk/s3-request-presigner',
-    '@aws-sdk/xml-builder',
-    '@nodable/entities',
   ],
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
