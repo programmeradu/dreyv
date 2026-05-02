@@ -482,7 +482,7 @@ window.dreyv = dreyv;
 
   function clean(path) {
     const parts = [];
-    path.replace(/\\/g, "/").split("/").forEach((part) => {
+    path.replace(/\\\\/g, "/").split("/").forEach((part) => {
       if (!part || part === ".") return;
       if (part === "..") parts.pop();
       else parts.push(part);
