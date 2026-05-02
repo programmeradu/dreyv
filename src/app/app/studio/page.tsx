@@ -232,14 +232,33 @@ export default function StudioPage() {
         setProjectBrowserUserId(resolvedUserId);
     }, [user?.info?.name, publicKey]);
 
-    // Load project from ?appId= query param on mount
+    // Load project from ?appId= query param on mount.
+    // Tries localStorage first (fast, restores unsaved work after refresh),
+    // then falls back to DB if there's a saved project.
     useEffect(() => {
         if (hasLoadedFromUrl.current) return;
         const appIdParam = searchParams.get("appId");
         if (!appIdParam) return;
         hasLoadedFromUrl.current = true;
+        setCurrentAppId(appIdParam);
 
-        // Load from DB
+        // 1. Try localStorage snapshot
+        try {
+            const raw = localStorage.getItem(`dreyv:studio:${appIdParam}`);
+            if (raw) {
+                const snap = JSON.parse(raw);
+                if (snap?.files && Object.keys(snap.files).length > 0) {
+                    setFiles(snap.files);
+                    setAppName(snap.appName || "Untitled Mini-App");
+                    const first = Object.keys(snap.files)[0];
+                    setActiveFile(snap.files["App.tsx"] ? "App.tsx" : first);
+                    setShowEmptyState(false);
+                    setEmptyStatePrompt(null);
+                }
+            }
+        } catch (e) { console.warn("[Studio] localStorage restore failed:", e); }
+
+        // 2. Then try DB (overrides local if found)
         (async () => {
             try {
                 const { getProject } = await import("@/actions/studio-actions");
@@ -248,6 +267,22 @@ export default function StudioPage() {
             } catch (e) { console.warn("[Studio] Failed to load from DB:", e); }
         })();
     }, [searchParams]);
+
+    // Autosave to localStorage whenever files/appName change.
+    // Ensures refresh never wipes unsaved work.
+    useEffect(() => {
+        if (showEmptyState) return;
+        let appId = currentAppId;
+        if (!appId) {
+            appId = "app_" + Math.random().toString(36).substring(2, 13);
+            setCurrentAppId(appId);
+            try { window.history.replaceState({}, "", `/app/studio?appId=${appId}`); } catch {}
+        }
+        try {
+            const snap = { appName, files, savedAt: Date.now() };
+            localStorage.setItem(`dreyv:studio:${appId}`, JSON.stringify(snap));
+        } catch (e) { /* quota / SSR */ }
+    }, [files, appName, currentAppId, showEmptyState]);
 
     const handleNewProject = () => {
         setShowTemplateGallery(true);

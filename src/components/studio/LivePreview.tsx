@@ -672,17 +672,19 @@ export function LivePreview({
     }, [externalModules]);
 
     // ─── Compile TSX instantly into an iframe srcdoc ───────────────────
+    // On compile error, keep the previous successful previewUrl so the
+    // user keeps seeing the last working render instead of a blank screen.
     useEffect(() => {
         let cancelled = false;
         let completed = false;
         setBootPhase("Compiling preview…");
-        setError(null);
 
         const timer = window.setTimeout(() => {
             try {
                 const runtime = buildCompiledRuntime(files);
                 if (cancelled) return;
                 completed = true;
+                setError(null);
                 setPreviewUrl(buildRuntimeHtml(runtime));
                 setBootPhase("");
                 pushLog("[info] preview compiled");
@@ -693,6 +695,7 @@ export function LivePreview({
                 setError(msg);
                 setBootPhase("");
                 pushLog(`[error] ${msg}`);
+                // Intentionally do NOT clear previewUrl — last working render stays visible.
             }
         }, 80);
 
@@ -942,19 +945,17 @@ export function LivePreview({
                 </div>
             )}
             {error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 p-8 backdrop-blur-sm">
-                    <div className="bg-red-50 border border-red-200 p-6 rounded-3xl max-w-md w-full">
-                        <div className="flex items-center gap-3 mb-3 text-red-600">
-                            <AlertTriangle className="w-5 h-5" />
-                            <span className="font-bold uppercase tracking-wider text-xs">Runtime Error</span>
-                        </div>
-                        <p className="text-sm text-slate-700 font-mono break-words leading-relaxed">{error}</p>
+                <div className="absolute top-2 left-2 right-2 z-20 bg-red-50 border border-red-200 rounded-2xl p-3 shadow-sm flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">Runtime Error · last working render shown below</div>
+                        <p className="text-xs text-slate-700 font-mono break-words leading-relaxed line-clamp-3">{error}</p>
                     </div>
                     <button
-                        onClick={() => { setError(null); window.location.reload(); }}
-                        className="mt-6 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-full uppercase tracking-wider transition-colors"
+                        onClick={() => setError(null)}
+                        className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-900 px-2 py-1"
                     >
-                        Reload Runtime
+                        Dismiss
                     </button>
                 </div>
             )}
