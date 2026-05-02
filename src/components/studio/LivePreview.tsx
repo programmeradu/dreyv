@@ -416,13 +416,16 @@ const INDEX_HTML_SOURCE = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { margin: 0; background: #09090b; color: white; font-family: system-ui,-apple-system,sans-serif; min-height: 100vh; }
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+    body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
     #root { min-height: 100vh; }
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #09090b; }
-    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: #ffffff; }
+    ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
   </style>
 </head>
 <body><div id="root"></div></body>
@@ -867,25 +870,25 @@ export function LivePreview({
 
     // ─── Preview tab ─────────────────────────────────────────────────
     return (
-        <div className="h-full w-full relative bg-[#09090b]">
+        <div className="h-full w-full relative bg-white font-manrope">
             {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b] z-10 transition-opacity duration-300 pointer-events-none">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 transition-opacity duration-300 pointer-events-none">
+                    <Loader2 className="w-8 h-8 animate-spin text-violet-600 mb-4" />
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
                 </div>
             )}
             {error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090b]/95 z-20 p-8 backdrop-blur-sm">
-                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-xl max-w-md w-full">
-                        <div className="flex items-center gap-3 mb-3 text-red-500">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 p-8 backdrop-blur-sm">
+                    <div className="bg-red-50 border border-red-200 p-6 rounded-3xl max-w-md w-full">
+                        <div className="flex items-center gap-3 mb-3 text-red-600">
                             <AlertTriangle className="w-5 h-5" />
                             <span className="font-bold uppercase tracking-wider text-xs">Runtime Error</span>
                         </div>
-                        <p className="text-sm text-zinc-300 font-mono break-words leading-relaxed">{error}</p>
+                        <p className="text-sm text-slate-700 font-mono break-words leading-relaxed">{error}</p>
                     </div>
                     <button
                         onClick={() => { setError(null); setIsLoading(true); setRetryKey(k => k + 1); }}
-                        className="mt-6 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-bold rounded uppercase tracking-wider transition-colors"
+                        className="mt-6 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-full uppercase tracking-wider transition-colors"
                     >
                         Retry Render
                     </button>
@@ -922,7 +925,7 @@ export function LivePreview({
                     showOpenInCodeSandbox={false}
                     showRefreshButton={false}
                     showRestartButton={false}
-                    style={{ height: "100%", width: "100%", border: "none", background: "#09090b" }}
+                    style={{ height: "100%", width: "100%", border: "none", background: "#ffffff" }}
                 />
             </SandpackProvider>
         </div>
