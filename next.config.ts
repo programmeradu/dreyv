@@ -21,10 +21,29 @@ const nextConfig: NextConfig = {
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Allow Phantom embedded wallet iframe (Track A of Phantom SDK migration)
+          // Plus WebContainers preview iframes for the Studio runtime
           {
             key: "Content-Security-Policy",
-            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app;",
+            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io;",
           },
+        ],
+      },
+      // ─── COOP/COEP for WebContainers (Studio runtime only) ───────────
+      // WebContainers requires cross-origin isolation. Scoped to studio
+      // routes so we don't break Tailwind CDN, Google Fonts, Phantom
+      // popups, RainbowKit modals, etc. on the rest of the app.
+      {
+        source: "/app/studio/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
+      {
+        source: "/app/run/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
     ];

@@ -1,32 +1,29 @@
 "use client";
 
 /**
- * LivePreview — Sandpack-based runtime for Dreyv mini-apps.
+ * LivePreview — WebContainers-based runtime for Dreyv mini-apps.
  *
- * Replaces the previous hand-rolled `srcDoc` iframe + Babel-standalone +
- * regex import rewriter + require shim. Sandpack runs a real esbuild-based
- * bundler inside its iframe, so multi-file projects, real npm packages,
- * TS/TSX, CSS and lucide-react / shadcn imports all "just work".
+ * Replaces the previous Sandpack runtime (which suffered from upstream
+ * "Couldn't connect to server / TIME_OUT" errors against the hosted
+ * CodeSandbox bundler). We now boot a real Node.js + Vite dev server
+ * *inside the browser* via StackBlitz WebContainers — the same tech
+ * Bolt.new uses. No remote bundler, no third-party rate limits, full
+ * npm + HMR.
  *
- * The Dreyv bridge (BridgeController <-> postMessage) is preserved exactly:
- * we attach to Sandpack's iframe via `useSandpack().clients[id].iframe`
- * and keep all the existing `bridge.on(...)` handlers (proxy fetch, SDK
- * stubs, dreyv connector gateway, console capture).
+ * The Dreyv bridge (BridgeController <-> postMessage) is preserved
+ * exactly: we attach to the WebContainer preview iframe via its ref
+ * and keep all existing `bridge.on(...)` handlers.
  *
- * The SDK that user code imports (`@keystone-os/sdk` / `@dreyv/sdk`) is
- * shipped as virtual files inside `node_modules/@keystone-os/sdk/` so the
- * Sandpack bundler resolves them as a real dependency without us shipping
- * any code through the wire.
+ * Requires COOP/COEP headers on the host route (configured in
+ * next.config.ts for /app/studio/* and /app/run/*).
+ *
+ * IMPORTANT: WebContainers allow ONLY ONE instance per page. We use
+ * a module-level singleton boot promise.
  */
 
-import React, { useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
-import {
-    SandpackProvider,
-    SandpackPreview as SandpackIframe,
-    useSandpack,
-    type SandpackFiles,
-} from "@codesandbox/sandpack-react";
+import { WebContainer, type FileSystemTree } from "@webcontainer/api";
 import {
     BridgeController,
     BridgeMethods,
@@ -72,18 +69,9 @@ const MINTS: Record<string, string> = {
     JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
 };
 
-// ─── SDK source (runs inside Sandpack iframe as a real ESM module) ──
-
-/**
- * This string is written into Sandpack's virtual filesystem at
- * `/node_modules/@keystone-os/sdk/index.js`. It exports every hook and
- * primitive Dreyv mini-apps consume. The bridge instance it talks to
- * (`window.keystoneBridge`) is created by `_dreyv-bootstrap.js`, which
- * runs first because `index.tsx` imports it before anything else.
- *
- * Live data (prices, logos, real wallet holdings) is read from
- * `window.__dreyvInjected` which the bootstrap copies in from postMessage.
- */
+// ─── SDK source (runs inside WebContainer Vite project as a local pkg) ──
+// Same surface as before: every Dreyv hook talks to window.keystoneBridge,
+// which the bootstrap module installs.
 const SDK_MODULE_SOURCE = `
 import React from "react";
 
@@ -309,22 +297,11 @@ export function useStorage(namespace) {
 }
 `;
 
-/**
- * The bootstrap module runs as a side-effect import at the very top of
- * `index.tsx`. It installs `window.keystoneBridge` (via the existing
- * IFRAME_BRIDGE_CLIENT string), wires `console.*` forwarding, and listens
- * for a one-shot `__dreyv_inject__` postMessage from the host carrying live
- * prices / logos / wallet holdings.
- *
- * It also installs `window.dreyv` (Connector Gateway) and a basic shadcn-
- * style passthrough for `@/components/ui/*` for AI-generated apps that
- * import host UI primitives.
- */
+// Bootstrap module — runs in iframe before user App renders.
 const BOOTSTRAP_MODULE_SOURCE = `
 ${IFRAME_BRIDGE_CLIENT}
 window.keystoneBridge = keystoneBridge;
 
-// Console forwarding
 (function () {
   const fwd = (level, args) => {
     try {
@@ -345,7 +322,6 @@ window.keystoneBridge = keystoneBridge;
   }));
 })();
 
-// Live data inbox
 window.__dreyvInjected = window.__dreyvInjected || {};
 window.addEventListener("message", (event) => {
   const data = event.data;
@@ -354,7 +330,6 @@ window.addEventListener("message", (event) => {
   window.dispatchEvent(new CustomEvent("dreyv:inject"));
 });
 
-// Dreyv Connector Gateway
 const DREYV_PROVIDERS = ["helius","jupiter","birdeye","marinade","pyth","resend","telegram","slack"];
 const dreyv = {
   invoke: (provider, operation, params) =>
@@ -368,46 +343,44 @@ DREYV_PROVIDERS.forEach((p) => {
 });
 window.dreyv = dreyv;
 
-// Signal ready to host
 keystoneBridge.notify("runtime.ready", {});
+
+export {};
 `;
 
-/**
- * Wrapper /index.tsx — boots bridge, then mounts user's App.
- * User's App is always at /App.tsx by Studio convention.
- */
-const INDEX_TSX_SOURCE = `
-import "./_dreyv-bootstrap.js";
+const MAIN_TSX_SOURCE = `
+import "./_dreyv-bootstrap";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 
 class ErrorBoundary extends React.Component {
-  state = { error: null };
-  static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) {
+  state: { error: any } = { error: null };
+  static getDerivedStateFromError(error: any) { return { error }; }
+  componentDidCatch(error: any, info: any) {
     try {
-      window.keystoneBridge.notify("runtime.error", {
+      (window as any).keystoneBridge.notify("runtime.error", {
         message: error && error.message ? error.message : String(error),
         componentStack: info && info.componentStack ? info.componentStack.slice(0, 500) : undefined,
       });
     } catch (e) {}
   }
   render() {
-    if (this.state.error) {
+    if ((this.state as any).error) {
+      const e = (this.state as any).error;
       return (
         <div style={{ color: "#ef4444", padding: 20, fontFamily: "monospace", fontSize: 13, lineHeight: 1.6 }}>
           <strong style={{ color: "#f87171" }}>Component Error</strong>
           <br />
-          <span style={{ color: "#fca5a5" }}>{this.state.error.message || String(this.state.error)}</span>
+          <span style={{ color: "#fca5a5" }}>{e.message || String(e)}</span>
         </div>
       );
     }
-    return this.props.children;
+    return (this.props as any).children;
   }
 }
 
-const root = createRoot(document.getElementById("root"));
+const root = createRoot(document.getElementById("root")!);
 root.render(<ErrorBoundary><App /></ErrorBoundary>);
 `;
 
@@ -416,11 +389,11 @@ const INDEX_HTML_SOURCE = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
     body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
     #root { min-height: 100vh; }
     ::-webkit-scrollbar { width: 6px; }
@@ -428,14 +401,12 @@ const INDEX_HTML_SOURCE = `<!DOCTYPE html>
     ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
   </style>
 </head>
-<body><div id="root"></div></body>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
 </html>`;
 
-/**
- * Minimal shadcn-style passthrough for `@/components/ui/*` imports —
- * AI-generated mini-apps frequently use them but the host's real shadcn
- * lives outside the iframe.
- */
 const UI_SHIM_SOURCE = `
 import React from "react";
 
@@ -458,230 +429,177 @@ export const Separator      = mk("div", "h-px w-full bg-violet-100");
 export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
 `;
 
-// ─── BridgeBinder — wires the host BridgeController to Sandpack iframe ──
+const VITE_CONFIG_SOURCE = `
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-interface BridgeBinderProps {
-    walletAddress: string | null;
-    appId?: string;
-    livePrices: Record<string, number>;
-    tokenLogos: Record<string, string>;
-    liveHoldings: unknown;
-    onLogsChange?: (logs: string[]) => void;
-    onError: (msg: string | null) => void;
-    onReady: () => void;
+export default defineConfig({
+  server: { host: "0.0.0.0", port: 5173, strictPort: true },
+  resolve: {
+    alias: {
+      "@/components/ui": "/src/components/ui",
+    },
+  },
+});
+`;
+
+const TSCONFIG_SOURCE = JSON.stringify({
+    compilerOptions: {
+        target: "ES2020",
+        useDefineForClassFields: true,
+        lib: ["ES2020", "DOM", "DOM.Iterable"],
+        module: "ESNext",
+        skipLibCheck: true,
+        moduleResolution: "bundler",
+        allowImportingTsExtensions: true,
+        resolveJsonModule: true,
+        isolatedModules: true,
+        noEmit: true,
+        jsx: "react-jsx",
+        strict: false,
+        allowJs: true,
+        esModuleInterop: true,
+    },
+    include: ["src"],
+}, null, 2);
+
+const PROJECT_PACKAGE_JSON = JSON.stringify({
+    name: "dreyv-mini-app-runtime",
+    private: true,
+    version: "0.0.0",
+    type: "module",
+    scripts: {
+        dev: "vite --host 0.0.0.0 --port 5173",
+    },
+    dependencies: {
+        "@keystone-os/sdk": "file:./vendor/keystone-sdk",
+        react: "^18.2.0",
+        "react-dom": "^18.2.0",
+        "lucide-react": "^0.400.0",
+        "framer-motion": "^11.5.4",
+        recharts: "^2.12.7",
+        "date-fns": "^3.6.0",
+    },
+    devDependencies: {
+        "@vitejs/plugin-react": "^4.3.1",
+        "@types/react": "^18.2.66",
+        "@types/react-dom": "^18.2.22",
+        typescript: "^5.4.5",
+        vite: "^5.2.0",
+    },
+}, null, 2);
+
+const SDK_PACKAGE_JSON = JSON.stringify({
+    name: "@keystone-os/sdk",
+    version: "1.0.0",
+    type: "module",
+    main: "index.js",
+    module: "index.js",
+}, null, 2);
+
+const DREYV_SDK_ALIAS_PKG = JSON.stringify({
+    name: "@dreyv/sdk",
+    version: "1.0.0",
+    type: "module",
+    main: "index.js",
+}, null, 2);
+
+const DREYV_SDK_ALIAS_INDEX = `export * from "@keystone-os/sdk";\n`;
+
+// ─── WebContainer singleton ──────────────────────────────────────────
+// Browsers allow only ONE WebContainer per page. Store boot promise globally.
+
+declare global {
+    interface Window {
+        __dreyvWebContainer?: Promise<WebContainer>;
+    }
 }
 
-function BridgeBinder({
-    walletAddress,
-    appId,
-    livePrices,
-    tokenLogos,
-    liveHoldings,
-    onLogsChange,
-    onError,
-    onReady,
-}: BridgeBinderProps) {
-    const { sandpack } = useSandpack();
-    const bridgeRef = useRef<BridgeController | null>(null);
-    const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const logsRef = useRef<string[]>([]);
+function bootContainer(): Promise<WebContainer> {
+    if (typeof window === "undefined") {
+        return Promise.reject(new Error("WebContainer requires a browser."));
+    }
+    if (!window.__dreyvWebContainer) {
+        window.__dreyvWebContainer = WebContainer.boot({ coep: "credentialless" }).catch((err) => {
+            // Reset so a future mount can retry
+            window.__dreyvWebContainer = undefined;
+            throw err;
+        });
+    }
+    return window.__dreyvWebContainer;
+}
 
-    const pushLog = useCallback((line: string) => {
-        logsRef.current = [...logsRef.current.slice(-500), line];
-        onLogsChange?.(logsRef.current);
-    }, [onLogsChange]);
+// ─── Build initial filesystem tree from user files ───────────────────
 
-    // Fallback: clear "Booting Kernel" once Sandpack reports the bundle is running,
-    // even if the in-iframe runtime.ready notify lost the race with BridgeController mount.
-    useEffect(() => {
-        if (sandpack.status === "running" || sandpack.status === "idle") {
-            const t = setTimeout(() => onReady(), 150);
-            return () => clearTimeout(t);
+function buildFsTree(files: Record<string, StudioFile>): FileSystemTree {
+    // Normalise user paths: strip leading slash, place under src/.
+    const userTree: FileSystemTree = {};
+    let hasApp = false;
+    for (const f of Object.values(files)) {
+        const relPath = f.name.replace(/^\/+/, "");
+        if (relPath === "App.tsx" || relPath === "App.jsx" || relPath === "App.js") {
+            hasApp = true;
         }
-    }, [sandpack.status, onReady]);
-
-    // Pick up Sandpack's iframe whenever a new client registers.
-    useEffect(() => {
-        const ids = Object.keys(sandpack.clients);
-        if (ids.length === 0) return;
-        const client = sandpack.clients[ids[0]];
-        const iframe = client?.iframe ?? null;
-        if (!iframe || iframe === iframeRef.current) return;
-        iframeRef.current = iframe;
-
-        // Inject live prices/holdings into the iframe via postMessage. The
-        // bootstrap module listens for `__dreyv_inject__` and copies the
-        // payload to `window.__dreyvInjected`.
-        const sendInjection = () => {
-            try {
-                iframe.contentWindow?.postMessage({
-                    type: "__dreyv_inject__",
-                    payload: {
-                        prices: livePrices,
-                        logos: tokenLogos,
-                        holdings: liveHoldings,
-                        walletAddress,
-                    },
-                }, "*");
-            } catch {}
-        };
-        // Send shortly after mount so bootstrap has installed its listener.
-        const t = setTimeout(sendInjection, 200);
-        const t2 = setTimeout(sendInjection, 800); // belt-and-braces
-        return () => { clearTimeout(t); clearTimeout(t2); };
-    }, [sandpack.clients, livePrices, tokenLogos, liveHoldings, walletAddress]);
-
-    // Mount BridgeController against the iframe ref.
-    useEffect(() => {
-        if (!iframeRef.current) return;
-        const fakeRef = { current: iframeRef.current } as React.RefObject<HTMLIFrameElement | null>;
-        const bridge = new BridgeController(fakeRef);
-        bridgeRef.current = bridge;
-
-        // ─── Console + lifecycle ───
-        bridge.on(BridgeMethods.CONSOLE_LOG,   async (p) => { pushLog(`[info] ${p.message}`); return null; });
-        bridge.on(BridgeMethods.CONSOLE_WARN,  async (p) => { pushLog(`[warn] ${p.message}`); return null; });
-        bridge.on(BridgeMethods.CONSOLE_ERROR, async (p) => { pushLog(`[error] ${p.message}`); return null; });
-        bridge.on(BridgeMethods.RUNTIME_READY, async () => { onError(null); onReady(); return { status: "ok" }; });
-        bridge.on(BridgeMethods.RUNTIME_ERROR, async (p) => {
-            const msg = String(p.message || "Unknown runtime error");
-            onError(msg);
-            pushLog(`[error] ${msg}`);
-            return null;
-        });
-
-        // ─── Proxy fetch ───
-        bridge.on(BridgeMethods.PROXY_REQUEST, async (params) => {
-            const { observability, ...rest } = params as Record<string, unknown>;
-            if (observability) pushLog(`[info] [Observability] ${JSON.stringify(observability)}`);
-            const { url, method, headers, body } = rest as {
-                url: string; method?: string; headers?: Record<string, string>; body?: unknown;
-            };
-            const proxyRes = await fetch("/api/proxy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, method: method || "GET", headers: headers || {}, body, appId }),
-            });
-            const result = await proxyRes.json();
-            pushLog(`[info] [Proxy] ${method || "GET"} ${url} → ${proxyRes.status}`);
-            if (!proxyRes.ok) throw new Error(result.error || `Proxy returned ${proxyRes.status}`);
-            return result.data;
-        });
-
-        // ─── Event bus ───
-        bridge.on(BridgeMethods.EVENT_EMIT, async (params) => {
-            pushLog(`[event] ${params.type}: ${JSON.stringify(params.payload)}`);
-            return null;
-        });
-
-        // ─── Sovereign OS 2026 mock handlers ───
-        bridge.on(BridgeMethods.LIT_ENCRYPT, async (p) => {
-            const params = p as { plaintext: string; keyId?: string };
-            pushLog(`[lit] encrypt (keyId: ${params.keyId || "default"})`);
-            return stubLitEncrypt(params);
-        });
-        bridge.on(BridgeMethods.LIT_DECRYPT, async (p) => {
-            const params = p as { ciphertext: string; keyId?: string };
-            pushLog(`[lit] decrypt (keyId: ${params.keyId || "default"})`);
-            return stubLitDecrypt(params);
-        });
-        bridge.on(BridgeMethods.ACE_REPORT, async (p) => {
-            pushLog(`[ace] report requested`);
-            return stubACEReport(p as { since?: string });
-        });
-        bridge.on(BridgeMethods.ZKSP_VERIFY, async () => ({ verified: false }));
-        bridge.on(BridgeMethods.AGENT_HANDOFF, async (p) => {
-            const params = p as { fromAgent?: string; toAgent?: string };
-            pushLog(`[agent] handoff ${params.fromAgent} → ${params.toAgent}`);
-            return { status: "handoff_received" };
-        });
-        bridge.on(BridgeMethods.MCP_CALL, async (p) => {
-            const params = p as { serverUrl: string; tool: string; params?: Record<string, unknown> };
-            pushLog(`[mcp] call ${params.tool} via ${params.serverUrl}`);
-            return stubMCPCall(params);
-        });
-        bridge.on(BridgeMethods.MCP_SERVE, async (p) => {
-            pushLog(`[mcp] serve tools: ${((p as { tools?: unknown[] }).tools ?? []).length}`);
-            return null;
-        });
-        bridge.on(BridgeMethods.IMPACT_REPORT, async (p) => {
-            pushLog(`[simulation] impact report for tx`);
-            return stubImpactReport(p as { transaction?: unknown });
-        });
-        bridge.on(BridgeMethods.SIWS_SIGN, async () => {
-            pushLog(`[siws] sign-in requested`);
-            return stubSIWSSign(walletAddress ?? null);
-        });
-        bridge.on(BridgeMethods.SIWS_VERIFY, async () => true);
-        bridge.on(BridgeMethods.JUPITER_SWAP, async (p) => {
-            const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
-            pushLog(`[jupiter] swap ${params.amount} ${params.inputMint} → ${params.outputMint}`);
-            return stubJupiterSwap(params);
-        });
-        bridge.on(BridgeMethods.JUPITER_QUOTE, async (p) => {
-            const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
-            const isLive = !!walletAddress;
-            pushLog(`[jupiter] quote ${params.amount} ${params.inputMint} → ${params.outputMint}${isLive ? " (LIVE)" : " (mock)"}`);
-            return stubJupiterQuote(params, isLive);
-        });
-        bridge.on(BridgeMethods.YIELD_OPTIMIZE, async (p) => {
-            const params = p as { asset: string };
-            const isLive = !!walletAddress;
-            pushLog(`[yield] optimize for ${params.asset}${isLive ? " (LIVE)" : " (mock)"}`);
-            return stubYieldOptimize(params, isLive);
-        });
-        bridge.on(BridgeMethods.GASLESS_SUBMIT, async (p) => {
-            const params = p as { transaction: unknown; description?: string };
-            pushLog(`[gasless] submit: ${params.description || "gasless tx"}`);
-            return stubGaslessSubmit(params);
-        });
-        bridge.on(BridgeMethods.BLINK_EXPORT, async (p) => {
-            const params = p as { label?: string };
-            pushLog(`[blink] export action: ${params.label}`);
-            return stubBlinkExport(params);
-        });
-        bridge.on(BridgeMethods.TAX_FORENSICS, async (p) => {
-            pushLog(`[tax] forensics requested`);
-            return stubTaxForensics(p as { since?: string });
-        });
-
-        // ─── Dreyv Connector Gateway ───
-        bridge.on("dreyv.invoke", async (p) => {
-            const { provider, operation, params } = p as {
-                provider: string; operation: string; params?: Record<string, unknown>;
-            };
-            pushLog(`[dreyv] ${provider}.${operation}`);
-            const res = await fetch(`/api/dreyv-gateway/${encodeURIComponent(provider)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ operation, params }),
-            });
-            const json = await res.json();
-            if (!res.ok) {
-                pushLog(`[dreyv] error ${res.status}: ${json?.error || "unknown"}`);
-                if (res.status === 412 && typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("dreyv:connection_required", {
-                        detail: { provider: json?.provider || provider, operation },
-                    }));
-                }
-                throw new Error(json?.message || json?.error || `Gateway ${res.status}`);
+        // Place user files inside src/. Nested folders supported via segments.
+        const segments = relPath.split("/");
+        let cursor: FileSystemTree = userTree;
+        for (let i = 0; i < segments.length - 1; i++) {
+            const seg = segments[i];
+            if (!cursor[seg] || !("directory" in cursor[seg])) {
+                cursor[seg] = { directory: {} };
             }
-            return json.data;
-        });
-        bridge.on("dreyv.listConnections", async () => {
-            const res = await fetch("/api/dreyv-gateway/connections");
-            const json = await res.json();
-            return json.connections || [];
-        });
+            cursor = (cursor[seg] as { directory: FileSystemTree }).directory;
+        }
+        cursor[segments[segments.length - 1]] = {
+            file: { contents: f.content },
+        };
+    }
+    if (!hasApp) {
+        userTree["App.tsx"] = {
+            file: {
+                contents: `export default function App() {\n  return <div className="p-8 text-zinc-500 font-mono text-xs">No App.tsx provided.</div>;\n}\n`,
+            },
+        };
+    }
+    // Always-present runtime files
+    userTree["main.tsx"] = { file: { contents: MAIN_TSX_SOURCE } };
+    userTree["_dreyv-bootstrap.ts"] = { file: { contents: BOOTSTRAP_MODULE_SOURCE } };
+    userTree["components"] = {
+        directory: {
+            ui: {
+                directory: {
+                    "index.js": { file: { contents: UI_SHIM_SOURCE } },
+                },
+            },
+        },
+    };
 
-        bridge.start();
-        return () => { bridge.stop(); bridgeRef.current = null; };
-    }, [walletAddress, appId, pushLog, onError, onReady]);
-
-    return null;
+    return {
+        "package.json": { file: { contents: PROJECT_PACKAGE_JSON } },
+        "vite.config.ts": { file: { contents: VITE_CONFIG_SOURCE } },
+        "tsconfig.json": { file: { contents: TSCONFIG_SOURCE } },
+        "index.html": { file: { contents: INDEX_HTML_SOURCE } },
+        src: { directory: userTree },
+        vendor: {
+            directory: {
+                "keystone-sdk": {
+                    directory: {
+                        "package.json": { file: { contents: SDK_PACKAGE_JSON } },
+                        "index.js": { file: { contents: SDK_MODULE_SOURCE } },
+                    },
+                },
+                "dreyv-sdk-alias": {
+                    directory: {
+                        "package.json": { file: { contents: DREYV_SDK_ALIAS_PKG } },
+                        "index.js": { file: { contents: DREYV_SDK_ALIAS_INDEX } },
+                    },
+                },
+            },
+        },
+    };
 }
 
-// ─── Main component ─────────────────────────────────────────────────
+// ─── Main component ──────────────────────────────────────────────────
 
 export function LivePreview({
     files,
@@ -690,15 +608,28 @@ export function LivePreview({
     walletAddress = null,
     appId,
 }: LivePreviewProps) {
-    const [error, setError] = React.useState<string | null>(null);
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [logs, setLogs] = React.useState<string[]>([]);
-    const [retryKey, setRetryKey] = React.useState(0);
+    const [error, setError] = useState<string | null>(null);
+    const [bootPhase, setBootPhase] = useState<string>("Starting kernel…");
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [logs, setLogs] = useState<string[]>([]);
 
-    // ─── Fetch live prices/logos/holdings (proxied from parent) ──
-    const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
-    const [tokenLogos, setTokenLogos] = React.useState<Record<string, string>>({});
-    const [liveHoldings, setLiveHoldings] = React.useState<unknown>(null);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const containerRef = useRef<WebContainer | null>(null);
+    const bridgeRef = useRef<BridgeController | null>(null);
+    const logsRef = useRef<string[]>([]);
+    const installedRef = useRef(false);
+    const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+    const pushLog = useCallback((line: string) => {
+        logsRef.current = [...logsRef.current.slice(-500), line];
+        setLogs(logsRef.current);
+        onLogsChange?.(logsRef.current);
+    }, [onLogsChange]);
+
+    // ─── Live data fetches (unchanged from Sandpack version) ─────────
+    const [livePrices, setLivePrices] = useState<Record<string, number>>({});
+    const [tokenLogos, setTokenLogos] = useState<Record<string, string>>({});
+    const [liveHoldings, setLiveHoldings] = useState<unknown>(null);
 
     useEffect(() => {
         if (!walletAddress) { setLiveHoldings(null); return; }
@@ -759,58 +690,258 @@ export function LivePreview({
             .catch(() => {});
     }, []);
 
-    // ─── Build Sandpack file map ─────────────────────────────────────
-    // Convention: user code lives at /App.tsx (and any other paths it uses).
-    // We add /index.html, /index.tsx, /_dreyv-bootstrap.js, /_dreyv-ui.js
-    // and /node_modules/@keystone-os/sdk/{index.js,package.json}.
-    const sandpackFiles: SandpackFiles = useMemo(() => {
-        const map: SandpackFiles = {
-            "/index.html":            { code: INDEX_HTML_SOURCE, hidden: true },
-            "/index.tsx":             { code: INDEX_TSX_SOURCE, hidden: true },
-            "/_dreyv-bootstrap.js":   { code: BOOTSTRAP_MODULE_SOURCE, hidden: true },
-            "/components/ui/index.js":{ code: UI_SHIM_SOURCE, hidden: true },
-            "/node_modules/@keystone-os/sdk/package.json": {
-                code: JSON.stringify({ name: "@keystone-os/sdk", version: "1.0.0", main: "index.js" }),
-                hidden: true,
-            },
-            "/node_modules/@keystone-os/sdk/index.js": { code: SDK_MODULE_SOURCE, hidden: true },
-            // Alias @dreyv/sdk → @keystone-os/sdk
-            "/node_modules/@dreyv/sdk/package.json": {
-                code: JSON.stringify({ name: "@dreyv/sdk", version: "1.0.0", main: "index.js" }),
-                hidden: true,
-            },
-            "/node_modules/@dreyv/sdk/index.js": {
-                code: `module.exports = require("@keystone-os/sdk");`,
-                hidden: true,
-            },
+    // ─── Boot WebContainer + Vite dev server ─────────────────────────
+    useEffect(() => {
+        let cancelled = false;
+        let unsubServerReady: (() => void) | null = null;
+
+        const initialFiles = buildFsTree(files);
+
+        (async () => {
+            try {
+                setBootPhase("Booting WebContainer…");
+                const container = await bootContainer();
+                if (cancelled) return;
+                containerRef.current = container;
+
+                setBootPhase("Mounting filesystem…");
+                await container.mount(initialFiles);
+
+                if (!installedRef.current) {
+                    setBootPhase("Installing dependencies (first run, ~30s)…");
+                    pushLog("[info] npm install");
+                    const install = await container.spawn("npm", ["install", "--prefer-offline", "--no-audit", "--progress=false"]);
+                    install.output.pipeTo(new WritableStream({
+                        write(chunk) {
+                            const line = String(chunk).trim();
+                            if (line) pushLog(`[npm] ${line.slice(0, 200)}`);
+                        },
+                    }));
+                    const code = await install.exit;
+                    if (code !== 0) throw new Error(`npm install failed (exit ${code})`);
+                    installedRef.current = true;
+                }
+
+                setBootPhase("Starting Vite dev server…");
+                const dev = await container.spawn("npm", ["run", "dev"]);
+                dev.output.pipeTo(new WritableStream({
+                    write(chunk) {
+                        const line = String(chunk).trim();
+                        if (line) pushLog(`[vite] ${line.slice(0, 300)}`);
+                    },
+                }));
+
+                const onServerReady = (_port: number, url: string) => {
+                    if (cancelled) return;
+                    setBootPhase("");
+                    setPreviewUrl(url);
+                };
+                container.on("server-ready", onServerReady);
+                unsubServerReady = () => {
+                    // WebContainer event API has no off(); leak is fine for one-shot boot.
+                };
+
+                container.on("error", (err) => {
+                    if (cancelled) return;
+                    const msg = (err as { message?: string })?.message || String(err);
+                    setError(msg);
+                    pushLog(`[error] ${msg}`);
+                });
+            } catch (err) {
+                if (cancelled) return;
+                const msg = err instanceof Error ? err.message : String(err);
+                setError(msg);
+                pushLog(`[error] ${msg}`);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            unsubServerReady?.();
         };
-        // User files
-        for (const file of Object.values(files)) {
-            const path = file.name.startsWith("/") ? file.name : `/${file.name}`;
-            map[path] = { code: file.content };
-        }
-        // Ensure App.tsx exists so /index.tsx import doesn't fail
-        if (!map["/App.tsx"] && !map["/App.jsx"] && !map["/App.js"]) {
-            map["/App.tsx"] = {
-                code: `export default function App() {
-  return <div className="p-8 text-zinc-500 font-mono text-xs">No App.tsx provided.</div>;
-}`,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ─── Hot file sync: write changed user files into the container ──
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        // Serialise writes so we don't interleave during fast typing.
+        writeQueueRef.current = writeQueueRef.current.then(async () => {
+            for (const f of Object.values(files)) {
+                const rel = f.name.replace(/^\/+/, "");
+                const path = `/src/${rel}`;
+                try {
+                    // Ensure parent dirs exist
+                    const segs = rel.split("/");
+                    if (segs.length > 1) {
+                        const dir = "/src/" + segs.slice(0, -1).join("/");
+                        try { await container.fs.mkdir(dir, { recursive: true }); } catch {}
+                    }
+                    await container.fs.writeFile(path, f.content);
+                } catch (e) {
+                    pushLog(`[warn] hot-sync failed for ${path}: ${(e as Error).message}`);
+                }
+            }
+        }).catch(() => undefined);
+    }, [files, pushLog]);
+
+    // ─── Bind bridge once preview iframe is live ─────────────────────
+    useEffect(() => {
+        if (!previewUrl || !iframeRef.current) return;
+
+        const fakeRef = { current: iframeRef.current } as React.RefObject<HTMLIFrameElement | null>;
+        const bridge = new BridgeController(fakeRef);
+        bridgeRef.current = bridge;
+
+        // Console + lifecycle
+        bridge.on(BridgeMethods.CONSOLE_LOG,   async (p) => { pushLog(`[info] ${(p as { message?: string }).message}`); return null; });
+        bridge.on(BridgeMethods.CONSOLE_WARN,  async (p) => { pushLog(`[warn] ${(p as { message?: string }).message}`); return null; });
+        bridge.on(BridgeMethods.CONSOLE_ERROR, async (p) => { pushLog(`[error] ${(p as { message?: string }).message}`); return null; });
+        bridge.on(BridgeMethods.RUNTIME_READY, async () => { setError(null); return { status: "ok" }; });
+        bridge.on(BridgeMethods.RUNTIME_ERROR, async (p) => {
+            const msg = String((p as { message?: string }).message || "Unknown runtime error");
+            setError(msg);
+            pushLog(`[error] ${msg}`);
+            return null;
+        });
+
+        bridge.on(BridgeMethods.PROXY_REQUEST, async (params) => {
+            const { observability, ...rest } = params as Record<string, unknown>;
+            if (observability) pushLog(`[info] [Observability] ${JSON.stringify(observability)}`);
+            const { url, method, headers, body } = rest as {
+                url: string; method?: string; headers?: Record<string, string>; body?: unknown;
             };
-        }
-        return map;
-    }, [files]);
+            const proxyRes = await fetch("/api/proxy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, method: method || "GET", headers: headers || {}, body, appId }),
+            });
+            const result = await proxyRes.json();
+            pushLog(`[info] [Proxy] ${method || "GET"} ${url} → ${proxyRes.status}`);
+            if (!proxyRes.ok) throw new Error(result.error || `Proxy returned ${proxyRes.status}`);
+            return result.data;
+        });
 
-    // Sync logs callback up
-    useEffect(() => { onLogsChange?.(logs); }, [logs, onLogsChange]);
-    const handleLogsChange = useCallback((next: string[]) => setLogs(next), []);
+        bridge.on(BridgeMethods.EVENT_EMIT, async (params) => {
+            const p = params as { type?: string; payload?: unknown };
+            pushLog(`[event] ${p.type}: ${JSON.stringify(p.payload)}`);
+            return null;
+        });
 
-    // ─── Console tab (unchanged UI) ─────────────────────────────────
-    const [consoleFilter, setConsoleFilter] = React.useState<"all" | "info" | "warn" | "error" | "event">("all");
+        // Sovereign OS 2026 mock handlers
+        bridge.on(BridgeMethods.LIT_ENCRYPT, async (p) => { const params = p as { plaintext: string; keyId?: string }; pushLog(`[lit] encrypt (keyId: ${params.keyId || "default"})`); return stubLitEncrypt(params); });
+        bridge.on(BridgeMethods.LIT_DECRYPT, async (p) => { const params = p as { ciphertext: string; keyId?: string }; pushLog(`[lit] decrypt (keyId: ${params.keyId || "default"})`); return stubLitDecrypt(params); });
+        bridge.on(BridgeMethods.ACE_REPORT, async (p) => { pushLog(`[ace] report requested`); return stubACEReport(p as { since?: string }); });
+        bridge.on(BridgeMethods.ZKSP_VERIFY, async () => ({ verified: false }));
+        bridge.on(BridgeMethods.AGENT_HANDOFF, async (p) => {
+            const params = p as { fromAgent?: string; toAgent?: string };
+            pushLog(`[agent] handoff ${params.fromAgent} → ${params.toAgent}`);
+            return { status: "handoff_received" };
+        });
+        bridge.on(BridgeMethods.MCP_CALL, async (p) => {
+            const params = p as { serverUrl: string; tool: string; params?: Record<string, unknown> };
+            pushLog(`[mcp] call ${params.tool} via ${params.serverUrl}`);
+            return stubMCPCall(params);
+        });
+        bridge.on(BridgeMethods.MCP_SERVE, async (p) => { pushLog(`[mcp] serve tools: ${((p as { tools?: unknown[] }).tools ?? []).length}`); return null; });
+        bridge.on(BridgeMethods.IMPACT_REPORT, async (p) => { pushLog(`[simulation] impact report for tx`); return stubImpactReport(p as { transaction?: unknown }); });
+        bridge.on(BridgeMethods.SIWS_SIGN, async () => { pushLog(`[siws] sign-in requested`); return stubSIWSSign(walletAddress ?? null); });
+        bridge.on(BridgeMethods.SIWS_VERIFY, async () => true);
+        bridge.on(BridgeMethods.JUPITER_SWAP, async (p) => {
+            const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
+            pushLog(`[jupiter] swap ${params.amount} ${params.inputMint} → ${params.outputMint}`);
+            return stubJupiterSwap(params);
+        });
+        bridge.on(BridgeMethods.JUPITER_QUOTE, async (p) => {
+            const params = p as { inputMint: string; outputMint: string; amount: string; slippageBps?: number };
+            const isLive = !!walletAddress;
+            pushLog(`[jupiter] quote ${params.amount} ${params.inputMint} → ${params.outputMint}${isLive ? " (LIVE)" : " (mock)"}`);
+            return stubJupiterQuote(params, isLive);
+        });
+        bridge.on(BridgeMethods.YIELD_OPTIMIZE, async (p) => {
+            const params = p as { asset: string };
+            const isLive = !!walletAddress;
+            pushLog(`[yield] optimize for ${params.asset}${isLive ? " (LIVE)" : " (mock)"}`);
+            return stubYieldOptimize(params, isLive);
+        });
+        bridge.on(BridgeMethods.GASLESS_SUBMIT, async (p) => {
+            const params = p as { transaction: unknown; description?: string };
+            pushLog(`[gasless] submit: ${params.description || "gasless tx"}`);
+            return stubGaslessSubmit(params);
+        });
+        bridge.on(BridgeMethods.BLINK_EXPORT, async (p) => {
+            const params = p as { label?: string };
+            pushLog(`[blink] export action: ${params.label}`);
+            return stubBlinkExport(params);
+        });
+        bridge.on(BridgeMethods.TAX_FORENSICS, async (p) => { pushLog(`[tax] forensics requested`); return stubTaxForensics(p as { since?: string }); });
+
+        // Dreyv Connector Gateway
+        bridge.on("dreyv.invoke", async (p) => {
+            const { provider, operation, params } = p as {
+                provider: string; operation: string; params?: Record<string, unknown>;
+            };
+            pushLog(`[dreyv] ${provider}.${operation}`);
+            const res = await fetch(`/api/dreyv-gateway/${encodeURIComponent(provider)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ operation, params }),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                pushLog(`[dreyv] error ${res.status}: ${json?.error || "unknown"}`);
+                if (res.status === 412 && typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dreyv:connection_required", {
+                        detail: { provider: json?.provider || provider, operation },
+                    }));
+                }
+                throw new Error(json?.message || json?.error || `Gateway ${res.status}`);
+            }
+            return json.data;
+        });
+        bridge.on("dreyv.listConnections", async () => {
+            const res = await fetch("/api/dreyv-gateway/connections");
+            const json = await res.json();
+            return json.connections || [];
+        });
+
+        bridge.start();
+
+        return () => {
+            bridge.stop();
+            bridgeRef.current = null;
+        };
+    }, [previewUrl, appId, pushLog, walletAddress]);
+
+    // ─── Inject live data into iframe via postMessage ────────────────
+    useEffect(() => {
+        if (!previewUrl || !iframeRef.current) return;
+        const send = () => {
+            try {
+                iframeRef.current?.contentWindow?.postMessage({
+                    type: "__dreyv_inject__",
+                    payload: {
+                        prices: livePrices,
+                        logos: tokenLogos,
+                        holdings: liveHoldings,
+                        walletAddress,
+                    },
+                }, "*");
+            } catch {}
+        };
+        const t1 = setTimeout(send, 400);
+        const t2 = setTimeout(send, 1500);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+    }, [previewUrl, livePrices, tokenLogos, liveHoldings, walletAddress]);
+
+    // ─── Console tab UI (unchanged) ──────────────────────────────────
+    const [consoleFilter, setConsoleFilter] = useState<"all" | "info" | "warn" | "error" | "event">("all");
     if (tab === "code") {
         const filteredLogs = consoleFilter === "all"
             ? logs
             : logs.filter((log) => {
-                if (consoleFilter === "info") return log.startsWith("[info]");
+                if (consoleFilter === "info") return log.startsWith("[info]") || log.startsWith("[npm]") || log.startsWith("[vite]");
                 if (consoleFilter === "warn") return log.startsWith("[warn]");
                 if (consoleFilter === "error") return log.startsWith("[error]");
                 if (consoleFilter === "event") return log.startsWith("[event]") || log.startsWith("[lit]") || log.startsWith("[mcp]") || log.startsWith("[jupiter]") || log.startsWith("[siws]");
@@ -841,7 +972,7 @@ export function LivePreview({
                             </button>
                         ))}
                     </div>
-                    <button onClick={() => setLogs([])} className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider">
+                    <button onClick={() => { logsRef.current = []; setLogs([]); }} className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider">
                         Clear
                     </button>
                 </div>
@@ -880,10 +1011,11 @@ export function LivePreview({
     // ─── Preview tab ─────────────────────────────────────────────────
     return (
         <div className="h-full w-full relative bg-white font-manrope">
-            {isLoading && (
+            {!previewUrl && !error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 transition-opacity duration-300 pointer-events-none">
                     <Loader2 className="w-8 h-8 animate-spin text-violet-600 mb-4" />
-                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Booting Kernel...</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">{bootPhase || "Booting…"}</p>
+                    <p className="text-[10px] text-slate-400 mt-2 font-mono">WebContainer · Vite · Node 20</p>
                 </div>
             )}
             {error && (
@@ -896,55 +1028,23 @@ export function LivePreview({
                         <p className="text-sm text-slate-700 font-mono break-words leading-relaxed">{error}</p>
                     </div>
                     <button
-                        onClick={() => { setError(null); setIsLoading(true); setRetryKey(k => k + 1); }}
+                        onClick={() => { setError(null); window.location.reload(); }}
                         className="mt-6 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-full uppercase tracking-wider transition-colors"
                     >
-                        Retry Render
+                        Reload Runtime
                     </button>
                 </div>
             )}
-            <SandpackProvider
-                key={retryKey}
-                template="react-ts"
-                files={sandpackFiles}
-                customSetup={{
-                    entry: "/index.tsx",
-                    dependencies: {
-                        "react": "^18.2.0",
-                        "react-dom": "^18.2.0",
-                        "lucide-react": "^0.400.0",
-                        "framer-motion": "^11.5.4",
-                        "recharts": "^2.12.7",
-                        "date-fns": "^3.6.0",
-                    },
-                }}
-                options={{
-                    recompileMode: "delayed",
-                    recompileDelay: 300,
-                    // Pin to the stable v2 hosted sandpack bundler — the default
-                    // CRA bundler frequently times out ("Couldn't connect to server").
-                    bundlerURL: "https://sandpack-bundler.codesandbox.io",
-                    bundlerTimeOut: 60000,
-                    skipEval: false,
-                }}
-            >
-                <BridgeBinder
-                    walletAddress={walletAddress}
-                    appId={appId}
-                    livePrices={livePrices}
-                    tokenLogos={tokenLogos}
-                    liveHoldings={liveHoldings}
-                    onLogsChange={handleLogsChange}
-                    onError={setError}
-                    onReady={() => setIsLoading(false)}
-                />
-                <SandpackIframe
-                    showOpenInCodeSandbox={false}
-                    showRefreshButton={false}
-                    showRestartButton={false}
+            {previewUrl && (
+                <iframe
+                    ref={iframeRef}
+                    src={previewUrl}
+                    title="Dreyv Mini-App Preview"
+                    allow="cross-origin-isolated"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     style={{ height: "100%", width: "100%", border: "none", background: "#ffffff" }}
                 />
-            </SandpackProvider>
+            )}
         </div>
     );
 }
