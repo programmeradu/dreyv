@@ -84,11 +84,15 @@ function canonicalQuery(params: Record<string, string>): string {
 }
 
 function r2Host(config: R2Config): string {
-    return `${config.bucket}.${config.accountId}.r2.cloudflarestorage.com`;
+    return `${config.accountId}.r2.cloudflarestorage.com`;
+}
+
+function r2Path(config: R2Config, key: string): string {
+    return `/${awsEncode(config.bucket)}/${encodeKey(key)}`;
 }
 
 function r2Url(config: R2Config, key: string, query = ""): string {
-    return `https://${r2Host(config)}/${encodeKey(key)}${query ? `?${query}` : ""}`;
+    return `https://${r2Host(config)}${r2Path(config, key)}${query ? `?${query}` : ""}`;
 }
 
 function signedHeaders(opts: {
@@ -114,7 +118,7 @@ function signedHeaders(opts: {
     const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
     const canonicalRequest = [
         opts.method,
-        `/${encodeKey(opts.key)}`,
+        r2Path(config, opts.key),
         "",
         canonicalHeaders,
         signedHeaderNames.join(";"),
@@ -183,7 +187,7 @@ export async function presignR2Get(opts: {
     });
     const canonicalRequest = [
         "GET",
-        `/${encodeKey(opts.key)}`,
+        r2Path(config, opts.key),
         query,
         `host:${host}\n`,
         "host",
