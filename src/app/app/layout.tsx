@@ -124,21 +124,22 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                             </SheetTrigger>
                             <SheetContent
                                 side="left"
-                                className="w-[86%] max-w-sm p-0 border-r border-border shadow-2xl !bg-background dark:!bg-[#0b0b14] [&>button]:text-foreground"
-                                style={{ backdropFilter: "none", WebkitBackdropFilter: "none" }}
+                                data-theme="light"
+                                className="w-[78%] max-w-[300px] p-0 border-r border-violet-100 shadow-2xl !bg-white [&>button]:text-neutral-700 [&>button]:opacity-100"
+                                style={{ backdropFilter: "none", WebkitBackdropFilter: "none", colorScheme: "light" }}
                             >
                                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                                <div className="flex flex-col h-full bg-background dark:bg-[#0b0b14]">
-                                    <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-                                        <span className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center shrink-0">
-                                            <DreyvMark size={36} />
+                                <div className="flex flex-col h-full bg-white text-neutral-900">
+                                    <div className="px-4 py-3 border-b border-violet-100 flex items-center gap-2.5">
+                                        <span className="w-8 h-8 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
+                                            <DreyvMark size={28} />
                                         </span>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="font-semibold tracking-tight leading-tight text-foreground">Dreyv</span>
-                                            <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Command layer</span>
+                                        <div className="flex flex-col min-w-0 leading-tight">
+                                            <span className="font-semibold tracking-tight text-[15px] text-neutral-900">Dreyv</span>
+                                            <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Command layer</span>
                                         </div>
                                     </div>
-                                    <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+                                    <nav className="flex-1 min-h-0 overflow-hidden px-2 py-2 flex flex-col gap-0.5">
                                         <MobileNavRow icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} onNavigate={() => setMobileNavOpen(false)} />
@@ -148,7 +149,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                         <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} onNavigate={() => setMobileNavOpen(false)} />
                                     </nav>
-                                    <div className="px-3 py-3 border-t border-border flex items-center justify-between gap-2">
+                                    <div className="px-3 py-2.5 border-t border-violet-100 flex items-center justify-between gap-2 bg-white">
                                         <TooltipProvider>
                                             <VaultStatusBar />
                                             <ThemeToggle />
