@@ -578,7 +578,7 @@ export default function InboxPage() {
               return (
                 <article
                   key={a.id}
-                  className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                  className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                 >
                   <div className="flex items-start gap-3">
                     <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -633,7 +633,7 @@ export default function InboxPage() {
               : txProposals.map((t) => (
                   <article
                     key={t.id}
-                    className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                    className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                   >
                     <div className="flex items-start gap-3">
                       <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -696,7 +696,7 @@ export default function InboxPage() {
                 : proposals.map((p) => (
                     <article
                       key={p.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)] transition hover:border-violet-300"
+                      className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                     >
                       <div className="flex items-start gap-3">
                         <span
@@ -784,7 +784,7 @@ export default function InboxPage() {
                   {subagents.map((s) => (
                     <article
                       key={s.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.08)]"
+                      className="rounded-xl border border-violet-100 bg-white p-4"
                     >
                       <div className="flex items-center gap-2">
                         <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
