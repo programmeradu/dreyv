@@ -96,7 +96,7 @@ export default function TreasuryPage() {
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
       <AmbientGlow className="right-[-160px] top-[-200px]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+      <header className="relative z-10 mx-auto hidden max-w-6xl items-center justify-between gap-3 px-4 py-3 md:flex md:px-6 md:py-4">
         <Link href="/app" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-violet-700">
           <ArrowLeft className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Home</span>
