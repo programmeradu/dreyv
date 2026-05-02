@@ -48,22 +48,111 @@ export function isR2Configured(): boolean {
     );
 }
 
+function awsEncode(value: string): string {
+    return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function encodeKey(key: string): string {
+    return key.split("/").map(awsEncode).join("/");
+}
+
+function sha256Hex(input: Buffer | string): string {
+    return createHash("sha256").update(input).digest("hex");
+}
+
+function hmac(key: Buffer | string, value: string): Buffer {
+    return createHmac("sha256", key).update(value).digest();
+}
+
+function amzNow(date = new Date()): { amzDate: string; dateStamp: string } {
+    const iso = date.toISOString().replace(/[:-]|\.\d{3}/g, "");
+    return { amzDate: iso, dateStamp: iso.slice(0, 8) };
+}
+
+function signingKey(secretAccessKey: string, dateStamp: string): Buffer {
+    const kDate = hmac(`AWS4${secretAccessKey}`, dateStamp);
+    const kRegion = hmac(kDate, "auto");
+    const kService = hmac(kRegion, "s3");
+    return hmac(kService, "aws4_request");
+}
+
+function canonicalQuery(params: Record<string, string>): string {
+    return Object.entries(params)
+        .sort(([aKey, aVal], [bKey, bVal]) => (aKey === bKey ? aVal.localeCompare(bVal) : aKey.localeCompare(bKey)))
+        .map(([key, value]) => `${awsEncode(key)}=${awsEncode(value)}`)
+        .join("&");
+}
+
+function r2Url(config: R2Config, key: string, query = ""): string {
+    const path = `/${awsEncode(config.bucket)}/${encodeKey(key)}`;
+    return `https://${config.accountId}.r2.cloudflarestorage.com${path}${query ? `?${query}` : ""}`;
+}
+
+function signedHeaders(opts: {
+    method: "PUT" | "DELETE";
+    key: string;
+    payloadHash: string;
+    contentType?: string;
+    contentDisposition?: string;
+}): { url: string; headers: Record<string, string> } {
+    const config = getConfig();
+    const { amzDate, dateStamp } = amzNow();
+    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const headers: Record<string, string> = {
+        host,
+        "x-amz-content-sha256": opts.payloadHash,
+        "x-amz-date": amzDate,
+    };
+    if (opts.contentType) headers["content-type"] = opts.contentType;
+    if (opts.contentDisposition) headers["content-disposition"] = opts.contentDisposition;
+
+    const signedHeaderNames = Object.keys(headers).sort();
+    const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${headers[name]}\n`).join("");
+    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+    const canonicalRequest = [
+        opts.method,
+        `/${awsEncode(config.bucket)}/${encodeKey(opts.key)}`,
+        "",
+        canonicalHeaders,
+        signedHeaderNames.join(";"),
+        opts.payloadHash,
+    ].join("\n");
+    const stringToSign = [
+        "AWS4-HMAC-SHA256",
+        amzDate,
+        credentialScope,
+        sha256Hex(canonicalRequest),
+    ].join("\n");
+    const signature = createHmac("sha256", signingKey(config.secretAccessKey, dateStamp)).update(stringToSign).digest("hex");
+
+    delete headers.host;
+    headers.Authorization = `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaderNames.join(";")}, Signature=${signature}`;
+    return { url: r2Url(config, opts.key), headers };
+}
+
 export async function putR2Object(opts: {
     key: string;
     body: Buffer;
     mime: string;
     filename: string;
 }): Promise<void> {
-    const { client, bucket } = getClient();
-    await client.send(
-        new PutObjectCommand({
-            Bucket: bucket,
-            Key: opts.key,
-            Body: opts.body,
-            ContentType: opts.mime,
-            ContentDisposition: `attachment; filename="${opts.filename.replace(/"/g, "")}"`,
-        }),
-    );
+    const disposition = `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
+    const signed = signedHeaders({
+        method: "PUT",
+        key: opts.key,
+        payloadHash: sha256Hex(opts.body),
+        contentType: opts.mime,
+        contentDisposition: disposition,
+    });
+    const res = await fetch(signed.url, {
+        method: "PUT",
+        headers: signed.headers,
+        body: opts.body,
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`R2 upload failed (${res.status}): ${text.slice(0, 300)}`);
+    }
 }
 
 export async function presignR2Get(opts: {
@@ -73,22 +162,40 @@ export async function presignR2Get(opts: {
     inline?: boolean;
     ttlSeconds?: number;
 }): Promise<string> {
-    const { client, bucket } = getClient();
+    const config = getConfig();
+    const { amzDate, dateStamp } = amzNow();
     const disposition = opts.inline
         ? `inline; filename="${opts.filename.replace(/"/g, "")}"`
         : `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
-    const cmd = new GetObjectCommand({
-        Bucket: bucket,
-        Key: opts.key,
-        ResponseContentType: opts.mime,
-        ResponseContentDisposition: disposition,
+    const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const query = canonicalQuery({
+        "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+        "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
+        "X-Amz-Date": amzDate,
+        "X-Amz-Expires": String(opts.ttlSeconds ?? PRESIGN_TTL),
+        "X-Amz-SignedHeaders": "host",
+        "response-content-disposition": disposition,
+        "response-content-type": opts.mime,
     });
-    return await getSignedUrl(client, cmd, {
-        expiresIn: opts.ttlSeconds ?? PRESIGN_TTL,
-    });
+    const canonicalRequest = [
+        "GET",
+        `/${awsEncode(config.bucket)}/${encodeKey(opts.key)}`,
+        query,
+        `host:${host}\n`,
+        "host",
+        "UNSIGNED-PAYLOAD",
+    ].join("\n");
+    const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+    const signature = createHmac("sha256", signingKey(config.secretAccessKey, dateStamp)).update(stringToSign).digest("hex");
+    return r2Url(config, opts.key, `${query}&X-Amz-Signature=${signature}`);
 }
 
 export async function deleteR2Object(key: string): Promise<void> {
-    const { client, bucket } = getClient();
-    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    const signed = signedHeaders({ method: "DELETE", key, payloadHash: sha256Hex("") });
+    const res = await fetch(signed.url, { method: "DELETE", headers: signed.headers });
+    if (!res.ok && res.status !== 404) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`R2 delete failed (${res.status}): ${text.slice(0, 300)}`);
+    }
 }
