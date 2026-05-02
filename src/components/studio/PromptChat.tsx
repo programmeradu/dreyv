@@ -589,8 +589,9 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                 </div>
             ) : (
                 /* Messages */
-                <ScrollArea className="flex-1 px-3 py-3 scrollbar-thin min-h-0" ref={scrollRef}>
-                    <div className="space-y-3">
+                <ScrollArea className="flex-1 px-3 py-3 scrollbar-thin min-h-0 min-w-0 [&_[data-radix-scroll-area-viewport]]:!overflow-x-hidden" ref={scrollRef}>
+                    <div className="space-y-3 min-w-0 break-words">
+
                         {messages.map((message) => (
                             <div
                                 key={message.id}
