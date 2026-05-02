@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Lovable AI Proxy
 // ----------------
 // Forwards chat completion requests from any client (Vercel/Next.js, Studio,
