@@ -69,6 +69,16 @@ export function buildProviderChain(aiConfig?: AIConfig | null): ProviderEntry[] 
     chain.push({ provider: "ollama", key: "ollama", model: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b" });
   }
 
+  // Lovable AI proxy (auto-detected when Supabase URL is present — managed key, no secret needed on Vercel)
+  const lovableBase = resolveLovableProxyBase();
+  if (lovableBase) {
+    chain.push({
+      provider: "lovable",
+      key: lovableBase,
+      model: process.env.LOVABLE_AI_MODEL || "google/gemini-3-flash-preview",
+    });
+  }
+
   return chain;
 }
 
