@@ -26,6 +26,7 @@ import { CopyVariantCard } from "@/components/media-studio/CopyVariantCard";
 import { InfographicCanvas } from "@/components/media-studio/InfographicCanvas";
 import { StoryboardCanvas } from "@/components/media-studio/StoryboardCanvas";
 import { AssetLibrary } from "@/components/media-studio/AssetLibrary";
+import { ImageActions, ImageLightbox, safeFilename } from "@/components/media-studio/ImageViewer";
 import { studioAuthHeaders, studioJsonHeaders } from "@/lib/media-studio/client-auth";
 
 /**
