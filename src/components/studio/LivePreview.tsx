@@ -1,29 +1,28 @@
 "use client";
 
 /**
- * LivePreview — WebContainers-based runtime for Dreyv mini-apps.
+ * LivePreview — instant in-browser runtime for Dreyv mini-apps.
  *
- * Replaces the previous Sandpack runtime (which suffered from upstream
- * "Couldn't connect to server / TIME_OUT" errors against the hosted
- * CodeSandbox bundler). We now boot a real Node.js + Vite dev server
- * *inside the browser* via StackBlitz WebContainers — the same tech
- * Bolt.new uses. No remote bundler, no third-party rate limits, full
- * npm + HMR.
+ * The preview compiles TSX with Babel in the host page, then executes it
+ * inside a same-origin sandboxed iframe with a small CommonJS module loader.
+ * This avoids Sandpack remote bundler timeouts and avoids WebContainer's slow
+ * first-run npm install path.
  *
- * The Dreyv bridge (BridgeController <-> postMessage) is preserved
- * exactly: we attach to the WebContainer preview iframe via its ref
- * and keep all existing `bridge.on(...)` handlers.
- *
- * Requires COOP/COEP headers on the host route (configured in
- * next.config.ts for /app/studio/* and /app/run/*).
- *
- * IMPORTANT: WebContainers allow ONLY ONE instance per page. We use
- * a module-level singleton boot promise.
+ * The Dreyv bridge (BridgeController <-> postMessage) is preserved: we attach
+ * to the preview iframe via its ref and keep all existing bridge handlers.
  */
 
 import React, { useEffect, useRef, useMemo, useCallback, useState } from "react";
+import * as Babel from "@babel/standalone";
+import * as ReactDOM from "react-dom";
+import * as ReactDOMClient from "react-dom/client";
+import * as ReactJSXRuntime from "react/jsx-runtime";
+import * as ReactJSXDevRuntime from "react/jsx-dev-runtime";
+import * as LucideReact from "lucide-react";
+import * as Recharts from "recharts";
+import * as FramerMotion from "framer-motion";
+import * as DateFns from "date-fns";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { WebContainer, type FileSystemTree } from "@webcontainer/api";
 import {
     BridgeController,
     BridgeMethods,
@@ -463,70 +462,239 @@ const TSCONFIG_SOURCE = JSON.stringify({
     include: ["src"],
 }, null, 2);
 
-const PROJECT_PACKAGE_JSON = JSON.stringify({
-    name: "dreyv-mini-app-runtime",
-    private: true,
-    version: "0.0.0",
-    type: "module",
-    scripts: {
-        dev: "vite --host 0.0.0.0 --port 5173",
-    },
-    dependencies: {
-        "@keystone-os/sdk": "file:./vendor/keystone-sdk",
-        react: "^18.2.0",
-        "react-dom": "^18.2.0",
-        "lucide-react": "^0.400.0",
-        "framer-motion": "^11.5.4",
-        recharts: "^2.12.7",
-        "date-fns": "^3.6.0",
-    },
-    devDependencies: {
-        "@vitejs/plugin-react": "^4.3.1",
-        "@types/react": "^18.2.66",
-        "@types/react-dom": "^18.2.22",
-        typescript: "^5.4.5",
-        vite: "^5.2.0",
-    },
-}, null, 2);
+type CompiledRuntime = {
+    entry: string;
+    modules: Record<string, string>;
+};
 
-const SDK_PACKAGE_JSON = JSON.stringify({
-    name: "@keystone-os/sdk",
-    version: "1.0.0",
-    type: "module",
-    main: "index.js",
-    module: "index.js",
-}, null, 2);
+const SHADCN_UI_ALIASES = [
+    "@/components/ui",
+    "@/components/ui/card",
+    "@/components/ui/button",
+    "@/components/ui/input",
+    "@/components/ui/label",
+    "@/components/ui/badge",
+    "@/components/ui/separator",
+    "@/components/ui/skeleton",
+];
 
-const DREYV_SDK_ALIAS_PKG = JSON.stringify({
-    name: "@dreyv/sdk",
-    version: "1.0.0",
-    type: "module",
-    main: "index.js",
-}, null, 2);
+const LOCAL_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 
 const DREYV_SDK_ALIAS_INDEX = `export * from "@keystone-os/sdk";\n`;
 
-// ─── WebContainer singleton ──────────────────────────────────────────
-// Browsers allow only ONE WebContainer per page. Store boot promise globally.
-
 declare global {
     interface Window {
-        __dreyvWebContainer?: Promise<WebContainer>;
+        __dreyvPreviewRuntime?: {
+            React: typeof React;
+            createRoot: typeof ReactDOMClient.createRoot;
+            externals: Record<string, unknown>;
+        };
     }
 }
 
-function bootContainer(): Promise<WebContainer> {
-    if (typeof window === "undefined") {
-        return Promise.reject(new Error("WebContainer requires a browser."));
+function normalisePreviewPath(path: string): string {
+    const cleaned = path.replace(/^\/+/, "").replace(/\\/g, "/");
+    return cleaned.startsWith("src/") ? `/${cleaned}` : `/src/${cleaned}`;
+}
+
+function compileModule(source: string, filename: string): string {
+    const result = Babel.transform(source, {
+        filename,
+        presets: [
+            ["react", { runtime: "automatic", importSource: "react" }],
+            ["typescript", { isTSX: /\.[tj]sx$/.test(filename), allExtensions: true, allowDeclareFields: true }],
+        ],
+        plugins: ["transform-modules-commonjs"],
+        retainLines: true,
+        sourceMaps: "inline",
+    });
+    return result.code || "";
+}
+
+function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntime {
+    const modules: Record<string, string> = {};
+    let entry = "/src/App.tsx";
+
+    for (const f of Object.values(files)) {
+        const id = normalisePreviewPath(f.name);
+        modules[id] = compileModule(f.content, id);
+        if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
     }
-    if (!window.__dreyvWebContainer) {
-        window.__dreyvWebContainer = WebContainer.boot({ coep: "credentialless" }).catch((err) => {
-            // Reset so a future mount can retry
-            window.__dreyvWebContainer = undefined;
-            throw err;
-        });
+
+    if (!Object.keys(modules).some((id) => /\/App\.(tsx|jsx|ts|js)$/.test(id))) {
+        modules[entry] = compileModule(
+            `export default function App() {\n  return <div className="p-8 text-slate-500 font-mono text-xs">No App.tsx provided.</div>;\n}\n`,
+            entry,
+        );
     }
-    return window.__dreyvWebContainer;
+
+    modules["@keystone-os/sdk"] = compileModule(SDK_MODULE_SOURCE, "@keystone-os/sdk/index.js");
+    modules["@dreyv/sdk"] = compileModule(DREYV_SDK_ALIAS_INDEX, "@dreyv/sdk/index.js");
+    const uiShim = compileModule(UI_SHIM_SOURCE, "@/components/ui/index.js");
+    for (const alias of SHADCN_UI_ALIASES) modules[alias] = uiShim;
+
+    return { entry, modules };
+}
+
+function scriptJson(value: unknown): string {
+    return JSON.stringify(value).replace(/<\//g, "<\\/");
+}
+
+function buildRuntimeHtml(runtime: CompiledRuntime): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    #root { min-height: 100vh; }
+    .runtime-error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; margin: 24px; padding: 18px; border-radius: 18px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #ffffff; }
+    ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+${IFRAME_BRIDGE_CLIENT}
+window.keystoneBridge = keystoneBridge;
+
+(function () {
+  const fwd = (level, args) => {
+    try {
+      keystoneBridge.notify("console." + level, {
+        message: args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "),
+      });
+    } catch (e) {}
+  };
+  const orig = { log: console.log, warn: console.warn, error: console.error };
+  console.log = function () { orig.log.apply(console, arguments); fwd("log", Array.from(arguments)); };
+  console.warn = function () { orig.warn.apply(console, arguments); fwd("warn", Array.from(arguments)); };
+  console.error = function () { orig.error.apply(console, arguments); fwd("error", Array.from(arguments)); };
+  window.addEventListener("error", (e) => keystoneBridge.notify("runtime.error", {
+    message: String(e.message), line: e.lineno, col: e.colno,
+  }));
+  window.addEventListener("unhandledrejection", (e) => keystoneBridge.notify("runtime.error", {
+    message: "Unhandled Promise: " + String(e.reason && e.reason.message || e.reason),
+  }));
+})();
+
+window.__dreyvInjected = window.__dreyvInjected || {};
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "__dreyv_inject__") return;
+  Object.assign(window.__dreyvInjected, data.payload || {});
+  window.dispatchEvent(new CustomEvent("dreyv:inject"));
+});
+
+const DREYV_PROVIDERS = ["helius","jupiter","birdeye","marinade","pyth","resend","telegram","slack"];
+const dreyv = {
+  invoke: (provider, operation, params) =>
+    keystoneBridge.call("dreyv.invoke", { provider, operation, params: params || {} }),
+  listConnections: () => keystoneBridge.call("dreyv.listConnections", {}),
+};
+DREYV_PROVIDERS.forEach((p) => {
+  dreyv[p] = new Proxy({}, {
+    get: (_t, op) => (params) => dreyv.invoke(p, String(op), params || {}),
+  });
+});
+window.dreyv = dreyv;
+  </script>
+  <script>
+(function () {
+  const host = window.parent.__dreyvPreviewRuntime;
+  const modules = ${scriptJson(runtime.modules)};
+  const entry = ${scriptJson(runtime.entry)};
+  const cache = {};
+  const extensions = ${scriptJson(LOCAL_EXTENSIONS)};
+
+  function showError(error) {
+    const message = error && error.stack ? error.stack : (error && error.message ? error.message : String(error));
+    document.getElementById("root").innerHTML = '<div class="runtime-error"><strong>Runtime Error</strong>\n' + message.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>';
+    try { keystoneBridge.notify("runtime.error", { message }); } catch (e) {}
+  }
+
+  if (!host || !host.React || !host.createRoot) {
+    showError(new Error("Preview runtime was not initialized by the host."));
+    return;
+  }
+
+  function clean(path) {
+    const parts = [];
+    path.replace(/\\/g, "/").split("/").forEach((part) => {
+      if (!part || part === ".") return;
+      if (part === "..") parts.pop();
+      else parts.push(part);
+    });
+    return "/" + parts.join("/");
+  }
+
+  function pick(candidate) {
+    if (modules[candidate]) return candidate;
+    for (const ext of extensions) if (modules[candidate + ext]) return candidate + ext;
+    for (const ext of extensions) if (modules[candidate + "/index" + ext]) return candidate + "/index" + ext;
+    return candidate;
+  }
+
+  function resolve(parentId, request) {
+    if (!request) return request;
+    if (request.endsWith(".css")) return request;
+    if (host.externals && host.externals[request]) return request;
+    if (modules[request]) return request;
+    if (request.startsWith("@/")) return pick("/src/" + request.slice(2));
+    if (!request.startsWith(".") && !request.startsWith("/")) return request;
+    const base = parentId.startsWith("/") ? parentId.slice(0, parentId.lastIndexOf("/")) : "";
+    return pick(clean(request.startsWith("/") ? request : base + "/" + request));
+  }
+
+  function execute(id) {
+    if (id.endsWith(".css")) return {};
+    if (host.externals && host.externals[id]) return host.externals[id];
+    if (!modules[id]) throw new Error("Module not found: " + id);
+    if (cache[id]) return cache[id].exports;
+    const module = { exports: {} };
+    cache[id] = module;
+    const require = (request) => execute(resolve(id, request));
+    new Function("require", "module", "exports", modules[id] + "\n//# sourceURL=dreyv-preview:" + id)(require, module, module.exports);
+    return module.exports;
+  }
+
+  class ErrorBoundary extends host.React.Component {
+    constructor(props) { super(props); this.state = { error: null }; }
+    static getDerivedStateFromError(error) { return { error }; }
+    componentDidCatch(error, info) {
+      try { keystoneBridge.notify("runtime.error", { message: error && error.message ? error.message : String(error), componentStack: info && info.componentStack }); } catch (e) {}
+    }
+    render() {
+      if (this.state.error) {
+        return host.React.createElement("div", { className: "runtime-error" }, "Component Error\n" + (this.state.error.message || String(this.state.error)));
+      }
+      return this.props.children;
+    }
+  }
+
+  setTimeout(() => {
+    try {
+      const appModule = execute(entry);
+      const App = appModule.default || appModule.App || appModule;
+      host.createRoot(document.getElementById("root")).render(
+        host.React.createElement(ErrorBoundary, null, host.React.createElement(App))
+      );
+      keystoneBridge.notify("runtime.ready", {});
+    } catch (error) {
+      showError(error);
+    }
+  }, 50);
+})();
+  </script>
+</body>
+</html>`;
 }
 
 // ─── Build initial filesystem tree from user files ───────────────────
