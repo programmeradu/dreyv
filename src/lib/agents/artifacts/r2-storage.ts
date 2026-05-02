@@ -147,10 +147,11 @@ async function signedFetch(opts: {
         amzDate,
         dateStamp,
     });
+    const body = opts.body ? (new Uint8Array(opts.body) as BodyInit) : undefined;
     return fetch(objectUrl(config, opts.key), {
         method: opts.method,
         headers,
-        body: opts.body,
+        body,
     });
 }
 
@@ -169,23 +170,22 @@ export async function putR2Object(opts: {
     mime: string;
     filename: string;
 }): Promise<void> {
-    const config = getConfig();
-    const client = getClient();
     const disposition = `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
     try {
-        await client.send(
-            new PutObjectCommand({
-                Bucket: config.bucket,
-                Key: opts.key,
-                Body: opts.body,
-                ContentType: opts.mime,
-                ContentDisposition: disposition,
-            }),
-        );
+        const res = await signedFetch({
+            method: "PUT",
+            key: opts.key,
+            body: opts.body,
+            headers: {
+                "content-type": opts.mime,
+                "content-disposition": disposition,
+            },
+        });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${(await res.text()).slice(0, 500)}`);
     } catch (err) {
-        const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+        const e = err as { name?: string; message?: string };
         throw new Error(
-            `R2 upload failed (${e?.$metadata?.httpStatusCode ?? "?"} ${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
+            `R2 upload failed (${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
         );
     }
 }
@@ -198,32 +198,47 @@ export async function presignR2Get(opts: {
     ttlSeconds?: number;
 }): Promise<string> {
     const config = getConfig();
-    const client = getClient();
+    const { amzDate, dateStamp } = amzDates();
+    const credentialScope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
+    const credential = `${config.accessKeyId}/${credentialScope}`;
+    const expires = String(Math.min(Math.max(opts.ttlSeconds ?? PRESIGN_TTL, 1), 604800));
     const disposition = opts.inline
         ? `inline; filename="${opts.filename.replace(/"/g, "")}"`
         : `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
-    return getSignedUrl(
-        client,
-        new GetObjectCommand({
-            Bucket: config.bucket,
-            Key: opts.key,
-            ResponseContentDisposition: disposition,
-            ResponseContentType: opts.mime,
-        }),
-        { expiresIn: opts.ttlSeconds ?? PRESIGN_TTL },
-    );
+    const params = new URLSearchParams({
+        "X-Amz-Algorithm": ALGORITHM,
+        "X-Amz-Credential": credential,
+        "X-Amz-Date": amzDate,
+        "X-Amz-Expires": expires,
+        "X-Amz-SignedHeaders": "host",
+        "response-content-disposition": disposition,
+        "response-content-type": opts.mime,
+    });
+    const canonicalRequest = [
+        "GET",
+        `/${encodePath(config.bucket)}/${encodePath(opts.key)}`,
+        canonicalQuery(params),
+        `host:${config.accountId}.r2.cloudflarestorage.com\n`,
+        "host",
+        "UNSIGNED-PAYLOAD",
+    ].join("\n");
+    const stringToSign = [ALGORITHM, amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+    const signature = createHmac("sha256", signingKey(config.secretAccessKey, dateStamp))
+        .update(stringToSign)
+        .digest("hex");
+    params.set("X-Amz-Signature", signature);
+    return `${objectUrl(config, opts.key)}?${canonicalQuery(params)}`;
 }
 
 export async function deleteR2Object(key: string): Promise<void> {
-    const config = getConfig();
-    const client = getClient();
     try {
-        await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+        const res = await signedFetch({ method: "DELETE", key });
+        if (res.status === 404) return;
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${(await res.text()).slice(0, 500)}`);
     } catch (err) {
-        const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
-        if (e?.$metadata?.httpStatusCode === 404) return;
+        const e = err as { name?: string; message?: string };
         throw new Error(
-            `R2 delete failed (${e?.$metadata?.httpStatusCode ?? "?"} ${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
+            `R2 delete failed (${e?.name ?? "Error"}): ${e?.message ?? String(err)}`,
         );
     }
 }
