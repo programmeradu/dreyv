@@ -40,6 +40,7 @@ import {
 import { CanvasStream } from "@/components/canvas/CanvasStream";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
+import { TreasuryCommandDock } from "@/components/treasury/TreasuryCommandDock";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
