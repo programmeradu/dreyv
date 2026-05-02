@@ -35,7 +35,14 @@ const nextConfig: NextConfig = {
   experimental: {
     // allowedDevOrigins: ['192.168.227.1:3000'],
   },
-  serverExternalPackages: ['drizzle-orm', '@neondatabase/serverless'],
+  serverExternalPackages: [
+    'drizzle-orm',
+    '@neondatabase/serverless',
+    '@aws-sdk/client-s3',
+    '@aws-sdk/s3-request-presigner',
+    '@aws-sdk/xml-builder',
+    '@nodable/entities',
+  ],
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
     if (process.env.NEXT_DISABLE_WEBPACK_CACHE) {
