@@ -18,7 +18,9 @@ import { CommandBar } from "@/components/CommandBar";
 import { VaultStatusBar } from "@/components/VaultStatusBar";
 import { useAppEvent } from "@/lib/events";
 import { ThemeProvider, useTheme } from "@/lib/contexts/ThemeContext";
-import { Sun, Moon, ShoppingBag, Library, LogOut } from "lucide-react";
+import { Sun, Moon, ShoppingBag, Library, LogOut, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { authClient } from "@/lib/auth/client";
@@ -31,6 +33,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    // Close the mobile drawer on route change
+    useEffect(() => {
+        setMobileNavOpen(false);
+    }, [pathname]);
 
     useAppEvent((event) => {
         if (event.type === "NAVIGATE" && event.payload) {
@@ -46,34 +54,39 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         fetch('/api/auth/sync', { method: 'POST' }).catch(() => {});
     }, []);
 
+    const navItems = (
+        <>
+            <NavButton icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} />
+            <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} />
+            <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
+            <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
+            <NavButton icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} />
+            <NavButton icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} />
+            <NavButton icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} />
+            <NavButton icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} />
+        </>
+    );
+
     return (
         <CanvasProvider>
         <div
-            className="flex bg-background font-sans text-foreground overflow-hidden h-screen selection:bg-primary/20 selection:text-primary dashboard-theme relative"
+            className="flex bg-background font-sans text-foreground h-dvh md:h-screen md:overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
         >
             <Suspense fallback={null}>
                 <LiveCursors />
             </Suspense>
 
-            {/* Side Navigation (Slim Rail - Auto-fit, No Scroll) */}
-            <nav className="flex flex-col items-center w-20 h-full py-3 border-r border-border bg-sidebar z-50 shrink-0 select-none">
+            {/* Side Navigation — Desktop slim rail (hidden on mobile) */}
+            <nav className="hidden md:flex flex-col items-center w-20 h-full py-3 border-r border-border bg-sidebar z-50 shrink-0 select-none">
                 <Link href="/" className="mb-2 w-[46px] h-[46px] p-1.5 rounded-xl bg-violet-500/5 border border-violet-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.12)] hover:scale-105 transition-transform group shrink-0 overflow-hidden">
                     <DreyvMark size={56} className="group-hover:drop-shadow-[0_0_10px_rgba(139,92,246,0.45)] transition-all shrink-0" />
                 </Link>
 
                 <TooltipProvider>
-                    {/* Navigation Items Container - Flex Grow to fill space, Center aligned */}
                     <div className="flex-1 flex flex-col items-center justify-center w-full px-3 gap-1.5 min-h-0">
                         <div className="flex flex-col gap-1.5 w-full items-center justify-center overflow-y-auto scrollbar-none">
-                            <NavButton icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} />
-                            <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} />
-                            <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
-                            <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
-                            <NavButton icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} />
-                            <NavButton icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} />
-                            <NavButton icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} />
-                            <NavButton icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} />
+                            {navItems}
                         </div>
 
                         <div className="my-1 border-t border-border opacity-50 w-8 shrink-0" />
@@ -90,18 +103,62 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </nav>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+            <main className="flex-1 flex flex-col min-w-0 h-full relative md:overflow-hidden">
+                {/* Mobile top bar — visible only below md */}
+                <header className="md:hidden flex items-center justify-between gap-3 px-4 h-14 border-b border-border bg-sidebar/95 backdrop-blur z-40 shrink-0">
+                    <Link href="/" className="flex items-center gap-2 min-w-0">
+                        <span className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                            <DreyvMark size={32} />
+                        </span>
+                        <span className="font-semibold tracking-tight truncate">Dreyv</span>
+                    </Link>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <Suspense fallback={null}>
+                            <UserAccount />
+                        </Suspense>
+                        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon" aria-label="Open navigation">
+                                    <Menu className="w-5 h-5" />
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="w-72 p-0 bg-sidebar">
+                                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                                <div className="flex flex-col h-full">
+                                    <div className="px-4 py-4 border-b border-border flex items-center gap-2">
+                                        <span className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                            <DreyvMark size={36} />
+                                        </span>
+                                        <span className="font-semibold tracking-tight">Dreyv</span>
+                                    </div>
+                                    <TooltipProvider>
+                                        <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col items-center gap-2">
+                                            {navItems}
+                                        </div>
+                                        <div className="px-3 py-3 border-t border-border flex flex-col items-center gap-2">
+                                            <VaultStatusBar />
+                                            <ThemeToggle />
+                                        </div>
+                                    </TooltipProvider>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
+                    </div>
+                </header>
+
                 {/* Ambient Bg Glow */}
                 <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-                <Suspense fallback={
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    </div>
-                }>
-                    {children}
-                </Suspense>
+                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto md:overflow-hidden">
+                    <Suspense fallback={
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    }>
+                        {children}
+                    </Suspense>
+                </div>
 
                 {/* Floating Command Bar — single entry point. ⌘K is handled inside CommandBar. */}
                 <CommandBar />
