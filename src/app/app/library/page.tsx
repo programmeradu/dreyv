@@ -100,8 +100,8 @@ export default function LibraryPage() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-8 scrollbar-thin z-0 relative">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-muted-foreground animate-pulse gap-4">
-                        <Loader2 className="animate-spin w-8 h-8 text-primary/50" />
+                    <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500 animate-pulse gap-4">
+                        <Loader2 className="animate-spin w-8 h-8 text-violet-500" />
                         <span className="text-xs uppercase tracking-widest font-medium">Syncing Library...</span>
                     </div>
                 ) : apps.length === 0 ? (
@@ -230,18 +230,18 @@ export default function LibraryPage() {
                                 </CardHeader>
                                 <CardContent className="p-5">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-base text-foreground truncate pr-2">
+                                        <h3 className="font-bold text-base text-slate-900 truncate pr-2">
                                             {app.name}
                                         </h3>
-                                        <Badge variant="secondary" className="text-[9px] h-4 bg-muted text-muted-foreground border-border">
+                                        <Badge variant="secondary" className="text-[9px] h-4 bg-violet-50 text-violet-700 border-violet-200">
                                             {app.version}
                                         </Badge>
                                     </div>
-                                    <p className="text-xs text-muted-foreground line-clamp-2 h-8 mb-4">
+                                    <p className="text-xs text-slate-500 line-clamp-2 h-8 mb-4">
                                         {app.description}
                                     </p>
 
-                                    <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 font-mono">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                                         <span className="flex items-center gap-1">
                                             <Clock size={10} />
                                             {formatDistanceToNow(new Date(app.updatedAt), { addSuffix: true })}
@@ -253,7 +253,7 @@ export default function LibraryPage() {
                                 </CardContent>
                                 <CardFooter className="p-4 pt-0">
                                     <Link href={`/app/run/${app.id}`} className="w-full">
-                                        <Button className="w-full gap-2 text-xs font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:text-emerald-700 dark:hover:text-emerald-300">
+                                        <Button className="w-full gap-2 text-xs font-bold uppercase tracking-widest bg-violet-600 text-white hover:bg-violet-700">
                                             <Play size={12} fill="currentColor" />
                                             Launch App
                                         </Button>
