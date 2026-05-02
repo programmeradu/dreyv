@@ -707,6 +707,7 @@ export function LivePreview({
     // ─── Compile TSX instantly into an iframe srcdoc ───────────────────
     useEffect(() => {
         let cancelled = false;
+        let completed = false;
         setBootPhase("Compiling preview…");
         setError(null);
 
@@ -714,11 +715,13 @@ export function LivePreview({
             try {
                 const runtime = buildCompiledRuntime(files);
                 if (cancelled) return;
+                completed = true;
                 setPreviewUrl(buildRuntimeHtml(runtime));
                 setBootPhase("");
                 pushLog("[info] preview compiled");
             } catch (err) {
                 if (cancelled) return;
+                completed = true;
                 const msg = err instanceof Error ? err.message : String(err);
                 setError(msg);
                 setBootPhase("");
@@ -727,7 +730,7 @@ export function LivePreview({
         }, 80);
 
         const timeout = window.setTimeout(() => {
-            if (cancelled || previewUrl || error) return;
+            if (cancelled || completed) return;
             setError("Preview compile timed out. Check the code panel for the last compiler message.");
             setBootPhase("");
         }, 8000);
