@@ -974,7 +974,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 relative overflow-hidden min-h-0">
+                        <div className="flex-1 relative overflow-hidden min-h-0 min-w-0">
                             {viewMode === "code" ? (
                                 <CodeEditor
                                     code={files[activeFile]?.content || ""}
