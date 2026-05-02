@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 
 import { KEYSTONE_SDK_TYPES } from "@/generated/keystone-sdk-types";
