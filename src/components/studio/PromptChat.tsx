@@ -268,6 +268,21 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
             setCollapsedThinking((prev) => ({ ...prev, [thinkingCardId]: true }));
         };
 
+        const finalizeProgressCards = () => {
+            updateAssistant((blocks) =>
+                blocks.map((b) => {
+                    if (b.type !== "activity") return b;
+                    if (b.card.kind === "analyzing" || b.card.kind === "fixing") {
+                        return { ...b, card: { ...b.card, done: true } };
+                    }
+                    if (b.card.kind === "thinking" && !b.card.done) {
+                        return { ...b, card: { ...b.card, done: true, collapsed: true } };
+                    }
+                    return b;
+                })
+            );
+        };
+
         let summaryAccumulator = "";
         let summaryBlockExists = false;
         const appendSummary = (chunk: string) => {
