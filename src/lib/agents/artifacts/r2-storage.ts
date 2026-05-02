@@ -171,7 +171,7 @@ export async function presignR2Get(opts: {
         ? `inline; filename="${opts.filename.replace(/"/g, "")}"`
         : `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
     const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const host = r2Host(config);
     const query = canonicalQuery({
         "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
         "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
@@ -183,7 +183,7 @@ export async function presignR2Get(opts: {
     });
     const canonicalRequest = [
         "GET",
-        `/${awsEncode(config.bucket)}/${encodeKey(opts.key)}`,
+        `/${encodeKey(opts.key)}`,
         query,
         `host:${host}\n`,
         "host",
