@@ -19,6 +19,7 @@ import {
     FolderOpen,
     BookOpen,
     Plus,
+    Code2,
 } from "lucide-react";
 import { useSelf } from "@/liveblocks.config";
 import { getAvatarUrl } from "@/lib/avatars";
