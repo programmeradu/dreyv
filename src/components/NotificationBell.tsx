@@ -317,7 +317,8 @@ export function NotificationBell() {
             <PopoverContent
                 align="end"
                 sideOffset={8}
-                className="w-[340px] p-0 max-h-[460px] flex flex-col overflow-hidden rounded-xl border border-slate-200 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.22)] bg-white"
+                collisionPadding={12}
+                className="w-[calc(100vw-24px)] sm:w-[340px] max-w-[340px] p-0 max-h-[70vh] sm:max-h-[460px] flex flex-col overflow-hidden rounded-xl border border-slate-200 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.22)] bg-white"
             >
                 {/* ─── Counter row + actions ──────────────────────────── */}
                 <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100 bg-white shrink-0">
