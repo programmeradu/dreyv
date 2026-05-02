@@ -171,8 +171,8 @@ export class BridgeController {
   private sendResponse(response: JsonRpcResponse): void {
     const iframe = this.iframeRef.current;
     if (!iframe?.contentWindow) return;
-    // Use "*" because WebContainer preview iframes live on a dynamic
-    // *.webcontainer-api.io subdomain (cross-origin from the host).
+    // Use "*" because preview iframes can be srcdoc/sandboxed and may not
+    // expose a stable target origin across browser implementations.
     // Bridge responses contain no host-only secrets — the iframe is the
     // one that requested the data via JSON-RPC in the first place.
     iframe.contentWindow.postMessage(response, "*");
