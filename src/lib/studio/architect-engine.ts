@@ -408,7 +408,19 @@ export class ArchitectEngine {
             if (event.summary) {
               this.callbacks.onSummary?.(event.summary);
             }
-            result = event.files || null;
+
+            // ─── Patch application path ──────────────────
+            // When the model returns line-range patches (iterative edits),
+            // apply them to the existing files instead of returning empty.
+            if (event.isPatches && Array.isArray(event.patches) && event.patches.length > 0) {
+              const baseFiles: Record<string, string> = {};
+              for (const [name, file] of Object.entries(contextFiles)) {
+                baseFiles[name] = file.content || "";
+              }
+              result = this.applyPatches(baseFiles, event.patches);
+            } else {
+              result = event.files || null;
+            }
           } else if (event.type === "error" && !event.recoverable) {
             throw new Error(event.message || "Stream error");
           }
