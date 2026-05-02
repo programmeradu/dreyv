@@ -43,6 +43,7 @@ export function getDefaultModel(provider: string): string {
     case "anthropic": return "claude-sonnet-4-20250514";
     case "cloudflare": return "@cf/qwen/qwen3-30b-a3b-fp8";
     case "ollama": return "qwen2.5-coder:7b";
+    case "lovable": return "google/gemini-3-flash-preview";
     default: return "gpt-4o";
   }
 }
