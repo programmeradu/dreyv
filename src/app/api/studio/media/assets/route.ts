@@ -12,6 +12,8 @@ import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
 export const runtime = "nodejs";
 
+const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
+
 function isMigrationPending(err: unknown) {
   return err instanceof Error && err.message.includes("media_studio_assets");
 }
@@ -19,8 +21,6 @@ function isMigrationPending(err: unknown) {
 function persistedUserId(id: string) {
   return id === STUDIO_PASS_USER_ID ? null : id;
 }
-
-const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
 
 export async function GET(req: NextRequest) {
   try {
