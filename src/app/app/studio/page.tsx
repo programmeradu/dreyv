@@ -943,7 +943,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-thin">
                                     {([
                                         { id: "preview", label: "Preview", icon: Eye },
                                         { id: "code", label: "Console", icon: Terminal },
