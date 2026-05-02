@@ -538,7 +538,7 @@ export default function InboxPage() {
                   onClick={() => setTab(t.key)}
                   className={`group relative inline-flex items-center gap-2 rounded-t-lg px-3 py-2 text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
                     active
-                      ? "bg-violet-600 text-white shadow-sm shadow-violet-600/20"
+                      ? "bg-violet-600 text-white"
                       : "text-neutral-600 hover:bg-violet-50 hover:text-violet-700"
                   }`}
                 >
@@ -608,7 +608,7 @@ export default function InboxPage() {
                         <button
                           disabled={busyId === a.id}
                           onClick={() => actApproval(a.id, "approved")}
-                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                         >
                           <Check className="h-3.5 w-3.5" /> Approve
                         </button>
@@ -666,7 +666,7 @@ export default function InboxPage() {
                           <button
                             disabled={busyId === t.id}
                             onClick={() => actTx(t.id, "approve")}
-                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                           >
                             <Check className="h-3.5 w-3.5" /> Approve
                           </button>
@@ -754,7 +754,7 @@ export default function InboxPage() {
                             <button
                               disabled={busyId === p.id}
                               onClick={() => act(p.id, "acted")}
-                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60 shadow-sm shadow-violet-600/20"
+                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
                             >
                               <Check className="h-3.5 w-3.5" /> Mark acted
                             </button>
