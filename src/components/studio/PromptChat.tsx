@@ -5,12 +5,8 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUp, Activity, Loader2, Cpu, ChevronDown, MessageSquare, ListTree } from "lucide-react";
+import { ArrowUp, Loader2, Cpu, ChevronDown, MessageSquare, ListTree } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { ArchitectIcon } from "@/components/icons";
-import { getAvatarUrl } from "@/lib/avatars";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useSelf } from "@/liveblocks.config";
 import { cn } from "@/lib/utils";
 import {
     ArchitectEngine,
@@ -121,22 +117,8 @@ function generateFollowUps(prompt: string): string[] {
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFiles, runtimeLogs }: PromptChatProps) {
-    const user = useSelf();
     const [input, setInput] = useState("");
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "welcome",
-            role: "assistant",
-            timestamp: new Date(),
-            blocks: [
-                {
-                    type: "text",
-                    content:
-                        "Hey 👋 — I'm the Architect. Tell me what you want to build and I'll plan it, write the code, fix any errors, and explain what I shipped. Try something like *\"a Jupiter swap UI for SOL → USDC\"*.",
-                },
-            ],
-        },
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [useDeepResearch, setUseDeepResearch] = useState(false);
@@ -522,41 +504,30 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
         return items;
     }, [messages]);
 
+    const hasErrors = useMemo(
+        () => (runtimeLogs || []).some((l) => l.startsWith("[error]")),
+        [runtimeLogs]
+    );
+
+    const isEmpty = messages.length === 0;
+
     return (
-        <div className="flex flex-col h-full min-h-0">
-            {/* View mode toggle */}
-            <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border/40 shrink-0">
-                <button
-                    onClick={() => setViewMode("chat")}
-                    className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
-                        viewMode === "chat"
-                            ? "bg-primary/15 text-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                    )}
-                >
-                    <MessageSquare size={11} />
-                    Chat
-                </button>
-                <button
-                    onClick={() => setViewMode("timeline")}
-                    className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
-                        viewMode === "timeline"
-                            ? "bg-primary/15 text-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                    )}
-                >
-                    <ListTree size={11} />
-                    Timeline
-                </button>
-                {isGenerating && (
-                    <span className="ml-auto flex items-center gap-1.5 text-[10px] text-primary">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        <span className="font-mono">{liveStatusLabel || "Working"}</span>
-                    </span>
-                )}
-            </div>
+        <div className="flex flex-col h-full min-h-0 bg-white">
+            {/* Subtle live status — only when working */}
+            {isGenerating && liveStatusLabel && (
+                <div className="flex items-center gap-2 px-4 py-1.5 border-b border-violet-100 bg-violet-50/40 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
+                    <span className="text-[11px] font-medium text-violet-700">{liveStatusLabel}</span>
+                    <button
+                        onClick={() => setViewMode((v) => (v === "chat" ? "timeline" : "chat"))}
+                        className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-violet-600/70 hover:text-violet-700 transition-colors"
+                        title="Toggle timeline view"
+                    >
+                        {viewMode === "chat" ? <ListTree size={11} /> : <MessageSquare size={11} />}
+                        <span className="uppercase tracking-wider">{viewMode === "chat" ? "Timeline" : "Chat"}</span>
+                    </button>
+                </div>
+            )}
 
             {viewMode === "timeline" ? (
                 <div className="flex-1 min-h-0">
@@ -566,122 +537,120 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                         currentAction={liveStatusLabel}
                     />
                 </div>
-            ) : (
-            /* Messages */
-            <ScrollArea className="flex-1 p-3 scrollbar-thin min-h-0" ref={scrollRef}>
-                <div className="space-y-4">
-                    {messages.map((message) => (
-                        <div
-                            key={message.id}
-                            className={cn(
-                                "flex gap-2",
-                                message.role === "user" ? "justify-end" : "justify-start"
-                            )}
-                        >
-                            {message.role === "assistant" && (
-                                <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-1">
-                                    <ArchitectIcon size={14} />
-                                </div>
-                            )}
-
-                            <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "max-w-[92%] flex-1")}>
-                                {message.blocks.map((block, idx) => {
-                                    if (block.type === "text") {
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className={cn(
-                                                    "rounded-xl px-4 py-2.5 text-[13px] leading-relaxed shadow-sm",
-                                                    message.role === "user"
-                                                        ? "bg-primary text-background font-bold tracking-tight"
-                                                        : "bg-muted/20 text-foreground border border-border/40"
-                                                )}
-                                            >
-                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-0 [&_p]:leading-relaxed [&_strong]:text-foreground [&_em]:text-muted-foreground">
-                                                    <ReactMarkdown>{block.content}</ReactMarkdown>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    if (block.type === "activity") {
-                                        const card =
-                                            block.card.kind === "thinking"
-                                                ? { ...block.card, collapsed: collapsedThinking[block.card.id] ?? block.card.collapsed }
-                                                : block.card;
-                                        return (
-                                            <ArchitectActivityCard
-                                                key={idx}
-                                                card={card}
-                                                onToggleThinking={toggleThinking}
-                                            />
-                                        );
-                                    }
-                                    if (block.type === "summary") {
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className="rounded-xl px-4 py-3 text-[13px] leading-relaxed bg-primary/5 border border-primary/30"
-                                            >
-                                                <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1.5 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:text-primary [&_code]:text-primary [&_code]:bg-primary/10 [&_code]:px-1 [&_code]:rounded">
-                                                    <ReactMarkdown>{block.markdown}</ReactMarkdown>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    if (block.type === "followups") {
-                                        return (
-                                            <div key={idx} className="flex flex-wrap gap-1.5 pt-1">
-                                                {block.chips.map((chip, i) => (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => handleSubmit(chip)}
-                                                        disabled={isGenerating}
-                                                        className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/20 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center gap-1 disabled:opacity-50"
-                                                    >
-                                                        <DreyvStar size={10} />
-                                                        {chip}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })}
-                            </div>
-
-                            {message.role === "user" && (
-                                <Avatar className="h-6 w-6 shrink-0 border border-border mt-1">
-                                    <AvatarImage src={getAvatarUrl(user?.info?.name || "User")} />
-                                    <AvatarFallback className="text-[8px] font-bold">
-                                        {user?.info?.name?.charAt(0) || "U"}
-                                    </AvatarFallback>
-                                </Avatar>
-                            )}
-                        </div>
-                    ))}
-
-                    {/* Live status row (chat-integrated, replaces status bar) */}
-                    {isGenerating && liveStatusLabel && (
-                        <div className="flex gap-2 justify-start">
-                            <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                                <Loader2 size={12} className="animate-spin text-primary" />
-                            </div>
-                            <div className="text-[12px] text-muted-foreground italic flex items-center">
-                                {liveStatusLabel}
-                                <span className="inline-flex ml-1">
-                                    <span className="animate-pulse">.</span>
-                                    <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>.</span>
-                                    <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>.</span>
-                                </span>
-                            </div>
-                        </div>
-                    )}
+            ) : isEmpty ? (
+                /* Clean empty-state — no welcome wall */
+                <div className="flex-1 flex flex-col items-center justify-center px-6 text-center min-h-0">
+                    <div className="w-10 h-10 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center mb-3">
+                        <DreyvStar size={16} className="text-violet-600" />
+                    </div>
+                    <h3 className="text-[15px] font-semibold text-slate-900 tracking-tight">
+                        What are we building?
+                    </h3>
+                    <p className="text-[12px] text-slate-500 mt-1 max-w-[260px] leading-relaxed">
+                        Describe a mini-app and I'll plan it, write the code, and run it.
+                    </p>
                 </div>
-            </ScrollArea>
+            ) : (
+                /* Messages */
+                <ScrollArea className="flex-1 px-3 py-3 scrollbar-thin min-h-0" ref={scrollRef}>
+                    <div className="space-y-3">
+                        {messages.map((message) => (
+                            <div
+                                key={message.id}
+                                className={cn(
+                                    "flex",
+                                    message.role === "user" ? "justify-end" : "justify-start"
+                                )}
+                            >
+                                <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "w-full")}>
+                                    {message.blocks.map((block, idx) => {
+                                        if (block.type === "text") {
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className={cn(
+                                                        "text-[13px] leading-relaxed",
+                                                        message.role === "user"
+                                                            ? "rounded-2xl px-3.5 py-2 bg-violet-600 text-white font-medium"
+                                                            : "text-slate-700"
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        "prose prose-sm max-w-none [&_p]:my-0 [&_p]:leading-relaxed",
+                                                        message.role === "user" ? "prose-invert" : ""
+                                                    )}>
+                                                        <ReactMarkdown>{block.content}</ReactMarkdown>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (block.type === "activity") {
+                                            const card =
+                                                block.card.kind === "thinking"
+                                                    ? { ...block.card, collapsed: collapsedThinking[block.card.id] ?? block.card.collapsed }
+                                                    : block.card;
+                                            return (
+                                                <ArchitectActivityCard
+                                                    key={idx}
+                                                    card={card}
+                                                    onToggleThinking={toggleThinking}
+                                                />
+                                            );
+                                        }
+                                        if (block.type === "summary") {
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className="rounded-xl px-3.5 py-3 text-[13px] leading-relaxed bg-violet-50/60 border border-violet-100"
+                                                >
+                                                    <div className="prose prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1.5 [&_ul]:pl-4 [&_li]:my-0.5 [&_strong]:text-violet-700 [&_code]:text-violet-700 [&_code]:bg-violet-100/60 [&_code]:px-1 [&_code]:rounded">
+                                                        <ReactMarkdown>{block.markdown}</ReactMarkdown>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (block.type === "followups") {
+                                            return (
+                                                <div key={idx} className="flex flex-wrap gap-1.5 pt-0.5">
+                                                    {block.chips.map((chip, i) => (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => handleSubmit(chip)}
+                                                            disabled={isGenerating}
+                                                            className="text-[11px] px-2.5 py-1 rounded-full border border-violet-100 bg-white text-slate-600 hover:text-violet-700 hover:border-violet-300 hover:bg-violet-50 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                                        >
+                                                            <DreyvStar size={10} className="text-violet-500" />
+                                                            {chip}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
             )}
 
             {/* Input */}
-            <div className="p-3 border-t border-border">
+            <div className="p-3 border-t border-slate-200/70 bg-white shrink-0">
+                {/* Quick actions row — only show contextual chips */}
+                {hasErrors && !isGenerating && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <button
+                            onClick={() => handleSubmit("Fix the runtime errors shown in the console.")}
+                            className="text-[11px] px-2.5 py-1 rounded-full border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors flex items-center gap-1 font-semibold"
+                        >
+                            <DreyvStar size={10} />
+                            Fix errors
+                        </button>
+                        <span className="text-[10px] text-slate-400">runtime issues detected</span>
+                    </div>
+                )}
+
                 <div className="relative">
                     <Textarea
                         ref={textareaRef}
@@ -690,50 +659,52 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                         onKeyDown={handleKeyDown}
                         placeholder="Describe what you want to build, or ask a follow-up…"
                         disabled={isGenerating}
-                        className="resize-none pr-12 min-h-[80px] bg-background/50 pl-12 pb-10"
-                        rows={3}
+                        className="resize-none pr-11 min-h-[68px] bg-slate-50/60 border-slate-200 focus-visible:border-violet-300 focus-visible:ring-violet-200/40 pl-3 pb-9 text-[13px] rounded-xl"
+                        rows={2}
                     />
 
                     <Button
                         size="icon"
-                        variant="ghost"
-                        className={cn(
-                            "absolute top-2 left-2 h-8 w-8 transition-colors",
-                            useDeepResearch ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={() => setUseDeepResearch(!useDeepResearch)}
-                        title="Enable Deep Research"
-                    >
-                        <Cpu size={16} className={cn(useDeepResearch && "animate-pulse")} />
-                    </Button>
-                    <Button
-                        size="icon"
-                        className="absolute bottom-2 right-2 h-8 w-8"
+                        className="absolute bottom-2 right-2 h-7 w-7 rounded-lg bg-violet-600 hover:bg-violet-700 text-white"
                         onClick={() => handleSubmit()}
                         disabled={!input.trim() || isGenerating}
                     >
                         {isGenerating ? (
-                            <Loader2 size={14} className="animate-spin" />
+                            <Loader2 size={13} className="animate-spin" />
                         ) : (
-                            <ArrowUp size={14} />
+                            <ArrowUp size={13} />
                         )}
                     </Button>
 
-                    {/* Model selector */}
-                    <div className="absolute bottom-2 left-2 z-10" ref={dropdownRef}>
-                        <div className="relative">
+                    {/* Bottom-left controls: deep research + model */}
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1.5 z-10">
+                        <button
+                            onClick={() => setUseDeepResearch(!useDeepResearch)}
+                            title="Deep Research"
+                            className={cn(
+                                "flex items-center gap-1 px-1.5 h-6 rounded-md text-[10px] font-semibold transition-colors border",
+                                useDeepResearch
+                                    ? "bg-violet-50 text-violet-700 border-violet-200"
+                                    : "text-slate-500 hover:text-slate-700 border-slate-200 bg-white"
+                            )}
+                        >
+                            <Cpu size={11} className={cn(useDeepResearch && "animate-pulse")} />
+                            <span>Research</span>
+                        </button>
+
+                        <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setShowModelDropdown(!showModelDropdown)}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono text-muted-foreground hover:text-foreground transition-colors bg-muted/40 hover:bg-muted/70 border border-border/30"
+                                className="flex items-center gap-1 px-1.5 h-6 rounded-md text-[10px] font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 hover:border-slate-300 transition-colors"
                             >
-                                {availableModels.find((m) => m.id === selectedModel)?.label || selectedModel}
-                                <ChevronDown size={8} className={cn("transition-transform", showModelDropdown && "rotate-180")} />
+                                <span className="font-mono">{availableModels.find((m) => m.id === selectedModel)?.label || selectedModel}</span>
+                                <ChevronDown size={9} className={cn("transition-transform", showModelDropdown && "rotate-180")} />
                             </button>
 
                             {showModelDropdown && (
-                                <div className="absolute bottom-full left-0 mb-1 w-56 rounded-md border border-border bg-popover shadow-lg z-50 py-1 max-h-64 overflow-auto">
+                                <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border border-slate-200 bg-white shadow-lg z-50 py-1 max-h-64 overflow-auto">
                                     {byokConfig?.apiKey && (
-                                        <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-purple-400/60 border-b border-border/30 mb-0.5">
+                                        <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-violet-600/70 border-b border-slate-100 mb-0.5">
                                             Your Models ({byokConfig.provider})
                                         </div>
                                     )}
@@ -742,7 +713,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                                         return (
                                             <React.Fragment key={model.id + (model.byok ? "-byok" : "")}>
                                                 {isFirstFree && (
-                                                    <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500 border-t border-border/30 mt-0.5">
+                                                    <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 mt-0.5">
                                                         Free Models
                                                     </div>
                                                 )}
@@ -754,13 +725,13 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                                                     className={cn(
                                                         "w-full text-left px-3 py-1.5 text-[11px] font-mono transition-colors flex items-center gap-2",
                                                         selectedModel === model.id
-                                                            ? "bg-primary/10 text-primary"
-                                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                                            ? "bg-violet-50 text-violet-700"
+                                                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                                                     )}
                                                 >
                                                     <span className="flex-1">{model.label}</span>
                                                     {model.byok && (
-                                                        <span className="text-[8px] text-purple-400 bg-purple-500/10 px-1 py-0.5 rounded uppercase tracking-wider font-bold">key</span>
+                                                        <span className="text-[8px] text-violet-700 bg-violet-100 px-1 py-0.5 rounded uppercase tracking-wider font-bold">key</span>
                                                     )}
                                                 </button>
                                             </React.Fragment>
@@ -771,11 +742,6 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                         </div>
                     </div>
                 </div>
-
-                <p className="text-[9px] text-muted-foreground mt-2 text-center font-bold tracking-[0.1em] uppercase opacity-40">
-                    <Activity size={10} className="inline mr-2 text-primary" />
-                    Architect Engine v2.0 — Self-Correction Active
-                </p>
             </div>
         </div>
     );
