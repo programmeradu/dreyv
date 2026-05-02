@@ -8,7 +8,7 @@
 // Why: LOVABLE_API_KEY cannot be exposed on Vercel. This proxy keeps the key
 // server-side here while letting any frontend opt into Lovable AI models.
 //
-// Body: { model?, messages, tools?, tool_choice?, stream?, reasoning?, response_format? }
+// Body: { model?, messages, tools?, tool_choice?, stream?, reasoning?, response_format?, modalities? }
 // Behaviour: streams SSE back when stream=true, otherwise returns JSON.
 
 const corsHeaders = {
@@ -34,6 +34,7 @@ interface ProxyBody {
   messages?: ChatMessage[];
   tools?: unknown;
   tool_choice?: unknown;
+  modalities?: Array<"text" | "image">;
   stream?: boolean;
   reasoning?: { effort?: string };
   response_format?: unknown;
@@ -84,6 +85,7 @@ Deno.serve(async (req: Request) => {
   };
   if (payload.tools) upstreamBody.tools = payload.tools;
   if (payload.tool_choice) upstreamBody.tool_choice = payload.tool_choice;
+  if (Array.isArray(payload.modalities)) upstreamBody.modalities = payload.modalities;
   if (payload.reasoning) upstreamBody.reasoning = payload.reasoning;
   if (payload.response_format) upstreamBody.response_format = payload.response_format;
   if (typeof payload.temperature === "number") upstreamBody.temperature = payload.temperature;
