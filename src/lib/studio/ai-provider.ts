@@ -7,7 +7,21 @@
 
 import OpenAI from "openai";
 
-export type ProviderType = "openai" | "groq" | "google" | "anthropic" | "cloudflare" | "ollama";
+export type ProviderType = "openai" | "groq" | "google" | "anthropic" | "cloudflare" | "ollama" | "lovable";
+
+/**
+ * Resolve the Lovable AI proxy URL (Supabase edge function). Returns null when
+ * no Supabase project is configured (e.g. local dev without Cloud).
+ */
+function resolveLovableProxyBase(): string | null {
+  const raw =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    "";
+  if (!raw) return null;
+  return `${raw.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+}
 
 export interface ProviderEntry {
   provider: ProviderType;
