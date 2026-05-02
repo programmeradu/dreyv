@@ -595,11 +595,11 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                             <div
                                 key={message.id}
                                 className={cn(
-                                    "flex",
+                                    "flex w-full min-w-0",
                                     message.role === "user" ? "justify-end" : "justify-start"
                                 )}
                             >
-                                <div className={cn("flex flex-col gap-2", message.role === "user" ? "max-w-[88%]" : "w-full")}>
+                                <div className={cn("flex flex-col gap-2 min-w-0", message.role === "user" ? "max-w-[88%]" : "w-full")}>
                                     {message.blocks.map((block, idx) => {
                                         if (block.type === "text") {
                                             return (
