@@ -14,6 +14,7 @@ import { brandSystemPrompt } from "@/lib/media-studio/brand";
 import { chatJson } from "@/lib/media-studio/ai";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export type InfographicSpec = {
   title: string;

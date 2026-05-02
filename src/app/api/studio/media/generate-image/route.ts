@@ -19,6 +19,7 @@ import { mediaStudioAssets } from "@/db/schema";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function persistedUserId(id: string) {
   return id === STUDIO_PASS_USER_ID ? null : id;
