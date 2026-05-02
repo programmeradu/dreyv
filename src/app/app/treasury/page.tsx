@@ -286,11 +286,9 @@ function TreasuryBlockSeeder({
       ids.push(id);
     }
 
-    // 3. RUNWAY
+    // 3. RUNWAY — RunwayBlock fetches real burn from /api/treasury/events
     {
       const id = `tr-runway-${activeVault ?? "empty"}`;
-      // Without a real burn-rate watcher, we surface as insufficient — DACS
-      // sub-agents will populate this with real months over time. Never invent.
       addBlock({
         id,
         type: "runway",
@@ -299,7 +297,7 @@ function TreasuryBlockSeeder({
         title: "Runway",
         subtitle: "How many months you have at current burn",
         payload: {
-          insufficient: true,
+          wallet: activeVault,
           stableBalance: stableBalance > 0 ? stableBalance : null,
         },
       });

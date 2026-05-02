@@ -854,22 +854,88 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
 }
 
 function RunwayBlock({ block }: { block: CanvasBlock }) {
-  const months = asNumber(block.payload.months);
-  const burn = asNumber(block.payload.monthlyBurn);
-  const balance = asNumber(block.payload.stableBalance);
-  const insufficient = block.payload.insufficient === true;
+  const wallet = asString(block.payload.wallet);
+  const stableBalance = asNumber(block.payload.stableBalance);
+  // Allow seeded numeric overrides too (kept for back-compat / agents)
+  const seededMonths = asNumber(block.payload.months);
+  const seededBurn = asNumber(block.payload.monthlyBurn);
 
-  if (insufficient || months === null) {
+  const [loading, setLoading] = useState<boolean>(!!wallet);
+  const [burn, setBurn] = useState<number | null>(seededBurn);
+  const [inflow, setInflow] = useState<number | null>(null);
+  const [sample, setSample] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!wallet) { setLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/treasury/events?wallet=${wallet}&range=90d`, { cache: "no-store" });
+        const json = await res.json();
+        if (cancelled) return;
+        const agg = json?.aggregates ?? {};
+        setBurn(typeof agg.monthlyBurnRate === "number" ? agg.monthlyBurnRate : null);
+        setInflow(typeof agg.monthlyInflow === "number" ? agg.monthlyInflow : null);
+        setSample(Number(agg.sampleSize) || 0);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "failed");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [wallet]);
+
+  if (!wallet) {
+    return (
+      <BlockShell block={block} accent="slate">
+        <p className="text-sm text-slate-600">Connect a wallet to estimate your runway from real on-chain outflows.</p>
+      </BlockShell>
+    );
+  }
+
+  if (loading) {
+    return (
+      <BlockShell block={block} accent="slate">
+        <p className="text-sm text-slate-500">Reading the last 90 days of treasury activity…</p>
+      </BlockShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <BlockShell block={block} accent="slate">
+        <p className="text-sm text-slate-600">Couldn&apos;t load runway data ({error}). It will retry on next refresh.</p>
+      </BlockShell>
+    );
+  }
+
+  // No real outflows yet → honest empty state, never invent.
+  const burnUsable = typeof burn === "number" && burn > 0;
+  const balanceUsable = typeof stableBalance === "number" && stableBalance > 0;
+  const months = burnUsable && balanceUsable ? stableBalance / burn : (seededMonths ?? null);
+
+  if (months === null) {
     return (
       <BlockShell block={block} accent="slate">
         <p className="text-sm text-slate-600">
-          Not enough on-chain history yet to estimate runway. Once Dreyv has watched a few weeks of outflows, this will fill in automatically.
+          {sample === 0
+            ? "No outflows recorded yet for this wallet. Once Dreyv watches a few outflows (or you log them via the events API), runway fills in automatically."
+            : burnUsable
+              ? "No stable balance to draw from yet — top up USDC/USDT to see runway."
+              : "Burn rate is effectively zero right now, so runway is unbounded at current pace."}
         </p>
       </BlockShell>
     );
   }
 
   const tone = months >= 18 ? "emerald" : months >= 9 ? "violet" : "rose";
+  const netHint = inflow != null && burn != null
+    ? `${fmtUsd(inflow)} in / ${fmtUsd(burn)} out per month`
+    : `at ${fmtUsd(burn)}/mo burn`;
 
   return (
     <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
@@ -880,7 +946,10 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
             <StreamingNumber value={months} decimals={1} suffix=" months" />
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            at {fmtUsd(burn)}/mo burn · {fmtUsd(balance)} stable balance
+            {netHint} · {fmtUsd(stableBalance)} stable balance
+          </p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-400">
+            Based on {sample} event{sample === 1 ? "" : "s"} over 90 days
           </p>
         </div>
         <Pill tone={tone as "violet" | "emerald" | "rose"}>
