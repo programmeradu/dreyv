@@ -515,6 +515,7 @@ export function LivePreview({
             window.__ks_require = function(name) {
                 if (moduleMap[name]) return moduleMap[name];
                 // Shadcn-style alias: '@/components/ui/card' → { Card, CardHeader, ... }
+                // (handled below)
                 var m = /^@\/components\/ui\/([\w-]+)$/.exec(name);
                 if (m) {
                     return uiShim;
