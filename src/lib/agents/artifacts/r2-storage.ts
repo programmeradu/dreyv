@@ -83,9 +83,12 @@ function canonicalQuery(params: Record<string, string>): string {
         .join("&");
 }
 
+function r2Host(config: R2Config): string {
+    return `${config.bucket}.${config.accountId}.r2.cloudflarestorage.com`;
+}
+
 function r2Url(config: R2Config, key: string, query = ""): string {
-    const path = `/${awsEncode(config.bucket)}/${encodeKey(key)}`;
-    return `https://${config.accountId}.r2.cloudflarestorage.com${path}${query ? `?${query}` : ""}`;
+    return `https://${r2Host(config)}/${encodeKey(key)}${query ? `?${query}` : ""}`;
 }
 
 function signedHeaders(opts: {
@@ -97,7 +100,7 @@ function signedHeaders(opts: {
 }): { url: string; headers: Record<string, string> } {
     const config = getConfig();
     const { amzDate, dateStamp } = amzNow();
-    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const host = r2Host(config);
     const headers: Record<string, string> = {
         host,
         "x-amz-content-sha256": opts.payloadHash,
@@ -111,7 +114,7 @@ function signedHeaders(opts: {
     const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
     const canonicalRequest = [
         opts.method,
-        `/${awsEncode(config.bucket)}/${encodeKey(opts.key)}`,
+        `/${encodeKey(opts.key)}`,
         "",
         canonicalHeaders,
         signedHeaderNames.join(";"),
@@ -168,7 +171,7 @@ export async function presignR2Get(opts: {
         ? `inline; filename="${opts.filename.replace(/"/g, "")}"`
         : `attachment; filename="${opts.filename.replace(/"/g, "")}"`;
     const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
-    const host = `${config.accountId}.r2.cloudflarestorage.com`;
+    const host = r2Host(config);
     const query = canonicalQuery({
         "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
         "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
@@ -180,7 +183,7 @@ export async function presignR2Get(opts: {
     });
     const canonicalRequest = [
         "GET",
-        `/${awsEncode(config.bucket)}/${encodeKey(opts.key)}`,
+        `/${encodeKey(opts.key)}`,
         query,
         `host:${host}\n`,
         "host",
