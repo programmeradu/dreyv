@@ -248,10 +248,15 @@ export default function StudioPage() {
             if (raw) {
                 const snap = JSON.parse(raw);
                 if (snap?.files && Object.keys(snap.files).length > 0) {
-                    setFiles(snap.files);
+                    // Strip any legacy .html files from previous generations.
+                    const cleaned: Record<string, StudioFile> = {};
+                    for (const [k, v] of Object.entries(snap.files as Record<string, StudioFile>)) {
+                        if (!k.toLowerCase().endsWith(".html")) cleaned[k] = v;
+                    }
+                    setFiles(cleaned);
                     setAppName(snap.appName || "Untitled Mini-App");
-                    const first = Object.keys(snap.files)[0];
-                    setActiveFile(snap.files["App.tsx"] ? "App.tsx" : first);
+                    const first = Object.keys(cleaned)[0];
+                    setActiveFile(cleaned["App.tsx"] ? "App.tsx" : first);
                     setShowEmptyState(false);
                     setEmptyStatePrompt(null);
                 }
