@@ -317,6 +317,7 @@ export default function MediaStudioClient() {
   const aspects = ASPECTS_BY_MODE[mode];
 
   return (
+    <>
     <div className="relative min-h-screen w-full overflow-hidden bg-studio-bg font-manrope text-studio-fg">
       {/* Ambient violet glows */}
       <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-[120px]" />
