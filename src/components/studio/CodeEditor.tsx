@@ -364,17 +364,25 @@ export function CodeEditor({ code, language, onChange, fileName, allFiles = {}, 
   }, []);
 
   return (
-    <div className="flex-1 h-full relative">
+    <div className="flex-1 h-full relative bg-white">
       <style dangerouslySetInnerHTML={{ __html: GHOST_CURSOR_STYLES }} />
 
-      {/* Matrix Rain Canvas Overlay */}
-      <MatrixRain active={isGenerating} />
-
-      {/* Agent Status Badge (corner) */}
+      {/* Architect writing — refined violet pill with shimmer */}
       {isGenerating && (
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-3 py-1.5 bg-black/80 border border-[#36e27b]/40 rounded-full text-[#36e27b] text-[10px] font-mono tracking-widest uppercase shadow-[0_0_15px_rgba(54,226,123,0.2)] pointer-events-none">
-          <span className="w-1.5 h-3 bg-[#36e27b] rounded-[1px] animate-pulse" />
-          Agent Typing
+        <div className="absolute top-3 right-3 z-20 pointer-events-none">
+          <div className="relative flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full bg-white/95 backdrop-blur-sm border border-violet-200 shadow-[0_4px_16px_-4px_rgba(124,58,237,0.25)] overflow-hidden">
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-violet-600"
+              style={{ animation: "dreyv-pulse-dot 1.1s ease-in-out infinite" }}
+            />
+            <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-violet-700">
+              Architect writing
+            </span>
+            <span
+              className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-violet-200/60 to-transparent"
+              style={{ animation: "dreyv-shimmer 1.8s ease-in-out infinite" }}
+            />
+          </div>
         </div>
       )}
 
