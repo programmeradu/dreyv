@@ -123,20 +123,7 @@ function generateFollowUps(prompt: string): string[] {
 export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFiles, runtimeLogs }: PromptChatProps) {
     const user = useSelf();
     const [input, setInput] = useState("");
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "welcome",
-            role: "assistant",
-            timestamp: new Date(),
-            blocks: [
-                {
-                    type: "text",
-                    content:
-                        "Hey 👋 — I'm the Architect. Tell me what you want to build and I'll plan it, write the code, fix any errors, and explain what I shipped. Try something like *\"a Jupiter swap UI for SOL → USDC\"*.",
-                },
-            ],
-        },
-    ]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [useDeepResearch, setUseDeepResearch] = useState(false);
