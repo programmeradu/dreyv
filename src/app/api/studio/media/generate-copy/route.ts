@@ -97,8 +97,10 @@ export async function POST(req: NextRequest) {
     result.suggestedHashtags = (result.suggestedHashtags ?? []).slice(0, ch.hashtagBudget);
     return NextResponse.json(result);
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Generation failed";
+    console.error("[generate-copy] AI call failed:", message, err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Generation failed" },
+      { error: message },
       { status: 502 },
     );
   }
