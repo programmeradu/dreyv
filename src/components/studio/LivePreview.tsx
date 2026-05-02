@@ -697,76 +697,6 @@ window.dreyv = dreyv;
 </html>`;
 }
 
-// ─── Build initial filesystem tree from user files ───────────────────
-
-function buildFsTree(files: Record<string, StudioFile>): FileSystemTree {
-    // Normalise user paths: strip leading slash, place under src/.
-    const userTree: FileSystemTree = {};
-    let hasApp = false;
-    for (const f of Object.values(files)) {
-        const relPath = f.name.replace(/^\/+/, "");
-        if (relPath === "App.tsx" || relPath === "App.jsx" || relPath === "App.js") {
-            hasApp = true;
-        }
-        // Place user files inside src/. Nested folders supported via segments.
-        const segments = relPath.split("/");
-        let cursor: FileSystemTree = userTree;
-        for (let i = 0; i < segments.length - 1; i++) {
-            const seg = segments[i];
-            if (!cursor[seg] || !("directory" in cursor[seg])) {
-                cursor[seg] = { directory: {} };
-            }
-            cursor = (cursor[seg] as { directory: FileSystemTree }).directory;
-        }
-        cursor[segments[segments.length - 1]] = {
-            file: { contents: f.content },
-        };
-    }
-    if (!hasApp) {
-        userTree["App.tsx"] = {
-            file: {
-                contents: `export default function App() {\n  return <div className="p-8 text-zinc-500 font-mono text-xs">No App.tsx provided.</div>;\n}\n`,
-            },
-        };
-    }
-    // Always-present runtime files
-    userTree["main.tsx"] = { file: { contents: MAIN_TSX_SOURCE } };
-    userTree["_dreyv-bootstrap.ts"] = { file: { contents: BOOTSTRAP_MODULE_SOURCE } };
-    userTree["components"] = {
-        directory: {
-            ui: {
-                directory: {
-                    "index.js": { file: { contents: UI_SHIM_SOURCE } },
-                },
-            },
-        },
-    };
-
-    return {
-        "package.json": { file: { contents: PROJECT_PACKAGE_JSON } },
-        "vite.config.ts": { file: { contents: VITE_CONFIG_SOURCE } },
-        "tsconfig.json": { file: { contents: TSCONFIG_SOURCE } },
-        "index.html": { file: { contents: INDEX_HTML_SOURCE } },
-        src: { directory: userTree },
-        vendor: {
-            directory: {
-                "keystone-sdk": {
-                    directory: {
-                        "package.json": { file: { contents: SDK_PACKAGE_JSON } },
-                        "index.js": { file: { contents: SDK_MODULE_SOURCE } },
-                    },
-                },
-                "dreyv-sdk-alias": {
-                    directory: {
-                        "package.json": { file: { contents: DREYV_SDK_ALIAS_PKG } },
-                        "index.js": { file: { contents: DREYV_SDK_ALIAS_INDEX } },
-                    },
-                },
-            },
-        },
-    };
-}
-
 // ─── Main component ──────────────────────────────────────────────────
 
 export function LivePreview({
@@ -777,16 +707,13 @@ export function LivePreview({
     appId,
 }: LivePreviewProps) {
     const [error, setError] = useState<string | null>(null);
-    const [bootPhase, setBootPhase] = useState<string>("Starting kernel…");
+    const [bootPhase, setBootPhase] = useState<string>("Preparing preview…");
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
 
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
-    const containerRef = useRef<WebContainer | null>(null);
     const bridgeRef = useRef<BridgeController | null>(null);
     const logsRef = useRef<string[]>([]);
-    const installedRef = useRef(false);
-    const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
     const pushLog = useCallback((line: string) => {
         logsRef.current = [...logsRef.current.slice(-500), line];
@@ -858,100 +785,69 @@ export function LivePreview({
             .catch(() => {});
     }, []);
 
-    // ─── Boot WebContainer + Vite dev server ─────────────────────────
+    const externalModules = useMemo(() => {
+        const reactModule = { ...React, default: React };
+        const reactDomModule = { ...ReactDOM, default: ReactDOM };
+        const reactDomClientModule = { ...ReactDOMClient, default: ReactDOMClient };
+        const jsxRuntimeModule = { ...ReactJSXRuntime, default: ReactJSXRuntime };
+        const jsxDevRuntimeModule = { ...ReactJSXDevRuntime, default: ReactJSXDevRuntime };
+        return {
+            react: reactModule,
+            "react-dom": reactDomModule,
+            "react-dom/client": reactDomClientModule,
+            "react/jsx-runtime": jsxRuntimeModule,
+            "react/jsx-dev-runtime": jsxDevRuntimeModule,
+            "lucide-react": { ...LucideReact, default: LucideReact },
+            recharts: { ...Recharts, default: Recharts },
+            "framer-motion": { ...FramerMotion, default: FramerMotion },
+            "date-fns": { ...DateFns, default: DateFns },
+        };
+    }, []);
+
+    useEffect(() => {
+        window.__dreyvPreviewRuntime = {
+            React,
+            createRoot: ReactDOMClient.createRoot,
+            externals: externalModules,
+        };
+        return () => {
+            delete window.__dreyvPreviewRuntime;
+        };
+    }, [externalModules]);
+
+    // ─── Compile TSX instantly into an iframe srcdoc ───────────────────
     useEffect(() => {
         let cancelled = false;
-        let unsubServerReady: (() => void) | null = null;
+        setBootPhase("Compiling preview…");
+        setError(null);
 
-        const initialFiles = buildFsTree(files);
-
-        (async () => {
+        const timer = window.setTimeout(() => {
             try {
-                setBootPhase("Booting WebContainer…");
-                const container = await bootContainer();
+                const runtime = buildCompiledRuntime(files);
                 if (cancelled) return;
-                containerRef.current = container;
-
-                setBootPhase("Mounting filesystem…");
-                await container.mount(initialFiles);
-
-                if (!installedRef.current) {
-                    setBootPhase("Installing dependencies (first run, ~30s)…");
-                    pushLog("[info] npm install");
-                    const install = await container.spawn("npm", ["install", "--prefer-offline", "--no-audit", "--progress=false"]);
-                    install.output.pipeTo(new WritableStream({
-                        write(chunk) {
-                            const line = String(chunk).trim();
-                            if (line) pushLog(`[npm] ${line.slice(0, 200)}`);
-                        },
-                    }));
-                    const code = await install.exit;
-                    if (code !== 0) throw new Error(`npm install failed (exit ${code})`);
-                    installedRef.current = true;
-                }
-
-                setBootPhase("Starting Vite dev server…");
-                const dev = await container.spawn("npm", ["run", "dev"]);
-                dev.output.pipeTo(new WritableStream({
-                    write(chunk) {
-                        const line = String(chunk).trim();
-                        if (line) pushLog(`[vite] ${line.slice(0, 300)}`);
-                    },
-                }));
-
-                const onServerReady = (_port: number, url: string) => {
-                    if (cancelled) return;
-                    setBootPhase("");
-                    setPreviewUrl(url);
-                };
-                container.on("server-ready", onServerReady);
-                unsubServerReady = () => {
-                    // WebContainer event API has no off(); leak is fine for one-shot boot.
-                };
-
-                container.on("error", (err) => {
-                    if (cancelled) return;
-                    const msg = (err as { message?: string })?.message || String(err);
-                    setError(msg);
-                    pushLog(`[error] ${msg}`);
-                });
+                setPreviewUrl(buildRuntimeHtml(runtime));
+                setBootPhase("");
+                pushLog("[info] preview compiled");
             } catch (err) {
                 if (cancelled) return;
                 const msg = err instanceof Error ? err.message : String(err);
                 setError(msg);
+                setBootPhase("");
                 pushLog(`[error] ${msg}`);
             }
-        })();
+        }, 80);
+
+        const timeout = window.setTimeout(() => {
+            if (cancelled || previewUrl || error) return;
+            setError("Preview compile timed out. Check the code panel for the last compiler message.");
+            setBootPhase("");
+        }, 8000);
 
         return () => {
             cancelled = true;
-            unsubServerReady?.();
+            window.clearTimeout(timer);
+            window.clearTimeout(timeout);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // ─── Hot file sync: write changed user files into the container ──
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        // Serialise writes so we don't interleave during fast typing.
-        writeQueueRef.current = writeQueueRef.current.then(async () => {
-            for (const f of Object.values(files)) {
-                const rel = f.name.replace(/^\/+/, "");
-                const path = `/src/${rel}`;
-                try {
-                    // Ensure parent dirs exist
-                    const segs = rel.split("/");
-                    if (segs.length > 1) {
-                        const dir = "/src/" + segs.slice(0, -1).join("/");
-                        try { await container.fs.mkdir(dir, { recursive: true }); } catch {}
-                    }
-                    await container.fs.writeFile(path, f.content);
-                } catch (e) {
-                    pushLog(`[warn] hot-sync failed for ${path}: ${(e as Error).message}`);
-                }
-            }
-        }).catch(() => undefined);
     }, [files, pushLog]);
 
     // ─── Bind bridge once preview iframe is live ─────────────────────
@@ -1183,7 +1079,7 @@ export function LivePreview({
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 transition-opacity duration-300 pointer-events-none">
                     <Loader2 className="w-8 h-8 animate-spin text-violet-600 mb-4" />
                     <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">{bootPhase || "Booting…"}</p>
-                    <p className="text-[10px] text-slate-400 mt-2 font-mono">WebContainer · Vite · Node 20</p>
+                    <p className="text-[10px] text-slate-400 mt-2 font-mono">Babel · React · instant runtime</p>
                 </div>
             )}
             {error && (
@@ -1206,9 +1102,8 @@ export function LivePreview({
             {previewUrl && (
                 <iframe
                     ref={iframeRef}
-                    src={previewUrl}
+                    srcDoc={previewUrl}
                     title="Dreyv Mini-App Preview"
-                    allow="cross-origin-isolated"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     style={{ height: "100%", width: "100%", border: "none", background: "#ffffff" }}
                 />
