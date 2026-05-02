@@ -70,7 +70,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return (
         <CanvasProvider>
         <div
-            className="flex bg-background font-sans text-foreground h-dvh md:h-screen md:overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
+            className="flex bg-background font-sans text-foreground h-dvh overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
         >
             <Suspense fallback={null}>
@@ -122,24 +122,34 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                     <Menu className="w-5 h-5" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="left" className="w-72 p-0 bg-sidebar">
+                            <SheetContent side="left" className="w-[86%] max-w-sm p-0 bg-sidebar border-r border-border">
                                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                                 <div className="flex flex-col h-full">
-                                    <div className="px-4 py-4 border-b border-border flex items-center gap-2">
-                                        <span className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                    <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                                        <span className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                                             <DreyvMark size={36} />
                                         </span>
-                                        <span className="font-semibold tracking-tight">Dreyv</span>
-                                    </div>
-                                    <TooltipProvider>
-                                        <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col items-center gap-2">
-                                            {navItems}
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-semibold tracking-tight leading-tight">Dreyv</span>
+                                            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Command layer</span>
                                         </div>
-                                        <div className="px-3 py-3 border-t border-border flex flex-col items-center gap-2">
+                                    </div>
+                                    <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+                                        <MobileNavRow icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
+                                        <MobileNavRow icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} onNavigate={() => setMobileNavOpen(false)} />
+                                    </nav>
+                                    <div className="px-3 py-3 border-t border-border flex items-center justify-between gap-2">
+                                        <TooltipProvider>
                                             <VaultStatusBar />
                                             <ThemeToggle />
-                                        </div>
-                                    </TooltipProvider>
+                                        </TooltipProvider>
+                                    </div>
                                 </div>
                             </SheetContent>
                         </Sheet>
@@ -150,7 +160,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto md:overflow-hidden">
+                <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] md:overflow-hidden">
                     <Suspense fallback={
                         <div className="flex-1 flex items-center justify-center">
                             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -263,6 +273,24 @@ function NavButton({ icon: Icon, label, href, active }: { icon: any, label: stri
             </TooltipContent>
         </Tooltip>
 
+    )
+}
+
+function MobileNavRow({ icon: Icon, label, href, active, onNavigate }: { icon: any, label: string, href: string, active?: boolean, onNavigate?: () => void }) {
+    return (
+        <Link
+            href={href}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium transition-colors border
+                ${active
+                    ? 'bg-primary/10 text-primary border-primary/20'
+                    : 'bg-transparent text-foreground/80 border-transparent hover:bg-muted hover:text-foreground'}`}
+        >
+            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-primary/15' : 'bg-muted'}`}>
+                <Icon strokeWidth={active ? 2.4 : 2} size={18} />
+            </span>
+            <span className="truncate">{label}</span>
+        </Link>
     )
 }
 
