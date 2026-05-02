@@ -33,6 +33,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    // Close the mobile drawer on route change
+    useEffect(() => {
+        setMobileNavOpen(false);
+    }, [pathname]);
 
     useAppEvent((event) => {
         if (event.type === "NAVIGATE" && event.payload) {
