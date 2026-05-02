@@ -153,29 +153,29 @@ export function ProjectBrowser({
                                     </div>
                                 </div>
                                 {/* Body */}
-                                <div className="relative px-7 pb-7">
+                                <div className="relative px-5 pb-5">
                                     {loading ? (
-                                        <div className="flex items-center justify-center h-64 text-slate-400">
-                                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                                            <span className="text-[13px]">Loading projects…</span>
+                                        <div className="flex items-center justify-center h-40 text-slate-400">
+                                            <Loader2 className="animate-spin mr-2 h-3.5 w-3.5" />
+                                            <span className="text-[12px]">Loading projects…</span>
                                         </div>
                                     ) : filtered.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
-                                            <div className="h-12 w-12 rounded-2xl border border-violet-100 bg-white flex items-center justify-center text-violet-400">
-                                                <FileCode size={20} />
+                                        <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-2">
+                                            <div className="h-9 w-9 rounded-xl border border-violet-100 bg-white flex items-center justify-center text-violet-400">
+                                                <FileCode size={15} />
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-[13px] font-medium text-slate-600">
+                                                <p className="text-[12px] font-medium text-slate-600">
                                                     {projects.length === 0 ? "No saved projects yet." : "No matches."}
                                                 </p>
-                                                <p className="text-[12px] text-slate-400 mt-0.5">
+                                                <p className="text-[11px] text-slate-400 mt-0.5">
                                                     {projects.length === 0 ? "Build something and hit save." : "Try a different search."}
                                                 </p>
                                             </div>
                                         </div>
                                     ) : (
-                                        <ScrollArea className="h-[420px] pr-2">
-                                            <ul className="flex flex-col gap-2">
+                                        <ScrollArea className="h-[300px] pr-1.5">
+                                            <ul className="flex flex-col gap-1.5">
                                                 {filtered.map((project) => {
                                                     const fileCount = project.code?.files
                                                         ? Object.keys(project.code.files).length
@@ -185,54 +185,46 @@ export function ProjectBrowser({
                                                             <button
                                                                 onClick={() => { onLoadProject(project); onClose(); }}
                                                                 className={cn(
-                                                                    "group w-full flex items-center justify-between gap-4 p-4",
-                                                                    "rounded-2xl border border-violet-100 bg-white",
+                                                                    "group w-full flex items-center justify-between gap-2.5 p-2.5",
+                                                                    "rounded-xl border border-violet-100 bg-white",
                                                                     "hover:border-violet-300 hover:bg-violet-50/40 transition-colors text-left"
                                                                 )}
                                                             >
-                                                                <div className="flex items-center gap-3.5 min-w-0">
-                                                                    <div className="h-10 w-10 rounded-xl border border-violet-100 bg-violet-50 flex items-center justify-center text-violet-600 shrink-0">
-                                                                        <FileCode size={17} />
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <div className="h-8 w-8 rounded-lg border border-violet-100 bg-violet-50 flex items-center justify-center text-violet-600 shrink-0">
+                                                                        <FileCode size={14} />
                                                                     </div>
                                                                     <div className="min-w-0">
-                                                                        <h3 className="text-[14px] font-semibold text-slate-900 truncate">
+                                                                        <h3 className="text-[12.5px] font-semibold text-slate-900 truncate leading-tight">
                                                                             {project.name}
                                                                         </h3>
-                                                                        <p className="text-[12px] text-slate-500 line-clamp-1">
-                                                                            {project.description || "No description"}
+                                                                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
                                                                             {fileCount > 0 && (
-                                                                                <span className="text-slate-400">
-                                                                                    {" · "}{fileCount} file{fileCount === 1 ? "" : "s"}
-                                                                                </span>
+                                                                                <span>{fileCount} file{fileCount === 1 ? "" : "s"} · </span>
                                                                             )}
+                                                                            {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                                                                         </p>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="flex items-center gap-3 shrink-0">
-                                                                    <div className="hidden sm:flex flex-col items-end gap-1">
-                                                                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 tabular-nums">
-                                                                            <Clock size={11} className="text-slate-400" />
-                                                                            {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+                                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                                    {project.isPublished && (
+                                                                        <span className="hidden sm:inline-flex text-[9px] font-semibold uppercase tracking-[0.12em] text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded-full">
+                                                                            Shipped
                                                                         </span>
-                                                                        {project.isPublished && (
-                                                                            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
-                                                                                Shipped
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
+                                                                    )}
                                                                     <div
                                                                         role="button"
                                                                         tabIndex={0}
                                                                         onClick={(e) => handleDelete(e, project.id, project.name)}
                                                                         onKeyDown={(e) => { if (e.key === "Enter") handleDelete(e, project.id, project.name); }}
-                                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                                        className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                                                                         title="Delete project"
                                                                     >
-                                                                        <Trash2 size={14} />
+                                                                        <Trash2 size={12} />
                                                                     </div>
                                                                     <ArrowUpRight
-                                                                        size={15}
+                                                                        size={13}
                                                                         className="text-slate-300 group-hover:text-violet-600 transition-colors"
                                                                     />
                                                                 </div>
