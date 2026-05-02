@@ -75,17 +75,25 @@ function signingKey(secret: string, dateStamp: string) {
     return hmac(kService, "aws4_request");
 }
 
+// SigV4 requires byte/codepoint ordering, NOT locale-aware ordering.
+// `localeCompare` treats 'X' and 'x' as equal (case-insensitive), which
+// reorders `X-Amz-*` vs `response-*` and produces SignatureDoesNotMatch on R2.
+function byteCompare(a: string, b: string) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function canonicalQuery(params: URLSearchParams) {
     return Array.from(params.entries())
-        .sort(([aKey, aValue], [bKey, bValue]) => aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey))
-        .map(([key, value]) => `${encodeRfc3986(key)}=${encodeRfc3986(value)}`)
+        .map(([key, value]) => [encodeRfc3986(key), encodeRfc3986(value)] as const)
+        .sort(([aKey, aValue], [bKey, bValue]) => aKey === bKey ? byteCompare(aValue, bValue) : byteCompare(aKey, bKey))
+        .map(([key, value]) => `${key}=${value}`)
         .join("&");
 }
 
 function canonicalHeaders(headers: HeaderMap) {
     const entries = Object.entries(headers)
         .map(([key, value]) => [key.toLowerCase(), value.trim().replace(/\s+/g, " ")] as const)
-        .sort(([a], [b]) => a.localeCompare(b));
+        .sort(([a], [b]) => byteCompare(a, b));
     return {
         block: entries.map(([key, value]) => `${key}:${value}\n`).join(""),
         signedHeaders: entries.map(([key]) => key).join(";"),
