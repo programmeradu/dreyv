@@ -471,18 +471,18 @@ export default function InboxPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-background overflow-hidden relative font-[Manrope,sans-serif]">
+    <div className="flex-1 flex flex-col h-screen bg-white text-slate-900 overflow-hidden relative font-[Manrope,sans-serif]">
       {/* ─── Universal app header ───────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/50 backdrop-blur-md z-10 shadow-sm shrink-0">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-violet-100 bg-white z-10 shrink-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent)]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-70">
+            <div className="w-1.5 h-1.5 rounded-full bg-violet-600" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
               dreyv // Command workspace
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight text-foreground uppercase">Inbox</h1>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 uppercase">Inbox</h1>
             <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
               HITL
             </span>
