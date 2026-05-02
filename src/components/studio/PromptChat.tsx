@@ -117,7 +117,6 @@ function generateFollowUps(prompt: string): string[] {
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFiles, runtimeLogs }: PromptChatProps) {
-    const user = useSelf();
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
