@@ -549,7 +549,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const isEmpty = messages.length === 0;
 
     return (
-        <div className="flex flex-col h-full min-h-0 bg-white">
+        <div className="flex flex-col h-full min-h-0 min-w-0 w-full overflow-hidden bg-white">
             {/* Subtle live status — only when working */}
             {isGenerating && liveStatusLabel && (
                 <div className="flex items-center gap-2 px-4 py-1.5 border-b border-violet-100 bg-violet-50/40 shrink-0">
