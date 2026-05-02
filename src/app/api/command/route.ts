@@ -39,6 +39,30 @@ const lovableProvider = lovableApiKey
     })
   : null;
 
+// Lovable AI via Supabase edge-function proxy — lets Vercel use Lovable AI
+// WITHOUT placing LOVABLE_API_KEY on Vercel. The proxy forwards to the gateway
+// using the managed key in the Lovable Cloud workspace.
+function resolveLovableProxyBase(): string | null {
+  const explicit = process.env.LOVABLE_AI_PROXY_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const supa =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL;
+  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+const lovableProxyBase = resolveLovableProxyBase();
+const lovableProxyProvider = lovableProxyBase
+  ? createOpenAICompatible({
+      name: "lovable-proxy",
+      // The edge function reads LOVABLE_API_KEY server-side; no auth needed
+      // from the client. We pass a placeholder because the SDK requires one.
+      apiKey: "supabase-edge-managed",
+      baseURL: lovableProxyBase,
+    })
+  : null;
+
 const LOVABLE_FALLBACK_MODELS = [
   "google/gemini-3-flash-preview",
   "google/gemini-2.5-flash",
