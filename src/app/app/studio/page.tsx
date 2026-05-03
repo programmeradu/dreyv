@@ -481,7 +481,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
     }, [activeFile]);
 
     const handleAIGenerate = useCallback(async (generatedFiles: Record<string, string>) => {
-        // Save snapshots of files being overwritten for diff review
+        // Save snapshots of files being overwritten so the user can undo from history
         for (const [name] of Object.entries(generatedFiles)) {
             const existing = files[name];
             if (existing) {
@@ -489,19 +489,9 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
             }
         }
 
-        // If App.tsx is being changed, show diff review
-        if (generatedFiles["App.tsx"] && files["App.tsx"]) {
-            setPendingDiff({
-                fileName: "App.tsx",
-                original: files["App.tsx"].content,
-                modified: generatedFiles["App.tsx"],
-            });
-            // Store all generated files for when user accepts
-            pendingFilesRef.current = generatedFiles;
-            return;
-        }
-
-        // No diff review needed — apply directly
+        // Apply directly — no diff gate. Modern AI IDE behavior:
+        // changes land in the editor + preview immediately, and the
+        // file history snapshot above lets users revert if needed.
         applyGeneratedFiles(generatedFiles);
     }, [files]);
 
