@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { buildProviderChain, streamProvider, parseLLMResponse } from "@/lib/studio/ai-provider";
 import { STUDIO_SYSTEM_PROMPT } from "@/lib/studio/system-prompt";
 import { buildWeb3Context } from "@/lib/studio/web3-context";
-import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 
 /**
  * POST /api/studio/generate-stream
@@ -18,15 +17,6 @@ import { checkRouteLimit } from "@/lib/rate-limit-middleware";
  */
 
 export async function POST(req: NextRequest) {
-  // Rate limit
-  const rateLimit = await checkRouteLimit(req, "ai_architect_runs");
-  if (!rateLimit.allowed) {
-    return new Response(
-      JSON.stringify({ error: "Rate limit exceeded", tier: rateLimit.tier }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
   const body = await req.json();
   const { prompt, contextFiles, aiConfig, history } = body;
 
