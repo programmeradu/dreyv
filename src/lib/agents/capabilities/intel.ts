@@ -604,12 +604,16 @@ const sentiment_analysis = defineCapability({
     const heliusKey = process.env.HELIUS_API_KEY;
     if (!heliusKey) {
       return {
-        success: false,
+        success: true,
         operation: "sentiment_analysis",
         token,
         mint,
-        error: "HELIUS_API_KEY not configured",
-        message: `Cannot analyze sentiment for ${token} — server missing HELIUS_API_KEY.`,
+        status: "provider_not_configured",
+        sentiment: "unavailable",
+        compositeScore: null,
+        dataSources: [],
+        providerRequired: "HELIUS_API_KEY",
+        message: `Sentiment for ${token} is unavailable because the on-chain data provider is not configured. No transaction was created.`,
       };
     }
 
