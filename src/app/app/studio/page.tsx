@@ -1070,10 +1070,6 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                 <WebContainerPreview
                                     files={files}
                                     onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
-                                    onFallbackToInstant={(reason) => {
-                                        setPreviewEngine("instant");
-                                        toast.warning("Full preview fell back to Instant", { description: reason });
-                                    }}
                                 />
                             ) : (
                                 <LivePreview
