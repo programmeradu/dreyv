@@ -143,7 +143,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const [useDeepResearch, setUseDeepResearch] = useState(false);
     const [architectStatus, setArchitectStatus] = useState<ArchitectStatus | null>(null);
     const engineRef = useRef<ArchitectEngine | null>(null);
-    const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
+    const [selectedModel, setSelectedModel] = useState("google/gemini-3-flash-preview");
     const [showModelDropdown, setShowModelDropdown] = useState(false);
     const [byokConfig, setByokConfig] = useState<AIKeyConfig | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
