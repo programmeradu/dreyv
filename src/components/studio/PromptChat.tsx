@@ -533,14 +533,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
                 effectiveProvider = BUILD_UPGRADE_MODEL.provider;
                 effectiveModel = BUILD_UPGRADE_MODEL.id;
                 effectiveApiKey = "";
-                appendBlock({
-                    type: "activity",
-                    card: {
-                        id: `${assistantId}-upgrade`,
-                        kind: "info",
-                        message: `Upgraded to ${BUILD_UPGRADE_MODEL.id} for this build (better styling + reasoning).`,
-                    } as any,
-                });
+                console.log(`[PromptChat] Auto-upgraded build → ${effectiveProvider}/${effectiveModel}`);
             }
 
             await engine.generate(
