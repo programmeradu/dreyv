@@ -41,6 +41,15 @@ function postError(message: string) {
     post({ type: "wc:error", message });
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            window.setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+        }),
+    ]);
+}
+
 /** Convert a flat path→content map into the nested FileSystemTree WebContainer expects. */
 function buildTree(files: Record<string, string>): FileSystemTree {
     const tree: FileSystemTree = {};
@@ -184,7 +193,16 @@ export default function WebContainerHost() {
             try {
                 setPhase("Booting Node.js runtime…");
                 postStatus("booting", "Booting Node.js runtime…");
-                const wc = await WebContainer.boot({ coep: "require-corp" });
+                if (!window.crossOriginIsolated) {
+                    throw new Error(
+                        "WebContainers need cross-origin isolation. Reload Studio after the header update, or use Instant preview.",
+                    );
+                }
+                const wc = await withTimeout(
+                    WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true }),
+                    20_000,
+                    "WebContainer boot",
+                );
                 wcRef.current = wc;
 
                 wc.on("server-ready", (_port, url) => {
@@ -204,7 +222,7 @@ export default function WebContainerHost() {
                 installProcess.output.pipeTo(
                     new WritableStream({ write(chunk) { postLog("install", chunk); } }),
                 );
-                const exitCode = await installProcess.exit;
+                const exitCode = await withTimeout(installProcess.exit, 90_000, "Dependency install");
                 if (exitCode !== 0) {
                     throw new Error(`npm install exited with code ${exitCode}`);
                 }
