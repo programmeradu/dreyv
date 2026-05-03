@@ -51,13 +51,32 @@ interface ModelOption {
 }
 
 const FREE_MODELS: ModelOption[] = [
-    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", provider: "groq" },
-    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Fast", provider: "groq" },
-    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B", provider: "groq" },
+    // Lovable AI (managed key, routed via Supabase edge function — premium quality, free tier)
+    { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash · Lovable", provider: "lovable" },
+    { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro · Lovable", provider: "lovable" },
+    { id: "openai/gpt-5", label: "GPT-5 · Lovable", provider: "lovable" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini · Lovable", provider: "lovable" },
+    // Legacy free providers (kept for fallback / speed)
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B · Groq", provider: "groq" },
+    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Fast · Groq", provider: "groq" },
+    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B · Groq", provider: "groq" },
     { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "CF Llama 3.3 70B", provider: "cloudflare" },
     { id: "@cf/qwen/qwen2.5-coder-32b-instruct", label: "Qwen 2.5 Coder 32B", provider: "cloudflare" },
     { id: "@cf/qwen/qwen3-30b-a3b-fp8", label: "Qwen 3 30B", provider: "cloudflare" },
 ];
+
+// Models considered strong enough for full Build / deep research generation.
+// Anything outside this list will be auto-upgraded when the user hits Build.
+const STRONG_BUILD_MODELS = new Set<string>([
+    "google/gemini-2.5-pro",
+    "openai/gpt-5",
+    "openai/gpt-5-mini",
+    "google/gemini-3-flash-preview",
+    "gpt-4o",
+    "claude-sonnet-4-20250514",
+    "claude-3-5-sonnet-20241022",
+]);
+const BUILD_UPGRADE_MODEL = { id: "openai/gpt-5", provider: "lovable" } as const;
 
 const BYOK_MODELS: Record<string, ModelOption[]> = {
     openai: [
