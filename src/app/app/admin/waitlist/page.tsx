@@ -147,7 +147,7 @@ export default function AdminWaitlistPage() {
   };
 
   return (
-    <main className="relative isolate min-h-screen bg-white text-slate-900">
+    <main className="relative isolate h-full overflow-y-auto bg-white text-slate-900">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[460px] w-[1100px] rounded-full bg-violet-300/25 blur-[160px]" />
       </div>
