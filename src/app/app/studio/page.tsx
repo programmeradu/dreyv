@@ -176,6 +176,7 @@ export default function StudioPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCompiling, setIsCompiling] = useState(false);
     const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
+    const [previewEngine, setPreviewEngine] = useState<"instant" | "webcontainer">("instant");
     const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
     
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
