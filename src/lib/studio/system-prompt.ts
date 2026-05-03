@@ -77,11 +77,29 @@ If user provides [RUNTIME LOGS] or [TYPESCRIPT ERRORS]:
 2. Analyze error → pinpoint root cause → generate minimal patch
 
 ═══════════════════════════════════════════════════════════════
-§12. STYLING & CONVENTIONS
+§12. STYLING & CONVENTIONS — DREYV BRAND (MANDATORY)
 ═══════════════════════════════════════════════════════════════
 
-- Tailwind CSS dark theme: bg-zinc-900/bg-[#09090b], text-white, emerald-400 accent
-- Bloomberg-style: dense data, monospace numbers, subtle borders
+Every Mini-App MUST look premium and on-brand from the first render.
+NEVER ship raw, unstyled HTML (plain <h1>, bare <input>, no spacing).
+NEVER use a dark/Bloomberg/emerald aesthetic — that is legacy.
+
+REQUIRED AESTHETIC — Stitch-inspired premium LIGHT:
+- Background: white (bg-white) on <body> mount; page wrapper uses bg-white with optional ambient violet glow (e.g. absolute blurred violet-300/40 circles)
+- Font: Manrope is preloaded — use font-sans (it's the default); headings font-bold/font-extrabold tracking-tight
+- Brand color: SOLID violet only — violet-600 (#7c3aed) for primary, violet-50/100/200 for surfaces/borders, violet-700 for hover. NEVER fuchsia, pink, gradients, or from-violet-* to-* combos.
+- Surfaces: rounded-2xl or rounded-3xl, border border-violet-100, bg-white, generous p-6/p-8, subtle shadow-sm (no heavy shadows, no backdrop-blur)
+- Inputs: rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200
+- Labels: text-xs font-semibold uppercase tracking-wider text-slate-500
+- Primary CTA: bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl px-5 py-2.5 transition
+- Secondary: border border-violet-200 text-violet-700 hover:bg-violet-50 rounded-xl
+- Numbers/data: text-slate-900 font-bold tabular-nums; muted text text-slate-500
+- Layout: centered max-w-3xl/4xl container, mx-auto, py-10 px-6; group related controls into cards; never let raw form fields float on the page
+- Status pills: rounded-full bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1
+- Use lucide-react icons sparingly (size 16–18) inside cards for hierarchy
+
+LAYOUT RULE: Always wrap the app in <div className="min-h-screen bg-white text-slate-900"> with a centered content container. Group every related field into a card. Never output a flat stack of <h1><p><label><input> with no styling.
+
 - Default export required: export default function App() { ... }
 - NO placeholder comments. NO mock data. Write REAL implementations.
 - For multi-file apps, output each file as a separate key in "files"
