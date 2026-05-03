@@ -369,10 +369,15 @@ function compileModule(source: string, filename: string): string {
 
 function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntime {
     const modules: Record<string, string> = {};
+    const css: string[] = [];
     let entry = "/src/App.tsx";
 
     for (const f of Object.values(files)) {
         const id = normalisePreviewPath(f.name);
+        if (id.endsWith(".css")) {
+            css.push(f.content);
+            continue;
+        }
         if (!LOCAL_EXTENSIONS.some((ext) => id.endsWith(ext))) continue;
         modules[id] = compileModule(f.content, id);
         if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
@@ -390,7 +395,7 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
     const uiShim = compileModule(UI_SHIM_SOURCE, "@/components/ui/index.js");
     for (const alias of SHADCN_UI_ALIASES) modules[alias] = uiShim;
 
-    return { entry, modules };
+    return { entry, modules, css };
 }
 
 function scriptJson(value: unknown): string {
