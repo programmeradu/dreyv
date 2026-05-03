@@ -770,20 +770,109 @@ function buildRuntimeHtml(runtime: CompiledRuntime): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script>
+    // Map shadcn semantic tokens (bg-background, text-foreground, bg-primary, etc.)
+    // to the violet/light Dreyv palette so generated apps render with theme.
+    if (window.tailwind) {
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Manrope", "system-ui", "sans-serif"],
+              manrope: ["Manrope", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+            },
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+              secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+              muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+              accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+              destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
+              card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+              popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
+            },
+            borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+          },
+        },
+      };
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* Dreyv design tokens — violet-forward light theme by default, with .dark override. */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 222 47% 11%;
+      --card: 0 0% 100%;
+      --card-foreground: 222 47% 11%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222 47% 11%;
+      --primary: 262 83% 58%;          /* violet-600 */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 262 100% 97%;       /* violet-50 */
+      --secondary-foreground: 262 60% 30%;
+      --muted: 220 14% 96%;
+      --muted-foreground: 220 9% 46%;
+      --accent: 262 100% 97%;
+      --accent-foreground: 262 60% 30%;
+      --destructive: 0 84% 60%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 262 60% 92%;           /* violet-100 */
+      --input: 262 60% 92%;
+      --ring: 262 83% 58%;
+      --radius: 0.75rem;
+    }
+    .dark {
+      --background: 222 47% 6%;
+      --foreground: 210 40% 98%;
+      --card: 222 47% 9%;
+      --card-foreground: 210 40% 98%;
+      --popover: 222 47% 9%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 262 83% 65%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 262 30% 18%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 222 47% 14%;
+      --muted-foreground: 215 20% 65%;
+      --accent: 262 30% 22%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 70% 50%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 222 47% 18%;
+      --input: 222 47% 18%;
+      --ring: 262 83% 65%;
+    }
     ${runtime.css.join("\n\n")}
   </style>
   <style>
-    body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    html, body { margin: 0; min-height: 100vh; }
+    body { background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: 'Manrope', system-ui, -apple-system, sans-serif; }
     #root { min-height: 100vh; }
-    .runtime-error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; margin: 24px; padding: 18px; border-radius: 18px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #ffffff; }
-    ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
+    .dreyv-error-overlay {
+      position: fixed; inset: 16px; z-index: 99999; overflow: auto;
+      background: #fef2f2; border: 1px solid #fecaca; border-radius: 18px;
+      padding: 20px 22px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #7f1d1d; box-shadow: 0 20px 50px -20px rgba(127,29,29,.25);
+    }
+    .dreyv-error-overlay h2 { margin: 0 0 6px; font: 600 12px/1.2 'Manrope', system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #b91c1c; }
+    .dreyv-error-overlay .msg { font-weight: 600; color: #991b1b; margin-bottom: 12px; white-space: pre-wrap; word-break: break-word; }
+    .dreyv-error-overlay pre { margin: 0; padding: 12px 14px; background: #fff; border: 1px solid #fecaca; border-radius: 12px; white-space: pre-wrap; word-break: break-word; color: #7f1d1d; max-height: 60vh; overflow: auto; }
+    .dreyv-error-overlay .meta { margin-top: 10px; font-size: 11px; color: #b91c1c; opacity: .8; }
+    .dreyv-error-overlay button { position: absolute; top: 14px; right: 14px; background: #fff; border: 1px solid #fecaca; border-radius: 999px; padding: 4px 10px; font: 600 11px 'Manrope', sans-serif; color: #b91c1c; cursor: pointer; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
   </style>
+</head>
 </head>
 <body>
   <div id="root"></div>
