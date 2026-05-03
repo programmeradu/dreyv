@@ -162,12 +162,14 @@ export function StudioHeader(props: StudioHeaderProps) {
                         Studio
                     </a>
                 </div>
-                <Input
-                    value={appName}
-                    onChange={(e) => onAppNameChange(e.target.value)}
-                    className="h-7 w-48 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
-                    placeholder="Untitled mini-app"
-                />
+                {!isEmpty && (
+                    <Input
+                        value={appName}
+                        onChange={(e) => onAppNameChange(e.target.value)}
+                        className="h-7 w-48 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
+                        placeholder="Untitled mini-app"
+                    />
+                )}
             </div>
 
             {/* ── Center: live status cluster (hidden on empty state) ── */}
@@ -205,15 +207,19 @@ export function StudioHeader(props: StudioHeaderProps) {
 
             {/* ── Right: wallet + overflow + save + ship ───────────── */}
             <div className="flex items-center gap-2">
-                <div
-                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80"
-                    title="Connected signer"
-                >
-                    <Shield size={11} className="opacity-70" />
-                    <span>{walletLabel}</span>
-                </div>
+                {!isEmpty && (
+                    <>
+                        <div
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80"
+                            title="Connected signer"
+                        >
+                            <Shield size={11} className="opacity-70" />
+                            <span>{walletLabel}</span>
+                        </div>
 
-                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                        <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                    </>
+                )}
 
                 {/* Overflow menu */}
                 <div className="relative" ref={overflowRef}>
@@ -256,28 +262,32 @@ export function StudioHeader(props: StudioHeaderProps) {
                     )}
                 </div>
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onSave}
-                    disabled={isSaving || !caps.save}
-                    className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50"
-                    title={!caps.save ? "Save unavailable — database not configured" : "Save to library"}
-                >
-                    {isSaving ? "Saving…" : isDirty ? "Save" : "Saved"}
-                </Button>
+                {!isEmpty && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onSave}
+                            disabled={isSaving || !caps.save}
+                            className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50"
+                            title={!caps.save ? "Save unavailable — database not configured" : "Save to library"}
+                        >
+                            {isSaving ? "Saving…" : isDirty ? "Save" : "Saved"}
+                        </Button>
 
-                <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onShip}
-                    disabled={isShipping || !caps.ship}
-                    className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] rounded-md bg-violet-600 hover:bg-violet-700 text-white shadow-sm disabled:opacity-50"
-                    title={!caps.ship ? "Ship unavailable — database not configured" : "Ship to dreyv Library"}
-                >
-                    {isShipping ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Rocket size={12} className="mr-1.5" />}
-                    {isShipping ? "Shipping…" : "Ship"}
-                </Button>
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={onShip}
+                            disabled={isShipping || !caps.ship}
+                            className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] rounded-md bg-violet-600 hover:bg-violet-700 text-white shadow-sm disabled:opacity-50"
+                            title={!caps.ship ? "Ship unavailable — database not configured" : "Ship to dreyv Library"}
+                        >
+                            {isShipping ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Rocket size={12} className="mr-1.5" />}
+                            {isShipping ? "Shipping…" : "Ship"}
+                        </Button>
+                    </>
+                )}
             </div>
         </header>
     );
