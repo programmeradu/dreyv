@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import { Urbanist } from "next/font/google";
 import { ArrowRight, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
-import dryvThink from "@/assets/mascot/dryv-think.png";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 
 const wordmark = Urbanist({
   subsets: ["latin"],
@@ -76,13 +76,12 @@ export default function AppRebuildingPage() {
                 animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                <Image
-                  src={dryvThink}
+                <DryvMascot
+                  pose="think"
                   alt="Dryv, the Dreyv mascot, tinkering in the workshop"
-                  width={180}
-                  height={180}
+                  size={180}
                   priority
-                  className="h-44 w-44 select-none object-contain"
+                  glow={false}
                 />
               </motion.div>
             </motion.div>
