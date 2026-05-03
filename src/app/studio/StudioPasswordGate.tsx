@@ -48,6 +48,10 @@ export default function StudioPasswordGate({ onUnlocked }: { onUnlocked?: () => 
         onSubmit={onSubmit}
         className="relative w-full max-w-sm rounded-3xl border border-studio-border bg-white/85 p-8 backdrop-blur"
       >
+        {/* Mascot peeking from top-right */}
+        <div className="pointer-events-none absolute -top-16 -right-6 z-10 hidden sm:block">
+          <DryvMascot pose="think" size={120} />
+        </div>
         <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-studio-violet">
           <DreyvStar size={14} />
           Dreyv · Studio
