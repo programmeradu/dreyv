@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
 import { HeroCommandbarDemo } from "./hero-commandbar-demo";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
@@ -100,6 +101,10 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.55 }}
             className="relative hidden lg:flex items-center justify-center"
           >
+            {/* Mascot — Dryv greets, floats above the demo card */}
+            <div className="pointer-events-none absolute -top-10 -right-4 z-20">
+              <DryvMascot pose="greet" size={120} priority />
+            </div>
             <HeroCommandbarDemo />
           </motion.div>
         </div>
