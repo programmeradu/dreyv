@@ -991,32 +991,60 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-thin">
-                                    {([
-                                        { id: "preview", label: "Preview", icon: Eye },
-                                        { id: "code", label: "Console", icon: Terminal },
-                                        { id: "contract", label: "Contracts", icon: Cpu },
-                                    ] as const).map((t) => {
-                                        const active = activeTab === t.id;
-                                        const Icon = t.icon;
-                                        return (
+                                <div className="flex items-center justify-between gap-2 min-w-0">
+                                    <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-thin">
+                                        {([
+                                            { id: "preview", label: "Preview", icon: Eye },
+                                            { id: "code", label: "Console", icon: Terminal },
+                                            { id: "contract", label: "Contracts", icon: Cpu },
+                                        ] as const).map((t) => {
+                                            const active = activeTab === t.id;
+                                            const Icon = t.icon;
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => setActiveTab(t.id)}
+                                                    className={`flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors ${
+                                                        active
+                                                            ? "bg-violet-50 text-violet-700"
+                                                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                                    }`}
+                                                >
+                                                    <Icon size={13} strokeWidth={2.2} />
+                                                    <span>{t.label}</span>
+                                                    {t.id === "code" && runtimeLogs.length > 0 && (
+                                                        <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {activeTab === "preview" && (
+                                        <div className="flex items-center gap-0.5 rounded-md border border-violet-100 bg-white p-0.5 shrink-0">
                                             <button
-                                                key={t.id}
-                                                onClick={() => setActiveTab(t.id)}
-                                                className={`flex items-center gap-1.5 px-2.5 h-7 text-[11px] font-medium rounded-md transition-colors ${
-                                                    active
-                                                        ? "bg-violet-50 text-violet-700"
-                                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                                onClick={() => setPreviewEngine("instant")}
+                                                title="Instant — Babel runtime, no install (~100ms)"
+                                                className={`px-2 h-6 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${
+                                                    previewEngine === "instant"
+                                                        ? "bg-violet-600 text-white"
+                                                        : "text-slate-500 hover:text-slate-800"
                                                 }`}
                                             >
-                                                <Icon size={13} strokeWidth={2.2} />
-                                                <span>{t.label}</span>
-                                                {t.id === "code" && runtimeLogs.length > 0 && (
-                                                    <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
-                                                )}
+                                                Instant
                                             </button>
-                                        );
-                                    })}
+                                            <button
+                                                onClick={() => setPreviewEngine("webcontainer")}
+                                                title="Full — real Vite + npm in browser (5–15s first boot)"
+                                                className={`px-2 h-6 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${
+                                                    previewEngine === "webcontainer"
+                                                        ? "bg-violet-600 text-white"
+                                                        : "text-slate-500 hover:text-slate-800"
+                                                }`}
+                                            >
+                                                Full
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
