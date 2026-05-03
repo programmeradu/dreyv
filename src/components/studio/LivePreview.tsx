@@ -871,6 +871,7 @@ function buildRuntimeHtml(runtime: CompiledRuntime): string {
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+  </style>
 </head>
 <body>
   <div id="root"></div>
