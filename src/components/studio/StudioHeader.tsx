@@ -59,6 +59,9 @@ export interface StudioHeaderProps {
     isShipping: boolean;
 
     caps: StudioCapabilities;
+
+    /** Hide the center status cluster (saved/files/lint) — true on the empty state. */
+    isEmpty?: boolean;
 }
 
 function formatRelativeTime(ts: number | null): string {
