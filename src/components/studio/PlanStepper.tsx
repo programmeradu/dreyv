@@ -61,6 +61,7 @@ export function PlanStepper({ prompt, onCancel, onBuild, isBuilding }: PlanStepp
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || "Clarify failed");
         setQuestions(data.questions || []);
+        if (data.researchContext) setResearchContext(data.researchContext);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to start plan");
       } finally {
