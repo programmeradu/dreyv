@@ -610,13 +610,10 @@ function AuthPageContent() {
         }
     }, [connected, publicKey, isAuthenticated, router]);
 
-    // Auto-trigger sign-in when wallet connects
-    useEffect(() => {
-        if (connected && publicKey && !isAuthenticated && !isLoading && step === "idle") {
-            const t = setTimeout(() => signIn(), 800);
-            return () => clearTimeout(t);
-        }
-    }, [connected, publicKey, isAuthenticated, isLoading, step, signIn]);
+    // NOTE: We intentionally do NOT auto-trigger signMessage on wallet connect.
+    // Phantom's risk engine flags rapid signMessage requests immediately after
+    // a connect as suspicious. The user must click "Sign in with wallet" so
+    // the signature request is clearly user-initiated.
 
     // If already authenticated on mount, redirect immediately
     useEffect(() => {
