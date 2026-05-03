@@ -162,13 +162,14 @@ export function StudioHeader(props: StudioHeaderProps) {
                         Studio
                     </a>
                 </div>
-                <Input
-                    value={appName}
-                    onChange={(e) => onAppNameChange(e.target.value)}
-                    className="h-7 w-48 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
-                    placeholder="Untitled mini-app"
-                />
-            </div>
+                {!isEmpty && (
+                    <Input
+                        value={appName}
+                        onChange={(e) => onAppNameChange(e.target.value)}
+                        className="h-7 w-48 text-[12px] font-medium text-slate-700 bg-transparent border-transparent hover:border-slate-200 focus:border-violet-300 focus:ring-0 px-2 rounded transition-colors"
+                        placeholder="Untitled mini-app"
+                    />
+                )}
 
             {/* ── Center: live status cluster (hidden on empty state) ── */}
             <div className={`${isEmpty ? "hidden" : "hidden md:flex"} items-center gap-1 text-[11px] text-slate-500 font-medium`}>
