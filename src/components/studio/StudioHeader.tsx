@@ -170,6 +170,7 @@ export function StudioHeader(props: StudioHeaderProps) {
                         placeholder="Untitled mini-app"
                     />
                 )}
+            </div>
 
             {/* ── Center: live status cluster (hidden on empty state) ── */}
             <div className={`${isEmpty ? "hidden" : "hidden md:flex"} items-center gap-1 text-[11px] text-slate-500 font-medium`}>
