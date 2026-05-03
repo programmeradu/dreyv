@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import dryvGreet from "@/assets/mascot/dryv-greet.png";
 import { WaitlistForm } from "./waitlist-form";
 import { COHORT_LABEL, COHORT_WINDOW } from "@/lib/waitlist/constants";
 import { getSiteOrigin } from "@/lib/seo/site";
