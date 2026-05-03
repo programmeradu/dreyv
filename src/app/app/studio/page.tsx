@@ -1066,6 +1066,11 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                     onCompile={handleCompile}
                                     isCompiling={isCompiling}
                                 />
+                            ) : previewEngine === "webcontainer" && activeTab === "preview" ? (
+                                <WebContainerPreview
+                                    files={files}
+                                    onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
+                                />
                             ) : (
                                 <LivePreview
                                     files={files}
