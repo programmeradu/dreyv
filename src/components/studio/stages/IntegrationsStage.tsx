@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft, Check, Settings2, FlaskConical, Loader2 } from "lucide-react";
+import { IntegrationLogo } from "../IntegrationLogo";
 
 export interface PlanIntegration {
   id: string;
