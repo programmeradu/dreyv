@@ -208,6 +208,7 @@ export async function callProvider(
         ],
         temperature: temp,
         max_tokens: maxTokens,
+        stream: false,
       }),
     });
     if (!res.ok) {
