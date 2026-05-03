@@ -67,16 +67,16 @@ export default function WaitlistPage() {
           </div>
 
           {/* Right: Dryv mascot welcoming you in */}
-          <div className="relative hidden lg:flex items-center justify-center">
-            <div className="absolute inset-0 -z-10 m-auto h-[420px] w-[420px] rounded-full bg-violet-400/25 blur-[110px]" />
-            <div className="absolute inset-0 -z-10 m-auto h-[260px] w-[260px] rounded-full bg-violet-300/40 blur-[80px]" />
+          <div className="relative hidden md:flex items-center justify-center">
+            <div className="absolute inset-0 -z-10 m-auto h-[360px] w-[360px] rounded-full bg-violet-400/25 blur-[110px]" />
+            <div className="absolute inset-0 -z-10 m-auto h-[220px] w-[220px] rounded-full bg-violet-300/40 blur-[80px]" />
             <Image
               src={dryvGreet}
               alt="Dryv, the dreyv mascot, waving you onto the waitlist"
               width={460}
               height={460}
               priority
-              className="select-none drop-shadow-[0_30px_60px_rgba(124,58,237,0.35)]"
+              className="select-none w-full max-w-[420px] h-auto object-contain drop-shadow-[0_30px_60px_rgba(124,58,237,0.35)]"
             />
           </div>
         </div>
