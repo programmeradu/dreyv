@@ -621,17 +621,35 @@ type CompiledRuntime = {
     css: string[];
 };
 
+// Every shadcn alias maps to the same comprehensive UI shim — components
+// destructure named exports they need (e.g. `Card`, `CardHeader`, `Dialog`).
 const SHADCN_UI_ALIASES = [
     "@/components/ui",
-    "@/components/ui/card",
-    "@/components/ui/button",
-    "@/components/ui/input",
-    "@/components/ui/label",
-    "@/components/ui/badge",
-    "@/components/ui/separator",
-    "@/components/ui/skeleton",
+    "@/components/ui/card", "@/components/ui/button", "@/components/ui/input",
+    "@/components/ui/label", "@/components/ui/badge", "@/components/ui/separator",
+    "@/components/ui/skeleton", "@/components/ui/avatar", "@/components/ui/alert",
+    "@/components/ui/progress", "@/components/ui/switch", "@/components/ui/checkbox",
+    "@/components/ui/tabs", "@/components/ui/dialog", "@/components/ui/sheet",
+    "@/components/ui/drawer", "@/components/ui/select", "@/components/ui/tooltip",
+    "@/components/ui/scroll-area", "@/components/ui/table", "@/components/ui/slider",
+    "@/components/ui/accordion", "@/components/ui/popover", "@/components/ui/dropdown-menu",
+    "@/components/ui/textarea", "@/lib/utils",
 ];
 
+const UTILS_SHIM_SOURCE = `
+export function cn(...args) {
+  const out = [];
+  for (const a of args) {
+    if (!a) continue;
+    if (typeof a === "string") out.push(a);
+    else if (Array.isArray(a)) out.push(a.filter(Boolean).join(" "));
+    else if (typeof a === "object") out.push(Object.keys(a).filter(k => a[k]).join(" "));
+  }
+  return out.join(" ").trim();
+}
+`;
+
+const ASSET_EXTENSIONS = [".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico"];
 const LOCAL_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 
 const DREYV_SDK_ALIAS_INDEX = `export * from "@keystone-os/sdk";\n`;
@@ -649,6 +667,35 @@ declare global {
 function normalisePreviewPath(path: string): string {
     const cleaned = path.replace(/^\/+/, "").replace(/\\/g, "/");
     return cleaned.startsWith("src/") ? `/${cleaned}` : `/src/${cleaned}`;
+}
+
+function mimeFor(ext: string): string {
+    switch (ext) {
+        case ".svg": return "image/svg+xml";
+        case ".png": return "image/png";
+        case ".jpg":
+        case ".jpeg": return "image/jpeg";
+        case ".gif": return "image/gif";
+        case ".webp": return "image/webp";
+        case ".avif": return "image/avif";
+        case ".ico": return "image/x-icon";
+        default: return "application/octet-stream";
+    }
+}
+
+function assetToDataUrl(content: string, ext: string): string {
+    if (content.startsWith("data:")) return content;
+    if (ext === ".svg") {
+        return `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
+    }
+    const looksB64 = /^[A-Za-z0-9+/=\s]+$/.test(content) && content.length > 16;
+    let b64: string;
+    try {
+        b64 = looksB64 ? content.replace(/\s/g, "") : btoa(unescape(encodeURIComponent(content)));
+    } catch {
+        b64 = "";
+    }
+    return `data:${mimeFor(ext)};base64,${b64}`;
 }
 
 function compileModule(source: string, filename: string): string {
@@ -672,11 +719,21 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
 
     for (const f of Object.values(files)) {
         const id = normalisePreviewPath(f.name);
+        const ext = "." + (id.split(".").pop() || "").toLowerCase();
         if (id.endsWith(".css")) {
             css.push(f.content);
             continue;
         }
-        if (!LOCAL_EXTENSIONS.some((ext) => id.endsWith(ext))) continue;
+        if (ASSET_EXTENSIONS.includes(ext)) {
+            const dataUrl = assetToDataUrl(f.content, ext);
+            modules[id] = `module.exports = ${JSON.stringify(dataUrl)};\nmodule.exports.default = ${JSON.stringify(dataUrl)};`;
+            continue;
+        }
+        if (id.endsWith(".json")) {
+            modules[id] = `module.exports = ${f.content};\nmodule.exports.default = ${f.content};`;
+            continue;
+        }
+        if (!LOCAL_EXTENSIONS.some((e) => id.endsWith(e))) continue;
         modules[id] = compileModule(f.content, id);
         if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
     }
@@ -691,7 +748,10 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
     modules["@keystone-os/sdk"] = compileModule(SDK_MODULE_SOURCE, "@keystone-os/sdk/index.js");
     modules["@dreyv/sdk"] = compileModule(DREYV_SDK_ALIAS_INDEX, "@dreyv/sdk/index.js");
     const uiShim = compileModule(UI_SHIM_SOURCE, "@/components/ui/index.js");
-    for (const alias of SHADCN_UI_ALIASES) modules[alias] = uiShim;
+    const utilsShim = compileModule(UTILS_SHIM_SOURCE, "@/lib/utils.js");
+    for (const alias of SHADCN_UI_ALIASES) {
+        modules[alias] = alias === "@/lib/utils" ? utilsShim : uiShim;
+    }
 
     return { entry, modules, css };
 }
