@@ -9,6 +9,7 @@ import {
     CheckCircle2,
     AlertTriangle,
     Brain,
+    Globe,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
