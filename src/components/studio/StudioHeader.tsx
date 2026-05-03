@@ -207,15 +207,19 @@ export function StudioHeader(props: StudioHeaderProps) {
 
             {/* ── Right: wallet + overflow + save + ship ───────────── */}
             <div className="flex items-center gap-2">
-                <div
-                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80"
-                    title="Connected signer"
-                >
-                    <Shield size={11} className="opacity-70" />
-                    <span>{walletLabel}</span>
-                </div>
+                {!isEmpty && (
+                    <>
+                        <div
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80"
+                            title="Connected signer"
+                        >
+                            <Shield size={11} className="opacity-70" />
+                            <span>{walletLabel}</span>
+                        </div>
 
-                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                        <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                    </>
+                )}
 
                 {/* Overflow menu */}
                 <div className="relative" ref={overflowRef}>
