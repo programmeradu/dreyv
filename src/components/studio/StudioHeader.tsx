@@ -84,6 +84,7 @@ export function StudioHeader(props: StudioHeaderProps) {
         onPreview, isPreviewing, onExportPdf, isExporting,
         onShip, isShipping,
         caps,
+        isEmpty,
     } = props;
 
     const [overflowOpen, setOverflowOpen] = useState(false);
