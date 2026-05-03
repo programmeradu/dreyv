@@ -26,7 +26,6 @@ import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PromptChat } from "@/components/studio/PromptChat";
 import { CodeEditor } from "@/components/studio/CodeEditor";
-import { LivePreview } from "@/components/studio/LivePreview";
 import dynamic from "next/dynamic";
 const WebContainerPreview = dynamic(
     () => import("@/components/studio/WebContainerPreview").then((m) => m.WebContainerPreview),
@@ -181,7 +180,6 @@ export default function StudioPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCompiling, setIsCompiling] = useState(false);
     const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
-    const [previewEngine, setPreviewEngine] = useState<"instant" | "webcontainer">("instant");
     const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
     
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
@@ -1020,29 +1018,8 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                         })}
                                     </div>
                                     {activeTab === "preview" && (
-                                        <div className="flex items-center gap-0.5 rounded-md border border-violet-100 bg-white p-0.5 shrink-0">
-                                            <button
-                                                onClick={() => setPreviewEngine("instant")}
-                                                title="Instant — Babel runtime, no install (~100ms)"
-                                                className={`px-2 h-6 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${
-                                                    previewEngine === "instant"
-                                                        ? "bg-violet-600 text-white"
-                                                        : "text-slate-500 hover:text-slate-800"
-                                                }`}
-                                            >
-                                                Instant
-                                            </button>
-                                            <button
-                                                onClick={() => setPreviewEngine("webcontainer")}
-                                                title="Full — real Vite + npm in browser (5–15s first boot)"
-                                                className={`px-2 h-6 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${
-                                                    previewEngine === "webcontainer"
-                                                        ? "bg-violet-600 text-white"
-                                                        : "text-slate-500 hover:text-slate-800"
-                                                }`}
-                                            >
-                                                Full
-                                            </button>
+                                        <div className="rounded-md border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700 shrink-0">
+                                            Full WebContainer
                                         </div>
                                     )}
                                 </div>
@@ -1066,19 +1043,15 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                                     onCompile={handleCompile}
                                     isCompiling={isCompiling}
                                 />
-                            ) : previewEngine === "webcontainer" && activeTab === "preview" ? (
+                            ) : activeTab === "preview" ? (
                                 <WebContainerPreview
                                     files={files}
                                     onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
                                 />
                             ) : (
-                                <LivePreview
-                                    files={files}
-                                    tab={activeTab as "preview" | "code"}
-                                    onLogsChange={(newLogs) => setRuntimeLogs(newLogs)}
-                                    walletAddress={publicKey?.toBase58() || null}
-                                    appId={currentAppId}
-                                />
+                                <div className="flex h-full items-center justify-center bg-white text-xs font-medium text-slate-500">
+                                    Open Preview to run the full WebContainer.
+                                </div>
                             )}
                         </div>
                     </div>
