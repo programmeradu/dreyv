@@ -65,17 +65,28 @@ export default function WaitlistPage() {
             </p>
           </div>
 
-          {/* Right: hero crystal asset */}
+          {/* Right: Dryv mascot welcoming you in */}
           <div className="relative hidden lg:flex items-center justify-center">
-            <div className="absolute inset-0 -z-10 m-auto h-[420px] w-[420px] rounded-full bg-violet-400/20 blur-[110px]" />
+            <div className="absolute inset-0 -z-10 m-auto h-[420px] w-[420px] rounded-full bg-violet-400/25 blur-[110px]" />
+            <div className="absolute inset-0 -z-10 m-auto h-[260px] w-[260px] rounded-full bg-violet-300/40 blur-[80px]" />
             <Image
-              src="/waitlist-crystal.png"
+              src="/_next/image?url=%2F&w=16&q=1"
               alt=""
-              width={520}
-              height={520}
-              priority
-              className="select-none drop-shadow-[0_30px_60px_rgba(124,58,237,0.35)]"
+              width={1}
+              height={1}
+              aria-hidden
+              className="hidden"
             />
+            <div className="relative">
+              <Image
+                src={require("@/assets/mascot/dryv-greet.png")}
+                alt="Dryv, the dreyv mascot, waving you onto the waitlist"
+                width={460}
+                height={460}
+                priority
+                className="select-none drop-shadow-[0_30px_60px_rgba(124,58,237,0.35)]"
+              />
+            </div>
           </div>
         </div>
       </section>
