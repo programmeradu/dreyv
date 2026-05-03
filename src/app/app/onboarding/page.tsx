@@ -10,6 +10,7 @@ import { RiskStep } from "@/components/onboarding/RiskStep";
 import { TeamInviteStep } from "@/components/onboarding/TeamInviteStep";
 import { ReadyStep } from "@/components/onboarding/ReadyStep";
 import { Logo } from "@/components/icons";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 
 const STEPS = [
@@ -194,7 +195,14 @@ export default function OnboardingPage() {
 
             {/* Step content */}
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
-                <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500" key={currentStep}>
+                <div className="w-full max-w-2xl relative animate-in fade-in slide-in-from-bottom-4 duration-500" key={currentStep}>
+                    {/* Mascot — greets at start, celebrates at finish, thinks in between */}
+                    <div className="pointer-events-none absolute -top-24 -right-2 hidden md:block">
+                        <DryvMascot
+                            pose={currentStep === 0 ? "greet" : currentStep === STEPS.length - 1 ? "celebrate" : "think"}
+                            size={120}
+                        />
+                    </div>
                     {currentStep === 0 && <WelcomeStep {...stepProps} />}
                     {currentStep === 1 && <ProfileStep {...stepProps} />}
                     {currentStep === 2 && <VaultStep {...stepProps} />}
