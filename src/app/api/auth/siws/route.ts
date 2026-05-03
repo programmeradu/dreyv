@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
         // ─── Step 2: Verify nonce freshness and prevent replay ───────────
         const nonceMatch = message.match(/Nonce:\s*(.+)/);
-        const timestampMatch = message.match(/Timestamp:\s*(.+)/);
+        const timestampMatch = message.match(/(?:Timestamp|Issued At):\s*(.+)/);
 
         if (nonceMatch) {
             const nonce = nonceMatch[1].trim();
