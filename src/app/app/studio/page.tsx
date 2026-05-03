@@ -27,6 +27,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PromptChat } from "@/components/studio/PromptChat";
 import { CodeEditor } from "@/components/studio/CodeEditor";
 import { LivePreview } from "@/components/studio/LivePreview";
+import dynamic from "next/dynamic";
+const WebContainerPreview = dynamic(
+    () => import("@/components/studio/WebContainerPreview").then((m) => m.WebContainerPreview),
+    { ssr: false },
+);
 import { ContractEditor } from "@/components/studio/ContractEditor";
 
 import { compileProgram } from "@/lib/studio/solana-playground";
