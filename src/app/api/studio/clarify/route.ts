@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRouteLimit } from "@/lib/rate-limit-middleware";
+
 import { knowledgeBase } from "@/lib/knowledge";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
 
