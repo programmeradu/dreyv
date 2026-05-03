@@ -298,23 +298,321 @@ export function useStorage(namespace) {
 const UI_SHIM_SOURCE = `
 import React from "react";
 
+const cx = (...xs) => xs.filter(Boolean).join(" ");
 const mk = (Tag, base) => React.forwardRef(function Shim(props, ref) {
-  const { className = "", ...rest } = props;
-  return React.createElement(Tag, { ref, ...rest, className: (base + " " + className).trim() });
+  const { className = "", asChild, ...rest } = props;
+  return React.createElement(Tag, { ref, ...rest, className: cx(base, className) });
 });
 
+// ─── Card ───────────────────────────────────────────────────────────
 export const Card           = mk("div", "rounded-3xl border border-violet-100 bg-white p-4");
 export const CardHeader     = mk("div", "mb-3 flex flex-col gap-1");
 export const CardTitle      = mk("h3", "text-base font-semibold text-slate-900");
 export const CardDescription= mk("p", "text-sm text-slate-500");
 export const CardContent    = mk("div", "");
 export const CardFooter     = mk("div", "mt-3 flex items-center gap-2");
-export const Button         = mk("button", "inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700");
-export const Input          = mk("input", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm");
-export const Label          = mk("label", "text-sm font-medium text-slate-700");
-export const Badge          = mk("span", "inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700");
-export const Separator      = mk("div", "h-px w-full bg-violet-100");
-export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
+
+// ─── Button (variants) ─────────────────────────────────────────────
+const BUTTON_VARIANTS = {
+  default: "bg-violet-600 text-white hover:bg-violet-700",
+  primary: "bg-violet-600 text-white hover:bg-violet-700",
+  secondary: "bg-violet-50 text-violet-700 hover:bg-violet-100",
+  outline: "border border-violet-200 bg-white text-slate-900 hover:bg-violet-50",
+  ghost: "text-slate-700 hover:bg-violet-50",
+  destructive: "bg-red-600 text-white hover:bg-red-700",
+  link: "text-violet-600 underline-offset-4 hover:underline",
+};
+const BUTTON_SIZES = {
+  default: "h-10 px-4 py-2 text-sm",
+  sm: "h-8 px-3 text-xs",
+  lg: "h-12 px-6 text-base",
+  icon: "h-10 w-10",
+};
+export const Button = React.forwardRef(function Button(props, ref) {
+  const { className = "", variant = "default", size = "default", ...rest } = props;
+  return React.createElement("button", {
+    ref,
+    ...rest,
+    className: cx(
+      "inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none",
+      BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.default,
+      BUTTON_SIZES[size] || BUTTON_SIZES.default,
+      className
+    ),
+  });
+});
+
+// ─── Form primitives ───────────────────────────────────────────────
+export const Input    = mk("input", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400");
+export const Textarea = mk("textarea", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400");
+export const Label    = mk("label", "text-sm font-medium text-slate-700");
+
+// ─── Badge / Separator / Skeleton ──────────────────────────────────
+const BADGE_VARIANTS = {
+  default: "border-violet-200 bg-violet-50 text-violet-700",
+  secondary: "border-slate-200 bg-slate-100 text-slate-700",
+  outline: "border-slate-300 bg-white text-slate-700",
+  destructive: "border-red-200 bg-red-50 text-red-700",
+};
+export const Badge = React.forwardRef(function Badge(props, ref) {
+  const { className = "", variant = "default", ...rest } = props;
+  return React.createElement("span", {
+    ref, ...rest,
+    className: cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+      BADGE_VARIANTS[variant] || BADGE_VARIANTS.default, className),
+  });
+});
+export const Separator = mk("div", "h-px w-full bg-violet-100");
+export const Skeleton  = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
+
+// ─── Avatar ────────────────────────────────────────────────────────
+export const Avatar         = mk("div", "relative inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-violet-100");
+export const AvatarImage    = mk("img", "h-full w-full object-cover");
+export const AvatarFallback = mk("span", "flex h-full w-full items-center justify-center text-sm font-medium text-violet-700");
+
+// ─── Alert ─────────────────────────────────────────────────────────
+const ALERT_VARIANTS = {
+  default: "border-violet-200 bg-violet-50 text-slate-900",
+  destructive: "border-red-200 bg-red-50 text-red-900",
+};
+export const Alert = React.forwardRef(function Alert(props, ref) {
+  const { className = "", variant = "default", ...rest } = props;
+  return React.createElement("div", {
+    ref, role: "alert", ...rest,
+    className: cx("relative w-full rounded-xl border p-4 text-sm",
+      ALERT_VARIANTS[variant] || ALERT_VARIANTS.default, className),
+  });
+});
+export const AlertTitle       = mk("h5", "mb-1 font-semibold leading-none tracking-tight");
+export const AlertDescription = mk("div", "text-sm opacity-90");
+
+// ─── Progress ──────────────────────────────────────────────────────
+export const Progress = React.forwardRef(function Progress(props, ref) {
+  const { className = "", value = 0, max = 100, ...rest } = props;
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  return React.createElement("div", {
+    ref, ...rest,
+    className: cx("relative h-2 w-full overflow-hidden rounded-full bg-violet-100", className),
+  }, React.createElement("div", {
+    className: "h-full bg-violet-600 transition-all",
+    style: { width: pct + "%" },
+  }));
+});
+
+// ─── Switch / Checkbox ─────────────────────────────────────────────
+export const Switch = React.forwardRef(function Switch(props, ref) {
+  const { checked, onCheckedChange, className = "", ...rest } = props;
+  return React.createElement("button", {
+    ref, type: "button", role: "switch", "aria-checked": !!checked,
+    onClick: () => onCheckedChange && onCheckedChange(!checked),
+    ...rest,
+    className: cx("relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+      checked ? "bg-violet-600" : "bg-slate-200", className),
+  }, React.createElement("span", {
+    className: cx("inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+      checked ? "translate-x-5" : "translate-x-0.5"),
+  }));
+});
+export const Checkbox = React.forwardRef(function Checkbox(props, ref) {
+  const { checked, onCheckedChange, className = "", ...rest } = props;
+  return React.createElement("input", {
+    ref, type: "checkbox", checked: !!checked,
+    onChange: (e) => onCheckedChange && onCheckedChange(e.target.checked),
+    ...rest,
+    className: cx("h-4 w-4 rounded border-violet-300 text-violet-600 focus:ring-violet-400", className),
+  });
+});
+
+// ─── Tabs (controlled+uncontrolled) ────────────────────────────────
+const TabsCtx = React.createContext({ value: "", setValue: () => {} });
+export function Tabs({ value: controlled, defaultValue, onValueChange, className = "", children }) {
+  const [internal, setInternal] = React.useState(defaultValue || "");
+  const value = controlled !== undefined ? controlled : internal;
+  const setValue = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onValueChange && onValueChange(v);
+  }, [controlled, onValueChange]);
+  return React.createElement(TabsCtx.Provider, { value: { value, setValue } },
+    React.createElement("div", { className }, children));
+}
+export const TabsList = mk("div", "inline-flex items-center gap-1 rounded-xl bg-violet-50 p-1");
+export function TabsTrigger({ value, className = "", children, ...rest }) {
+  const ctx = React.useContext(TabsCtx);
+  const active = ctx.value === value;
+  return React.createElement("button", {
+    type: "button", onClick: () => ctx.setValue(value), ...rest,
+    className: cx("rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+      active ? "bg-white text-violet-700 shadow-sm" : "text-slate-600 hover:text-slate-900", className),
+  }, children);
+}
+export function TabsContent({ value, className = "", children }) {
+  const ctx = React.useContext(TabsCtx);
+  if (ctx.value !== value) return null;
+  return React.createElement("div", { className: cx("mt-3", className) }, children);
+}
+
+// ─── Dialog / Sheet / Drawer (shared modal) ────────────────────────
+const DialogCtx = React.createContext({ open: false, setOpen: () => {} });
+export function Dialog({ open: controlled, defaultOpen = false, onOpenChange, children }) {
+  const [internal, setInternal] = React.useState(defaultOpen);
+  const open = controlled !== undefined ? controlled : internal;
+  const setOpen = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onOpenChange && onOpenChange(v);
+  }, [controlled, onOpenChange]);
+  return React.createElement(DialogCtx.Provider, { value: { open, setOpen } }, children);
+}
+export function DialogTrigger({ asChild, children, ...rest }) {
+  const ctx = React.useContext(DialogCtx);
+  const onClick = (e) => { children?.props?.onClick?.(e); ctx.setOpen(true); };
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { onClick });
+  return React.createElement("button", { type: "button", onClick, ...rest }, children);
+}
+export function DialogContent({ className = "", children }) {
+  const ctx = React.useContext(DialogCtx);
+  if (!ctx.open) return null;
+  return React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4" },
+    React.createElement("div", { className: "absolute inset-0 bg-black/40", onClick: () => ctx.setOpen(false) }),
+    React.createElement("div", {
+      className: cx("relative z-10 w-full max-w-lg rounded-3xl border border-violet-100 bg-white p-6 shadow-xl", className),
+    }, children));
+}
+export const DialogHeader      = mk("div", "mb-3 flex flex-col gap-1");
+export const DialogFooter      = mk("div", "mt-4 flex items-center justify-end gap-2");
+export const DialogTitle       = mk("h2", "text-lg font-semibold text-slate-900");
+export const DialogDescription = mk("p", "text-sm text-slate-500");
+export function DialogClose({ asChild, children, ...rest }) {
+  const ctx = React.useContext(DialogCtx);
+  const onClick = () => ctx.setOpen(false);
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { onClick });
+  return React.createElement("button", { type: "button", onClick, ...rest }, children || "Close");
+}
+// Sheet/Drawer reuse Dialog
+export const Sheet = Dialog;
+export const SheetTrigger = DialogTrigger;
+export const SheetContent = DialogContent;
+export const SheetHeader = DialogHeader;
+export const SheetFooter = DialogFooter;
+export const SheetTitle = DialogTitle;
+export const SheetDescription = DialogDescription;
+export const SheetClose = DialogClose;
+export const Drawer = Dialog;
+export const DrawerTrigger = DialogTrigger;
+export const DrawerContent = DialogContent;
+export const DrawerHeader = DialogHeader;
+export const DrawerFooter = DialogFooter;
+export const DrawerTitle = DialogTitle;
+export const DrawerDescription = DialogDescription;
+export const DrawerClose = DialogClose;
+
+// ─── Select (native) ───────────────────────────────────────────────
+const SelectCtx = React.createContext({ value: "", setValue: () => {} });
+export function Select({ value: controlled, defaultValue, onValueChange, children }) {
+  const [internal, setInternal] = React.useState(defaultValue || "");
+  const value = controlled !== undefined ? controlled : internal;
+  const setValue = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onValueChange && onValueChange(v);
+  }, [controlled, onValueChange]);
+  // Collect items
+  const items = [];
+  const collect = (node) => React.Children.forEach(node, (c) => {
+    if (!c || !c.props) return;
+    if (c.type && c.type.__selectItem) items.push({ value: c.props.value, label: c.props.children });
+    if (c.props.children) collect(c.props.children);
+  });
+  collect(children);
+  return React.createElement("select", {
+    value, onChange: (e) => setValue(e.target.value),
+    className: "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400",
+  }, items.map((it, i) => React.createElement("option", { key: i, value: it.value }, it.label)));
+}
+export const SelectTrigger     = ({ children }) => children || null;
+export const SelectValue       = () => null;
+export const SelectContent     = ({ children }) => children || null;
+export const SelectGroup       = ({ children }) => children || null;
+export const SelectLabel       = ({ children }) => children || null;
+export const SelectSeparator   = () => null;
+export function SelectItem({ value, children }) { return null; }
+SelectItem.__selectItem = true;
+
+// ─── Tooltip (native title attr) ───────────────────────────────────
+export const TooltipProvider = ({ children }) => children;
+const TooltipCtx = React.createContext("");
+export function Tooltip({ children }) {
+  const [content, setContent] = React.useState("");
+  return React.createElement(TooltipCtx.Provider, { value: { content, setContent } }, children);
+}
+export function TooltipTrigger({ asChild, children, ...rest }) {
+  const ctx = React.useContext(TooltipCtx);
+  const title = typeof ctx.content === "string" ? ctx.content : "";
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { title });
+  return React.createElement("span", { title, ...rest }, children);
+}
+export function TooltipContent({ children }) {
+  const ctx = React.useContext(TooltipCtx);
+  React.useEffect(() => { ctx.setContent(typeof children === "string" ? children : ""); });
+  return null;
+}
+
+// ─── ScrollArea ────────────────────────────────────────────────────
+export const ScrollArea = mk("div", "overflow-auto");
+export const ScrollBar  = () => null;
+
+// ─── Table ─────────────────────────────────────────────────────────
+export const Table        = mk("table", "w-full text-sm");
+export const TableHeader   = mk("thead", "");
+export const TableBody     = mk("tbody", "");
+export const TableFooter   = mk("tfoot", "");
+export const TableRow      = mk("tr", "border-b border-violet-100");
+export const TableHead     = mk("th", "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500");
+export const TableCell     = mk("td", "px-3 py-2 text-sm text-slate-700");
+export const TableCaption  = mk("caption", "mt-3 text-xs text-slate-500");
+
+// ─── Slider (native) ───────────────────────────────────────────────
+export const Slider = React.forwardRef(function Slider(props, ref) {
+  const { value, defaultValue, onValueChange, min = 0, max = 100, step = 1, className = "" } = props;
+  const v = Array.isArray(value) ? value[0] : (Array.isArray(defaultValue) ? defaultValue[0] : 0);
+  return React.createElement("input", {
+    ref, type: "range", min, max, step, value: v,
+    onChange: (e) => onValueChange && onValueChange([Number(e.target.value)]),
+    className: cx("w-full accent-violet-600", className),
+  });
+});
+
+// ─── Accordion (very small) ────────────────────────────────────────
+export const Accordion         = mk("div", "divide-y divide-violet-100");
+export const AccordionItem     = mk("details", "py-2");
+export const AccordionTrigger  = mk("summary", "cursor-pointer text-sm font-medium text-slate-900");
+export const AccordionContent  = mk("div", "pt-2 text-sm text-slate-600");
+
+// ─── Popover / DropdownMenu (basic uncontrolled) ───────────────────
+export const Popover            = Dialog;
+export const PopoverTrigger     = DialogTrigger;
+export const PopoverContent     = ({ className = "", children }) => {
+  const ctx = React.useContext(DialogCtx);
+  if (!ctx.open) return null;
+  return React.createElement("div", { className: "relative" },
+    React.createElement("div", { className: "fixed inset-0 z-40", onClick: () => ctx.setOpen(false) }),
+    React.createElement("div", {
+      className: cx("absolute z-50 mt-2 min-w-[12rem] rounded-xl border border-violet-100 bg-white p-2 shadow-lg", className),
+    }, children));
+};
+export const DropdownMenu             = Dialog;
+export const DropdownMenuTrigger      = DialogTrigger;
+export const DropdownMenuContent      = PopoverContent;
+export const DropdownMenuItem         = mk("div", "cursor-pointer rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50");
+export const DropdownMenuLabel        = mk("div", "px-2 py-1 text-xs font-semibold uppercase tracking-wider text-slate-400");
+export const DropdownMenuSeparator    = mk("div", "my-1 h-px bg-violet-100");
+export const DropdownMenuGroup        = mk("div", "");
+export const DropdownMenuCheckboxItem = DropdownMenuItem;
+export const DropdownMenuRadioItem    = DropdownMenuItem;
+export const DropdownMenuRadioGroup   = mk("div", "");
+export const DropdownMenuSub          = mk("div", "");
+export const DropdownMenuSubTrigger   = DropdownMenuItem;
+export const DropdownMenuSubContent   = mk("div", "");
+export const DropdownMenuShortcut     = mk("span", "ml-auto text-xs text-slate-400");
+export const DropdownMenuPortal       = ({ children }) => children;
 `;
 
 type CompiledRuntime = {
