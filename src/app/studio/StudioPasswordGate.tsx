@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { rememberStudioPass } from "@/lib/media-studio/client-auth";
 import { Loader2 } from "lucide-react";
 
