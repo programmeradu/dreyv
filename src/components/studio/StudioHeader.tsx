@@ -262,28 +262,32 @@ export function StudioHeader(props: StudioHeaderProps) {
                     )}
                 </div>
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onSave}
-                    disabled={isSaving || !caps.save}
-                    className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50"
-                    title={!caps.save ? "Save unavailable — database not configured" : "Save to library"}
-                >
-                    {isSaving ? "Saving…" : isDirty ? "Save" : "Saved"}
-                </Button>
+                {!isEmpty && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onSave}
+                            disabled={isSaving || !caps.save}
+                            className="h-7 px-2.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50"
+                            title={!caps.save ? "Save unavailable — database not configured" : "Save to library"}
+                        >
+                            {isSaving ? "Saving…" : isDirty ? "Save" : "Saved"}
+                        </Button>
 
-                <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onShip}
-                    disabled={isShipping || !caps.ship}
-                    className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] rounded-md bg-violet-600 hover:bg-violet-700 text-white shadow-sm disabled:opacity-50"
-                    title={!caps.ship ? "Ship unavailable — database not configured" : "Ship to dreyv Library"}
-                >
-                    {isShipping ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Rocket size={12} className="mr-1.5" />}
-                    {isShipping ? "Shipping…" : "Ship"}
-                </Button>
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={onShip}
+                            disabled={isShipping || !caps.ship}
+                            className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.18em] rounded-md bg-violet-600 hover:bg-violet-700 text-white shadow-sm disabled:opacity-50"
+                            title={!caps.ship ? "Ship unavailable — database not configured" : "Ship to dreyv Library"}
+                        >
+                            {isShipping ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Rocket size={12} className="mr-1.5" />}
+                            {isShipping ? "Shipping…" : "Ship"}
+                        </Button>
+                    </>
+                )}
             </div>
         </header>
     );
