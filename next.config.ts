@@ -14,6 +14,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Cross-origin isolation for WebContainers (Vite-in-browser) — scoped to
+        // the dedicated host route so it does NOT affect /app/studio itself
+        // (would break Phantom embedded wallet, GitHub OAuth popup, etc.).
+        source: "/app/studio/wc-host/:path*",
+        headers: [
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {
@@ -22,9 +33,10 @@ const nextConfig: NextConfig = {
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Allow Phantom embedded wallet iframe (Track A of Phantom SDK migration)
+          // + WebContainer preview iframe (webcontainer-api.io) used by /app/studio.
           {
             key: "Content-Security-Policy",
-            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app;",
+            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io;",
           },
         ],
       },
