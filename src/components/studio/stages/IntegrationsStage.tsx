@@ -23,9 +23,7 @@ interface Props {
 }
 
 export function IntegrationsStage({ integrations, unknownProtocols, isLoading, onBack, onContinue }: Props) {
-  const [enabled, setEnabled] = useState<Set<string>>(
-    () => new Set(integrations.filter((i) => i.status === "ready").map((i) => i.id))
-  );
+  const [enabled, setEnabled] = useState<Set<string>>(() => new Set());
 
   const toggle = (id: string) => {
     setEnabled((prev) => {
