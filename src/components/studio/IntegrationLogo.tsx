@@ -79,26 +79,17 @@ export function IntegrationLogo({ name, docsUrl }: { name: string; docsUrl?: str
   const domain = resolveDomain(name, docsUrl);
   const [errored, setErrored] = useState(false);
 
-  const initials = name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+  if (!domain || errored) return null;
 
   return (
     <div className="shrink-0 w-9 h-9 rounded-md border border-border bg-white flex items-center justify-center overflow-hidden">
-      {domain && !errored ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-          alt={`${name} logo`}
-          className="w-6 h-6 object-contain"
-          onError={() => setErrored(true)}
-        />
-      ) : (
-        <span className="text-[10px] font-bold text-muted-foreground">{initials}</span>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt={`${name} logo`}
+        className="w-6 h-6 object-contain"
+        onError={() => setErrored(true)}
+      />
     </div>
   );
 }

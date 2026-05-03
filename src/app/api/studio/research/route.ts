@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -12,14 +11,6 @@ const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
  * Both providers are optional — the route returns whatever it could gather.
  */
 export async function POST(req: NextRequest) {
-  const limit = await checkRouteLimit(req, "ai_architect_runs");
-  if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "Rate limited", retryAfter: Math.ceil((limit.resetAt.getTime() - Date.now()) / 1000) },
-      { status: 429 }
-    );
-  }
-
   let body: { protocol?: string; prompt?: string };
   try {
     body = await req.json();
