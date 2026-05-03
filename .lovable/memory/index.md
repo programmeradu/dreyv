@@ -8,10 +8,16 @@ Pricing tiers: Free $0, Mini $49/mo, Max $199/mo (FastSpring MoR). Keep marketin
 Approved pricing page aesthetic: white bg, solid violet accents, ambient violet-400/300 glows, manrope, custom crystal tier images, solid violet "Most popular" border + flat violet CTA strip — replicate this style for other marketing pages.
 NEVER use hardcoded/demo/made-up figures (e.g. "$100k portfolio", "$250k AUM", default amounts) in any simulation, plan, or projection. Every prompt must either run on live data, or clarify (LLM-driven) to ask the user for the missing exposure (connect wallet / paste address / enter amount / explicit demo opt-in). Bad marketing otherwise.
 Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) + `/auth` Free tier (self-serve, stays discoverable). Never gate Atlas read-only / `/compare` / `/developers` / `llms*.txt` / OpenAPI.
-/app/treasury is a Canvas surface scoped to treasury intent (4 rails: Hero/Pulse/Action/Stream) — never fixed bucket sections. Buckets render only when an agent/watcher/capability has a real block to show. Empty buckets show "Ask Dreyv to set this up" opening CommandBar pre-filled. Reuse DACS pipeline + capability registry + Canvas + app-shell primitives — do not invent new agent or dashboard frameworks.
-ALWAYS use real logos (token/protocol/company) via real image URLs. Never letter-circle or initial placeholders. Forward `logo` field through canvas payloads; render with `<TokenAvatar>` (its geometric sigil is the only acceptable fallback).
+`/app/analytics` is an analytics page FIRST (real data, smart/reactive/suggestive by default) — sim/IR regeneration is an overlay only, never the default surface.
+On /app/analytics: FLAT only — no shadows, no backdrop-blur, no gradients, no ring/elevation. Cards = `rounded-3xl border border-violet-100 bg-white`. Stream numbers, chart paths, narratives, and suggestions. Cover ALL analytics (value, PnL, attribution, composition, concentration, runway, drift, foresight, DeFi, fees, benchmark, flows, anomalies, suggestions).
+Dreyv brand voice (for any AI-generated copy): calm, precise, founder-to-founder. NO emoji-spam, NO hashtags on X, NEVER "revolutionize/game-changer/synergy/disrupt/next-gen/leverage(verb)/supercharge". Pronunciation: DRAVE.
+Lovable AI (`LOVABLE_API_KEY`) is ALWAYS called via a Supabase edge function in the Lovable Cloud workspace — never directly from Vercel. Never migrate existing Groq/CF/OpenAI providers; only ADD Lovable AI as an extra provider in the loop.
+Brand mascot = **Dryv** (owl-fox sentinel, solid violet). Pose set in `src/assets/mascot/`. Use for empty states, success, alerts, marketing — never re-generate without matching existing silhouette/palette.
 
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
-- [Treasury landscape research](mem://research/treasury-landscape) — Apr 2026 competitor matrix (Squads/Realms/Coinshift/Utopia/Multis/Karpatkey/Sablier/etc), user-need ranking, Dreyv agentic differentiator, bucket priorities for `/app/treasury` foundation.
-- [Real logos rule](mem://design/real-logos) — How to wire real token/protocol/company logos; never use initial-circle placeholders.
+- [Analytics page](mem://features/analytics-page) — Default analytics layer + scenario overlay rules; IR is for regeneration, not the page itself.
+- [Analytics design rules](mem://design/analytics-rules) — Flat surfaces, streaming generative UI, full-coverage reporting list.
+- [Media Studio](mem://features/media-studio) — Internal team-only `/app/studio/media`; generation routes, access rules, brand voice constants, R2 persistence.
+- [Lovable AI routing](mem://constraints/lovable-ai-routing) — All Lovable AI calls go through a Supabase edge function; never migrate existing providers, only add.
+- [Dryv mascot](mem://design/mascot) — Owl-fox treasury sentinel, 4-pose set, palette + usage rules.
