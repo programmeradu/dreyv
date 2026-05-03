@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { marketingPrimaryCtaSm, marketingGhostLink } from "./marketing-styles";
 import { HeroCommandbarDemo } from "./hero-commandbar-demo";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 
 export function HeroSection() {
   const [solPrice, setSolPrice] = useState<number | null>(null);
