@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { SignJWT } from "jose";
 import { db } from "@/db";
-import { waitlistEntries } from "@/db/schema";
+import { users, waitlistEntries } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 
 export const runtime = "nodejs";
@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const token = typeof body?.token === "string" ? body.token : "";
+    const userId = typeof body?.userId === "string" ? body.userId : "";
     if (!token || token.length < 16) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 });
     }
@@ -127,6 +128,13 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       })
       .where(eq(waitlistEntries.id, row.id));
+
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+      await db!
+        .update(users)
+        .set({ email: row.email, lastLoginAt: new Date() })
+        .where(eq(users.id, userId));
+    }
 
     const response = NextResponse.json({ ok: true });
     await setInviteAllowCookie(response, row.email);
