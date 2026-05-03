@@ -320,6 +320,7 @@ export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/
 type CompiledRuntime = {
     entry: string;
     modules: Record<string, string>;
+    css: string[];
 };
 
 const SHADCN_UI_ALIASES = [
