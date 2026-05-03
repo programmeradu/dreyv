@@ -4,6 +4,7 @@
 // <html> and <body>. Avoid next/image, next/link, and shared layout chrome.
 
 import { useEffect } from "react";
+import dryvAlert from "@/assets/mascot/dryv-alert.png";
 
 export default function GlobalError({
   error,
@@ -98,51 +99,32 @@ export default function GlobalError({
               textAlign: "center",
             }}
           >
-            {/* Brand mark */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                marginBottom: "2rem",
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  width: 56,
-                  height: 56,
-                  borderRadius: 16,
-                  background: "#ffffff",
-                  border: "1px solid rgba(196, 181, 253, 0.7)",
-                  boxShadow: "0 10px 30px -12px rgba(124, 58, 237, 0.25)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily:
-                      'Manrope, ui-sans-serif, system-ui, sans-serif',
-                    fontWeight: 800,
-                    fontSize: 22,
-                    color: "#7c3aed",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  d
-                </span>
-                <span
+            {/* Mascot — Dryv on alert */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
+              <div style={{ position: "relative", width: 140, height: 140 }}>
+                <div
                   aria-hidden
                   style={{
                     position: "absolute",
-                    bottom: -4,
-                    right: -4,
-                    width: 14,
-                    height: 14,
+                    inset: 0,
                     borderRadius: "9999px",
-                    background: "#7c3aed",
-                    boxShadow: "0 0 0 4px #ffffff",
+                    background:
+                      "radial-gradient(circle, rgba(124,58,237,0.28), transparent 70%)",
+                    filter: "blur(20px)",
+                  }}
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={typeof dryvAlert === "string" ? dryvAlert : (dryvAlert as { src: string }).src}
+                  alt="Dryv mascot — alert"
+                  width={140}
+                  height={140}
+                  style={{
+                    position: "relative",
+                    width: 140,
+                    height: 140,
+                    objectFit: "contain",
+                    filter: "drop-shadow(0 18px 30px rgba(124,58,237,0.28))",
                   }}
                 />
               </div>
