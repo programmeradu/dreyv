@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRouteLimit } from "@/lib/rate-limit-middleware";
+
 import {
   INTEGRATION_REGISTRY,
   getIntegrationStatus,
