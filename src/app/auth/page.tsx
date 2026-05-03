@@ -20,6 +20,7 @@ import {
 import { Logo, Sparkles } from "@/components/icons";
 import { DreyvMark } from "@/components/brand/dreyv-mark";
 import { DreyvLogoLight } from "@/components/brand/dreyv-logo-light";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { motion, AnimatePresence } from "framer-motion";
 import { marketingPrimaryCta } from "@/components/home/marketing-styles";
 
@@ -382,6 +383,11 @@ function DreyvBackground() {
                     <p className="text-[11px] text-violet-600 uppercase tracking-[0.3em] font-bold">
                         TreasuryOS
                     </p>
+                </div>
+
+                {/* Mascot — Dryv greeting, sits in the lower-left of the brand panel */}
+                <div className="absolute bottom-[44%] left-12 z-20">
+                    <DryvMascot pose="greet" size={170} priority />
                 </div>
 
                 <LinuxTerminal />
