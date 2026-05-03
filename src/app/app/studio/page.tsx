@@ -881,6 +881,7 @@ ${payload.chosenIntegrations.map((i) => `- ${i.name}`).join("\n") || "- (none sp
                 onShip={handleShip}
                 isShipping={isDeploying}
                 caps={caps}
+                isEmpty={showEmptyState && !emptyStatePrompt}
             />
 
 

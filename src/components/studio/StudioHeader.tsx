@@ -59,6 +59,9 @@ export interface StudioHeaderProps {
     isShipping: boolean;
 
     caps: StudioCapabilities;
+
+    /** Hide the center status cluster (saved/files/lint) — true on the empty state. */
+    isEmpty?: boolean;
 }
 
 function formatRelativeTime(ts: number | null): string {
@@ -81,6 +84,7 @@ export function StudioHeader(props: StudioHeaderProps) {
         onPreview, isPreviewing, onExportPdf, isExporting,
         onShip, isShipping,
         caps,
+        isEmpty,
     } = props;
 
     const [overflowOpen, setOverflowOpen] = useState(false);
@@ -166,8 +170,8 @@ export function StudioHeader(props: StudioHeaderProps) {
                 />
             </div>
 
-            {/* ── Center: live status cluster ──────────────────────── */}
-            <div className="hidden md:flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+            {/* ── Center: live status cluster (hidden on empty state) ── */}
+            <div className={`${isEmpty ? "hidden" : "hidden md:flex"} items-center gap-1 text-[11px] text-slate-500 font-medium`}>
                 <span
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-50 transition-colors"
                     title={lastSavedAt ? new Date(lastSavedAt).toLocaleString() : "No save yet"}
