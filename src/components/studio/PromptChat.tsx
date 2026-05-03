@@ -51,13 +51,32 @@ interface ModelOption {
 }
 
 const FREE_MODELS: ModelOption[] = [
-    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", provider: "groq" },
-    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Fast", provider: "groq" },
-    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B", provider: "groq" },
+    // Lovable AI (managed key, routed via Supabase edge function — premium quality, free tier)
+    { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash · Lovable", provider: "lovable" },
+    { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro · Lovable", provider: "lovable" },
+    { id: "openai/gpt-5", label: "GPT-5 · Lovable", provider: "lovable" },
+    { id: "openai/gpt-5-mini", label: "GPT-5 Mini · Lovable", provider: "lovable" },
+    // Legacy free providers (kept for fallback / speed)
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B · Groq", provider: "groq" },
+    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Fast · Groq", provider: "groq" },
+    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B · Groq", provider: "groq" },
     { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "CF Llama 3.3 70B", provider: "cloudflare" },
     { id: "@cf/qwen/qwen2.5-coder-32b-instruct", label: "Qwen 2.5 Coder 32B", provider: "cloudflare" },
     { id: "@cf/qwen/qwen3-30b-a3b-fp8", label: "Qwen 3 30B", provider: "cloudflare" },
 ];
+
+// Models considered strong enough for full Build / deep research generation.
+// Anything outside this list will be auto-upgraded when the user hits Build.
+const STRONG_BUILD_MODELS = new Set<string>([
+    "google/gemini-2.5-pro",
+    "openai/gpt-5",
+    "openai/gpt-5-mini",
+    "google/gemini-3-flash-preview",
+    "gpt-4o",
+    "claude-sonnet-4-20250514",
+    "claude-3-5-sonnet-20241022",
+]);
+const BUILD_UPGRADE_MODEL = { id: "openai/gpt-5", provider: "lovable" } as const;
 
 const BYOK_MODELS: Record<string, ModelOption[]> = {
     openai: [
@@ -124,7 +143,7 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
     const [useDeepResearch, setUseDeepResearch] = useState(false);
     const [architectStatus, setArchitectStatus] = useState<ArchitectStatus | null>(null);
     const engineRef = useRef<ArchitectEngine | null>(null);
-    const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
+    const [selectedModel, setSelectedModel] = useState("google/gemini-3-flash-preview");
     const [showModelDropdown, setShowModelDropdown] = useState(false);
     const [byokConfig, setByokConfig] = useState<AIKeyConfig | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -503,15 +522,29 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
             const selectedModelInfo = availableModels.find((m) => m.id === selectedModel);
             const isByok = selectedModelInfo?.byok && byokConfig?.apiKey;
 
+            // Auto-upgrade: when the user runs a full Build (Deep Research on, or no
+            // existing files yet) with a weak model, route through Lovable AI's
+            // strongest model so styling + reasoning quality stay high.
+            const isFullBuild = useDeepResearch || Object.keys(userFiles || {}).length === 0;
+            let effectiveProvider = selectedModelInfo?.provider || "lovable";
+            let effectiveModel = selectedModel;
+            let effectiveApiKey = isByok ? byokConfig!.apiKey : "";
+            if (isFullBuild && !STRONG_BUILD_MODELS.has(selectedModel) && !isByok) {
+                effectiveProvider = BUILD_UPGRADE_MODEL.provider;
+                effectiveModel = BUILD_UPGRADE_MODEL.id;
+                effectiveApiKey = "";
+                console.log(`[PromptChat] Auto-upgraded build → ${effectiveProvider}/${effectiveModel}`);
+            }
+
             await engine.generate(
                 promptText,
                 userFiles,
                 runtimeLogs,
                 researchContext || undefined,
                 {
-                    provider: selectedModelInfo?.provider || "groq",
-                    apiKey: isByok ? byokConfig!.apiKey : "",
-                    model: selectedModel,
+                    provider: effectiveProvider,
+                    apiKey: effectiveApiKey,
+                    model: effectiveModel,
                 },
                 history
             );
