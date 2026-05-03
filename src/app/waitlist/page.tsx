@@ -37,7 +37,7 @@ export default function WaitlistPage() {
       </div>
 
       <section className="relative mx-auto max-w-6xl px-6 pt-10 pb-16 lg:pt-16 lg:pb-20">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-14 items-center">
           {/* Left: hero copy */}
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
