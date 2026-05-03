@@ -522,15 +522,36 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
             const selectedModelInfo = availableModels.find((m) => m.id === selectedModel);
             const isByok = selectedModelInfo?.byok && byokConfig?.apiKey;
 
+            // Auto-upgrade: when the user runs a full Build (Deep Research on, or no
+            // existing files yet) with a weak model, route through Lovable AI's
+            // strongest model so styling + reasoning quality stay high.
+            const isFullBuild = useDeepResearch || Object.keys(userFiles || {}).length === 0;
+            let effectiveProvider = selectedModelInfo?.provider || "lovable";
+            let effectiveModel = selectedModel;
+            let effectiveApiKey = isByok ? byokConfig!.apiKey : "";
+            if (isFullBuild && !STRONG_BUILD_MODELS.has(selectedModel) && !isByok) {
+                effectiveProvider = BUILD_UPGRADE_MODEL.provider;
+                effectiveModel = BUILD_UPGRADE_MODEL.id;
+                effectiveApiKey = "";
+                appendBlock({
+                    type: "activity",
+                    card: {
+                        id: `${assistantId}-upgrade`,
+                        kind: "info",
+                        message: `Upgraded to ${BUILD_UPGRADE_MODEL.id} for this build (better styling + reasoning).`,
+                    } as any,
+                });
+            }
+
             await engine.generate(
                 promptText,
                 userFiles,
                 runtimeLogs,
                 researchContext || undefined,
                 {
-                    provider: selectedModelInfo?.provider || "groq",
-                    apiKey: isByok ? byokConfig!.apiKey : "",
-                    model: selectedModel,
+                    provider: effectiveProvider,
+                    apiKey: effectiveApiKey,
+                    model: effectiveModel,
                 },
                 history
             );
