@@ -39,8 +39,7 @@ export function DryvMascot({
     >
       {glow && (
         <div
-          className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-2xl"
-          style={{ background: "radial-gradient(circle, rgba(124,58,237,0.28), transparent 70%)" }}
+          className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-violet-400/25 blur-2xl"
         />
       )}
       <Image
