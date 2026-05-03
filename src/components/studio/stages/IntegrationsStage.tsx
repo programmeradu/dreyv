@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft, Check, Settings2, FlaskConical, Loader2 } from "lucide-react";
+import { IntegrationLogo } from "../IntegrationLogo";
 
 export interface PlanIntegration {
   id: string;
@@ -23,9 +24,7 @@ interface Props {
 }
 
 export function IntegrationsStage({ integrations, unknownProtocols, isLoading, onBack, onContinue }: Props) {
-  const [enabled, setEnabled] = useState<Set<string>>(
-    () => new Set(integrations.filter((i) => i.status === "ready").map((i) => i.id))
-  );
+  const [enabled, setEnabled] = useState<Set<string>>(() => new Set());
 
   const toggle = (id: string) => {
     setEnabled((prev) => {
@@ -102,17 +101,20 @@ export function IntegrationsStage({ integrations, unknownProtocols, isLoading, o
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-foreground">{it.name}</span>
-                    {statusBadge}
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <IntegrationLogo name={it.name} docsUrl={it.docsUrl} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-foreground">{it.name}</span>
+                      {statusBadge}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{it.description}</p>
+                    {it.requiredEnv.length > 0 && it.status === "needs_setup" && (
+                      <p className="text-[10px] text-[hsl(var(--warning,38_92%_50%))] mt-1 font-mono">
+                        requires: {it.requiredEnv.join(", ")}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{it.description}</p>
-                  {it.requiredEnv.length > 0 && it.status === "needs_setup" && (
-                    <p className="text-[10px] text-[hsl(var(--warning,38_92%_50%))] mt-1 font-mono">
-                      requires: {it.requiredEnv.join(", ")}
-                    </p>
-                  )}
                 </div>
                 <div
                   className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
