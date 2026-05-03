@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { prompt?: string; answers?: Record<string, string | string[]> };
+  let body: { prompt?: string; answers?: Record<string, string | string[]>; researchContext?: string };
   try {
     body = await req.json();
   } catch {
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = (body.prompt || "").trim();
   const answers = body.answers || {};
+  const researchContext = (body.researchContext || "").slice(0, 12000);
   if (!prompt) {
     return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
   }
