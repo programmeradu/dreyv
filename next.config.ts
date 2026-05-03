@@ -14,14 +14,24 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // WebContainers require the top-level Studio document to be
+        // cross-origin isolated too; isolating only the hidden host iframe
+        // leaves SharedArrayBuffer unavailable and WebContainer.boot() hangs.
+        source: "/app/studio",
+        headers: [
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
+        ],
+      },
+      {
         // Cross-origin isolation for WebContainers (Vite-in-browser) — scoped to
-        // the dedicated host route so it does NOT affect /app/studio itself
-        // (would break Phantom embedded wallet, GitHub OAuth popup, etc.).
+        // the dedicated host route plus /app/studio above.
         source: "/app/studio/wc-host/:path*",
         headers: [
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
         ],
       },
       {

@@ -23,6 +23,7 @@ interface StudioFile {
 interface WebContainerPreviewProps {
     files: Record<string, StudioFile>;
     onLogsChange?: (logs: string[]) => void;
+    onFallbackToInstant?: (reason: string) => void;
 }
 
 type HostMessage =
@@ -39,7 +40,7 @@ function flatten(files: Record<string, StudioFile>): Record<string, string> {
     return out;
 }
 
-export function WebContainerPreview({ files, onLogsChange }: WebContainerPreviewProps) {
+export function WebContainerPreview({ files, onLogsChange, onFallbackToInstant }: WebContainerPreviewProps) {
     const hostIframeRef = useRef<HTMLIFrameElement | null>(null);
     const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
     const hostReadyRef = useRef(false);
@@ -58,8 +59,22 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
         onLogsChange?.(logsRef.current);
     };
 
+    const fallbackToInstant = (reason: string) => {
+        pushLog(`[fallback] ${reason}`);
+        onFallbackToInstant?.(reason);
+    };
+
     // Bridge: receive messages from the host iframe.
     useEffect(() => {
+        if (!window.isSecureContext) {
+            fallbackToInstant("Full preview needs HTTPS or localhost; using Instant preview instead.");
+            return;
+        }
+        if (!window.crossOriginIsolated) {
+            fallbackToInstant("Full preview needs cross-origin isolation; using Instant preview instead.");
+            return;
+        }
+
         function onMessage(ev: MessageEvent<HostMessage>) {
             const data = ev.data;
             if (!data || data.source !== "dreyv-wc-host") return;
@@ -102,7 +117,19 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [onLogsChange]);
+    }, [onLogsChange, onFallbackToInstant]);
+
+    // Fail fast if the hidden host iframe never checks in. Without this, failed
+    // COOP/COEP or WebContainer worker boot paths look like an infinite spinner.
+    useEffect(() => {
+        if (previewUrl || error) return;
+        const t = window.setTimeout(() => {
+            if (!hostReadyRef.current && !previewUrl && !error) {
+                fallbackToInstant("Full preview host did not respond; using Instant preview instead.");
+            }
+        }, 8_000);
+        return () => window.clearTimeout(t);
+    }, [previewUrl, error, onFallbackToInstant]);
 
     // Hot file sync: after boot, push any file changes to the live container.
     useEffect(() => {
