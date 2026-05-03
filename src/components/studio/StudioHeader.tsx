@@ -236,7 +236,6 @@ export function StudioHeader(props: StudioHeaderProps) {
                         <div className="absolute right-0 top-full mt-1.5 w-56 rounded-md border border-slate-200 bg-white shadow-lg py-1 z-50">
                             <OverflowItem icon={<Plus size={13} />} label="New project" onClick={() => { setOverflowOpen(false); onNewProject(); }} />
                             <OverflowItem icon={<FolderOpen size={13} />} label="Open project…" onClick={() => { setOverflowOpen(false); onOpenProjects(); }} />
-                            <OverflowItem icon={<BookOpen size={13} />} label="SDK reference" onClick={() => { setOverflowOpen(false); onToggleSDK(); }} />
                             <div className="my-1 h-px bg-slate-100" />
                             <OverflowItem
                                 icon={isPreviewing ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
@@ -251,12 +250,6 @@ export function StudioHeader(props: StudioHeaderProps) {
                                 disabled={!caps.browserRendering || isExporting}
                                 hint={!caps.browserRendering ? "Needs Browser Rendering" : undefined}
                                 onClick={() => { setOverflowOpen(false); onExportPdf(); }}
-                            />
-                            <OverflowItem
-                                icon={isTesting ? <Loader2 size={13} className="animate-spin" /> : <TestTube2 size={13} />}
-                                label={caps.browserRendering ? "Run smoke test" : "Run lint check"}
-                                onClick={() => { setOverflowOpen(false); onRunTest(); }}
-                                disabled={isTesting}
                             />
                         </div>
                     )}
