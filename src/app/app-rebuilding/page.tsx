@@ -7,10 +7,12 @@
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Urbanist } from "next/font/google";
 import { ArrowRight, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dryvThink from "@/assets/mascot/dryv-think.png";
 
 const wordmark = Urbanist({
   subsets: ["latin"],
@@ -60,6 +62,32 @@ export default function AppRebuildingPage() {
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="space-y-7"
         >
+          <div className="flex justify-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="relative"
+            >
+              <div aria-hidden className="absolute inset-0 -z-10 blur-2xl">
+                <div className="mx-auto h-40 w-40 rounded-full bg-violet-300/55" />
+              </div>
+              <motion.div
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Image
+                  src={dryvThink}
+                  alt="Dryv, the Dreyv mascot, tinkering in the workshop"
+                  width={180}
+                  height={180}
+                  priority
+                  className="h-44 w-44 select-none object-contain"
+                />
+              </motion.div>
+            </motion.div>
+          </div>
+
           <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-600 shadow-[0_0_10px_currentColor]" />
             In the workshop
