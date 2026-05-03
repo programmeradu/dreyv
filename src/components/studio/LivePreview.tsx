@@ -999,12 +999,11 @@ window.dreyv = dreyv;
     constructor(props) { super(props); this.state = { error: null }; }
     static getDerivedStateFromError(error) { return { error }; }
     componentDidCatch(error, info) {
+      showError(error, { title: "Component Error" });
       try { keystoneBridge.notify("runtime.error", { message: error && error.message ? error.message : String(error), componentStack: info && info.componentStack }); } catch (e) {}
     }
     render() {
-      if (this.state.error) {
-        return host.React.createElement("div", { className: "runtime-error" }, "Component Error\\n" + (this.state.error.message || String(this.state.error)));
-      }
+      if (this.state.error) return null;
       return this.props.children;
     }
   }
