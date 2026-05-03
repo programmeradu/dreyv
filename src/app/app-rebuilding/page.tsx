@@ -7,10 +7,12 @@
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Urbanist } from "next/font/google";
 import { ArrowRight, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dryvThink from "@/assets/mascot/dryv-think.png";
 
 const wordmark = Urbanist({
   subsets: ["latin"],
