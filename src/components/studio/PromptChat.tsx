@@ -325,17 +325,52 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
 
         try {
             if (useDeepResearch) {
+                const researchCardId = `${assistantId}-research-${Date.now()}`;
+                // Build a stronger query for vague styling/UX prompts
+                const lower = promptText.toLowerCase();
+                const isVagueStyle = /\b(styl|design|theme|ui|ux|look|feel|modern|2025|2026)\b/.test(lower) && promptText.length < 80;
+                const researchQuery = isVagueStyle
+                    ? `${promptText} — modern web app UI design trends 2026, premium light SaaS aesthetics, tailwind patterns`
+                    : promptText;
+
+                appendBlock({
+                    type: "activity",
+                    card: { id: researchCardId, kind: "research", query: researchQuery, done: false },
+                });
+
+                const updateResearch = (patch: Partial<Extract<ActivityCard, { kind: "research" }>>) => {
+                    updateAssistant((blocks) =>
+                        blocks.map((b) =>
+                            b.type === "activity" && b.card.id === researchCardId && b.card.kind === "research"
+                                ? { ...b, card: { ...b.card, ...patch } }
+                                : b
+                        )
+                    );
+                };
+
                 try {
                     const researchRes = await fetch("/api/agent/knowledge", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ query: promptText }),
+                        body: JSON.stringify({ query: researchQuery }),
                     });
                     if (researchRes.ok) {
                         const data = await researchRes.json();
                         researchContext = `\n\n[RESEARCH CONTEXT based on: ${data.query}]\nSummary: ${data.summary}\nTechnical Reference: ${data.rawContent}`;
+                        updateResearch({
+                            done: true,
+                            sources: data.sources || [],
+                            summary: data.summary,
+                            error: (!data.sources || data.sources.length === 0)
+                                ? "No external sources found — proceeding with built-in knowledge."
+                                : undefined,
+                        });
+                    } else {
+                        updateResearch({ done: true, error: `Research API returned ${researchRes.status}` });
                     }
-                } catch { /* continue without research */ }
+                } catch (err) {
+                    updateResearch({ done: true, error: err instanceof Error ? err.message : "Research failed" });
+                }
             }
 
             const engine = getEngine();
