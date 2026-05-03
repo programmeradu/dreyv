@@ -111,18 +111,25 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
                 throw new Error("Failed to fetch nonce from server.");
             }
 
-            // Step 2: Construct & sign message
+            // Step 2: Construct & sign message (Sign-In With Solana style)
             setStep("signing");
             const walletAddress = publicKey.toBase58();
             const timestamp = new Date().toISOString();
+            const domain = typeof window !== "undefined" ? window.location.host : "dreyv.com";
+            const uri = typeof window !== "undefined" ? window.location.origin : "https://dreyv.com";
             const message = [
-                "Sign in to Keystone",
+                `${domain} wants you to sign in with your Solana account:`,
+                walletAddress,
                 "",
-                `Wallet: ${walletAddress}`,
+                "Sign in to Dreyv — agentic treasury for Solana teams.",
+                "",
+                `URI: ${uri}`,
+                `Version: 1`,
+                `Chain: solana`,
                 `Nonce: ${nonce}`,
-                `Timestamp: ${timestamp}`,
+                `Issued At: ${timestamp}`,
                 "",
-                "This request will not trigger a blockchain transaction or cost any fees.",
+                "This request only proves wallet ownership. It will not trigger a blockchain transaction or cost any fees.",
             ].join("\n");
 
             const encodedMessage = new TextEncoder().encode(message);
