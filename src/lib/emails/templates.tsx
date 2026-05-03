@@ -421,6 +421,34 @@ export function WaitlistConfirmationEmail({
 }
 
 // ─── Waitlist: invite ────────────────────────────────────────────────
+// Premium light, Stitch-inspired. Solid violet only — no gradients, no
+// fuchsia. Manrope. Violet-200 borders. Pearl/stone motif via inline SVG.
+const v = {
+  bg: '#ffffff',
+  ink: '#0f172a',
+  muted: '#475569',
+  faint: '#94a3b8',
+  violet: '#7c3aed',
+  violet50: '#f5f3ff',
+  violet100: '#ede9fe',
+  violet200: '#ddd6fe',
+  font:
+    "'Manrope', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+};
+
+function PearlMark() {
+  // Inline SVG "stone" — solid violet, no gradients
+  return (
+    <Img
+      src="https://dreyv.com/dreyv-mark.svg"
+      alt="dreyv"
+      width="36"
+      height="36"
+      style={{ display: 'block', margin: '0 auto', borderRadius: '10px' }}
+    />
+  );
+}
+
 export function WaitlistInviteEmail({
   name,
   inviteUrl,
@@ -431,37 +459,191 @@ export function WaitlistInviteEmail({
   expiresInDays: number;
 }) {
   return (
-    <DreyvLayout preview="Your dreyv access is open">
-      <EmailHeading>Your access is open</EmailHeading>
-      <EmailSubtext>
-        {name ? `${name}, ` : ''}you're up. Claim your seat below.
-      </EmailSubtext>
-      <Text
+    <Html>
+      <Head>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+          * { box-sizing: border-box; }
+          body { -webkit-font-smoothing: antialiased; }
+        `}</style>
+      </Head>
+      <Preview>Your dreyv access is open — claim your seat</Preview>
+      <Body
         style={{
-          fontSize: '14px',
-          color: brand.text,
-          lineHeight: '1.6',
-          textAlign: 'center',
-          margin: '0 0 24px 0',
+          backgroundColor: v.bg,
+          fontFamily: v.font,
+          margin: 0,
+          padding: 0,
+          color: v.ink,
         }}
       >
-        This invite link is single-use and expires in{' '}
-        <span style={{ color: brand.accent, fontWeight: 700 }}>{expiresInDays} days</span>.
-        Connect a wallet — non-custodial by design, multisig-native from day one.
-      </Text>
-      <PrimaryButton href={inviteUrl}>Claim your seat</PrimaryButton>
-      <Text
-        style={{
-          fontSize: '11px',
-          color: brand.textMuted,
-          lineHeight: '1.6',
-          textAlign: 'center',
-          margin: '16px 0 0',
-          wordBreak: 'break-all',
-        }}
-      >
-        Or paste this URL: {inviteUrl}
-      </Text>
-    </DreyvLayout>
+        <Container
+          style={{
+            maxWidth: '560px',
+            margin: '0 auto',
+            padding: '48px 24px',
+          }}
+        >
+          {/* Brand row */}
+          <Section style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <PearlMark />
+            <Text
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: v.violet,
+                margin: '12px 0 0',
+              }}
+            >
+              dreyv · invite
+            </Text>
+          </Section>
+
+          {/* Card */}
+          <Section
+            style={{
+              backgroundColor: v.bg,
+              border: `1px solid ${v.violet200}`,
+              borderRadius: '24px',
+              padding: '40px 32px',
+            }}
+          >
+            <Heading
+              style={{
+                fontSize: '28px',
+                lineHeight: '1.15',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                color: v.ink,
+                margin: '0 0 12px',
+                textAlign: 'center',
+              }}
+            >
+              {name ? `${name}, your seat is ready.` : 'Your seat is ready.'}
+            </Heading>
+            <Text
+              style={{
+                fontSize: '15px',
+                lineHeight: '1.6',
+                color: v.muted,
+                margin: '0 0 28px',
+                textAlign: 'center',
+              }}
+            >
+              You&apos;re in cohort 03. Single-use link, expires in{' '}
+              <span style={{ color: v.violet, fontWeight: 700 }}>
+                {expiresInDays} days
+              </span>
+              . Connect a wallet — non-custodial by design, multisig-native from day one.
+            </Text>
+
+            {/* CTA */}
+            <Section style={{ textAlign: 'center', margin: '8px 0 24px' }}>
+              <Link
+                href={inviteUrl}
+                style={{
+                  display: 'inline-block',
+                  backgroundColor: v.violet,
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  letterSpacing: '0.01em',
+                  padding: '14px 28px',
+                  borderRadius: '14px',
+                  textDecoration: 'none',
+                }}
+              >
+                Claim your seat →
+              </Link>
+            </Section>
+
+            {/* Quiet checklist */}
+            <Section
+              style={{
+                marginTop: '28px',
+                padding: '20px',
+                backgroundColor: v.violet50,
+                border: `1px solid ${v.violet100}`,
+                borderRadius: '16px',
+              }}
+            >
+              {[
+                'Connect a Solana or EVM wallet — read-only first.',
+                'Wire your treasury or Squads multisig.',
+                'Run your first Command in the workspace.',
+              ].map((line, i) => (
+                <Text
+                  key={i}
+                  style={{
+                    fontSize: '13px',
+                    lineHeight: '1.6',
+                    color: v.ink,
+                    margin: i === 0 ? '0' : '8px 0 0',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '18px',
+                      color: v.violet,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {`0${i + 1}`}
+                  </span>
+                  {line}
+                </Text>
+              ))}
+            </Section>
+
+            <Hr style={{ border: 'none', borderTop: `1px solid ${v.violet100}`, margin: '28px 0 16px' }} />
+
+            <Text
+              style={{
+                fontSize: '11px',
+                color: v.faint,
+                lineHeight: '1.6',
+                textAlign: 'center',
+                margin: '0',
+                wordBreak: 'break-all',
+              }}
+            >
+              Trouble with the button? Paste this URL into your browser:
+              <br />
+              <Link href={inviteUrl} style={{ color: v.violet, textDecoration: 'none' }}>
+                {inviteUrl}
+              </Link>
+            </Text>
+          </Section>
+
+          {/* Footer */}
+          <Section style={{ textAlign: 'center', marginTop: '24px' }}>
+            <Text
+              style={{
+                fontSize: '11px',
+                color: v.faint,
+                lineHeight: '1.7',
+                margin: 0,
+              }}
+            >
+              dreyv — the non-custodial Command-Ops workspace for treasuries.
+              <br />
+              You received this because you joined the dreyv waitlist.
+              <br />
+              <Link href="https://dreyv.com" style={{ color: v.faint }}>
+                dreyv.com
+              </Link>
+              {' · '}
+              <Link href="https://dreyv.com/legal/privacy" style={{ color: v.faint }}>
+                privacy
+              </Link>
+            </Text>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
   );
 }
+
