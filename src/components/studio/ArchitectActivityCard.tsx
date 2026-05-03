@@ -31,7 +31,16 @@ export type ActivityCard =
         provider: string;
         tokens: number;
     }
-    | { id: string; kind: "error"; error: string };
+    | { id: string; kind: "error"; error: string }
+    | {
+        id: string;
+        kind: "research";
+        query: string;
+        done?: boolean;
+        sources?: Array<{ title: string; url: string }>;
+        summary?: string;
+        error?: string;
+    };
 
 interface Props {
     card: ActivityCard;
