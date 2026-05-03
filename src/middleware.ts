@@ -13,6 +13,7 @@ import { jwtVerify } from 'jose';
  */
 
 const SIWS_COOKIE = 'keystone-siws-session';
+const INVITE_ALLOW_COOKIE = 'dreyv-invite-allow';
 
 const NEON_AUTH_COOKIE_NAMES = [
     '__Secure-neon-auth.session_token',
@@ -50,6 +51,19 @@ async function getSiwsPayload(request: NextRequest): Promise<Record<string, unkn
     try {
         const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
         return payload as Record<string, unknown>;
+    } catch {
+        return null;
+    }
+}
+
+async function getInviteAllowEmail(request: NextRequest): Promise<string | null> {
+    const token = request.cookies.get(INVITE_ALLOW_COOKIE)?.value;
+    if (!token) return null;
+
+    try {
+        const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
+        if (payload.purpose !== 'waitlist-app-access') return null;
+        return typeof payload.email === 'string' ? payload.email.toLowerCase() : null;
     } catch {
         return null;
     }
@@ -272,6 +286,7 @@ export async function middleware(request: NextRequest) {
             .filter(Boolean);
         const payload = await getSiwsPayload(request);
         const neonEmail = getNeonAuthEmailHint(request);
+        const inviteAllowEmail = await getInviteAllowEmail(request);
         const siwsEmail =
             typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
         const envAllowed = isConstructionAllowed(payload, neonEmail, allowlist);
@@ -279,6 +294,7 @@ export async function middleware(request: NextRequest) {
         // waitlist DB — no env-var edits needed for new invitees.
         const dbAllowed =
             envAllowed ||
+            (await isWaitlistAllowed(request, inviteAllowEmail)) ||
             (await isWaitlistAllowed(request, neonEmail)) ||
             (await isWaitlistAllowed(request, siwsEmail));
         if (!dbAllowed) {
