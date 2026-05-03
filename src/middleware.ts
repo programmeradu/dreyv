@@ -169,14 +169,52 @@ const ALTERNATE_HOSTS = new Set([
  * Bypassed for: the rebuilding page itself, static assets, and any
  * non-/app route.
  */
-function isConstructionAllowed(payload: Record<string, unknown> | null, allowlist: string[]): boolean {
+/**
+ * Best-effort decode of the Neon/Better-Auth `local.session_data` cookie.
+ * The cookie is base64-encoded JSON with user info — used here only as a
+ * soft hint for the construction allow-list. Returns the lowercased email
+ * if present, otherwise null. NEVER use for auth decisions.
+ */
+function getNeonAuthEmailHint(request: NextRequest): string | null {
+    const candidates = [
+        '__Secure-neon-auth.local.session_data',
+        'neon-auth.local.session_data',
+    ];
+    for (const name of candidates) {
+        const raw = request.cookies.get(name)?.value;
+        if (!raw) continue;
+        try {
+            // Cookie is usually base64url(JSON); try both raw JSON and base64.
+            let json: string;
+            if (raw.trim().startsWith('{')) {
+                json = raw;
+            } else {
+                const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+                json = Buffer.from(b64, 'base64').toString('utf8');
+            }
+            const data = JSON.parse(json) as { user?: { email?: string }; email?: string };
+            const email = data?.user?.email ?? data?.email;
+            if (typeof email === 'string') return email.toLowerCase();
+        } catch {
+            // ignore — best-effort only
+        }
+    }
+    return null;
+}
+
+function isConstructionAllowed(
+    payload: Record<string, unknown> | null,
+    neonEmailHint: string | null,
+    allowlist: string[],
+): boolean {
     if (allowlist.length === 0) return false;
-    const sub = typeof payload?.sub === 'string' ? payload.sub : null;
-    const email = typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
+    const sub = typeof payload?.sub === 'string' ? payload.sub.toLowerCase() : null;
+    const siwsEmail =
+        typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
     return allowlist.some((entry) => {
         const e = entry.trim().toLowerCase();
         if (!e) return false;
-        return e === sub?.toLowerCase() || e === email;
+        return e === sub || e === siwsEmail || e === neonEmailHint;
     });
 }
 
@@ -196,7 +234,8 @@ export async function middleware(request: NextRequest) {
             .map((s) => s.trim())
             .filter(Boolean);
         const payload = await getSiwsPayload(request);
-        if (!isConstructionAllowed(payload, allowlist)) {
+        const neonEmail = getNeonAuthEmailHint(request);
+        if (!isConstructionAllowed(payload, neonEmail, allowlist)) {
             const origin =
                 request.headers.get('x-forwarded-host')
                     ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
