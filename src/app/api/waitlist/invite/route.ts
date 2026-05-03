@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     const baseUrl = getAppUrl();
-    const results: Array<{ id: string; email: string; ok: boolean; error?: string; inviteUrl?: string }> = [];
+    const results: Array<{ id: string; email: string; ok: boolean; error?: string; inviteUrl?: string; emailSent?: boolean; emailError?: string }> = [];
 
     for (const row of rows) {
       try {
@@ -62,20 +62,24 @@ export async function POST(request: NextRequest) {
           .where(eq(waitlistEntries.id, row.id));
 
         const inviteUrl = `${baseUrl}/auth?invite=${token}`;
-        results.push({ id: row.id, email: row.email, ok: true, inviteUrl });
 
-        void (async () => {
-          try {
-            await sendWaitlistInviteEmail({
-              to: row.email,
-              name: row.name,
-              inviteUrl,
-              expiresInDays: INVITE_EXPIRY_DAYS,
-            });
-          } catch (err) {
-            console.warn("[waitlist/invite] email failed:", (err as Error).message);
-          }
-        })();
+        let emailOk = false;
+        let emailError: string | undefined;
+        try {
+          const res = await sendWaitlistInviteEmail({
+            to: row.email,
+            name: row.name,
+            inviteUrl,
+            expiresInDays: INVITE_EXPIRY_DAYS,
+          });
+          emailOk = res.success;
+          if (!res.success) emailError = res.error || "Email send failed";
+        } catch (err) {
+          emailError = (err as Error).message;
+          console.warn("[waitlist/invite] email failed:", emailError);
+        }
+
+        results.push({ id: row.id, email: row.email, ok: true, inviteUrl, emailSent: emailOk, emailError });
       } catch (err) {
         results.push({ id: row.id, email: row.email, ok: false, error: (err as Error).message });
       }
