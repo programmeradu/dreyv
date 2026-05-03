@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { waitlistEntries } from "@/db/schema";
+import { users, waitlistEntries } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 
 export const runtime = "nodejs";
@@ -10,7 +10,8 @@ export const runtime = "nodejs";
  * GET /api/internal/waitlist-allowed?email=...
  *
  * Returns `{ allowed: boolean }` — true if the email exists in
- * `waitlist_entries` with status `invited` or `onboarded`.
+ * `waitlist_entries` with status `invited` or `onboarded`. Also accepts
+ * `wallet=...` and resolves it through the user's stored invite email.
  *
  * Used by middleware (construction gate) to auto-allow accepted invitees
  * without env-var maintenance. Protected by `X-Internal-Secret` header
@@ -27,7 +28,18 @@ export async function GET(request: NextRequest) {
     const dbCheck = checkDatabaseAvailability();
     if (dbCheck) return NextResponse.json({ allowed: false });
 
-    const email = (request.nextUrl.searchParams.get("email") || "").trim().toLowerCase();
+    const wallet = (request.nextUrl.searchParams.get("wallet") || "").trim();
+    let email = (request.nextUrl.searchParams.get("email") || "").trim().toLowerCase();
+
+    if (!email && wallet) {
+      const [user] = await db!
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.walletAddress, wallet))
+        .limit(1);
+      email = (user?.email || "").trim().toLowerCase();
+    }
+
     if (!email || email.length > 320 || !email.includes("@")) {
       return NextResponse.json({ allowed: false });
     }
