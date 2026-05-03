@@ -13,6 +13,9 @@ import { jwtVerify } from 'jose';
  */
 
 const SIWS_COOKIE = 'keystone-siws-session';
+const INVITE_ALLOW_COOKIE = 'dreyv-invite-allow';
+
+type SiwsPayload = Record<string, unknown> & { wallet?: string };
 
 const NEON_AUTH_COOKIE_NAMES = [
     '__Secure-neon-auth.session_token',
@@ -43,13 +46,26 @@ function getJwtSecret() {
     return new TextEncoder().encode(secret);
 }
 
-async function getSiwsPayload(request: NextRequest): Promise<Record<string, unknown> | null> {
+async function getSiwsPayload(request: NextRequest): Promise<SiwsPayload | null> {
     const token = request.cookies.get(SIWS_COOKIE)?.value;
     if (!token) return null;
 
     try {
         const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
-        return payload as Record<string, unknown>;
+        return payload as SiwsPayload;
+    } catch {
+        return null;
+    }
+}
+
+async function getInviteAllowEmail(request: NextRequest): Promise<string | null> {
+    const token = request.cookies.get(INVITE_ALLOW_COOKIE)?.value;
+    if (!token) return null;
+
+    try {
+        const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
+        if (payload.purpose !== 'waitlist-app-access') return null;
+        return typeof payload.email === 'string' ? payload.email.toLowerCase() : null;
     } catch {
         return null;
     }
@@ -255,6 +271,32 @@ async function isWaitlistAllowed(request: NextRequest, email: string | null): Pr
     }
 }
 
+async function isWalletWaitlistAllowed(request: NextRequest, wallet: string | null): Promise<boolean> {
+    if (!wallet) return false;
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return false;
+
+    try {
+        const origin =
+            request.headers.get('x-forwarded-host')
+                ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
+                : request.nextUrl.origin;
+        const res = await fetch(
+            `${origin}/api/internal/waitlist-allowed?wallet=${encodeURIComponent(wallet)}`,
+            {
+                headers: { 'x-internal-secret': secret },
+                signal: AbortSignal.timeout(2_000),
+            },
+        );
+        if (!res.ok) return false;
+        const data = (await res.json()) as { allowed?: boolean };
+        return !!data.allowed;
+    } catch {
+        return false;
+    }
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -272,6 +314,7 @@ export async function middleware(request: NextRequest) {
             .filter(Boolean);
         const payload = await getSiwsPayload(request);
         const neonEmail = getNeonAuthEmailHint(request);
+        const inviteAllowEmail = await getInviteAllowEmail(request);
         const siwsEmail =
             typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
         const envAllowed = isConstructionAllowed(payload, neonEmail, allowlist);
@@ -279,8 +322,10 @@ export async function middleware(request: NextRequest) {
         // waitlist DB — no env-var edits needed for new invitees.
         const dbAllowed =
             envAllowed ||
+            (await isWaitlistAllowed(request, inviteAllowEmail)) ||
             (await isWaitlistAllowed(request, neonEmail)) ||
-            (await isWaitlistAllowed(request, siwsEmail));
+            (await isWaitlistAllowed(request, siwsEmail)) ||
+            (await isWalletWaitlistAllowed(request, typeof payload?.wallet === 'string' ? payload.wallet : null));
         if (!dbAllowed) {
             const origin =
                 request.headers.get('x-forwarded-host')
