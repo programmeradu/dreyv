@@ -195,7 +195,7 @@ export default function WebContainerHost() {
                 postStatus("booting", "Booting Node.js runtime…");
                 if (!window.crossOriginIsolated) {
                     throw new Error(
-                        "WebContainers need cross-origin isolation. Reload Studio after the header update, or use Instant preview.",
+                        "WebContainers need cross-origin isolation. Hard-reload Studio so the COOP/COEP headers apply.",
                     );
                 }
                 const wc = await withTimeout(
