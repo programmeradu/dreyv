@@ -49,6 +49,7 @@ interface Props {
 
 type Category =
   | "slippage"
+  | "configuration"
   | "firewall"
   | "insufficient_funds"
   | "rejected"
@@ -93,6 +94,28 @@ function classify(
   output?: Record<string, unknown>,
 ): Diagnosis {
   const m = raw.toLowerCase();
+
+  // ── Missing server/provider configuration — common for read-only intel tools ──
+  if (
+    m.includes("api_key not configured") ||
+    m.includes("server missing") ||
+    m.includes("not configured") ||
+    m.includes("missing helius") ||
+    m.includes("missing api key")
+  ) {
+    const capability = (op ?? "this capability").replaceAll("_", " ");
+    return {
+      category: "configuration",
+      title: "Data provider is not configured",
+      explanation: `Dreyv tried to run ${capability}, but the server is missing the required data-provider key. No transaction was created and no wallet action is needed.`,
+      suggestions: [
+        { label: "Try a price-only check", prompt: "Run a price-only check instead" },
+        { label: "Skip sentiment for now" },
+      ],
+      icon: <AlertTriangle className="h-4 w-4" />,
+      tone: "violet",
+    };
+  }
 
   // ── Slippage — dynamic ladder based on current setting ────────────────
   if (m.includes("slippage") || m.includes("slippageguard")) {

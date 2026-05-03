@@ -39,6 +39,26 @@ export async function explainError(
   },
   provider?: LLMProvider
 ): Promise<ErrorExplanation> {
+  const lowerMessage = error.message.toLowerCase();
+  if (
+    lowerMessage.includes("api_key not configured") ||
+    lowerMessage.includes("server missing") ||
+    lowerMessage.includes("not configured") ||
+    lowerMessage.includes("missing api key")
+  ) {
+    return {
+      friendlyMessage: "Data provider is not configured.",
+      whatWentWrong: error.message,
+      whyItHappened: "This is a server configuration issue, not a wallet transaction failure.",
+      whatToDoNext: [
+        "Configure the missing provider key on the server",
+        "Try a read-only check that does not need that provider",
+        "Retry after the provider key is available"
+      ],
+      severity: "medium"
+    };
+  }
+
   const selectedProvider = provider || getProvider();
 
   const systemPrompt = `You are a helpful crypto assistant explaining technical errors to non-technical users.
@@ -117,12 +137,12 @@ Create a friendly explanation with next steps. Return JSON only.`;
   } catch (error) {
     // Fallback explanation if LLM fails
     return {
-      friendlyMessage: "Something went wrong with your transaction.",
+      friendlyMessage: "Something went wrong while running this request.",
       whatWentWrong: error instanceof Error ? error.message : "Unknown error",
       whyItHappened: "The operation encountered an unexpected issue",
       whatToDoNext: [
-        "Check your wallet balance and gas fees",
-        "Verify you're using the correct token addresses",
+        "Open technical details to see the exact error",
+        "Try a narrower command with the token or protocol name included",
         "Try again in a few moments",
         "Contact support if the problem persists"
       ],
