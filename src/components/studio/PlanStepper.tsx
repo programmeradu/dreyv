@@ -61,6 +61,7 @@ export function PlanStepper({ prompt, onCancel, onBuild, isBuilding }: PlanStepp
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || "Clarify failed");
         setQuestions(data.questions || []);
+        if (data.researchContext) setResearchContext(data.researchContext);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to start plan");
       } finally {
@@ -73,20 +74,19 @@ export function PlanStepper({ prompt, onCancel, onBuild, isBuilding }: PlanStepp
   }, [prompt]);
 
   // ─── Stage 2: Fetch plan + research unknown protocols ──
-  const fetchPlan = useCallback(async (a: Record<string, string | string[]>) => {
+  const fetchPlan = useCallback(async (a: Record<string, string | string[]>, priorResearch: string) => {
     setLoadingPlan(true);
     setError(null);
     try {
       const res = await fetch("/api/studio/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, answers: a }),
+        body: JSON.stringify({ prompt, answers: a, researchContext: priorResearch }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Plan failed");
 
-      // Trigger research for unknown protocols (parallel, best-effort)
-      let combinedResearch = "";
+      let combinedResearch = priorResearch || "";
       if (Array.isArray(data.unknownProtocols) && data.unknownProtocols.length > 0) {
         const results = await Promise.allSettled(
           data.unknownProtocols.map((p: string) =>
@@ -124,7 +124,7 @@ export function PlanStepper({ prompt, onCancel, onBuild, isBuilding }: PlanStepp
 
   const handleClarifySubmit = (a: Record<string, string | string[]>) => {
     setAnswers(a);
-    fetchPlan(a);
+    fetchPlan(a, researchContext);
   };
 
   const handleIntegrationsContinue = (chosen: PlanIntegration[]) => {

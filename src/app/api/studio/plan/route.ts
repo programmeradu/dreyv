@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { prompt?: string; answers?: Record<string, string | string[]> };
+  let body: { prompt?: string; answers?: Record<string, string | string[]>; researchContext?: string };
   try {
     body = await req.json();
   } catch {
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = (body.prompt || "").trim();
   const answers = body.answers || {};
+  const researchContext = (body.researchContext || "").slice(0, 12000);
   if (!prompt) {
     return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
   }
@@ -132,7 +133,11 @@ export async function POST(req: NextRequest) {
       const userMsg = `Prompt: ${prompt}
 Clarifying answers: ${JSON.stringify(answers)}
 Available integrations: ${integrations.map((i) => i.name).join(", ")}
-Unknown protocols (will research): ${unknownProtocols.join(", ") || "none"}`;
+Unknown protocols (will research): ${unknownProtocols.join(", ") || "none"}${
+        researchContext
+          ? `\n\n---\nLive web research already gathered (use to ground real API/SDK names, endpoints, params):\n${researchContext}`
+          : ""
+      }`;
 
       const res = await fetch(LOVABLE_AI_URL, {
         method: "POST",
