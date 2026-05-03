@@ -298,23 +298,321 @@ export function useStorage(namespace) {
 const UI_SHIM_SOURCE = `
 import React from "react";
 
+const cx = (...xs) => xs.filter(Boolean).join(" ");
 const mk = (Tag, base) => React.forwardRef(function Shim(props, ref) {
-  const { className = "", ...rest } = props;
-  return React.createElement(Tag, { ref, ...rest, className: (base + " " + className).trim() });
+  const { className = "", asChild, ...rest } = props;
+  return React.createElement(Tag, { ref, ...rest, className: cx(base, className) });
 });
 
+// ─── Card ───────────────────────────────────────────────────────────
 export const Card           = mk("div", "rounded-3xl border border-violet-100 bg-white p-4");
 export const CardHeader     = mk("div", "mb-3 flex flex-col gap-1");
 export const CardTitle      = mk("h3", "text-base font-semibold text-slate-900");
 export const CardDescription= mk("p", "text-sm text-slate-500");
 export const CardContent    = mk("div", "");
 export const CardFooter     = mk("div", "mt-3 flex items-center gap-2");
-export const Button         = mk("button", "inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700");
-export const Input          = mk("input", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm");
-export const Label          = mk("label", "text-sm font-medium text-slate-700");
-export const Badge          = mk("span", "inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700");
-export const Separator      = mk("div", "h-px w-full bg-violet-100");
-export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
+
+// ─── Button (variants) ─────────────────────────────────────────────
+const BUTTON_VARIANTS = {
+  default: "bg-violet-600 text-white hover:bg-violet-700",
+  primary: "bg-violet-600 text-white hover:bg-violet-700",
+  secondary: "bg-violet-50 text-violet-700 hover:bg-violet-100",
+  outline: "border border-violet-200 bg-white text-slate-900 hover:bg-violet-50",
+  ghost: "text-slate-700 hover:bg-violet-50",
+  destructive: "bg-red-600 text-white hover:bg-red-700",
+  link: "text-violet-600 underline-offset-4 hover:underline",
+};
+const BUTTON_SIZES = {
+  default: "h-10 px-4 py-2 text-sm",
+  sm: "h-8 px-3 text-xs",
+  lg: "h-12 px-6 text-base",
+  icon: "h-10 w-10",
+};
+export const Button = React.forwardRef(function Button(props, ref) {
+  const { className = "", variant = "default", size = "default", ...rest } = props;
+  return React.createElement("button", {
+    ref,
+    ...rest,
+    className: cx(
+      "inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none",
+      BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.default,
+      BUTTON_SIZES[size] || BUTTON_SIZES.default,
+      className
+    ),
+  });
+});
+
+// ─── Form primitives ───────────────────────────────────────────────
+export const Input    = mk("input", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400");
+export const Textarea = mk("textarea", "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400");
+export const Label    = mk("label", "text-sm font-medium text-slate-700");
+
+// ─── Badge / Separator / Skeleton ──────────────────────────────────
+const BADGE_VARIANTS = {
+  default: "border-violet-200 bg-violet-50 text-violet-700",
+  secondary: "border-slate-200 bg-slate-100 text-slate-700",
+  outline: "border-slate-300 bg-white text-slate-700",
+  destructive: "border-red-200 bg-red-50 text-red-700",
+};
+export const Badge = React.forwardRef(function Badge(props, ref) {
+  const { className = "", variant = "default", ...rest } = props;
+  return React.createElement("span", {
+    ref, ...rest,
+    className: cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+      BADGE_VARIANTS[variant] || BADGE_VARIANTS.default, className),
+  });
+});
+export const Separator = mk("div", "h-px w-full bg-violet-100");
+export const Skeleton  = mk("div", "animate-pulse rounded-xl bg-violet-100/60");
+
+// ─── Avatar ────────────────────────────────────────────────────────
+export const Avatar         = mk("div", "relative inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-violet-100");
+export const AvatarImage    = mk("img", "h-full w-full object-cover");
+export const AvatarFallback = mk("span", "flex h-full w-full items-center justify-center text-sm font-medium text-violet-700");
+
+// ─── Alert ─────────────────────────────────────────────────────────
+const ALERT_VARIANTS = {
+  default: "border-violet-200 bg-violet-50 text-slate-900",
+  destructive: "border-red-200 bg-red-50 text-red-900",
+};
+export const Alert = React.forwardRef(function Alert(props, ref) {
+  const { className = "", variant = "default", ...rest } = props;
+  return React.createElement("div", {
+    ref, role: "alert", ...rest,
+    className: cx("relative w-full rounded-xl border p-4 text-sm",
+      ALERT_VARIANTS[variant] || ALERT_VARIANTS.default, className),
+  });
+});
+export const AlertTitle       = mk("h5", "mb-1 font-semibold leading-none tracking-tight");
+export const AlertDescription = mk("div", "text-sm opacity-90");
+
+// ─── Progress ──────────────────────────────────────────────────────
+export const Progress = React.forwardRef(function Progress(props, ref) {
+  const { className = "", value = 0, max = 100, ...rest } = props;
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  return React.createElement("div", {
+    ref, ...rest,
+    className: cx("relative h-2 w-full overflow-hidden rounded-full bg-violet-100", className),
+  }, React.createElement("div", {
+    className: "h-full bg-violet-600 transition-all",
+    style: { width: pct + "%" },
+  }));
+});
+
+// ─── Switch / Checkbox ─────────────────────────────────────────────
+export const Switch = React.forwardRef(function Switch(props, ref) {
+  const { checked, onCheckedChange, className = "", ...rest } = props;
+  return React.createElement("button", {
+    ref, type: "button", role: "switch", "aria-checked": !!checked,
+    onClick: () => onCheckedChange && onCheckedChange(!checked),
+    ...rest,
+    className: cx("relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+      checked ? "bg-violet-600" : "bg-slate-200", className),
+  }, React.createElement("span", {
+    className: cx("inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+      checked ? "translate-x-5" : "translate-x-0.5"),
+  }));
+});
+export const Checkbox = React.forwardRef(function Checkbox(props, ref) {
+  const { checked, onCheckedChange, className = "", ...rest } = props;
+  return React.createElement("input", {
+    ref, type: "checkbox", checked: !!checked,
+    onChange: (e) => onCheckedChange && onCheckedChange(e.target.checked),
+    ...rest,
+    className: cx("h-4 w-4 rounded border-violet-300 text-violet-600 focus:ring-violet-400", className),
+  });
+});
+
+// ─── Tabs (controlled+uncontrolled) ────────────────────────────────
+const TabsCtx = React.createContext({ value: "", setValue: () => {} });
+export function Tabs({ value: controlled, defaultValue, onValueChange, className = "", children }) {
+  const [internal, setInternal] = React.useState(defaultValue || "");
+  const value = controlled !== undefined ? controlled : internal;
+  const setValue = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onValueChange && onValueChange(v);
+  }, [controlled, onValueChange]);
+  return React.createElement(TabsCtx.Provider, { value: { value, setValue } },
+    React.createElement("div", { className }, children));
+}
+export const TabsList = mk("div", "inline-flex items-center gap-1 rounded-xl bg-violet-50 p-1");
+export function TabsTrigger({ value, className = "", children, ...rest }) {
+  const ctx = React.useContext(TabsCtx);
+  const active = ctx.value === value;
+  return React.createElement("button", {
+    type: "button", onClick: () => ctx.setValue(value), ...rest,
+    className: cx("rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+      active ? "bg-white text-violet-700 shadow-sm" : "text-slate-600 hover:text-slate-900", className),
+  }, children);
+}
+export function TabsContent({ value, className = "", children }) {
+  const ctx = React.useContext(TabsCtx);
+  if (ctx.value !== value) return null;
+  return React.createElement("div", { className: cx("mt-3", className) }, children);
+}
+
+// ─── Dialog / Sheet / Drawer (shared modal) ────────────────────────
+const DialogCtx = React.createContext({ open: false, setOpen: () => {} });
+export function Dialog({ open: controlled, defaultOpen = false, onOpenChange, children }) {
+  const [internal, setInternal] = React.useState(defaultOpen);
+  const open = controlled !== undefined ? controlled : internal;
+  const setOpen = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onOpenChange && onOpenChange(v);
+  }, [controlled, onOpenChange]);
+  return React.createElement(DialogCtx.Provider, { value: { open, setOpen } }, children);
+}
+export function DialogTrigger({ asChild, children, ...rest }) {
+  const ctx = React.useContext(DialogCtx);
+  const onClick = (e) => { children?.props?.onClick?.(e); ctx.setOpen(true); };
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { onClick });
+  return React.createElement("button", { type: "button", onClick, ...rest }, children);
+}
+export function DialogContent({ className = "", children }) {
+  const ctx = React.useContext(DialogCtx);
+  if (!ctx.open) return null;
+  return React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4" },
+    React.createElement("div", { className: "absolute inset-0 bg-black/40", onClick: () => ctx.setOpen(false) }),
+    React.createElement("div", {
+      className: cx("relative z-10 w-full max-w-lg rounded-3xl border border-violet-100 bg-white p-6 shadow-xl", className),
+    }, children));
+}
+export const DialogHeader      = mk("div", "mb-3 flex flex-col gap-1");
+export const DialogFooter      = mk("div", "mt-4 flex items-center justify-end gap-2");
+export const DialogTitle       = mk("h2", "text-lg font-semibold text-slate-900");
+export const DialogDescription = mk("p", "text-sm text-slate-500");
+export function DialogClose({ asChild, children, ...rest }) {
+  const ctx = React.useContext(DialogCtx);
+  const onClick = () => ctx.setOpen(false);
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { onClick });
+  return React.createElement("button", { type: "button", onClick, ...rest }, children || "Close");
+}
+// Sheet/Drawer reuse Dialog
+export const Sheet = Dialog;
+export const SheetTrigger = DialogTrigger;
+export const SheetContent = DialogContent;
+export const SheetHeader = DialogHeader;
+export const SheetFooter = DialogFooter;
+export const SheetTitle = DialogTitle;
+export const SheetDescription = DialogDescription;
+export const SheetClose = DialogClose;
+export const Drawer = Dialog;
+export const DrawerTrigger = DialogTrigger;
+export const DrawerContent = DialogContent;
+export const DrawerHeader = DialogHeader;
+export const DrawerFooter = DialogFooter;
+export const DrawerTitle = DialogTitle;
+export const DrawerDescription = DialogDescription;
+export const DrawerClose = DialogClose;
+
+// ─── Select (native) ───────────────────────────────────────────────
+const SelectCtx = React.createContext({ value: "", setValue: () => {} });
+export function Select({ value: controlled, defaultValue, onValueChange, children }) {
+  const [internal, setInternal] = React.useState(defaultValue || "");
+  const value = controlled !== undefined ? controlled : internal;
+  const setValue = React.useCallback((v) => {
+    if (controlled === undefined) setInternal(v);
+    onValueChange && onValueChange(v);
+  }, [controlled, onValueChange]);
+  // Collect items
+  const items = [];
+  const collect = (node) => React.Children.forEach(node, (c) => {
+    if (!c || !c.props) return;
+    if (c.type && c.type.__selectItem) items.push({ value: c.props.value, label: c.props.children });
+    if (c.props.children) collect(c.props.children);
+  });
+  collect(children);
+  return React.createElement("select", {
+    value, onChange: (e) => setValue(e.target.value),
+    className: "w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400",
+  }, items.map((it, i) => React.createElement("option", { key: i, value: it.value }, it.label)));
+}
+export const SelectTrigger     = ({ children }) => children || null;
+export const SelectValue       = () => null;
+export const SelectContent     = ({ children }) => children || null;
+export const SelectGroup       = ({ children }) => children || null;
+export const SelectLabel       = ({ children }) => children || null;
+export const SelectSeparator   = () => null;
+export function SelectItem({ value, children }) { return null; }
+SelectItem.__selectItem = true;
+
+// ─── Tooltip (native title attr) ───────────────────────────────────
+export const TooltipProvider = ({ children }) => children;
+const TooltipCtx = React.createContext("");
+export function Tooltip({ children }) {
+  const [content, setContent] = React.useState("");
+  return React.createElement(TooltipCtx.Provider, { value: { content, setContent } }, children);
+}
+export function TooltipTrigger({ asChild, children, ...rest }) {
+  const ctx = React.useContext(TooltipCtx);
+  const title = typeof ctx.content === "string" ? ctx.content : "";
+  if (asChild && React.isValidElement(children)) return React.cloneElement(children, { title });
+  return React.createElement("span", { title, ...rest }, children);
+}
+export function TooltipContent({ children }) {
+  const ctx = React.useContext(TooltipCtx);
+  React.useEffect(() => { ctx.setContent(typeof children === "string" ? children : ""); });
+  return null;
+}
+
+// ─── ScrollArea ────────────────────────────────────────────────────
+export const ScrollArea = mk("div", "overflow-auto");
+export const ScrollBar  = () => null;
+
+// ─── Table ─────────────────────────────────────────────────────────
+export const Table        = mk("table", "w-full text-sm");
+export const TableHeader   = mk("thead", "");
+export const TableBody     = mk("tbody", "");
+export const TableFooter   = mk("tfoot", "");
+export const TableRow      = mk("tr", "border-b border-violet-100");
+export const TableHead     = mk("th", "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500");
+export const TableCell     = mk("td", "px-3 py-2 text-sm text-slate-700");
+export const TableCaption  = mk("caption", "mt-3 text-xs text-slate-500");
+
+// ─── Slider (native) ───────────────────────────────────────────────
+export const Slider = React.forwardRef(function Slider(props, ref) {
+  const { value, defaultValue, onValueChange, min = 0, max = 100, step = 1, className = "" } = props;
+  const v = Array.isArray(value) ? value[0] : (Array.isArray(defaultValue) ? defaultValue[0] : 0);
+  return React.createElement("input", {
+    ref, type: "range", min, max, step, value: v,
+    onChange: (e) => onValueChange && onValueChange([Number(e.target.value)]),
+    className: cx("w-full accent-violet-600", className),
+  });
+});
+
+// ─── Accordion (very small) ────────────────────────────────────────
+export const Accordion         = mk("div", "divide-y divide-violet-100");
+export const AccordionItem     = mk("details", "py-2");
+export const AccordionTrigger  = mk("summary", "cursor-pointer text-sm font-medium text-slate-900");
+export const AccordionContent  = mk("div", "pt-2 text-sm text-slate-600");
+
+// ─── Popover / DropdownMenu (basic uncontrolled) ───────────────────
+export const Popover            = Dialog;
+export const PopoverTrigger     = DialogTrigger;
+export const PopoverContent     = ({ className = "", children }) => {
+  const ctx = React.useContext(DialogCtx);
+  if (!ctx.open) return null;
+  return React.createElement("div", { className: "relative" },
+    React.createElement("div", { className: "fixed inset-0 z-40", onClick: () => ctx.setOpen(false) }),
+    React.createElement("div", {
+      className: cx("absolute z-50 mt-2 min-w-[12rem] rounded-xl border border-violet-100 bg-white p-2 shadow-lg", className),
+    }, children));
+};
+export const DropdownMenu             = Dialog;
+export const DropdownMenuTrigger      = DialogTrigger;
+export const DropdownMenuContent      = PopoverContent;
+export const DropdownMenuItem         = mk("div", "cursor-pointer rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-violet-50");
+export const DropdownMenuLabel        = mk("div", "px-2 py-1 text-xs font-semibold uppercase tracking-wider text-slate-400");
+export const DropdownMenuSeparator    = mk("div", "my-1 h-px bg-violet-100");
+export const DropdownMenuGroup        = mk("div", "");
+export const DropdownMenuCheckboxItem = DropdownMenuItem;
+export const DropdownMenuRadioItem    = DropdownMenuItem;
+export const DropdownMenuRadioGroup   = mk("div", "");
+export const DropdownMenuSub          = mk("div", "");
+export const DropdownMenuSubTrigger   = DropdownMenuItem;
+export const DropdownMenuSubContent   = mk("div", "");
+export const DropdownMenuShortcut     = mk("span", "ml-auto text-xs text-slate-400");
+export const DropdownMenuPortal       = ({ children }) => children;
 `;
 
 type CompiledRuntime = {
@@ -323,17 +621,35 @@ type CompiledRuntime = {
     css: string[];
 };
 
+// Every shadcn alias maps to the same comprehensive UI shim — components
+// destructure named exports they need (e.g. `Card`, `CardHeader`, `Dialog`).
 const SHADCN_UI_ALIASES = [
     "@/components/ui",
-    "@/components/ui/card",
-    "@/components/ui/button",
-    "@/components/ui/input",
-    "@/components/ui/label",
-    "@/components/ui/badge",
-    "@/components/ui/separator",
-    "@/components/ui/skeleton",
+    "@/components/ui/card", "@/components/ui/button", "@/components/ui/input",
+    "@/components/ui/label", "@/components/ui/badge", "@/components/ui/separator",
+    "@/components/ui/skeleton", "@/components/ui/avatar", "@/components/ui/alert",
+    "@/components/ui/progress", "@/components/ui/switch", "@/components/ui/checkbox",
+    "@/components/ui/tabs", "@/components/ui/dialog", "@/components/ui/sheet",
+    "@/components/ui/drawer", "@/components/ui/select", "@/components/ui/tooltip",
+    "@/components/ui/scroll-area", "@/components/ui/table", "@/components/ui/slider",
+    "@/components/ui/accordion", "@/components/ui/popover", "@/components/ui/dropdown-menu",
+    "@/components/ui/textarea", "@/lib/utils",
 ];
 
+const UTILS_SHIM_SOURCE = `
+export function cn(...args) {
+  const out = [];
+  for (const a of args) {
+    if (!a) continue;
+    if (typeof a === "string") out.push(a);
+    else if (Array.isArray(a)) out.push(a.filter(Boolean).join(" "));
+    else if (typeof a === "object") out.push(Object.keys(a).filter(k => a[k]).join(" "));
+  }
+  return out.join(" ").trim();
+}
+`;
+
+const ASSET_EXTENSIONS = [".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico"];
 const LOCAL_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 
 const DREYV_SDK_ALIAS_INDEX = `export * from "@keystone-os/sdk";\n`;
@@ -351,6 +667,35 @@ declare global {
 function normalisePreviewPath(path: string): string {
     const cleaned = path.replace(/^\/+/, "").replace(/\\/g, "/");
     return cleaned.startsWith("src/") ? `/${cleaned}` : `/src/${cleaned}`;
+}
+
+function mimeFor(ext: string): string {
+    switch (ext) {
+        case ".svg": return "image/svg+xml";
+        case ".png": return "image/png";
+        case ".jpg":
+        case ".jpeg": return "image/jpeg";
+        case ".gif": return "image/gif";
+        case ".webp": return "image/webp";
+        case ".avif": return "image/avif";
+        case ".ico": return "image/x-icon";
+        default: return "application/octet-stream";
+    }
+}
+
+function assetToDataUrl(content: string, ext: string): string {
+    if (content.startsWith("data:")) return content;
+    if (ext === ".svg") {
+        return `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
+    }
+    const looksB64 = /^[A-Za-z0-9+/=\s]+$/.test(content) && content.length > 16;
+    let b64: string;
+    try {
+        b64 = looksB64 ? content.replace(/\s/g, "") : btoa(unescape(encodeURIComponent(content)));
+    } catch {
+        b64 = "";
+    }
+    return `data:${mimeFor(ext)};base64,${b64}`;
 }
 
 function compileModule(source: string, filename: string): string {
@@ -374,11 +719,21 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
 
     for (const f of Object.values(files)) {
         const id = normalisePreviewPath(f.name);
+        const ext = "." + (id.split(".").pop() || "").toLowerCase();
         if (id.endsWith(".css")) {
             css.push(f.content);
             continue;
         }
-        if (!LOCAL_EXTENSIONS.some((ext) => id.endsWith(ext))) continue;
+        if (ASSET_EXTENSIONS.includes(ext)) {
+            const dataUrl = assetToDataUrl(f.content, ext);
+            modules[id] = `module.exports = ${JSON.stringify(dataUrl)};\nmodule.exports.default = ${JSON.stringify(dataUrl)};`;
+            continue;
+        }
+        if (id.endsWith(".json")) {
+            modules[id] = `module.exports = ${f.content};\nmodule.exports.default = ${f.content};`;
+            continue;
+        }
+        if (!LOCAL_EXTENSIONS.some((e) => id.endsWith(e))) continue;
         modules[id] = compileModule(f.content, id);
         if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
     }
@@ -393,7 +748,10 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
     modules["@keystone-os/sdk"] = compileModule(SDK_MODULE_SOURCE, "@keystone-os/sdk/index.js");
     modules["@dreyv/sdk"] = compileModule(DREYV_SDK_ALIAS_INDEX, "@dreyv/sdk/index.js");
     const uiShim = compileModule(UI_SHIM_SOURCE, "@/components/ui/index.js");
-    for (const alias of SHADCN_UI_ALIASES) modules[alias] = uiShim;
+    const utilsShim = compileModule(UTILS_SHIM_SOURCE, "@/lib/utils.js");
+    for (const alias of SHADCN_UI_ALIASES) {
+        modules[alias] = alias === "@/lib/utils" ? utilsShim : uiShim;
+    }
 
     return { entry, modules, css };
 }
@@ -412,19 +770,107 @@ function buildRuntimeHtml(runtime: CompiledRuntime): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script>
+    // Map shadcn semantic tokens (bg-background, text-foreground, bg-primary, etc.)
+    // to the violet/light Dreyv palette so generated apps render with theme.
+    if (window.tailwind) {
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Manrope", "system-ui", "sans-serif"],
+              manrope: ["Manrope", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+            },
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+              secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+              muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+              accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+              destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
+              card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+              popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
+            },
+            borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+          },
+        },
+      };
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* Dreyv design tokens — violet-forward light theme by default, with .dark override. */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 222 47% 11%;
+      --card: 0 0% 100%;
+      --card-foreground: 222 47% 11%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222 47% 11%;
+      --primary: 262 83% 58%;          /* violet-600 */
+      --primary-foreground: 0 0% 100%;
+      --secondary: 262 100% 97%;       /* violet-50 */
+      --secondary-foreground: 262 60% 30%;
+      --muted: 220 14% 96%;
+      --muted-foreground: 220 9% 46%;
+      --accent: 262 100% 97%;
+      --accent-foreground: 262 60% 30%;
+      --destructive: 0 84% 60%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 262 60% 92%;           /* violet-100 */
+      --input: 262 60% 92%;
+      --ring: 262 83% 58%;
+      --radius: 0.75rem;
+    }
+    .dark {
+      --background: 222 47% 6%;
+      --foreground: 210 40% 98%;
+      --card: 222 47% 9%;
+      --card-foreground: 210 40% 98%;
+      --popover: 222 47% 9%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 262 83% 65%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 262 30% 18%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 222 47% 14%;
+      --muted-foreground: 215 20% 65%;
+      --accent: 262 30% 22%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 70% 50%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 222 47% 18%;
+      --input: 222 47% 18%;
+      --ring: 262 83% 65%;
+    }
     ${runtime.css.join("\n\n")}
   </style>
   <style>
-    body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    html, body { margin: 0; min-height: 100vh; }
+    body { background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: 'Manrope', system-ui, -apple-system, sans-serif; }
     #root { min-height: 100vh; }
-    .runtime-error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; margin: 24px; padding: 18px; border-radius: 18px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #ffffff; }
-    ::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 3px; }
+    .dreyv-error-overlay {
+      position: fixed; inset: 16px; z-index: 99999; overflow: auto;
+      background: #fef2f2; border: 1px solid #fecaca; border-radius: 18px;
+      padding: 20px 22px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #7f1d1d; box-shadow: 0 20px 50px -20px rgba(127,29,29,.25);
+    }
+    .dreyv-error-overlay h2 { margin: 0 0 6px; font: 600 12px/1.2 'Manrope', system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #b91c1c; }
+    .dreyv-error-overlay .msg { font-weight: 600; color: #991b1b; margin-bottom: 12px; white-space: pre-wrap; word-break: break-word; }
+    .dreyv-error-overlay pre { margin: 0; padding: 12px 14px; background: #fff; border: 1px solid #fecaca; border-radius: 12px; white-space: pre-wrap; word-break: break-word; color: #7f1d1d; max-height: 60vh; overflow: auto; }
+    .dreyv-error-overlay .meta { margin-top: 10px; font-size: 11px; color: #b91c1c; opacity: .8; }
+    .dreyv-error-overlay button { position: absolute; top: 14px; right: 14px; background: #fff; border: 1px solid #fecaca; border-radius: 999px; padding: 4px 10px; font: 600 11px 'Manrope', sans-serif; color: #b91c1c; cursor: pointer; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -482,11 +928,27 @@ window.dreyv = dreyv;
   const cache = {};
   const extensions = ${scriptJson(LOCAL_EXTENSIONS)};
 
-  function showError(error) {
-    const message = error && error.stack ? error.stack : (error && error.message ? error.message : String(error));
-    document.getElementById("root").innerHTML = '<div class="runtime-error"><strong>Runtime Error</strong>\\n' + message.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>';
-    try { keystoneBridge.notify("runtime.error", { message }); } catch (e) {}
+  function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+  function showError(error, opts) {
+    opts = opts || {};
+    const stack = error && error.stack ? error.stack : "";
+    const message = error && error.message ? error.message : String(error);
+    const existing = document.getElementById("__dreyv_err");
+    if (existing) existing.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "__dreyv_err";
+    overlay.className = "dreyv-error-overlay";
+    overlay.innerHTML =
+      '<button type="button" onclick="document.getElementById(\\'__dreyv_err\\').remove()">Dismiss</button>' +
+      '<h2>' + (opts.title || 'Runtime Error') + '</h2>' +
+      '<div class="msg">' + escapeHtml(message) + '</div>' +
+      (stack ? '<pre>' + escapeHtml(stack) + '</pre>' : '') +
+      (opts.file ? '<div class="meta">' + escapeHtml(opts.file) + (opts.line ? ':' + opts.line : '') + '</div>' : '');
+    document.body.appendChild(overlay);
+    try { keystoneBridge.notify("runtime.error", { message: stack || message }); } catch (e) {}
   }
+  window.addEventListener("error", (e) => showError(e.error || new Error(e.message), { file: e.filename, line: e.lineno }));
+  window.addEventListener("unhandledrejection", (e) => showError(e.reason instanceof Error ? e.reason : new Error(String(e.reason)), { title: "Unhandled Promise" }));
 
   if (!host || !host.React || !host.createRoot) {
     showError(new Error("Preview runtime was not initialized by the host."));
@@ -537,12 +999,11 @@ window.dreyv = dreyv;
     constructor(props) { super(props); this.state = { error: null }; }
     static getDerivedStateFromError(error) { return { error }; }
     componentDidCatch(error, info) {
+      showError(error, { title: "Component Error" });
       try { keystoneBridge.notify("runtime.error", { message: error && error.message ? error.message : String(error), componentStack: info && info.componentStack }); } catch (e) {}
     }
     render() {
-      if (this.state.error) {
-        return host.React.createElement("div", { className: "runtime-error" }, "Component Error\\n" + (this.state.error.message || String(this.state.error)));
-      }
+      if (this.state.error) return null;
       return this.props.children;
     }
   }
