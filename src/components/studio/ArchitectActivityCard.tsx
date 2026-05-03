@@ -247,5 +247,61 @@ export function ArchitectActivityCard({ card, onOpenFile, onToggleThinking }: Pr
         );
     }
 
+    if (card.kind === "research") {
+        const done = card.done;
+        const hasResults = (card.sources?.length ?? 0) > 0;
+        return (
+            <div className={cn(
+                "rounded-2xl border px-3 py-2.5 text-[12px]",
+                done
+                    ? hasResults
+                        ? "border-violet-200 bg-violet-50/60"
+                        : "border-amber-200 bg-amber-50/60"
+                    : "border-violet-300 bg-violet-50/80"
+            )}>
+                <div className="flex items-center gap-2">
+                    {done ? (
+                        hasResults ? (
+                            <CheckCircle2 size={13} className="text-violet-600 shrink-0" />
+                        ) : (
+                            <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                        )
+                    ) : (
+                        <Globe size={13} className="text-violet-600 shrink-0 animate-pulse" />
+                    )}
+                    <span className="font-bold uppercase text-[10px] tracking-wider text-violet-700">
+                        {done
+                            ? hasResults
+                                ? `Research · ${card.sources!.length} source${card.sources!.length === 1 ? "" : "s"}`
+                                : "Research · no results"
+                            : "Researching the web…"}
+                    </span>
+                </div>
+                <div className="mt-1 pl-5 text-[11px] text-slate-600 truncate">
+                    "{card.query}"
+                </div>
+                {done && card.error && (
+                    <div className="mt-1 pl-5 text-[11px] text-amber-700">{card.error}</div>
+                )}
+                {done && hasResults && card.sources && (
+                    <ul className="mt-1.5 pl-5 space-y-0.5">
+                        {card.sources.slice(0, 3).map((s, i) => (
+                            <li key={i} className="text-[11px] truncate">
+                                <a
+                                    href={s.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-violet-700 hover:underline"
+                                >
+                                    • {s.title || s.url}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        );
+    }
+
     return null;
 }
