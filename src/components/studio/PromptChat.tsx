@@ -67,11 +67,13 @@ const FREE_MODELS: ModelOption[] = [
 
 // Models considered strong enough for full Build / deep research generation.
 // Anything outside this list will be auto-upgraded when the user hits Build.
+// Models strong enough to honor the §0 OUTPUT CONTRACT (premium styling on first render).
+// Flash / Mini / Lite tier models are deliberately EXCLUDED — they emit bare HTML and
+// must be auto-upgraded to GPT-5 for full Builds.
 const STRONG_BUILD_MODELS = new Set<string>([
     "google/gemini-2.5-pro",
     "openai/gpt-5",
-    "openai/gpt-5-mini",
-    "google/gemini-3-flash-preview",
+    "openai/gpt-5.2",
     "gpt-4o",
     "claude-sonnet-4-20250514",
     "claude-3-5-sonnet-20241022",
