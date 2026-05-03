@@ -7,7 +7,6 @@
  */
 
 import Link from "next/link";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Urbanist } from "next/font/google";
 import { ArrowRight, Mail } from "lucide-react";
