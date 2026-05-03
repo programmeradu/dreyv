@@ -928,11 +928,27 @@ window.dreyv = dreyv;
   const cache = {};
   const extensions = ${scriptJson(LOCAL_EXTENSIONS)};
 
-  function showError(error) {
-    const message = error && error.stack ? error.stack : (error && error.message ? error.message : String(error));
-    document.getElementById("root").innerHTML = '<div class="runtime-error"><strong>Runtime Error</strong>\\n' + message.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>';
-    try { keystoneBridge.notify("runtime.error", { message }); } catch (e) {}
+  function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+  function showError(error, opts) {
+    opts = opts || {};
+    const stack = error && error.stack ? error.stack : "";
+    const message = error && error.message ? error.message : String(error);
+    const existing = document.getElementById("__dreyv_err");
+    if (existing) existing.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "__dreyv_err";
+    overlay.className = "dreyv-error-overlay";
+    overlay.innerHTML =
+      '<button type="button" onclick="document.getElementById(\\'__dreyv_err\\').remove()">Dismiss</button>' +
+      '<h2>' + (opts.title || 'Runtime Error') + '</h2>' +
+      '<div class="msg">' + escapeHtml(message) + '</div>' +
+      (stack ? '<pre>' + escapeHtml(stack) + '</pre>' : '') +
+      (opts.file ? '<div class="meta">' + escapeHtml(opts.file) + (opts.line ? ':' + opts.line : '') + '</div>' : '');
+    document.body.appendChild(overlay);
+    try { keystoneBridge.notify("runtime.error", { message: stack || message }); } catch (e) {}
   }
+  window.addEventListener("error", (e) => showError(e.error || new Error(e.message), { file: e.filename, line: e.lineno }));
+  window.addEventListener("unhandledrejection", (e) => showError(e.reason instanceof Error ? e.reason : new Error(String(e.reason)), { title: "Unhandled Promise" }));
 
   if (!host || !host.React || !host.createRoot) {
     showError(new Error("Preview runtime was not initialized by the host."));
