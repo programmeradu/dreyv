@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     const baseUrl = getAppUrl();
-    const results: Array<{ id: string; email: string; ok: boolean; error?: string; inviteUrl?: string }> = [];
+    const results: Array<{ id: string; email: string; ok: boolean; error?: string; inviteUrl?: string; emailSent?: boolean; emailError?: string }> = [];
 
     for (const row of rows) {
       try {
