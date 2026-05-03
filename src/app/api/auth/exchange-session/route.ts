@@ -208,11 +208,19 @@ export async function POST(request: NextRequest) {
                     .values({
                         walletAddress: `neon_${user.id}`,
                         supabaseUserId: user.id,
+                        email: user.email || null,
                         displayName: user.name || user.email?.split('@')[0] || 'User',
                         role: 'user',
                     })
                     .returning();
                 dbUser = newUser;
+            } else if (user.email && dbUser.email !== user.email) {
+                const [updatedUser] = await db
+                    .update(users)
+                    .set({ email: user.email, lastLoginAt: new Date() })
+                    .where(eq(users.id, dbUser.id))
+                    .returning();
+                dbUser = updatedUser || dbUser;
             }
         }
 
