@@ -67,11 +67,13 @@ const FREE_MODELS: ModelOption[] = [
 
 // Models considered strong enough for full Build / deep research generation.
 // Anything outside this list will be auto-upgraded when the user hits Build.
+// Models strong enough to honor the §0 OUTPUT CONTRACT (premium styling on first render).
+// Flash / Mini / Lite tier models are deliberately EXCLUDED — they emit bare HTML and
+// must be auto-upgraded to GPT-5 for full Builds.
 const STRONG_BUILD_MODELS = new Set<string>([
     "google/gemini-2.5-pro",
     "openai/gpt-5",
-    "openai/gpt-5-mini",
-    "google/gemini-3-flash-preview",
+    "openai/gpt-5.2",
     "gpt-4o",
     "claude-sonnet-4-20250514",
     "claude-3-5-sonnet-20241022",
@@ -522,18 +524,22 @@ export function PromptChat({ onGenerate, isGenerating, setIsGenerating, userFile
             const selectedModelInfo = availableModels.find((m) => m.id === selectedModel);
             const isByok = selectedModelInfo?.byok && byokConfig?.apiKey;
 
-            // Auto-upgrade: when the user runs a full Build (Deep Research on, or no
-            // existing files yet) with a weak model, route through Lovable AI's
-            // strongest model so styling + reasoning quality stay high.
+            // Auto-upgrade: weak models (Flash, Mini, Lite) cannot reliably honor the
+            // §0 OUTPUT CONTRACT (premium styled JSX on every element). Route through
+            // GPT-5 via Lovable AI for: (a) full Builds, (b) Deep Research, or
+            // (c) any prompt that mentions styling/redesign/UI quality.
+            const promptLower = (promptText || "").toLowerCase();
+            const isStylingPrompt = /\b(redesign|restyle|style|styling|ui|design|premium|brand|polish|pretty|ugly|raw|unstyled|tailwind|className)\b/.test(promptLower);
             const isFullBuild = useDeepResearch || Object.keys(userFiles || {}).length === 0;
+            const shouldUpgrade = isFullBuild || isStylingPrompt;
             let effectiveProvider = selectedModelInfo?.provider || "lovable";
             let effectiveModel = selectedModel;
             let effectiveApiKey = isByok ? byokConfig!.apiKey : "";
-            if (isFullBuild && !STRONG_BUILD_MODELS.has(selectedModel) && !isByok) {
+            if (shouldUpgrade && !STRONG_BUILD_MODELS.has(selectedModel) && !isByok) {
                 effectiveProvider = BUILD_UPGRADE_MODEL.provider;
                 effectiveModel = BUILD_UPGRADE_MODEL.id;
                 effectiveApiKey = "";
-                console.log(`[PromptChat] Auto-upgraded build → ${effectiveProvider}/${effectiveModel}`);
+                console.log(`[PromptChat] Auto-upgraded → ${effectiveProvider}/${effectiveModel} (build=${isFullBuild}, styling=${isStylingPrompt})`);
             }
 
             await engine.generate(
