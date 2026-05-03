@@ -320,6 +320,7 @@ export const Skeleton       = mk("div", "animate-pulse rounded-xl bg-violet-100/
 type CompiledRuntime = {
     entry: string;
     modules: Record<string, string>;
+    css: string[];
 };
 
 const SHADCN_UI_ALIASES = [
@@ -368,10 +369,15 @@ function compileModule(source: string, filename: string): string {
 
 function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntime {
     const modules: Record<string, string> = {};
+    const css: string[] = [];
     let entry = "/src/App.tsx";
 
     for (const f of Object.values(files)) {
         const id = normalisePreviewPath(f.name);
+        if (id.endsWith(".css")) {
+            css.push(f.content);
+            continue;
+        }
         if (!LOCAL_EXTENSIONS.some((ext) => id.endsWith(ext))) continue;
         modules[id] = compileModule(f.content, id);
         if (/\/App\.(tsx|jsx|ts|js)$/.test(id)) entry = id;
@@ -389,7 +395,7 @@ function buildCompiledRuntime(files: Record<string, StudioFile>): CompiledRuntim
     const uiShim = compileModule(UI_SHIM_SOURCE, "@/components/ui/index.js");
     for (const alias of SHADCN_UI_ALIASES) modules[alias] = uiShim;
 
-    return { entry, modules };
+    return { entry, modules, css };
 }
 
 function scriptJson(value: unknown): string {
@@ -409,6 +415,9 @@ function buildRuntimeHtml(runtime: CompiledRuntime): string {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    ${runtime.css.join("\n\n")}
+  </style>
   <style>
     body { margin: 0; background: #ffffff; color: #0f172a; font-family: 'Manrope', system-ui, -apple-system, sans-serif; min-height: 100vh; }
     #root { min-height: 100vh; }
