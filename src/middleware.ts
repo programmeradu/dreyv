@@ -218,6 +218,43 @@ function isConstructionAllowed(
     });
 }
 
+// In-memory cache for waitlist allow lookups. Survives between requests on
+// warm Lambdas; cold starts re-fetch. 5-minute TTL.
+const WAITLIST_ALLOW_CACHE = new Map<string, { allowed: boolean; expiresAt: number }>();
+const WAITLIST_ALLOW_TTL_MS = 5 * 60 * 1000;
+
+async function isWaitlistAllowed(request: NextRequest, email: string | null): Promise<boolean> {
+    if (!email) return false;
+    const key = email.toLowerCase();
+    const now = Date.now();
+    const cached = WAITLIST_ALLOW_CACHE.get(key);
+    if (cached && cached.expiresAt > now) return cached.allowed;
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return false;
+
+    try {
+        const origin =
+            request.headers.get('x-forwarded-host')
+                ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
+                : request.nextUrl.origin;
+        const res = await fetch(
+            `${origin}/api/internal/waitlist-allowed?email=${encodeURIComponent(key)}`,
+            {
+                headers: { 'x-internal-secret': secret },
+                signal: AbortSignal.timeout(2_000),
+            },
+        );
+        if (!res.ok) return false;
+        const data = (await res.json()) as { allowed?: boolean };
+        const allowed = !!data.allowed;
+        WAITLIST_ALLOW_CACHE.set(key, { allowed, expiresAt: now + WAITLIST_ALLOW_TTL_MS });
+        return allowed;
+    } catch {
+        return false;
+    }
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -235,7 +272,16 @@ export async function middleware(request: NextRequest) {
             .filter(Boolean);
         const payload = await getSiwsPayload(request);
         const neonEmail = getNeonAuthEmailHint(request);
-        if (!isConstructionAllowed(payload, neonEmail, allowlist)) {
+        const siwsEmail =
+            typeof payload?.email === 'string' ? (payload.email as string).toLowerCase() : null;
+        const envAllowed = isConstructionAllowed(payload, neonEmail, allowlist);
+        // Auto-allow anyone whose email is `invited` or `onboarded` in the
+        // waitlist DB — no env-var edits needed for new invitees.
+        const dbAllowed =
+            envAllowed ||
+            (await isWaitlistAllowed(request, neonEmail)) ||
+            (await isWaitlistAllowed(request, siwsEmail));
+        if (!dbAllowed) {
             const origin =
                 request.headers.get('x-forwarded-host')
                     ? `${request.headers.get('x-forwarded-proto') || 'https'}://${request.headers.get('x-forwarded-host')}`
