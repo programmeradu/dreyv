@@ -42,9 +42,28 @@ export function isWalletProviderSupportQuestion(text: string): boolean {
   return mentionsWalletProvider && mentionsSupportSymptom;
 }
 
+// Action verbs that genuinely require tools (treasury / on-chain / app actions).
+const ACTION_INTENT_RE =
+  /\b(transfer|send|swap|bridge|deposit|withdraw|stake|unstake|buy|sell|borrow|lend|provide liquidity|claim|harvest|mint|burn|pay|payroll|invoice|approve|sign|execute|rebalance|allocate|move funds?|set (a )?(monitor|alert)|alert me|notify me|watch|monitor|navigate|open|go to|redirect|create (a )?(vault|monitor|alert|directive|payment))\b/;
+
+// Question / informational shape — wh-words, "can/could/should/is/are/do/does", or a trailing "?".
+const QUESTION_SHAPE_RE =
+  /^(what|why|how|when|where|who|which|can|could|should|would|is|are|am|do|does|did|will|tell me|explain|help|why\s|how\s)/;
+
+export function isInformationalQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  if (ACTION_INTENT_RE.test(t)) return false;
+  if (t.endsWith("?")) return true;
+  if (QUESTION_SHAPE_RE.test(t)) return true;
+  return false;
+}
+
 export function classifyEvidenceNeed(userText: string): EvidenceClass {
   const t = userText.trim().toLowerCase();
   if (!t || isSimpleConversation(t)) return "conversational";
+  if (isWalletProviderSupportQuestion(t)) return "conversational";
+  if (isInformationalQuestion(t)) return "conversational";
   if (/\b(navigate|open|go to|redirect)\b/.test(t)) return "navigation_required";
   if (/\b(database|db|saved|stored|link|url|appid|project id)\b/.test(t)) return "db_required";
   return "tool_required";

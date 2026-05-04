@@ -51,7 +51,7 @@ const navigate = defineCapability({
 
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const SAFE_MONITOR_TARGET_RE = /^[A-Za-z][A-Za-z0-9-]{1,15}$|^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const SUPPORT_OR_COMPLAINT_TARGET_RE = /\b(account|phantom|wallet|malicious|blocked?|unsafe|safe|warning|fee|fees?|transaction|transfer|scam|fraud)\b/i;
+const SUPPORT_OR_COMPLAINT_TARGET_RE = /\b(account|phantom|wallet|malicious|blocked?|unsafe|safe|warning|fee|fees?|transaction|transfer|scam|fraud|help|support|question|why|how|what|issue|problem|error|bug|broken|stuck)\b/i;
 
 const set_monitor = defineCapability({
   id: "set_monitor",
