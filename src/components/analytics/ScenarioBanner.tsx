@@ -9,7 +9,7 @@
  * returns the page to its default analytics mode.
  */
 
-import { X, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { X, ArrowRight, Loader2 } from "lucide-react";
 import { useSimulationStore, type SimulationVariable } from "@/lib/stores/simulation-store";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 
