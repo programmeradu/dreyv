@@ -467,10 +467,10 @@ export function AnalyticsCockpit({
   }, [signals]);
 
   const verdictMeta = {
-    ok:      { label: "We're OK",        title: "text-emerald-700", border: "border-emerald-200", bg: "bg-emerald-50/60", icon: ShieldCheck,    pose: "celebrate" as const },
-    watch:   { label: "Worth watching",  title: "text-amber-700",   border: "border-amber-200",   bg: "bg-amber-50/60",   icon: Eye,             pose: "think" as const },
-    risk:    { label: "Action needed",   title: "text-rose-700",    border: "border-rose-200",    bg: "bg-rose-50/60",    icon: AlertTriangle,   pose: "alert" as const },
-    unknown: { label: "Reading…",        title: "text-slate-700",   border: "border-violet-100",  bg: "bg-white",         icon: Eye,             pose: "think" as const },
+    ok:      { label: "We're OK",        title: "text-violet-700",  border: "border-violet-200", bg: "bg-violet-50/70",  icon: ShieldCheck,    pose: "celebrate" as const },
+    watch:   { label: "Worth watching",  title: "text-amber-800",   border: "border-amber-200",  bg: "bg-amber-50/60",   icon: Eye,             pose: "think" as const },
+    risk:    { label: "Action needed",   title: "text-white",       border: "border-slate-900",  bg: "bg-slate-900",     icon: AlertTriangle,   pose: "alert" as const },
+    unknown: { label: "Reading…",        title: "text-slate-700",   border: "border-violet-100", bg: "bg-white",         icon: Eye,             pose: "think" as const },
   }[grade];
 
   const positive24h = (vaultChange24h ?? 0) >= 0;
