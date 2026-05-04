@@ -20,6 +20,7 @@ import {
   Layers,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
 
 interface Props {
   toolName: string;
