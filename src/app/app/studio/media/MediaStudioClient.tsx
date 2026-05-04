@@ -12,8 +12,10 @@ import {
   Library as LibraryIcon,
   ChevronDown,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { DryvMascot, type DryvPose } from "@/components/brand/dryv-mascot";
 import type {
   AssetKind,
   Channel,
@@ -52,7 +54,7 @@ async function readJsonSafe(res: Response): Promise<any> {
   }
 }
 
-type Mode = AssetKind;
+type Mode = AssetKind | "mascot";
 type Aspect = "1:1" | "16:9" | "9:16" | "4:5";
 
 type StudioJob = ContentSuggestion & {
@@ -65,6 +67,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
   { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
+  { id: "mascot", label: "Mascot", icon: Sparkles, hint: "Dryv visuals" },
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
@@ -73,8 +76,47 @@ const ASPECTS_BY_MODE: Record<Mode, Aspect[]> = {
   infographic: ["1:1", "4:5", "16:9"],
   announcement: ["16:9", "1:1", "4:5"],
   video: ["9:16", "1:1", "16:9"],
+  mascot: ["1:1", "4:5", "16:9", "9:16"],
 };
 const DURATIONS = [10, 15, 30] as const;
+
+const MASCOT_POSES: Array<{ id: DryvPose; label: string; hint: string }> = [
+  { id: "greet", label: "Greet", hint: "Warm intro / waving" },
+  { id: "think", label: "Think", hint: "Curious / explainer" },
+  { id: "celebrate", label: "Celebrate", hint: "Launch / milestone" },
+  { id: "alert", label: "Alert", hint: "Warning / risk" },
+];
+
+const MASCOT_PRESETS: Array<{ pose: DryvPose; title: string; brief: string; channel: Channel; aspect: Aspect }> = [
+  {
+    pose: "greet",
+    title: "Dryv says hi to a new founder",
+    brief: "Dryv stands at the entrance of a clean violet portal, waving toward the viewer. Subtle violet ambient glow, white background.",
+    channel: "x",
+    aspect: "1:1",
+  },
+  {
+    pose: "think",
+    title: "Dryv thinking about runway",
+    brief: "Dryv looks thoughtfully at a single floating violet line chart, calm, hand near chin. Editorial, generous whitespace.",
+    channel: "linkedin",
+    aspect: "4:5",
+  },
+  {
+    pose: "celebrate",
+    title: "Launch day",
+    brief: "Dryv mid-celebration with small floating violet diamond shards in the air, confetti-like but minimal and tasteful. Pure white background.",
+    channel: "x",
+    aspect: "1:1",
+  },
+  {
+    pose: "alert",
+    title: "Drift alert",
+    brief: "Dryv with palms up, concerned, next to a thin violet warning bar. Calm, never panicked, premium fintech feel.",
+    channel: "linkedin",
+    aspect: "16:9",
+  },
+];
 
 const FALLBACK_JOBS: StudioJob[] = [
   {
@@ -139,7 +181,10 @@ export default function MediaStudioClient() {
   const [aspect, setAspect] = React.useState<Aspect>(FALLBACK_JOBS[0].aspect);
   const [duration, setDuration] = React.useState<number>(FALLBACK_JOBS[0].durationSeconds);
 
-  const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video">(null);
+  const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video" | "mascot">(null);
+  const [mascotPose, setMascotPose] = React.useState<DryvPose>("greet");
+  const [mascotPrompt, setMascotPrompt] = React.useState<string>(MASCOT_PRESETS[0].brief);
+  const [mascotTitle, setMascotTitle] = React.useState<string>(MASCOT_PRESETS[0].title);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
   // (Infographics now generate as images and live on imagePreview, same as posts.)
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
@@ -306,7 +351,35 @@ export default function MediaStudioClient() {
     setRefreshKey((k) => k + 1);
   }
 
-  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video";
+  async function generateMascot() {
+    setError(null);
+    setBusy("mascot");
+    setImagePreview(null);
+    try {
+      const res = await fetch("/api/studio/media/generate-mascot", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({
+          pose: mascotPose,
+          prompt: mascotPrompt,
+          channel,
+          aspect,
+          title: mascotTitle,
+        }),
+      });
+      const json = await readJsonSafe(res);
+      if (!res.ok) throw new Error(json.error ?? "Mascot generation failed");
+      if (json.previewUrl) setImagePreview(json.previewUrl);
+      if (json.error) setNotice(json.error);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Mascot generation failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video" || busy === "mascot";
   const hasOutput = !!(copyResult || storyboard || imagePreview);
   const aspects = ASPECTS_BY_MODE[mode];
 
@@ -340,7 +413,7 @@ export default function MediaStudioClient() {
         </header>
 
         {/* Mode tabs */}
-        <div className="mt-6 grid grid-cols-2 gap-1.5 rounded-2xl border border-studio-border bg-white/80 p-1.5 backdrop-blur sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-1.5 rounded-2xl border border-studio-border bg-white/80 p-1.5 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
           {MODES.map((m) => {
             const Icon = m.icon;
             const active = mode === m.id;
@@ -348,6 +421,12 @@ export default function MediaStudioClient() {
               <button
                 key={m.id}
                 onClick={() => {
+                  if (m.id === "mascot") {
+                    setMode("mascot");
+                    setAspect("1:1");
+                    resetOutput();
+                    return;
+                  }
                   const next = jobs.find((job) => job.kind === m.id) ?? selectedJob;
                   applyJob(next);
                 }}
@@ -386,8 +465,155 @@ export default function MediaStudioClient() {
 
         {/* Main layout */}
         <div className="mt-4 grid grid-cols-1 gap-5 lg:mt-6 lg:grid-cols-[400px_1fr] lg:gap-6">
-          {/* LEFT: Directions + brief */}
+          {/* LEFT: Directions + brief (or Mascot panel) */}
           <aside className={"space-y-4 " + (briefOpen ? "" : "hidden lg:block")}>
+            {mode === "mascot" ? (
+              <section className="rounded-3xl border border-studio-border bg-white/85 p-4 backdrop-blur sm:p-5">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Mascot</div>
+                <h2 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">Compose a Dryv visual.</h2>
+                <p className="mt-1.5 text-xs leading-5 text-studio-muted">
+                  The mascot reference is sent to the model so the character stays consistent. Pick a pose, describe the scene.
+                </p>
+
+                <div className="mt-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Pose</div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    {MASCOT_POSES.map((p) => {
+                      const active = mascotPose === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setMascotPose(p.id)}
+                          className={
+                            "flex items-center gap-2 rounded-2xl border p-2 text-left transition " +
+                            (active
+                              ? "border-studio-violet bg-studio-violet-soft"
+                              : "border-studio-border bg-white hover:border-studio-violet/40 hover:bg-studio-violet-soft")
+                          }
+                        >
+                          <DryvMascot pose={p.id} size={36} glow={false} className="shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold tracking-tight">{p.label}</div>
+                            <div className="truncate text-[10px] text-studio-muted">{p.hint}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Title</div>
+                  <input
+                    value={mascotTitle}
+                    onChange={(e) => setMascotTitle(e.target.value)}
+                    placeholder="e.g. Dryv welcomes a new founder"
+                    className="mt-1.5 w-full rounded-2xl border border-studio-border bg-white px-3 py-2 text-sm outline-none focus:border-studio-violet"
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Scene prompt</div>
+                  <textarea
+                    value={mascotPrompt}
+                    onChange={(e) => setMascotPrompt(e.target.value)}
+                    rows={5}
+                    placeholder="Describe what the mascot is doing, the setting, and the mood…"
+                    className="mt-1.5 w-full resize-none rounded-2xl border border-studio-border bg-white px-3 py-2 text-sm leading-6 outline-none focus:border-studio-violet"
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Presets</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {MASCOT_PRESETS.map((p) => (
+                      <button
+                        key={p.title}
+                        onClick={() => {
+                          setMascotPose(p.pose);
+                          setMascotPrompt(p.brief);
+                          setMascotTitle(p.title);
+                          setChannel(p.channel);
+                          setAspect(p.aspect);
+                        }}
+                        className="rounded-full border border-studio-border bg-white px-2.5 py-1 text-[10px] font-semibold text-studio-fg hover:border-studio-violet/40 hover:bg-studio-violet-soft"
+                      >
+                        {p.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Channel</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {CHANNELS.map((c) => {
+                      const active = channel === c;
+                      return (
+                        <button
+                          key={c}
+                          onClick={() => setChannel(c)}
+                          className={
+                            "rounded-full border px-3 py-1 text-xs font-semibold capitalize transition " +
+                            (active
+                              ? "border-studio-violet bg-studio-violet text-primary-foreground"
+                              : "border-studio-border bg-white text-studio-fg hover:bg-studio-violet-soft")
+                          }
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-muted">Aspect</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {aspects.map((a) => {
+                      const active = aspect === a;
+                      return (
+                        <button
+                          key={a}
+                          onClick={() => setAspect(a)}
+                          className={
+                            "rounded-full border px-3 py-1 text-xs font-mono font-semibold transition " +
+                            (active
+                              ? "border-studio-violet bg-studio-violet text-primary-foreground"
+                              : "border-studio-border bg-white text-studio-fg hover:bg-studio-violet-soft")
+                          }
+                        >
+                          {a}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-col gap-2">
+                  <button
+                    onClick={generateMascot}
+                    disabled={busy !== null || !mascotPrompt.trim()}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_rgba(124,58,237,0.55)] transition hover:opacity-95 disabled:opacity-50"
+                  >
+                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {imagePreview ? "Regenerate mascot visual" : "Generate mascot visual"}
+                  </button>
+                </div>
+
+                {notice && (
+                  <div className="mt-4 rounded-2xl border border-studio-border bg-studio-violet-soft p-3 text-xs leading-5 text-studio-muted">
+                    {notice}
+                  </div>
+                )}
+                {error && (
+                  <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-xs leading-5 text-destructive">
+                    {error}
+                  </div>
+                )}
+              </section>
+            ) : (<>
+
             <section className="rounded-3xl border border-studio-border bg-white/85 p-4 backdrop-blur sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -561,6 +787,7 @@ export default function MediaStudioClient() {
                 </div>
               )}
             </section>
+            </>)}
           </aside>
 
           {/* RIGHT: Output canvas */}
@@ -620,7 +847,7 @@ export default function MediaStudioClient() {
                 )}
 
                 {/* Image preview (post / announcement / infographic) */}
-                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic") && (
+                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic" || mode === "mascot") && (
                   <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
