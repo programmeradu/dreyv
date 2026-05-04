@@ -67,7 +67,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
   { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
-  { id: "mascot", label: "Mascot", icon: Sparkles, hint: "Dryv visuals" },
+  { id: "mascot", label: "Mascot", icon: FileText, hint: "Dryv visuals" },
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
