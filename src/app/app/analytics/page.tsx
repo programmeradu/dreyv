@@ -115,59 +115,27 @@ export default function AnalyticsPage() {
         {/* ── Scenario banner (only when active) ───────────────────── */}
         <ScenarioBanner />
 
-        {/* ── Row 1 — Verdict + KPI strip ──────────────────────────── */}
-        <div className="mt-3 grid gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <AreWeOkHero
-              activeVault={activeVault ?? null}
-              vaultValue={vaultValue ?? null}
-              vaultTokens={vaultTokens ?? []}
-              attribution={aggregates}
-              snapshotStats={snapshots?.stats ?? null}
-              foresight={foresight?.summary
-                ? {
-                    depletionProbability: foresight.summary.depletionProbability,
-                    medianDepletionMonths: foresight.summary.medianDepletionMonths,
-                  }
-                : null}
-              asOf={asOf}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:col-span-5">
-            <KpiTile
-              tone="emerald"
-              icon={<ArrowDownRight className="h-3.5 w-3.5" />}
-              label="Inflows · 30d"
-              usd={aggregates?.inflowUsd ?? 0}
-              sub={`${fmtCompact(aggregates?.monthlyInflow ?? 0)}/mo`}
-            />
-            <KpiTile
-              tone="rose"
-              icon={<ArrowUpRight className="h-3.5 w-3.5" />}
-              label="Outflows · 30d"
-              usd={aggregates?.outflowUsd ?? 0}
-              sub={`${fmtCompact(aggregates?.monthlyBurnRate ?? 0)}/mo burn`}
-            />
-            <KpiTile
-              tone="violet"
-              icon={<Coins className="h-3.5 w-3.5" />}
-              label="Yield earned"
-              usd={aggregates?.yieldUsd ?? 0}
-              sub={aggregates?.annualYieldRate
-                ? `${(aggregates.annualYieldRate * 100).toFixed(2)}% APY`
-                : "—"}
-            />
-            <KpiTile
-              tone="slate"
-              icon={<Receipt className="h-3.5 w-3.5" />}
-              label="Fees paid"
-              usd={aggregates?.feeUsd ?? 0}
-              sub={hasAttribution ? "Network + protocol" : "—"}
-            />
-          </div>
+        {/* ── Cockpit — verdict + valuation + ribbon + signals + KPIs + composition ─ */}
+        <div className="mt-3">
+          <AnalyticsCockpit
+            activeVault={activeVault ?? null}
+            vaultValue={vaultValue ?? null}
+            vaultChange24h={vaultChange24h ?? null}
+            vaultTokens={vaultTokens ?? []}
+            attribution={aggregates}
+            snapshotStats={snapshots?.stats ?? null}
+            foresight={foresight?.summary
+              ? {
+                  depletionProbability: foresight.summary.depletionProbability,
+                  medianDepletionMonths: foresight.summary.medianDepletionMonths,
+                }
+              : null}
+            asOf={asOf}
+            trend={trend}
+          />
         </div>
 
-        {/* ── Row 2 — Anomalies inline ─────────────────────────────── */}
+        {/* ── Anomalies inline ─────────────────────────────────────── */}
         <div className="mt-3">
           <AnomalyChips
             attribution={aggregates}
@@ -177,56 +145,9 @@ export default function AnalyticsPage() {
           />
         </div>
 
-        {/* ── Row 3 — Growth chart + Composition ───────────────────── */}
-        <div className="mt-4 grid gap-3 lg:grid-cols-12">
-          <Card className="lg:col-span-8" eyebrow="Growth · 30d" title="Treasury value over time"
-            hint={snapshots && snapshots.snapshots.length >= 2
-              ? `${snapshots.snapshots.length} snapshots`
-              : "Accumulating snapshots…"}
-          >
-            <TrendCurve values={trend} label="Real value series" changePct={vaultChange24h ?? null} />
-            <BaselineVsSimulated baseline={valueSeries} />
-          </Card>
-
-          <div className="grid gap-3 lg:col-span-4">
-            <Card eyebrow="Composition" title="Largest exposure" compact>
-              <div className="font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-                {concentration ? (
-                  <StreamingNumber value={concentration.share} suffix="%" decimals={1} />
-                ) : (
-                  <span className="text-slate-300">—</span>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-slate-600">
-                {concentration
-                  ? `Most of your treasury is in ${concentration.symbol}.`
-                  : "Connect a wallet to see your composition."}
-              </p>
-              {concentration && (
-                <div className="mt-2">
-                  <Pill tone={concentration.share > 60 ? "rose" : concentration.share > 35 ? "violet" : "emerald"}>
-                    {concentration.share > 60 ? "Concentrated" : concentration.share > 35 ? "Tilted" : "Balanced"}
-                  </Pill>
-                </div>
-              )}
-            </Card>
-            <Card eyebrow="Net 30d" title="Inflows − outflows" compact>
-              <div className="font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-                {hasAttribution ? (
-                  <StreamingNumber value={aggregates!.netUsd ?? 0} prefix="$" decimals={0} />
-                ) : (
-                  <span className="text-slate-300">—</span>
-                )}
-              </div>
-              {hasAttribution && (
-                <div className="mt-2">
-                  <Pill tone={aggregates!.netUsd >= 0 ? "emerald" : "rose"}>
-                    {aggregates!.netUsd >= 0 ? "Net positive" : "Net outflow"}
-                  </Pill>
-                </div>
-              )}
-            </Card>
-          </div>
+        {/* ── Baseline vs simulated overlay (only meaningful when sim active) ─ */}
+        <div className="mt-3">
+          <BaselineVsSimulated baseline={valueSeries} />
         </div>
 
         {/* ── Row 4 — PnL waterfall + Foresight side-by-side ───────── */}
