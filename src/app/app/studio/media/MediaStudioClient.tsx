@@ -67,7 +67,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
   { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
-  { id: "mascot", label: "Mascot", icon: Sparkles, hint: "Dryv visuals" },
+  { id: "mascot", label: "Mascot", icon: FileText, hint: "Dryv visuals" },
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
@@ -438,7 +438,11 @@ export default function MediaStudioClient() {
                 }
               >
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  <Icon className="h-3.5 w-3.5" />
+                  {m.id === "mascot" ? (
+                    <DryvMascot pose="greet" size={18} glow={false} className="shrink-0" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5" />
+                  )}
                   {m.label}
                 </div>
                 <span className={"text-[10px] " + (active ? "text-primary-foreground/80" : "text-studio-muted")}>
@@ -596,7 +600,7 @@ export default function MediaStudioClient() {
                     disabled={busy !== null || !mascotPrompt.trim()}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_rgba(124,58,237,0.55)] transition hover:opacity-95 disabled:opacity-50"
                   >
-                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <DryvMascot pose={mascotPose} size={20} glow={false} className="shrink-0" />}
                     {imagePreview ? "Regenerate mascot visual" : "Generate mascot visual"}
                   </button>
                 </div>
