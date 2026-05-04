@@ -186,11 +186,17 @@ export async function POST(req: NextRequest) {
       }
       await Promise.all(chunks.map(async (chunk) => {
         try {
-          const json = await fetchJsonWithRetry(`https://lite-api.jup.ag/price/v2?ids=${chunk.join(",")}`, 2);
+          const json = await fetchJsonWithRetry(`https://lite-api.jup.ag/price/v3?ids=${chunk.join(",")}`, 2);
           for (const mint of chunk) {
-            const price = Number(json?.data?.[mint]?.price || 0);
+            const entry = json?.[mint];
+            const price = Number(entry?.usdPrice ?? entry?.price ?? 0);
+            const change = Number(entry?.priceChange24h ?? 0);
             if (price > 0) {
-              metadata[mint] = { ...metadata[mint], price };
+              metadata[mint] = {
+                ...metadata[mint],
+                price,
+                change24h: metadata[mint]?.change24h || (Number.isFinite(change) ? change : 0),
+              };
             }
           }
         } catch (error) {
