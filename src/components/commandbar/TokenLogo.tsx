@@ -19,6 +19,8 @@ interface Props {
   mint?: string | null;
   size?: number; // px
   className?: string;
+  /** When true, render nothing instead of a letter-circle fallback if no logo can be resolved. */
+  hideFallback?: boolean;
 }
 
 const STATIC_LOGOS: Record<string, string> = {
@@ -83,12 +85,18 @@ async function resolveLogo(symbol?: string | null, mint?: string | null): Promis
   return p;
 }
 
-export function TokenLogo({ symbol, mint, size = 18, className = "" }: Props) {
+export function TokenLogo({ symbol, mint, size = 18, className = "", hideFallback = false }: Props) {
   const [src, setSrc] = useState<string | null>(() => {
     const sym = symbol?.toUpperCase().trim();
     if (sym && STATIC_LOGOS[sym]) return STATIC_LOGOS[sym];
     const key = mint || sym || "";
     return key && cache.has(key) ? cache.get(key)! : null;
+  });
+  const [resolved, setResolved] = useState<boolean>(() => {
+    const sym = symbol?.toUpperCase().trim();
+    if (sym && STATIC_LOGOS[sym]) return true;
+    const key = mint || sym || "";
+    return Boolean(key && cache.has(key));
   });
   const [errored, setErrored] = useState(false);
 
@@ -96,7 +104,10 @@ export function TokenLogo({ symbol, mint, size = 18, className = "" }: Props) {
     let cancelled = false;
     if (src || errored) return;
     resolveLogo(symbol, mint).then((url) => {
-      if (!cancelled) setSrc(url);
+      if (!cancelled) {
+        setSrc(url);
+        setResolved(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -107,6 +118,11 @@ export function TokenLogo({ symbol, mint, size = 18, className = "" }: Props) {
   const dim = { width: size, height: size };
 
   if (!src || errored) {
+    if (hideFallback) return null;
+    // While still resolving, render an invisible placeholder to reserve space.
+    if (!resolved) {
+      return <span className={className} style={dim} aria-hidden />;
+    }
     return (
       <span
         className={`inline-flex items-center justify-center rounded-full bg-violet-100 font-semibold text-violet-700 ${className}`}

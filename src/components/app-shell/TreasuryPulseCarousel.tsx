@@ -210,7 +210,7 @@ function MoverCard({ token }: { token: any }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Top mover · 24h</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
         <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          <TokenLogo symbol={symbol} mint={mint} size={28} hideFallback />
           {symbol}
         </h3>
         <span className={`font-manrope text-2xl font-semibold ${positive ? "text-emerald-600" : "text-rose-600"}`}>
@@ -243,7 +243,7 @@ function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; shar
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Concentration</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
         <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          <TokenLogo symbol={symbol} mint={mint} size={28} hideFallback />
           {symbol}
         </h3>
         <span className="font-manrope text-2xl font-semibold text-slate-900">{share.toFixed(1)}%</span>
