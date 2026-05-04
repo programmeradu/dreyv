@@ -600,7 +600,7 @@ export default function MediaStudioClient() {
                     disabled={busy !== null || !mascotPrompt.trim()}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_rgba(124,58,237,0.55)] transition hover:opacity-95 disabled:opacity-50"
                   >
-                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <DryvMascot pose={mascotPose} size={20} glow={false} className="shrink-0" />}
                     {imagePreview ? "Regenerate mascot visual" : "Generate mascot visual"}
                   </button>
                 </div>
