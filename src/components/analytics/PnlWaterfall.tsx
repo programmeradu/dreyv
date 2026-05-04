@@ -139,12 +139,12 @@ function Bar({ h, color, delay }: { h: number; color: string; delay: number }) {
   );
 }
 
-function Stat({ tone, label, value }: { tone: "emerald" | "rose" | "violet" | "slate"; label: string; value: string }) {
+function Stat({ tone, label, value }: { tone: "violet" | "amber" | "ink" | "slate"; label: string; value: string }) {
   const map: Record<string, string> = {
-    emerald: "text-emerald-600",
-    rose: "text-rose-600",
     violet: "text-violet-700",
-    slate: "text-slate-600",
+    amber: "text-amber-700",
+    ink: "text-slate-900",
+    slate: "text-slate-500",
   };
   return (
     <StreamIn>
