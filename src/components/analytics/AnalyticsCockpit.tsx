@@ -168,6 +168,8 @@ function CompositionDonut({ holdings }: { holdings: any[] }) {
       acc += share;
       return {
         symbol: String(t.symbol ?? "—").toUpperCase(),
+        mint: t.mint ?? "",
+        logo: t.logo ?? t.logoURI ?? undefined,
         value: t.value ?? 0,
         share,
         start,
