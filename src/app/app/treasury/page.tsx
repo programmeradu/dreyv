@@ -68,6 +68,8 @@ export default function TreasuryPage() {
           symbol: sym,
           label: SYMBOL_LABELS[sym] ?? sym,
           value: typeof t.value === "number" ? t.value : 0,
+          logo: t.logo ?? t.logoURI ?? t.icon ?? undefined,
+          mint: t.mint ?? t.address ?? undefined,
         };
       })
       .filter((h) => h.value > 0)
