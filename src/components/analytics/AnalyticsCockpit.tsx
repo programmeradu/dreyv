@@ -30,6 +30,7 @@ import {
 import { ChevronRight, Wallet, ShieldCheck, AlertTriangle, Eye } from "lucide-react";
 import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
@@ -270,24 +271,25 @@ function KpiTile({
   label: string;
   value: string;
   hint?: string;
-  emphasis?: "default" | "violet" | "emerald" | "rose";
+  emphasis?: "default" | "violet" | "ink" | "amber";
 }) {
   const tones = {
     default: "border-violet-100 bg-white",
     violet: "border-violet-200 bg-violet-50/60",
-    emerald: "border-emerald-200 bg-emerald-50/60",
-    rose: "border-rose-200 bg-rose-50/60",
+    ink: "border-slate-900 bg-slate-900 text-white",
+    amber: "border-amber-200 bg-amber-50/60",
   } as const;
+  const isInk = emphasis === "ink";
   return (
     <div className={`rounded-2xl border px-4 py-3 ${tones[emphasis]}`}>
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-600">
-        <DreyvStar size={9} className="text-violet-500" />
+      <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${isInk ? "text-violet-300" : "text-violet-600"}`}>
+        <DreyvStar size={9} className={isInk ? "text-violet-300" : "text-violet-500"} />
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-1.5 font-manrope text-lg font-semibold tracking-tight text-slate-900">
+      <div className={`mt-1.5 font-manrope text-lg font-semibold tracking-tight ${isInk ? "text-white" : "text-slate-900"}`}>
         {value}
       </div>
-      {hint && <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>}
+      {hint && <div className={`mt-0.5 text-[11px] ${isInk ? "text-slate-300" : "text-slate-500"}`}>{hint}</div>}
     </div>
   );
 }
@@ -465,10 +467,10 @@ export function AnalyticsCockpit({
   }, [signals]);
 
   const verdictMeta = {
-    ok:      { label: "We're OK",        title: "text-emerald-700", border: "border-emerald-200", bg: "bg-emerald-50/60", icon: ShieldCheck,    pose: "celebrate" as const },
-    watch:   { label: "Worth watching",  title: "text-amber-700",   border: "border-amber-200",   bg: "bg-amber-50/60",   icon: Eye,             pose: "think" as const },
-    risk:    { label: "Action needed",   title: "text-rose-700",    border: "border-rose-200",    bg: "bg-rose-50/60",    icon: AlertTriangle,   pose: "alert" as const },
-    unknown: { label: "Reading…",        title: "text-slate-700",   border: "border-violet-100",  bg: "bg-white",         icon: Eye,             pose: "think" as const },
+    ok:      { label: "We're OK",        title: "text-violet-700",  border: "border-violet-200", bg: "bg-violet-50/70",  icon: ShieldCheck,    pose: "celebrate" as const },
+    watch:   { label: "Worth watching",  title: "text-amber-800",   border: "border-amber-200",  bg: "bg-amber-50/60",   icon: Eye,             pose: "think" as const },
+    risk:    { label: "Action needed",   title: "text-white",       border: "border-slate-900",  bg: "bg-slate-900",     icon: AlertTriangle,   pose: "alert" as const },
+    unknown: { label: "Reading…",        title: "text-slate-700",   border: "border-violet-100", bg: "bg-white",         icon: Eye,             pose: "think" as const },
   }[grade];
 
   const positive24h = (vaultChange24h ?? 0) >= 0;
@@ -523,17 +525,9 @@ export function AnalyticsCockpit({
 
           {/* 24h chip + as-of */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span
-              className={
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold " +
-                (positive24h
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700")
-              }
-            >
-              <DreyvStar size={9} className={positive24h ? "text-emerald-600" : "text-rose-600"} />
+            <SignalBadge severity={positive24h ? "good" : "watch"}>
               {vaultChange24h == null ? "no 24h baseline" : `${positive24h ? "+" : ""}${vaultChange24h.toFixed(2)}% · 24h`}
-            </span>
+            </SignalBadge>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-100 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600">
               As of {relTime(asOf)}
             </span>
@@ -558,10 +552,11 @@ export function AnalyticsCockpit({
           {signals.length > 0 && (
             <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
               {signals.map((s, i) => {
-                const tone =
-                  s.severity >= 0.7 ? { ring: "border-rose-200", dot: "bg-rose-500", chip: "text-rose-700 bg-rose-50 border-rose-200", word: "high" } :
-                  s.severity >= 0.4 ? { ring: "border-amber-200", dot: "bg-amber-500", chip: "text-amber-700 bg-amber-50 border-amber-200", word: "watch" } :
-                                      { ring: "border-emerald-200", dot: "bg-emerald-500", chip: "text-emerald-700 bg-emerald-50 border-emerald-200", word: "good" };
+                const sev = severityFromScore(s.severity);
+                const ring =
+                  sev === "risk"  ? "border-slate-300" :
+                  sev === "watch" ? "border-amber-200" :
+                                    "border-violet-100";
                 const open = openSignal === s.id;
                 return (
                   <motion.div
@@ -574,17 +569,14 @@ export function AnalyticsCockpit({
                       type="button"
                       onClick={() => setOpenSignal(open ? null : s.id)}
                       className={`group w-full rounded-2xl border bg-white p-3.5 text-left transition-colors ${
-                        open ? "border-violet-300" : tone.ring + " hover:border-violet-200"
+                        open ? "border-violet-300" : ring + " hover:border-violet-200"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                           {s.label}
                         </span>
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.chip}`}>
-                          <span className={`h-1.5 w-1.5 rounded-sm ${tone.dot}`} aria-hidden />
-                          {tone.word}
-                        </span>
+                        <SignalBadge severity={sev} />
                       </div>
                       <p className="mt-2 text-sm leading-snug text-slate-800">{s.reading}</p>
                       <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700">
@@ -637,19 +629,19 @@ export function AnalyticsCockpit({
               label="Inflows · 30d"
               value={fmtCompact(attribution?.inflowUsd ?? 0)}
               hint={`${fmtCompact(attribution?.monthlyInflow ?? 0)}/mo`}
-              emphasis={(attribution?.inflowUsd ?? 0) > 0 ? "emerald" : "default"}
+              emphasis={(attribution?.inflowUsd ?? 0) > 0 ? "violet" : "default"}
             />
             <KpiTile
               label="Outflows · 30d"
               value={fmtCompact(attribution?.outflowUsd ?? 0)}
               hint={`${fmtCompact(attribution?.monthlyBurnRate ?? 0)}/mo burn`}
-              emphasis={(attribution?.outflowUsd ?? 0) > 0 ? "rose" : "default"}
+              emphasis={(attribution?.outflowUsd ?? 0) > 0 ? "amber" : "default"}
             />
             <KpiTile
               label="Yield · APY"
               value={attribution?.annualYieldRate ? `${(attribution.annualYieldRate * 100).toFixed(2)}%` : "—"}
               hint={fmtCompact(attribution?.yieldUsd ?? 0)}
-              emphasis={(attribution?.yieldUsd ?? 0) > 0 ? "violet" : "default"}
+              emphasis={(attribution?.yieldUsd ?? 0) > 0 ? "ink" : "default"}
             />
             <KpiTile
               label="Runway"

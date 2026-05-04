@@ -55,7 +55,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
   if (!active || !result || !view) return null;
 
   const s = result.summary;
-  const tone = s.deltaPercent >= 0 ? "emerald" : "rose";
+  const tone: "violet" | "amber" = s.deltaPercent >= 0 ? "violet" : "amber";
 
   return (
     <Surface className="p-7">
@@ -73,7 +73,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
             <StreamingNumber value={s.deltaPercent} suffix="%" decimals={1} duration={0.6} />
           </Pill>
           {s.runwayMonths != null && (
-            <Pill tone="rose">~{s.runwayMonths} mo runway</Pill>
+            <Pill tone="slate">~{s.runwayMonths} mo runway</Pill>
           )}
         </div>
       </div>
@@ -120,7 +120,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
           </div>
           <div>
             <div className="font-semibold uppercase tracking-wider text-slate-500">Δ value</div>
-            <div className={`font-manrope text-base font-semibold ${s.delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            <div className={`font-manrope text-base font-semibold ${s.delta >= 0 ? "text-violet-700" : "text-amber-700"}`}>
               {s.delta >= 0 ? "+" : ""}${Math.round(s.delta).toLocaleString()}
             </div>
           </div>
@@ -130,7 +130,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
       {s.riskFlags?.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {s.riskFlags.slice(0, 6).map((f) => (
-            <Pill key={f} tone="rose">{f.replace(/_/g, " ").toLowerCase()}</Pill>
+            <Pill key={f} tone="amber">{f.replace(/_/g, " ").toLowerCase()}</Pill>
           ))}
         </div>
       )}

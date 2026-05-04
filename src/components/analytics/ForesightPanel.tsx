@@ -144,7 +144,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
   }
 
   const depletionPct = Math.round(summary.depletionProbability * 100);
-  const depletionTone = depletionPct >= 50 ? "rose" : depletionPct >= 20 ? "violet" : "emerald";
+  const depletionTone: "violet" | "amber" | "slate" = depletionPct >= 50 ? "amber" : depletionPct >= 20 ? "violet" : "slate";
 
   return (
     <Surface className="p-7">
@@ -161,7 +161,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
         <div className="flex items-center gap-2">
           <Pill tone={depletionTone}>{depletionPct}% depletion risk</Pill>
           {summary.medianDepletionMonths != null && (
-            <Pill tone="rose"><AlertTriangle className="mr-1 inline h-3 w-3" />~{summary.medianDepletionMonths} mo runway</Pill>
+            <Pill tone="amber"><AlertTriangle className="mr-1 inline h-3 w-3" />~{summary.medianDepletionMonths} mo runway</Pill>
           )}
         </div>
       </div>
@@ -176,7 +176,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           <div className="mt-3 grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Worst 10%</div>
-              <div className="font-manrope text-lg font-semibold text-rose-600">{fmtCompact(summary.p10)}</div>
+              <div className="font-manrope text-lg font-semibold text-amber-700">{fmtCompact(summary.p10)}</div>
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Median</div>
@@ -186,7 +186,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Best 10%</div>
-              <div className="font-manrope text-lg font-semibold text-emerald-600">{fmtCompact(summary.p90)}</div>
+              <div className="font-manrope text-lg font-semibold text-slate-900">{fmtCompact(summary.p90)}</div>
             </div>
           </div>
         </div>
@@ -206,7 +206,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
       {summary.riskFlags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {summary.riskFlags.map((f) => (
-            <Pill key={f} tone="rose">{f.replace(/_/g, " ").toLowerCase()}</Pill>
+            <Pill key={f} tone="amber">{f.replace(/_/g, " ").toLowerCase()}</Pill>
           ))}
         </div>
       )}

@@ -69,22 +69,22 @@ export function FlowsByCategory({ events }: Props) {
                 <li>
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-slate-800">{r.name}</span>
-                    <span className={r.net >= 0 ? "text-emerald-600" : "text-rose-600"}>
+                    <span className={r.net >= 0 ? "text-violet-700 font-semibold" : "text-amber-700 font-semibold"}>
                       {r.net >= 0 ? "+" : "-"}{fmtUsd(Math.abs(r.net))}
                     </span>
                   </div>
                   <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    <div className="relative h-2 rounded-full bg-emerald-50" title={`Inflow ${fmtUsd(r.inflow)}`}>
+                    <div className="relative h-2 rounded-full bg-violet-50" title={`Inflow ${fmtUsd(r.inflow)}`}>
                       <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
+                        className="absolute inset-y-0 left-0 rounded-full bg-violet-600"
                         initial={{ width: 0 }}
                         animate={{ width: `${(r.inflow / max) * 100}%` }}
                         transition={{ duration: 0.8, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
                       />
                     </div>
-                    <div className="relative h-2 rounded-full bg-rose-50" title={`Outflow ${fmtUsd(r.outflow)}`}>
+                    <div className="relative h-2 rounded-full bg-amber-50" title={`Outflow ${fmtUsd(r.outflow)}`}>
                       <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full bg-rose-500"
+                        className="absolute inset-y-0 left-0 rounded-full bg-amber-500"
                         initial={{ width: 0 }}
                         animate={{ width: `${(r.outflow / max) * 100}%` }}
                         transition={{ duration: 0.8, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
