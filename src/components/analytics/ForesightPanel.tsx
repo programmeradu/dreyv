@@ -176,7 +176,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           <div className="mt-3 grid grid-cols-3 gap-3 text-center">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Worst 10%</div>
-              <div className="font-manrope text-lg font-semibold text-rose-600">{fmtCompact(summary.p10)}</div>
+              <div className="font-manrope text-lg font-semibold text-amber-700">{fmtCompact(summary.p10)}</div>
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Median</div>
@@ -186,7 +186,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Best 10%</div>
-              <div className="font-manrope text-lg font-semibold text-emerald-600">{fmtCompact(summary.p90)}</div>
+              <div className="font-manrope text-lg font-semibold text-slate-900">{fmtCompact(summary.p90)}</div>
             </div>
           </div>
         </div>
