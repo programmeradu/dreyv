@@ -38,7 +38,7 @@ export function isWalletProviderSupportQuestion(text: string): boolean {
   if (!t) return false;
   const mentionsWalletProvider = /\b(phantom|wallet|account|dapp|transaction fee|fees?|sol)\b/.test(t);
   const mentionsSupportSymptom =
-    /\b(malicious|blocked?|block transactions?|warning|unsafe|safe|flagged|scam|can't transfer|cannot transfer|cant transfer|insufficient|no transaction fees?|fee shortage|mark.*safe)\b/.test(t);
+    /\b(malicious|blocked?|block transactions?|warning|unsafe|safe|flagged|scam|can't transfer|cannot transfer|cant transfer|insufficient|no transaction fees?|do not have.*fees?|don't have.*fees?|fee shortage|mark.*safe)\b/.test(t);
   return mentionsWalletProvider && mentionsSupportSymptom;
 }
 
