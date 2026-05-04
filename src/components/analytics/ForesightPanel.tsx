@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * ForesightPanel — renders Monte Carlo bands (P10/P50/P90), risk flags,

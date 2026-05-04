@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * SmartInsights — the always-on "smart/reactive/suggestive" layer for /analytics.

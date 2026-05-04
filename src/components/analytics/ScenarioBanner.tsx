@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * ScenarioBanner — sticky-ish header that announces the active what-if

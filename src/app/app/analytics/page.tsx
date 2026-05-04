@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * `/app/analytics` — compact, dense, grid-first layout.
