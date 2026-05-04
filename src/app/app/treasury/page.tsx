@@ -58,7 +58,7 @@ export default function TreasuryPage() {
     proposals,
   } = useVault();
 
-  const holdings: Holding[] = useMemo(() => {
+  const holdings: HeroHolding[] = useMemo(() => {
     const tokens = (vaultTokens ?? []) as any[];
     if (tokens.length === 0) return [];
     return tokens
@@ -67,13 +67,11 @@ export default function TreasuryPage() {
         return {
           symbol: sym,
           label: SYMBOL_LABELS[sym] ?? sym,
-          share: 0,
           value: typeof t.value === "number" ? t.value : 0,
         };
       })
       .filter((h) => h.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+      .sort((a, b) => b.value - a.value);
   }, [vaultTokens]);
 
   const stableBalance = useMemo(() => {
@@ -83,10 +81,14 @@ export default function TreasuryPage() {
       .reduce((s, t) => s + (typeof t.value === "number" ? t.value : 0), 0);
   }, [vaultTokens]);
 
+  const basket = useMemo(() => {
+    const total = holdings.reduce((s, h) => s + h.value, 0);
+    if (total <= 0) return [{ symbol: "SOL", weight: 1 }];
+    return holdings.slice(0, 5).map((h) => ({ symbol: h.symbol, weight: h.value / total }));
+  }, [holdings]);
+
   return (
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
-      <AmbientGlow className="right-[-160px] top-[-200px]" />
-
       <header className="relative z-10 mx-auto hidden max-w-6xl items-center justify-between gap-3 px-4 py-3 md:flex md:px-6 md:py-4">
         <Link href="/app" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-violet-700">
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -98,48 +100,35 @@ export default function TreasuryPage() {
         <WalletButton />
       </header>
 
-      {/* HERO — compact */}
+      {/* HERO — sovereign cockpit */}
       <section className="relative z-10 mx-auto max-w-6xl px-4 pt-4 sm:px-6 sm:pt-2">
-        <StreamIn className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Your treasury</p>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">A clear picture, nothing more.</h1>
-          <p className="max-w-xl text-sm text-slate-600">
-            What you own, who can move it, and where it could be working a little harder. Ask Dreyv anything below — the canvas fills in.
-          </p>
-        </StreamIn>
-
-        <StreamIn delay={0.1} className="mt-5 grid gap-4 md:grid-cols-[1.05fr_1fr]">
-          <Surface glow className="p-4 sm:p-5">
-            <HeadlineValue
-              label="Total value"
-              value={vaultValue}
-              hint={
-                vaultChange24h !== null && vaultChange24h !== undefined
-                  ? `${vaultChange24h >= 0 ? "+" : ""}${vaultChange24h.toFixed(2)}% in the last 24 hours`
-                  : undefined
-              }
-            />
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-violet-100 pt-4 sm:gap-3">
-              <SmallStat label="Assets" value={holdings.length} />
-              <SmallStat label="24h change" value={vaultChange24h} suffix="%" decimals={2} signed />
-              <SmallStat label="Largest" text={holdings[0]?.label ?? "—"} />
-            </div>
-          </Surface>
-
-          <CompositionStrip holdings={holdings} />
+        <StreamIn>
+          <SovereignHero
+            totalValue={vaultValue}
+            change24h={vaultChange24h}
+            holdings={holdings}
+            assetCount={holdings.length}
+            stableBalance={stableBalance}
+            signers={vaultConfig}
+            isMultisig={isMultisig}
+            pendingApprovals={proposals?.length ?? 0}
+            basket={basket}
+          />
         </StreamIn>
       </section>
 
-      {/* PULSE — empty/connect state if no vault */}
+      {/* Connect-state — only when there's no vault */}
       {!activeVault && (
-        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
-          <Surface className="p-4 text-center sm:p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Get started</p>
-            <h2 className="mt-1.5 text-lg font-semibold tracking-tight">Connect a treasury to begin</h2>
-            <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-              Link a Phantom wallet, a Squads multisig, or paste any address to watch — Dreyv will populate everything below.
-            </p>
-            <div className="mt-3 flex flex-col justify-center gap-2 sm:flex-row">
+        <section className="relative z-10 mx-auto mt-5 max-w-6xl px-4 sm:px-6">
+          <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/50 px-5 py-4 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <DreyvStar size={14} className="text-violet-600" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Connect a treasury to begin</p>
+                <p className="text-xs text-slate-600">Phantom, Squads multisig, or any address — read-only is fine.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
               <button
                 onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Connect a wallet to my treasury", autoSubmit: false })}
                 className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700"
@@ -148,12 +137,12 @@ export default function TreasuryPage() {
               </button>
               <button
                 onClick={() => AppEventBus.emit("AGENT_COMMAND", { command: "Show me an example treasury walkthrough", autoSubmit: false })}
-                className="rounded-xl border border-violet-200 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50"
+                className="rounded-xl border border-violet-200 bg-white px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50"
               >
-                Show me how it works
+                Show me how
               </button>
             </div>
-          </Surface>
+          </div>
         </section>
       )}
 
