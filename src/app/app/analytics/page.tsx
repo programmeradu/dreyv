@@ -27,7 +27,6 @@ import { ExportButtons } from "@/components/analytics/ExportButtons";
 import { AnalyticsCockpit } from "@/components/analytics/AnalyticsCockpit";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { AnomalyChips } from "@/components/analytics/AnomalyChips";
-import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
 import { FeesBreakdown } from "@/components/analytics/FeesBreakdown";
 import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
 import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
@@ -155,12 +154,11 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
-        {/* ── Row 5 — Coverage grid: 4 dense panels ────────────────── */}
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StreamIn delay={0.02}><ConcentrationHHI vaultTokens={vaultTokens ?? []} /></StreamIn>
-          <StreamIn delay={0.04}><FeesBreakdown events={(events?.events ?? null) as any} totalFeeUsd={aggregates?.feeUsd ?? 0} /></StreamIn>
-          <StreamIn delay={0.06}><FlowsByCategory events={(events?.events ?? null) as any} /></StreamIn>
-          <StreamIn delay={0.08}><BenchmarkVsMarket valueSeries={valueSeries} benchmark="SOL" /></StreamIn>
+        {/* ── Row 5 — Coverage grid: 3 dense panels ────────────────── */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StreamIn delay={0.02}><FeesBreakdown events={(events?.events ?? null) as any} totalFeeUsd={aggregates?.feeUsd ?? 0} /></StreamIn>
+          <StreamIn delay={0.04}><FlowsByCategory events={(events?.events ?? null) as any} /></StreamIn>
+          <StreamIn delay={0.06}><BenchmarkVsMarket valueSeries={valueSeries} benchmark="SOL" /></StreamIn>
         </div>
 
         {/* ── Row 6 — Smart insights (streamed, full-width) ────────── */}
