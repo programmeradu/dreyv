@@ -240,7 +240,7 @@ function TreasuryBlockSeeder({
         (s: number, t: any) => s + (typeof t.value === "number" ? t.value : 0),
         0,
       );
-      const rows = (vaultTokens ?? [])
+      const mapped = (vaultTokens ?? [])
         .map((t: any) => ({
           symbol: (t.symbol ?? "").toUpperCase() || "Asset",
           label: SYMBOL_LABELS[(t.symbol ?? "").toUpperCase()] ?? t.symbol,
@@ -250,8 +250,15 @@ function TreasuryBlockSeeder({
           value: typeof t.value === "number" ? t.value : undefined,
           change24h: typeof t.priceChange24h === "number" ? t.priceChange24h : undefined,
         }))
-        .filter((r: any) => r.value && r.value > 0)
-        .sort((a: any, b: any) => (b.value ?? 0) - (a.value ?? 0));
+        .filter((r: any) => (r.balance && r.balance > 0) || (r.value && r.value > 0) || r.symbol === "SOL");
+      if (!mapped.some((r: any) => r.symbol === "SOL")) {
+        mapped.push({ symbol: "SOL", label: "Solana", logo: undefined, mint: "So11111111111111111111111111111111111111112", balance: 0, value: 0, change24h: undefined });
+      }
+      const rows = mapped.sort((a: any, b: any) => {
+        if (a.symbol === "SOL") return -1;
+        if (b.symbol === "SOL") return 1;
+        return (b.value ?? 0) - (a.value ?? 0);
+      });
       addBlock({
         id,
         type: "tokens-table",
