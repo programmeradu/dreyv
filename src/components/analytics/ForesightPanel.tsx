@@ -2,16 +2,20 @@
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
- * ForesightPanel — renders Monte Carlo bands (P10/P50/P90), risk flags,
- * and a streaming LLM narrative for the current vault. Driven by
- * useForesightFoundation. Phase 14.
+ * ForesightPanel — Monte Carlo fan chart with meaningful encodings:
+ *  - x-axis: time (today → +N months) with month ticks
+ *  - y-axis: USD value with axis labels (current, +/- bands)
+ *  - bands: P10–P90 outer fan + P25–P75 inner band for true uncertainty shape
+ *  - markers: TODAY anchor, MEDIAN endpoint, depletion floor ($0) when relevant
+ *  - hover crosshair → date + median + range tooltip
+ *  - footer stats use SignalBadge tone system (no amber/emerald stoplights)
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import { Surface, Pill, StreamingNumber } from "@/components/app-shell/primitives";
+import { Surface } from "@/components/app-shell/primitives";
+import { SignalBadge, severityFromScore } from "@/components/analytics/SignalBadge";
 
-interface ProjectionPoint { date: string; p10: number; p50: number; p90: number; mean: number }
+interface ProjectionPoint { date: string; p10: number; p50: number; p90: number; mean: number; p25?: number; p75?: number }
 interface Summary {
   currentValue: number;
   p10: number;
@@ -40,15 +44,25 @@ function fmtCompact(n: number): string {
   if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
-  return `${sign}$${abs.toFixed(0)}`;
+  if (abs >= 1) return `${sign}$${abs.toFixed(0)}`;
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
+function fmtMonth(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en-US", { month: "short" });
+  } catch {
+    return "";
+  }
 }
 
 export function ForesightPanel({ projection, summary, attribution, timeframeMonths, loading }: Props) {
   const [narrative, setNarrative] = useState<string>("");
   const [streaming, setStreaming] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
   const lastSummaryKey = useRef<string>("");
 
-  // ── Stream narrative whenever the summary changes meaningfully ──────
   useEffect(() => {
     if (!summary) return;
     const key = `${summary.p50.toFixed(0)}|${summary.p10.toFixed(0)}|${summary.p90.toFixed(0)}|${summary.depletionProbability}`;
@@ -65,11 +79,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: ctrl.signal,
-          body: JSON.stringify({
-            summary,
-            timeframeMonths,
-            attribution: attribution ?? undefined,
-          }),
+          body: JSON.stringify({ summary, timeframeMonths, attribution: attribution ?? undefined }),
         });
         if (!res.ok || !res.body) {
           setNarrative("Foresight narrator is unavailable right now.");
@@ -112,22 +122,63 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
   }, [summary, attribution, timeframeMonths]);
 
   const chart = useMemo(() => {
-    if (!projection.length) return null;
-    const w = 600, h = 180, padX = 6, padY = 8;
-    const minY = Math.min(...projection.map((p) => p.p10));
-    const maxY = Math.max(...projection.map((p) => p.p90));
+    if (!projection.length || !summary) return null;
+    const w = 720, h = 260;
+    const padL = 56, padR = 16, padT = 18, padB = 32;
+    const innerW = w - padL - padR;
+    const innerH = h - padT - padB;
+
+    // include current value as anchor at index -1 (today)
+    const series = [
+      { date: "today", p10: summary.currentValue, p25: summary.currentValue, p50: summary.currentValue, p75: summary.currentValue, p90: summary.currentValue, mean: summary.currentValue },
+      ...projection.map((p) => ({
+        ...p,
+        p25: p.p25 ?? p.p10 + (p.p50 - p.p10) * 0.5,
+        p75: p.p75 ?? p.p50 + (p.p90 - p.p50) * 0.5,
+      })),
+    ];
+
+    const minY = Math.min(0, ...series.map((p) => p.p10));
+    const maxY = Math.max(...series.map((p) => p.p90), summary.currentValue);
     const range = maxY - minY || 1;
-    const x = (i: number) => padX + (i / (projection.length - 1)) * (w - 2 * padX);
-    const y = (v: number) => padY + (1 - (v - minY) / range) * (h - 2 * padY);
 
-    const bandPath =
-      "M " + projection.map((p, i) => `${x(i)},${y(p.p90)}`).join(" L ") +
-      " L " + projection.slice().reverse().map((p, i) => `${x(projection.length - 1 - i)},${y(p.p10)}`).join(" L ") +
+    const x = (i: number) => padL + (i / (series.length - 1)) * innerW;
+    const y = (v: number) => padT + (1 - (v - minY) / range) * innerH;
+
+    const buildBand = (lo: (p: typeof series[number]) => number, hi: (p: typeof series[number]) => number) =>
+      "M " + series.map((p, i) => `${x(i)},${y(hi(p))}`).join(" L ") +
+      " L " + series.slice().reverse().map((p, i) => `${x(series.length - 1 - i)},${y(lo(p))}`).join(" L ") +
       " Z";
-    const medianPath = "M " + projection.map((p, i) => `${x(i)},${y(p.p50)}`).join(" L ");
 
-    return { w, h, bandPath, medianPath };
-  }, [projection]);
+    const outerBand = buildBand((p) => p.p10, (p) => p.p90);
+    const innerBand = buildBand((p) => p.p25!, (p) => p.p75!);
+    const medianPath = "M " + series.map((p, i) => `${x(i)},${y(p.p50)}`).join(" L ");
+
+    // y-axis ticks (4)
+    const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
+      const v = minY + range * t;
+      return { v, y: y(v) };
+    });
+
+    // x-axis ticks (every ~quarter)
+    const tickEvery = Math.max(1, Math.round(series.length / 5));
+    const xTicks: { i: number; x: number; label: string }[] = [];
+    for (let i = 0; i < series.length; i += tickEvery) {
+      xTicks.push({
+        i,
+        x: x(i),
+        label: i === 0 ? "today" : fmtMonth(series[i].date),
+      });
+    }
+
+    return {
+      w, h, padL, padR, padT, padB, innerW, innerH,
+      series, x, y, outerBand, innerBand, medianPath, yTicks, xTicks,
+      minY, maxY,
+      zeroY: minY < 0 ? null : y(0),
+      todayY: y(summary.currentValue),
+    };
+  }, [projection, summary]);
 
   if (!summary) {
     return (
@@ -144,7 +195,12 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
   }
 
   const depletionPct = Math.round(summary.depletionProbability * 100);
-  const depletionTone: "violet" | "amber" | "slate" = depletionPct >= 50 ? "amber" : depletionPct >= 20 ? "violet" : "slate";
+  const depletionSeverity = severityFromScore(summary.depletionProbability);
+  const upside = summary.currentValue > 0 ? ((summary.p90 - summary.currentValue) / summary.currentValue) * 100 : 0;
+  const downside = summary.currentValue > 0 ? ((summary.p10 - summary.currentValue) / summary.currentValue) * 100 : 0;
+  const expected = summary.currentValue > 0 ? ((summary.p50 - summary.currentValue) / summary.currentValue) * 100 : 0;
+
+  const hp = hover != null && chart ? chart.series[hover] : null;
 
   return (
     <Surface className="p-7">
@@ -157,45 +213,184 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           <h3 className="mt-2 font-manrope text-2xl font-semibold tracking-tight text-slate-900">
             Where your treasury could land
           </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            200 Monte Carlo paths · shaded band = 80% confidence · inner band = 50% · line = median
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Pill tone={depletionTone}>{depletionPct}% depletion risk</Pill>
+          <SignalBadge severity={depletionSeverity}>{depletionPct}% depletion risk</SignalBadge>
           {summary.medianDepletionMonths != null && (
-            <Pill tone="amber"><AlertTriangle className="mr-1 inline h-3 w-3" />~{summary.medianDepletionMonths} mo runway</Pill>
+            <SignalBadge severity="watch">~{summary.medianDepletionMonths} mo runway</SignalBadge>
           )}
         </div>
       </div>
 
-      {/* Bands chart */}
+      {/* Fan chart */}
       {chart && (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-          <svg viewBox={`0 0 ${chart.w} ${chart.h}`} className="h-44 w-full">
-            <path d={chart.bandPath} fill="rgb(124 58 237 / 0.18)" />
-            <path d={chart.medianPath} stroke="rgb(124 58 237)" strokeWidth="2" fill="none" />
+        <div className="mt-6 overflow-hidden rounded-2xl border border-violet-100 bg-white p-4">
+          <svg
+            viewBox={`0 0 ${chart.w} ${chart.h}`}
+            className="h-[260px] w-full"
+            preserveAspectRatio="none"
+            onMouseLeave={() => setHover(null)}
+            onMouseMove={(e) => {
+              const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+              const px = ((e.clientX - rect.left) / rect.width) * chart.w;
+              let best = 0; let bestD = Infinity;
+              chart.series.forEach((_, i) => {
+                const d = Math.abs(chart.x(i) - px);
+                if (d < bestD) { bestD = d; best = i; }
+              });
+              setHover(best);
+            }}
+          >
+            {/* y gridlines + labels */}
+            {chart.yTicks.map((t, i) => (
+              <g key={i}>
+                <line
+                  x1={chart.padL}
+                  x2={chart.w - chart.padR}
+                  y1={t.y}
+                  y2={t.y}
+                  stroke="#ede9fe"
+                  strokeDasharray="2 4"
+                />
+                <text
+                  x={chart.padL - 8}
+                  y={t.y + 3}
+                  textAnchor="end"
+                  fontSize="10"
+                  className="fill-slate-400"
+                >
+                  {fmtCompact(t.v)}
+                </text>
+              </g>
+            ))}
+
+            {/* zero / depletion floor */}
+            {chart.zeroY != null && (
+              <g>
+                <line
+                  x1={chart.padL}
+                  x2={chart.w - chart.padR}
+                  y1={chart.zeroY}
+                  y2={chart.zeroY}
+                  stroke="#0f172a"
+                  strokeWidth={1}
+                  strokeOpacity={0.5}
+                  strokeDasharray="4 3"
+                />
+                <text
+                  x={chart.w - chart.padR - 4}
+                  y={chart.zeroY - 4}
+                  textAnchor="end"
+                  fontSize="9"
+                  className="fill-slate-700"
+                  fontWeight={600}
+                >
+                  depletion floor
+                </text>
+              </g>
+            )}
+
+            {/* today line */}
+            <line
+              x1={chart.padL}
+              x2={chart.w - chart.padR}
+              y1={chart.todayY}
+              y2={chart.todayY}
+              stroke="#7c3aed"
+              strokeOpacity={0.35}
+              strokeDasharray="3 4"
+            />
+            <text
+              x={chart.padL + 4}
+              y={chart.todayY - 4}
+              fontSize="9"
+              className="fill-violet-700"
+              fontWeight={600}
+            >
+              today · {fmtCompact(summary.currentValue)}
+            </text>
+
+            {/* outer + inner bands */}
+            <path d={chart.outerBand} fill="#7c3aed" fillOpacity={0.10} />
+            <path d={chart.innerBand} fill="#7c3aed" fillOpacity={0.22} />
+            <path d={chart.medianPath} stroke="#5b21b6" strokeWidth={2} fill="none" strokeLinecap="round" />
+
+            {/* endpoint markers */}
+            {(() => {
+              const last = chart.series[chart.series.length - 1];
+              const lx = chart.x(chart.series.length - 1);
+              return (
+                <g>
+                  <circle cx={lx} cy={chart.y(last.p50)} r={4} fill="#5b21b6" />
+                  <circle cx={lx} cy={chart.y(last.p90)} r={2.5} fill="#a78bfa" />
+                  <circle cx={lx} cy={chart.y(last.p10)} r={2.5} fill="#a78bfa" />
+                </g>
+              );
+            })()}
+
+            {/* x-axis labels */}
+            {chart.xTicks.map((t, i) => (
+              <text
+                key={i}
+                x={t.x}
+                y={chart.h - 12}
+                textAnchor="middle"
+                fontSize="10"
+                className="fill-slate-500"
+              >
+                {t.label}
+              </text>
+            ))}
+
+            {/* hover crosshair + tooltip */}
+            {hp && hover != null && (
+              <g>
+                <line
+                  x1={chart.x(hover)}
+                  x2={chart.x(hover)}
+                  y1={chart.padT}
+                  y2={chart.h - chart.padB}
+                  stroke="#7c3aed"
+                  strokeOpacity={0.4}
+                />
+                <circle cx={chart.x(hover)} cy={chart.y(hp.p50)} r={4.5} fill="#7c3aed" />
+                <circle cx={chart.x(hover)} cy={chart.y(hp.p50)} r={9} fill="#7c3aed" fillOpacity={0.18} />
+              </g>
+            )}
           </svg>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Worst 10%</div>
-              <div className="font-manrope text-lg font-semibold text-amber-700">{fmtCompact(summary.p10)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Median</div>
-              <div className="font-manrope text-lg font-semibold text-violet-700">
-                <StreamingNumber value={summary.p50} prefix="$" decimals={0} />
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Best 10%</div>
-              <div className="font-manrope text-lg font-semibold text-slate-900">{fmtCompact(summary.p90)}</div>
-            </div>
+
+          {/* Hover readout (or default) */}
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <Stat
+              label={hp ? `${hp.date === "today" ? "today" : fmtMonth(hp.date)} · worst 10%` : "Worst 10%"}
+              value={fmtCompact(hp ? hp.p10 : summary.p10)}
+              tone="muted"
+              delta={hp ? null : downside}
+            />
+            <Stat
+              label={hp ? `${hp.date === "today" ? "today" : fmtMonth(hp.date)} · median` : "Median"}
+              value={fmtCompact(hp ? hp.p50 : summary.p50)}
+              tone="primary"
+              delta={hp ? null : expected}
+            />
+            <Stat
+              label={hp ? `${hp.date === "today" ? "today" : fmtMonth(hp.date)} · best 10%` : "Best 10%"}
+              value={fmtCompact(hp ? hp.p90 : summary.p90)}
+              tone="muted"
+              delta={hp ? null : upside}
+            />
           </div>
         </div>
       )}
 
       {/* Narrative */}
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-          {streaming ? "Narrating…" : "Insight"}
+      <div className="mt-6 rounded-2xl border border-violet-100 bg-white p-5">
+        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
+          <DreyvStar size={9} />
+          <span>{streaming ? "Narrating…" : "Insight"}</span>
         </div>
         <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
           {narrative || (streaming ? "…" : "No narrative yet.")}
@@ -206,10 +401,36 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
       {summary.riskFlags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {summary.riskFlags.map((f) => (
-            <Pill key={f} tone="amber">{f.replace(/_/g, " ").toLowerCase()}</Pill>
+            <SignalBadge key={f} severity="watch">{f.replace(/_/g, " ").toLowerCase()}</SignalBadge>
           ))}
         </div>
       )}
     </Surface>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  tone,
+  delta,
+}: {
+  label: string;
+  value: string;
+  tone: "primary" | "muted";
+  delta: number | null;
+}) {
+  return (
+    <div className="rounded-xl border border-violet-100 bg-white px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`mt-1 font-manrope text-lg font-semibold ${tone === "primary" ? "text-violet-700" : "text-slate-900"}`}>
+        {value}
+      </div>
+      {delta != null && Number.isFinite(delta) && (
+        <div className="mt-0.5 text-[10px] font-medium text-slate-500">
+          {delta >= 0 ? "▲" : "▼"} {delta >= 0 ? "+" : ""}{delta.toFixed(1)}% vs today
+        </div>
+      )}
+    </div>
   );
 }
