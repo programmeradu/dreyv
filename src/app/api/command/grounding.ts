@@ -33,6 +33,15 @@ export function isSimpleConversation(text: string): boolean {
   return /^(hi|hello|hey|yo|sup|gm|gn|good\s+morning|good\s+afternoon|good\s+evening|thanks|thank\s+you|ok|okay|cool|nice)\b[!.?\s]*$/.test(t);
 }
 
+export function isWalletProviderSupportQuestion(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  const mentionsWalletProvider = /\b(phantom|wallet|account|dapp|transaction fee|fees?|sol)\b/.test(t);
+  const mentionsSupportSymptom =
+    /\b(malicious|blocked?|block transactions?|warning|unsafe|safe|flagged|scam|can't transfer|cannot transfer|cant transfer|insufficient|no transaction fees?|do not have.*fees?|don't have.*fees?|fee shortage|mark.*safe)\b/.test(t);
+  return mentionsWalletProvider && mentionsSupportSymptom;
+}
+
 export function classifyEvidenceNeed(userText: string): EvidenceClass {
   const t = userText.trim().toLowerCase();
   if (!t || isSimpleConversation(t)) return "conversational";

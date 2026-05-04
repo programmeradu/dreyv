@@ -159,6 +159,7 @@ import {
   type EvidenceClass,
   type GroundingGateResult,
   isSimpleConversation,
+  isWalletProviderSupportQuestion,
   classifyEvidenceNeed,
   validateNavigationPath,
   buildBudgetedMessages,
@@ -231,6 +232,7 @@ export async function POST(req: Request) {
     const lowerUserRequest = userRequestText.toLowerCase();
     const promptMode = parsePromptMode(userRequestText);
     const simpleConversation = isSimpleConversation(userRequestText);
+    const walletSupportQuestion = isWalletProviderSupportQuestion(userRequestText);
     const evidenceClass = classifyEvidenceNeed(userRequestText);
     const observedGrounding = {
       lookupSuccess: false,
@@ -395,7 +397,7 @@ export async function POST(req: Request) {
       system: effectiveSystemPrompt,
       messages: budgeted.messages,
       stopWhen: stepCountIs(10),
-      ...(simpleConversation ? {} : { tools: strictToolSubset }),
+        ...(simpleConversation || walletSupportQuestion ? {} : { tools: strictToolSubset }),
       ...(
         strictGrounding &&
         !simpleConversation &&
