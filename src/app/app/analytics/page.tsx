@@ -109,9 +109,8 @@ export default function AnalyticsPage() {
             <span className="hidden sm:inline">Home</span>
           </Link>
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-600 text-white">
-              <Sparkles className="h-3 w-3" />
-            </span>
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
               Analytics
             </span>
