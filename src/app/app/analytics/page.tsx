@@ -138,9 +138,14 @@ export default function AnalyticsPage() {
         {/* ── Row 4 — PnL waterfall + Foresight side-by-side ───────── */}
         <div className="mt-3 grid gap-3 lg:grid-cols-12">
           <Card className="lg:col-span-7" eyebrow="PnL · day-by-day" title="Where the money moved">
-            <PnlWaterfall wallet={activeVault ?? null} range="30d" />
-            <div className="mt-3">
+            <MoneyMovementLedger
+              wallet={activeVault ?? null}
+              range="30d"
+              snapshotSeries={valueSeries}
+            />
+            <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500">
               <ExportButtons range="30d" />
+              <span className="text-slate-400">spreadsheet · branded report</span>
             </div>
           </Card>
           <Card className="lg:col-span-5" eyebrow="Foresight · 12mo" title="200 Monte Carlo paths">
