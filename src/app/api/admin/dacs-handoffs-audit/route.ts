@@ -9,13 +9,44 @@
  * Read-only. Returns 503 if DB isn't configured.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { dacsHandoffs } from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { jwtVerify } from "jose";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function requireAdmin(req: NextRequest) {
+  if (!db) return { ok: false as const, status: 503, error: "db_not_configured" };
+  const authHeader = req.headers.get("Authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+  const token =
+    bearer ||
+    req.cookies.get("keystone-siws-session")?.value ||
+    req.cookies.get("better-auth.session_token")?.value ||
+    req.cookies.get("__Secure-neon-auth.session_token")?.value ||
+    req.cookies.get("neon-auth.session_token")?.value ||
+    null;
+  if (!token) return { ok: false as const, status: 401, error: "unauthorized" };
+  try {
+    const jwtSecret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+    if (!jwtSecret) return { ok: false as const, status: 503, error: "auth_not_configured" };
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
+    const wallet = (payload as any).wallet || payload.sub;
+    if (!wallet) return { ok: false as const, status: 401, error: "unauthorized" };
+    const liveUser = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.walletAddress, wallet as string),
+    });
+    if (!liveUser || liveUser.role !== "admin") {
+      return { ok: false as const, status: 403, error: "forbidden" };
+    }
+  } catch {
+    return { ok: false as const, status: 401, error: "invalid_token" };
+  }
+  return { ok: true as const };
+}
 
 interface SpecialistBucket {
   specialist: string;
@@ -45,7 +76,9 @@ function percentile(sorted: number[], p: number): number | null {
   return sorted[idx];
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req);
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   if (!db) {
     return NextResponse.json({ error: "db_not_configured" }, { status: 503 });
   }

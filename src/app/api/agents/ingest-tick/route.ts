@@ -21,11 +21,12 @@ const HEADER = "x-dreyv-agent-key";
 
 export async function POST(req: Request) {
   const expected = process.env.DREYV_AGENT_KEY;
-  if (expected) {
-    const got = req.headers.get(HEADER);
-    if (got !== expected) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
+  if (!expected) {
+    return NextResponse.json({ ok: false, error: "not_configured" }, { status: 503 });
+  }
+  const got = req.headers.get(HEADER);
+  if (got !== expected) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   let body: any;
