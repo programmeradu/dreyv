@@ -55,7 +55,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
   if (!active || !result || !view) return null;
 
   const s = result.summary;
-  const tone = s.deltaPercent >= 0 ? "emerald" : "rose";
+  const tone: "violet" | "amber" = s.deltaPercent >= 0 ? "violet" : "amber";
 
   return (
     <Surface className="p-7">
@@ -73,7 +73,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
             <StreamingNumber value={s.deltaPercent} suffix="%" decimals={1} duration={0.6} />
           </Pill>
           {s.runwayMonths != null && (
-            <Pill tone="rose">~{s.runwayMonths} mo runway</Pill>
+            <Pill tone="slate">~{s.runwayMonths} mo runway</Pill>
           )}
         </div>
       </div>
