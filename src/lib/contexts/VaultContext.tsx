@@ -420,15 +420,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
                 value: totalSolBalance * (solMeta.price || 0)
             };
 
-            // Filter out truly unknown tokens: $0 value AND no recognized symbol/name
-            // These are likely spam/airdrop tokens. Tokens with value OR recognized metadata are kept.
-            // User-imported tokens always pass the filter.
+            // Show every token the wallet holds. We used to filter by metadata
+            // identity, but that drops legit tokens whose price provider is slow.
+            // Spam can still be hidden via the import/hide UI.
             const importedSet = new Set(importedMints);
             const recognizedTokens = enrichedTokens.filter(t => {
                 if (importedSet.has(t.mint)) return true;
-                const hasValue = t.value > 0;
-                const hasIdentity = t.symbol !== "SPL" && t.name !== "Unknown Token";
-                return hasValue || hasIdentity;
+                // Drop only true zero-balance dust we never imported.
+                return (t.amount ?? 0) > 0;
             });
 
             // Calculate total staked SOL value
