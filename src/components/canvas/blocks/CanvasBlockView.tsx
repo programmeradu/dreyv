@@ -538,6 +538,10 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
   const rows = asArray<TokenRow>(block.payload.rows);
   const total = asNumber(block.payload.totalValue);
   const empty = rows.length === 0;
+  const [expanded, setExpanded] = React.useState(false);
+  const COLLAPSED = 6;
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED);
+  const hiddenCount = Math.max(0, rows.length - COLLAPSED);
 
   const handleAct = (verb: string, sym: string) => {
     AppEventBus.emit("AGENT_COMMAND", { command: `${verb} ${sym}`, autoSubmit: false });
@@ -559,7 +563,7 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
             <span />
           </div>
           <ul className="divide-y divide-violet-100/70">
-            {rows.slice(0, 12).map((r) => {
+            {visibleRows.map((r) => {
               const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
               return (
                 <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-3 py-2 text-sm md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] md:gap-3">
@@ -584,6 +588,14 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
               );
             })}
           </ul>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full border-t border-violet-100 bg-white px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50/60"
+            >
+              {expanded ? "Show less" : `Show all ${rows.length} assets`}
+            </button>
+          )}
           {total !== null && (
             <div className="flex items-center justify-between border-t border-violet-100 bg-violet-50/40 px-4 py-2 text-xs">
               <span className="text-slate-500">{rows.length} assets</span>
