@@ -234,7 +234,22 @@ export function CommandBar() {
           description: `${sigs.length} transaction(s) confirmed. Sig: ${sigs[0]?.slice(0, 12)}…`,
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
+        let msg = err instanceof Error ? err.message : String(err);
+        // web3.js SendTransactionError stashes RPC logs behind getLogs()
+        // and they're the only useful signal for "this account may not be
+        // used to pay transaction fees" / "insufficient lamports" failures.
+        try {
+          const anyErr = err as { getLogs?: (c?: unknown) => Promise<string[] | null> };
+          if (typeof anyErr?.getLogs === "function") {
+            const logs = await anyErr.getLogs(connection).catch(() => null);
+            if (logs && logs.length) {
+              msg += `\n\nProgram logs:\n${logs.join("\n")}`;
+              console.error("[CommandBar] SendTransactionError logs:\n" + logs.join("\n"));
+            }
+          }
+        } catch {
+          /* non-fatal */
+        }
         console.error("[CommandBar] Signing error:", msg);
         setSigningStatus("error");
         if (msg.includes("User rejected") || msg.includes("cancelled")) {
@@ -242,7 +257,7 @@ export function CommandBar() {
             description: "You declined the signing request.",
           });
         } else {
-          toast.error("Signing failed", { description: msg });
+          toast.error("Signing failed", { description: msg.slice(0, 600) });
         }
       }
     },
