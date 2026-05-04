@@ -413,7 +413,7 @@ export default function MediaStudioClient() {
         </header>
 
         {/* Mode tabs */}
-        <div className="mt-6 grid grid-cols-2 gap-1.5 rounded-2xl border border-studio-border bg-white/80 p-1.5 backdrop-blur sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-1.5 rounded-2xl border border-studio-border bg-white/80 p-1.5 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
           {MODES.map((m) => {
             const Icon = m.icon;
             const active = mode === m.id;
@@ -421,6 +421,12 @@ export default function MediaStudioClient() {
               <button
                 key={m.id}
                 onClick={() => {
+                  if (m.id === "mascot") {
+                    setMode("mascot");
+                    setAspect("1:1");
+                    resetOutput();
+                    return;
+                  }
                   const next = jobs.find((job) => job.kind === m.id) ?? selectedJob;
                   applyJob(next);
                 }}
