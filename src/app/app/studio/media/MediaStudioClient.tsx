@@ -787,6 +787,7 @@ export default function MediaStudioClient() {
                 </div>
               )}
             </section>
+            </>)}
           </aside>
 
           {/* RIGHT: Output canvas */}
