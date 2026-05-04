@@ -552,10 +552,11 @@ export function AnalyticsCockpit({
           {signals.length > 0 && (
             <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
               {signals.map((s, i) => {
-                const tone =
-                  s.severity >= 0.7 ? { ring: "border-rose-200", dot: "bg-rose-500", chip: "text-rose-700 bg-rose-50 border-rose-200", word: "high" } :
-                  s.severity >= 0.4 ? { ring: "border-amber-200", dot: "bg-amber-500", chip: "text-amber-700 bg-amber-50 border-amber-200", word: "watch" } :
-                                      { ring: "border-emerald-200", dot: "bg-emerald-500", chip: "text-emerald-700 bg-emerald-50 border-emerald-200", word: "good" };
+                const sev = severityFromScore(s.severity);
+                const ring =
+                  sev === "risk"  ? "border-slate-300" :
+                  sev === "watch" ? "border-amber-200" :
+                                    "border-violet-100";
                 const open = openSignal === s.id;
                 return (
                   <motion.div
@@ -568,17 +569,14 @@ export function AnalyticsCockpit({
                       type="button"
                       onClick={() => setOpenSignal(open ? null : s.id)}
                       className={`group w-full rounded-2xl border bg-white p-3.5 text-left transition-colors ${
-                        open ? "border-violet-300" : tone.ring + " hover:border-violet-200"
+                        open ? "border-violet-300" : ring + " hover:border-violet-200"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                           {s.label}
                         </span>
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.chip}`}>
-                          <span className={`h-1.5 w-1.5 rounded-sm ${tone.dot}`} aria-hidden />
-                          {tone.word}
-                        </span>
+                        <SignalBadge severity={sev} />
                       </div>
                       <p className="mt-2 text-sm leading-snug text-slate-800">{s.reading}</p>
                       <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700">
@@ -631,19 +629,19 @@ export function AnalyticsCockpit({
               label="Inflows · 30d"
               value={fmtCompact(attribution?.inflowUsd ?? 0)}
               hint={`${fmtCompact(attribution?.monthlyInflow ?? 0)}/mo`}
-              emphasis={(attribution?.inflowUsd ?? 0) > 0 ? "emerald" : "default"}
+              emphasis={(attribution?.inflowUsd ?? 0) > 0 ? "violet" : "default"}
             />
             <KpiTile
               label="Outflows · 30d"
               value={fmtCompact(attribution?.outflowUsd ?? 0)}
               hint={`${fmtCompact(attribution?.monthlyBurnRate ?? 0)}/mo burn`}
-              emphasis={(attribution?.outflowUsd ?? 0) > 0 ? "rose" : "default"}
+              emphasis={(attribution?.outflowUsd ?? 0) > 0 ? "amber" : "default"}
             />
             <KpiTile
               label="Yield · APY"
               value={attribution?.annualYieldRate ? `${(attribution.annualYieldRate * 100).toFixed(2)}%` : "—"}
               hint={fmtCompact(attribution?.yieldUsd ?? 0)}
-              emphasis={(attribution?.yieldUsd ?? 0) > 0 ? "violet" : "default"}
+              emphasis={(attribution?.yieldUsd ?? 0) > 0 ? "ink" : "default"}
             />
             <KpiTile
               label="Runway"
