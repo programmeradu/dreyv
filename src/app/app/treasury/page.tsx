@@ -444,38 +444,3 @@ function TreasuryBlockSeeder({
   return null;
 }
 
-function SmallStat({
-  label,
-  value,
-  text,
-  suffix = "",
-  decimals = 0,
-  signed = false,
-}: {
-  label: string;
-  value?: number | null;
-  text?: string;
-  suffix?: string;
-  decimals?: number;
-  signed?: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
-      <div className="text-xl font-semibold tracking-tight text-slate-900">
-        {text ? (
-          text
-        ) : value === null || value === undefined ? (
-          <span className="text-slate-300">—</span>
-        ) : (
-          <StreamingNumber
-            value={value}
-            prefix={signed && value >= 0 ? "+" : ""}
-            suffix={suffix}
-            decimals={decimals}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
