@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * `/app/analytics` — compact, dense, grid-first layout.
@@ -109,7 +110,7 @@ export default function AnalyticsPage() {
             <span className="hidden sm:inline">Home</span>
           </Link>
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+            <DreyvStar size={12} />
 
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
               Analytics

@@ -1,4 +1,5 @@
 "use client";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * ScenarioBanner — sticky-ish header that announces the active what-if
@@ -64,7 +65,7 @@ export function ScenarioBanner() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+            <DreyvStar size={12} />
             Scenario overlay · {timeframeMonths}-month
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
