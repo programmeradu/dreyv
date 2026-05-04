@@ -271,24 +271,25 @@ function KpiTile({
   label: string;
   value: string;
   hint?: string;
-  emphasis?: "default" | "violet" | "emerald" | "rose";
+  emphasis?: "default" | "violet" | "ink" | "amber";
 }) {
   const tones = {
     default: "border-violet-100 bg-white",
     violet: "border-violet-200 bg-violet-50/60",
-    emerald: "border-emerald-200 bg-emerald-50/60",
-    rose: "border-rose-200 bg-rose-50/60",
+    ink: "border-slate-900 bg-slate-900 text-white",
+    amber: "border-amber-200 bg-amber-50/60",
   } as const;
+  const isInk = emphasis === "ink";
   return (
     <div className={`rounded-2xl border px-4 py-3 ${tones[emphasis]}`}>
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-600">
-        <DreyvStar size={9} className="text-violet-500" />
+      <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${isInk ? "text-violet-300" : "text-violet-600"}`}>
+        <DreyvStar size={9} className={isInk ? "text-violet-300" : "text-violet-500"} />
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-1.5 font-manrope text-lg font-semibold tracking-tight text-slate-900">
+      <div className={`mt-1.5 font-manrope text-lg font-semibold tracking-tight ${isInk ? "text-white" : "text-slate-900"}`}>
         {value}
       </div>
-      {hint && <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>}
+      {hint && <div className={`mt-0.5 text-[11px] ${isInk ? "text-slate-300" : "text-slate-500"}`}>{hint}</div>}
     </div>
   );
 }
