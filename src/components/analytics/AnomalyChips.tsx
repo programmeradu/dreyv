@@ -57,7 +57,7 @@ export function AnomalyChips({ attribution, snapshotStats, foresight, vaultChang
     chips.push({
       label: "Yield > 3× fees",
       tone: "emerald",
-      icon: Sparkles,
+      icon: Check,
     });
   }
 
