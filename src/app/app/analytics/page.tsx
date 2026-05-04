@@ -22,7 +22,7 @@ import {
 } from "@/components/app-shell/primitives";
 import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
-import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
+import { MoneyMovementLedger } from "@/components/analytics/MoneyMovementLedger";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
 import { AnalyticsCockpit } from "@/components/analytics/AnalyticsCockpit";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
