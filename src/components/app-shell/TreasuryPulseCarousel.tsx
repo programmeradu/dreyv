@@ -15,6 +15,7 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
 
 type CardKind = "trend" | "mover" | "agents" | "risk" | "insight";
 
