@@ -178,6 +178,12 @@ export function CommandBar() {
         const needsEphemeral = (extraSigners ?? []).some((s) => s && s.length > 0);
         const Keypair = needsEphemeral ? (await import("@solana/web3.js")).Keypair : null;
 
+        // Fetch a fresh blockhash NOW. The server-built tx may have been
+        // sitting in the approval card long enough for its blockhash to
+        // expire (~60s on mainnet) — signing with the stale one yields
+        // "Blockhash not found" at submit time.
+        const latest = await connection.getLatestBlockhash("confirmed");
+
         const deserialized = serialized.map((b64, i) => {
           const buf = Buffer.from(b64, "base64");
           let tx: VersionedTransaction | Transaction;
@@ -185,6 +191,15 @@ export function CommandBar() {
             tx = VersionedTransaction.deserialize(buf);
           } catch {
             tx = Transaction.from(buf);
+          }
+          // Refresh blockhash before any signing happens — blockhash is part
+          // of the signed message, so it MUST be set before partial/wallet
+          // signatures are applied.
+          if (tx instanceof VersionedTransaction) {
+            tx.message.recentBlockhash = latest.blockhash;
+          } else {
+            tx.recentBlockhash = latest.blockhash;
+            tx.lastValidBlockHeight = latest.lastValidBlockHeight;
           }
           // Apply ephemeral co-signers (e.g. Squads createKey) before the
           // wallet sees the tx — otherwise the wallet refuses to sign because
