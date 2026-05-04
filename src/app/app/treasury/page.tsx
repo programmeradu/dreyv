@@ -25,23 +25,14 @@ import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const wordmark = Urbanist({ subsets: ["latin"], weight: "600", display: "swap", adjustFontFallback: true });
-import {
-  AmbientGlow,
-  SectionHeader,
-  StreamIn,
-  Surface,
-  StreamingNumber,
-} from "@/components/app-shell/primitives";
-import {
-  CompositionStrip,
-  HeadlineValue,
-  type Holding,
-} from "@/components/app-shell/Composition";
+import { SectionHeader, StreamIn } from "@/components/app-shell/primitives";
 import { CanvasStream } from "@/components/canvas/CanvasStream";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
 import { TreasuryCommandDock } from "@/components/treasury/TreasuryCommandDock";
 import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
+import { SovereignHero, type HeroHolding } from "@/components/treasury/SovereignHero";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
