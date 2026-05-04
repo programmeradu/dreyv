@@ -14,26 +14,17 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
-import {
-  ArrowLeft,
-  ArrowDownRight,
-  ArrowUpRight,
-  Coins,
-  Receipt,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
   AmbientGlow,
   Surface,
   StreamIn,
-  StreamingNumber,
-  Pill,
 } from "@/components/app-shell/primitives";
-import { TrendCurve } from "@/components/app-shell/Composition";
 import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
 import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
-import { AreWeOkHero } from "@/components/analytics/AreWeOkHero";
+import { AnalyticsCockpit } from "@/components/analytics/AnalyticsCockpit";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { AnomalyChips } from "@/components/analytics/AnomalyChips";
 import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
