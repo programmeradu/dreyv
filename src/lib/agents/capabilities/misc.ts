@@ -49,6 +49,10 @@ const navigate = defineCapability({
   },
 });
 
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const SAFE_MONITOR_TARGET_RE = /^[A-Za-z][A-Za-z0-9-]{1,15}$|^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const SUPPORT_OR_COMPLAINT_TARGET_RE = /\b(account|phantom|wallet|malicious|blocked?|unsafe|safe|warning|fee|fees?|transaction|transfer|scam|fraud)\b/i;
+
 const set_monitor = defineCapability({
   id: "set_monitor",
   domain: "misc",
@@ -64,6 +68,23 @@ const set_monitor = defineCapability({
   sensitivity: "low",
   execute: async ({ type, target, operator, value }, ctx) => {
     console.log(`[Tool: set_monitor] ${type}: ${target} ${operator} ${value}`);
+
+    const normalizedTarget = target.trim();
+    if (
+      !SAFE_MONITOR_TARGET_RE.test(normalizedTarget) ||
+      SUPPORT_OR_COMPLAINT_TARGET_RE.test(normalizedTarget) ||
+      (type === "balance" && !SOLANA_ADDRESS_RE.test(normalizedTarget))
+    ) {
+      return {
+        success: false,
+        operation: "set_monitor",
+        status: "INVALID_MONITOR_TARGET",
+        type,
+        target,
+        message:
+          "I did not create a monitor because that is not a valid monitor target. For wallet/Phantom warnings, I should answer with support guidance instead of taking treasury actions.",
+      };
+    }
 
     let persisted = false;
     let monitorId: number | null = null;
