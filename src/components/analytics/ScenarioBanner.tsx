@@ -9,7 +9,7 @@
  * returns the page to its default analytics mode.
  */
 
-import { X, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { X, ArrowRight, Loader2 } from "lucide-react";
 import { useSimulationStore, type SimulationVariable } from "@/lib/stores/simulation-store";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 
@@ -64,7 +64,7 @@ export function ScenarioBanner() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-            <Sparkles className="h-3.5 w-3.5" />
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
             Scenario overlay · {timeframeMonths}-month
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">

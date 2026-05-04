@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Surface, Pill, StreamingNumber } from "@/components/app-shell/primitives";
 
 interface ProjectionPoint { date: string; p10: number; p50: number; p90: number; mean: number }
@@ -132,7 +132,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
     return (
       <Surface className="p-7">
         <div className="flex items-center gap-2 text-violet-700">
-          <Sparkles className="h-4 w-4" />
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Foresight</span>
         </div>
         <p className="mt-3 text-sm text-slate-600">
@@ -150,7 +150,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-violet-700">
-            <Sparkles className="h-4 w-4" />
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Foresight · {timeframeMonths}-month outlook</span>
           </div>
           <h3 className="mt-2 font-manrope text-2xl font-semibold tracking-tight text-slate-900">
