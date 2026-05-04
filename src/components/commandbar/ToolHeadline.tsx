@@ -8,6 +8,17 @@
 
 import React from "react";
 import { ArrowRight, Users, Coins, ShieldCheck, Clock, FileText, Globe } from "lucide-react";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
+
+function TokenChunk({ amount, symbol, mint }: { amount: string; symbol?: string; mint?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <TokenLogo symbol={symbol} mint={mint} size={18} />
+      <span className="text-lg font-semibold tracking-tight tabular-nums text-slate-900">{amount}</span>
+      {symbol && <span className="text-xs font-medium text-slate-500">{symbol.toUpperCase()}</span>}
+    </span>
+  );
+}
 
 interface Props {
   toolName: string;
