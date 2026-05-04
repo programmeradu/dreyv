@@ -75,27 +75,58 @@ async function fetchJupiterByMint(mint: string): Promise<ResolvedToken | null> {
 }
 
 async function fetchJupiterBySymbol(symbol: string): Promise<ResolvedToken | null> {
+  const upper = symbol.toUpperCase();
+
+  // 1. Verified-only list — fast path for blue chips.
+  try {
+    const res = await fetch(`https://tokens.jup.ag/tokens?tags=verified`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        const hit = list.find((t: any) => String(t.symbol ?? "").toUpperCase() === upper);
+        if (hit) {
+          return {
+            symbol: upper,
+            mint: String(hit.address),
+            decimals: Number(hit.decimals ?? 9),
+            name: hit.name,
+            logoURI: hit.logoURI,
+            source: "jupiter",
+            verified: true,
+          };
+        }
+      }
+    }
+  } catch {
+    /* fall through to search */
+  }
+
+  // 2. Jupiter search API — covers unverified/long-tail tokens (HORSE, etc.).
+  //    Returns array sorted by liquidity/volume; pick the best symbol match.
   try {
     const res = await fetch(
-      `https://tokens.jup.ag/tokens?tags=verified`,
+      `https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(symbol)}`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return null;
-    const list = await res.json();
-    if (!Array.isArray(list)) return null;
-    const upper = symbol.toUpperCase();
-    const hit = list.find(
-      (t: any) => String(t.symbol ?? "").toUpperCase() === upper,
-    );
-    if (!hit) return null;
+    const data = await res.json();
+    const arr: any[] = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    if (arr.length === 0) return null;
+    // Prefer exact symbol match; fall back to first result (highest liquidity).
+    const exact = arr.find((t) => String(t.symbol ?? "").toUpperCase() === upper);
+    const hit = exact ?? arr[0];
+    if (!hit?.id && !hit?.address) return null;
+    const tags: string[] = Array.isArray(hit.tags) ? hit.tags : [];
     return {
-      symbol: upper,
-      mint: String(hit.address),
+      symbol: String(hit.symbol ?? upper).toUpperCase(),
+      mint: String(hit.id ?? hit.address),
       decimals: Number(hit.decimals ?? 9),
       name: hit.name,
-      logoURI: hit.logoURI,
+      logoURI: hit.icon ?? hit.logoURI,
       source: "jupiter",
-      verified: true,
+      verified: tags.includes("verified") || tags.includes("strict"),
     };
   } catch {
     return null;

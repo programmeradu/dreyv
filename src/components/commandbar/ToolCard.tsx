@@ -16,6 +16,7 @@ import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
 import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
 import { ToolBody } from "@/components/commandbar/ToolBody";
 import { ToolError } from "@/components/commandbar/ToolError";
+import { ToolIcon } from "@/components/commandbar/ToolIcon";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
@@ -171,9 +172,7 @@ export function ToolCard({
     <div className="my-1.5 rounded-3xl border border-violet-100 bg-white px-3.5 py-3 font-manrope text-sm text-slate-900">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 text-base leading-none text-violet-700">
-          {meta.icon}
-        </span>
+        <ToolIcon toolName={toolName} size="sm" />
         <span className="text-xs font-semibold tracking-tight text-violet-700">
           {meta.label}
         </span>
