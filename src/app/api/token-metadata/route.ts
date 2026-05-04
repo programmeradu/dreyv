@@ -116,6 +116,9 @@ export async function POST(req: NextRequest) {
         for (const data of responses) {
           if (!data?.pairs) continue;
           for (const pair of data.pairs as any[]) {
+            // DexScreener returns pairs from many chains for the same address;
+            // restrict to Solana so SOL/USDC prices aren't clobbered by other chains.
+            if (pair?.chainId && pair.chainId !== "solana") continue;
             const baseMint = pair?.baseToken?.address;
             const quoteMint = pair?.quoteToken?.address;
             const liq = Number(pair?.liquidity?.usd || 0);
