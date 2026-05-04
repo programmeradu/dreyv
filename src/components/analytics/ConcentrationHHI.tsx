@@ -46,7 +46,7 @@ export function ConcentrationHHI({ vaultTokens }: Props) {
   return (
     <CompactCard
       eyebrow="Concentration"
-      badge={<SignalBadge severity={severity} label={data.hhi >= 5000 ? "High" : data.hhi >= 2500 ? "Watch" : "Stable"} />}
+      badge={<SignalBadge severity={severityFromScore(severity)}>{data.hhi >= 5000 ? "High" : data.hhi >= 2500 ? "Watch" : "Stable"}</SignalBadge>}
       headline={`${top.sharePct.toFixed(0)}% ${top.symbol}`}
       subline={`HHI ${data.hhi.toLocaleString()} · ${data.effective.toFixed(1)} effective positions`}
     >

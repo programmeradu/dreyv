@@ -45,7 +45,7 @@ export function FeesBreakdown({ events, totalFeeUsd }: Props) {
   return (
     <CompactCard
       eyebrow="Fees · 30d"
-      badge={total === 0 ? <SignalBadge severity={0} label="Quiet" /> : <SignalBadge severity={total > 1000 ? 0.6 : 0.25} label={total > 1000 ? "Heavy" : "Light"} />}
+      badge={total === 0 ? <SignalBadge severity={0} label="Quiet" /> : <SignalBadge severity={severityFromScore(total > 1000 ? 0.6 : 0.25)}>{total > 1000 ? "Heavy" : "Light"}</SignalBadge>}
       headline={fmtUsd(total)}
       subline={total > 0 ? `${networkPct.toFixed(0)}% network · ${protocolPct.toFixed(0)}% protocol` : "Awaiting on-chain events."}
     >

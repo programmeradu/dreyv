@@ -43,7 +43,7 @@ export function FlowsByCategory({ events }: Props) {
   return (
     <CompactCard
       eyebrow="Flows · 30d"
-      badge={data ? <SignalBadge severity={data.net >= 0 ? 0.15 : 0.55} label={data.net >= 0 ? "Net in" : "Net out"} /> : undefined}
+      badge={data ? <SignalBadge severity={severityFromScore(data.net >= 0 ? 0.15 : 0.55)}>{data.net >= 0 ? "Net in" : "Net out"}</SignalBadge> : undefined}
       headline={data ? `${data.net >= 0 ? "+" : "-"}${fmtUsd(Math.abs(data.net))}` : "—"}
       subline={data ? `${data.rows.length} categories tracked` : "Tag events to group flows."}
     >

@@ -91,7 +91,7 @@ export function BenchmarkVsMarket({ valueSeries, benchmark = "SOL" }: Props) {
   return (
     <CompactCard
       eyebrow={`Benchmark · vs ${benchmark}`}
-      badge={<SignalBadge severity={severity} label={label} />}
+      badge={<SignalBadge severity={severityFromScore(severity)}>{label}</SignalBadge>}
       headline={`${tEnd >= 0 ? "+" : ""}${tEnd.toFixed(2)}%`}
       subline={mEnd != null ? `vs ${mEnd >= 0 ? "+" : ""}${mEnd.toFixed(2)}% ${benchmark}` : "Treasury-only line"}
     >
