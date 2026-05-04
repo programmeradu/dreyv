@@ -443,17 +443,11 @@ export function SovereignHero({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <span
-              className={
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold " +
-                (positive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700")
-              }
-            >
-              <DreyvStar size={9} className={positive ? "text-emerald-600" : "text-rose-600"} />
-              {change24h == null ? "no 24h baseline" : `${positive ? "+" : ""}${change24h.toFixed(2)}% · 24h`}
-            </span>
+            <SignalBadge severity={severityFromDelta(change24h, 1)}>
+              {change24h == null
+                ? "no 24h baseline"
+                : `${positive ? "▲" : "▼"} ${positive ? "+" : ""}${change24h.toFixed(2)}% · 24h`}
+            </SignalBadge>
             <span className="text-xs text-slate-500">
               {totalValue == null
                 ? "Connect a wallet or paste an address to begin."
