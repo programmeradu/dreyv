@@ -5,6 +5,16 @@ import { eq, and, lt, or, isNull } from 'drizzle-orm';
 import { sendGasAlertEmail } from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
+  // Auth: require Vercel cron header OR Bearer token matching CRON_SECRET.
+  const cronSecret = process.env.CRON_SECRET;
+  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+  const authHeader = request.headers.get('authorization') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const tokenAuthorized = !!cronSecret && bearer === cronSecret;
+  if (!isVercelCron && !tokenAuthorized) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+
   let checked = 0;
   let notified = 0;
   let errors = 0;

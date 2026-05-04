@@ -508,7 +508,17 @@ export async function middleware(request: NextRequest) {
     }
 
     // ─── Protect /app/* and /api/* routes ───────────────────────────
-    const protectedPaths = ['/app', '/api/studio', '/api/agent', '/api/dca'];
+    const protectedPaths = [
+        '/app',
+        '/api/studio',
+        '/api/agent',
+        '/api/agents',
+        '/api/agentic',
+        '/api/dca',
+        '/api/ai',
+        '/api/analytics',
+        '/api/admin',
+    ];
 
     const isApiRoute = pathname.startsWith('/api/');
     const isAuthed = isApiRoute ? isAuthenticatedForApi : isAuthenticatedForPages;
