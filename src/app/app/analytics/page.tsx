@@ -14,26 +14,17 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
-import {
-  ArrowLeft,
-  ArrowDownRight,
-  ArrowUpRight,
-  Coins,
-  Receipt,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
   AmbientGlow,
   Surface,
   StreamIn,
-  StreamingNumber,
-  Pill,
 } from "@/components/app-shell/primitives";
-import { TrendCurve } from "@/components/app-shell/Composition";
 import { useForesightFoundation } from "@/lib/hooks/useForesightFoundation";
 import { ForesightPanel } from "@/components/analytics/ForesightPanel";
 import { PnlWaterfall } from "@/components/analytics/PnlWaterfall";
 import { ExportButtons } from "@/components/analytics/ExportButtons";
-import { AreWeOkHero } from "@/components/analytics/AreWeOkHero";
+import { AnalyticsCockpit } from "@/components/analytics/AnalyticsCockpit";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { AnomalyChips } from "@/components/analytics/AnomalyChips";
 import { ConcentrationHHI } from "@/components/analytics/ConcentrationHHI";
@@ -79,21 +70,7 @@ export default function AnalyticsPage() {
     return [];
   }, [valueSeries, vaultValue]);
 
-  const concentration = useMemo(() => {
-    const tokens = (vaultTokens ?? []) as any[];
-    if (tokens.length === 0) return null;
-    const total = tokens.reduce((s, t) => s + (t.value ?? 0), 0);
-    if (total === 0) return null;
-    const sorted = [...tokens].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-    const top = sorted[0];
-    return {
-      symbol: (top?.symbol ?? "").toUpperCase() || "Top asset",
-      share: ((top?.value ?? 0) / total) * 100,
-    };
-  }, [vaultTokens]);
-
   const aggregates = events?.aggregates ?? null;
-  const hasAttribution = !!aggregates && aggregates.sampleSize > 0;
   const asOf = snapshots?.snapshots?.length
     ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
     : null;
@@ -124,59 +101,27 @@ export default function AnalyticsPage() {
         {/* ── Scenario banner (only when active) ───────────────────── */}
         <ScenarioBanner />
 
-        {/* ── Row 1 — Verdict + KPI strip ──────────────────────────── */}
-        <div className="mt-3 grid gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <AreWeOkHero
-              activeVault={activeVault ?? null}
-              vaultValue={vaultValue ?? null}
-              vaultTokens={vaultTokens ?? []}
-              attribution={aggregates}
-              snapshotStats={snapshots?.stats ?? null}
-              foresight={foresight?.summary
-                ? {
-                    depletionProbability: foresight.summary.depletionProbability,
-                    medianDepletionMonths: foresight.summary.medianDepletionMonths,
-                  }
-                : null}
-              asOf={asOf}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:col-span-5">
-            <KpiTile
-              tone="emerald"
-              icon={<ArrowDownRight className="h-3.5 w-3.5" />}
-              label="Inflows · 30d"
-              usd={aggregates?.inflowUsd ?? 0}
-              sub={`${fmtCompact(aggregates?.monthlyInflow ?? 0)}/mo`}
-            />
-            <KpiTile
-              tone="rose"
-              icon={<ArrowUpRight className="h-3.5 w-3.5" />}
-              label="Outflows · 30d"
-              usd={aggregates?.outflowUsd ?? 0}
-              sub={`${fmtCompact(aggregates?.monthlyBurnRate ?? 0)}/mo burn`}
-            />
-            <KpiTile
-              tone="violet"
-              icon={<Coins className="h-3.5 w-3.5" />}
-              label="Yield earned"
-              usd={aggregates?.yieldUsd ?? 0}
-              sub={aggregates?.annualYieldRate
-                ? `${(aggregates.annualYieldRate * 100).toFixed(2)}% APY`
-                : "—"}
-            />
-            <KpiTile
-              tone="slate"
-              icon={<Receipt className="h-3.5 w-3.5" />}
-              label="Fees paid"
-              usd={aggregates?.feeUsd ?? 0}
-              sub={hasAttribution ? "Network + protocol" : "—"}
-            />
-          </div>
+        {/* ── Cockpit — verdict + valuation + ribbon + signals + KPIs + composition ─ */}
+        <div className="mt-3">
+          <AnalyticsCockpit
+            activeVault={activeVault ?? null}
+            vaultValue={vaultValue ?? null}
+            vaultChange24h={vaultChange24h ?? null}
+            vaultTokens={vaultTokens ?? []}
+            attribution={aggregates}
+            snapshotStats={snapshots?.stats ?? null}
+            foresight={foresight?.summary
+              ? {
+                  depletionProbability: foresight.summary.depletionProbability,
+                  medianDepletionMonths: foresight.summary.medianDepletionMonths,
+                }
+              : null}
+            asOf={asOf}
+            trend={trend}
+          />
         </div>
 
-        {/* ── Row 2 — Anomalies inline ─────────────────────────────── */}
+        {/* ── Anomalies inline ─────────────────────────────────────── */}
         <div className="mt-3">
           <AnomalyChips
             attribution={aggregates}
@@ -186,56 +131,9 @@ export default function AnalyticsPage() {
           />
         </div>
 
-        {/* ── Row 3 — Growth chart + Composition ───────────────────── */}
-        <div className="mt-4 grid gap-3 lg:grid-cols-12">
-          <Card className="lg:col-span-8" eyebrow="Growth · 30d" title="Treasury value over time"
-            hint={snapshots && snapshots.snapshots.length >= 2
-              ? `${snapshots.snapshots.length} snapshots`
-              : "Accumulating snapshots…"}
-          >
-            <TrendCurve values={trend} label="Real value series" changePct={vaultChange24h ?? null} />
-            <BaselineVsSimulated baseline={valueSeries} />
-          </Card>
-
-          <div className="grid gap-3 lg:col-span-4">
-            <Card eyebrow="Composition" title="Largest exposure" compact>
-              <div className="font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-                {concentration ? (
-                  <StreamingNumber value={concentration.share} suffix="%" decimals={1} />
-                ) : (
-                  <span className="text-slate-300">—</span>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-slate-600">
-                {concentration
-                  ? `Most of your treasury is in ${concentration.symbol}.`
-                  : "Connect a wallet to see your composition."}
-              </p>
-              {concentration && (
-                <div className="mt-2">
-                  <Pill tone={concentration.share > 60 ? "rose" : concentration.share > 35 ? "violet" : "emerald"}>
-                    {concentration.share > 60 ? "Concentrated" : concentration.share > 35 ? "Tilted" : "Balanced"}
-                  </Pill>
-                </div>
-              )}
-            </Card>
-            <Card eyebrow="Net 30d" title="Inflows − outflows" compact>
-              <div className="font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-                {hasAttribution ? (
-                  <StreamingNumber value={aggregates!.netUsd ?? 0} prefix="$" decimals={0} />
-                ) : (
-                  <span className="text-slate-300">—</span>
-                )}
-              </div>
-              {hasAttribution && (
-                <div className="mt-2">
-                  <Pill tone={aggregates!.netUsd >= 0 ? "emerald" : "rose"}>
-                    {aggregates!.netUsd >= 0 ? "Net positive" : "Net outflow"}
-                  </Pill>
-                </div>
-              )}
-            </Card>
-          </div>
+        {/* ── Baseline vs simulated overlay (only meaningful when sim active) ─ */}
+        <div className="mt-3">
+          <BaselineVsSimulated baseline={valueSeries} />
         </div>
 
         {/* ── Row 4 — PnL waterfall + Foresight side-by-side ───────── */}
@@ -336,35 +234,3 @@ function Card({
   );
 }
 
-function KpiTile({
-  tone,
-  icon,
-  label,
-  usd,
-  sub,
-}: {
-  tone: "emerald" | "rose" | "violet" | "slate";
-  icon: React.ReactNode;
-  label: string;
-  usd: number;
-  sub: string;
-}) {
-  const toneMap: Record<string, string> = {
-    emerald: "text-emerald-600",
-    rose: "text-rose-600",
-    violet: "text-violet-700",
-    slate: "text-slate-700",
-  };
-  return (
-    <Surface className="p-3">
-      <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${toneMap[tone]}`}>
-        {icon}
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="mt-1.5 font-manrope text-xl font-semibold tracking-tight text-slate-900">
-        {fmtCompact(usd)}
-      </div>
-      <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>
-    </Surface>
-  );
-}
