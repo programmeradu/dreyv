@@ -83,7 +83,7 @@ export function TreasuryPulseCarousel() {
       list.push({
         kind: "mover",
         eyebrow: "Top mover · 24h",
-        render: () => <MoverCard token={topMover} />,
+        render: () => <MoverCard token={topMover as any} />,
       });
     }
 
