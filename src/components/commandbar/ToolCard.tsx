@@ -16,6 +16,7 @@ import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
 import { ToolHeadline } from "@/components/commandbar/ToolHeadline";
 import { ToolBody } from "@/components/commandbar/ToolBody";
 import { ToolError } from "@/components/commandbar/ToolError";
+import { ToolIcon } from "@/components/commandbar/ToolIcon";
 import { AppEventBus } from "@/lib/events";
 
 export interface ToolCardProps {
