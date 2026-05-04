@@ -136,7 +136,7 @@ export default function RootLayout({
           {gtmScript}
         </Script>
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <noscript>
           <iframe
             src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
