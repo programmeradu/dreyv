@@ -12,8 +12,10 @@ import {
   Library as LibraryIcon,
   ChevronDown,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { DryvMascot, type DryvPose } from "@/components/brand/dryv-mascot";
 import type {
   AssetKind,
   Channel,
