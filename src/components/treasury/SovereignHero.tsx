@@ -77,6 +77,7 @@ function TrendRibbon({
 }) {
   const [series, setSeries] = useState<number[] | null>(null);
   const [changePct, setChangePct] = useState<number | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
 
   useEffect(() => {
     if (!basket.length) {
@@ -100,59 +101,158 @@ function TrendRibbon({
     };
   }, [JSON.stringify(basket), totalValue]);
 
-  const path = useMemo(() => {
+  const geom = useMemo(() => {
     if (!series || series.length < 2) return null;
-    const w = 520;
-    const h = 64;
+    const w = 720;
+    const h = 140;
+    const padX = 8;
+    const padTop = 18;
+    const padBottom = 22;
     const min = Math.min(...series);
     const max = Math.max(...series);
     const range = max - min || 1;
-    const step = w / (series.length - 1);
-    const pts = series.map((v, i) => `${i * step},${h - ((v - min) / range) * (h - 8) - 4}`);
-    return {
-      line: `M${pts.join(" L ")}`,
-      area: `M0,${h} L${pts.join(" L ")} L${w},${h} Z`,
-      w,
-      h,
-      pos: (changePct ?? 0) >= 0,
-    };
-  }, [series, changePct]);
+    const innerW = w - padX * 2;
+    const innerH = h - padTop - padBottom;
+    const step = innerW / (series.length - 1);
+    const pts = series.map((v, i) => ({
+      x: padX + i * step,
+      y: padTop + (1 - (v - min) / range) * innerH,
+      v,
+    }));
+    // smooth path (catmull-rom -> cubic bezier)
+    const d: string[] = [`M ${pts[0].x},${pts[0].y}`];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] ?? p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      d.push(`C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`);
+    }
+    const line = d.join(" ");
+    const area = `${line} L ${pts[pts.length - 1].x},${h - 2} L ${pts[0].x},${h - 2} Z`;
+    const minIdx = series.indexOf(min);
+    const maxIdx = series.indexOf(max);
+    return { w, h, pts, line, area, min, max, minIdx, maxIdx, padTop, innerH };
+  }, [series]);
 
-  if (!path) {
-    return <div className="h-16 w-full rounded-2xl border border-dashed border-violet-100" />;
+  if (!geom) {
+    return <div className="h-[140px] w-full rounded-2xl border border-dashed border-violet-100" />;
   }
+
+  const pos = (changePct ?? 0) >= 0;
+  const hp = hover != null ? geom.pts[hover] : null;
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${path.w} ${path.h}`} className="h-16 w-full" preserveAspectRatio="none">
+      <svg
+        viewBox={`0 0 ${geom.w} ${geom.h}`}
+        className="h-[140px] w-full"
+        preserveAspectRatio="none"
+        onMouseLeave={() => setHover(null)}
+        onMouseMove={(e) => {
+          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * geom.w;
+          let best = 0;
+          let bestD = Infinity;
+          geom.pts.forEach((p, i) => {
+            const d = Math.abs(p.x - x);
+            if (d < bestD) { bestD = d; best = i; }
+          });
+          setHover(best);
+        }}
+      >
         <defs>
           <linearGradient id="sov-trend-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.28" />
+              <stop offset="60%" stopColor="#7c3aed" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="sov-trend-stroke" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#a78bfa" />
+            <stop offset="50%" stopColor="#7c3aed" />
+            <stop offset="100%" stopColor="#5b21b6" />
           </linearGradient>
         </defs>
+
+        {/* horizontal grid */}
+        {[0.25, 0.5, 0.75].map((t) => (
+          <line
+            key={t}
+            x1={8}
+            x2={geom.w - 8}
+            y1={geom.padTop + geom.innerH * t}
+            y2={geom.padTop + geom.innerH * t}
+            stroke="#ede9fe"
+            strokeWidth={1}
+            strokeDasharray="2 4"
+          />
+        ))}
+
         <motion.path
-          d={path.area}
+          d={geom.area}
           fill="url(#sov-trend-fill)"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.7 }}
         />
         <motion.path
-          d={path.line}
+          d={geom.line}
           fill="none"
-          stroke="#7c3aed"
-          strokeWidth={1.75}
+          stroke="url(#sov-trend-stroke)"
+          strokeWidth={2.25}
           strokeLinecap="round"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         />
+
+        {/* min / max markers */}
+        {[geom.minIdx, geom.maxIdx].map((idx, k) => {
+          const p = geom.pts[idx];
+          const isMax = k === 1;
+          return (
+            <g key={`mm-${k}`}>
+              <circle cx={p.x} cy={p.y} r={3} fill="white" stroke="#7c3aed" strokeWidth={1.5} />
+              <text
+                x={p.x}
+                y={isMax ? p.y - 8 : p.y + 14}
+                textAnchor="middle"
+                fontSize="9"
+                className="fill-slate-500"
+              >
+                {isMax ? "▲ high" : "▼ low"}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* hover crosshair */}
+        {hp && (
+          <g>
+            <line x1={hp.x} x2={hp.x} y1={geom.padTop} y2={geom.h - 2} stroke="#7c3aed" strokeOpacity="0.25" strokeDasharray="2 3" />
+            <circle cx={hp.x} cy={hp.y} r={5} fill="#7c3aed" />
+            <circle cx={hp.x} cy={hp.y} r={9} fill="#7c3aed" fillOpacity="0.18" />
+          </g>
+        )}
       </svg>
-      <div className="pointer-events-none absolute right-0 top-0 flex items-center gap-1 text-[10px] font-medium text-slate-500">
-        <DreyvStar size={9} className="text-violet-500" />
-        <span>7d · {path.pos ? "+" : ""}{(changePct ?? 0).toFixed(2)}%</span>
+
+      <div className="pointer-events-none absolute right-1 top-1 flex items-center gap-1.5 rounded-full border border-violet-100 bg-white/80 px-2 py-1 text-[10px] font-semibold text-slate-700 backdrop-blur">
+        <DreyvStar size={9} className="text-violet-600" />
+        <span>7d</span>
+        <span className={pos ? "text-violet-700" : "text-slate-900"}>
+          {pos ? "+" : ""}{(changePct ?? 0).toFixed(2)}%
+        </span>
       </div>
+
+      {hp && (
+        <div className="pointer-events-none absolute left-2 top-1 rounded-full border border-violet-100 bg-white/85 px-2 py-1 text-[10px] font-medium text-slate-600 backdrop-blur">
+          {fmtCompact(hp.v)}
+        </div>
+      )}
     </div>
   );
 }
