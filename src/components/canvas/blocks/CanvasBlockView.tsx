@@ -538,7 +538,7 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
   const rows = asArray<TokenRow>(block.payload.rows);
   const total = asNumber(block.payload.totalValue);
   const empty = rows.length === 0;
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = useState(false);
   const COLLAPSED = 6;
   const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED);
   const hiddenCount = Math.max(0, rows.length - COLLAPSED);
