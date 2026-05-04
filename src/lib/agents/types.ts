@@ -222,7 +222,12 @@ export interface SafetyFlag {
 export interface RouteQuote {
   inAmount: string;
   outAmount: string;
-  outAmountWithSlippage: string;
+  /** Jupiter v4 field — absent on v6 quotes */
+  outAmountWithSlippage?: string;
+  /** Jupiter v6 slippage guard — minimum acceptable out amount */
+  otherAmountThreshold?: string;
+  /** Jupiter v6 echoes back the slippage we requested */
+  slippageBps?: number;
   priceImpactPct: string;
   marketInfos: any[];
   routePlan: any[];
