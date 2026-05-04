@@ -144,7 +144,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
   }
 
   const depletionPct = Math.round(summary.depletionProbability * 100);
-  const depletionTone = depletionPct >= 50 ? "rose" : depletionPct >= 20 ? "violet" : "emerald";
+  const depletionTone: "violet" | "amber" | "slate" = depletionPct >= 50 ? "amber" : depletionPct >= 20 ? "violet" : "slate";
 
   return (
     <Surface className="p-7">
@@ -161,7 +161,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
         <div className="flex items-center gap-2">
           <Pill tone={depletionTone}>{depletionPct}% depletion risk</Pill>
           {summary.medianDepletionMonths != null && (
-            <Pill tone="rose"><AlertTriangle className="mr-1 inline h-3 w-3" />~{summary.medianDepletionMonths} mo runway</Pill>
+            <Pill tone="amber"><AlertTriangle className="mr-1 inline h-3 w-3" />~{summary.medianDepletionMonths} mo runway</Pill>
           )}
         </div>
       </div>
