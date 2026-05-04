@@ -24,12 +24,15 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { StreamingNumber } from "@/components/app-shell/primitives";
+import { TokenAvatar } from "@/components/TokenAvatar";
+import { SignalBadge, severityFromDelta } from "@/components/analytics/SignalBadge";
 
 export interface HeroHolding {
   symbol: string;
   label: string;
   value: number;
+  logo?: string;
+  mint?: string;
 }
 
 interface Props {
