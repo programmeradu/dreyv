@@ -8,6 +8,17 @@
 
 import React from "react";
 import { ArrowRight, Users, Coins, ShieldCheck, Clock, FileText, Globe } from "lucide-react";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
+
+function TokenChunk({ amount, symbol, mint }: { amount: string; symbol?: string; mint?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <TokenLogo symbol={symbol} mint={mint} size={18} />
+      <span className="text-lg font-semibold tracking-tight tabular-nums text-slate-900">{amount}</span>
+      {symbol && <span className="text-xs font-medium text-slate-500">{symbol.toUpperCase()}</span>}
+    </span>
+  );
+}
 
 interface Props {
   toolName: string;
@@ -61,12 +72,13 @@ export function ToolHeadline({ toolName, operation, output }: Props) {
   // ── Transfer / payroll-style: amount + token → recipient
   if (op === "transfer" || op === "yield_withdraw" || op === "yield_deposit" || op === "stake") {
     const amount = fmtAmount(output.amount ?? output.uiAmount);
-    const token = (output.token ?? output.symbol ?? output.mint) as string | undefined;
+    const token = (output.token ?? output.symbol) as string | undefined;
+    const mint = (output.mint ?? output.tokenMint) as string | undefined;
     const recipient = shortAddr(output.recipient ?? output.destination ?? output.toAddress);
     if (!amount && !token && !recipient) return null;
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {amount && <Headline value={amount} suffix={token ? token.toUpperCase() : undefined} />}
+        {amount && <TokenChunk amount={amount} symbol={token} mint={mint} />}
         {recipient && (
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
             <ArrowRight className="h-3 w-3" />
@@ -81,14 +93,16 @@ export function ToolHeadline({ toolName, operation, output }: Props) {
   if (op === "swap" || op === "execute_swap") {
     const inAmt = fmtAmount(output.inputAmount ?? output.amountIn);
     const inSym = (output.inputToken ?? output.fromSymbol) as string | undefined;
+    const inMint = (output.inputMint ?? output.fromMint) as string | undefined;
     const outAmt = fmtAmount(output.outputAmount ?? output.amountOut);
     const outSym = (output.outputToken ?? output.toSymbol) as string | undefined;
+    const outMint = (output.outputMint ?? output.toMint) as string | undefined;
     if (!inAmt && !outAmt) return null;
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {inAmt && <Headline value={inAmt} suffix={inSym?.toUpperCase()} />}
+        {inAmt && <TokenChunk amount={inAmt} symbol={inSym} mint={inMint} />}
         <ArrowRight className="h-4 w-4 text-violet-500" />
-        {outAmt && <Headline value={outAmt} suffix={outSym?.toUpperCase()} />}
+        {outAmt && <TokenChunk amount={outAmt} symbol={outSym} mint={outMint} />}
       </div>
     );
   }

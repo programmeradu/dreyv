@@ -20,6 +20,7 @@ import {
   Layers,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
 
 interface Props {
   toolName: string;
@@ -133,8 +134,10 @@ function TransferBody({ output }: { output: Record<string, unknown> }) {
 function SwapBody({ output }: { output: Record<string, unknown> }) {
   const inAmt = output.inputAmount ?? output.amountIn;
   const inSym = (output.inputToken ?? output.fromSymbol) as string | undefined;
+  const inMint = (output.inputMint ?? output.fromMint) as string | undefined;
   const outAmt = output.outputAmount ?? output.amountOut;
   const outSym = (output.outputToken ?? output.toSymbol) as string | undefined;
+  const outMint = (output.outputMint ?? output.toMint) as string | undefined;
   const route = output.route as string | undefined;
   const priceImpact = output.priceImpactPct as number | undefined;
   const slippage = output.slippageBps as number | undefined;
@@ -143,11 +146,13 @@ function SwapBody({ output }: { output: Record<string, unknown> }) {
   return (
     <Section title="Swap route" icon={<ArrowRight className="h-3 w-3" />}>
       <div className="flex items-center justify-center gap-2 py-1 text-sm font-semibold text-slate-900 tabular-nums">
-        <span>
+        <span className="inline-flex items-center gap-1.5">
+          <TokenLogo symbol={inSym} mint={inMint} size={18} />
           {String(inAmt)} <span className="text-slate-500">{inSym?.toUpperCase()}</span>
         </span>
         <ArrowRight className="h-3.5 w-3.5 text-violet-500" />
-        <span>
+        <span className="inline-flex items-center gap-1.5">
+          <TokenLogo symbol={outSym} mint={outMint} size={18} />
           {String(outAmt)} <span className="text-slate-500">{outSym?.toUpperCase()}</span>
         </span>
       </div>

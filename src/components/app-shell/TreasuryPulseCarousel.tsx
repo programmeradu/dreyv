@@ -15,6 +15,7 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
 
 type CardKind = "trend" | "mover" | "agents" | "risk" | "insight";
 
@@ -82,7 +83,7 @@ export function TreasuryPulseCarousel() {
       list.push({
         kind: "mover",
         eyebrow: "Top mover · 24h",
-        render: () => <MoverCard token={topMover} />,
+        render: () => <MoverCard token={topMover as any} />,
       });
     }
 
@@ -91,7 +92,13 @@ export function TreasuryPulseCarousel() {
       list.push({
         kind: "risk",
         eyebrow: "Concentration",
-        render: () => <RiskCard symbol={topHolding.token.symbol} share={topHolding.share} />,
+        render: () => (
+          <RiskCard
+            symbol={topHolding.token.symbol}
+            mint={(topHolding.token as any)?.mint ?? (topHolding.token as any)?.address}
+            share={topHolding.share}
+          />
+        ),
       });
     }
 
@@ -196,12 +203,16 @@ function MoverCard({ token }: { token: any }) {
   const change = Number(token?.change24h ?? 0);
   const positive = change >= 0;
   const symbol = String(token?.symbol ?? "—");
+  const mint = (token?.mint ?? token?.address) as string | undefined;
   const value = Number(token?.value ?? 0);
   return (
     <CardShell accent={positive ? "emerald" : "rose"}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Top mover · 24h</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-manrope text-3xl font-semibold tracking-tight text-slate-900">{symbol}</h3>
+        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          {symbol}
+        </h3>
         <span className={`font-manrope text-2xl font-semibold ${positive ? "text-emerald-600" : "text-rose-600"}`}>
           {positive ? "+" : ""}
           {change.toFixed(2)}%
@@ -225,13 +236,16 @@ function MoverCard({ token }: { token: any }) {
   );
 }
 
-function RiskCard({ symbol, share }: { symbol: string; share: number }) {
+function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; share: number }) {
   const concentrated = share >= 60;
   return (
     <CardShell accent={concentrated ? "rose" : "violet"}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Concentration</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-manrope text-3xl font-semibold tracking-tight text-slate-900">{symbol}</h3>
+        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          {symbol}
+        </h3>
         <span className="font-manrope text-2xl font-semibold text-slate-900">{share.toFixed(1)}%</span>
       </div>
       <p className="mt-1 text-xs text-slate-500">
