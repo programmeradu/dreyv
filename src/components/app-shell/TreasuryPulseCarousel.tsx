@@ -242,7 +242,10 @@ function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; shar
     <CardShell accent={concentrated ? "rose" : "violet"}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Concentration</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-manrope text-3xl font-semibold tracking-tight text-slate-900">{symbol}</h3>
+        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          {symbol}
+        </h3>
         <span className="font-manrope text-2xl font-semibold text-slate-900">{share.toFixed(1)}%</span>
       </div>
       <p className="mt-1 text-xs text-slate-500">
