@@ -70,21 +70,7 @@ export default function AnalyticsPage() {
     return [];
   }, [valueSeries, vaultValue]);
 
-  const concentration = useMemo(() => {
-    const tokens = (vaultTokens ?? []) as any[];
-    if (tokens.length === 0) return null;
-    const total = tokens.reduce((s, t) => s + (t.value ?? 0), 0);
-    if (total === 0) return null;
-    const sorted = [...tokens].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-    const top = sorted[0];
-    return {
-      symbol: (top?.symbol ?? "").toUpperCase() || "Top asset",
-      share: ((top?.value ?? 0) / total) * 100,
-    };
-  }, [vaultTokens]);
-
   const aggregates = events?.aggregates ?? null;
-  const hasAttribution = !!aggregates && aggregates.sampleSize > 0;
   const asOf = snapshots?.snapshots?.length
     ? snapshots.snapshots[snapshots.snapshots.length - 1].capturedAt
     : null;
@@ -248,35 +234,3 @@ function Card({
   );
 }
 
-function KpiTile({
-  tone,
-  icon,
-  label,
-  usd,
-  sub,
-}: {
-  tone: "emerald" | "rose" | "violet" | "slate";
-  icon: React.ReactNode;
-  label: string;
-  usd: number;
-  sub: string;
-}) {
-  const toneMap: Record<string, string> = {
-    emerald: "text-emerald-600",
-    rose: "text-rose-600",
-    violet: "text-violet-700",
-    slate: "text-slate-700",
-  };
-  return (
-    <Surface className="p-3">
-      <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${toneMap[tone]}`}>
-        {icon}
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="mt-1.5 font-manrope text-xl font-semibold tracking-tight text-slate-900">
-        {fmtCompact(usd)}
-      </div>
-      <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>
-    </Surface>
-  );
-}
