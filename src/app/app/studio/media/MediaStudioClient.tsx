@@ -351,7 +351,35 @@ export default function MediaStudioClient() {
     setRefreshKey((k) => k + 1);
   }
 
-  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video";
+  async function generateMascot() {
+    setError(null);
+    setBusy("mascot");
+    setImagePreview(null);
+    try {
+      const res = await fetch("/api/studio/media/generate-mascot", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({
+          pose: mascotPose,
+          prompt: mascotPrompt,
+          channel,
+          aspect,
+          title: mascotTitle,
+        }),
+      });
+      const json = await readJsonSafe(res);
+      if (!res.ok) throw new Error(json.error ?? "Mascot generation failed");
+      if (json.previewUrl) setImagePreview(json.previewUrl);
+      if (json.error) setNotice(json.error);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Mascot generation failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const isGenerating = busy === "copy" || busy === "infographic" || busy === "image" || busy === "video" || busy === "mascot";
   const hasOutput = !!(copyResult || storyboard || imagePreview);
   const aspects = ASPECTS_BY_MODE[mode];
 
