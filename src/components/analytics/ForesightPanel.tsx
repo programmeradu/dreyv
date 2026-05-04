@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Surface, Pill, StreamingNumber } from "@/components/app-shell/primitives";
 
 interface ProjectionPoint { date: string; p10: number; p50: number; p90: number; mean: number }
