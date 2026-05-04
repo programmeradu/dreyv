@@ -50,7 +50,15 @@ export default function AnalyticsPage() {
   useScenarioRun();
 
   const handleAsk = (question: string) => {
-    router.push(`/app?ask=${encodeURIComponent(question)}`);
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("keystone-app-event", {
+        detail: {
+          type: "AGENT_COMMAND",
+          payload: { command: question, autoSubmit: true },
+        },
+      }),
+    );
   };
 
   const {
