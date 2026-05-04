@@ -6,7 +6,7 @@
  */
 
 import { Pill } from "@/components/app-shell/primitives";
-import { TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Check } from "lucide-react";
 
 interface Aggregates {
   feeUsd: number; yieldUsd: number; netUsd: number;
