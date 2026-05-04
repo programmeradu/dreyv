@@ -788,7 +788,9 @@ export class SquadsClient {
                         console.warn("[Squads] Skipping per-signature fallback after batch 429 to avoid amplifying rate limit.");
                         break;
                     }
-                    console.error("[Squads] Failed to fetch parsed transactions batch, falling back to throttled per-signature fetch:", error);
+                    if (!isBatchUnsupported(error)) {
+                        console.error("[Squads] Failed to fetch parsed transactions batch, falling back to throttled per-signature fetch:", error);
+                    }
 
                     // Throttled fallback: process at most 3 in flight at a time
                     // and bail early if the breaker trips mid-flight.
