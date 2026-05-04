@@ -181,7 +181,10 @@ export default function MediaStudioClient() {
   const [aspect, setAspect] = React.useState<Aspect>(FALLBACK_JOBS[0].aspect);
   const [duration, setDuration] = React.useState<number>(FALLBACK_JOBS[0].durationSeconds);
 
-  const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video">(null);
+  const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video" | "mascot">(null);
+  const [mascotPose, setMascotPose] = React.useState<DryvPose>("greet");
+  const [mascotPrompt, setMascotPrompt] = React.useState<string>(MASCOT_PRESETS[0].brief);
+  const [mascotTitle, setMascotTitle] = React.useState<string>(MASCOT_PRESETS[0].title);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
   // (Infographics now generate as images and live on imagePreview, same as posts.)
   const [storyboard, setStoryboard] = React.useState<VideoStoryboard | null>(null);
