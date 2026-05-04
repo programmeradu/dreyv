@@ -194,7 +194,7 @@ export function SmartInsights({
         <Surface className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-violet-700">
-              <Sparkles className="h-4 w-4" />
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                 What changed since yesterday
               </span>
