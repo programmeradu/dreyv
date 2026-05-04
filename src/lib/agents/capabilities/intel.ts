@@ -600,7 +600,45 @@ const sentiment_analysis = defineCapability({
   execute: async (input, _ctx) => {
     const { token } = input;
     console.log(`[capability:sentiment_analysis] ${token}`);
-    const mint = resolveTokenMint(token) || token;
+
+    // 0. Resolve symbol → mint. Fall back to the Jupiter token list for
+    //    long-tail tokens we don't ship in TOKEN_MINTS (e.g. HORSE, retail
+    //    memes). If we still can't resolve and the input doesn't look like a
+    //    base58 mint, return a clean "unknown_token" status — never send a
+    //    bare ticker to Helius (it returns 400).
+    const looksLikeMint = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(token.trim());
+    let mint = resolveTokenMint(token) || (looksLikeMint ? token.trim() : "");
+    if (!mint) {
+      try {
+        const r = await fetch(`https://lite-api.jup.ag/tokens/v1/tagged/verified`, {
+          signal: AbortSignal.timeout(6_000),
+        });
+        if (r.ok) {
+          const list = (await r.json()) as Array<{ address: string; symbol: string; name?: string }>;
+          const want = token.trim().toUpperCase();
+          const hit =
+            list.find((t) => t.symbol?.toUpperCase() === want) ||
+            list.find((t) => t.name?.toUpperCase() === want);
+          if (hit?.address) mint = hit.address;
+        }
+      } catch {
+        /* non-fatal — handled below */
+      }
+    }
+    if (!mint) {
+      return {
+        success: true,
+        operation: "sentiment_analysis",
+        token,
+        mint: null,
+        status: "unknown_token",
+        sentiment: "unavailable",
+        compositeScore: null,
+        dataSources: [],
+        message: `Couldn't resolve "${token}" to a Solana mint address. Paste the mint (base58) or pick a verified token symbol and I'll re-run sentiment.`,
+      };
+    }
+
     const heliusKey = process.env.HELIUS_API_KEY;
     if (!heliusKey) {
       return {
@@ -645,17 +683,22 @@ const sentiment_analysis = defineCapability({
         `https://api.helius.xyz/v0/addresses/${mint}/transactions?api-key=${heliusKey}&limit=100`,
         { signal: AbortSignal.timeout(15_000) },
       );
-      if (!r.ok) throw new Error(`Helius ${r.status}`);
+      if (!r.ok) {
+        const body = await r.text().catch(() => "");
+        throw new Error(`Helius ${r.status}${body ? `: ${body.slice(0, 160)}` : ""}`);
+      }
       txs = (await r.json()) as HeliusTx[];
       dataSources.push("helius:addresses/transactions");
     } catch (err) {
+      const msg = (err as Error).message;
       return {
         success: false,
         operation: "sentiment_analysis",
         token,
         mint,
-        error: `Helius fetch failed: ${(err as Error).message}`,
-        message: `Could not fetch on-chain activity for ${token}.`,
+        status: "provider_error",
+        error: `Helius fetch failed: ${msg}`,
+        message: `Couldn't fetch on-chain activity for ${token} (${msg}).`,
       };
     }
 
