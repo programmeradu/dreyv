@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, ArrowUpRight, MessagesSquare } from "lucide-react";
+import { ArrowUpRight, MessagesSquare } from "lucide-react";
 import { Surface, Pill, StreamIn } from "@/components/app-shell/primitives";
 
 interface SnapshotRow { capturedAt: string; totalUsd: string | number; yieldUsd: string | number }
