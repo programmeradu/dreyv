@@ -206,7 +206,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
       {summary.riskFlags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {summary.riskFlags.map((f) => (
-            <Pill key={f} tone="rose">{f.replace(/_/g, " ").toLowerCase()}</Pill>
+            <Pill key={f} tone="amber">{f.replace(/_/g, " ").toLowerCase()}</Pill>
           ))}
         </div>
       )}
