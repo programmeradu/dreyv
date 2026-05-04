@@ -23,9 +23,21 @@ import { buildTreasuryReportData } from "../artifacts/build-report";
 import { db } from "@/db";
 import { agentEpisodes } from "@/db/schema";
 
+/**
+ * Default month = current UTC month in YYYY-MM. Models frequently call these
+ * tools without specifying a month ("export this month's CSV"), and that
+ * shouldn't fail schema validation.
+ */
+function currentMonth(): string {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 const monthSchema = z
     .string()
-    .regex(/^\d{4}-\d{2}$/, "month must be YYYY-MM");
+    .regex(/^\d{4}-\d{2}$/, "month must be YYYY-MM")
+    .default(() => currentMonth())
+    .describe("Month to report on, format YYYY-MM. Defaults to current UTC month.");
 
 async function logEpisode(opts: {
     capabilityId: string;
