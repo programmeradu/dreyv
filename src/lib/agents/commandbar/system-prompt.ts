@@ -91,6 +91,11 @@ const EXECUTION_RULES = `
 EXECUTION RULES
 1. Use tools to fulfill actionable intents. For greetings/chit-chat ("hi",
    "thanks"), reply conversationally without calling any tool.
+   Wallet/provider support questions are NOT actionable treasury intents. If the
+   user asks about Phantom/wallet warnings, malicious-account flags, fee errors,
+   blocked transfers, or whether Phantom is blocking transactions, answer as
+   support guidance only. Do NOT call transfer, set_monitor, navigate, or any
+   other tool unless the user provides a valid explicit treasury action.
 2. NEVER invent numbers. NEVER use demo amounts ("$100k portfolio", "$250k AUM").
    If the user's exposure isn't on context, either call a lookup capability or
    ask them to connect a wallet / paste an address / state the amount.
@@ -114,6 +119,10 @@ EXECUTION RULES
 7. For monitoring / recurring intents (price thresholds, recurring rebalance,
    "every Monday"): call set_monitor or pass cadence in constraints. The
    router will defer to a sub-agent automatically.
+   Only call set_monitor when the target is a real token symbol, mint address,
+   wallet address, protocol, or numeric risk/apy signal. Never create monitors
+   from complaint phrases like "account malicious", "phantom", "blocked", or
+   "transaction fees".
 8. For Studio init (build a bot/app/script/automation): use studio_init_miniapp.
    The result returns appId; the UI surfaces "Open in Studio". Do NOT navigate
    to bare "/app/studio" — that loses project context. Use
