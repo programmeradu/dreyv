@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * One-click CSV export buttons for the analytics page.
- * Renders a small group of flat violet outline buttons that hit the
- * /api/treasury/exports/* endpoints with the active wallet + range.
+ * Quiet, footer-grade export links for the analytics page.
+ * Demoted to thin text-style links so the chart leads, not the buttons.
  */
 
 import { Download, FileText } from "lucide-react";
@@ -20,23 +19,23 @@ export function ExportButtons({ range = "30d" }: { range?: string }) {
   const csvHref = activeVault ? `/api/treasury/exports/events.csv?${qs}` : "#";
   const pdfHref = activeVault ? `/api/treasury/exports/report.pdf?${qs}` : "#";
 
-  const baseCls = `inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-    disabled ? "cursor-not-allowed opacity-50" : ""
+  const linkCls = `inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
+    disabled
+      ? "cursor-not-allowed text-slate-300"
+      : "text-slate-500 hover:text-violet-700"
   }`;
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-violet-100 pt-3">
       <a
         href={csvHref}
         aria-disabled={disabled}
         onClick={(e) => disabled && e.preventDefault()}
-        className={`${baseCls} border-violet-200 bg-white text-violet-700 ${
-          disabled ? "" : "hover:border-violet-300 hover:bg-violet-50"
-        }`}
+        className={linkCls}
         download
       >
-        <Download className="h-4 w-4" />
-        Events CSV
+        <Download className="h-3 w-3" />
+        Events · spreadsheet
       </a>
       <a
         href={pdfHref}
@@ -44,15 +43,13 @@ export function ExportButtons({ range = "30d" }: { range?: string }) {
         onClick={(e) => disabled && e.preventDefault()}
         target="_blank"
         rel="noopener noreferrer"
-        className={`${baseCls} border-violet-600 bg-violet-600 text-white ${
-          disabled ? "" : "hover:bg-violet-700 hover:border-violet-700"
-        }`}
+        className={linkCls}
       >
-        <FileText className="h-4 w-4" />
-        PDF Report
+        <FileText className="h-3 w-3" />
+        Report · branded PDF
       </a>
-      <span className="text-xs text-slate-500">
-        {disabled ? "Connect a wallet to export." : `${range} window · spreadsheet + branded report`}
+      <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-slate-400">
+        {disabled ? "connect a wallet" : `${range} window`}
       </span>
     </div>
   );
