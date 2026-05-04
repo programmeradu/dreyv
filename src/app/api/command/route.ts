@@ -397,7 +397,7 @@ export async function POST(req: Request) {
       system: effectiveSystemPrompt,
       messages: budgeted.messages,
       stopWhen: stepCountIs(10),
-        ...(simpleConversation || walletSupportQuestion ? {} : { tools: strictToolSubset }),
+        ...(simpleConversation || walletSupportQuestion || evidenceClass === "conversational" ? {} : { tools: strictToolSubset }),
       ...(
         strictGrounding &&
         !simpleConversation &&
