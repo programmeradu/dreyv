@@ -7,7 +7,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { CompactCard, EmptyMicro } from "./CompactCard";
-import { SignalBadge } from "./SignalBadge";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 interface EventRow {
   category?: string; feeUsd?: number | string; type?: string;
@@ -45,7 +45,7 @@ export function FeesBreakdown({ events, totalFeeUsd }: Props) {
   return (
     <CompactCard
       eyebrow="Fees · 30d"
-      badge={total === 0 ? <SignalBadge severity={0} label="Quiet" /> : <SignalBadge severity={severityFromScore(total > 1000 ? 0.6 : 0.25)}>{total > 1000 ? "Heavy" : "Light"}</SignalBadge>}
+      badge={total === 0 ? <SignalBadge severity="good">Quiet</SignalBadge> : <SignalBadge severity={severityFromScore(total > 1000 ? 0.6 : 0.25)}>{total > 1000 ? "Heavy" : "Light"}</SignalBadge>}
       headline={fmtUsd(total)}
       subline={total > 0 ? `${networkPct.toFixed(0)}% network · ${protocolPct.toFixed(0)}% protocol` : "Awaiting on-chain events."}
     >

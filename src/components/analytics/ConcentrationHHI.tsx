@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { CompactCard } from "./CompactCard";
-import { SignalBadge } from "./SignalBadge";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 interface Props { vaultTokens: any[] }
 

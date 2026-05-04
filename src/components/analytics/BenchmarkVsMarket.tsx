@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CompactCard, EmptyMicro } from "./CompactCard";
-import { SignalBadge } from "./SignalBadge";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 interface Point { date: string; value: number }
 interface Props { valueSeries: Point[]; benchmark?: "SOL" | "BTC" }
