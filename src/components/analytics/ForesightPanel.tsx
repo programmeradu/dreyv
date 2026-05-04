@@ -132,7 +132,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
     return (
       <Surface className="p-7">
         <div className="flex items-center gap-2 text-violet-700">
-          <Sparkles className="h-4 w-4" />
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Foresight</span>
         </div>
         <p className="mt-3 text-sm text-slate-600">
