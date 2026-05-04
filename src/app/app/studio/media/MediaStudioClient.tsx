@@ -54,7 +54,7 @@ async function readJsonSafe(res: Response): Promise<any> {
   }
 }
 
-type Mode = AssetKind;
+type Mode = AssetKind | "mascot";
 type Aspect = "1:1" | "16:9" | "9:16" | "4:5";
 
 type StudioJob = ContentSuggestion & {
@@ -67,6 +67,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
   { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
+  { id: "mascot", label: "Mascot", icon: Sparkles, hint: "Dryv visuals" },
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
@@ -75,8 +76,47 @@ const ASPECTS_BY_MODE: Record<Mode, Aspect[]> = {
   infographic: ["1:1", "4:5", "16:9"],
   announcement: ["16:9", "1:1", "4:5"],
   video: ["9:16", "1:1", "16:9"],
+  mascot: ["1:1", "4:5", "16:9", "9:16"],
 };
 const DURATIONS = [10, 15, 30] as const;
+
+const MASCOT_POSES: Array<{ id: DryvPose; label: string; hint: string }> = [
+  { id: "greet", label: "Greet", hint: "Warm intro / waving" },
+  { id: "think", label: "Think", hint: "Curious / explainer" },
+  { id: "celebrate", label: "Celebrate", hint: "Launch / milestone" },
+  { id: "alert", label: "Alert", hint: "Warning / risk" },
+];
+
+const MASCOT_PRESETS: Array<{ pose: DryvPose; title: string; brief: string; channel: Channel; aspect: Aspect }> = [
+  {
+    pose: "greet",
+    title: "Dryv says hi to a new founder",
+    brief: "Dryv stands at the entrance of a clean violet portal, waving toward the viewer. Subtle violet ambient glow, white background.",
+    channel: "x",
+    aspect: "1:1",
+  },
+  {
+    pose: "think",
+    title: "Dryv thinking about runway",
+    brief: "Dryv looks thoughtfully at a single floating violet line chart, calm, hand near chin. Editorial, generous whitespace.",
+    channel: "linkedin",
+    aspect: "4:5",
+  },
+  {
+    pose: "celebrate",
+    title: "Launch day",
+    brief: "Dryv mid-celebration with small floating violet diamond shards in the air, confetti-like but minimal and tasteful. Pure white background.",
+    channel: "x",
+    aspect: "1:1",
+  },
+  {
+    pose: "alert",
+    title: "Drift alert",
+    brief: "Dryv with palms up, concerned, next to a thin violet warning bar. Calm, never panicked, premium fintech feel.",
+    channel: "linkedin",
+    aspect: "16:9",
+  },
+];
 
 const FALLBACK_JOBS: StudioJob[] = [
   {
