@@ -438,7 +438,11 @@ export default function MediaStudioClient() {
                 }
               >
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  <Icon className="h-3.5 w-3.5" />
+                  {m.id === "mascot" ? (
+                    <DryvMascot pose="greet" size={18} glow={false} className="shrink-0" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5" />
+                  )}
                   {m.label}
                 </div>
                 <span className={"text-[10px] " + (active ? "text-primary-foreground/80" : "text-studio-muted")}>
