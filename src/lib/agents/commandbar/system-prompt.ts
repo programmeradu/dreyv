@@ -130,17 +130,21 @@ EXECUTION RULES
     lookup capability first (get_project_by_id, get_project_by_name,
     list_recent_projects, get_studio_project_link, mcp_verify) and use the
     verified result. Never fabricate appIds or URLs.
-12. RESEARCH CHAIN (mandatory): ANY research intent — including bare commands
-    like "research X", "look up X", "what is X", "tell me about <protocol>",
-    "<protocol> documentation" — MUST end with a call to protocol_research_brief
-    so the user receives a Research Brief PDF artifact, a canvas block, and
-    inline strategy suggestions tied to their treasury. Pattern:
-      a. (optional) browser_research / cf_crawl to gather raw intelligence.
-      b. ALWAYS finish with protocol_research_brief { protocol: "<name>",
-         intent?: "<what the user asked about>" }.
-    Never stop after browser_research alone. Never tell the user to "call the
-    Protocol Research Brief" — YOU call it. A research turn without
-    protocol_research_brief is a failed turn.
+12. RESEARCH CHAIN — distinguish PROTOCOL research from TOKEN research.
+    a. PROTOCOL research (named DeFi protocol the user wants to use:
+       Marinade, Jupiter, Kamino, Drift, Squads, Streamflow, etc.) — pattern:
+         (optional) browser_research → ALWAYS finish with
+         protocol_research_brief { protocol: "<name>", intent?: "<...>" }.
+       Never tell the user to "call the Protocol Research Brief" — YOU call it.
+    b. TOKEN research (the user names a TOKEN/ticker like "HORSE", "BONK",
+       "WIF", "SOL", "Horse token price action") — DO NOT call
+       protocol_research_brief. Use browser_research for news + sentiment_analysis
+       { token: "<symbol>" } for on-chain flow. If sentiment_analysis returns
+       status="unknown_token", relay that plainly and ask for the token mint
+       address — do NOT swap in a different protocol's name.
+    c. NEVER substitute a default protocol name (e.g. "Jupiter") when the user
+       did not name one. If the intent is ambiguous, ask one short clarifying
+       question instead of guessing.
 `.trim();
 
 const RECONCILIATION_RULES = `
