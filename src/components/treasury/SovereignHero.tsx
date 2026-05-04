@@ -290,37 +290,35 @@ function CompositionDonut({ holdings }: { holdings: HeroHolding[] }) {
 
   return (
     <div className="flex items-center gap-5">
-      <svg width="180" height="180" viewBox="0 0 180 180" className="shrink-0">
-        {/* Track */}
-        <circle cx={cx} cy={cy} r={r} stroke="#f5f3ff" strokeWidth={stroke} fill="none" />
-        {slices.map((s, i) => (
-          <motion.circle
-            key={`${s.symbol}-${i}`}
-            cx={cx}
-            cy={cy}
-            r={r}
-            stroke={s.color}
-            strokeWidth={stroke}
-            fill="none"
-            strokeLinecap="butt"
-            transform={`rotate(${-90 + s.start * 360} ${cx} ${cy})`}
-            strokeDasharray={c}
-            initial={{ strokeDashoffset: c }}
-            animate={{ strokeDashoffset: c * (1 - s.share) }}
-            transition={{ duration: 0.95, delay: 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
-            style={{ strokeDasharray: `${c * s.share} ${c}` }}
-          />
-        ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" className="fill-slate-500" fontSize="10" letterSpacing="1.5">
-          TOP ASSET
-        </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" className="fill-slate-900 font-manrope" fontSize="22" fontWeight="600">
-          {top.symbol}
-        </text>
-        <text x={cx} y={cy + 32} textAnchor="middle" className="fill-violet-600" fontSize="11" fontWeight="600">
-          {(top.share * 100).toFixed(1)}%
-        </text>
-      </svg>
+      <div className="relative shrink-0" style={{ width: 180, height: 180 }}>
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          <circle cx={cx} cy={cy} r={r} stroke="#f5f3ff" strokeWidth={stroke} fill="none" />
+          {slices.map((s, i) => (
+            <motion.circle
+              key={`${s.symbol}-${i}`}
+              cx={cx}
+              cy={cy}
+              r={r}
+              stroke={s.color}
+              strokeWidth={stroke}
+              fill="none"
+              strokeLinecap="butt"
+              transform={`rotate(${-90 + s.start * 360} ${cx} ${cy})`}
+              strokeDasharray={c}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: c * (1 - s.share) }}
+              transition={{ duration: 0.95, delay: 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
+              style={{ strokeDasharray: `${c * s.share} ${c}` }}
+            />
+          ))}
+        </svg>
+        {/* center: token logo + share */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <TokenAvatar symbol={top.symbol} mint={top.mint} logo={top.logo} size={56} />
+          <div className="mt-1.5 font-manrope text-sm font-semibold text-slate-900">{top.symbol}</div>
+          <div className="text-[10px] font-semibold text-violet-600">{(top.share * 100).toFixed(1)}%</div>
+        </div>
+      </div>
 
       <ul className="flex-1 space-y-2.5">
         {slices.map((s, i) => (
@@ -331,11 +329,7 @@ function CompositionDonut({ holdings }: { holdings: HeroHolding[] }) {
             transition={{ duration: 0.4, delay: 0.05 * i }}
             className="flex items-center gap-2.5"
           >
-            <span
-              className="h-2.5 w-2.5 rounded-sm"
-              style={{ backgroundColor: s.color }}
-              aria-hidden
-            />
+            <TokenAvatar symbol={s.symbol} mint={s.mint} logo={s.logo} size={20} />
             <span className="w-14 truncate text-xs font-semibold text-slate-800">{s.symbol}</span>
             <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-violet-50">
               <motion.div
