@@ -30,6 +30,7 @@ import {
 import { ChevronRight, Wallet, ShieldCheck, AlertTriangle, Eye } from "lucide-react";
 import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 /* ────────────────────────────── Types ───────────────────────────── */
