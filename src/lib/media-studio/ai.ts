@@ -233,18 +233,29 @@ export async function generateImage(opts: {
   prompt: string;
   model?: string;
   size?: "1024x1024" | "1024x1792" | "1792x1024";
+  /**
+   * Optional reference images (e.g. mascot character sheets). When supplied
+   * the model is instructed to compose new scenes around these characters
+   * instead of inventing them. Buffers are base64-encoded inline.
+   */
+  referenceImages?: Array<{ buffer: Buffer; mime: string }>;
 }): Promise<{ buffer: Buffer; mime: string }> {
   const picked = pickProvider();
+  const refs = opts.referenceImages ?? [];
 
   if (picked.provider === "gemini") {
     const apiKey = picked.key as string;
     const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
     const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const parts: Array<Record<string, unknown>> = [{ text: opts.prompt }];
+    for (const r of refs) {
+      parts.push({ inlineData: { mimeType: r.mime, data: r.buffer.toString("base64") } });
+    }
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
+        contents: [{ role: "user", parts }],
         generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
       }),
     });
@@ -254,9 +265,9 @@ export async function generateImage(opts: {
       throw new Error(`Gemini image ${res.status}: ${text.slice(0, 300)}`);
     }
     const data = await res.json();
-    const parts: Array<{ inlineData?: { data?: string; mimeType?: string }; inline_data?: { data?: string; mime_type?: string } }> =
+    const respParts: Array<{ inlineData?: { data?: string; mimeType?: string }; inline_data?: { data?: string; mime_type?: string } }> =
       data?.candidates?.[0]?.content?.parts ?? [];
-    for (const p of parts) {
+    for (const p of respParts) {
       const inline = (p.inlineData ?? p.inline_data) as { data?: string; mimeType?: string; mime_type?: string } | undefined;
       if (inline?.data) {
         const mime = inline.mimeType || inline.mime_type || "image/png";
@@ -273,12 +284,20 @@ export async function generateImage(opts: {
   if (!isProxy) headers.Authorization = `Bearer ${picked.key as string}`;
 
   const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
+  // OpenAI-compatible multimodal: content is an array of parts.
+  const userContent: Array<Record<string, unknown>> = [{ type: "text", text: opts.prompt }];
+  for (const r of refs) {
+    userContent.push({
+      type: "image_url",
+      image_url: { url: `data:${r.mime};base64,${r.buffer.toString("base64")}` },
+    });
+  }
   const res = await fetch(endpoint, {
     method: "POST",
     headers,
     body: JSON.stringify({
       model,
-      messages: [{ role: "user", content: opts.prompt }],
+      messages: [{ role: "user", content: refs.length > 0 ? userContent : opts.prompt }],
       modalities: ["image", "text"],
       stream: false,
     }),
@@ -299,3 +318,4 @@ export async function generateImage(opts: {
   const buffer = Buffer.from(m[2] ?? "", "base64");
   return { buffer, mime };
 }
+
