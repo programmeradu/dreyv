@@ -197,12 +197,16 @@ function MoverCard({ token }: { token: any }) {
   const change = Number(token?.change24h ?? 0);
   const positive = change >= 0;
   const symbol = String(token?.symbol ?? "—");
+  const mint = (token?.mint ?? token?.address) as string | undefined;
   const value = Number(token?.value ?? 0);
   return (
     <CardShell accent={positive ? "emerald" : "rose"}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Top mover · 24h</p>
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-manrope text-3xl font-semibold tracking-tight text-slate-900">{symbol}</h3>
+        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <TokenLogo symbol={symbol} mint={mint} size={28} />
+          {symbol}
+        </h3>
         <span className={`font-manrope text-2xl font-semibold ${positive ? "text-emerald-600" : "text-rose-600"}`}>
           {positive ? "+" : ""}
           {change.toFixed(2)}%
