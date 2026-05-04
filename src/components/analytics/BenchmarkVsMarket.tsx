@@ -1,15 +1,14 @@
 "use client";
 
 /**
- * BenchmarkVsMarket — flat comparison of treasury value series vs SOL/BTC over the
- * snapshot window. Uses CoinGecko range endpoint (publishable, no key needed for
- * demo IDs) and falls back gracefully to a treasury-only line if the upstream
- * market call fails.
+ * BenchmarkVsMarket (compact) — treasury % change vs SOL/BTC over the snapshot
+ * window. Mini dual-line with zero baseline; flat surface, fixed height.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Surface, Pill, StreamIn } from "@/components/app-shell/primitives";
+import { CompactCard, EmptyMicro } from "./CompactCard";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
 interface Point { date: string; value: number }
 interface Props { valueSeries: Point[]; benchmark?: "SOL" | "BTC" }
@@ -44,15 +43,14 @@ export function BenchmarkVsMarket({ valueSeries, benchmark = "SOL" }: Props) {
 
   const chart = useMemo(() => {
     if (!valueSeries || valueSeries.length < 2) return null;
-    const w = 600, h = 160, padX = 6, padY = 8;
-    // Normalize each series to its first value (% change)
+    const w = 320, h = 80, padX = 4, padY = 6;
     const norm = (pts: Point[]) => {
       const base = pts[0].value || 1;
       return pts.map((p) => ({ t: new Date(p.date).getTime(), n: (p.value / base - 1) * 100 }));
     };
     const t = norm(valueSeries);
     const m = marketSeries && marketSeries.length >= 2 ? norm(marketSeries) : null;
-    const allN = m ? [...t.map((p) => p.n), ...m.map((p) => p.n)] : t.map((p) => p.n);
+    const allN = m ? [...t.map((p) => p.n), ...m.map((p) => p.n), 0] : [...t.map((p) => p.n), 0];
     const minY = Math.min(...allN);
     const maxY = Math.max(...allN);
     const range = maxY - minY || 1;
@@ -63,79 +61,65 @@ export function BenchmarkVsMarket({ valueSeries, benchmark = "SOL" }: Props) {
     const y = (v: number) => padY + (1 - (v - minY) / range) * (h - 2 * padY);
     const path = (pts: { t: number; n: number }[]) =>
       "M " + pts.map((p) => `${x(p.t)},${y(p.n)}`).join(" L ");
-    const zeroY = y(0);
     return {
       w, h,
       treasuryPath: path(t),
       marketPath: m ? path(m) : null,
       treasuryEnd: t[t.length - 1].n,
       marketEnd: m ? m[m.length - 1].n : null,
-      zeroY,
+      zeroY: y(0),
     };
   }, [valueSeries, marketSeries]);
 
   if (!chart) {
     return (
-      <Surface className="p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Benchmark · vs {benchmark}</p>
-        <p className="mt-3 text-sm text-slate-400">
-          Need at least 2 snapshots to benchmark.
-        </p>
-      </Surface>
+      <CompactCard
+        eyebrow={`Benchmark · vs ${benchmark}`}
+        headline="—"
+        subline="Need ≥ 2 snapshots to benchmark."
+      >
+        <EmptyMicro label="Accumulating snapshots" />
+      </CompactCard>
     );
   }
 
-  const tEnd = chart.treasuryEnd;
-  const mEnd = chart.marketEnd;
-  const verdict = mEnd != null
-    ? (tEnd - mEnd >= 1 ? { label: `Beating ${benchmark}`, tone: "emerald" as const }
-      : tEnd - mEnd <= -1 ? { label: `Trailing ${benchmark}`, tone: "rose" as const }
-      : { label: `Tracking ${benchmark}`, tone: "violet" as const })
-    : { label: "Treasury only", tone: "slate" as const };
+  const { treasuryEnd: tEnd, marketEnd: mEnd } = chart;
+  const delta = mEnd != null ? tEnd - mEnd : null;
+  const severity = delta == null ? 0.3 : delta >= 1 ? 0.1 : delta <= -1 ? 0.7 : 0.35;
+  const label = loading ? "Loading" : delta == null ? "Treasury only" : delta >= 1 ? `Beating ${benchmark}` : delta <= -1 ? `Trailing ${benchmark}` : `Tracking ${benchmark}`;
 
   return (
-    <Surface className="p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Benchmark · vs {benchmark}</p>
-          <h3 className="mt-1 font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-            {tEnd >= 0 ? "+" : ""}{tEnd.toFixed(2)}%
-            {mEnd != null && (
-              <span className="ml-3 text-base font-medium text-slate-400">
-                vs {mEnd >= 0 ? "+" : ""}{mEnd.toFixed(2)}% {benchmark}
-              </span>
-            )}
-          </h3>
-        </div>
-        <Pill tone={verdict.tone}>{loading ? "Loading…" : verdict.label}</Pill>
-      </div>
-
-      <div className="mt-5 overflow-hidden rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-        <svg viewBox={`0 0 ${chart.w} ${chart.h}`} className="h-40 w-full">
-          <line x1={0} y1={chart.zeroY} x2={chart.w} y2={chart.zeroY} stroke="rgb(196 181 253)" strokeDasharray="3 3" strokeWidth="1" />
-          {chart.marketPath && (
-            <motion.path
-              d={chart.marketPath}
-              fill="none"
-              stroke="rgb(148 163 184)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-            />
-          )}
+    <CompactCard
+      eyebrow={`Benchmark · vs ${benchmark}`}
+      badge={<SignalBadge severity={severityFromScore(severity)}>{label}</SignalBadge>}
+      headline={`${tEnd >= 0 ? "+" : ""}${tEnd.toFixed(2)}%`}
+      subline={mEnd != null ? `vs ${mEnd >= 0 ? "+" : ""}${mEnd.toFixed(2)}% ${benchmark}` : "Treasury-only line"}
+    >
+      <svg viewBox={`0 0 ${chart.w} ${chart.h}`} className="h-full w-full" preserveAspectRatio="none">
+        <line x1={0} y1={chart.zeroY} x2={chart.w} y2={chart.zeroY} stroke="#ede9fe" strokeDasharray="3 3" strokeWidth="1" />
+        {chart.marketPath && (
           <motion.path
-            d={chart.treasuryPath}
+            d={chart.marketPath}
             fill="none"
-            stroke="rgb(124 58 237)"
-            strokeWidth="2.2"
+            stroke="#94a3b8"
+            strokeWidth="1.4"
+            strokeDasharray="3 3"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
           />
-        </svg>
-      </div>
-    </Surface>
+        )}
+        <motion.path
+          d={chart.treasuryPath}
+          fill="none"
+          stroke="#7c3aed"
+          strokeWidth="2"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.3, ease: [0.22, 1, 0.36, 1] }}
+        />
+      </svg>
+    </CompactCard>
   );
 }

@@ -1,102 +1,84 @@
 "use client";
 
 /**
- * FlowsByCategory — flat category breakdown of inflows vs outflows
- * derived from /api/treasury/events.
+ * FlowsByCategory (compact) — net flow + top categories as paired mini-bars.
  */
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Surface, Pill, StreamIn } from "@/components/app-shell/primitives";
+import { CompactCard, EmptyMicro } from "./CompactCard";
+import { SignalBadge, severityFromScore } from "./SignalBadge";
 
-interface EventRow {
-  category?: string;
-  type?: string;
-  amountUsd?: number | string;
-}
+interface EventRow { category?: string; type?: string; amountUsd?: number | string }
 interface Props { events: EventRow[] | null }
 
 function fmtUsd(n: number): string {
   const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
-  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
-  return `${sign}$${abs.toFixed(0)}`;
+  if (abs >= 1e6) return `$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `$${(abs / 1e3).toFixed(1)}K`;
+  return `$${abs.toFixed(0)}`;
 }
 
 export function FlowsByCategory({ events }: Props) {
-  const rows = useMemo(() => {
+  const data = useMemo(() => {
     if (!events || events.length === 0) return null;
     const map = new Map<string, { inflow: number; outflow: number }>();
+    let totalIn = 0, totalOut = 0;
     for (const e of events) {
       const cat = String(e.category ?? e.type ?? "other").toLowerCase();
       const amt = Number(e.amountUsd ?? 0);
       if (!Number.isFinite(amt)) continue;
       const cur = map.get(cat) ?? { inflow: 0, outflow: 0 };
-      if (amt >= 0) cur.inflow += amt;
-      else cur.outflow += -amt;
+      if (amt >= 0) { cur.inflow += amt; totalIn += amt; }
+      else { cur.outflow += -amt; totalOut += -amt; }
       map.set(cat, cur);
     }
-    return [...map.entries()]
-      .map(([name, v]) => ({ name, ...v, net: v.inflow - v.outflow, gross: v.inflow + v.outflow }))
+    const rows = [...map.entries()]
+      .map(([name, v]) => ({ name, ...v, gross: v.inflow + v.outflow, net: v.inflow - v.outflow }))
       .sort((a, b) => b.gross - a.gross)
-      .slice(0, 6);
+      .slice(0, 3);
+    return { rows, net: totalIn - totalOut };
   }, [events]);
 
   return (
-    <Surface className="p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-600">Flows · by category</p>
-          <h3 className="mt-1 font-manrope text-2xl font-semibold tracking-tight text-slate-900">
-            Where money moved
-          </h3>
-        </div>
-        {rows && <Pill tone="slate">{rows.length} categories</Pill>}
-      </div>
-
-      {!rows || rows.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-400">
-          Tag your first treasury events to see them grouped here.
-        </p>
-      ) : (
-        <ul className="mt-5 space-y-3">
-          {rows.map((r, i) => {
+    <CompactCard
+      eyebrow="Flows · 30d"
+      badge={data ? <SignalBadge severity={severityFromScore(data.net >= 0 ? 0.15 : 0.55)}>{data.net >= 0 ? "Net in" : "Net out"}</SignalBadge> : undefined}
+      headline={data ? `${data.net >= 0 ? "+" : "-"}${fmtUsd(Math.abs(data.net))}` : "—"}
+      subline={data ? `${data.rows.length} categories tracked` : "Tag events to group flows."}
+    >
+      {data ? (
+        <ul className="flex h-full w-full flex-col justify-end gap-1.5">
+          {data.rows.map((r, i) => {
             const max = Math.max(r.inflow, r.outflow, 1);
             return (
-              <StreamIn key={r.name} delay={0.05 * i}>
-                <li>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-800">{r.name}</span>
-                    <span className={r.net >= 0 ? "text-violet-700 font-semibold" : "text-amber-700 font-semibold"}>
-                      {r.net >= 0 ? "+" : "-"}{fmtUsd(Math.abs(r.net))}
-                    </span>
+              <li key={r.name} className="flex items-center gap-2">
+                <span className="w-14 truncate text-[10px] font-medium text-slate-700">{r.name}</span>
+                <div className="grid flex-1 grid-cols-2 gap-1">
+                  <div className="relative h-1.5 rounded-full bg-violet-50">
+                    <motion.div
+                      className="absolute inset-y-0 left-0 rounded-full bg-violet-600"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(r.inflow / max) * 100}%` }}
+                      transition={{ duration: 0.7, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
+                    />
                   </div>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    <div className="relative h-2 rounded-full bg-violet-50" title={`Inflow ${fmtUsd(r.inflow)}`}>
-                      <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full bg-violet-600"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(r.inflow / max) * 100}%` }}
-                        transition={{ duration: 0.8, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
-                      />
-                    </div>
-                    <div className="relative h-2 rounded-full bg-amber-50" title={`Outflow ${fmtUsd(r.outflow)}`}>
-                      <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full bg-amber-500"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(r.outflow / max) * 100}%` }}
-                        transition={{ duration: 0.8, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
-                      />
-                    </div>
+                  <div className="relative h-1.5 rounded-full bg-amber-50">
+                    <motion.div
+                      className="absolute inset-y-0 left-0 rounded-full bg-amber-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(r.outflow / max) * 100}%` }}
+                      transition={{ duration: 0.7, delay: 0.05 * i, ease: [0.22, 1, 0.36, 1] }}
+                    />
                   </div>
-                </li>
-              </StreamIn>
+                </div>
+              </li>
             );
           })}
         </ul>
+      ) : (
+        <EmptyMicro label="Awaiting tagged events" />
       )}
-    </Surface>
+    </CompactCard>
   );
 }
