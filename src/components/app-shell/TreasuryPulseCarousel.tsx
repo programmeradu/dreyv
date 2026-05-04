@@ -92,7 +92,13 @@ export function TreasuryPulseCarousel() {
       list.push({
         kind: "risk",
         eyebrow: "Concentration",
-        render: () => <RiskCard symbol={topHolding.token.symbol} share={topHolding.share} />,
+        render: () => (
+          <RiskCard
+            symbol={topHolding.token.symbol}
+            mint={(topHolding.token as any)?.mint ?? (topHolding.token as any)?.address}
+            share={topHolding.share}
+          />
+        ),
       });
     }
 
