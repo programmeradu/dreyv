@@ -196,35 +196,40 @@ function CompositionDonut({ holdings }: { holdings: any[] }) {
 
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
-      <svg width="200" height="200" viewBox="0 0 200 200" className="shrink-0">
-        <circle cx={cx} cy={cy} r={r} stroke="#f5f3ff" strokeWidth={stroke} fill="none" />
-        {data.slices.map((s, i) => (
-          <motion.circle
-            key={`${s.symbol}-${i}`}
-            cx={cx}
-            cy={cy}
-            r={r}
-            stroke={s.color}
-            strokeWidth={stroke}
-            fill="none"
-            strokeLinecap="butt"
-            transform={`rotate(${-90 + s.start * 360} ${cx} ${cy})`}
-            strokeDasharray={`${c * s.share} ${c}`}
-            initial={{ strokeDashoffset: c }}
-            animate={{ strokeDashoffset: 0 }}
-            transition={{ duration: 0.95, delay: 0.07 * i, ease: [0.22, 1, 0.36, 1] }}
-          />
-        ))}
-        <text x={cx} y={cy - 10} textAnchor="middle" className="fill-slate-500" fontSize="9" letterSpacing="2">
-          TOP
-        </text>
-        <text x={cx} y={cy + 10} textAnchor="middle" className="fill-slate-900 font-manrope" fontSize="22" fontWeight="600">
-          {top.symbol}
-        </text>
-        <text x={cx} y={cy + 28} textAnchor="middle" className="fill-violet-600" fontSize="11" fontWeight="600">
-          {(top.share * 100).toFixed(1)}%
-        </text>
-      </svg>
+      <div className="relative shrink-0" style={{ width: 200, height: 200 }}>
+        <svg width="200" height="200" viewBox="0 0 200 200">
+          <circle cx={cx} cy={cy} r={r} stroke="#f5f3ff" strokeWidth={stroke} fill="none" />
+          {data.slices.map((s, i) => (
+            <motion.circle
+              key={`${s.symbol}-${i}`}
+              cx={cx}
+              cy={cy}
+              r={r}
+              stroke={s.color}
+              strokeWidth={stroke}
+              fill="none"
+              strokeLinecap="butt"
+              transform={`rotate(${-90 + s.start * 360} ${cx} ${cy})`}
+              strokeDasharray={`${c * s.share} ${c}`}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: 0 }}
+              transition={{ duration: 0.95, delay: 0.07 * i, ease: [0.22, 1, 0.36, 1] }}
+            />
+          ))}
+        </svg>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5"
+        >
+          <TokenAvatar symbol={top.symbol} mint={top.mint} logo={top.logo} size={56} />
+          <span className="font-manrope text-sm font-semibold text-slate-900">{top.symbol}</span>
+          <span className="text-[10px] font-semibold tabular-nums text-violet-600">
+            {(top.share * 100).toFixed(1)}%
+          </span>
+        </motion.div>
+      </div>
 
       <ul className="w-full flex-1 space-y-2.5">
         {data.slices.map((s, i) => (
@@ -235,11 +240,7 @@ function CompositionDonut({ holdings }: { holdings: any[] }) {
             transition={{ duration: 0.4, delay: 0.05 * i }}
             className="flex items-center gap-2.5"
           >
-            <span
-              className="h-2.5 w-2.5 rounded-sm"
-              style={{ backgroundColor: s.color }}
-              aria-hidden
-            />
+            <TokenAvatar symbol={s.symbol} mint={s.mint} logo={s.logo} size={20} />
             <span className="w-14 truncate text-xs font-semibold text-slate-800">{s.symbol}</span>
             <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-violet-50">
               <motion.div
