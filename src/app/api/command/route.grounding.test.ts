@@ -3,6 +3,7 @@ import {
   buildBudgetedMessagesWithCap,
   classifyEvidenceNeed,
   evaluateGroundingGate,
+  isWalletProviderSupportQuestion,
   validateNavigationPath,
 } from "./grounding";
 
@@ -10,6 +11,12 @@ describe("command grounding helpers", () => {
   it("classifies db and navigation prompts", () => {
     expect(classifyEvidenceNeed("open studio app link for project x")).toBe("navigation_required");
     expect(classifyEvidenceNeed("what is the saved appId in db")).toBe("db_required");
+  });
+
+  it("recognizes wallet provider support questions as non-tool support", () => {
+    expect(isWalletProviderSupportQuestion("account malicious also phantom is block transactions from you because you are malicious")).toBe(true);
+    expect(isWalletProviderSupportQuestion("Phantom says I do not have transaction fees but I have SOL")).toBe(true);
+    expect(isWalletProviderSupportQuestion("alert me if SOL drops 5% in an hour")).toBe(false);
   });
 
   it("validates studio deep links and blocks invalid routes", () => {
