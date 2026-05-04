@@ -152,6 +152,10 @@ export class BuilderAgent extends BaseAgent {
         inAmount: data.inAmount,
         outAmount: data.outAmount,
         outAmountWithSlippage: data.outAmountWithSlippage,
+        otherAmountThreshold: data.otherAmountThreshold,
+        slippageBps: typeof data.slippageBps === "number"
+          ? data.slippageBps
+          : Math.round(slippage * 100),
         priceImpactPct: data.priceImpactPct,
         marketInfos: data.marketInfos || [],
         routePlan: data.routePlan || []
