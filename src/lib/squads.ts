@@ -40,6 +40,17 @@ function isRateLimitLike(error: unknown): boolean {
 }
 
 /**
+ * Helius free plan rejects JSON-RPC batch calls (`getParsedTransactions` with
+ * an array of signatures) with HTTP 403 + `-32403`. The per-signature fallback
+ * works fine on the free tier — so this is expected, not an error. Detect it
+ * so we can take the fallback path silently instead of polluting the console.
+ */
+function isBatchUnsupported(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : String(error);
+    return /-32403|Batch requests are only available/i.test(msg);
+}
+
+/**
  * Keystone Squads Client
  * A wrapper around @sqds/multisig v2 SDK to interact with Squads Protocol.
  */
