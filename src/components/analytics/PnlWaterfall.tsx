@@ -84,9 +84,9 @@ export function PnlWaterfall({ wallet, range = "30d" }: { wallet: string | null;
       </div>
 
       <div className="mt-4 grid grid-cols-4 gap-3 text-[11px] uppercase tracking-[0.16em]">
-        <Stat tone="emerald" label="Inflow" value={fmtCompact(totalInflow)} />
-        <Stat tone="rose" label="Outflow" value={fmtCompact(totalOutflow)} />
-        <Stat tone="violet" label="Yield" value={fmtCompact(totalYield)} />
+        <Stat tone="violet" label="Inflow" value={fmtCompact(totalInflow)} />
+        <Stat tone="amber" label="Outflow" value={fmtCompact(totalOutflow)} />
+        <Stat tone="ink" label="Yield" value={fmtCompact(totalYield)} />
         <Stat tone="slate" label="Fees" value={fmtCompact(totalFee)} />
       </div>
 
@@ -104,10 +104,10 @@ export function PnlWaterfall({ wallet, range = "30d" }: { wallet: string | null;
               title={`${d.day}\nInflow: ${fmtCompact(d.inflow_usd)}\nOutflow: ${fmtCompact(d.outflow_usd)}\nYield: ${fmtCompact(d.yield_usd)}\nFees: ${fmtCompact(d.fee_usd)}`}
               className="flex w-2 flex-shrink-0 flex-col-reverse items-stretch gap-px"
             >
-              {d.inflow_usd > 0 && <Bar h={inH} color="bg-emerald-500" delay={i * 0.012} />}
-              {d.yield_usd > 0 && <Bar h={yH} color="bg-violet-500" delay={i * 0.012 + 0.04} />}
-              {d.outflow_usd > 0 && <Bar h={outH} color="bg-rose-400" delay={i * 0.012 + 0.08} />}
-              {d.fee_usd > 0 && <Bar h={fH} color="bg-slate-400" delay={i * 0.012 + 0.12} />}
+              {d.inflow_usd > 0 && <Bar h={inH} color="bg-violet-600" delay={i * 0.012} />}
+              {d.yield_usd > 0 && <Bar h={yH} color="bg-slate-900" delay={i * 0.012 + 0.04} />}
+              {d.outflow_usd > 0 && <Bar h={outH} color="bg-amber-400" delay={i * 0.012 + 0.08} />}
+              {d.fee_usd > 0 && <Bar h={fH} color="bg-slate-300" delay={i * 0.012 + 0.12} />}
             </div>
           );
         })}
@@ -117,7 +117,7 @@ export function PnlWaterfall({ wallet, range = "30d" }: { wallet: string | null;
         <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Net over window</span>
         <span
           className={`font-manrope text-xl font-semibold tabular-nums ${
-            totalNet >= 0 ? "text-emerald-600" : "text-rose-600"
+            totalNet >= 0 ? "text-violet-700" : "text-amber-700"
           }`}
         >
           {totalNet >= 0 ? "+" : ""}
