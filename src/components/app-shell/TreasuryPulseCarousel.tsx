@@ -236,7 +236,7 @@ function MoverCard({ token }: { token: any }) {
   );
 }
 
-function RiskCard({ symbol, share }: { symbol: string; share: number }) {
+function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; share: number }) {
   const concentrated = share >= 60;
   return (
     <CardShell accent={concentrated ? "rose" : "violet"}>
