@@ -115,17 +115,26 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "vaultValue_required" }), { status: 400 });
   }
 
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) {
+  // Per project rule: all Lovable AI calls go through the Supabase edge
+  // function `lovable-ai-proxy` (LOVABLE_API_KEY only lives in the Supabase
+  // workspace, not on Vercel).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseAnon =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnon) {
     return new Response(JSON.stringify({ error: "ai_gateway_not_configured" }), { status: 503 });
   }
 
   const userPrompt = buildUserPrompt(body);
 
-  const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const upstream = await fetch(`${supabaseUrl}/functions/v1/lovable-ai-proxy`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${supabaseAnon}`,
+      apikey: supabaseAnon,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
