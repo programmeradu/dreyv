@@ -19,6 +19,8 @@ interface Props {
   mint?: string | null;
   size?: number; // px
   className?: string;
+  /** When true, render nothing instead of a letter-circle fallback if no logo can be resolved. */
+  hideFallback?: boolean;
 }
 
 const STATIC_LOGOS: Record<string, string> = {
