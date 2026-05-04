@@ -15,7 +15,6 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
 import {
   ArrowLeft,
-  Sparkles,
   ArrowDownRight,
   ArrowUpRight,
   Coins,
