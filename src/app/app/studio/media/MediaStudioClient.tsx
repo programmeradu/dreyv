@@ -847,7 +847,7 @@ export default function MediaStudioClient() {
                 )}
 
                 {/* Image preview (post / announcement / infographic) */}
-                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic") && (
+                {imagePreview && (mode === "post" || mode === "announcement" || mode === "infographic" || mode === "mascot") && (
                   <div className="group relative overflow-hidden rounded-3xl border border-studio-border bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
