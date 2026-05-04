@@ -525,17 +525,9 @@ export function AnalyticsCockpit({
 
           {/* 24h chip + as-of */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span
-              className={
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold " +
-                (positive24h
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700")
-              }
-            >
-              <DreyvStar size={9} className={positive24h ? "text-emerald-600" : "text-rose-600"} />
+            <SignalBadge severity={positive24h ? "good" : "watch"}>
               {vaultChange24h == null ? "no 24h baseline" : `${positive24h ? "+" : ""}${vaultChange24h.toFixed(2)}% · 24h`}
-            </span>
+            </SignalBadge>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-100 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600">
               As of {relTime(asOf)}
             </span>
