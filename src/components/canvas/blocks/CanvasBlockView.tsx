@@ -555,18 +555,18 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-violet-100">
-          <div className="hidden grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] gap-3 bg-violet-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 md:grid">
+          <div className="hidden grid-cols-[1.6fr_1fr_1fr_0.7fr_180px] gap-3 bg-violet-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 md:grid">
             <span>Asset</span>
             <span className="text-right">Balance</span>
             <span className="text-right">Value</span>
             <span className="text-right">24h</span>
-            <span />
+            <span className="text-right">Actions</span>
           </div>
           <ul className="divide-y divide-violet-100/70">
             {visibleRows.map((r) => {
               const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
               return (
-                <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-3 py-2 text-sm md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto] md:gap-3">
+                <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-4 py-2 text-sm md:grid-cols-[1.6fr_1fr_1fr_0.7fr_180px] md:gap-3">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <TokenAvatar symbol={r.symbol} mint={r.mint} logo={r.logo} size={28} />
                     <div className="min-w-0">
