@@ -20,6 +20,8 @@ import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
 import { parseCsv, readFileAsText } from "@/lib/csv";
 import { ForesightWhatIfBlock } from "./ForesightWhatIfBlock";
+import { SignalBadge, type Severity } from "@/components/analytics/SignalBadge";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
@@ -564,7 +566,7 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
           </div>
           <ul className="divide-y divide-violet-100/70">
             {visibleRows.map((r) => {
-              const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
+              const tone = (r.change24h ?? 0) >= 0 ? "text-violet-700" : "text-slate-900";
               return (
                 <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-4 py-2 text-sm md:grid-cols-[1.6fr_1fr_1fr_0.7fr_180px] md:gap-3">
                   <div className="flex min-w-0 items-center gap-2.5">
@@ -776,9 +778,11 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
               <li key={w.address} className={`flex items-center gap-2 px-3 py-2 text-[12px] ${isActive ? "bg-violet-50/60" : "bg-white hover:bg-violet-50/30"}`}>
                 <button
                   onClick={() => setActiveVault(w.address)}
-                  className={`h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-violet-600" : "bg-slate-300 hover:bg-violet-400"}`}
+                  className="shrink-0"
                   aria-label={isActive ? "Active" : "Set active"}
-                />
+                >
+                  <DreyvStar size={11} className={isActive ? "text-violet-600" : "text-slate-300 hover:text-violet-400"} />
+                </button>
                 <div className="min-w-0 flex-1">
                   {isEditing ? (
                     <input
@@ -944,31 +948,93 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
     );
   }
 
-  const tone = months >= 18 ? "emerald" : months >= 9 ? "violet" : "rose";
-  const netHint = inflow != null && burn != null
-    ? `${fmtUsd(inflow)} in / ${fmtUsd(burn)} out per month`
-    : `at ${fmtUsd(burn)}/mo burn`;
+  const severity = months >= 18 ? "good" : months >= 9 ? "neutral" : months >= 6 ? "watch" : "risk";
+  const verdict = months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : months >= 6 ? "Tight" : "Critical";
+
+  // Arc gauge — clamp 0..36 months range; healthy threshold at 18m.
+  const HORIZON = 36;
+  const clamped = Math.max(0, Math.min(months, HORIZON));
+  const t = clamped / HORIZON;
+  const R = 64;
+  const CX = 80;
+  const CY = 80;
+  const arcLen = Math.PI * R; // half-circle
+  const dash = arcLen * t;
+  const angle = -Math.PI + Math.PI * t;
+  const needleX = CX + R * Math.cos(angle);
+  const needleY = CY + R * Math.sin(angle);
+  const arcColor = severity === "good" ? "#7c3aed" : severity === "neutral" ? "#8b5cf6" : severity === "watch" ? "#a78bfa" : "#5b21b6";
 
   return (
-    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
-      <div className="flex items-end justify-between gap-4">
+    <BlockShell block={block} accent="violet">
+      <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
+        {/* Half-donut runway gauge */}
+        <div className="relative mx-auto" style={{ width: 160, height: 96 }}>
+          <svg viewBox="0 0 160 96" className="h-24 w-40">
+            {/* Track */}
+            <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`} stroke="#f5f3ff" strokeWidth={12} fill="none" strokeLinecap="round" />
+            {/* Milestones at 6 / 12 / 18 / 24 mo */}
+            {[6, 12, 18, 24].map((m) => {
+              const a = -Math.PI + Math.PI * (m / HORIZON);
+              const x1 = CX + (R - 8) * Math.cos(a);
+              const y1 = CY + (R - 8) * Math.sin(a);
+              const x2 = CX + (R + 4) * Math.cos(a);
+              const y2 = CY + (R + 4) * Math.sin(a);
+              return <line key={m} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ddd6fe" strokeWidth={1.5} strokeLinecap="round" />;
+            })}
+            {/* Filled arc */}
+            <path
+              d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+              stroke={arcColor}
+              strokeWidth={12}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${arcLen}`}
+            />
+            {/* Needle */}
+            <line x1={CX} y1={CY} x2={needleX} y2={needleY} stroke="#0f172a" strokeWidth={2} strokeLinecap="round" />
+            <circle cx={CX} cy={CY} r={4} fill="#0f172a" />
+          </svg>
+          <div className="absolute inset-x-0 bottom-0 text-center">
+            <div className="font-manrope text-2xl font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+              {months.toFixed(1)}
+              <span className="ml-1 text-xs font-medium text-slate-500">mo</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column — numbers + signal */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Runway</p>
-          <p className="mt-1 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-            <StreamingNumber value={months} decimals={1} suffix=" months" />
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {netHint} · {fmtUsd(stableBalance)} stable balance
-          </p>
-          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-400">
-            Based on {sample} event{sample === 1 ? "" : "s"} over 90 days
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Runway</p>
+            <SignalBadge severity={severity}>{verdict}</SignalBadge>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <RunwayStat label="Stables" value={fmtUsd(stableBalance, 0)} />
+            <RunwayStat label="Burn / mo" value={burn != null ? fmtUsd(burn, 0) : "—"} />
+            <RunwayStat label="Inflow / mo" value={inflow != null ? fmtUsd(inflow, 0) : "—"} accent />
+          </div>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-violet-50">
+            <div className="h-full rounded-full bg-violet-600" style={{ width: `${t * 100}%` }} />
+          </div>
+          <div className="mt-1 flex justify-between text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+            <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span><span>36+</span>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            From {sample} event{sample === 1 ? "" : "s"} over 90 days
           </p>
         </div>
-        <Pill tone={tone as "violet" | "emerald" | "rose"}>
-          {months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : "Tight"}
-        </Pill>
       </div>
     </BlockShell>
+  );
+}
+
+function RunwayStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-2.5 py-2 ${accent ? "border-violet-200 bg-violet-50/60" : "border-violet-100 bg-white"}`}>
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-0.5 font-manrope text-sm font-semibold tracking-tight text-slate-900 tabular-nums">{value}</div>
+    </div>
   );
 }
 
@@ -2563,10 +2629,15 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
     return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to audit signer hygiene and key security.</p></BlockShell>;
   }
 
-  const scoreTone = audit == null ? "slate" : audit.score >= 80 ? "emerald" : audit.score >= 50 ? "amber" : "rose";
+  const sev: Severity = audit == null ? "neutral" : audit.score >= 80 ? "good" : audit.score >= 50 ? "watch" : "risk";
+  const arcColor = sev === "good" ? "#7c3aed" : sev === "watch" ? "#a78bfa" : sev === "risk" ? "#5b21b6" : "#c4b5fd";
+  const score = audit?.score ?? 0;
+  // Closed-circle hygiene gauge
+  const R = 38, C = 2 * Math.PI * R;
+  const dash = (score / 100) * C;
 
   return (
-    <BlockShell block={block} accent={scoreTone === "rose" ? "rose" : "violet"}>
+    <BlockShell block={block} accent="violet">
       {loading && !audit ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : !audit ? (
@@ -2579,32 +2650,58 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
         </>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tracking-tight text-slate-900">{audit.score}</span>
-              <span className="text-xs text-slate-500">hygiene score · {audit.isMultisig ? `multisig${audit.threshold ? ` ${audit.threshold}/${audit.signers.length}` : ""}` : "single signer"}</span>
+          <div className="grid gap-5 sm:grid-cols-[120px_1fr] sm:items-center">
+            <div className="relative mx-auto" style={{ width: 110, height: 110 }}>
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle cx={55} cy={55} r={R} stroke="#f5f3ff" strokeWidth={10} fill="none" />
+                <circle
+                  cx={55} cy={55} r={R}
+                  stroke={arcColor}
+                  strokeWidth={10}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${dash} ${C}`}
+                  transform="rotate(-90 55 55)"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="font-manrope text-2xl font-semibold leading-none text-slate-900 tabular-nums">{audit.score}</div>
+                <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500">/ 100</div>
+              </div>
             </div>
-            <Pill tone={scoreTone === "rose" ? "rose" : scoreTone === "amber" ? "amber" : scoreTone === "emerald" ? "emerald" : "violet"}>
-              {audit.score >= 80 ? "Healthy" : audit.score >= 50 ? "Improve" : "At risk"}
-            </Pill>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Hygiene</p>
+                <SignalBadge severity={sev}>{audit.score >= 80 ? "Healthy" : audit.score >= 50 ? "Improve" : "At risk"}</SignalBadge>
+              </div>
+              <p className="mt-1 text-xs text-slate-600">
+                {audit.isMultisig ? `Squads multisig${audit.threshold ? ` · ${audit.threshold}-of-${audit.signers.length}` : ""}` : "Single signer"}
+              </p>
+              {audit.findings.length > 0 && (
+                <ul className="mt-2 space-y-1.5">
+                  {audit.findings.slice(0, 4).map((f, i) => {
+                    const fsev: Severity = f.severity === "high" ? "risk" : f.severity === "warn" ? "watch" : "good";
+                    const tone = fsev === "risk" ? "text-slate-900" : fsev === "watch" ? "text-amber-700" : "text-violet-700";
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-[12px]">
+                        <DreyvStar size={9} className={`${tone} mt-1 shrink-0`} />
+                        <span className="text-slate-700">{f.message}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {audit.signers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {audit.signers.slice(0, 6).map((s, i) => (
+                    <span key={i} className="rounded-full border border-violet-100 bg-white px-2 py-0.5 font-mono text-[10px] text-slate-600">
+                      {s.label ?? `${s.address.slice(0, 4)}…${s.address.slice(-4)}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          {audit.findings.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {audit.findings.slice(0, 4).map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px]">
-                  <span className={`mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full ${
-                    f.severity === "high" ? "bg-rose-500" : f.severity === "warn" ? "bg-amber-500" : "bg-violet-400"
-                  }`} />
-                  <span className="text-slate-700">{f.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {audit.signers.length > 0 && (
-            <div className="mt-2 text-[11px] text-slate-500">
-              Signers: {audit.signers.map((s) => s.label ?? `${s.address.slice(0, 4)}…${s.address.slice(-4)}`).join(", ")}
-            </div>
-          )}
           <div className="mt-3 flex items-center gap-1.5">
             <button onClick={runAudit} disabled={busy}
               className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
