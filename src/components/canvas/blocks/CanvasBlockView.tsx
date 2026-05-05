@@ -747,7 +747,7 @@ function RosterConstellation({
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      className="h-auto w-full"
+      className="mx-auto h-auto w-full max-w-[460px]"
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="Wallet and signers graph"
@@ -760,20 +760,20 @@ function RosterConstellation({
       </defs>
 
       {/* Core: the Treasury hub */}
-      <circle cx={coreX} cy={coreY} r={coreR + 14} fill="url(#roster-core-glow)" />
+      <circle cx={coreX} cy={coreY} r={coreR + 12} fill="url(#roster-core-glow)" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="#0f172a" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />
       {/* Dreyv mark inside core */}
-      <g transform={`translate(${coreX} ${coreY - 9})`}>
+      <g transform={`translate(${coreX} ${coreY - 8})`}>
         <path
-          d="M0,-7 L1.8,-1.8 L7,0 L1.8,1.8 L0,7 L-1.8,1.8 L-7,0 L-1.8,-1.8 Z"
+          d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"
           fill="#a78bfa"
         />
       </g>
-      <text x={coreX} y={coreY + 6} textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="700" letterSpacing="1.4">
+      <text x={coreX} y={coreY + 5} textAnchor="middle" fill="#ffffff" fontSize="7" fontWeight="700" letterSpacing="1.3">
         TREASURY
       </text>
-      <text x={coreX} y={coreY + 17} textAnchor="middle" fill="#a78bfa" fontSize="7" letterSpacing="0.8">
+      <text x={coreX} y={coreY + 14} textAnchor="middle" fill="#a78bfa" fontSize="6" letterSpacing="0.7">
         {vaults.length} {vaults.length === 1 ? "WALLET" : "WALLETS"}
       </text>
 
