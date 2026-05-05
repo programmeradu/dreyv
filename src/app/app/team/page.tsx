@@ -665,7 +665,7 @@ export default function TeamPage() {
                                     role="Admin · Signer"
                                     status="online"
                                     isSelf
-                                    avatar={getAvatarUrl(self?.info?.name || "ME")}
+                                    avatar={getAvatarUrl(selfAvatarSeed)}
                                 />
                                 {others.map(({ connectionId, info }) => (
                                     <MemberCard
