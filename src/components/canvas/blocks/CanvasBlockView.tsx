@@ -1376,6 +1376,7 @@ interface WalletToken {
   name?: string;
   decimals?: number;
   balance?: string;
+  logo?: string;
 }
 
 function MassSendBlock({ block }: { block: CanvasBlock }) {
