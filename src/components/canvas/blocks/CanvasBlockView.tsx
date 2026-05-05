@@ -904,10 +904,17 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
                   )}
                   <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
                     <span className="font-mono">{shortAddr(w.address)}</span>
-                    <Pill tone={w.kind === "multisig" ? "violet" : w.kind === "watch" ? "slate" : "emerald"}>{w.kind}</Pill>
+                    <SignalBadge
+                      severity={w.kind === "multisig" ? "neutral" : w.kind === "watch" ? "neutral" : "good"}
+                      showStar={false}
+                    >
+                      {w.kind}
+                    </SignalBadge>
                   </p>
                 </div>
-                {isActive && <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Active</span>}
+                {isActive && (
+                  <SignalBadge severity="neutral" showStar={false}>active</SignalBadge>
+                )}
                 <button
                   onClick={async () => {
                     if (!confirm(`Remove ${w.label}?`)) return;
