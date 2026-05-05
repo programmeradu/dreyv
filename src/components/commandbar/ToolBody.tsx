@@ -245,40 +245,150 @@ function ForesightBody({ output }: { output: Record<string, unknown> }) {
   const runway = output.runwayMonths as number | undefined;
   const burn = output.monthlyBurn as number | undefined;
   const inflow = output.monthlyInflow as number | undefined;
-  const total = output.totalValuation as number | undefined;
+  const total = (output.totalValuation ?? output.startValue) as number | undefined;
   const depletion = output.depletionDate as string | undefined;
   const assumptions = Array.isArray(output.assumptions) ? (output.assumptions as string[]) : [];
+  const unknowns = Array.isArray(output.unknowns) ? (output.unknowns as string[]) : [];
+  const clarifyChips = Array.isArray(output.clarifyChips)
+    ? (output.clarifyChips as Array<{ id: string; label: string; suggestPrompt: string }>)
+    : [];
+  const irPlan = output.irPlan as
+    | {
+        horizonMonths?: number;
+        scenarioLabel?: string;
+        shocks?: Array<{ symbol: string; pctChange: number }>;
+        flows?: Array<{ kind: string; usd?: number; sol?: number; cadence: string; label?: string }>;
+        rebalances?: Array<{ atMonth: number; targetAllocationPct: Record<string, number> }>;
+        yields?: Array<{ symbol: string; apy: number }>;
+      }
+    | undefined;
+  const critique = output.critique as
+    | { verdict: "approved" | "amend"; rationale?: string; followUps?: string[] }
+    | null
+    | undefined;
+
+  const submitFollowUp = (text: string) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("keystone-app-event", {
+        detail: { type: "AGENT_COMMAND", payload: { command: text, autoSubmit: true } },
+      }),
+    );
+  };
 
   return (
-    <Section title="Runway model" icon={<Activity className="h-3 w-3" />}>
-      {total !== undefined && <Row label="Treasury">{fmtUsd(total) ?? String(total)}</Row>}
-      {burn !== undefined && (
-        <Row label="Monthly burn">
-          <span className="text-rose-600">{fmtUsd(burn) ?? String(burn)}</span>
-        </Row>
+    <>
+      {/* IR plan — what we actually simulated (#5 visible) */}
+      {irPlan && (
+        <Section title={irPlan.scenarioLabel || "Simulation plan"} icon={<Layers className="h-3 w-3" />}>
+          <Row label="Horizon">{irPlan.horizonMonths ?? 12} months</Row>
+          {irPlan.shocks && irPlan.shocks.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {irPlan.shocks.map((s, i) => (
+                <span key={i} className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-700">
+                  {s.symbol} {s.pctChange >= 0 ? "+" : ""}{(s.pctChange * 100).toFixed(0)}%
+                </span>
+              ))}
+            </div>
+          )}
+          {irPlan.flows && irPlan.flows.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {irPlan.flows.map((f, i) => (
+                <span key={i} className="rounded-md bg-white px-1.5 py-0.5 text-[10px] text-slate-700">
+                  {f.label || f.kind} · {f.usd ? `$${f.usd.toLocaleString()}` : f.sol ? `${f.sol} SOL` : ""}/{f.cadence}
+                </span>
+              ))}
+            </div>
+          )}
+          {irPlan.rebalances && irPlan.rebalances.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {irPlan.rebalances.map((r, i) => (
+                <span key={i} className="rounded-md bg-white px-1.5 py-0.5 text-[10px] text-slate-700">
+                  Rebalance @M{r.atMonth}: {Object.entries(r.targetAllocationPct).map(([k, v]) => `${Math.round(v)}% ${k}`).join(" / ")}
+                </span>
+              ))}
+            </div>
+          )}
+          {irPlan.yields && irPlan.yields.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {irPlan.yields.map((y, i) => (
+                <span key={i} className="rounded-md bg-white px-1.5 py-0.5 text-[10px] text-slate-700">
+                  {y.symbol} @ {(y.apy * 100).toFixed(1)}% APY
+                </span>
+              ))}
+            </div>
+          )}
+        </Section>
       )}
-      {inflow !== undefined && (
-        <Row label="Monthly inflow">
-          <span className="text-emerald-600">{fmtUsd(inflow) ?? String(inflow)}</span>
-        </Row>
+
+      {/* Result */}
+      <Section title="Runway model" icon={<Activity className="h-3 w-3" />}>
+        {total !== undefined && <Row label="Treasury">{fmtUsd(total) ?? String(total)}</Row>}
+        {burn !== undefined && (
+          <Row label="Monthly burn"><span className="text-rose-600">{fmtUsd(burn) ?? String(burn)}</span></Row>
+        )}
+        {inflow !== undefined && (
+          <Row label="Monthly inflow"><span className="text-emerald-600">{fmtUsd(inflow) ?? String(inflow)}</span></Row>
+        )}
+        {runway !== undefined && Number.isFinite(runway) && (
+          <Row label="Runway">{Math.round(runway).toLocaleString()} months</Row>
+        )}
+        {depletion && <Row label="Depletes">{depletion}</Row>}
+        {assumptions.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {assumptions.slice(0, 4).map((a, i) => (
+              <span key={i} className="rounded-md bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
+                {a}
+              </span>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* #3 Clarify chips when planner flagged unknowns */}
+      {clarifyChips.length > 0 && (
+        <Section title="Need a couple more inputs" icon={<AlertTriangle className="h-3 w-3" />}>
+          {unknowns.length > 0 && (
+            <p className="mb-1.5 text-[11px] leading-relaxed text-slate-600">
+              I can&rsquo;t regenerate analytics without these. Tap one to fill it in:
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {clarifyChips.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => submitFollowUp(c.suggestPrompt)}
+                className="rounded-full border border-violet-300 bg-white px-2.5 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-100"
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </Section>
       )}
-      {runway !== undefined && Number.isFinite(runway) && (
-        <Row label="Runway">{Math.round(runway).toLocaleString()} months</Row>
+
+      {/* #6 Critic follow-ups */}
+      {critique && critique.followUps && critique.followUps.length > 0 && (
+        <Section title={critique.verdict === "amend" ? "Did you also mean…" : "Try next"} icon={<DreyvStar size={12} className="text-violet-500" />}>
+          {critique.rationale && (
+            <p className="mb-1.5 text-[11px] leading-relaxed text-slate-600">{critique.rationale}</p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {critique.followUps.map((f, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => submitFollowUp(f)}
+                className="rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50"
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </Section>
       )}
-      {depletion && <Row label="Depletes">{depletion}</Row>}
-      {assumptions.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {assumptions.slice(0, 4).map((a, i) => (
-            <span
-              key={i}
-              className="rounded-md bg-white px-1.5 py-0.5 text-[10px] text-slate-500"
-            >
-              {a}
-            </span>
-          ))}
-        </div>
-      )}
-    </Section>
+    </>
   );
 }
 
