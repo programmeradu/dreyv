@@ -382,9 +382,11 @@ export function CommandBar() {
           const scenario = output.scenario as string;
           const timeframeMonths = (output.timeframeMonths as number) || 12;
           const variablesRecord = output.variables as Record<string, unknown>;
-          const simVariables = foresightVariablesToSimulationVariables(variablesRecord);
+          const ir = (output.ir as import("@/lib/foresight/simulation-ir").SimulationIR | undefined) ?? null;
+          const flatFromIr = output.flatVariables as ReturnType<typeof foresightVariablesToSimulationVariables> | undefined;
+          const simVariables = flatFromIr && flatFromIr.length > 0 ? flatFromIr : foresightVariablesToSimulationVariables(variablesRecord);
 
-          simStore.startSimulation(scenario, simVariables, timeframeMonths);
+          simStore.startSimulation(scenario, simVariables, timeframeMonths, ir);
           setTimeout(() => {
             setOpen(false);
             router.push("/app/analytics");
