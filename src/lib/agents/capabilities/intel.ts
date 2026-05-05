@@ -107,6 +107,70 @@ const foresight_simulation = defineCapability({
       };
     }
 
+    // ── IR-first path: try LLM planner, fall back to preset adapter ─────
+    const irTokens: IRToken[] = tokens
+      .filter((t) => (t.amount ?? 0) > 0 && (t.price ?? 0) > 0 && t.symbol)
+      .map((t) => ({
+        symbol: String(t.symbol).toUpperCase(),
+        amount: Number(t.amount) || 0,
+        price: Number(t.price) || 0,
+      }));
+
+    let ir: SimulationIR | null = null;
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+      if (baseUrl) {
+        const planRes = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/foresight/plan`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: `${scenario}: ${JSON.stringify(variables)}`,
+            tokens: irTokens,
+            horizonMonths: timeframeMonths,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (planRes.ok) {
+          const j = await planRes.json();
+          if (j?.ok && j.ir) ir = j.ir as SimulationIR;
+        }
+      }
+    } catch (e) {
+      console.warn("[foresight_simulation] planner unavailable, using preset", e);
+    }
+    if (!ir) {
+      ir = presetScenarioToIR({ scenario, variables, timeframeMonths, tokens: irTokens });
+    }
+
+    if (ir) {
+      const result = runSimulationIR(ir);
+      const flatVariables = irToFlatVariables(ir);
+      return {
+        success: true,
+        operation: "foresight_simulation",
+        scenario,
+        variables,
+        timeframeMonths: ir.horizonMonths,
+        triggerVisualization: true,
+        chartType: "depletion_node",
+        ir,
+        flatVariables,
+        startValue: Math.round(result.startValue),
+        endValue: Math.round(result.endValue),
+        runwayMonths: result.runwayMonths,
+        riskFlags: result.riskFlags,
+        assumptions: ir.assumptions,
+        unknowns: ir.unknowns,
+        scenarioLabel: ir.scenarioLabel,
+        dataSource: "live",
+        message: ir.unknowns?.length
+          ? `${ir.scenarioLabel || scenario}. Missing inputs: ${ir.unknowns.join("; ")}.`
+          : `${ir.scenarioLabel || scenario}. $${Math.round(result.startValue).toLocaleString()} → $${Math.round(result.endValue).toLocaleString()} over ${ir.horizonMonths}mo${result.runwayMonths ? `, depletion @ M${result.runwayMonths}` : ""}.`,
+      };
+    }
+
     if (scenario === "runway_projection") {
       const monthlyBurn = (variables.monthlyBurn as number) || 15000;
       const projection: Array<{ month: number; balance: number }> = [];
