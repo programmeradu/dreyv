@@ -243,7 +243,6 @@ function AnalyticsPageInner({
             snapshotStats={displaySnapshotStats}
             foresight={displayForesightSummary}
             onAskQuestion={handleAsk}
-            simulating={simActive}
           />
         </div>
 
