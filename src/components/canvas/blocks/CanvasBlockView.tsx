@@ -778,9 +778,11 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
               <li key={w.address} className={`flex items-center gap-2 px-3 py-2 text-[12px] ${isActive ? "bg-violet-50/60" : "bg-white hover:bg-violet-50/30"}`}>
                 <button
                   onClick={() => setActiveVault(w.address)}
-                  className={`h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-violet-600" : "bg-slate-300 hover:bg-violet-400"}`}
+                  className="shrink-0"
                   aria-label={isActive ? "Active" : "Set active"}
-                />
+                >
+                  <DreyvStar size={11} className={isActive ? "text-violet-600" : "text-slate-300 hover:text-violet-400"} />
+                </button>
                 <div className="min-w-0 flex-1">
                   {isEditing ? (
                     <input
