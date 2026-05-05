@@ -303,6 +303,64 @@ const foresight_simulation = defineCapability({
       };
     }
 
+    // ── Generic / free-form scenarios ────────────────────────────────────
+    // The LLM is expected to pass a meaningful `variables` payload. We try
+    // to interpret common shapes so the result is a real simulation, not a
+    // placeholder.
+    //   - targetAllocation: { SYMBOL: percent }  → diversification / rebalance
+    //   - priceShocks: { SYMBOL: pct }           → multi-asset shock
+    //   - inflowUSD / outflowUSD per month       → flow scenario
+    const targetAllocation = (variables.targetAllocation || variables.allocation || variables.targets) as
+      | Record<string, number>
+      | undefined;
+    if (targetAllocation && typeof targetAllocation === "object") {
+      const pctSum = Object.values(targetAllocation).reduce(
+        (a, b) => a + (Number(b) || 0),
+        0,
+      );
+      const norm = pctSum > 0 ? pctSum : 100;
+      const currentBySymbol: Record<string, number> = {};
+      for (const t of tokens) {
+        if (!t.symbol) continue;
+        currentBySymbol[t.symbol.toUpperCase()] =
+          (currentBySymbol[t.symbol.toUpperCase()] || 0) +
+          (t.amount || 0) * (t.price || 0);
+      }
+      const targetUSD: Record<string, number> = {};
+      const currentPct: Record<string, number> = {};
+      const deltas: Record<string, number> = {};
+      for (const sym of Object.keys(targetAllocation)) {
+        const SYM = sym.toUpperCase();
+        const tgtPct = (Number(targetAllocation[sym]) || 0) / norm;
+        targetUSD[SYM] = Math.round(totalBalance * tgtPct * 100) / 100;
+        currentPct[SYM] =
+          totalBalance > 0
+            ? Math.round(((currentBySymbol[SYM] || 0) / totalBalance) * 1000) / 10
+            : 0;
+        deltas[SYM] =
+          Math.round((targetUSD[SYM] - (currentBySymbol[SYM] || 0)) * 100) / 100;
+      }
+      const summary = Object.entries(targetAllocation)
+        .map(([s, p]) => `${Math.round(Number(p))}% ${s.toUpperCase()}`)
+        .join(" / ");
+      return {
+        success: true,
+        operation: "foresight_simulation",
+        scenario,
+        variables,
+        timeframeMonths,
+        triggerVisualization: true,
+        chartType: "composition_shift",
+        totalBalance: Math.round(totalBalance),
+        currentAllocationPct: currentPct,
+        targetAllocationPct: targetAllocation,
+        targetAllocationUSD: targetUSD,
+        rebalanceDeltasUSD: deltas,
+        dataSource: "live",
+        message: `Diversification simulation: rebalance $${Math.round(totalBalance).toLocaleString()} treasury to ${summary}.`,
+      };
+    }
+
     return {
       success: true,
       operation: "foresight_simulation",
@@ -311,7 +369,9 @@ const foresight_simulation = defineCapability({
       timeframeMonths,
       triggerVisualization: true,
       chartType: "depletion_node",
-      message: `Custom simulation triggered: ${scenario}. Rendering visualization.`,
+      totalBalance: Math.round(totalBalance),
+      dataSource: "live",
+      message: `Custom simulation: ${scenario}. Rendering visualization with current treasury of $${Math.round(totalBalance).toLocaleString()}.`,
     };
   },
 });
