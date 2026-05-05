@@ -165,9 +165,10 @@ function NavTile({
 function TreasuryBubbles({ tokens }: { tokens: any[] }) {
   // Pick up to 5 tokens with logos; fallback to a few placeholder symbols so the
   // tile always feels alive even before a wallet is connected.
-  const picks = (tokens || [])
-    .filter((t) => t && (t.logo || t.symbol))
-    .slice(0, 5);
+  const all = (tokens || []).filter((t) => t && (t.logo || t.symbol));
+  const MAX = 5;
+  const picks = all.slice(0, MAX);
+  const overflow = Math.max(0, all.length - MAX);
   const fallback = [
     { symbol: "SOL" },
     { symbol: "USDC" },
