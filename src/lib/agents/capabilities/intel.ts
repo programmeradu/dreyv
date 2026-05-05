@@ -43,12 +43,17 @@ const foresight_simulation = defineCapability({
     variables: z
       .record(z.any())
       .describe(
-        "Scenario variables object. Keys depend on scenario: " +
-          "runway_projection: { monthlyBurn: number (USD/mo) }. " +
-          "market_shock: { solDrop: number (e.g. 0.3 for 30% or 30 for 30%), usdcDepeg?: number, monthlyBurn?: number }. " +
-          "variable_impact: { newHires?: number (count of new hires, default 0), costPerHire?: number (USD cost per hire/mo, default 8000), costPerHireSOL?: number (SOL cost per hire/mo — will be converted to USD at current price), monthlyBurn?: number (current USD burn/mo, default 15000), depositSOL?: number (additional SOL deposit to add to treasury), depositUSD?: number (additional USD deposit to add to treasury) }. " +
-          "yield_forecast: { apy: number (e.g. 0.08 for 8%), principal?: number (USD amount) }. " +
-          "IMPORTANT: When the user mentions hiring someone at X SOL/month, set newHires=1 and costPerHireSOL=X. When the user mentions depositing SOL, set depositSOL to that amount.",
+        "Scenario variables. ALWAYS pass concrete numeric inputs derived from the user's question — never an empty object. " +
+          "Known shapes: " +
+          "runway_projection: { monthlyBurn: number USD/mo }. " +
+          "market_shock: { solDrop: number (0.3 = 30%), usdcDepeg?: number, monthlyBurn?: number }. " +
+          "variable_impact: { newHires?: number, costPerHire?: number, costPerHireSOL?: number, monthlyBurn?: number, depositSOL?: number, depositUSD?: number }. " +
+          "yield_forecast: { apy: number (0.08 = 8%), principal?: number USD }. " +
+          "Free-form scenarios (diversification, rebalance, concentration_reduction, multi_asset_shock, etc.) — pass one of: " +
+          "{ targetAllocation: { SYMBOL: percent } } for diversification/rebalance (e.g. { SOL: 50, USDC: 30, JTO: 20 }); " +
+          "{ priceShocks: { SYMBOL: pct } } for multi-asset shock; " +
+          "{ inflowUSD?: number, outflowUSD?: number } for flow scenarios. " +
+          "When the user mentions hiring at X SOL/month, set newHires=1 and costPerHireSOL=X. When the user mentions depositing SOL, set depositSOL.",
       ),
     timeframeMonths: z
       .number()
