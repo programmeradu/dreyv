@@ -1551,35 +1551,63 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
 
   return (
     <BlockShell block={block} accent="violet">
-      <div className="space-y-3">
-        {/* Status row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Pill tone={pendingTotal > 0 ? "rose" : "emerald"}>
-              {pendingTotal > 0 ? `${pendingTotal} pending` : "All clear"}
-            </Pill>
-            <span className="text-[11px] text-slate-500">
-              auto-approve ≤ {fmtUsd(policy.autoApproveBelowUsd, 0)}
-              {policy.dailyValueCapUsd != null && ` · cap ${fmtUsd(policy.dailyValueCapUsd, 0)}/day`}
-            </span>
+      <div className="space-y-4">
+        {/* Header — guardrails ladder + status */}
+        <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
+          <GuardrailsLadder
+            autoApprove={policy.autoApproveBelowUsd}
+            multisig={policy.requireMultisigAboveUsd}
+            cap={policy.dailyValueCapUsd}
+          />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-display text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                {pendingTotal}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+                {pendingTotal === 1 ? "item awaits you" : "items await you"}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <SignalBadge severity={pendingTotal > 0 ? "watch" : "good"}>
+                {pendingTotal > 0 ? `${pendingTotal} pending` : "All clear"}
+              </SignalBadge>
+              <SignalBadge severity="neutral">auto ≤ {fmtUsd(policy.autoApproveBelowUsd, 0)}</SignalBadge>
+              {policy.requireMultisigAboveUsd != null && (
+                <SignalBadge severity="neutral">multisig &gt; {fmtUsd(policy.requireMultisigAboveUsd, 0)}</SignalBadge>
+              )}
+              {policy.dailyValueCapUsd != null && (
+                <SignalBadge severity="watch">cap {fmtUsd(policy.dailyValueCapUsd, 0)}/d</SignalBadge>
+              )}
+              {policy.allowDynamicWrites && <SignalBadge severity="risk">dynamic writes on</SignalBadge>}
+            </div>
+            {loading && <span className="text-[10px] uppercase tracking-wider text-slate-400">syncing…</span>}
           </div>
-          {loading && <span className="text-[10px] uppercase tracking-wider text-slate-400">syncing…</span>}
         </div>
 
         {/* Pending tx queue (HITL signs) */}
         {txQueue.length > 0 && (
           <div className="rounded-xl border border-violet-100">
             <div className="flex items-center justify-between bg-violet-50/60 px-3 py-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Pending signatures</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <DreyvStar size={9} className="text-violet-500" /> Pending signatures
+              </span>
               <Link href="/app/inbox" className="text-[10px] font-semibold uppercase tracking-wider text-violet-700 hover:text-violet-900">Open inbox →</Link>
             </div>
             <ul className="divide-y divide-violet-100/70">
-              {txQueue.slice(0, 3).map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
-                  <span className="min-w-0 truncate text-slate-800">{t.summary}</span>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-slate-500">{t.routing} · {t.riskLevel}</span>
-                </li>
-              ))}
+              {txQueue.slice(0, 3).map((t) => {
+                const riskSev: Severity =
+                  t.riskLevel === "high" ? "risk" : t.riskLevel === "medium" ? "watch" : "good";
+                return (
+                  <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
+                    <span className="min-w-0 truncate text-slate-800">{t.summary}</span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <SignalBadge severity="neutral">{t.routing ?? "wallet"}</SignalBadge>
+                      <SignalBadge severity={riskSev}>{t.riskLevel ?? "low"}</SignalBadge>
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
@@ -1593,15 +1621,20 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
             <ul className="divide-y divide-violet-100/70">
               {approvals.slice(0, 4).map((a) => {
                 const value = typeof a.estimatedValueUsd === "string" ? Number(a.estimatedValueUsd) : a.estimatedValueUsd ?? null;
+                const riskNum = typeof a.riskScore === "string" ? Number(a.riskScore) : a.riskScore ?? null;
+                const riskSev: Severity = riskNum == null ? "neutral" : riskNum >= 0.66 ? "risk" : riskNum >= 0.33 ? "watch" : "good";
                 return (
                   <li key={a.id} className="px-3 py-2 text-[12.5px]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-900">{a.plan?.summary || a.reason || "Plan"}</p>
-                        <p className="text-[10.5px] uppercase tracking-wider text-slate-500">
-                          {value != null ? fmtUsd(value, 0) : "value n/a"}
-                          {a.riskScore != null && ` · risk ${typeof a.riskScore === "string" ? a.riskScore : a.riskScore.toFixed(2)}`}
+                        <p className="flex items-center gap-1.5 truncate font-semibold text-slate-900">
+                          <DreyvStar size={9} className="text-violet-500" />
+                          {a.plan?.summary || a.reason || "Plan"}
                         </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {value != null && <SignalBadge severity="neutral">{fmtUsd(value, 0)}</SignalBadge>}
+                          {riskNum != null && <SignalBadge severity={riskSev}>risk {riskNum.toFixed(2)}</SignalBadge>}
+                        </div>
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <button
@@ -1625,7 +1658,9 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
 
         {/* Compact policy editor */}
         <div className="rounded-xl border border-violet-100 p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Guardrails</p>
+          <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <DreyvStar size={9} className="text-violet-500" /> Guardrails
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <PolicyNum
               label="Auto-approve ≤"
@@ -1658,6 +1693,58 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
         </div>
       </div>
     </BlockShell>
+  );
+}
+
+/** Three-tier value ladder: auto / multisig / cap thresholds on a log-ish scale. */
+function GuardrailsLadder({
+  autoApprove,
+  multisig,
+  cap,
+}: {
+  autoApprove: number;
+  multisig: number | null;
+  cap: number | null;
+}) {
+  const max = Math.max(autoApprove || 0, multisig || 0, cap || 0, 10_000);
+  const scale = (v: number) => {
+    if (v <= 0) return 0;
+    return Math.min(1, Math.log10(v + 1) / Math.log10(max + 1));
+  };
+  const tiers: Array<{ key: string; label: string; v: number | null; tone: string }> = [
+    { key: "auto", label: "Auto", v: autoApprove || null, tone: "#a78bfa" },
+    { key: "ms", label: "Multisig", v: multisig, tone: "#7c3aed" },
+    { key: "cap", label: "Cap/day", v: cap, tone: "#4c1d95" },
+  ];
+  const fmtShort = (v: number) =>
+    v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}m` :
+    v >= 1_000 ? `$${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}k` : `$${v}`;
+  return (
+    <svg viewBox="0 0 180 110" className="h-[110px] w-full" role="img" aria-label="Guardrails ladder">
+      <defs>
+        <linearGradient id="ladderTrack" x1="0" x2="1">
+          <stop offset="0" stopColor="#ede9fe" />
+          <stop offset="1" stopColor="#c4b5fd" />
+        </linearGradient>
+      </defs>
+      {tiers.map((t, i) => {
+        const y = 22 + i * 28;
+        const w = t.v != null ? 8 + scale(t.v) * 130 : 8;
+        return (
+          <g key={t.key}>
+            <text x="6" y={y - 6} fontSize="8" fontWeight="700" fill="#64748b" letterSpacing="1">
+              {t.label.toUpperCase()}
+            </text>
+            <rect x="6" y={y} width="150" height="6" rx="3" fill="url(#ladderTrack)" opacity="0.4" />
+            <rect x="6" y={y} width={w} height="6" rx="3" fill={t.tone} />
+            <circle cx={6 + w} cy={y + 3} r="4" fill="#fff" stroke={t.tone} strokeWidth="1.6" />
+            <text x="174" y={y + 5} textAnchor="end" fontSize="8" fontWeight="600" fill="#475569">
+              {t.v != null ? fmtShort(t.v) : "—"}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
