@@ -240,7 +240,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
               />
               <Tooltip
                 cursor={{ stroke: "rgb(196 181 253)", strokeWidth: 1 }}
-                content={({ active: a, payload, label }) => {
+                content={({ active: a, payload, label }: any) => {
                   if (!a || !payload?.length) return null;
                   const row = payload[0]?.payload as Row | undefined;
                   if (!row) return null;
