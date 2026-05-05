@@ -325,7 +325,14 @@ function ForesightBody({ output }: { output: Record<string, unknown> }) {
 
       {/* Result */}
       <Section title="Runway model" icon={<Activity className="h-3 w-3" />}>
-        {total !== undefined && <Row label="Treasury">{fmtUsd(total) ?? String(total)}</Row>}
+        {total !== undefined && <Row label="Treasury (start)">{fmtUsd(total) ?? String(total)}</Row>}
+        {endValue !== undefined && (
+          <Row label="Treasury (projected)">
+            <span className={endValue < (total ?? 0) ? "text-rose-600" : "text-emerald-600"}>
+              {fmtUsd(endValue) ?? String(endValue)}
+            </span>
+          </Row>
+        )}
         {burn !== undefined && (
           <Row label="Monthly burn"><span className="text-rose-600">{fmtUsd(burn) ?? String(burn)}</span></Row>
         )}
