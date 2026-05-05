@@ -147,9 +147,9 @@ export function SimulatedAnalyticsProvider({
           throw new Error(j.error || `Simulation failed (${res.status})`);
         }
         const json = await res.json();
-        setState({ ...json.simulated, asOf: json.asOf });
-        const simulated = json.simulated as SimulatedAnalyticsState;
-        const currentValue = Number(simulated.vaultValue || 0);
+        const simulated = json.simulated as SimulatedAnalyticsState & { startValue?: number };
+        setState({ ...simulated, asOf: json.asOf });
+        const currentValue = Number(simulated.startValue ?? simulated.vaultValue ?? 0);
         const projectedEndValue = Number(simulated.endValue || currentValue);
         setResult({
           projection: (simulated.valueSeries || []).map((p) => ({ date: p.date, totalValue: p.value, breakdown: {} })),
