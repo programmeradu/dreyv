@@ -2210,6 +2210,28 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
 
   const open = rows.filter((r) => r.status === "pending" || r.status === "queued");
 
+  // Summary metrics for the header
+  const totalsByToken = new Map<string, number>();
+  let dueSoon = 0;
+  const now = Date.now();
+  const week = 7 * 24 * 3600 * 1000;
+  for (const r of open) {
+    totalsByToken.set(r.token, (totalsByToken.get(r.token) ?? 0) + Number(r.amount));
+    if (r.dueAt && new Date(r.dueAt).getTime() - now < week) dueSoon += 1;
+  }
+  const totalsLine = Array.from(totalsByToken.entries())
+    .map(([t, v]) => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${t}`).join(" · ") || "—";
+  // Build a 14-day timeline of upcoming due dates for the SVG
+  const horizonDays = 14;
+  const timelinePoints = open
+    .filter((r) => r.dueAt)
+    .map((r) => {
+      const days = Math.round((new Date(r.dueAt!).getTime() - now) / (24 * 3600 * 1000));
+      return { id: r.id, days, vendor: r.vendorName, token: r.token, amount: Number(r.amount), overdue: days < 0 };
+    })
+    .filter((p) => p.days <= horizonDays)
+    .sort((a, b) => a.days - b.days);
+
   return (
     <BlockShell block={block} accent="violet">
       {!wallet ? (
@@ -2217,49 +2239,116 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {(err || bulkMsg) && (
-            <p className={`mb-2 rounded-md px-2 py-1 text-[11px] ${err ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-violet-200 bg-violet-50 text-violet-800"}`}>
+            <p className={`mb-2 rounded-md px-2 py-1 text-[11px] ${err ? "border border-slate-900 bg-slate-900 text-white" : "border border-violet-200 bg-violet-50 text-violet-800"}`}>
               {err ?? bulkMsg}
             </p>
           )}
+
+          {/* Summary header + timeline */}
+          {open.length > 0 && (
+            <div className="mb-3 grid gap-3 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/60 to-white p-3 sm:grid-cols-[1fr_220px] sm:items-center">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Inbox · open</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900" style={{ fontFeatureSettings: "'tnum'" }}>
+                  {open.length} bill{open.length === 1 ? "" : "s"} · <span className="text-slate-700">{totalsLine}</span>
+                </p>
+                <p className="mt-0.5 text-[12px] text-slate-500">
+                  {dueSoon > 0 ? `${dueSoon} due in the next 7 days` : "Nothing due in the next 7 days"}
+                </p>
+              </div>
+              {/* 14-day due timeline */}
+              <div className="relative h-12 w-full">
+                <svg viewBox="0 0 220 48" className="h-12 w-full">
+                  <line x1={6} y1={32} x2={214} y2={32} stroke="#ede9fe" strokeWidth={2} strokeLinecap="round" />
+                  {[0, 7, 14].map((d) => {
+                    const x = 6 + (d / horizonDays) * 208;
+                    return (
+                      <g key={d}>
+                        <line x1={x} y1={28} x2={x} y2={36} stroke="#c4b5fd" strokeWidth={1} />
+                        <text x={x} y={46} textAnchor="middle" fontSize="7" fill="#7c3aed" fontWeight="600">{d === 0 ? "today" : `+${d}d`}</text>
+                      </g>
+                    );
+                  })}
+                  {timelinePoints.slice(0, 14).map((p, i) => {
+                    const x = 6 + (Math.max(p.days, 0) / horizonDays) * 208;
+                    const r = Math.min(7, 3 + Math.log10(Math.max(p.amount, 1)) * 1.5);
+                    return (
+                      <g key={p.id}>
+                        <circle cx={x} cy={32} r={r} fill={p.overdue ? "#0f172a" : "#7c3aed"} opacity={0.85} />
+                        {i < 3 && <text x={x} y={20} textAnchor="middle" fontSize="7" fill="#475569" fontWeight="600">{p.vendor.slice(0, 6)}</text>}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          )}
+
           {loading && open.length === 0 ? (
             <p className="text-sm text-slate-500">Loading invoices…</p>
           ) : open.length === 0 ? (
-            <p className="text-sm text-slate-600">No invoices in your inbox. Add one when a bill comes in — Dreyv batches them by due date.</p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  {/* Stacked envelope illustration */}
+                  {[0, 1, 2].map((i) => (
+                    <g key={i} transform={`translate(${10 + i * 6} ${20 + i * 8}) rotate(${-4 + i * 4} 50 30)`}>
+                      <rect width={84} height={50} rx={5} fill="#ffffff" stroke="#c4b5fd" strokeWidth={1.2} />
+                      <path d="M 0 0 L 42 28 L 84 0" fill="none" stroke="#a78bfa" strokeWidth={1} />
+                    </g>
+                  ))}
+                  <circle cx={108} cy={26} r={9} fill="#7c3aed" />
+                  <text x={108} y={30} textAnchor="middle" fontSize="10" fontWeight="700" fill="#ffffff">0</text>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Inbox empty</p>
+                <p className="mt-1 text-sm text-slate-700">No bills waiting. Forward an invoice or import a CSV — Dreyv batches them by due date and routes payments through your policy.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["Batched by due date", "Multi-token", "HITL approve"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <ul className="divide-y divide-violet-100">
-              {open.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold text-slate-900">{r.vendorName}</span>
-                      {r.status === "queued" && (
-                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">In approval</span>
-                      )}
+              {open.map((r) => {
+                const dueDays = r.dueAt ? Math.round((new Date(r.dueAt).getTime() - now) / (24 * 3600 * 1000)) : null;
+                const dueTone: Severity = dueDays == null ? "neutral" : dueDays < 0 ? "risk" : dueDays <= 3 ? "watch" : "good";
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <DreyvStar size={10} className="text-violet-500" />
+                        <span className="truncate font-semibold text-slate-900">{r.vendorName}</span>
+                        {r.status === "queued" && <SignalBadge severity="neutral">In approval</SignalBadge>}
+                        {dueDays != null && <SignalBadge severity={dueTone}>{dueDays < 0 ? `${-dueDays}d overdue` : dueDays === 0 ? "due today" : `due in ${dueDays}d`}</SignalBadge>}
+                      </div>
+                      <p className="mt-0.5 truncate text-[12px] text-slate-500" style={{ fontFeatureSettings: "'tnum'" }}>
+                        {Number(r.amount).toLocaleString()} {r.token}
+                        {r.memo ? ` · ${r.memo}` : ""}
+                      </p>
                     </div>
-                    <p className="mt-0.5 truncate text-[12px] text-slate-500">
-                      {Number(r.amount).toLocaleString()} {r.token}
-                      {r.dueAt ? ` · due ${fmtDate(r.dueAt)}` : ""}
-                      {r.memo ? ` · ${r.memo}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {r.status === "pending" && (
-                      <button onClick={() => action(r.id, "pay")} disabled={busy === r.id}
-                        className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-                        Queue payment
-                      </button>
-                    )}
-                    {r.status === "pending" && (
-                      <button onClick={() => action(r.id, "reject")} disabled={busy === r.id}
-                        className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-700">
-                        Reject
-                      </button>
-                    )}
-                    <button onClick={() => action(r.id, "delete")} disabled={busy === r.id}
-                      className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-rose-600">×</button>
-                  </div>
-                </li>
-              ))}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {r.status === "pending" && (
+                        <button onClick={() => action(r.id, "pay")} disabled={busy === r.id}
+                          className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                          Queue payment
+                        </button>
+                      )}
+                      {r.status === "pending" && (
+                        <button onClick={() => action(r.id, "reject")} disabled={busy === r.id}
+                          className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-violet-50">
+                          Reject
+                        </button>
+                      )}
+                      <button onClick={() => action(r.id, "delete")} disabled={busy === r.id}
+                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-700">×</button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
