@@ -1962,33 +1962,98 @@ function GasTankBlock({ block }: { block: CanvasBlock }) {
   const w = watcher!;
   const balanceN = w.lastBalanceSol != null ? Number(w.lastBalanceSol) : null;
   const minN = Number(w.minSol);
-  const tone = balanceN == null ? "slate" : balanceN < minN ? "rose" : "emerald";
+  const targetN = Number(w.targetSol);
+  const isLow = balanceN != null && balanceN < minN;
+  const isPaused = w.status === "paused";
+  // Gauge math: 0..target maps to a 240° arc starting at -210° (bottom-left)
+  const pct = balanceN == null ? 0 : Math.max(0, Math.min(1, balanceN / Math.max(targetN, 0.0001)));
+  const floorPct = Math.max(0, Math.min(1, minN / Math.max(targetN, 0.0001)));
+  const arcStart = -210; const arcSweep = 240;
+  const polar = (cx: number, cy: number, r: number, angDeg: number) => {
+    const a = (angDeg * Math.PI) / 180;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
+  };
+  const arcPath = (cx: number, cy: number, r: number, fromDeg: number, toDeg: number) => {
+    const [x1, y1] = polar(cx, cy, r, fromDeg);
+    const [x2, y2] = polar(cx, cy, r, toDeg);
+    const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
+    const sweep = toDeg > fromDeg ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`;
+  };
+  const cx = 80, cy = 78, R = 60;
+  const valueEnd = arcStart + arcSweep * pct;
+  const floorAng = arcStart + arcSweep * floorPct;
+  const verdict: Severity = isPaused ? "info" : isLow ? "critical" : balanceN == null ? "info" : pct < 0.5 ? "warning" : "ok";
+  const verdictLabel = isPaused ? "Paused" : balanceN == null ? "Unchecked" : isLow ? "Low — refill drafted" : pct < 0.5 ? "Below comfort" : "Healthy";
 
   return (
-    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tracking-tight text-slate-900">
-            {balanceN != null ? balanceN.toFixed(3) : "—"}
-          </span>
-          <span className="text-xs text-slate-500">SOL · floor {minN} · target {Number(w.targetSol)}</span>
+    <BlockShell block={block} accent="violet">
+      <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
+        {/* Bespoke fuel gauge */}
+        <div className="relative mx-auto" style={{ width: 160, height: 130 }}>
+          <svg viewBox="0 0 160 140" className="h-32 w-40">
+            <defs>
+              <linearGradient id="gt-arc" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#a78bfa" />
+                <stop offset="100%" stopColor="#7c3aed" />
+              </linearGradient>
+              <radialGradient id="gt-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx={cx} cy={cy} r={R + 14} fill="url(#gt-glow)" />
+            {/* Track */}
+            <path d={arcPath(cx, cy, R, arcStart, arcStart + arcSweep)} stroke="#ede9fe" strokeWidth={9} fill="none" strokeLinecap="round" />
+            {/* Value */}
+            {pct > 0.001 && (
+              <path d={arcPath(cx, cy, R, arcStart, valueEnd)} stroke="url(#gt-arc)" strokeWidth={9} fill="none" strokeLinecap="round" />
+            )}
+            {/* Floor tick */}
+            {(() => {
+              const [x1, y1] = polar(cx, cy, R - 9, floorAng);
+              const [x2, y2] = polar(cx, cy, R + 9, floorAng);
+              return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="2 2" />;
+            })()}
+            {/* Center label */}
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a" style={{ fontFeatureSettings: "'tnum'" }}>
+              {balanceN != null ? balanceN.toFixed(2) : "—"}
+            </text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fontWeight="600" letterSpacing="0.18em" fill="#7c3aed">SOL</text>
+            <text x={cx} y={cy + 28} textAnchor="middle" fontSize="8.5" fill="#64748b">floor {minN} · target {targetN}</text>
+          </svg>
         </div>
-        <Pill tone={tone === "rose" ? "rose" : tone === "emerald" ? "emerald" : "violet"}>
-          {w.status === "paused" ? "Paused" : balanceN == null ? "Unchecked" : balanceN < minN ? "Low" : "Healthy"}
-        </Pill>
-      </div>
-      <p className="mt-1 text-[12px] text-slate-500">
-        {w.lastCheckedAt ? `checked ${new Date(w.lastCheckedAt).toLocaleString()}` : "not checked yet"}
-        {w.fundingAddress ? ` · funded from ${w.fundingAddress.slice(0, 6)}…${w.fundingAddress.slice(-4)}` : " · no funding source set"}
-      </p>
-      <div className="mt-3 flex items-center gap-1.5">
-        <button onClick={() => action("check-now")} disabled={busy === "check-now"} className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-          {busy === "check-now" ? "Checking…" : "Check now"}
-        </button>
-        <button onClick={() => action(w.status === "paused" ? "resume" : "pause")} disabled={busy != null} className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
-          {w.status === "paused" ? "Resume" : "Pause"}
-        </button>
-        <button onClick={() => setEditing(true)} className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700">Edit</button>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Gas tank</p>
+            <SignalBadge severity={verdict} label={verdictLabel} />
+          </div>
+          <p className="mt-1 text-sm text-slate-700">
+            {isLow
+              ? `Below floor of ${minN} SOL. Dreyv is preparing a top-up of ${Math.max(targetN - (balanceN ?? 0), 0).toFixed(3)} SOL — review and sign to release.`
+              : pct < 0.5
+                ? `Sitting at ${(pct * 100).toFixed(0)}% of target. Dreyv will draft a refill the moment it crosses ${minN} SOL.`
+                : `Comfortable. ${(pct * 100).toFixed(0)}% of target — runway intact for upcoming on-chain ops.`}
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <RunwayStat label="Floor" value={`${minN} SOL`} />
+            <RunwayStat label="Target" value={`${targetN} SOL`} />
+            <RunwayStat label="Source" value={w.fundingAddress ? `${w.fundingAddress.slice(0, 4)}…${w.fundingAddress.slice(-3)}` : "Not set"} />
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            {w.lastCheckedAt ? `Last polled ${new Date(w.lastCheckedAt).toLocaleString()}` : "Awaiting first poll"}
+          </p>
+          <div className="mt-3 flex items-center gap-1.5">
+            <button onClick={() => action("check-now")} disabled={busy === "check-now"} className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy === "check-now" ? "Polling…" : "Check now"}
+            </button>
+            <button onClick={() => action(isPaused ? "resume" : "pause")} disabled={busy != null} className="rounded-lg border border-violet-200 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+              {isPaused ? "Resume" : "Pause"}
+            </button>
+            <button onClick={() => setEditing(true)} className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700">Edit</button>
+          </div>
+        </div>
       </div>
     </BlockShell>
   );
