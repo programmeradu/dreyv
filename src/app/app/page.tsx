@@ -120,3 +120,26 @@ export default function AppHomePage() {
     </div>
   );
 }
+
+function NavTile({ href, eyebrow, title }: { href: string; eyebrow: string; title: string }) {
+  return (
+    <Link
+      href={href}
+      className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400"
+    >
+      <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-violet-300/25 blur-2xl transition group-hover:bg-violet-400/40" />
+      <DreyvStar size={10} className="absolute right-3 top-3 text-violet-300 transition group-hover:text-violet-500" />
+      <div className="relative">
+        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+          {eyebrow}
+        </p>
+        <p className="mt-1 text-sm font-semibold text-slate-900">{title}</p>
+        <span className="mt-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition group-hover:translate-x-0.5 group-hover:bg-violet-700">
+          <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+          </svg>
+        </span>
+      </div>
+    </Link>
+  );
+}
