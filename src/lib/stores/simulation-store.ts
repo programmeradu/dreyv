@@ -46,6 +46,8 @@ export interface SimulationState {
     prompt: string | null;
     /** Parsed variables from the prompt */
     variables: SimulationVariable[];
+    /** Optional SimulationIR — when present, /api/analytics/simulate uses IR mode. */
+    ir: import("@/lib/foresight/simulation-ir").SimulationIR | null;
     /** The simulation result from /api/simulation */
     result: SimulationResult | null;
     /** Loading state while simulation is computing */
@@ -56,13 +58,9 @@ export interface SimulationState {
     timeframeMonths: number;
 
     // ─── Actions ─────────────────────────────────────────────────
-    /** Start a simulation — sets loading, stores prompt + variables */
-    startSimulation: (prompt: string, variables: SimulationVariable[], timeframeMonths?: number) => void;
-    /** Set the simulation result (called after /api/simulation responds) */
+    startSimulation: (prompt: string, variables: SimulationVariable[], timeframeMonths?: number, ir?: import("@/lib/foresight/simulation-ir").SimulationIR | null) => void;
     setResult: (result: SimulationResult) => void;
-    /** Set error state */
     setError: (error: string) => void;
-    /** Clear all simulation state — return Analytics to normal mode */
     clearSimulation: () => void;
 }
 
