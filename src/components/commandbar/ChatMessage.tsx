@@ -10,6 +10,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import type { UIMessage } from "ai";
 import { ToolCard } from "@/components/commandbar/ToolCard";
+import { ThinkingBlock } from "@/components/commandbar/ThinkingBlock";
 
 class MarkdownErrorBoundary extends React.Component<
   { fallback: React.ReactNode; children: React.ReactNode },
