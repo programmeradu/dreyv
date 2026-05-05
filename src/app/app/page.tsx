@@ -209,6 +209,14 @@ function TreasuryBubbles({ tokens }: { tokens: any[] }) {
           </div>
         );
       })}
+      {overflow > 0 && (
+        <div
+          className="absolute flex items-center justify-center rounded-full bg-violet-600 text-[9px] font-bold text-white shadow-[0_4px_10px_rgba(124,58,237,0.35)] ring-2 ring-white"
+          style={{ right: 4, bottom: 44, height: 18, minWidth: 18, padding: "0 5px" }}
+        >
+          +{overflow}
+        </div>
+      )}
     </div>
   );
 }
