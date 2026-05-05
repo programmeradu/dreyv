@@ -159,6 +159,8 @@ export default function AdminMonitoringRoom() {
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
                     <InngestHealthPanel />
 
+                    {/* PANEL 0b: Platform-wide transaction & volume report (compliance-grade) */}
+                    <PlatformReportPanel />
 
                     {/* PANEL 1: User Growth */}
                     <AdminMetricsPanel
