@@ -43,12 +43,17 @@ const foresight_simulation = defineCapability({
     variables: z
       .record(z.any())
       .describe(
-        "Scenario variables object. Keys depend on scenario: " +
-          "runway_projection: { monthlyBurn: number (USD/mo) }. " +
-          "market_shock: { solDrop: number (e.g. 0.3 for 30% or 30 for 30%), usdcDepeg?: number, monthlyBurn?: number }. " +
-          "variable_impact: { newHires?: number (count of new hires, default 0), costPerHire?: number (USD cost per hire/mo, default 8000), costPerHireSOL?: number (SOL cost per hire/mo — will be converted to USD at current price), monthlyBurn?: number (current USD burn/mo, default 15000), depositSOL?: number (additional SOL deposit to add to treasury), depositUSD?: number (additional USD deposit to add to treasury) }. " +
-          "yield_forecast: { apy: number (e.g. 0.08 for 8%), principal?: number (USD amount) }. " +
-          "IMPORTANT: When the user mentions hiring someone at X SOL/month, set newHires=1 and costPerHireSOL=X. When the user mentions depositing SOL, set depositSOL to that amount.",
+        "Scenario variables. ALWAYS pass concrete numeric inputs derived from the user's question — never an empty object. " +
+          "Known shapes: " +
+          "runway_projection: { monthlyBurn: number USD/mo }. " +
+          "market_shock: { solDrop: number (0.3 = 30%), usdcDepeg?: number, monthlyBurn?: number }. " +
+          "variable_impact: { newHires?: number, costPerHire?: number, costPerHireSOL?: number, monthlyBurn?: number, depositSOL?: number, depositUSD?: number }. " +
+          "yield_forecast: { apy: number (0.08 = 8%), principal?: number USD }. " +
+          "Free-form scenarios (diversification, rebalance, concentration_reduction, multi_asset_shock, etc.) — pass one of: " +
+          "{ targetAllocation: { SYMBOL: percent } } for diversification/rebalance (e.g. { SOL: 50, USDC: 30, JTO: 20 }); " +
+          "{ priceShocks: { SYMBOL: pct } } for multi-asset shock; " +
+          "{ inflowUSD?: number, outflowUSD?: number } for flow scenarios. " +
+          "When the user mentions hiring at X SOL/month, set newHires=1 and costPerHireSOL=X. When the user mentions depositing SOL, set depositSOL.",
       ),
     timeframeMonths: z
       .number()
@@ -303,6 +308,64 @@ const foresight_simulation = defineCapability({
       };
     }
 
+    // ── Generic / free-form scenarios ────────────────────────────────────
+    // The LLM is expected to pass a meaningful `variables` payload. We try
+    // to interpret common shapes so the result is a real simulation, not a
+    // placeholder.
+    //   - targetAllocation: { SYMBOL: percent }  → diversification / rebalance
+    //   - priceShocks: { SYMBOL: pct }           → multi-asset shock
+    //   - inflowUSD / outflowUSD per month       → flow scenario
+    const targetAllocation = (variables.targetAllocation || variables.allocation || variables.targets) as
+      | Record<string, number>
+      | undefined;
+    if (targetAllocation && typeof targetAllocation === "object") {
+      const pctSum = Object.values(targetAllocation).reduce(
+        (a, b) => a + (Number(b) || 0),
+        0,
+      );
+      const norm = pctSum > 0 ? pctSum : 100;
+      const currentBySymbol: Record<string, number> = {};
+      for (const t of tokens) {
+        if (!t.symbol) continue;
+        currentBySymbol[t.symbol.toUpperCase()] =
+          (currentBySymbol[t.symbol.toUpperCase()] || 0) +
+          (t.amount || 0) * (t.price || 0);
+      }
+      const targetUSD: Record<string, number> = {};
+      const currentPct: Record<string, number> = {};
+      const deltas: Record<string, number> = {};
+      for (const sym of Object.keys(targetAllocation)) {
+        const SYM = sym.toUpperCase();
+        const tgtPct = (Number(targetAllocation[sym]) || 0) / norm;
+        targetUSD[SYM] = Math.round(totalBalance * tgtPct * 100) / 100;
+        currentPct[SYM] =
+          totalBalance > 0
+            ? Math.round(((currentBySymbol[SYM] || 0) / totalBalance) * 1000) / 10
+            : 0;
+        deltas[SYM] =
+          Math.round((targetUSD[SYM] - (currentBySymbol[SYM] || 0)) * 100) / 100;
+      }
+      const summary = Object.entries(targetAllocation)
+        .map(([s, p]) => `${Math.round(Number(p))}% ${s.toUpperCase()}`)
+        .join(" / ");
+      return {
+        success: true,
+        operation: "foresight_simulation",
+        scenario,
+        variables,
+        timeframeMonths,
+        triggerVisualization: true,
+        chartType: "composition_shift",
+        totalBalance: Math.round(totalBalance),
+        currentAllocationPct: currentPct,
+        targetAllocationPct: targetAllocation,
+        targetAllocationUSD: targetUSD,
+        rebalanceDeltasUSD: deltas,
+        dataSource: "live",
+        message: `Diversification simulation: rebalance $${Math.round(totalBalance).toLocaleString()} treasury to ${summary}.`,
+      };
+    }
+
     return {
       success: true,
       operation: "foresight_simulation",
@@ -311,7 +374,9 @@ const foresight_simulation = defineCapability({
       timeframeMonths,
       triggerVisualization: true,
       chartType: "depletion_node",
-      message: `Custom simulation triggered: ${scenario}. Rendering visualization.`,
+      totalBalance: Math.round(totalBalance),
+      dataSource: "live",
+      message: `Custom simulation: ${scenario}. Rendering visualization with current treasury of $${Math.round(totalBalance).toLocaleString()}.`,
     };
   },
 });
