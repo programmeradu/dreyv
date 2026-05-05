@@ -47,6 +47,7 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { toast } from "@/lib/toast-notifications";
 import { useSearchParams } from "next/navigation";
 import { useTeam } from "@/lib/hooks/useTeam";
+import { useProfile } from "@/lib/hooks/useProfile";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 import { PendingInvitationsPanel } from "@/components/team/PendingInvitationsPanel";
 import { CreateVaultFromTeamModal } from "@/components/team/CreateVaultFromTeamModal";
