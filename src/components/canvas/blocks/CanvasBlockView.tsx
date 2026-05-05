@@ -2627,10 +2627,15 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
     return <BlockShell block={block} accent="slate"><p className="text-sm text-slate-600">Connect a wallet to audit signer hygiene and key security.</p></BlockShell>;
   }
 
-  const scoreTone = audit == null ? "slate" : audit.score >= 80 ? "emerald" : audit.score >= 50 ? "amber" : "rose";
+  const sev: Severity = audit == null ? "neutral" : audit.score >= 80 ? "good" : audit.score >= 50 ? "watch" : "risk";
+  const arcColor = sev === "good" ? "#7c3aed" : sev === "watch" ? "#a78bfa" : sev === "risk" ? "#5b21b6" : "#c4b5fd";
+  const score = audit?.score ?? 0;
+  // Closed-circle hygiene gauge
+  const R = 38, C = 2 * Math.PI * R;
+  const dash = (score / 100) * C;
 
   return (
-    <BlockShell block={block} accent={scoreTone === "rose" ? "rose" : "violet"}>
+    <BlockShell block={block} accent="violet">
       {loading && !audit ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : !audit ? (
@@ -2643,32 +2648,58 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
         </>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tracking-tight text-slate-900">{audit.score}</span>
-              <span className="text-xs text-slate-500">hygiene score · {audit.isMultisig ? `multisig${audit.threshold ? ` ${audit.threshold}/${audit.signers.length}` : ""}` : "single signer"}</span>
+          <div className="grid gap-5 sm:grid-cols-[120px_1fr] sm:items-center">
+            <div className="relative mx-auto" style={{ width: 110, height: 110 }}>
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle cx={55} cy={55} r={R} stroke="#f5f3ff" strokeWidth={10} fill="none" />
+                <circle
+                  cx={55} cy={55} r={R}
+                  stroke={arcColor}
+                  strokeWidth={10}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${dash} ${C}`}
+                  transform="rotate(-90 55 55)"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="font-manrope text-2xl font-semibold leading-none text-slate-900 tabular-nums">{audit.score}</div>
+                <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500">/ 100</div>
+              </div>
             </div>
-            <Pill tone={scoreTone === "rose" ? "rose" : scoreTone === "amber" ? "amber" : scoreTone === "emerald" ? "emerald" : "violet"}>
-              {audit.score >= 80 ? "Healthy" : audit.score >= 50 ? "Improve" : "At risk"}
-            </Pill>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Hygiene</p>
+                <SignalBadge severity={sev}>{audit.score >= 80 ? "Healthy" : audit.score >= 50 ? "Improve" : "At risk"}</SignalBadge>
+              </div>
+              <p className="mt-1 text-xs text-slate-600">
+                {audit.isMultisig ? `Squads multisig${audit.threshold ? ` · ${audit.threshold}-of-${audit.signers.length}` : ""}` : "Single signer"}
+              </p>
+              {audit.findings.length > 0 && (
+                <ul className="mt-2 space-y-1.5">
+                  {audit.findings.slice(0, 4).map((f, i) => {
+                    const fsev: Severity = f.severity === "high" ? "risk" : f.severity === "warn" ? "watch" : "good";
+                    const tone = fsev === "risk" ? "text-slate-900" : fsev === "watch" ? "text-amber-700" : "text-violet-700";
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-[12px]">
+                        <DreyvStar size={9} className={`${tone} mt-1 shrink-0`} />
+                        <span className="text-slate-700">{f.message}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {audit.signers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {audit.signers.slice(0, 6).map((s, i) => (
+                    <span key={i} className="rounded-full border border-violet-100 bg-white px-2 py-0.5 font-mono text-[10px] text-slate-600">
+                      {s.label ?? `${s.address.slice(0, 4)}…${s.address.slice(-4)}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          {audit.findings.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {audit.findings.slice(0, 4).map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px]">
-                  <span className={`mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full ${
-                    f.severity === "high" ? "bg-rose-500" : f.severity === "warn" ? "bg-amber-500" : "bg-violet-400"
-                  }`} />
-                  <span className="text-slate-700">{f.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {audit.signers.length > 0 && (
-            <div className="mt-2 text-[11px] text-slate-500">
-              Signers: {audit.signers.map((s) => s.label ?? `${s.address.slice(0, 4)}…${s.address.slice(-4)}`).join(", ")}
-            </div>
-          )}
           <div className="mt-3 flex items-center gap-1.5">
             <button onClick={runAudit} disabled={busy}
               className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
