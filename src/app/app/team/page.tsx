@@ -47,6 +47,7 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { toast } from "@/lib/toast-notifications";
 import { useSearchParams } from "next/navigation";
 import { useTeam } from "@/lib/hooks/useTeam";
+import { useProfile } from "@/lib/hooks/useProfile";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 import { PendingInvitationsPanel } from "@/components/team/PendingInvitationsPanel";
 import { CreateVaultFromTeamModal } from "@/components/team/CreateVaultFromTeamModal";
@@ -477,6 +478,8 @@ export default function TeamPage() {
     const self = useSelf();
     const { activeVault, vaultConfig } = useVault();
     const { activeTeam } = useTeam();
+    const { profile } = useProfile();
+    const selfAvatarSeed = profile?.avatarSeed || profile?.displayName || self?.info?.name || "ME";
     const vaultAddress = activeVault || "";
 
     const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
@@ -662,7 +665,7 @@ export default function TeamPage() {
                                     role="Admin · Signer"
                                     status="online"
                                     isSelf
-                                    avatar={getAvatarUrl(self?.info?.name || "ME")}
+                                    avatar={getAvatarUrl(selfAvatarSeed)}
                                 />
                                 {others.map(({ connectionId, info }) => (
                                     <MemberCard
