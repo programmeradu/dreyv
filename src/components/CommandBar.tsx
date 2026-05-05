@@ -406,6 +406,14 @@ export function CommandBar() {
             description: scenario,
           });
 
+          if (ir) {
+            toast.success("Regenerating analytics", {
+              id: "foresight-sim",
+              description: ir.scenarioLabel || scenario,
+            });
+            return;
+          }
+
           const portfolio = (vaultTokens || []).map((t: Record<string, unknown>) => ({
             symbol: (t.symbol as string) || "SPL",
             amount: Number(t.amount) || 0,
