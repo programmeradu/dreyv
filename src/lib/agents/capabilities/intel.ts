@@ -35,14 +35,11 @@ const foresight_simulation = defineCapability({
     "Run a 'What If' simulation — runway projection, market shock, variable impact, yield forecast. Triggers Depletion Node visualization.",
   inputSchema: z.object({
     scenario: z
-      .enum([
-        "runway_projection",
-        "market_shock",
-        "variable_impact",
-        "yield_forecast",
-        "custom",
-      ])
-      .describe("Simulation scenario type"),
+      .string()
+      .describe(
+        "Simulation scenario type. Known scenarios with dedicated math: 'runway_projection', 'market_shock', 'variable_impact', 'yield_forecast'. " +
+          "Any other free-form scenario (e.g. 'diversification', 'rebalance', 'token_concentration', 'inflow_shock', 'fee_optimization', 'bear_case', 'bull_case', etc.) is accepted and routed through the generic 'custom' simulator — pass any descriptive string and put the relevant numeric inputs in `variables`.",
+      ),
     variables: z
       .record(z.any())
       .describe(
