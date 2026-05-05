@@ -1611,27 +1611,131 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default token</label>
-          <select
-            value={defaultToken}
-            onChange={(e) => setDefaultToken(e.target.value)}
-            className="rounded-lg border border-violet-200 bg-white px-2 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300"
-          >
-            {["USDC", "USDT", "SOL", "JUP", "BONK"].map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <span className="ml-auto text-[10px] text-slate-500">or paste below</span>
-        </div>
+        {(() => {
+          const fallback: WalletToken[] = ["USDC", "USDT", "SOL", "JUP", "BONK"].map((s) => ({ mint: s, symbol: s }));
+          const merged: WalletToken[] = walletTokens.length ? walletTokens : fallback;
+          const seen = new Set<string>();
+          const tokens = merged.filter((t) => {
+            const k = (t.symbol || t.mint).toUpperCase();
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return Boolean(t.symbol || t.mint);
+          });
+          const q = tokenQuery.trim().toLowerCase();
+          const filtered = q
+            ? tokens.filter((t) => `${t.symbol} ${t.name ?? ""} ${t.mint}`.toLowerCase().includes(q))
+            : tokens;
+          const looksLikeMint = tokenQuery.trim().length >= 32 && tokenQuery.trim().length <= 64 && !tokenQuery.includes(" ");
+          const selected = tokens.find((t) => t.symbol.toUpperCase() === defaultToken.toUpperCase());
+          return (
+            <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Default token</p>
+                  <p className="text-[11px] text-slate-500">
+                    {tokensLoading ? "Loading wallet tokens…" : `${tokens.length} token${tokens.length === 1 ? "" : "s"} available · any SPL mint accepted`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTokenMenu((s) => !s)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:border-violet-400 hover:shadow"
+                >
+                  <span className="grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-[9px] font-bold text-white">
+                    {defaultToken.slice(0, 1)}
+                  </span>
+                  <span className="tabular-nums">{defaultToken}</span>
+                  {selected?.balance && selected.decimals != null && (
+                    <span className="text-[10px] font-normal text-slate-500">
+                      · {(Number(selected.balance) / 10 ** (selected.decimals || 0)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                    </span>
+                  )}
+                  <span className="text-violet-500">▾</span>
+                </button>
+              </div>
 
-        <textarea
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          rows={4}
-          placeholder={`So11…AbC,250\n9wM…XyZ,500,USDC,June grant`}
-          className="w-full rounded-xl border border-violet-200 bg-white px-3 py-2 font-mono text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
-        />
+              {showTokenMenu && (
+                <div className="mt-3 rounded-xl border border-violet-100 bg-white shadow-lg">
+                  <div className="p-2">
+                    <input
+                      autoFocus
+                      value={tokenQuery}
+                      onChange={(e) => setTokenQuery(e.target.value)}
+                      placeholder="Search symbol, name, or paste any SPL mint…"
+                      className="w-full rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    />
+                  </div>
+                  <ul className="max-h-56 divide-y divide-violet-100/70 overflow-y-auto">
+                    {filtered.slice(0, 30).map((t) => (
+                      <li key={t.mint || t.symbol}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDefaultToken((t.symbol || t.mint).toUpperCase());
+                            setShowTokenMenu(false);
+                            setTokenQuery("");
+                          }}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-violet-50"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="grid h-6 w-6 place-items-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
+                              {(t.symbol || "?").slice(0, 1)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-slate-800">{t.symbol || "Custom"}</p>
+                              <p className="truncate font-mono text-[10px] text-slate-500">{t.name || `${t.mint.slice(0, 6)}…${t.mint.slice(-4)}`}</p>
+                            </div>
+                          </div>
+                          {t.balance && t.decimals != null && (
+                            <span className="shrink-0 text-[11px] tabular-nums text-slate-600">
+                              {(Number(t.balance) / 10 ** (t.decimals || 0)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                    {filtered.length === 0 && !looksLikeMint && (
+                      <li className="px-3 py-3 text-center text-[11px] text-slate-500">No matches. Paste a mint address to use any SPL token.</li>
+                    )}
+                    {looksLikeMint && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const mint = tokenQuery.trim();
+                            const sym = mint.slice(0, 4).toUpperCase();
+                            setWalletTokens((prev) => [...prev, { mint, symbol: sym, name: "Custom mint" }]);
+                            setDefaultToken(sym);
+                            setShowTokenMenu(false);
+                            setTokenQuery("");
+                          }}
+                          className="flex w-full items-center justify-between gap-3 bg-violet-50/60 px-3 py-2 text-left hover:bg-violet-100/70"
+                        >
+                          <span className="text-xs font-semibold text-violet-700">Use custom mint</span>
+                          <span className="font-mono text-[10px] text-slate-600">{tokenQuery.slice(0, 6)}…{tokenQuery.slice(-4)}</span>
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        <div className="rounded-2xl border border-violet-100 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Paste recipients</p>
+            <span className="text-[10px] text-slate-500">address · amount · token? · label?</span>
+          </div>
+          <textarea
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            rows={4}
+            placeholder={`So11…AbC,250\n9wM…XyZ,500,USDC,June grant`}
+            className="w-full rounded-xl border border-violet-200 bg-violet-50/30 px-3 py-2 font-mono text-[12px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+          />
+        </div>
 
         {recipients.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-violet-100">
