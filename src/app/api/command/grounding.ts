@@ -63,9 +63,9 @@ export function classifyEvidenceNeed(userText: string): EvidenceClass {
   const t = userText.trim().toLowerCase();
   if (!t || isSimpleConversation(t)) return "conversational";
   if (isWalletProviderSupportQuestion(t)) return "conversational";
-  if (isInformationalQuestion(t)) return "conversational";
   if (/\b(navigate|open|go to|redirect)\b/.test(t)) return "navigation_required";
-  if (/\b(database|db|saved|stored|link|url|appid|project id)\b/.test(t)) return "db_required";
+  if (/\b(database|\bdb\b|saved|stored|appid|project id)\b/.test(t)) return "db_required";
+  if (isInformationalQuestion(t)) return "conversational";
   return "tool_required";
 }
 
