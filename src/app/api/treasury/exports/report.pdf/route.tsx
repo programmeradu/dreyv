@@ -54,11 +54,12 @@ const styles = StyleSheet.create({
   bgLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   watermarkWrap: {
     position: "absolute",
-    top: 220,
+    top: 280,
     left: 0,
     right: 0,
     alignItems: "center",
-    opacity: 0.05,
+    opacity: 0.08,
+    transform: "rotate(-18deg)",
   },
   watermarkText: {
     fontSize: 130,
