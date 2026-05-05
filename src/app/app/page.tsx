@@ -224,26 +224,66 @@ function TreasuryBubbles({ tokens }: { tokens: any[] }) {
 function AnalyticsMascot() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Rising bar chart bars behind mascot */}
+      {/* Soft grid backdrop */}
       <svg
         viewBox="0 0 120 60"
-        className="absolute bottom-0 right-2 h-16 w-32 opacity-80"
+        className="absolute bottom-0 left-0 h-20 w-full opacity-90"
+        preserveAspectRatio="none"
         aria-hidden
       >
-        <rect x="6" y="38" width="10" height="22" rx="2" fill="#ddd6fe" />
-        <rect x="22" y="28" width="10" height="32" rx="2" fill="#c4b5fd" />
-        <rect x="38" y="18" width="10" height="42" rx="2" fill="#a78bfa" />
-        <rect x="54" y="10" width="10" height="50" rx="2" fill="#8b5cf6" />
+        <defs>
+          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#7c3aed" />
+            <stop offset="100%" stopColor="#c4b5fd" />
+          </linearGradient>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* faint baseline */}
+        <line x1="2" y1="55" x2="118" y2="55" stroke="#ede9fe" strokeWidth="0.5" />
+        <line x1="2" y1="40" x2="118" y2="40" stroke="#f5f3ff" strokeWidth="0.5" strokeDasharray="1 2" />
+        <line x1="2" y1="25" x2="118" y2="25" stroke="#f5f3ff" strokeWidth="0.5" strokeDasharray="1 2" />
+
+        {/* area under curve */}
         <path
-          d="M6 36 L22 26 L38 16 L54 8 L70 4"
+          d="M4 42 L18 34 L32 28 L46 18 L60 10 L60 55 L4 55 Z"
+          fill="url(#areaGrad)"
+          className="origin-bottom transition-transform duration-500 group-hover:scale-y-110"
+        />
+
+        {/* bars */}
+        <g className="origin-bottom transition-transform duration-500 group-hover:scale-y-110">
+          <rect x="6" y="38" width="8" height="17" rx="1.5" fill="url(#barGrad)" opacity="0.55" />
+          <rect x="18" y="30" width="8" height="25" rx="1.5" fill="url(#barGrad)" opacity="0.7" />
+          <rect x="30" y="22" width="8" height="33" rx="1.5" fill="url(#barGrad)" opacity="0.85" />
+          <rect x="42" y="14" width="8" height="41" rx="1.5" fill="url(#barGrad)" />
+          <rect x="54" y="8" width="8" height="47" rx="1.5" fill="url(#barGrad)" />
+        </g>
+
+        {/* trend line + arrow */}
+        <path
+          d="M10 42 L22 34 L34 26 L46 18 L58 10"
           stroke="#7c3aed"
-          strokeWidth="1.5"
+          strokeWidth="1.2"
           fill="none"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
-        <path d="M70 4 l-4 1 l3 3 z" fill="#7c3aed" />
+        <circle cx="58" cy="10" r="1.6" fill="#7c3aed" />
+
+        {/* tiny % chip */}
+        <g transform="translate(66 6)">
+          <rect width="22" height="9" rx="2" fill="#7c3aed" />
+          <text x="11" y="6.5" fontSize="5.5" fontWeight="700" fill="#ffffff" textAnchor="middle" fontFamily="ui-sans-serif, system-ui">
+            +24%
+          </text>
+        </g>
       </svg>
-      <div className="absolute -bottom-2 right-1 opacity-90 transition group-hover:scale-105 group-hover:-translate-y-0.5">
+
+      <div className="absolute -bottom-2 right-1 opacity-95 transition duration-300 group-hover:scale-105 group-hover:-translate-y-0.5">
         <DryvMascot pose="celebrate" size={64} glow={false} />
       </div>
     </div>
