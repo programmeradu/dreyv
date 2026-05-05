@@ -211,6 +211,7 @@ export interface ChatMessageProps {
 export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }: ChatMessageProps) {
   const isUser = message.role === "user";
   const textContent = getTextContent(message);
+  const reasoningContent = getReasoningContent(message);
   const toolParts = getToolParts(message);
 
   if (isUser) {
@@ -224,30 +225,40 @@ export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }
   }
 
   // Assistant message
-  // "Thinking" is active while the agent is still streaming AND has no
-  // final text response yet (only tool activity). Once text starts arriving,
-  // the ThinkingBlock auto-collapses to "Thought for Xs".
+  // ThinkingBlock now ONLY shows the LLM's reasoning/thinking text.
+  // Tool invocation cards render inline as their own first-class steps.
   const thinkingActive = isStreaming && !textContent;
-  const hasTools = toolParts.length > 0;
+  const hasReasoning = reasoningContent.length > 0;
 
   return (
     <div className="flex flex-col gap-1.5 px-2 py-1">
-      {/* Tool invocation cards — wrapped in collapsible ThinkingBlock */}
-      {hasTools && (
+      {/* LLM thinking — reasoning text only, no tool cards */}
+      {(hasReasoning || thinkingActive) && (
         <ThinkingBlock active={thinkingActive}>
-          {toolParts.map((part) => (
-            <ToolCard
-              key={part.toolCallId}
-              toolName={part.toolName}
-              toolCallId={part.toolCallId}
-              input={part.input}
-              state={part.state}
-              output={part.output}
-              onSign={onSign}
-            />
-          ))}
+          {hasReasoning ? (
+            <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              {reasoningContent}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic">
+              Working…
+            </div>
+          )}
         </ThinkingBlock>
       )}
+
+      {/* Tool invocation cards — rendered inline, outside the thinking block */}
+      {toolParts.map((part) => (
+        <ToolCard
+          key={part.toolCallId}
+          toolName={part.toolName}
+          toolCallId={part.toolCallId}
+          input={part.input}
+          state={part.state}
+          output={part.output}
+          onSign={onSign}
+        />
+      ))}
 
       {/* Text content with markdown + token logo injection */}
       {textContent && (
