@@ -223,7 +223,7 @@ export function PlatformReportPanel() {
                                     value: r.count,
                                     color: i === 0 ? "#7c3aed" : "#a78bfa",
                                 }))}
-                                valueFormatter={(v, item) => {
+                                valueFormatter={(v: number) => {
                                     const found = report.byType.find((x) => x.count === v);
                                     return `${v} · ${usd(found?.volume ?? 0)}`;
                                 }}
