@@ -53,7 +53,7 @@ export function ThinkingBlock({ active, children, label }: ThinkingBlockProps) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
       >
-        <Sparkles
+        <DreyvStar
           size={13}
           className={`text-primary shrink-0 ${active ? "animate-pulse" : ""}`}
         />
