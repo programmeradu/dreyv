@@ -87,7 +87,7 @@ function synthesizeFromSnapshots(snaps: SnapshotPoint[]): DayRow[] {
   return rows;
 }
 
-export function MoneyMovementLedger({ wallet, range = "30d", snapshotSeries = [] }: Props) {
+export function MoneyMovementLedger({ wallet, range = "30d", snapshotSeries = [], simulatedEvents = null }: Props) {
   const [days, setDays] = useState<DayRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -95,6 +95,24 @@ export function MoneyMovementLedger({ wallet, range = "30d", snapshotSeries = []
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
+    if (simulatedEvents && simulatedEvents.length) {
+      // Bucket sim events by day
+      const byDay = new Map<string, DayRow>();
+      for (const e of simulatedEvents) {
+        const day = new Date(e.capturedAt).toISOString().slice(0, 10);
+        const cur = byDay.get(day) ?? { day, inflow_usd: 0, outflow_usd: 0, yield_usd: 0, fee_usd: 0, net_usd: 0, event_count: 0, source: "events" as const };
+        const amt = e.amountUsd;
+        if (e.type === "yield") cur.yield_usd += amt;
+        else if (e.type === "fee") cur.fee_usd += Math.abs(amt);
+        else if (amt >= 0) cur.inflow_usd += amt;
+        else cur.outflow_usd += -amt;
+        cur.net_usd += amt;
+        cur.event_count += 1;
+        byDay.set(day, cur);
+      }
+      setDays([...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)));
+      return;
+    }
     if (!wallet) { setDays([]); return; }
     setLoading(true);
     fetch(`/api/treasury/pnl-daily?wallet=${encodeURIComponent(wallet)}&range=${range}`, {
@@ -109,7 +127,7 @@ export function MoneyMovementLedger({ wallet, range = "30d", snapshotSeries = []
       })
       .catch(() => setDays([]))
       .finally(() => setLoading(false));
-  }, [wallet, range]);
+  }, [wallet, range, simulatedEvents]);
 
   // Decide source: events first, else synthesize from snapshots.
   const { rows, isProvisional } = useMemo(() => {
