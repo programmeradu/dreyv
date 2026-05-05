@@ -103,15 +103,24 @@ export async function GET(req: NextRequest) {
     const items = data?.result?.items || [];
     let holdings = items
       .filter((item: any) => item.interface === "FungibleToken" || item.interface === "FungibleAsset")
-      .map((item: any) => ({
-        mint: item.id,
-        symbol: item.content?.metadata?.symbol || item.content?.metadata?.name || "UNKNOWN",
-        name: item.content?.metadata?.name || item.content?.metadata?.symbol || "Unknown Token",
-        address: item.id,
-        balance: item.token_info?.balance || "0",
-        amount: item.token_info?.balance || "0",
-        decimals: item.token_info?.decimals || 9,
-      }));
+      .map((item: any) => {
+        const files = item.content?.files || item.content?.links;
+        const logo =
+          item.content?.links?.image ||
+          (Array.isArray(files) ? files.find((f: any) => f?.uri || f?.cdn_uri)?.cdn_uri || files.find((f: any) => f?.uri)?.uri : undefined) ||
+          item.content?.metadata?.image ||
+          undefined;
+        return {
+          mint: item.id,
+          symbol: item.content?.metadata?.symbol || item.content?.metadata?.name || "UNKNOWN",
+          name: item.content?.metadata?.name || item.content?.metadata?.symbol || "Unknown Token",
+          address: item.id,
+          balance: item.token_info?.balance || "0",
+          amount: item.token_info?.balance || "0",
+          decimals: item.token_info?.decimals ?? 9,
+          logo,
+        };
+      });
 
     // If Helius returned no holdings (sometimes happens), attempt a lightweight RPC fallback
     if ((!holdings || holdings.length === 0) && address) {
