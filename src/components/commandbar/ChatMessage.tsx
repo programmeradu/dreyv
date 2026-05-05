@@ -177,6 +177,20 @@ function getTextContent(message: UIMessage): string {
     .join("");
 }
 
+/** Extract concatenated reasoning/thinking text from a UIMessage. */
+function getReasoningContent(message: UIMessage): string {
+  return (message.parts ?? [])
+    .filter((p) => {
+      const t = (p as { type?: string }).type;
+      return t === "reasoning" || t === "thinking";
+    })
+    .map((p) => {
+      const part = p as { text?: string; reasoning?: string };
+      return part.text ?? part.reasoning ?? "";
+    })
+    .join("");
+}
+
 // ─── ChatMessageProps ─────────────────────────────────────────────────────────
 
 export interface ChatMessageProps {
