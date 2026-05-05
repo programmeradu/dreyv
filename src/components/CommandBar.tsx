@@ -655,18 +655,8 @@ export function CommandBar() {
       const trimmed = text.trim();
       if (!trimmed || agentBusy) return;
       setSubmitPulse(true);
-      if (canvas) {
-        const id = canvas.addBlock({
-          type: "plan",
-          source: "commandbar",
-          origin: "/commandbar",
-          title: trimmed.length > 64 ? trimmed.slice(0, 61) + "…" : trimmed,
-          subtitle: "Planning…",
-          pinned: true,
-          payload: { prompt: trimmed, status: "planning", summary: "Agent is analysing your command.", steps: [] },
-        });
-        activePlanBlockIdRef.current = id;
-      }
+      // Same rule as handleFormSubmit: do NOT auto-create a canvas Plan
+      // block per command — would flood /app.
       try {
         await sendMessage(
           { text: trimmed },
