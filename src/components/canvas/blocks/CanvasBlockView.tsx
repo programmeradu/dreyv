@@ -294,8 +294,8 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     }
     if (s === "running" || s === "active") {
       return (
-        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white motion-safe:animate-pulse">
+          <DreyvStar size={9} className="text-white" />
         </span>
       );
     }
