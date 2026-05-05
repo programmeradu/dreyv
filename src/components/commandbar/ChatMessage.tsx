@@ -10,6 +10,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import type { UIMessage } from "ai";
 import { ToolCard } from "@/components/commandbar/ToolCard";
+import { ThinkingBlock } from "@/components/commandbar/ThinkingBlock";
 
 class MarkdownErrorBoundary extends React.Component<
   { fallback: React.ReactNode; children: React.ReactNode },
@@ -187,11 +188,13 @@ export interface ChatMessageProps {
     operation: string,
     extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
   ) => void;
+  /** True when this is the latest message and the agent is still working. */
+  isStreaming?: boolean;
 }
 
 // ─── ChatMessage ──────────────────────────────────────────────────────────────
 
-export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
+export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }: ChatMessageProps) {
   const isUser = message.role === "user";
   const textContent = getTextContent(message);
   const toolParts = getToolParts(message);
@@ -207,8 +210,31 @@ export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
   }
 
   // Assistant message
+  // "Thinking" is active while the agent is still streaming AND has no
+  // final text response yet (only tool activity). Once text starts arriving,
+  // the ThinkingBlock auto-collapses to "Thought for Xs".
+  const thinkingActive = isStreaming && !textContent;
+  const hasTools = toolParts.length > 0;
+
   return (
     <div className="flex flex-col gap-1.5 px-2 py-1">
+      {/* Tool invocation cards — wrapped in collapsible ThinkingBlock */}
+      {hasTools && (
+        <ThinkingBlock active={thinkingActive}>
+          {toolParts.map((part) => (
+            <ToolCard
+              key={part.toolCallId}
+              toolName={part.toolName}
+              toolCallId={part.toolCallId}
+              input={part.input}
+              state={part.state}
+              output={part.output}
+              onSign={onSign}
+            />
+          ))}
+        </ThinkingBlock>
+      )}
+
       {/* Text content with markdown + token logo injection */}
       {textContent && (
         <div className="max-w-[90%] text-sm text-foreground leading-relaxed prose prose-sm max-w-none">
@@ -259,19 +285,6 @@ export function ChatMessage({ message, tokenLogos, onSign }: ChatMessageProps) {
           </MarkdownErrorBoundary>
         </div>
       )}
-
-      {/* Tool invocation cards */}
-      {toolParts.map((part) => (
-        <ToolCard
-          key={part.toolCallId}
-          toolName={part.toolName}
-          toolCallId={part.toolCallId}
-          input={part.input}
-          state={part.state}
-          output={part.output}
-          onSign={onSign}
-        />
-      ))}
     </div>
   );
 }

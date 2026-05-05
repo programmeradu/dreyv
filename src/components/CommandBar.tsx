@@ -823,14 +823,18 @@ export function CommandBar() {
                   ref={chatContainerRef}
                   className="flex-1 flex flex-col gap-2 py-4 min-h-[200px] max-h-[calc(85vh-130px)] overflow-y-auto overflow-x-hidden scrollbar-transparent"
                 >
-                  {messages.map((m) => (
-                    <ChatMessage
-                      key={m.id}
-                      message={m}
-                      tokenLogos={TOKEN_LOGOS}
-                      onSign={handleSignTransactions}
-                    />
-                  ))}
+                  {messages.map((m, i) => {
+                    const isLast = i === messages.length - 1;
+                    return (
+                      <ChatMessage
+                        key={m.id}
+                        message={m}
+                        tokenLogos={TOKEN_LOGOS}
+                        onSign={handleSignTransactions}
+                        isStreaming={isLast && agentBusy}
+                      />
+                    );
+                  })}
 
                   {/* Streaming indicator (Requirement 3.1) */}
                   {agentBusy &&
