@@ -449,7 +449,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       asOf: new Date().toISOString(),
       simulated: {
-        vaultValue: p.currentValue,
+        vaultValue: p.endValue,
+        startValue: p.currentValue,
         vaultChange24h: simulatedChange24h,
         tokens: p.endTokens,
         valueSeries,
