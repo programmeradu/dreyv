@@ -274,13 +274,6 @@ function AnalyticsMascot() {
         />
         <circle cx="58" cy="10" r="1.6" fill="#7c3aed" />
 
-        {/* tiny % chip */}
-        <g transform="translate(66 6)">
-          <rect width="22" height="9" rx="2" fill="#7c3aed" />
-          <text x="11" y="6.5" fontSize="5.5" fontWeight="700" fill="#ffffff" textAnchor="middle" fontFamily="ui-sans-serif, system-ui">
-            +24%
-          </text>
-        </g>
       </svg>
 
       <div className="absolute -bottom-2 right-1 opacity-95 transition duration-300 group-hover:scale-105 group-hover:-translate-y-0.5">
