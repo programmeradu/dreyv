@@ -1643,9 +1643,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
                   onClick={() => setShowTokenMenu((s) => !s)}
                   className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:border-violet-400 hover:shadow"
                 >
-                  <span className="grid h-5 w-5 place-items-center rounded-full bg-violet-600 text-[9px] font-bold text-white">
-                    {defaultToken.slice(0, 1)}
-                  </span>
+                  <TokenLogo symbol={defaultToken} mint={selected?.mint && selected.mint.length > 10 ? selected.mint : undefined} size={20} />
                   <span className="tabular-nums">{defaultToken}</span>
                   {selected?.balance && selected.decimals != null && (
                     <span className="text-[10px] font-normal text-slate-500">
