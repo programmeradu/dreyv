@@ -632,12 +632,12 @@ export async function POST(req: Request) {
           console.log(`[Command API] Recovery (no-tools) trying: ${name}`);
           const modelBudgeted = buildBudgetedMessagesWithCap(budgeted.messages, maxChars);
           const result = streamText({
-            ...(streamOptionsNoTools as Parameters<typeof streamText>[0]),
+            ...(streamOptionsNoTools as object),
             system: recoverySystem,
             messages: modelBudgeted.messages,
             model,
             maxRetries: 0,
-          });
+          } as Parameters<typeof streamText>[0]);
           const response = result.toUIMessageStreamResponse();
           if (response.body) {
             console.log(`[Command API] Recovery succeeded via ${name} (no tools).`);
