@@ -1983,7 +1983,7 @@ function GasTankBlock({ block }: { block: CanvasBlock }) {
   const cx = 80, cy = 78, R = 60;
   const valueEnd = arcStart + arcSweep * pct;
   const floorAng = arcStart + arcSweep * floorPct;
-  const verdict: Severity = isPaused ? "info" : isLow ? "critical" : balanceN == null ? "info" : pct < 0.5 ? "warning" : "ok";
+  const verdict: Severity = isPaused ? "neutral" : isLow ? "risk" : balanceN == null ? "neutral" : pct < 0.5 ? "watch" : "good";
   const verdictLabel = isPaused ? "Paused" : balanceN == null ? "Unchecked" : isLow ? "Low — refill drafted" : pct < 0.5 ? "Below comfort" : "Healthy";
 
   return (
