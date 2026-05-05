@@ -11,11 +11,12 @@
  * Best-effort: returns an empty list (not 500) when the table is missing,
  * so the inbox still loads on environments where the migration hasn't run.
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { commandApprovals } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { publish } from "@/lib/agents/bus";
+import { getAuthUser } from "@/lib/auth-utils";
 import { capabilityRegistry } from "@/lib/agents/capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "@/lib/agents/capabilities/types";
 import type { Plan, RouteDecision } from "@/lib/agents/dacs/types";
@@ -25,16 +26,21 @@ export const dynamic = "force-dynamic";
 
 const TABLE_MISSING = /relation .*command_approvals.* does not exist/i;
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: true, approvals: [], reason: "db_unavailable" });
   const url = new URL(req.url);
-  const wallet = url.searchParams.get("wallet");
+  const requestedWallet = url.searchParams.get("wallet");
   const status = url.searchParams.get("status") ?? "pending";
+  if (requestedWallet && requestedWallet !== user.walletAddress) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+  // Always scope to the authenticated user's wallet, regardless of query param.
+  const wallet = user.walletAddress;
 
   try {
-    const where = wallet
-      ? and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet))
-      : eq(commandApprovals.status, status);
+    const where = and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet));
     const rows = await db
       .select()
       .from(commandApprovals)
@@ -151,7 +157,9 @@ async function buildSigningEnvelope(
   };
 }
 
-export async function PATCH(req: Request) {
+export async function PATCH(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: false, error: "db_unavailable" }, { status: 503 });
   let body: { id?: string; status?: "approved" | "rejected" | "executed"; note?: string; signature?: string };
   try {
@@ -171,6 +179,9 @@ export async function PATCH(req: Request) {
       .where(eq(commandApprovals.id, body.id))
       .limit(1);
     if (!existing) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    if (existing.walletAddress && existing.walletAddress !== user.walletAddress) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
 
     let envelope: SigningEnvelope | null = null;
     let nextDecision = existing.decision as RouteDecision & { signingEnvelope?: SigningEnvelope };
