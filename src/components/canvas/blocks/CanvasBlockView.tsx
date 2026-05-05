@@ -2532,7 +2532,42 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {reports.length === 0 ? (
-            <p className="text-sm text-slate-700">Generate a board-ready snapshot of your treasury — composition, valuation, 24h move — then publish a read-only link for accountants and stakeholders.</p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  <defs>
+                    <linearGradient id="rep-bg" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="#f5f3ff" />
+                      <stop offset="100%" stopColor="#ffffff" />
+                    </linearGradient>
+                  </defs>
+                  {/* Stacked report sheets */}
+                  <rect x={28} y={22} width={70} height={84} rx={6} fill="url(#rep-bg)" stroke="#ddd6fe" strokeWidth={1} transform="rotate(-6 63 64)" />
+                  <rect x={36} y={16} width={70} height={84} rx={6} fill="#ffffff" stroke="#c4b5fd" strokeWidth={1.2} />
+                  {/* report contents */}
+                  <rect x={44} y={26} width={36} height={4} rx={2} fill="#7c3aed" />
+                  <rect x={44} y={36} width={54} height={2.5} rx={1.25} fill="#e9d5ff" />
+                  <rect x={44} y={42} width={48} height={2.5} rx={1.25} fill="#e9d5ff" />
+                  {/* mini bar chart */}
+                  <rect x={44} y={56} width={6} height={20} rx={1} fill="#a78bfa" />
+                  <rect x={54} y={50} width={6} height={26} rx={1} fill="#8b5cf6" />
+                  <rect x={64} y={44} width={6} height={32} rx={1} fill="#7c3aed" />
+                  <rect x={74} y={52} width={6} height={24} rx={1} fill="#a78bfa" />
+                  <rect x={84} y={48} width={6} height={28} rx={1} fill="#8b5cf6" />
+                  <rect x={44} y={84} width={54} height={2.5} rx={1.25} fill="#ede9fe" />
+                  <rect x={44} y={90} width={40} height={2.5} rx={1.25} fill="#ede9fe" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Board-ready</p>
+                <p className="mt-1 text-sm text-slate-700">Generate a snapshot — composition, valuation, 24h move — and publish a read-only link for accountants and stakeholders.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["PDF export", "Read-only link", "Auto-expires"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {reports.slice(0, 5).map((r) => {
