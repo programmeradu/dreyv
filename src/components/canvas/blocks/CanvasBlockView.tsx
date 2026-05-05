@@ -705,6 +705,53 @@ function shortAddr(addr: string): string {
  * Squads multisig auto-detection is handled by VaultContext on activation —
  * we only mark `kind: 'multisig'` when the user explicitly toggles it.
  */
+function RosterConstellation({
+  vaults,
+  activeAddress,
+}: {
+  vaults: Array<{ address: string; label?: string; kind?: string }>;
+  activeAddress: string | null;
+}) {
+  const W = 280;
+  const H = 96;
+  const cx = W / 2;
+  const cy = H / 2;
+  const n = Math.max(vaults.length, 1);
+  const radius = Math.min(38, 14 + n * 4);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-20 w-full" role="img" aria-label="Wallet roster constellation">
+      <defs>
+        <radialGradient id="roster-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx={cx} cy={cy} r={radius + 14} fill="url(#roster-core)" />
+      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#ddd6fe" strokeDasharray="2 4" />
+      {vaults.map((v, i) => {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const isActive = v.address === activeAddress;
+        const isMultisig = v.kind === "multisig";
+        const isWatch = v.kind === "watch";
+        const fill = isActive ? "#7c3aed" : isMultisig ? "#a78bfa" : isWatch ? "#cbd5e1" : "#8b5cf6";
+        return (
+          <g key={v.address}>
+            <line x1={cx} y1={cy} x2={x} y2={y} stroke={isActive ? "#a78bfa" : "#ede9fe"} strokeWidth={isActive ? 1.2 : 0.8} />
+            <circle cx={x} cy={y} r={isActive ? 5 : 3.5} fill={fill} />
+            {isActive && <circle cx={x} cy={y} r={8} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />}
+          </g>
+        );
+      })}
+      {/* Core mark */}
+      <circle cx={cx} cy={cy} r={6} fill="#0f172a" />
+      <circle cx={cx} cy={cy} r={2.2} fill="#a78bfa" />
+    </svg>
+  );
+}
+
 function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
   // Legacy payload (still rendered if no live registry yet)
   const fallbackWallets = asArray<WalletRow>(block.payload.wallets);
@@ -767,16 +814,45 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
   // so existing payloads keep working until the user signs in.
   const showLegacy = registeredVaults.length === 0 && !registryLoading && fallbackWallets.length > 0 && !connected;
 
+  // Roster composition for the mini-visual
+  const counts = registeredVaults.reduce(
+    (acc, v) => {
+      const k = (v.kind ?? "connected") as "connected" | "watch" | "multisig";
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    },
+    { connected: 0, watch: 0, multisig: 0 } as Record<"connected" | "watch" | "multisig", number>,
+  );
+
   return (
     <BlockShell block={block} accent="violet">
+      {/* Roster constellation — a bespoke visual of the signer set */}
+      {registeredVaults.length > 0 && (
+        <div className="mb-3 overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/60 to-white px-3 py-3">
+          <RosterConstellation vaults={registeredVaults} activeAddress={activeVault ?? null} />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {counts.connected > 0 && (
+              <SignalBadge severity="good" showStar={false}>{counts.connected} connected</SignalBadge>
+            )}
+            {counts.multisig > 0 && (
+              <SignalBadge severity="neutral" showStar={false}>{counts.multisig} multisig</SignalBadge>
+            )}
+            {counts.watch > 0 && (
+              <SignalBadge severity="neutral" showStar={false}>{counts.watch} watch-only</SignalBadge>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header strip — count + tier + add actions */}
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+        <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          <DreyvStar size={9} className="text-violet-500" />
           {registeredVaults.length} {registeredVaults.length === 1 ? "wallet" : "wallets"}
           {tierLimit && (
-            <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+            <SignalBadge severity={limitReached ? "watch" : "neutral"} showStar={false}>
               {tierLimit.used}/{tierLimit.limit} · {tierLimit.tier}
-            </span>
+            </SignalBadge>
           )}
         </p>
         <div className="flex items-center gap-1.5">
@@ -875,10 +951,17 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
                   )}
                   <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
                     <span className="font-mono">{shortAddr(w.address)}</span>
-                    <Pill tone={w.kind === "multisig" ? "violet" : w.kind === "watch" ? "slate" : "emerald"}>{w.kind}</Pill>
+                    <SignalBadge
+                      severity={w.kind === "multisig" ? "neutral" : w.kind === "watch" ? "neutral" : "good"}
+                      showStar={false}
+                    >
+                      {w.kind}
+                    </SignalBadge>
                   </p>
                 </div>
-                {isActive && <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-700">Active</span>}
+                {isActive && (
+                  <SignalBadge severity="neutral" showStar={false}>active</SignalBadge>
+                )}
                 <button
                   onClick={async () => {
                     if (!confirm(`Remove ${w.label}?`)) return;
