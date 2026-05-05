@@ -7,7 +7,8 @@
 // compact "Thought for Xs" pill that the user can re-expand.
 
 import React from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface ThinkingBlockProps {
   /** Active = agent is still working AND has not produced final text yet. */
