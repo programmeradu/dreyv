@@ -403,8 +403,18 @@ function buildBenchmark(p: ProjectionResult, portfolio: PortfolioToken[], symbol
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as RequestBody;
+
+    // ─── IR mode (preferred) ────────────────────────────────────────────────
+    if (body.ir && body.ir.startState?.tokens?.length) {
+      const ir = body.ir;
+      const horizon = Math.max(1, Math.min(60, Math.round(ir.horizonMonths || 12)));
+      const result = runSimulationIR({ ...ir, horizonMonths: horizon });
+      return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL"));
+    }
+
+    // ─── Legacy mode ────────────────────────────────────────────────────────
     if (!body?.portfolio?.length) {
-      return NextResponse.json({ error: "portfolio is required" }, { status: 400 });
+      return NextResponse.json({ error: "portfolio or ir is required" }, { status: 400 });
     }
     if (!Array.isArray(body.variables)) {
       return NextResponse.json({ error: "variables must be an array" }, { status: 400 });
@@ -416,19 +426,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "too many variables" }, { status: 400 });
     }
 
-    const p = project(body);
+    const legacyInput: LegacyProjectInput = {
+      portfolio: body.portfolio,
+      variables: body.variables,
+      timeframeMonths: body.timeframeMonths,
+      baselineAttribution: body.baselineAttribution,
+    };
+    const p = project(legacyInput);
     const foresight = buildForesightBands(p, body.portfolio, body.timeframeMonths);
     const events = buildEvents(p);
     const benchmark = buildBenchmark(p, body.portfolio, body.benchmarkSymbol ?? "SOL");
 
-    // Cockpit valueSeries: deterministic projection (used as baseline-vs-sim line)
     const valueSeries = p.projection.map((pt) => ({ date: pt.date, value: pt.totalValue }));
-
-    // Synthetic 24h change from scenario step-1 vs current (a soft "first day" feel)
     const firstStep = p.projection[1]?.totalValue ?? p.currentValue;
     const simulatedChange24h = p.currentValue > 0 ? ((firstStep - p.currentValue) / p.currentValue) * 100 / 30 : 0;
-
-    // Scenario "drift" surfaced as %/day for the cockpit
     const totalDriftPct = p.currentValue > 0 ? (p.endValue - p.currentValue) / p.currentValue : 0;
     const driftPctPerDay = (totalDriftPct / Math.max(1, body.timeframeMonths * 30)) * 100;
     const volPctPerDay = Math.abs(simulatedChange24h) * 0.5;
@@ -452,15 +463,11 @@ export async function POST(req: NextRequest) {
           annualYieldRate: p.annualYield,
           sampleSize: 0,
         },
-        snapshotStats: {
-          driftPctPerDay,
-          volPctPerDay,
-          samples: body.timeframeMonths,
-        },
-        snapshots: valueSeries.map((p, i) => ({
+        snapshotStats: { driftPctPerDay, volPctPerDay, samples: body.timeframeMonths },
+        snapshots: valueSeries.map((pt, i) => ({
           id: `sim-${i}`,
-          capturedAt: new Date(p.date).toISOString(),
-          totalUsd: p.value,
+          capturedAt: new Date(pt.date).toISOString(),
+          totalUsd: pt.value,
           stableUsd: 0,
           volatileUsd: 0,
           yieldUsd: 0,
@@ -477,4 +484,85 @@ export async function POST(req: NextRequest) {
     console.error("[analytics/simulate] error:", err);
     return NextResponse.json({ error: err?.message || "Simulation failed" }, { status: 500 });
   }
+}
+
+// ─── IR result → response shape (matches SimulatedAnalyticsState) ───────────
+
+function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC") {
+  const horizon = p.ir.horizonMonths;
+  const tokens = p.ir.startState.tokens;
+
+  // Build foresight bands (reuse existing logic via a shaped ProjectionResult).
+  const projectionPts = p.monthly.map((pt) => ({
+    date: pt.date,
+    totalValue: pt.totalValue,
+    breakdown: pt.breakdown,
+  }));
+  const shaped: ProjectionResult = {
+    projection: projectionPts,
+    currentValue: p.startValue,
+    endValue: p.endValue,
+    monthlyBurnRate: p.rates.monthlyOutflow,
+    monthlyInflow: p.rates.monthlyInflow,
+    annualYield: 0, // captured in monthlyYieldUsd already
+    monthlyYieldUsd: p.rates.monthlyYieldUsd,
+    monthlyFeeUsd: p.rates.monthlyFeeUsd,
+    priceChanges: p.priceChanges,
+    endTokens: p.endTokens,
+    runwayMonths: p.runwayMonths,
+    riskFlags: p.riskFlags,
+  };
+  const foresight = buildForesightBands(shaped, tokens as PortfolioToken[], horizon);
+  const events = buildEvents(shaped);
+  const benchmark = buildBenchmark(shaped, tokens as PortfolioToken[], benchmarkSymbol);
+
+  const valueSeries = p.monthly.map((pt) => ({ date: pt.date, value: pt.totalValue }));
+  const firstStep = p.monthly[1]?.totalValue ?? p.startValue;
+  const simulatedChange24h =
+    p.startValue > 0 ? ((firstStep - p.startValue) / p.startValue) * 100 / 30 : 0;
+  const totalDriftPct = p.startValue > 0 ? (p.endValue - p.startValue) / p.startValue : 0;
+  const driftPctPerDay = (totalDriftPct / Math.max(1, horizon * 30)) * 100;
+  const volPctPerDay = Math.abs(simulatedChange24h) * 0.5;
+
+  return {
+    ok: true,
+    asOf: new Date().toISOString(),
+    ir: p.ir,
+    simulated: {
+      vaultValue: p.startValue,
+      vaultChange24h: simulatedChange24h,
+      tokens: p.endTokens,
+      valueSeries,
+      attribution: {
+        inflowUsd: p.rates.monthlyInflow,
+        outflowUsd: p.rates.monthlyOutflow,
+        yieldUsd: p.rates.monthlyYieldUsd,
+        feeUsd: p.rates.monthlyFeeUsd,
+        netUsd:
+          p.rates.monthlyInflow - p.rates.monthlyOutflow + p.rates.monthlyYieldUsd - p.rates.monthlyFeeUsd,
+        monthlyBurnRate: p.rates.monthlyOutflow,
+        monthlyInflow: p.rates.monthlyInflow,
+        annualYieldRate: 0,
+        sampleSize: 0,
+      },
+      snapshotStats: { driftPctPerDay, volPctPerDay, samples: horizon },
+      snapshots: valueSeries.map((pt, i) => ({
+        id: `sim-${i}`,
+        capturedAt: new Date(pt.date).toISOString(),
+        totalUsd: pt.value,
+        stableUsd: 0,
+        volatileUsd: 0,
+        yieldUsd: 0,
+      })),
+      foresight,
+      events,
+      benchmark,
+      endValue: p.endValue,
+      runwayMonths: p.runwayMonths,
+      riskFlags: p.riskFlags,
+      assumptions: p.ir.assumptions,
+      unknowns: p.ir.unknowns,
+      scenarioLabel: p.ir.scenarioLabel,
+    },
+  };
 }
