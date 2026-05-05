@@ -712,42 +712,92 @@ function RosterConstellation({
   vaults: Array<{ address: string; label?: string; kind?: string }>;
   activeAddress: string | null;
 }) {
-  const W = 280;
-  const H = 96;
-  const cx = W / 2;
-  const cy = H / 2;
-  const n = Math.max(vaults.length, 1);
-  const radius = Math.min(38, 14 + n * 4);
+  // Signer-graph: a labeled "Treasury" core on the left, wallets fanned out
+  // to the right as rounded chips connected with soft violet sinew lines.
+  // Reads as a real org chart even with a single wallet — never a lonely dot.
+  const W = 520;
+  const rowH = 44;
+  const padTop = 16;
+  const padBottom = 16;
+  const H = Math.max(120, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
+  const coreX = 70;
+  const coreY = H / 2;
+  const chipX = 280;
+  const chipW = 200;
+  const chipH = 30;
+
+  const truncate = (s: string, h = 4, t = 4) =>
+    s.length <= h + t + 1 ? s : `${s.slice(0, h)}…${s.slice(-t)}`;
+
+  const kindStyle = (kind?: string, isActive?: boolean) => {
+    if (kind === "multisig") return { fill: "#f5f3ff", stroke: "#a78bfa", dot: "#7c3aed", label: "MULTISIG" };
+    if (kind === "watch")    return { fill: "#ffffff", stroke: "#e2e8f0", dot: "#94a3b8", label: "WATCH" };
+    return { fill: isActive ? "#7c3aed" : "#ffffff", stroke: isActive ? "#7c3aed" : "#c4b5fd", dot: isActive ? "#ffffff" : "#7c3aed", label: "SIGNER" };
+  };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-20 w-full" role="img" aria-label="Wallet roster constellation">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-auto w-full"
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="Wallet and signers graph"
+    >
       <defs>
-        <radialGradient id="roster-core" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.35" />
+        <radialGradient id="roster-core-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
           <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <circle cx={cx} cy={cy} r={radius + 14} fill="url(#roster-core)" />
-      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#ddd6fe" strokeDasharray="2 4" />
+
+      {/* Core: the Treasury hub */}
+      <circle cx={coreX} cy={coreY} r={48} fill="url(#roster-core-glow)" />
+      <circle cx={coreX} cy={coreY} r={26} fill="#0f172a" />
+      <circle cx={coreX} cy={coreY} r={26} fill="none" stroke="#7c3aed" strokeOpacity="0.35" />
+      <text x={coreX} y={coreY - 2} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="700" letterSpacing="1.4">
+        TREASURY
+      </text>
+      <text x={coreX} y={coreY + 11} textAnchor="middle" fill="#a78bfa" fontSize="8" letterSpacing="1.2">
+        {vaults.length} {vaults.length === 1 ? "wallet" : "wallets"}
+      </text>
+
+      {/* Wallet chips + sinew lines */}
       {vaults.map((v, i) => {
-        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
+        const y = padTop + i * rowH + rowH / 2;
         const isActive = v.address === activeAddress;
-        const isMultisig = v.kind === "multisig";
-        const isWatch = v.kind === "watch";
-        const fill = isActive ? "#7c3aed" : isMultisig ? "#a78bfa" : isWatch ? "#cbd5e1" : "#8b5cf6";
+        const s = kindStyle(v.kind, isActive);
+        const startX = coreX + 26;
+        const endX = chipX;
+        const midX = (startX + endX) / 2;
+        const path = `M${startX},${coreY} C${midX},${coreY} ${midX},${y} ${endX},${y}`;
+        const textColor = v.kind === "multisig" || (!v.kind && !isActive) || v.kind === "watch"
+          ? "#0f172a"
+          : isActive ? "#ffffff" : "#0f172a";
+        const subColor = isActive && !v.kind ? "#ddd6fe" : "#64748b";
+
         return (
           <g key={v.address}>
-            <line x1={cx} y1={cy} x2={x} y2={y} stroke={isActive ? "#a78bfa" : "#ede9fe"} strokeWidth={isActive ? 1.2 : 0.8} />
-            <circle cx={x} cy={y} r={isActive ? 5 : 3.5} fill={fill} />
-            {isActive && <circle cx={x} cy={y} r={8} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />}
+            <path d={path} fill="none" stroke={isActive ? "#7c3aed" : "#ede9fe"} strokeWidth={isActive ? 1.6 : 1} />
+            <rect
+              x={chipX}
+              y={y - chipH / 2}
+              width={chipW}
+              height={chipH}
+              rx={chipH / 2}
+              fill={s.fill}
+              stroke={s.stroke}
+              strokeWidth={isActive ? 1.5 : 1}
+            />
+            <circle cx={chipX + 14} cy={y} r={4} fill={s.dot} />
+            <text x={chipX + 26} y={y - 2} fontSize="10" fontWeight="700" fill={textColor}>
+              {truncate(v.label ?? v.address, 14, 0)}
+            </text>
+            <text x={chipX + 26} y={y + 9} fontSize="8" fill={subColor} letterSpacing="0.6">
+              {truncate(v.address)} · {s.label}
+            </text>
           </g>
         );
       })}
-      {/* Core mark */}
-      <circle cx={cx} cy={cy} r={6} fill="#0f172a" />
-      <circle cx={cx} cy={cy} r={2.2} fill="#a78bfa" />
     </svg>
   );
 }
