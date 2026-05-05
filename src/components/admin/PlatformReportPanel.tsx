@@ -172,7 +172,7 @@ export function PlatformReportPanel() {
                                 <LineChart data={report.monthly}>
                                     <CartesianGrid stroke="#ede9fe" strokeDasharray="3 3" />
                                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748b" }} />
-                                    <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => usd(v)} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v: number) => usd(v)} />
                                     <Tooltip
                                         formatter={(v: number) => usd(v)}
                                         contentStyle={{
