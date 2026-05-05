@@ -88,6 +88,7 @@ export function SimulatedAnalyticsProvider({
   const { vaultTokens } = useVault();
   const active = useSimulationStore((s) => s.active);
   const variables = useSimulationStore((s) => s.variables);
+  const ir = useSimulationStore((s) => s.ir);
   const timeframeMonths = useSimulationStore((s) => s.timeframeMonths);
   const setError = useSimulationStore((s) => s.setError);
   const clear = useSimulationStore((s) => s.clearSimulation);
@@ -121,7 +122,7 @@ export function SimulatedAnalyticsProvider({
       logo: t.logo ?? t.logoURI,
     }));
 
-    const key = JSON.stringify({ variables, timeframeMonths, n: portfolio.length, v: portfolio.map((p) => p.symbol + p.amount.toFixed(4)) });
+    const key = JSON.stringify({ ir: ir ? { h: ir.horizonMonths, s: ir.shocks, f: ir.flows, r: ir.rebalances, y: ir.yields } : null, variables, timeframeMonths, n: portfolio.length, v: portfolio.map((p) => p.symbol + p.amount.toFixed(4)) });
     if (key === lastKey.current) return;
     lastKey.current = key;
 
@@ -134,14 +135,11 @@ export function SimulatedAnalyticsProvider({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: ctrl.signal,
-          body: JSON.stringify({
-            portfolio,
-            variables,
-            timeframeMonths,
-            baselineAttribution,
-            baselineDriftPctPerDay,
-            benchmarkSymbol: "SOL",
-          }),
+          body: JSON.stringify(
+            ir
+              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" }
+              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" },
+          ),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -159,7 +157,7 @@ export function SimulatedAnalyticsProvider({
     })();
 
     return () => ctrl.abort();
-  }, [active, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setError]);
+  }, [active, ir, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setError]);
 
   const value = useMemo<ContextValue>(
     () => ({

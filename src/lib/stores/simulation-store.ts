@@ -46,6 +46,8 @@ export interface SimulationState {
     prompt: string | null;
     /** Parsed variables from the prompt */
     variables: SimulationVariable[];
+    /** Optional SimulationIR — when present, /api/analytics/simulate uses IR mode. */
+    ir: import("@/lib/foresight/simulation-ir").SimulationIR | null;
     /** The simulation result from /api/simulation */
     result: SimulationResult | null;
     /** Loading state while simulation is computing */
@@ -56,13 +58,9 @@ export interface SimulationState {
     timeframeMonths: number;
 
     // ─── Actions ─────────────────────────────────────────────────
-    /** Start a simulation — sets loading, stores prompt + variables */
-    startSimulation: (prompt: string, variables: SimulationVariable[], timeframeMonths?: number) => void;
-    /** Set the simulation result (called after /api/simulation responds) */
+    startSimulation: (prompt: string, variables: SimulationVariable[], timeframeMonths?: number, ir?: import("@/lib/foresight/simulation-ir").SimulationIR | null) => void;
     setResult: (result: SimulationResult) => void;
-    /** Set error state */
     setError: (error: string) => void;
-    /** Clear all simulation state — return Analytics to normal mode */
     clearSimulation: () => void;
 }
 
@@ -72,36 +70,31 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     active: false,
     prompt: null,
     variables: [],
+    ir: null,
     result: null,
     loading: false,
     error: null,
     timeframeMonths: 12,
 
-    startSimulation: (prompt, variables, timeframeMonths = 12) => set({
+    startSimulation: (prompt, variables, timeframeMonths = 12, ir = null) => set({
         active: true,
         prompt,
         variables,
+        ir,
         result: null,
         loading: true,
         error: null,
         timeframeMonths,
     }),
 
-    setResult: (result) => set({
-        result,
-        loading: false,
-        error: null,
-    }),
-
-    setError: (error) => set({
-        error,
-        loading: false,
-    }),
+    setResult: (result) => set({ result, loading: false, error: null }),
+    setError: (error) => set({ error, loading: false }),
 
     clearSimulation: () => set({
         active: false,
         prompt: null,
         variables: [],
+        ir: null,
         result: null,
         loading: false,
         error: null,
