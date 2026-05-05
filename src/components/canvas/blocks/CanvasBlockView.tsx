@@ -566,7 +566,7 @@ function TokensTableBlock({ block }: { block: CanvasBlock }) {
           </div>
           <ul className="divide-y divide-violet-100/70">
             {visibleRows.map((r) => {
-              const tone = (r.change24h ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600";
+              const tone = (r.change24h ?? 0) >= 0 ? "text-violet-700" : "text-slate-900";
               return (
                 <li key={r.symbol} className="grid grid-cols-2 items-center gap-2 px-4 py-2 text-sm md:grid-cols-[1.6fr_1fr_1fr_0.7fr_180px] md:gap-3">
                   <div className="flex min-w-0 items-center gap-2.5">
