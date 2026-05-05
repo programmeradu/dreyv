@@ -1109,6 +1109,38 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
   );
 }
 
+/** Bespoke runway empty-state illustration: hourglass-meets-arc. */
+function RunwayEmptyArt() {
+  return (
+    <svg viewBox="0 0 150 110" className="mx-auto h-24 w-36" aria-hidden>
+      <defs>
+        <linearGradient id="rwfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Track arc */}
+      <path d="M 18 78 A 57 57 0 0 1 132 78" stroke="#ede9fe" strokeWidth="10" fill="none" strokeLinecap="round" />
+      {/* Ghost progress */}
+      <path d="M 18 78 A 57 57 0 0 1 75 21" stroke="#c4b5fd" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="3 6" opacity="0.7" />
+      {/* Tick marks */}
+      {[0.16, 0.33, 0.5, 0.66, 0.83].map((p, i) => {
+        const a = -Math.PI + Math.PI * p;
+        const x1 = 75 + 49 * Math.cos(a);
+        const y1 = 78 + 49 * Math.sin(a);
+        const x2 = 75 + 65 * Math.cos(a);
+        const y2 = 78 + 65 * Math.sin(a);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ddd6fe" strokeWidth="1.5" strokeLinecap="round" />;
+      })}
+      {/* Hub + star */}
+      <circle cx="75" cy="78" r="9" fill="#fff" stroke="#7c3aed" strokeWidth="1.5" />
+      <path d="M75 71 L76.5 76 L81.5 78 L76.5 80 L75 85 L73.5 80 L68.5 78 L73.5 76 Z" fill="#7c3aed" />
+      {/* Filled wedge hint */}
+      <path d="M 75 78 L 18 78 A 57 57 0 0 1 30 41 Z" fill="url(#rwfill)" />
+    </svg>
+  );
+}
+
 function RunwayStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className={`rounded-xl border px-2.5 py-2 ${accent ? "border-violet-200 bg-violet-50/60" : "border-violet-100 bg-white"}`}>
