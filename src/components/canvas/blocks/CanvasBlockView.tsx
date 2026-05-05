@@ -2027,7 +2027,7 @@ function GasTankBlock({ block }: { block: CanvasBlock }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Gas tank</p>
-            <SignalBadge severity={verdict} label={verdictLabel} />
+            <SignalBadge severity={verdict}>{verdictLabel}</SignalBadge>
           </div>
           <p className="mt-1 text-sm text-slate-700">
             {isLow
