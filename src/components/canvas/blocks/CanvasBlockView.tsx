@@ -173,8 +173,15 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
 function NarrativeBlock({ block }: { block: CanvasBlock }) {
   const message = asString(block.payload.message ?? block.payload.detail);
   return (
-    <BlockShell block={block} accent="slate">
-      {message ? <ClampedBody text={message} /> : null}
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 inline-flex shrink-0 items-center justify-center text-violet-600">
+          <DreyvStar size={11} />
+        </span>
+        <div className="min-w-0 flex-1">
+          {message ? <ClampedBody text={message} /> : null}
+        </div>
+      </div>
     </BlockShell>
   );
 }
@@ -186,18 +193,61 @@ function MetricBlock({ block }: { block: CanvasBlock }) {
   const prefix = asString(block.payload.prefix);
   const suffix = asString(block.payload.suffix);
   const decimals = asNumber(block.payload.decimals) ?? 0;
+  const series = asArray<number>(block.payload.series);
+  const delta = asNumber(block.payload.changePct);
   return (
     <BlockShell block={block} accent="violet">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <div className="mt-1 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <div className="flex items-center gap-2">
+            <DreyvStar size={9} className="text-violet-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">{label}</p>
+          </div>
+          <div className="mt-1.5 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
             <StreamingNumber value={value} prefix={prefix} suffix={suffix} decimals={decimals} />
           </div>
+          {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
         </div>
-        {hint && <p className="max-w-[55%] text-right text-xs text-slate-500">{hint}</p>}
+        {(series.length > 1 || delta != null) && (
+          <div className="flex flex-col items-end gap-1.5">
+            {series.length > 1 && <MiniSpark values={series} className="h-10 w-28" />}
+            {delta != null && (
+              <SignalBadge severity={delta >= 0 ? "good" : "watch"}>
+                {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
+              </SignalBadge>
+            )}
+          </div>
+        )}
       </div>
     </BlockShell>
+  );
+}
+
+/** Compact violet sparkline used inside metric/result cards. */
+function MiniSpark({ values, className = "h-8 w-24" }: { values: number[]; className?: string }) {
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const w = 100;
+  const h = 32;
+  const step = w / Math.max(1, values.length - 1);
+  const points = values.map((v, i) => `${(i * step).toFixed(2)},${(h - ((v - min) / span) * h).toFixed(2)}`).join(" ");
+  const last = values[values.length - 1];
+  const lx = w;
+  const ly = h - ((last - min) / span) * h;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className={className} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="msfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,${h} ${points} ${w},${h}`} fill="url(#msfill)" />
+      <polyline points={points} fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="2" fill="#7c3aed" />
+    </svg>
   );
 }
 
@@ -244,8 +294,8 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     }
     if (s === "running" || s === "active") {
       return (
-        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white motion-safe:animate-pulse">
+          <DreyvStar size={9} className="text-white" />
         </span>
       );
     }
@@ -267,12 +317,9 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     <BlockShell block={block} accent="violet">
       {status !== "error" && status !== "failed" && (
         <div className="mb-2 flex">
-          <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
-            {status === "running" || status === "streaming" ? (
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-            ) : null}
+          <SignalBadge severity={status === "complete" || status === "success" ? "good" : status === "running" || status === "streaming" ? "neutral" : "neutral"}>
             {status}
-          </Pill>
+          </SignalBadge>
         </div>
       )}
       {summary && <ClampedBody text={summary} />}
@@ -307,14 +354,21 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
 function WatcherBlock({ block }: { block: CanvasBlock }) {
   const status = asString(block.payload.status, "watching");
   const condition = asString(block.payload.condition);
+  const triggered = status === "triggered" || status === "fired";
   return (
-    <BlockShell block={block} accent="emerald">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-slate-700">{condition || "Conditions configured."}</div>
-        <Pill tone={status === "triggered" ? "rose" : "emerald"}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-          {status}
-        </Pill>
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="relative mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
+          <DreyvStar size={11} />
+          {!triggered && (
+            <span className="absolute inset-0 rounded-xl border border-violet-300 motion-safe:animate-ping opacity-60" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Watcher · {status}</p>
+          <p className="mt-1 text-sm text-slate-700">{condition || "Conditions configured."}</p>
+        </div>
+        <SignalBadge severity={triggered ? "risk" : "good"}>{triggered ? "fired" : "live"}</SignalBadge>
       </div>
     </BlockShell>
   );
@@ -324,24 +378,32 @@ function DecisionBlock({ block }: { block: CanvasBlock }) {
   const choices = asArray<{ label?: string; href?: string; tone?: "primary" | "ghost" }>(block.payload.choices);
   const rationale = asString(block.payload.rationale);
   return (
-    <BlockShell block={block} accent="rose">
-      {rationale && <p className="text-sm leading-relaxed text-slate-700">{rationale}</p>}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {choices.map((c, i) => {
-          const tone = c.tone === "ghost";
-          const cls = tone
-            ? "rounded-xl px-4 py-2 text-sm font-medium text-slate-700 hover:bg-violet-50"
-            : "rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700";
-          return c.href ? (
-            <Link key={i} href={c.href} className={cls}>
-              {asString(c.label, "Continue")}
-            </Link>
-          ) : (
-            <button key={i} className={cls} disabled>
-              {asString(c.label, "Continue")}
-            </button>
-          );
-        })}
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-white text-violet-700">
+          <DreyvStar size={11} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Decision needed</p>
+          {rationale && <p className="mt-1 text-sm leading-relaxed text-slate-700">{rationale}</p>}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {choices.map((c, i) => {
+              const ghost = c.tone === "ghost" || i > 0;
+              const cls = ghost
+                ? "rounded-xl border border-violet-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-violet-700 hover:bg-violet-50"
+                : "rounded-xl bg-violet-600 px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700";
+              return c.href ? (
+                <Link key={i} href={c.href} className={cls}>
+                  {asString(c.label, "Continue")}
+                </Link>
+              ) : (
+                <button key={i} className={cls} disabled>
+                  {asString(c.label, "Continue")}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </BlockShell>
   );
@@ -352,22 +414,25 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
   const success = block.payload.success !== false;
   const message = asString(block.payload.message ?? block.payload.summary);
   return (
-    <BlockShell block={block} accent={success ? "emerald" : "rose"}>
+    <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-            success ? "text-violet-600" : "bg-rose-100 text-rose-700"
+          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
+            success ? "border-violet-200 bg-violet-50 text-violet-700" : "border-slate-900 bg-slate-900 text-violet-200"
           }`}
         >
-          {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
+          {success ? <DreyvStar size={11} /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0 flex-1">
-          {operation && (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {operation}
-            </p>
-          )}
-          {message && <div className="mt-1"><ClampedBody text={message} /></div>}
+          <div className="flex items-center justify-between gap-2">
+            {operation && (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+                {operation}
+              </p>
+            )}
+            <SignalBadge severity={success ? "good" : "risk"}>{success ? "complete" : "failed"}</SignalBadge>
+          </div>
+          {message && <div className="mt-1.5"><ClampedBody text={message} /></div>}
         </div>
       </div>
     </BlockShell>
@@ -379,17 +444,19 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
   return (
     <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-          <GlyphSpark />
+        <span className="relative mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
+          <DreyvStar size={11} className="text-white" />
+          <span className="pointer-events-none absolute -inset-1 rounded-2xl border border-violet-300 opacity-50 motion-safe:animate-pulse" />
         </span>
         <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Dreyv suggests</p>
           {typeof block.payload.message === "string" && block.payload.message && (
-            <p className="text-sm leading-relaxed text-slate-700">{asString(block.payload.message)}</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-700">{asString(block.payload.message)}</p>
           )}
           {cta?.href && (
             <Link
               href={cta.href}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700"
             >
               {asString(cta.label, "Open")}
               <GlyphArrow />
@@ -935,15 +1002,28 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
   const months = burnUsable && balanceUsable ? stableBalance / burn : (seededMonths ?? null);
 
   if (months === null) {
+    const reason = sample === 0
+      ? "No outflows watched yet. Dreyv will fill in runway as soon as it sees a few outflows — or you can log them via the events API."
+      : burnUsable
+        ? "No stable balance to draw from yet. Top up USDC or USDT and runway will appear."
+        : "Burn rate is effectively zero right now, so runway is unbounded at current pace.";
     return (
-      <BlockShell block={block} accent="slate">
-        <p className="text-sm text-slate-600">
-          {sample === 0
-            ? "No outflows recorded yet for this wallet. Once Dreyv watches a few outflows (or you log them via the events API), runway fills in automatically."
-            : burnUsable
-              ? "No stable balance to draw from yet — top up USDC/USDT to see runway."
-              : "Burn rate is effectively zero right now, so runway is unbounded at current pace."}
-        </p>
+      <BlockShell block={block} accent="violet">
+        <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+          <RunwayEmptyArt />
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Runway</p>
+              <SignalBadge severity="neutral">awaiting data</SignalBadge>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{reason}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <SignalBadge severity="neutral" showStar={false}>90-day window</SignalBadge>
+              <SignalBadge severity="neutral" showStar={false}>auto-fills</SignalBadge>
+              <SignalBadge severity="neutral" showStar={false}>stables-aware</SignalBadge>
+            </div>
+          </div>
+        </div>
       </BlockShell>
     );
   }
@@ -1026,6 +1106,38 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
         </div>
       </div>
     </BlockShell>
+  );
+}
+
+/** Bespoke runway empty-state illustration: hourglass-meets-arc. */
+function RunwayEmptyArt() {
+  return (
+    <svg viewBox="0 0 150 110" className="mx-auto h-24 w-36" aria-hidden>
+      <defs>
+        <linearGradient id="rwfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Track arc */}
+      <path d="M 18 78 A 57 57 0 0 1 132 78" stroke="#ede9fe" strokeWidth="10" fill="none" strokeLinecap="round" />
+      {/* Ghost progress */}
+      <path d="M 18 78 A 57 57 0 0 1 75 21" stroke="#c4b5fd" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="3 6" opacity="0.7" />
+      {/* Tick marks */}
+      {[0.16, 0.33, 0.5, 0.66, 0.83].map((p, i) => {
+        const a = -Math.PI + Math.PI * p;
+        const x1 = 75 + 49 * Math.cos(a);
+        const y1 = 78 + 49 * Math.sin(a);
+        const x2 = 75 + 65 * Math.cos(a);
+        const y2 = 78 + 65 * Math.sin(a);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ddd6fe" strokeWidth="1.5" strokeLinecap="round" />;
+      })}
+      {/* Hub + star */}
+      <circle cx="75" cy="78" r="9" fill="#fff" stroke="#7c3aed" strokeWidth="1.5" />
+      <path d="M75 71 L76.5 76 L81.5 78 L76.5 80 L75 85 L73.5 80 L68.5 78 L73.5 76 Z" fill="#7c3aed" />
+      {/* Filled wedge hint */}
+      <path d="M 75 78 L 18 78 A 57 57 0 0 1 30 41 Z" fill="url(#rwfill)" />
+    </svg>
   );
 }
 
