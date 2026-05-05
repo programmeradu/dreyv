@@ -24,7 +24,7 @@ import { TokenAvatar } from "@/components/TokenAvatar";
 import { DryvMascot } from "@/components/brand/dryv-mascot";
 
 export default function AppHomePage() {
-  const { vaultValue, vaultChange24h, activeVault } = useVault();
+  const { vaultValue, vaultChange24h, activeVault, vaultTokens } = useVault();
   const { addBlock, blocks } = useCanvas();
   const trend = useTreasuryTrend("7d");
   // Use the real composite change from the trend if the vault hasn't reported one yet.
