@@ -2339,11 +2339,51 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {routes.length === 0 ? (
-            <p className="text-sm text-slate-700">
-              {stableBalance > 0
-                ? `${stableBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} in stables sitting idle. Route a slice to a vetted venue — Dreyv keeps it inside your risk band and proposes deploys via HITL.`
-                : "Set up a yield route now and it'll activate the moment idle stables land."}
-            </p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  <defs>
+                    <linearGradient id="yld-line" x1="0" x2="1" y1="0" y2="0">
+                      <stop offset="0%" stopColor="#c4b5fd" />
+                      <stop offset="100%" stopColor="#7c3aed" />
+                    </linearGradient>
+                  </defs>
+                  {/* Idle stables pool */}
+                  <circle cx={28} cy={55} r={18} fill="#f5f3ff" stroke="#c4b5fd" strokeWidth={1.2} />
+                  <text x={28} y={59} textAnchor="middle" fontSize="9" fontWeight="600" fill="#7c3aed">USDC</text>
+                  {/* Routing arcs */}
+                  {[0, 1, 2].map((i) => {
+                    const ty = 22 + i * 33;
+                    return (
+                      <path key={i} d={`M 46 55 C 70 55, 80 ${ty}, 104 ${ty}`} stroke="url(#yld-line)" strokeWidth={1.4} fill="none" strokeDasharray="3 2" />
+                    );
+                  })}
+                  {/* Venue tiles */}
+                  {["Marinade", "Kamino", "Drift"].map((v, i) => {
+                    const ty = 22 + i * 33;
+                    return (
+                      <g key={v}>
+                        <rect x={104} y={ty - 8} width={32} height={16} rx={4} fill="#ffffff" stroke="#a78bfa" strokeWidth={1} />
+                        <text x={120} y={ty + 3} textAnchor="middle" fontSize="7" fontWeight="600" fill="#5b21b6">{v}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Idle → earning</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {stableBalance > 0
+                    ? `${stableBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} in stables sitting idle. Route a slice to a vetted venue inside your risk band — every deploy goes through HITL.`
+                    : "Set a route now and it activates the moment idle stables land. Policy-bounded, HITL-gated."}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["Conservative", "Balanced", "Aggressive"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {routes.map((r) => {
@@ -2532,7 +2572,42 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {reports.length === 0 ? (
-            <p className="text-sm text-slate-700">Generate a board-ready snapshot of your treasury — composition, valuation, 24h move — then publish a read-only link for accountants and stakeholders.</p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  <defs>
+                    <linearGradient id="rep-bg" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="#f5f3ff" />
+                      <stop offset="100%" stopColor="#ffffff" />
+                    </linearGradient>
+                  </defs>
+                  {/* Stacked report sheets */}
+                  <rect x={28} y={22} width={70} height={84} rx={6} fill="url(#rep-bg)" stroke="#ddd6fe" strokeWidth={1} transform="rotate(-6 63 64)" />
+                  <rect x={36} y={16} width={70} height={84} rx={6} fill="#ffffff" stroke="#c4b5fd" strokeWidth={1.2} />
+                  {/* report contents */}
+                  <rect x={44} y={26} width={36} height={4} rx={2} fill="#7c3aed" />
+                  <rect x={44} y={36} width={54} height={2.5} rx={1.25} fill="#e9d5ff" />
+                  <rect x={44} y={42} width={48} height={2.5} rx={1.25} fill="#e9d5ff" />
+                  {/* mini bar chart */}
+                  <rect x={44} y={56} width={6} height={20} rx={1} fill="#a78bfa" />
+                  <rect x={54} y={50} width={6} height={26} rx={1} fill="#8b5cf6" />
+                  <rect x={64} y={44} width={6} height={32} rx={1} fill="#7c3aed" />
+                  <rect x={74} y={52} width={6} height={24} rx={1} fill="#a78bfa" />
+                  <rect x={84} y={48} width={6} height={28} rx={1} fill="#8b5cf6" />
+                  <rect x={44} y={84} width={54} height={2.5} rx={1.25} fill="#ede9fe" />
+                  <rect x={44} y={90} width={40} height={2.5} rx={1.25} fill="#ede9fe" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Board-ready</p>
+                <p className="mt-1 text-sm text-slate-700">Generate a snapshot — composition, valuation, 24h move — and publish a read-only link for accountants and stakeholders.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["PDF export", "Read-only link", "Auto-expires"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {reports.slice(0, 5).map((r) => {
@@ -2641,13 +2716,48 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
       {loading && !audit ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : !audit ? (
-        <>
-          <p className="text-sm text-slate-700">Run a security audit on this vault — Dreyv inspects signer setup, multisig threshold, and surfaces hygiene findings.</p>
-          <button onClick={runAudit} disabled={busy}
-            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-            {busy ? "Auditing…" : "Run security audit"}
-          </button>
-        </>
+        <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+          {/* Visual preview — signer graph */}
+          <div className="relative mx-auto" style={{ width: 140, height: 130 }}>
+            <svg viewBox="0 0 140 130" className="h-32 w-36">
+              <defs>
+                <radialGradient id="sec-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx={70} cy={65} r={60} fill="url(#sec-glow)" />
+              {/* center vault */}
+              <circle cx={70} cy={65} r={18} fill="#ffffff" stroke="#7c3aed" strokeWidth={1.5} />
+              <path d="M70 56 L62 60 v8 c0 6 4 10 8 12 4-2 8-6 8-12 v-8 z" fill="none" stroke="#7c3aed" strokeWidth={1.5} strokeLinejoin="round" />
+              {/* satellite signers */}
+              {[0, 1, 2, 3, 4].map((i) => {
+                const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+                const x = 70 + 48 * Math.cos(a);
+                const y = 65 + 48 * Math.sin(a);
+                return (
+                  <g key={i}>
+                    <line x1={70} y1={65} x2={x} y2={y} stroke="#ddd6fe" strokeWidth={1} strokeDasharray="2 2" />
+                    <circle cx={x} cy={y} r={8} fill="#f5f3ff" stroke="#a78bfa" strokeWidth={1.2} />
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Hygiene audit</p>
+            <p className="mt-1 text-sm text-slate-700">Dreyv will inspect your signer roster, multisig threshold, key reuse, and surface a 0–100 hygiene score with prioritized findings.</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Signer roster", "Threshold", "Key reuse", "Cold/hot mix"].map((c) => (
+                <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+              ))}
+            </div>
+            <button onClick={runAudit} disabled={busy}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy ? "Auditing…" : "Run security audit"}
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid gap-5 sm:grid-cols-[120px_1fr] sm:items-center">
