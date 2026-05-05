@@ -88,6 +88,7 @@ export function SimulatedAnalyticsProvider({
   const { vaultTokens } = useVault();
   const active = useSimulationStore((s) => s.active);
   const variables = useSimulationStore((s) => s.variables);
+  const ir = useSimulationStore((s) => s.ir);
   const timeframeMonths = useSimulationStore((s) => s.timeframeMonths);
   const setError = useSimulationStore((s) => s.setError);
   const clear = useSimulationStore((s) => s.clearSimulation);
