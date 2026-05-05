@@ -4,9 +4,9 @@
  */
 
 export const getAvatarUrl = (seed: string) => {
-    // Using 'micah' style for a more visual, premium person avatar
+    // Unified across sidebar, header, team, and chat — DiceBear `avataaars`.
     const encodedSeed = encodeURIComponent(seed);
-    return `https://api.dicebear.com/7.x/micah/svg?seed=${encodedSeed}&backgroundColor=36e27b,0f1115,1c2e24`;
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodedSeed}`;
 };
 
 export const getBotAvatarUrl = (seed: string) => {
