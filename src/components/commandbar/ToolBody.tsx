@@ -245,7 +245,9 @@ function ForesightBody({ output }: { output: Record<string, unknown> }) {
   const runway = output.runwayMonths as number | undefined;
   const burn = output.monthlyBurn as number | undefined;
   const inflow = output.monthlyInflow as number | undefined;
-  const total = (output.totalValuation ?? output.startValue) as number | undefined;
+  const startValue = (output.startValue ?? output.totalValuation) as number | undefined;
+  const endValue = output.endValue as number | undefined;
+  const total = startValue;
   const depletion = output.depletionDate as string | undefined;
   const assumptions = Array.isArray(output.assumptions) ? (output.assumptions as string[]) : [];
   const unknowns = Array.isArray(output.unknowns) ? (output.unknowns as string[]) : [];
