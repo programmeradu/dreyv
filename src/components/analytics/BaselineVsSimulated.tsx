@@ -172,7 +172,7 @@ export function BaselineVsSimulated({ baseline }: Props) {
                 minTickGap={24}
               />
               <YAxis
-                domain={[Math.min(0, view.minY), (max: number) => max * 1.05]}
+                domain={[Math.min(0, view.minY), (max: any) => Number(max) * 1.05]}
                 tick={{ fill: "rgb(100 116 139)", fontSize: 11 }}
                 tickFormatter={(v) => fmtUsd(Number(v))}
                 tickLine={false}
