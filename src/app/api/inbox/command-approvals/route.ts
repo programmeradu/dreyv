@@ -157,7 +157,9 @@ async function buildSigningEnvelope(
   };
 }
 
-export async function PATCH(req: Request) {
+export async function PATCH(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: false, error: "db_unavailable" }, { status: 503 });
   let body: { id?: string; status?: "approved" | "rejected" | "executed"; note?: string; signature?: string };
   try {
@@ -177,6 +179,9 @@ export async function PATCH(req: Request) {
       .where(eq(commandApprovals.id, body.id))
       .limit(1);
     if (!existing) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    if (existing.walletAddress && existing.walletAddress !== user.walletAddress) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
 
     let envelope: SigningEnvelope | null = null;
     let nextDecision = existing.decision as RouteDecision & { signingEnvelope?: SigningEnvelope };
