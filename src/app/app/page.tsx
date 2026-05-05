@@ -70,7 +70,10 @@ export default function AppHomePage() {
       <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-8 px-4 pt-6 sm:px-6 sm:pt-10 md:grid-cols-[1.05fr_1fr] md:gap-10 md:pt-28">
         <StreamIn className="space-y-5 md:space-y-6">
           <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-600 shadow-[0_0_10px_currentColor]" />
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-600" />
+            </span>
             Live
           </p>
           <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
@@ -86,40 +89,8 @@ export default function AppHomePage() {
             }
           />
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <Link
-              href="/app/treasury"
-              className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400 hover:shadow-[0_20px_60px_-30px_rgba(124,58,237,0.5)]"
-            >
-              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-400/20 blur-2xl transition group-hover:bg-violet-400/40" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Treasury</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">Holdings & flows</p>
-                </div>
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition group-hover:scale-110">
-                  <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
-                  </svg>
-                </span>
-              </div>
-            </Link>
-            <Link
-              href="/app/analytics"
-              className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400 hover:shadow-[0_20px_60px_-30px_rgba(124,58,237,0.5)]"
-            >
-              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-300/20 blur-2xl transition group-hover:bg-violet-300/40" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Analytics</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">Performance & risk</p>
-                </div>
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white transition group-hover:scale-110">
-                  <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
-                  </svg>
-                </span>
-              </div>
-            </Link>
+            <NavTile href="/app/treasury" eyebrow="Treasury" title="Holdings & flows" />
+            <NavTile href="/app/analytics" eyebrow="Analytics" title="Performance & risk" />
           </div>
         </StreamIn>
 
