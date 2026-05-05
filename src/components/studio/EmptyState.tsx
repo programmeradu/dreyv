@@ -61,10 +61,10 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
         }}
       />
 
-      <div className="relative w-full max-w-2xl px-6 pt-28 md:pt-32 pb-16 mx-auto">
-        {/* Mascot — Dryv thinking, sits above the brand chip */}
-        <div className="flex justify-center mb-5">
-          <DryvMascot pose="think" size={132} />
+      <div className="relative w-full max-w-2xl px-6 pt-12 md:pt-16 pb-16 mx-auto">
+        {/* Mascot — Dryv thinking, anchored to bottom-right corner so it never clips */}
+        <div className="pointer-events-none fixed bottom-4 right-4 md:bottom-8 md:right-8 z-0 hidden sm:block">
+          <DryvMascot pose="think" size={148} />
         </div>
 
         {/* Brand chip */}
