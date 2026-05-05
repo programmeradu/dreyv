@@ -2641,13 +2641,48 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
       {loading && !audit ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : !audit ? (
-        <>
-          <p className="text-sm text-slate-700">Run a security audit on this vault — Dreyv inspects signer setup, multisig threshold, and surfaces hygiene findings.</p>
-          <button onClick={runAudit} disabled={busy}
-            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-            {busy ? "Auditing…" : "Run security audit"}
-          </button>
-        </>
+        <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+          {/* Visual preview — signer graph */}
+          <div className="relative mx-auto" style={{ width: 140, height: 130 }}>
+            <svg viewBox="0 0 140 130" className="h-32 w-36">
+              <defs>
+                <radialGradient id="sec-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx={70} cy={65} r={60} fill="url(#sec-glow)" />
+              {/* center vault */}
+              <circle cx={70} cy={65} r={18} fill="#ffffff" stroke="#7c3aed" strokeWidth={1.5} />
+              <path d="M70 56 L62 60 v8 c0 6 4 10 8 12 4-2 8-6 8-12 v-8 z" fill="none" stroke="#7c3aed" strokeWidth={1.5} strokeLinejoin="round" />
+              {/* satellite signers */}
+              {[0, 1, 2, 3, 4].map((i) => {
+                const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+                const x = 70 + 48 * Math.cos(a);
+                const y = 65 + 48 * Math.sin(a);
+                return (
+                  <g key={i}>
+                    <line x1={70} y1={65} x2={x} y2={y} stroke="#ddd6fe" strokeWidth={1} strokeDasharray="2 2" />
+                    <circle cx={x} cy={y} r={8} fill="#f5f3ff" stroke="#a78bfa" strokeWidth={1.2} />
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Hygiene audit</p>
+            <p className="mt-1 text-sm text-slate-700">Dreyv will inspect your signer roster, multisig threshold, key reuse, and surface a 0–100 hygiene score with prioritized findings.</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Signer roster", "Threshold", "Key reuse", "Cold/hot mix"].map((c) => (
+                <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+              ))}
+            </div>
+            <button onClick={runAudit} disabled={busy}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy ? "Auditing…" : "Run security audit"}
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid gap-5 sm:grid-cols-[120px_1fr] sm:items-center">
