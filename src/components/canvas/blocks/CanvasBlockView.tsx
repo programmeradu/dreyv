@@ -807,21 +807,21 @@ function RosterConstellation({
               stroke={s.stroke}
               strokeWidth={isActive ? 1.6 : 1}
             />
-            <text x={chipX + 16} y={y - 4} fontSize="12" fontWeight="700" fill="#0f172a">
-              {truncate(v.label ?? v.address, 18, 0)}
+            <text x={chipX + 12} y={y - 3} fontSize="10.5" fontWeight="700" fill="#0f172a">
+              {truncate(v.label ?? v.address, 16, 0)}
             </text>
-            <text x={chipX + 16} y={y + 12} fontSize="9.5" fill="#64748b" letterSpacing="0.4" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
-              {truncate(v.address, 6, 6)}
+            <text x={chipX + 12} y={y + 9} fontSize="8.5" fill="#64748b" letterSpacing="0.3" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+              {truncate(v.address, 5, 5)}
             </text>
             {/* Role tag */}
-            <rect x={tagX} y={y - 9} width={tagW} height={18} rx={9} fill={s.tagBg} />
+            <rect x={tagX} y={y - 7} width={tagW} height={14} rx={7} fill={s.tagBg} />
             <text
               x={tagX + tagW / 2}
-              y={y + 4}
+              y={y + 3}
               textAnchor="middle"
-              fontSize="9"
+              fontSize="8"
               fontWeight="700"
-              letterSpacing="1"
+              letterSpacing="0.8"
               fill={s.tagFg}
             >
               {s.label}
