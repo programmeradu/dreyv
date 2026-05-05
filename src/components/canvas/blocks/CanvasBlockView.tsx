@@ -767,16 +767,45 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
   // so existing payloads keep working until the user signs in.
   const showLegacy = registeredVaults.length === 0 && !registryLoading && fallbackWallets.length > 0 && !connected;
 
+  // Roster composition for the mini-visual
+  const counts = registeredVaults.reduce(
+    (acc, v) => {
+      const k = (v.kind ?? "connected") as "connected" | "watch" | "multisig";
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    },
+    { connected: 0, watch: 0, multisig: 0 } as Record<"connected" | "watch" | "multisig", number>,
+  );
+
   return (
     <BlockShell block={block} accent="violet">
+      {/* Roster constellation — a bespoke visual of the signer set */}
+      {registeredVaults.length > 0 && (
+        <div className="mb-3 overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/60 to-white px-3 py-3">
+          <RosterConstellation vaults={registeredVaults} activeAddress={activeVault ?? null} />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {counts.connected > 0 && (
+              <SignalBadge severity="good" showStar={false}>{counts.connected} connected</SignalBadge>
+            )}
+            {counts.multisig > 0 && (
+              <SignalBadge severity="neutral" showStar={false}>{counts.multisig} multisig</SignalBadge>
+            )}
+            {counts.watch > 0 && (
+              <SignalBadge severity="neutral" showStar={false}>{counts.watch} watch-only</SignalBadge>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header strip — count + tier + add actions */}
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+        <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          <DreyvStar size={9} className="text-violet-500" />
           {registeredVaults.length} {registeredVaults.length === 1 ? "wallet" : "wallets"}
           {tierLimit && (
-            <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+            <SignalBadge severity={limitReached ? "watch" : "neutral"} showStar={false}>
               {tierLimit.used}/{tierLimit.limit} · {tierLimit.tier}
-            </span>
+            </SignalBadge>
           )}
         </p>
         <div className="flex items-center gap-1.5">
