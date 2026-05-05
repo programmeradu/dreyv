@@ -110,7 +110,7 @@ export default function AppHomePage() {
           <div className="min-w-0 flex-1">
             <CanvasStream scope="dashboard" />
             <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
-              <span className="h-1 w-1 rounded-full bg-violet-500" />
+              <DreyvStar size={9} className="text-violet-500" />
               Pinned blocks are saved to this account. Everything else is ephemeral.
             </p>
           </div>
