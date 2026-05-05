@@ -1,21 +1,24 @@
 "use client";
 
 /**
- * TreasuryPulseCarousel — replaces the static "Treasury trend · 7d" chart
- * with a rotating set of dynamic, treasury-aware cards. Each card pulls from
- * live data already in scope (vault holdings, trend series, canvas activity)
- * and is interactive: clicking the action chip dispatches AGENT_COMMAND so
- * Dreyv runs the relevant capability.
+ * TreasuryPulseCarousel — the dynamic right-rail on /app.
+ *
+ * Brand-strict: solid violet only, NO gradients, NO emerald/rose accents
+ * for state, NO dot bullets (DreyvStar instead). Each card is a bespoke
+ * composition (sparkline ribbon, radial gauge, allocation arcs, agent
+ * pulse waveform, narrative wedge) — not a generic "stat card".
+ *
+ * Cards rotate every 7s, pause on hover, swipe-able dot/arrow nav.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { TrendCurve } from "./Composition";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
 import { TokenLogo } from "@/components/commandbar/TokenLogo";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 type CardKind = "trend" | "mover" | "agents" | "risk" | "insight";
 
@@ -25,7 +28,7 @@ interface PulseCard {
   render: () => React.ReactNode;
 }
 
-const ROTATE_MS = 7000;
+const ROTATE_MS = 7500;
 
 export function TreasuryPulseCarousel() {
   const { vaultTokens, vaultValue, activeVault } = useVault();
@@ -33,8 +36,8 @@ export function TreasuryPulseCarousel() {
   const { blocks } = useCanvas();
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [direction, setDirection] = useState(1);
 
-  // ── Derived signals ──────────────────────────────────────────────────────
   const tokens = useMemo(
     () => (vaultTokens ?? []).filter((t: any) => (t?.value ?? 0) > 0),
     [vaultTokens],
@@ -61,24 +64,19 @@ export function TreasuryPulseCarousel() {
 
   const insightSet = useMemo(() => buildInsights({ tokens, topHolding, topMover }), [tokens, topHolding, topMover]);
 
-  // ── Card definitions ─────────────────────────────────────────────────────
   const cards: PulseCard[] = useMemo(() => {
     const list: PulseCard[] = [];
-
-    // 1. Trend (always present)
     list.push({
       kind: "trend",
-      eyebrow: "Pulse · 7d",
+      eyebrow: "Pulse · 7 days",
       render: () => (
-        <TrendCurve
+        <TrendRibbonCard
           values={trend.series.length > 0 ? trend.series : [100, 100, 100, 100, 100]}
-          label="Treasury trend · 7d"
           changePct={trend.changePct}
+          totalValue={vaultValue ?? null}
         />
       ),
     });
-
-    // 2. Top mover
     if (topMover) {
       list.push({
         kind: "mover",
@@ -86,14 +84,12 @@ export function TreasuryPulseCarousel() {
         render: () => <MoverCard token={topMover as any} />,
       });
     }
-
-    // 3. Risk / concentration
     if (topHolding && topHolding.share > 0) {
       list.push({
         kind: "risk",
         eyebrow: "Concentration",
         render: () => (
-          <RiskCard
+          <RiskGaugeCard
             symbol={topHolding.token.symbol}
             mint={(topHolding.token as any)?.mint ?? (topHolding.token as any)?.address}
             share={topHolding.share}
@@ -101,15 +97,11 @@ export function TreasuryPulseCarousel() {
         ),
       });
     }
-
-    // 4. Agent activity
     list.push({
       kind: "agents",
-      eyebrow: "Agent activity",
+      eyebrow: "Agent pulse",
       render: () => <AgentsCard count={recentAgentBlocks} hasVault={!!activeVault} />,
     });
-
-    // 5. Personalized insight
     if (insightSet.length > 0) {
       list.push({
         kind: "insight",
@@ -117,19 +109,17 @@ export function TreasuryPulseCarousel() {
         render: () => <InsightCard insights={insightSet} />,
       });
     }
-
     return list;
-  }, [trend.series, trend.changePct, topMover, topHolding, recentAgentBlocks, activeVault, insightSet]);
+  }, [trend.series, trend.changePct, vaultValue, topMover, topHolding, recentAgentBlocks, activeVault, insightSet]);
 
-  // Keep index in range as cards array changes.
   useEffect(() => {
     if (index >= cards.length) setIndex(0);
   }, [cards.length, index]);
 
-  // Auto-rotate.
   useEffect(() => {
     if (paused || cards.length <= 1) return;
     const id = window.setInterval(() => {
+      setDirection(1);
       setIndex((i) => (i + 1) % cards.length);
     }, ROTATE_MS);
     return () => window.clearInterval(id);
@@ -139,65 +129,183 @@ export function TreasuryPulseCarousel() {
 
   return (
     <div
-      className="relative"
+      className="relative w-full"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={current?.kind ?? "empty"}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {current?.render()}
-        </motion.div>
-      </AnimatePresence>
+      <div className="relative overflow-hidden rounded-[28px] border border-violet-100 bg-white">
+        {/* Ambient violet wash — flat, no shadow */}
+        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-violet-300/30 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -left-12 bottom-[-120px] h-56 w-56 rounded-full bg-violet-200/40 blur-3xl" />
 
-      {/* Dots + arrows */}
-      {cards.length > 1 && (
-        <div className="mt-3 flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5">
-            {cards.map((c, i) => (
-              <button
-                key={c.kind}
-                onClick={() => setIndex(i)}
-                aria-label={`Show ${c.eyebrow}`}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === index ? "w-6 bg-violet-600" : "w-1.5 bg-violet-200 hover:bg-violet-400"
-                }`}
-              />
-            ))}
+        {/* Eyebrow */}
+        <div className="relative flex items-center justify-between px-5 pt-5">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-600">
+            <DreyvStar size={10} />
+            <span>{current?.eyebrow}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <NavBtn dir="prev" onClick={() => setIndex((i) => (i - 1 + cards.length) % cards.length)} />
-            <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {current?.eyebrow}
-            </span>
-            <NavBtn dir="next" onClick={() => setIndex((i) => (i + 1) % cards.length)} />
+          <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
+            {String(index + 1).padStart(2, "0")} / {String(cards.length).padStart(2, "0")}
+          </span>
+        </div>
+
+        {/* Body */}
+        <div className="relative px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
+          <div className="relative min-h-[260px]">
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={current?.kind ?? "empty"}
+                custom={direction}
+                initial={{ opacity: 0, x: direction > 0 ? 24 : -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: direction > 0 ? -24 : 24 }}
+                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {current?.render()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
-      )}
+
+        {/* Footer nav */}
+        {cards.length > 1 && (
+          <div className="relative flex items-center justify-between border-t border-violet-100 bg-white/60 px-5 py-3 backdrop-blur">
+            <div className="flex items-center gap-1.5">
+              {cards.map((c, i) => (
+                <button
+                  key={c.kind}
+                  onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+                  aria-label={`Show ${c.eyebrow}`}
+                  className={`h-1 rounded-full transition-all ${
+                    i === index ? "w-7 bg-violet-600" : "w-1.5 bg-violet-200 hover:bg-violet-400"
+                  }`}
+                />
+              ))}
+              {!paused && cards.length > 1 && (
+                <div className="ml-2 h-1 w-7 overflow-hidden rounded-full bg-violet-50">
+                  <motion.div
+                    key={`prog-${index}`}
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: ROTATE_MS / 1000, ease: "linear" }}
+                    className="h-full bg-violet-300"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <NavBtn dir="prev" onClick={() => { setDirection(-1); setIndex((i) => (i - 1 + cards.length) % cards.length); }} />
+              <NavBtn dir="next" onClick={() => { setDirection(1); setIndex((i) => (i + 1) % cards.length); }} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── Sub-cards ──────────────────────────────────────────────────────────────
+/* ────────────────────────── Card: Trend Ribbon ───────────────────────── */
 
-function CardShell({ children, accent = "violet" }: { children: React.ReactNode; accent?: "violet" | "rose" | "emerald" }) {
-  const tone =
-    accent === "rose"
-      ? "from-rose-50 to-white border-rose-200"
-      : accent === "emerald"
-        ? "from-emerald-50 to-white border-emerald-200"
-        : "from-violet-50 to-white border-violet-200";
+function TrendRibbonCard({
+  values,
+  changePct,
+  totalValue,
+}: {
+  values: number[];
+  changePct: number | null;
+  totalValue: number | null;
+}) {
+  const w = 600;
+  const h = 150;
+  const padX = 6;
+  const padY = 14;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const innerW = w - padX * 2;
+  const innerH = h - padY * 2;
+  const step = values.length > 1 ? innerW / (values.length - 1) : innerW;
+
+  const pts = values.map((v, i) => ({
+    x: padX + i * step,
+    y: padY + (1 - (v - min) / range) * innerH,
+    v,
+  }));
+
+  // Catmull-Rom smoothed path
+  const segs: string[] = [`M ${pts[0].x},${pts[0].y}`];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    segs.push(`C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`);
+  }
+  const line = segs.join(" ");
+  const area = `${line} L ${pts[pts.length - 1].x},${h - 2} L ${pts[0].x},${h - 2} Z`;
+
+  const positive = (changePct ?? 0) >= 0;
+
   return (
-    <div className={`rounded-2xl border bg-gradient-to-br ${tone} p-6 shadow-[0_18px_40px_-30px_rgba(124,58,237,0.4)]`}>
-      {children}
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <div className="font-manrope text-3xl font-semibold tracking-tight text-slate-900 sm:text-[34px]">
+            {totalValue == null ? "—" : `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          </div>
+          <p className="mt-0.5 text-[11px] font-medium text-slate-500">Composite treasury · 7-day shape</p>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-2.5 py-1">
+          <DreyvStar size={9} className="text-violet-600" />
+          <span className="text-[11px] font-semibold tabular-nums text-slate-900">
+            {positive ? "+" : ""}{(changePct ?? 0).toFixed(2)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <svg viewBox={`0 0 ${w} ${h}`} className="h-[150px] w-full" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="pulse-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* grid */}
+          {[0.25, 0.5, 0.75].map((t) => (
+            <line key={t} x1={padX} x2={w - padX} y1={padY + innerH * t} y2={padY + innerH * t}
+              stroke="#ede9fe" strokeWidth={1} strokeDasharray="2 4" />
+          ))}
+          <motion.path d={area} fill="url(#pulse-fill)"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }} />
+          <motion.path d={line} fill="none" stroke="#7c3aed" strokeWidth={2.25} strokeLinecap="round"
+            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }} />
+          {/* end dot */}
+          <motion.circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4}
+            fill="#7c3aed" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.0, type: "spring" }} />
+          <motion.circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={9}
+            fill="#7c3aed" fillOpacity="0.15" initial={{ scale: 0 }} animate={{ scale: 1 }}
+            transition={{ delay: 1.1, type: "spring" }} />
+        </svg>
+      </div>
+      <ActionChip
+        label="Brief me on the week"
+        onRun={() =>
+          AppEventBus.emit("AGENT_COMMAND", {
+            command: "Give me a 30-second briefing on what changed in my treasury this week",
+            autoSubmit: true,
+          })
+        }
+      />
     </div>
   );
 }
+
+/* ────────────────────────── Card: Top Mover ──────────────────────────── */
 
 function MoverCard({ token }: { token: any }) {
   const change = Number(token?.change24h ?? 0);
@@ -205,22 +313,57 @@ function MoverCard({ token }: { token: any }) {
   const symbol = String(token?.symbol ?? "—");
   const mint = (token?.mint ?? token?.address) as string | undefined;
   const value = Number(token?.value ?? 0);
+
+  // Animated bar that visualises magnitude (clamped to 25%).
+  const magnitude = Math.min(25, Math.abs(change));
+  const pct = (magnitude / 25) * 100;
+
   return (
-    <CardShell accent={positive ? "emerald" : "rose"}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Top mover · 24h</p>
-      <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-          <TokenLogo symbol={symbol} mint={mint} size={28} hideFallback />
-          {symbol}
-        </h3>
-        <span className={`font-manrope text-2xl font-semibold ${positive ? "text-emerald-600" : "text-rose-600"}`}>
-          {positive ? "+" : ""}
-          {change.toFixed(2)}%
-        </span>
+    <div>
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <TokenLogo symbol={symbol} mint={mint} size={48} hideFallback />
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-violet-600">
+            <DreyvStar size={9} className="text-white" />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-manrope text-2xl font-semibold tracking-tight text-slate-900">{symbol}</h3>
+          <p className="text-xs text-slate-500">Holding worth ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
-        Holding worth ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-      </p>
+
+      <div className="mt-5">
+        <div className="flex items-baseline justify-between">
+          <span className="font-manrope text-4xl font-semibold tabular-nums text-slate-900">
+            {positive ? "+" : ""}{change.toFixed(2)}<span className="text-2xl text-slate-400">%</span>
+          </span>
+          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">24h move</span>
+        </div>
+
+        {/* Bidirectional magnitude bar — solid violet only */}
+        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-violet-50">
+          <div className="flex h-full w-1/2 justify-end">
+            {!positive && (
+              <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full rounded-l-full bg-violet-300" />
+            )}
+          </div>
+          <div className="h-full w-px bg-violet-200" />
+          <div className="flex h-full w-1/2">
+            {positive && (
+              <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full rounded-r-full bg-violet-600" />
+            )}
+          </div>
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] text-slate-400">
+          <span>−25%</span><span>0</span><span>+25%</span>
+        </div>
+      </div>
+
       <ActionChip
         label={positive ? `Trim ${symbol} into stables` : `Hedge ${symbol} downside`}
         onRun={() =>
@@ -232,33 +375,81 @@ function MoverCard({ token }: { token: any }) {
           })
         }
       />
-    </CardShell>
+    </div>
   );
 }
 
-function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; share: number }) {
+/* ────────────────────────── Card: Risk Gauge ─────────────────────────── */
+
+function RiskGaugeCard({ symbol, mint, share }: { symbol: string; mint?: string; share: number }) {
+  // Half-donut gauge — angle from -90° (0%) to +90° (100%)
+  const r = 70;
+  const cx = 90;
+  const cy = 90;
+  const c = Math.PI * r; // half circumference
+  const offset = c * (1 - share / 100);
+
   const concentrated = share >= 60;
+
+  // Animated digit
+  const mv = useMotionValue(0);
+  const spring = useSpring(mv, { duration: 1100, bounce: 0 });
+  const display = useTransform(spring, (v) => v.toFixed(1));
+  useEffect(() => { mv.set(share); }, [mv, share]);
+
   return (
-    <CardShell accent={concentrated ? "rose" : "violet"}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Concentration</p>
-      <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="flex items-center gap-2 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-          <TokenLogo symbol={symbol} mint={mint} size={28} hideFallback />
-          {symbol}
-        </h3>
-        <span className="font-manrope text-2xl font-semibold text-slate-900">{share.toFixed(1)}%</span>
+    <div>
+      <div className="flex items-start gap-4">
+        <div className="relative shrink-0" style={{ width: 180, height: 100 }}>
+          <svg width="180" height="100" viewBox="0 0 180 100">
+            {/* Track */}
+            <path
+              d={`M 20,90 A ${r} ${r} 0 0 1 160,90`}
+              fill="none" stroke="#f5f3ff" strokeWidth={14} strokeLinecap="round"
+            />
+            {/* Fill */}
+            <motion.path
+              d={`M 20,90 A ${r} ${r} 0 0 1 160,90`}
+              fill="none" stroke="#7c3aed" strokeWidth={14} strokeLinecap="round"
+              strokeDasharray={c}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: offset }}
+              transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
+            />
+            {/* Tick at 60% — danger threshold */}
+            <line
+              x1={cx + Math.cos(Math.PI * (1 - 0.6)) * (r - 11)}
+              y1={cy - Math.sin(Math.PI * (1 - 0.6)) * (r - 11)}
+              x2={cx + Math.cos(Math.PI * (1 - 0.6)) * (r + 11)}
+              y2={cy - Math.sin(Math.PI * (1 - 0.6)) * (r + 11)}
+              stroke="#7c3aed" strokeWidth={1.5} strokeLinecap="round"
+            />
+          </svg>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center pb-1">
+            <motion.span className="font-manrope text-2xl font-semibold tabular-nums text-slate-900">
+              {display}
+            </motion.span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-violet-600">% of treasury</span>
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <TokenLogo symbol={symbol} mint={mint} size={22} hideFallback />
+            <span className="font-manrope text-lg font-semibold text-slate-900">{symbol}</span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            {concentrated
+              ? `${symbol} dominates the treasury. Single-asset exposure is high — a staged rebalance can de-risk without forced selling.`
+              : `${symbol} is your largest holding, well within a balanced range.`}
+          </p>
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">
+            <DreyvStar size={8} />
+            {concentrated ? "Concentrated" : "Balanced"}
+          </div>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
-        {concentrated
-          ? `${symbol} dominates the treasury — single-asset exposure is high.`
-          : `${symbol} is your largest holding — well within a balanced range.`}
-      </p>
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-        <div
-          className={`h-full rounded-full ${concentrated ? "bg-rose-500" : "bg-violet-600"}`}
-          style={{ width: `${Math.min(100, share)}%` }}
-        />
-      </div>
+
       <ActionChip
         label="Plan a rebalance"
         onRun={() =>
@@ -268,25 +459,54 @@ function RiskCard({ symbol, mint, share }: { symbol: string; mint?: string; shar
           })
         }
       />
-    </CardShell>
+    </div>
   );
 }
 
+/* ────────────────────────── Card: Agent Pulse ────────────────────────── */
+
 function AgentsCard({ count, hasVault }: { count: number; hasVault: boolean }) {
+  // Generative waveform — purely decorative, conveys "alive"
+  const bars = useMemo(() => Array.from({ length: 22 }, (_, i) => 0.35 + Math.abs(Math.sin(i * 0.9 + count * 0.3)) * 0.65), [count]);
+
   return (
-    <CardShell>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Agent activity</p>
-      <div className="mt-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-manrope text-3xl font-semibold tracking-tight text-slate-900">{count}</h3>
-        <span className="text-xs text-slate-500">
-          {count === 0 ? "no actions yet" : count === 1 ? "action this session" : "actions this session"}
-        </span>
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <div className="font-manrope text-5xl font-semibold tabular-nums text-slate-900">
+            {count.toString().padStart(2, "0")}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {count === 0 ? "no agent actions yet this session" : count === 1 ? "agent action this session" : "agent actions this session"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-2.5 py-1">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-600" />
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">Live</span>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+
+      <div className="mt-5 flex h-16 items-end gap-[3px]">
+        {bars.map((b, i) => (
+          <motion.span
+            key={i}
+            initial={{ height: 4, opacity: 0.3 }}
+            animate={{ height: `${b * 100}%`, opacity: 0.85 }}
+            transition={{ duration: 0.6, delay: i * 0.025, ease: [0.22, 1, 0.36, 1] }}
+            className="flex-1 rounded-sm bg-violet-500"
+          />
+        ))}
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-slate-600">
         {hasVault
           ? "Dreyv is watching prices, yields, and risk in the background. Ask for a daily briefing anytime."
           : "Connect a wallet so Dreyv can start watching the moments worth your attention."}
       </p>
+
       <ActionChip
         label={hasVault ? "Brief me on today" : "Get started"}
         onRun={() =>
@@ -298,54 +518,69 @@ function AgentsCard({ count, hasVault }: { count: number; hasVault: boolean }) {
           })
         }
       />
-    </CardShell>
+    </div>
   );
 }
+
+/* ────────────────────────── Card: Insight ────────────────────────────── */
 
 function InsightCard({ insights }: { insights: { title: string; detail: string; command: string }[] }) {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (insights.length <= 1) return;
-    const id = window.setInterval(() => setI((x) => (x + 1) % insights.length), 4500);
+    const id = window.setInterval(() => setI((x) => (x + 1) % insights.length), 5500);
     return () => window.clearInterval(id);
   }, [insights.length]);
   const cur = insights[i] ?? insights[0];
   if (!cur) return null;
   return (
-    <CardShell>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">For your treasury</p>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={cur.title}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.28 }}
-        >
-          <h3 className="mt-2 font-manrope text-xl font-semibold leading-snug tracking-tight text-slate-900">
-            {cur.title}
-          </h3>
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{cur.detail}</p>
-        </motion.div>
-      </AnimatePresence>
+    <div>
+      <div className="relative rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+        <DreyvStar size={14} className="absolute -left-1.5 -top-1.5 rounded-full bg-white p-0.5 text-violet-600 ring-1 ring-violet-200" />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={cur.title}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.32 }}
+          >
+            <h3 className="font-manrope text-lg font-semibold leading-snug tracking-tight text-slate-900">
+              {cur.title}
+            </h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{cur.detail}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      {insights.length > 1 && (
+        <div className="mt-2 flex items-center gap-1">
+          {insights.map((_, k) => (
+            <span key={k} className={`h-0.5 flex-1 rounded-full ${k === i ? "bg-violet-600" : "bg-violet-100"}`} />
+          ))}
+        </div>
+      )}
       <ActionChip
         label="Ask Dreyv"
         onRun={() => AppEventBus.emit("AGENT_COMMAND", { command: cur.command, autoSubmit: true })}
       />
-    </CardShell>
+    </div>
   );
 }
+
+/* ────────────────────────── Shared bits ──────────────────────────────── */
 
 function ActionChip({ label, onRun }: { label: string; onRun: () => void }) {
   return (
     <button
       onClick={onRun}
-      className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
+      className="group mt-5 inline-flex w-full items-center justify-between gap-2 rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-violet-700 sm:w-auto"
     >
-      {label}
-      <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
-      </svg>
+      <span>{label}</span>
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
+        <svg viewBox="0 0 14 14" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" />
+        </svg>
+      </span>
     </button>
   );
 }
@@ -355,7 +590,7 @@ function NavBtn({ dir, onClick }: { dir: "prev" | "next"; onClick: () => void })
     <button
       onClick={onClick}
       aria-label={dir === "prev" ? "Previous card" : "Next card"}
-      className="flex h-6 w-6 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 transition-colors hover:border-violet-400 hover:text-violet-900"
+      className="flex h-7 w-7 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 transition-colors hover:border-violet-400 hover:bg-violet-50"
     >
       <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         {dir === "prev" ? <path d="M7.5 3 4.5 6l3 3" /> : <path d="M4.5 3 7.5 6l-3 3" />}
@@ -364,7 +599,7 @@ function NavBtn({ dir, onClick }: { dir: "prev" | "next"; onClick: () => void })
   );
 }
 
-// ── Personalized insight builder ──────────────────────────────────────────
+/* ────────────────────────── Insight builder ──────────────────────────── */
 
 function buildInsights({
   tokens,
@@ -376,7 +611,6 @@ function buildInsights({
   topMover: any | null;
 }): { title: string; detail: string; command: string }[] {
   const out: { title: string; detail: string; command: string }[] = [];
-
   const symbols = tokens.map((t: any) => String(t.symbol ?? "")).filter(Boolean);
   const hasSol = symbols.some((s) => s.toUpperCase() === "SOL");
   const hasStables = symbols.some((s) => /USDC|USDT|PYUSD/i.test(s));
