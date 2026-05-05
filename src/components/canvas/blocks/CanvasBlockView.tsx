@@ -2539,27 +2539,52 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
               </div>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="grid gap-2 sm:grid-cols-2">
               {routes.map((r) => {
                 const venueLabel = YIELD_VENUES.find((v) => v.id === r.venue)?.label ?? r.venue;
-                const tone = r.status === "active" ? "emerald" : r.status === "exited" ? "slate" : r.status === "paused" ? "amber" : "violet";
+                const sev: Severity = r.status === "active" ? "good" : r.status === "paused" ? "watch" : r.status === "exited" ? "neutral" : "neutral";
+                const liveApy = r.lastApyBps != null ? r.lastApyBps / 100 : null;
+                const minApy = r.minApyBps != null ? r.minApyBps / 100 : null;
+                // APY ring: scale 0..25%
+                const apyPct = liveApy != null ? Math.max(0, Math.min(1, liveApy / 25)) : 0;
+                const ringR = 18, ringC = 2 * Math.PI * ringR;
+                const dash = ringC * apyPct;
                 return (
-                  <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-violet-100 bg-white px-2.5 py-1.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-semibold text-slate-900">{venueLabel}</span>
-                        <span className="text-[12px] text-slate-500">{r.token} · {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <Pill tone={tone === "emerald" ? "emerald" : tone === "amber" ? "amber" : tone === "slate" ? "slate" : "violet"}>{r.status}</Pill>
+                  <div key={r.id} className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/30 p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0" style={{ width: 56, height: 56 }}>
+                        <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
+                          <circle cx={28} cy={28} r={ringR} stroke="#ede9fe" strokeWidth={5} fill="none" />
+                          {liveApy != null && (
+                            <circle cx={28} cy={28} r={ringR} stroke="#7c3aed" strokeWidth={5} fill="none"
+                              strokeLinecap="round" strokeDasharray={`${dash} ${ringC}`} />
+                          )}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-[11px] font-semibold text-slate-900" style={{ fontFeatureSettings: "'tnum'" }}>
+                            {liveApy != null ? `${liveApy.toFixed(1)}%` : "—"}
+                          </span>
+                          <span className="text-[7px] font-semibold uppercase tracking-wider text-violet-600">APY</span>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        {r.riskBand} band{r.minApyBps != null ? ` · min ${(r.minApyBps / 100).toFixed(2)}% APY` : ""}
-                        {r.lastApyBps != null ? ` · live ${(r.lastApyBps / 100).toFixed(2)}%` : ""}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <DreyvStar size={10} className="text-violet-500" />
+                          <span className="truncate text-sm font-semibold text-slate-900">{venueLabel}</span>
+                          <SignalBadge severity={sev}>{r.status}</SignalBadge>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-slate-600" style={{ fontFeatureSettings: "'tnum'" }}>
+                          {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {r.token}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {r.riskBand} band{minApy != null ? ` · floor ${minApy.toFixed(2)}%` : ""}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
                       {r.status === "draft" && (
                         <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
-                          className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                          className="rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                           {busy === `${r.id}:deploy` ? "Queueing…" : "Deploy"}
                         </button>
                       )}
@@ -2568,7 +2593,7 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           <button onClick={() => action(r.id, "pause")} disabled={busy != null}
                             className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Pause</button>
                           <button onClick={() => action(r.id, "exit")} disabled={busy != null}
-                            className="rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Exit</button>
+                            className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-violet-50">Exit</button>
                         </>
                       )}
                       {r.status === "paused" && (
@@ -2576,7 +2601,7 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Resume</button>
                       )}
                       <button onClick={() => remove(r.id)} disabled={busy != null}
-                        className="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-rose-600">×</button>
+                        className="ml-auto rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-700">×</button>
                     </div>
                   </div>
                 );
