@@ -90,6 +90,7 @@ export function SimulatedAnalyticsProvider({
   const variables = useSimulationStore((s) => s.variables);
   const ir = useSimulationStore((s) => s.ir);
   const timeframeMonths = useSimulationStore((s) => s.timeframeMonths);
+  const setResult = useSimulationStore((s) => s.setResult);
   const setError = useSimulationStore((s) => s.setError);
   const clear = useSimulationStore((s) => s.clearSimulation);
 
@@ -147,6 +148,22 @@ export function SimulatedAnalyticsProvider({
         }
         const json = await res.json();
         setState({ ...json.simulated, asOf: json.asOf });
+        const simulated = json.simulated as SimulatedAnalyticsState;
+        const currentValue = Number(simulated.vaultValue || 0);
+        const projectedEndValue = Number(simulated.endValue || currentValue);
+        setResult({
+          projection: (simulated.valueSeries || []).map((p) => ({ date: p.date, totalValue: p.value, breakdown: {} })),
+          summary: {
+            currentValue,
+            projectedEndValue,
+            delta: projectedEndValue - currentValue,
+            deltaPercent: currentValue > 0 ? ((projectedEndValue - currentValue) / currentValue) * 100 : 0,
+            runwayMonths: simulated.runwayMonths,
+            depletionDate: null,
+            riskFlags: simulated.riskFlags || [],
+          },
+          metadata: { variables, timeframeMonths, computedAt: Date.now() },
+        });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
         setLocalError(err?.message || "Simulation failed");
@@ -157,7 +174,7 @@ export function SimulatedAnalyticsProvider({
     })();
 
     return () => ctrl.abort();
-  }, [active, ir, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setError]);
+  }, [active, ir, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setResult, setError]);
 
   const value = useMemo<ContextValue>(
     () => ({

@@ -237,6 +237,11 @@ export function runSimulationIR(ir: SimulationIR): IRProjectionResult {
         0,
       );
       if (totalNow <= 0) continue;
+      const targetsArePriced = Object.keys(r.targetAllocationPct).every((sym) => (runningPrice[sym] || 0) > 0);
+      if (!targetsArePriced) continue;
+      for (const t of tokens) {
+        if (!(t.symbol in r.targetAllocationPct)) runningAmount[t.symbol] = 0;
+      }
       for (const sym of Object.keys(r.targetAllocationPct)) {
         const targetUsd = totalNow * r.targetAllocationPct[sym];
         const px = runningPrice[sym] || 0;
@@ -245,9 +250,8 @@ export function runSimulationIR(ir: SimulationIR): IRProjectionResult {
         if (px <= 0) continue;
         runningAmount[sym] = targetUsd / px;
       }
-      // Symbols not mentioned in target keep their absolute holding (the
-      // remaining USD is implicit in the totals — we trust the planner to
-      // provide a complete allocation when the user asked for one).
+      // A rebalance target is the simulated post-trade portfolio: assets not
+      // named in the allocation are sold down instead of leaking into totals.
       // Mark rebalance as applied by bumping its month past horizon.
       r.atMonth = horizon + 1;
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSimulationIR, type SimulationIR, type IRProjectionResult } from "@/lib/foresight/simulation-ir";
+import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";
 
 /**
  * /api/analytics/simulate
@@ -406,7 +407,7 @@ export async function POST(req: NextRequest) {
 
     // ─── IR mode (preferred) ────────────────────────────────────────────────
     if (body.ir && body.ir.startState?.tokens?.length) {
-      const ir = body.ir;
+      const ir = await enrichIRWithScenarioAssets(body.ir);
       const horizon = Math.max(1, Math.min(60, Math.round(ir.horizonMonths || 12)));
       const result = runSimulationIR({ ...ir, horizonMonths: horizon });
       return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL"));

@@ -30,6 +30,7 @@ import {
   type SimulationIR,
   type IRToken,
 } from "@/lib/foresight/simulation-ir";
+import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // foresight_simulation — runway / shock / variable-impact / yield forecast.
@@ -145,6 +146,7 @@ const foresight_simulation = defineCapability({
     }
 
     if (ir) {
+      ir = await enrichIRWithScenarioAssets(ir);
       const result = runSimulationIR(ir);
       const flatVariables = irToFlatVariables(ir);
 
