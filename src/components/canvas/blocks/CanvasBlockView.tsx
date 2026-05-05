@@ -173,8 +173,15 @@ export function CanvasBlockView({ block }: { block: CanvasBlock }) {
 function NarrativeBlock({ block }: { block: CanvasBlock }) {
   const message = asString(block.payload.message ?? block.payload.detail);
   return (
-    <BlockShell block={block} accent="slate">
-      {message ? <ClampedBody text={message} /> : null}
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 inline-flex shrink-0 items-center justify-center text-violet-600">
+          <DreyvStar size={11} />
+        </span>
+        <div className="min-w-0 flex-1">
+          {message ? <ClampedBody text={message} /> : null}
+        </div>
+      </div>
     </BlockShell>
   );
 }
@@ -186,18 +193,61 @@ function MetricBlock({ block }: { block: CanvasBlock }) {
   const prefix = asString(block.payload.prefix);
   const suffix = asString(block.payload.suffix);
   const decimals = asNumber(block.payload.decimals) ?? 0;
+  const series = asArray<number>(block.payload.series);
+  const delta = asNumber(block.payload.changePct);
   return (
     <BlockShell block={block} accent="violet">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <div className="mt-1 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
+          <div className="flex items-center gap-2">
+            <DreyvStar size={9} className="text-violet-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">{label}</p>
+          </div>
+          <div className="mt-1.5 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
             <StreamingNumber value={value} prefix={prefix} suffix={suffix} decimals={decimals} />
           </div>
+          {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
         </div>
-        {hint && <p className="max-w-[55%] text-right text-xs text-slate-500">{hint}</p>}
+        {(series.length > 1 || delta != null) && (
+          <div className="flex flex-col items-end gap-1.5">
+            {series.length > 1 && <MiniSpark values={series} className="h-10 w-28" />}
+            {delta != null && (
+              <SignalBadge severity={delta >= 0 ? "good" : "watch"}>
+                {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
+              </SignalBadge>
+            )}
+          </div>
+        )}
       </div>
     </BlockShell>
+  );
+}
+
+/** Compact violet sparkline used inside metric/result cards. */
+function MiniSpark({ values, className = "h-8 w-24" }: { values: number[]; className?: string }) {
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const w = 100;
+  const h = 32;
+  const step = w / Math.max(1, values.length - 1);
+  const points = values.map((v, i) => `${(i * step).toFixed(2)},${(h - ((v - min) / span) * h).toFixed(2)}`).join(" ");
+  const last = values[values.length - 1];
+  const lx = w;
+  const ly = h - ((last - min) / span) * h;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className={className} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="msfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,${h} ${points} ${w},${h}`} fill="url(#msfill)" />
+      <polyline points={points} fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="2" fill="#7c3aed" />
+    </svg>
   );
 }
 
