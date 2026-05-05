@@ -414,22 +414,25 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
   const success = block.payload.success !== false;
   const message = asString(block.payload.message ?? block.payload.summary);
   return (
-    <BlockShell block={block} accent={success ? "emerald" : "rose"}>
+    <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-            success ? "text-violet-600" : "bg-rose-100 text-rose-700"
+          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
+            success ? "border-violet-200 bg-violet-50 text-violet-700" : "border-slate-900 bg-slate-900 text-violet-200"
           }`}
         >
-          {success ? <GlyphCheck className="h-4 w-4" /> : <GlyphAlert className="h-3.5 w-3.5" />}
+          {success ? <DreyvStar size={11} /> : <GlyphAlert className="h-3.5 w-3.5" />}
         </span>
         <div className="min-w-0 flex-1">
-          {operation && (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {operation}
-            </p>
-          )}
-          {message && <div className="mt-1"><ClampedBody text={message} /></div>}
+          <div className="flex items-center justify-between gap-2">
+            {operation && (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+                {operation}
+              </p>
+            )}
+            <SignalBadge severity={success ? "good" : "risk"}>{success ? "complete" : "failed"}</SignalBadge>
+          </div>
+          {message && <div className="mt-1.5"><ClampedBody text={message} /></div>}
         </div>
       </div>
     </BlockShell>
@@ -441,17 +444,19 @@ function SuggestionBlock({ block }: { block: CanvasBlock }) {
   return (
     <BlockShell block={block} accent="violet">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-          <GlyphSpark />
+        <span className="relative mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
+          <DreyvStar size={11} className="text-white" />
+          <span className="pointer-events-none absolute -inset-1 rounded-2xl border border-violet-300 opacity-50 motion-safe:animate-pulse" />
         </span>
         <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Dreyv suggests</p>
           {typeof block.payload.message === "string" && block.payload.message && (
-            <p className="text-sm leading-relaxed text-slate-700">{asString(block.payload.message)}</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-700">{asString(block.payload.message)}</p>
           )}
           {cta?.href && (
             <Link
               href={cta.href}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700"
             >
               {asString(cta.label, "Open")}
               <GlyphArrow />
