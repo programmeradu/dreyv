@@ -173,7 +173,7 @@ describe("SimulationIR engine — coverage", () => {
   });
 
   it("19 horizon clamp lower bound 1", () => {
-    const ir = makeIR({ horizonMonths: 0 });
+    const ir = makeIR({ horizonMonths: -5 });
     const r = runSimulationIR(ir);
     expect(r.monthly.length).toBe(2);
   });
