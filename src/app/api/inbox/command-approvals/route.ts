@@ -11,11 +11,12 @@
  * Best-effort: returns an empty list (not 500) when the table is missing,
  * so the inbox still loads on environments where the migration hasn't run.
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { commandApprovals } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { publish } from "@/lib/agents/bus";
+import { getAuthUser } from "@/lib/auth-utils";
 import { capabilityRegistry } from "@/lib/agents/capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "@/lib/agents/capabilities/types";
 import type { Plan, RouteDecision } from "@/lib/agents/dacs/types";
