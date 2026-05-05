@@ -8,6 +8,7 @@ import {
 import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin/AdminMetricsPanel";
 import { MetricCard } from "@/components/admin/MetricCard";
 import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
+import { PlatformReportPanel } from "@/components/admin/PlatformReportPanel";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
@@ -158,6 +159,8 @@ export default function AdminMonitoringRoom() {
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
                     <InngestHealthPanel />
 
+                    {/* PANEL 0b: Platform-wide transaction & volume report (compliance-grade) */}
+                    <PlatformReportPanel />
 
                     {/* PANEL 1: User Growth */}
                     <AdminMetricsPanel
