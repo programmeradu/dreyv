@@ -606,26 +606,11 @@ export function CommandBar() {
       setPromptMode("auto");
       setSubmitPulse(true);
 
-      // Spawn a pinned Plan block immediately so the dashboard reflects the
-      // command before the model has even responded. We update it as tool
-      // parts stream in (see effect below) and finalize on `onFinish`.
-      if (canvas) {
-        const id = canvas.addBlock({
-          type: "plan",
-          source: "commandbar",
-          origin: "/commandbar",
-          title: text.length > 64 ? text.slice(0, 61) + "…" : text,
-          subtitle: "Planning…",
-          pinned: true,
-          payload: {
-            prompt: text,
-            status: "planning",
-            summary: "Agent is analysing your command.",
-            steps: [],
-          },
-        });
-        activePlanBlockIdRef.current = id;
-      }
+      // NOTE: We intentionally do NOT spawn a canvas Plan block on every
+      // command — it floods /app with one card per chat message. Tool
+      // activity now renders inline in the CommandBar thread. Canvas
+      // blocks should only be created by explicit user actions
+      // (e.g. "pin to dashboard").
 
       try {
         await sendMessage(
