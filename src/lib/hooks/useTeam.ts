@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 interface TeamMember {
   id: number;
@@ -83,13 +84,32 @@ export function useTeam(): UseTeamReturn {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, vaultAddress }),
       });
-      if (!res.ok) throw new Error("Failed to create team");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data?.error || "Failed to create team";
+        if (res.status === 403 && /tier limits/i.test(message)) {
+          toast.error("Vault limit reached", {
+            description: `${message} Upgrade your plan to add more.`,
+            action: {
+              label: "Upgrade",
+              onClick: () => {
+                if (typeof window !== "undefined") window.location.href = "/pricing";
+              },
+            },
+          });
+        } else {
+          toast.error(message);
+        }
+        setError(message);
+        return null;
+      }
       fetchedRef.current = false;
       fetchTeams();
       return data.team?.id || null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create team");
+      const msg = err instanceof Error ? err.message : "Failed to create team";
+      setError(msg);
+      toast.error(msg);
       return null;
     }
   }, [fetchTeams]);
