@@ -1699,13 +1699,39 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
                       <li>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             const mint = tokenQuery.trim();
-                            const sym = mint.slice(0, 4).toUpperCase();
-                            setWalletTokens((prev) => [...prev, { mint, symbol: sym, name: "Custom mint" }]);
-                            setDefaultToken(sym);
+                            // Optimistic add with placeholder symbol
+                            const placeholderSym = mint.slice(0, 4).toUpperCase();
+                            setWalletTokens((prev) =>
+                              prev.some((t) => t.mint === mint)
+                                ? prev
+                                : [...prev, { mint, symbol: placeholderSym, name: "Loading…" }]
+                            );
+                            setDefaultToken(placeholderSym);
                             setShowTokenMenu(false);
                             setTokenQuery("");
+                            // Fetch real metadata + logo, then upgrade the entry
+                            try {
+                              const res = await fetch("/api/token-metadata", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ mints: [mint] }),
+                              });
+                              const data = await res.json();
+                              const meta = data?.metadata?.[mint];
+                              if (meta) {
+                                const realSym = (meta.symbol || placeholderSym).toUpperCase();
+                                setWalletTokens((prev) =>
+                                  prev.map((t) =>
+                                    t.mint === mint
+                                      ? { ...t, symbol: realSym, name: meta.name || t.name, logo: meta.logo, decimals: t.decimals ?? 0 }
+                                      : t
+                                  )
+                                );
+                                setDefaultToken(realSym);
+                              }
+                            } catch { /* keep placeholder */ }
                           }}
                           className="flex w-full items-center justify-between gap-3 bg-violet-50/60 px-3 py-2 text-left hover:bg-violet-100/70"
                         >
