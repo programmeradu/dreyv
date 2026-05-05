@@ -14,6 +14,7 @@ import { AppEventBus } from "@/lib/events";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { TokenAvatar } from "@/components/TokenAvatar";
+import { TokenLogo } from "@/components/commandbar/TokenLogo";
 import { useDistributionFiles, parseDistributionFile, type DistributionEntry } from "@/lib/hooks/useDistributionFiles";
 import { useVault, type RegisteredVault } from "@/lib/contexts/VaultContext";
 import { useWallet } from "@/lib/wallet/compat";
