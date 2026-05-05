@@ -1905,34 +1905,101 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
 
   const active = schedules.filter((s) => s.status !== "archived");
 
+  // Aggregate stats across active schedules
+  const totals = active.reduce(
+    (acc, s) => {
+      const sum = s.recipients.reduce((a, r) => a + r.amount, 0);
+      acc.amount += sum;
+      acc.recipients += s.recipients.length;
+      acc.tokens.add(s.defaultToken);
+      return acc;
+    },
+    { amount: 0, recipients: 0, tokens: new Set<string>() },
+  );
+  const nextDate = active
+    .map((s) => (s.nextRunAt ? new Date(s.nextRunAt).getTime() : null))
+    .filter((t): t is number => t != null && !Number.isNaN(t))
+    .sort((a, b) => a - b)[0];
+  const cadenceMix = active.reduce<Record<string, number>>((acc, s) => {
+    acc[s.cadence] = (acc[s.cadence] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <BlockShell block={block} accent="violet">
       {!wallet ? (
         <p className="text-sm text-slate-600">Connect a wallet to schedule recurring payouts.</p>
       ) : (
-        <>
+        <div className="space-y-4">
+          {/* Header — payroll calendar + summary */}
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
+            <PayoutCalendar nextDate={nextDate ?? null} count={active.length} />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-display text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                  {totals.amount > 0 ? totals.amount.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+                  {totals.tokens.size === 1 ? Array.from(totals.tokens)[0] : `${totals.tokens.size} tokens`}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {active.length} active schedule{active.length === 1 ? "" : "s"} · {totals.recipients} recipients
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {active.length === 0 ? (
+                  <SignalBadge severity="neutral">No schedules yet</SignalBadge>
+                ) : (
+                  <>
+                    {Object.entries(cadenceMix).map(([cad, n]) => (
+                      <SignalBadge key={cad} severity="neutral">{n} {cad}</SignalBadge>
+                    ))}
+                    {nextDate && (
+                      <SignalBadge severity="good">next {fmtDate(new Date(nextDate).toISOString())}</SignalBadge>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           {err && !showForm && (
-            <p className="mb-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{err}</p>
+            <p className="rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2 text-[11px] text-violet-900">{err}</p>
           )}
+
           {loading && active.length === 0 ? (
             <p className="text-sm text-slate-500">Loading schedules…</p>
           ) : active.length === 0 ? (
-            <p className="text-sm text-slate-600">No recurring payouts yet. Set one up for payroll, grants, or contributors.</p>
+            <div className="grid gap-5 rounded-2xl border border-violet-100 bg-violet-50/30 p-4 sm:grid-cols-[150px_1fr] sm:items-center">
+              <ScheduleEmptyArt />
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Set up your first cadence</p>
+                <p className="text-[13px] text-slate-700">Payroll, grants, contributors — on a schedule, with one-tap approval.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <SignalBadge severity="neutral">Monthly</SignalBadge>
+                  <SignalBadge severity="neutral">Biweekly</SignalBadge>
+                  <SignalBadge severity="neutral">Weekly</SignalBadge>
+                  <SignalBadge severity="neutral">CSV import</SignalBadge>
+                </div>
+              </div>
+            </div>
           ) : (
-            <ul className="divide-y divide-violet-100">
-              {active.map((s) => {
+            <ul className="overflow-hidden rounded-2xl border border-violet-100 bg-white">
+              {active.map((s, i) => {
                 const total = s.recipients.reduce((sum, r) => sum + r.amount, 0);
                 return (
-                  <li key={s.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <li
+                    key={s.id}
+                    className={`flex items-center justify-between gap-3 px-3 py-3 text-sm ${i > 0 ? "border-t border-violet-100" : ""}`}
+                  >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <DreyvStar size={10} className="text-violet-500" />
                         <span className="truncate font-semibold text-slate-900">{s.label}</span>
-                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">{s.cadence}</span>
-                        {s.status === "paused" && (
-                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Paused</span>
-                        )}
+                        <SignalBadge severity="neutral">{s.cadence}</SignalBadge>
+                        {s.status === "paused" && <SignalBadge severity="watch">paused</SignalBadge>}
                       </div>
-                      <p className="mt-0.5 text-[12px] text-slate-500">
+                      <p className="mt-1 text-[12px] text-slate-500">
                         {s.recipients.length} recipients · {total.toLocaleString()} {s.defaultToken} · next {fmtDate(s.nextRunAt)}
                       </p>
                     </div>
@@ -1950,7 +2017,8 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
                       <button
                         onClick={() => action(s.id, "delete")}
                         disabled={busy === s.id}
-                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-rose-600"
+                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-violet-700"
+                        aria-label="Archive schedule"
                       >×</button>
                     </div>
                   </li>
@@ -1962,15 +2030,17 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
           {!showForm ? (
             <button
               onClick={() => setShowForm(true)}
-              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900"
-            >+ New schedule</button>
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 hover:text-violet-900"
+            >
+              <DreyvStar size={10} className="text-violet-500" /> New schedule
+            </button>
           ) : (
-            <div className="mt-3 space-y-2 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+            <div className="space-y-2 rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Engineering payroll"
-                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none" />
+                  className="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none" />
                 <select value={cadence} onChange={(e) => setCadence(e.target.value)}
-                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
+                  className="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
                   <option value="monthly">Monthly</option>
                   <option value="biweekly">Biweekly</option>
                   <option value="weekly">Weekly</option>
@@ -1979,9 +2049,9 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <input type="number" min={1} max={28} value={anchorDay} onChange={(e) => setAnchorDay(Number(e.target.value))}
-                  placeholder="Day of month" className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900" />
+                  placeholder="Day of month" className="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900" />
                 <select value={defaultToken} onChange={(e) => setDefaultToken(e.target.value)}
-                  className="rounded-md border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
+                  className="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-900">
                   <option value="USDC">USDC</option>
                   <option value="USDT">USDT</option>
                   <option value="SOL">SOL</option>
@@ -1991,7 +2061,7 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
                 value={recipientsRaw} onChange={(e) => setRecipientsRaw(e.target.value)}
                 rows={3}
                 placeholder="address,amount,label per line"
-                className="w-full rounded-md border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px] text-slate-900 placeholder:text-slate-400"
+                className="w-full rounded-lg border border-violet-200 bg-white px-2 py-1.5 font-mono text-[12px] text-slate-900 placeholder:text-slate-400"
               />
               <div className="flex items-center justify-between gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
@@ -2003,7 +2073,7 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
                 </label>
                 <p className="text-[10px] text-slate-400">Headers <span className="font-mono">address,amount,label</span> auto-detected</p>
               </div>
-              {err && <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{err}</p>}
+              {err && <p className="rounded-lg border border-violet-200 bg-violet-50/60 px-2 py-1 text-[11px] text-violet-900">{err}</p>}
               <div className="flex items-center gap-2">
                 <button onClick={submit} disabled={busy === "create"}
                   className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
@@ -2014,9 +2084,98 @@ function RecurringPayoutsBlock({ block }: { block: CanvasBlock }) {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </BlockShell>
+  );
+}
+
+/** Mini month-grid calendar with the next run-date highlighted in violet. */
+function PayoutCalendar({ nextDate, count }: { nextDate: number | null; count: number }) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const next = nextDate ? new Date(nextDate) : null;
+  const nextDay =
+    next && next.getFullYear() === year && next.getMonth() === month ? next.getDate() : null;
+  const todayDay = today.getDate();
+
+  const cells: Array<number | null> = [
+    ...Array.from({ length: firstDow }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const rows = Math.ceil(cells.length / 7);
+
+  return (
+    <svg viewBox="0 0 180 110" className="h-[110px] w-full" role="img" aria-label="Payout calendar">
+      <text x="6" y="10" fontSize="8" fontWeight="700" fill="#7c3aed" letterSpacing="1.2">
+        {today.toLocaleString(undefined, { month: "short" }).toUpperCase()} · {count} ACTIVE
+      </text>
+      {Array.from({ length: 7 }).map((_, i) => (
+        <text key={i} x={10 + i * 24} y="22" fontSize="7" fontWeight="700" fill="#94a3b8" textAnchor="middle">
+          {["S", "M", "T", "W", "T", "F", "S"][i]}
+        </text>
+      ))}
+      {cells.map((d, i) => {
+        const col = i % 7;
+        const row = Math.floor(i / 7);
+        const cx = 10 + col * 24;
+        const cy = 34 + row * Math.max(14, Math.min(18, 60 / rows));
+        if (d == null) return null;
+        const isNext = d === nextDay;
+        const isToday = d === todayDay;
+        return (
+          <g key={i}>
+            {isNext && <circle cx={cx} cy={cy} r="8" fill="#7c3aed" />}
+            {!isNext && isToday && <circle cx={cx} cy={cy} r="8" fill="none" stroke="#c4b5fd" strokeWidth="1" />}
+            <text
+              x={cx}
+              y={cy + 2.5}
+              fontSize="7.5"
+              fontWeight={isNext ? 700 : isToday ? 600 : 500}
+              fill={isNext ? "#fff" : isToday ? "#7c3aed" : "#475569"}
+              textAnchor="middle"
+            >
+              {d}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function ScheduleEmptyArt() {
+  return (
+    <svg viewBox="0 0 150 110" className="h-[110px] w-full" role="img" aria-label="No schedules">
+      <defs>
+        <linearGradient id="schedSheet" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#fff" />
+          <stop offset="1" stopColor="#f5f3ff" />
+        </linearGradient>
+      </defs>
+      <rect x="22" y="22" width="86" height="70" rx="8" fill="url(#schedSheet)" stroke="#c4b5fd" strokeWidth="1" transform="rotate(-6 65 57)" />
+      <rect x="34" y="18" width="86" height="70" rx="8" fill="url(#schedSheet)" stroke="#c4b5fd" strokeWidth="1" transform="rotate(4 77 53)" />
+      <rect x="40" y="22" width="74" height="62" rx="7" fill="#fff" stroke="#7c3aed" strokeWidth="1.2" />
+      {Array.from({ length: 4 }).map((_, r) =>
+        Array.from({ length: 5 }).map((_, c) => (
+          <rect
+            key={`${r}-${c}`}
+            x={46 + c * 12}
+            y={32 + r * 12}
+            width="8"
+            height="8"
+            rx="2"
+            fill={r === 1 && c === 2 ? "#7c3aed" : r === 1 && c === 1 ? "#a78bfa" : "#ede9fe"}
+          />
+        )),
+      )}
+      <circle cx="118" cy="84" r="14" fill="#7c3aed" />
+      <text x="118" y="88" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">+</text>
+    </svg>
   );
 }
 
