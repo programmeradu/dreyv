@@ -26,16 +26,21 @@ export const dynamic = "force-dynamic";
 
 const TABLE_MISSING = /relation .*command_approvals.* does not exist/i;
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: true, approvals: [], reason: "db_unavailable" });
   const url = new URL(req.url);
-  const wallet = url.searchParams.get("wallet");
+  const requestedWallet = url.searchParams.get("wallet");
   const status = url.searchParams.get("status") ?? "pending";
+  if (requestedWallet && requestedWallet !== user.walletAddress) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+  // Always scope to the authenticated user's wallet, regardless of query param.
+  const wallet = user.walletAddress;
 
   try {
-    const where = wallet
-      ? and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet))
-      : eq(commandApprovals.status, status);
+    const where = and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet));
     const rows = await db
       .select()
       .from(commandApprovals)
