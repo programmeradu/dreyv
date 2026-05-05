@@ -229,7 +229,6 @@ function AnalyticsPageInner({
             <BenchmarkVsMarket
               valueSeries={displayValueSeries}
               benchmark="SOL"
-              simulatedBenchmark={simActive ? simState!.benchmark : null}
             />
           </StreamIn>
         </div>
