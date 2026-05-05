@@ -1678,9 +1678,7 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
                           className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-violet-50"
                         >
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="grid h-6 w-6 place-items-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
-                              {(t.symbol || "?").slice(0, 1)}
-                            </span>
+                            <TokenLogo symbol={t.symbol} mint={t.mint && t.mint.length > 10 ? t.mint : undefined} size={24} />
                             <div className="min-w-0">
                               <p className="truncate text-xs font-semibold text-slate-800">{t.symbol || "Custom"}</p>
                               <p className="truncate font-mono text-[10px] text-slate-500">{t.name || `${t.mint.slice(0, 6)}…${t.mint.slice(-4)}`}</p>
