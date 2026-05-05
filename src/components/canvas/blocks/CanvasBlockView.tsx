@@ -1027,7 +1027,6 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
       </BlockShell>
     );
   }
-  }
 
   const severity = months >= 18 ? "good" : months >= 9 ? "neutral" : months >= 6 ? "watch" : "risk";
   const verdict = months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : months >= 6 ? "Tight" : "Critical";
