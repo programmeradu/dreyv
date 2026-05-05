@@ -878,7 +878,7 @@ function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
     <BlockShell block={block} accent="violet">
       {/* Roster constellation — a bespoke visual of the signer set */}
       {registeredVaults.length > 0 && (
-        <div className="mb-3 overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/60 to-white px-3 py-3">
+        <div className="mb-3 overflow-hidden rounded-2xl border border-violet-100 bg-white px-3 py-3">
           <RosterConstellation vaults={registeredVaults} activeAddress={activeVault ?? null} />
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {counts.connected > 0 && (
