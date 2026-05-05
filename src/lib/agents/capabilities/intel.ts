@@ -23,6 +23,13 @@ import { knowledgeBase } from "@/lib/knowledge";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint } from "./tokens";
+import {
+  presetScenarioToIR,
+  runSimulationIR,
+  irToFlatVariables,
+  type SimulationIR,
+  type IRToken,
+} from "@/lib/foresight/simulation-ir";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // foresight_simulation — runway / shock / variable-impact / yield forecast.
