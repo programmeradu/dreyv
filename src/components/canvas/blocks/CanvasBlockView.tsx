@@ -2339,11 +2339,51 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {routes.length === 0 ? (
-            <p className="text-sm text-slate-700">
-              {stableBalance > 0
-                ? `${stableBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} in stables sitting idle. Route a slice to a vetted venue — Dreyv keeps it inside your risk band and proposes deploys via HITL.`
-                : "Set up a yield route now and it'll activate the moment idle stables land."}
-            </p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  <defs>
+                    <linearGradient id="yld-line" x1="0" x2="1" y1="0" y2="0">
+                      <stop offset="0%" stopColor="#c4b5fd" />
+                      <stop offset="100%" stopColor="#7c3aed" />
+                    </linearGradient>
+                  </defs>
+                  {/* Idle stables pool */}
+                  <circle cx={28} cy={55} r={18} fill="#f5f3ff" stroke="#c4b5fd" strokeWidth={1.2} />
+                  <text x={28} y={59} textAnchor="middle" fontSize="9" fontWeight="600" fill="#7c3aed">USDC</text>
+                  {/* Routing arcs */}
+                  {[0, 1, 2].map((i) => {
+                    const ty = 22 + i * 33;
+                    return (
+                      <path key={i} d={`M 46 55 C 70 55, 80 ${ty}, 104 ${ty}`} stroke="url(#yld-line)" strokeWidth={1.4} fill="none" strokeDasharray="3 2" />
+                    );
+                  })}
+                  {/* Venue tiles */}
+                  {["Marinade", "Kamino", "Drift"].map((v, i) => {
+                    const ty = 22 + i * 33;
+                    return (
+                      <g key={v}>
+                        <rect x={104} y={ty - 8} width={32} height={16} rx={4} fill="#ffffff" stroke="#a78bfa" strokeWidth={1} />
+                        <text x={120} y={ty + 3} textAnchor="middle" fontSize="7" fontWeight="600" fill="#5b21b6">{v}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Idle → earning</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {stableBalance > 0
+                    ? `${stableBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} in stables sitting idle. Route a slice to a vetted venue inside your risk band — every deploy goes through HITL.`
+                    : "Set a route now and it activates the moment idle stables land. Policy-bounded, HITL-gated."}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["Conservative", "Balanced", "Aggressive"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {routes.map((r) => {
