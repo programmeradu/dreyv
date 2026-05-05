@@ -449,7 +449,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       asOf: new Date().toISOString(),
       simulated: {
-        vaultValue: p.currentValue,
+        vaultValue: p.endValue,
+        startValue: p.currentValue,
         vaultChange24h: simulatedChange24h,
         tokens: p.endTokens,
         valueSeries,
@@ -530,7 +531,8 @@ function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC"
     asOf: new Date().toISOString(),
     ir: p.ir,
     simulated: {
-      vaultValue: p.startValue,
+      vaultValue: p.endValue,
+      startValue: p.startValue,
       vaultChange24h: simulatedChange24h,
       tokens: p.endTokens,
       valueSeries,
