@@ -1,25 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runSimulationIR, type SimulationIR, type IRProjectionResult } from "@/lib/foresight/simulation-ir";
 
 /**
  * /api/analytics/simulate
  * ───────────────────────
  * Single source of truth for the /app/analytics scenario overlay.
  *
- * Given the user's real portfolio + a set of what-if variables, this returns a
- * complete `SimulatedAnalyticsState` that covers every card on the page —
- * cockpit valuation, composition, attribution, anomalies, foresight bands,
- * money-movement projection, fees, flows, benchmark, narrative deltas. The
- * page just pipes this into existing components instead of swapping each one.
- *
- * No mocks: every figure derives from the user's real holdings (price, amount,
- * 24h change) and the variables the user (or LLM parser) supplied. If a wallet
- * isn't connected, the page never calls this endpoint — the simulation store
- * surfaces a "connect a wallet" prompt instead.
+ * Input modes:
+ *   1. NEW (preferred): { ir: SimulationIR, baselineAttribution?, benchmarkSymbol? }
+ *      Uses the deterministic engine in `src/lib/foresight/simulation-ir.ts`.
+ *      Foresight tool result and analytics overlay share the same engine.
+ *   2. LEGACY: { portfolio, variables, timeframeMonths, baselineAttribution? }
+ *      Old flat-variable body, retained for callers that haven't migrated.
  */
 
 export const dynamic = "force-dynamic";
-
-// ─── Types ──────────────────────────────────────────────────────────
 
 interface PortfolioToken {
   symbol: string;
@@ -47,9 +42,10 @@ interface BaselineAttribution {
 }
 
 interface RequestBody {
-  portfolio: PortfolioToken[];
-  variables: SimulationVariable[];
-  timeframeMonths: number;
+  ir?: SimulationIR;
+  portfolio?: PortfolioToken[];
+  variables?: SimulationVariable[];
+  timeframeMonths?: number;
   baselineAttribution?: BaselineAttribution | null;
   baselineDriftPctPerDay?: number;
   benchmarkSymbol?: "SOL" | "BTC";
