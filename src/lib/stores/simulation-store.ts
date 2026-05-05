@@ -70,36 +70,31 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     active: false,
     prompt: null,
     variables: [],
+    ir: null,
     result: null,
     loading: false,
     error: null,
     timeframeMonths: 12,
 
-    startSimulation: (prompt, variables, timeframeMonths = 12) => set({
+    startSimulation: (prompt, variables, timeframeMonths = 12, ir = null) => set({
         active: true,
         prompt,
         variables,
+        ir,
         result: null,
         loading: true,
         error: null,
         timeframeMonths,
     }),
 
-    setResult: (result) => set({
-        result,
-        loading: false,
-        error: null,
-    }),
-
-    setError: (error) => set({
-        error,
-        loading: false,
-    }),
+    setResult: (result) => set({ result, loading: false, error: null }),
+    setError: (error) => set({ error, loading: false }),
 
     clearSimulation: () => set({
         active: false,
         prompt: null,
         variables: [],
+        ir: null,
         result: null,
         loading: false,
         error: null,
