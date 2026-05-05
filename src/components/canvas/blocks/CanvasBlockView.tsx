@@ -1962,33 +1962,98 @@ function GasTankBlock({ block }: { block: CanvasBlock }) {
   const w = watcher!;
   const balanceN = w.lastBalanceSol != null ? Number(w.lastBalanceSol) : null;
   const minN = Number(w.minSol);
-  const tone = balanceN == null ? "slate" : balanceN < minN ? "rose" : "emerald";
+  const targetN = Number(w.targetSol);
+  const isLow = balanceN != null && balanceN < minN;
+  const isPaused = w.status === "paused";
+  // Gauge math: 0..target maps to a 240° arc starting at -210° (bottom-left)
+  const pct = balanceN == null ? 0 : Math.max(0, Math.min(1, balanceN / Math.max(targetN, 0.0001)));
+  const floorPct = Math.max(0, Math.min(1, minN / Math.max(targetN, 0.0001)));
+  const arcStart = -210; const arcSweep = 240;
+  const polar = (cx: number, cy: number, r: number, angDeg: number) => {
+    const a = (angDeg * Math.PI) / 180;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
+  };
+  const arcPath = (cx: number, cy: number, r: number, fromDeg: number, toDeg: number) => {
+    const [x1, y1] = polar(cx, cy, r, fromDeg);
+    const [x2, y2] = polar(cx, cy, r, toDeg);
+    const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
+    const sweep = toDeg > fromDeg ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`;
+  };
+  const cx = 80, cy = 78, R = 60;
+  const valueEnd = arcStart + arcSweep * pct;
+  const floorAng = arcStart + arcSweep * floorPct;
+  const verdict: Severity = isPaused ? "neutral" : isLow ? "risk" : balanceN == null ? "neutral" : pct < 0.5 ? "watch" : "good";
+  const verdictLabel = isPaused ? "Paused" : balanceN == null ? "Unchecked" : isLow ? "Low — refill drafted" : pct < 0.5 ? "Below comfort" : "Healthy";
 
   return (
-    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tracking-tight text-slate-900">
-            {balanceN != null ? balanceN.toFixed(3) : "—"}
-          </span>
-          <span className="text-xs text-slate-500">SOL · floor {minN} · target {Number(w.targetSol)}</span>
+    <BlockShell block={block} accent="violet">
+      <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
+        {/* Bespoke fuel gauge */}
+        <div className="relative mx-auto" style={{ width: 160, height: 130 }}>
+          <svg viewBox="0 0 160 140" className="h-32 w-40">
+            <defs>
+              <linearGradient id="gt-arc" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#a78bfa" />
+                <stop offset="100%" stopColor="#7c3aed" />
+              </linearGradient>
+              <radialGradient id="gt-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx={cx} cy={cy} r={R + 14} fill="url(#gt-glow)" />
+            {/* Track */}
+            <path d={arcPath(cx, cy, R, arcStart, arcStart + arcSweep)} stroke="#ede9fe" strokeWidth={9} fill="none" strokeLinecap="round" />
+            {/* Value */}
+            {pct > 0.001 && (
+              <path d={arcPath(cx, cy, R, arcStart, valueEnd)} stroke="url(#gt-arc)" strokeWidth={9} fill="none" strokeLinecap="round" />
+            )}
+            {/* Floor tick */}
+            {(() => {
+              const [x1, y1] = polar(cx, cy, R - 9, floorAng);
+              const [x2, y2] = polar(cx, cy, R + 9, floorAng);
+              return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="2 2" />;
+            })()}
+            {/* Center label */}
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a" style={{ fontFeatureSettings: "'tnum'" }}>
+              {balanceN != null ? balanceN.toFixed(2) : "—"}
+            </text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fontWeight="600" letterSpacing="0.18em" fill="#7c3aed">SOL</text>
+            <text x={cx} y={cy + 28} textAnchor="middle" fontSize="8.5" fill="#64748b">floor {minN} · target {targetN}</text>
+          </svg>
         </div>
-        <Pill tone={tone === "rose" ? "rose" : tone === "emerald" ? "emerald" : "violet"}>
-          {w.status === "paused" ? "Paused" : balanceN == null ? "Unchecked" : balanceN < minN ? "Low" : "Healthy"}
-        </Pill>
-      </div>
-      <p className="mt-1 text-[12px] text-slate-500">
-        {w.lastCheckedAt ? `checked ${new Date(w.lastCheckedAt).toLocaleString()}` : "not checked yet"}
-        {w.fundingAddress ? ` · funded from ${w.fundingAddress.slice(0, 6)}…${w.fundingAddress.slice(-4)}` : " · no funding source set"}
-      </p>
-      <div className="mt-3 flex items-center gap-1.5">
-        <button onClick={() => action("check-now")} disabled={busy === "check-now"} className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-          {busy === "check-now" ? "Checking…" : "Check now"}
-        </button>
-        <button onClick={() => action(w.status === "paused" ? "resume" : "pause")} disabled={busy != null} className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
-          {w.status === "paused" ? "Resume" : "Pause"}
-        </button>
-        <button onClick={() => setEditing(true)} className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700">Edit</button>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Gas tank</p>
+            <SignalBadge severity={verdict}>{verdictLabel}</SignalBadge>
+          </div>
+          <p className="mt-1 text-sm text-slate-700">
+            {isLow
+              ? `Below floor of ${minN} SOL. Dreyv is preparing a top-up of ${Math.max(targetN - (balanceN ?? 0), 0).toFixed(3)} SOL — review and sign to release.`
+              : pct < 0.5
+                ? `Sitting at ${(pct * 100).toFixed(0)}% of target. Dreyv will draft a refill the moment it crosses ${minN} SOL.`
+                : `Comfortable. ${(pct * 100).toFixed(0)}% of target — runway intact for upcoming on-chain ops.`}
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <RunwayStat label="Floor" value={`${minN} SOL`} />
+            <RunwayStat label="Target" value={`${targetN} SOL`} />
+            <RunwayStat label="Source" value={w.fundingAddress ? `${w.fundingAddress.slice(0, 4)}…${w.fundingAddress.slice(-3)}` : "Not set"} />
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            {w.lastCheckedAt ? `Last polled ${new Date(w.lastCheckedAt).toLocaleString()}` : "Awaiting first poll"}
+          </p>
+          <div className="mt-3 flex items-center gap-1.5">
+            <button onClick={() => action("check-now")} disabled={busy === "check-now"} className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+              {busy === "check-now" ? "Polling…" : "Check now"}
+            </button>
+            <button onClick={() => action(isPaused ? "resume" : "pause")} disabled={busy != null} className="rounded-lg border border-violet-200 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+              {isPaused ? "Resume" : "Pause"}
+            </button>
+            <button onClick={() => setEditing(true)} className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700">Edit</button>
+          </div>
+        </div>
       </div>
     </BlockShell>
   );
@@ -2145,6 +2210,28 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
 
   const open = rows.filter((r) => r.status === "pending" || r.status === "queued");
 
+  // Summary metrics for the header
+  const totalsByToken = new Map<string, number>();
+  let dueSoon = 0;
+  const now = Date.now();
+  const week = 7 * 24 * 3600 * 1000;
+  for (const r of open) {
+    totalsByToken.set(r.token, (totalsByToken.get(r.token) ?? 0) + Number(r.amount));
+    if (r.dueAt && new Date(r.dueAt).getTime() - now < week) dueSoon += 1;
+  }
+  const totalsLine = Array.from(totalsByToken.entries())
+    .map(([t, v]) => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${t}`).join(" · ") || "—";
+  // Build a 14-day timeline of upcoming due dates for the SVG
+  const horizonDays = 14;
+  const timelinePoints = open
+    .filter((r) => r.dueAt)
+    .map((r) => {
+      const days = Math.round((new Date(r.dueAt!).getTime() - now) / (24 * 3600 * 1000));
+      return { id: r.id, days, vendor: r.vendorName, token: r.token, amount: Number(r.amount), overdue: days < 0 };
+    })
+    .filter((p) => p.days <= horizonDays)
+    .sort((a, b) => a.days - b.days);
+
   return (
     <BlockShell block={block} accent="violet">
       {!wallet ? (
@@ -2152,49 +2239,116 @@ function InvoiceInboxBlock({ block }: { block: CanvasBlock }) {
       ) : (
         <>
           {(err || bulkMsg) && (
-            <p className={`mb-2 rounded-md px-2 py-1 text-[11px] ${err ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-violet-200 bg-violet-50 text-violet-800"}`}>
+            <p className={`mb-2 rounded-md px-2 py-1 text-[11px] ${err ? "border border-slate-900 bg-slate-900 text-white" : "border border-violet-200 bg-violet-50 text-violet-800"}`}>
               {err ?? bulkMsg}
             </p>
           )}
+
+          {/* Summary header + timeline */}
+          {open.length > 0 && (
+            <div className="mb-3 grid gap-3 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/60 to-white p-3 sm:grid-cols-[1fr_220px] sm:items-center">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Inbox · open</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900" style={{ fontFeatureSettings: "'tnum'" }}>
+                  {open.length} bill{open.length === 1 ? "" : "s"} · <span className="text-slate-700">{totalsLine}</span>
+                </p>
+                <p className="mt-0.5 text-[12px] text-slate-500">
+                  {dueSoon > 0 ? `${dueSoon} due in the next 7 days` : "Nothing due in the next 7 days"}
+                </p>
+              </div>
+              {/* 14-day due timeline */}
+              <div className="relative h-12 w-full">
+                <svg viewBox="0 0 220 48" className="h-12 w-full">
+                  <line x1={6} y1={32} x2={214} y2={32} stroke="#ede9fe" strokeWidth={2} strokeLinecap="round" />
+                  {[0, 7, 14].map((d) => {
+                    const x = 6 + (d / horizonDays) * 208;
+                    return (
+                      <g key={d}>
+                        <line x1={x} y1={28} x2={x} y2={36} stroke="#c4b5fd" strokeWidth={1} />
+                        <text x={x} y={46} textAnchor="middle" fontSize="7" fill="#7c3aed" fontWeight="600">{d === 0 ? "today" : `+${d}d`}</text>
+                      </g>
+                    );
+                  })}
+                  {timelinePoints.slice(0, 14).map((p, i) => {
+                    const x = 6 + (Math.max(p.days, 0) / horizonDays) * 208;
+                    const r = Math.min(7, 3 + Math.log10(Math.max(p.amount, 1)) * 1.5);
+                    return (
+                      <g key={p.id}>
+                        <circle cx={x} cy={32} r={r} fill={p.overdue ? "#0f172a" : "#7c3aed"} opacity={0.85} />
+                        {i < 3 && <text x={x} y={20} textAnchor="middle" fontSize="7" fill="#475569" fontWeight="600">{p.vendor.slice(0, 6)}</text>}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          )}
+
           {loading && open.length === 0 ? (
             <p className="text-sm text-slate-500">Loading invoices…</p>
           ) : open.length === 0 ? (
-            <p className="text-sm text-slate-600">No invoices in your inbox. Add one when a bill comes in — Dreyv batches them by due date.</p>
+            <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+              <div className="relative mx-auto" style={{ width: 140, height: 110 }}>
+                <svg viewBox="0 0 140 110" className="h-28 w-36">
+                  {/* Stacked envelope illustration */}
+                  {[0, 1, 2].map((i) => (
+                    <g key={i} transform={`translate(${10 + i * 6} ${20 + i * 8}) rotate(${-4 + i * 4} 50 30)`}>
+                      <rect width={84} height={50} rx={5} fill="#ffffff" stroke="#c4b5fd" strokeWidth={1.2} />
+                      <path d="M 0 0 L 42 28 L 84 0" fill="none" stroke="#a78bfa" strokeWidth={1} />
+                    </g>
+                  ))}
+                  <circle cx={108} cy={26} r={9} fill="#7c3aed" />
+                  <text x={108} y={30} textAnchor="middle" fontSize="10" fontWeight="700" fill="#ffffff">0</text>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Inbox empty</p>
+                <p className="mt-1 text-sm text-slate-700">No bills waiting. Forward an invoice or import a CSV — Dreyv batches them by due date and routes payments through your policy.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["Batched by due date", "Multi-token", "HITL approve"].map((c) => (
+                    <span key={c} className="rounded-full border border-violet-200 bg-violet-50/50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <ul className="divide-y divide-violet-100">
-              {open.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold text-slate-900">{r.vendorName}</span>
-                      {r.status === "queued" && (
-                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">In approval</span>
-                      )}
+              {open.map((r) => {
+                const dueDays = r.dueAt ? Math.round((new Date(r.dueAt).getTime() - now) / (24 * 3600 * 1000)) : null;
+                const dueTone: Severity = dueDays == null ? "neutral" : dueDays < 0 ? "risk" : dueDays <= 3 ? "watch" : "good";
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <DreyvStar size={10} className="text-violet-500" />
+                        <span className="truncate font-semibold text-slate-900">{r.vendorName}</span>
+                        {r.status === "queued" && <SignalBadge severity="neutral">In approval</SignalBadge>}
+                        {dueDays != null && <SignalBadge severity={dueTone}>{dueDays < 0 ? `${-dueDays}d overdue` : dueDays === 0 ? "due today" : `due in ${dueDays}d`}</SignalBadge>}
+                      </div>
+                      <p className="mt-0.5 truncate text-[12px] text-slate-500" style={{ fontFeatureSettings: "'tnum'" }}>
+                        {Number(r.amount).toLocaleString()} {r.token}
+                        {r.memo ? ` · ${r.memo}` : ""}
+                      </p>
                     </div>
-                    <p className="mt-0.5 truncate text-[12px] text-slate-500">
-                      {Number(r.amount).toLocaleString()} {r.token}
-                      {r.dueAt ? ` · due ${fmtDate(r.dueAt)}` : ""}
-                      {r.memo ? ` · ${r.memo}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {r.status === "pending" && (
-                      <button onClick={() => action(r.id, "pay")} disabled={busy === r.id}
-                        className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-                        Queue payment
-                      </button>
-                    )}
-                    {r.status === "pending" && (
-                      <button onClick={() => action(r.id, "reject")} disabled={busy === r.id}
-                        className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-700">
-                        Reject
-                      </button>
-                    )}
-                    <button onClick={() => action(r.id, "delete")} disabled={busy === r.id}
-                      className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-rose-600">×</button>
-                  </div>
-                </li>
-              ))}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {r.status === "pending" && (
+                        <button onClick={() => action(r.id, "pay")} disabled={busy === r.id}
+                          className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                          Queue payment
+                        </button>
+                      )}
+                      {r.status === "pending" && (
+                        <button onClick={() => action(r.id, "reject")} disabled={busy === r.id}
+                          className="rounded-lg border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-violet-50">
+                          Reject
+                        </button>
+                      )}
+                      <button onClick={() => action(r.id, "delete")} disabled={busy === r.id}
+                        className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-700">×</button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -2385,27 +2539,52 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
               </div>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="grid gap-2 sm:grid-cols-2">
               {routes.map((r) => {
                 const venueLabel = YIELD_VENUES.find((v) => v.id === r.venue)?.label ?? r.venue;
-                const tone = r.status === "active" ? "emerald" : r.status === "exited" ? "slate" : r.status === "paused" ? "amber" : "violet";
+                const sev: Severity = r.status === "active" ? "good" : r.status === "paused" ? "watch" : r.status === "exited" ? "neutral" : "neutral";
+                const liveApy = r.lastApyBps != null ? r.lastApyBps / 100 : null;
+                const minApy = r.minApyBps != null ? r.minApyBps / 100 : null;
+                // APY ring: scale 0..25%
+                const apyPct = liveApy != null ? Math.max(0, Math.min(1, liveApy / 25)) : 0;
+                const ringR = 18, ringC = 2 * Math.PI * ringR;
+                const dash = ringC * apyPct;
                 return (
-                  <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-violet-100 bg-white px-2.5 py-1.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-semibold text-slate-900">{venueLabel}</span>
-                        <span className="text-[12px] text-slate-500">{r.token} · {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <Pill tone={tone === "emerald" ? "emerald" : tone === "amber" ? "amber" : tone === "slate" ? "slate" : "violet"}>{r.status}</Pill>
+                  <div key={r.id} className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/30 p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0" style={{ width: 56, height: 56 }}>
+                        <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
+                          <circle cx={28} cy={28} r={ringR} stroke="#ede9fe" strokeWidth={5} fill="none" />
+                          {liveApy != null && (
+                            <circle cx={28} cy={28} r={ringR} stroke="#7c3aed" strokeWidth={5} fill="none"
+                              strokeLinecap="round" strokeDasharray={`${dash} ${ringC}`} />
+                          )}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-[11px] font-semibold text-slate-900" style={{ fontFeatureSettings: "'tnum'" }}>
+                            {liveApy != null ? `${liveApy.toFixed(1)}%` : "—"}
+                          </span>
+                          <span className="text-[7px] font-semibold uppercase tracking-wider text-violet-600">APY</span>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        {r.riskBand} band{r.minApyBps != null ? ` · min ${(r.minApyBps / 100).toFixed(2)}% APY` : ""}
-                        {r.lastApyBps != null ? ` · live ${(r.lastApyBps / 100).toFixed(2)}%` : ""}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <DreyvStar size={10} className="text-violet-500" />
+                          <span className="truncate text-sm font-semibold text-slate-900">{venueLabel}</span>
+                          <SignalBadge severity={sev}>{r.status}</SignalBadge>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-slate-600" style={{ fontFeatureSettings: "'tnum'" }}>
+                          {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {r.token}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {r.riskBand} band{minApy != null ? ` · floor ${minApy.toFixed(2)}%` : ""}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
                       {r.status === "draft" && (
                         <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
-                          className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                          className="rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                           {busy === `${r.id}:deploy` ? "Queueing…" : "Deploy"}
                         </button>
                       )}
@@ -2414,7 +2593,7 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           <button onClick={() => action(r.id, "pause")} disabled={busy != null}
                             className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Pause</button>
                           <button onClick={() => action(r.id, "exit")} disabled={busy != null}
-                            className="rounded-md border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50">Exit</button>
+                            className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-violet-50">Exit</button>
                         </>
                       )}
                       {r.status === "paused" && (
@@ -2422,7 +2601,7 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Resume</button>
                       )}
                       <button onClick={() => remove(r.id)} disabled={busy != null}
-                        className="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-rose-600">×</button>
+                        className="ml-auto rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-700">×</button>
                     </div>
                   </div>
                 );
