@@ -317,12 +317,9 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
     <BlockShell block={block} accent="violet">
       {status !== "error" && status !== "failed" && (
         <div className="mb-2 flex">
-          <Pill tone={statusTone as "violet" | "emerald" | "rose" | "slate"}>
-            {status === "running" || status === "streaming" ? (
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-            ) : null}
+          <SignalBadge severity={status === "complete" || status === "success" ? "good" : status === "running" || status === "streaming" ? "neutral" : "neutral"}>
             {status}
-          </Pill>
+          </SignalBadge>
         </div>
       )}
       {summary && <ClampedBody text={summary} />}
@@ -357,14 +354,21 @@ function PlanBlock({ block }: { block: CanvasBlock }) {
 function WatcherBlock({ block }: { block: CanvasBlock }) {
   const status = asString(block.payload.status, "watching");
   const condition = asString(block.payload.condition);
+  const triggered = status === "triggered" || status === "fired";
   return (
-    <BlockShell block={block} accent="emerald">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-slate-700">{condition || "Conditions configured."}</div>
-        <Pill tone={status === "triggered" ? "rose" : "emerald"}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-          {status}
-        </Pill>
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="relative mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
+          <DreyvStar size={11} />
+          {!triggered && (
+            <span className="absolute inset-0 rounded-xl border border-violet-300 motion-safe:animate-ping opacity-60" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Watcher · {status}</p>
+          <p className="mt-1 text-sm text-slate-700">{condition || "Conditions configured."}</p>
+        </div>
+        <SignalBadge severity={triggered ? "risk" : "good"}>{triggered ? "fired" : "live"}</SignalBadge>
       </div>
     </BlockShell>
   );
@@ -374,24 +378,32 @@ function DecisionBlock({ block }: { block: CanvasBlock }) {
   const choices = asArray<{ label?: string; href?: string; tone?: "primary" | "ghost" }>(block.payload.choices);
   const rationale = asString(block.payload.rationale);
   return (
-    <BlockShell block={block} accent="rose">
-      {rationale && <p className="text-sm leading-relaxed text-slate-700">{rationale}</p>}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {choices.map((c, i) => {
-          const tone = c.tone === "ghost";
-          const cls = tone
-            ? "rounded-xl px-4 py-2 text-sm font-medium text-slate-700 hover:bg-violet-50"
-            : "rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700";
-          return c.href ? (
-            <Link key={i} href={c.href} className={cls}>
-              {asString(c.label, "Continue")}
-            </Link>
-          ) : (
-            <button key={i} className={cls} disabled>
-              {asString(c.label, "Continue")}
-            </button>
-          );
-        })}
+    <BlockShell block={block} accent="violet">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-white text-violet-700">
+          <DreyvStar size={11} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Decision needed</p>
+          {rationale && <p className="mt-1 text-sm leading-relaxed text-slate-700">{rationale}</p>}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {choices.map((c, i) => {
+              const ghost = c.tone === "ghost" || i > 0;
+              const cls = ghost
+                ? "rounded-xl border border-violet-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-violet-700 hover:bg-violet-50"
+                : "rounded-xl bg-violet-600 px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700";
+              return c.href ? (
+                <Link key={i} href={c.href} className={cls}>
+                  {asString(c.label, "Continue")}
+                </Link>
+              ) : (
+                <button key={i} className={cls} disabled>
+                  {asString(c.label, "Continue")}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </BlockShell>
   );
