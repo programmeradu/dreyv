@@ -715,17 +715,17 @@ function RosterConstellation({
   // Org chart: a "Treasury" hub on the left, wallet chips fanned out to the
   // right via soft violet sinew lines. Sized so labels never clip and the
   // active wallet stays legible (no full violet wash that hides the address).
-  const W = 560;
-  const rowH = 56;
-  const padTop = 20;
-  const padBottom = 20;
-  const H = Math.max(160, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
-  const coreX = 96;
+  const W = 460;
+  const rowH = 40;
+  const padTop = 12;
+  const padBottom = 12;
+  const H = Math.max(108, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
+  const coreX = 64;
   const coreY = H / 2;
-  const coreR = 52;
-  const chipX = 240;
-  const chipW = 280;
-  const chipH = 44;
+  const coreR = 34;
+  const chipX = 168;
+  const chipW = 270;
+  const chipH = 32;
 
   const truncate = (s: string, h = 4, t = 4) =>
     s.length <= h + t + 1 ? s : `${s.slice(0, h)}…${s.slice(-t)}`;
@@ -760,20 +760,20 @@ function RosterConstellation({
       </defs>
 
       {/* Core: the Treasury hub */}
-      <circle cx={coreX} cy={coreY} r={coreR + 18} fill="url(#roster-core-glow)" />
+      <circle cx={coreX} cy={coreY} r={coreR + 14} fill="url(#roster-core-glow)" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="#0f172a" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />
       {/* Dreyv mark inside core */}
-      <g transform={`translate(${coreX} ${coreY - 14})`}>
+      <g transform={`translate(${coreX} ${coreY - 9})`}>
         <path
-          d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z"
+          d="M0,-7 L1.8,-1.8 L7,0 L1.8,1.8 L0,7 L-1.8,1.8 L-7,0 L-1.8,-1.8 Z"
           fill="#a78bfa"
         />
       </g>
-      <text x={coreX} y={coreY + 8} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="700" letterSpacing="1.6">
+      <text x={coreX} y={coreY + 6} textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="700" letterSpacing="1.4">
         TREASURY
       </text>
-      <text x={coreX} y={coreY + 22} textAnchor="middle" fill="#a78bfa" fontSize="8.5" letterSpacing="1">
+      <text x={coreX} y={coreY + 17} textAnchor="middle" fill="#a78bfa" fontSize="7" letterSpacing="0.8">
         {vaults.length} {vaults.length === 1 ? "WALLET" : "WALLETS"}
       </text>
 
@@ -807,21 +807,21 @@ function RosterConstellation({
               stroke={s.stroke}
               strokeWidth={isActive ? 1.6 : 1}
             />
-            <text x={chipX + 16} y={y - 4} fontSize="12" fontWeight="700" fill="#0f172a">
-              {truncate(v.label ?? v.address, 18, 0)}
+            <text x={chipX + 12} y={y - 3} fontSize="10.5" fontWeight="700" fill="#0f172a">
+              {truncate(v.label ?? v.address, 16, 0)}
             </text>
-            <text x={chipX + 16} y={y + 12} fontSize="9.5" fill="#64748b" letterSpacing="0.4" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
-              {truncate(v.address, 6, 6)}
+            <text x={chipX + 12} y={y + 9} fontSize="8.5" fill="#64748b" letterSpacing="0.3" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+              {truncate(v.address, 5, 5)}
             </text>
             {/* Role tag */}
-            <rect x={tagX} y={y - 9} width={tagW} height={18} rx={9} fill={s.tagBg} />
+            <rect x={tagX} y={y - 7} width={tagW} height={14} rx={7} fill={s.tagBg} />
             <text
               x={tagX + tagW / 2}
-              y={y + 4}
+              y={y + 3}
               textAnchor="middle"
-              fontSize="9"
+              fontSize="8"
               fontWeight="700"
-              letterSpacing="1"
+              letterSpacing="0.8"
               fill={s.tagFg}
             >
               {s.label}
