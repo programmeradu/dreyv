@@ -224,12 +224,12 @@ function TreasuryBubbles({ tokens }: { tokens: any[] }) {
 function AnalyticsMascot() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Chart anchored bottom-left */}
+      {/* Chart + mascot anchored together bottom-right */}
       <svg
         viewBox="0 0 100 50"
-        width="140"
-        height="70"
-        className="absolute bottom-3 left-5"
+        width="112"
+        height="56"
+        className="absolute bottom-3 right-12"
         aria-hidden
       >
         <defs>
@@ -266,9 +266,9 @@ function AnalyticsMascot() {
         <path d="M5.5 38 L10 38 M8 36 L10 38 L8 40" stroke="#fff" strokeWidth="0.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
 
-      {/* Mascot anchored bottom-right */}
-      <div className="absolute bottom-2 right-3 opacity-95 transition duration-300 group-hover:scale-105 group-hover:-translate-y-0.5">
-        <DryvMascot pose="celebrate" size={56} glow={false} />
+      {/* Mascot anchored bottom-right beside the chart */}
+      <div className="absolute bottom-3 right-3 opacity-95 transition duration-300 group-hover:scale-105 group-hover:-translate-y-0.5">
+        <DryvMascot pose="celebrate" size={48} glow={false} />
       </div>
     </div>
   );
