@@ -705,6 +705,53 @@ function shortAddr(addr: string): string {
  * Squads multisig auto-detection is handled by VaultContext on activation —
  * we only mark `kind: 'multisig'` when the user explicitly toggles it.
  */
+function RosterConstellation({
+  vaults,
+  activeAddress,
+}: {
+  vaults: Array<{ address: string; label?: string; kind?: string }>;
+  activeAddress: string | null;
+}) {
+  const W = 280;
+  const H = 96;
+  const cx = W / 2;
+  const cy = H / 2;
+  const n = Math.max(vaults.length, 1);
+  const radius = Math.min(38, 14 + n * 4);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-20 w-full" role="img" aria-label="Wallet roster constellation">
+      <defs>
+        <radialGradient id="roster-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx={cx} cy={cy} r={radius + 14} fill="url(#roster-core)" />
+      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#ddd6fe" strokeDasharray="2 4" />
+      {vaults.map((v, i) => {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const isActive = v.address === activeAddress;
+        const isMultisig = v.kind === "multisig";
+        const isWatch = v.kind === "watch";
+        const fill = isActive ? "#7c3aed" : isMultisig ? "#a78bfa" : isWatch ? "#cbd5e1" : "#8b5cf6";
+        return (
+          <g key={v.address}>
+            <line x1={cx} y1={cy} x2={x} y2={y} stroke={isActive ? "#a78bfa" : "#ede9fe"} strokeWidth={isActive ? 1.2 : 0.8} />
+            <circle cx={x} cy={y} r={isActive ? 5 : 3.5} fill={fill} />
+            {isActive && <circle cx={x} cy={y} r={8} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />}
+          </g>
+        );
+      })}
+      {/* Core mark */}
+      <circle cx={cx} cy={cy} r={6} fill="#0f172a" />
+      <circle cx={cx} cy={cy} r={2.2} fill="#a78bfa" />
+    </svg>
+  );
+}
+
 function WalletsRosterBlock({ block }: { block: CanvasBlock }) {
   // Legacy payload (still rendered if no live registry yet)
   const fallbackWallets = asArray<WalletRow>(block.payload.wallets);
