@@ -1002,17 +1002,31 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
   const months = burnUsable && balanceUsable ? stableBalance / burn : (seededMonths ?? null);
 
   if (months === null) {
+    const reason = sample === 0
+      ? "No outflows watched yet. Dreyv will fill in runway as soon as it sees a few outflows — or you can log them via the events API."
+      : burnUsable
+        ? "No stable balance to draw from yet. Top up USDC or USDT and runway will appear."
+        : "Burn rate is effectively zero right now, so runway is unbounded at current pace.";
     return (
-      <BlockShell block={block} accent="slate">
-        <p className="text-sm text-slate-600">
-          {sample === 0
-            ? "No outflows recorded yet for this wallet. Once Dreyv watches a few outflows (or you log them via the events API), runway fills in automatically."
-            : burnUsable
-              ? "No stable balance to draw from yet — top up USDC/USDT to see runway."
-              : "Burn rate is effectively zero right now, so runway is unbounded at current pace."}
-        </p>
+      <BlockShell block={block} accent="violet">
+        <div className="grid gap-5 sm:grid-cols-[150px_1fr] sm:items-center">
+          <RunwayEmptyArt />
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Runway</p>
+              <SignalBadge severity="neutral">awaiting data</SignalBadge>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{reason}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <SignalBadge severity="neutral" showStar={false}>90-day window</SignalBadge>
+              <SignalBadge severity="neutral" showStar={false}>auto-fills</SignalBadge>
+              <SignalBadge severity="neutral" showStar={false}>stables-aware</SignalBadge>
+            </div>
+          </div>
+        </div>
       </BlockShell>
     );
+  }
   }
 
   const severity = months >= 18 ? "good" : months >= 9 ? "neutral" : months >= 6 ? "watch" : "risk";
