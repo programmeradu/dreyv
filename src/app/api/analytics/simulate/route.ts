@@ -95,7 +95,14 @@ interface ProjectionResult {
   riskFlags: string[];
 }
 
-function project(req: RequestBody): ProjectionResult {
+interface LegacyProjectInput {
+  portfolio: PortfolioToken[];
+  variables: SimulationVariable[];
+  timeframeMonths: number;
+  baselineAttribution?: BaselineAttribution | null;
+}
+
+function project(req: LegacyProjectInput): ProjectionResult {
   const { portfolio, variables, timeframeMonths } = req;
   const stable = portfolio.filter(isStable);
   const volatile = portfolio.filter((t) => !isStable(t));
