@@ -1204,15 +1204,45 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
     );
   }
 
+  // Risk tier for the batch (replaces emerald/rose)
+  const batchSeverity: Severity =
+    totalAmount > 10_000 ? "risk" : totalAmount > 1_000 ? "watch" : valid.length > 0 ? "good" : "neutral";
+  const tokenSet = useMemo(() => Array.from(new Set(valid.map((r) => r.token).filter(Boolean))), [valid]);
+
   return (
     <BlockShell block={block} accent="violet">
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* Header summary + fan-out visualization */}
+        <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
+          <FanOutGraph count={valid.length} />
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-display text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                {totalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">{defaultToken}</span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Batch payout · {valid.length} recipient{valid.length === 1 ? "" : "s"}
+              {invalidCount > 0 && <span className="text-slate-400"> · {invalidCount} skipped</span>}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <SignalBadge severity={batchSeverity}>
+                {totalAmount > 10_000 ? "High value" : totalAmount > 1_000 ? "Medium" : valid.length > 0 ? "Low value" : "Empty"}
+              </SignalBadge>
+              {isMultisig && <SignalBadge severity="neutral">Squads multisig</SignalBadge>}
+              {tokenSet.length > 1 && <SignalBadge severity="watch">{tokenSet.length} tokens</SignalBadge>}
+              {invalidCount > 0 && <SignalBadge severity="risk">{invalidCount} invalid</SignalBadge>}
+            </div>
+          </div>
+        </div>
+
         {/* Drop zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={onDrop}
-          className={`relative rounded-xl border-2 border-dashed px-3 py-3 text-center transition-colors ${
+          className={`relative rounded-2xl border-2 border-dashed px-3 py-3 text-center transition-colors ${
             isDragging ? "border-violet-500 bg-violet-50" : "border-violet-200 bg-violet-50/40 hover:bg-violet-50"
           }`}
         >
@@ -1237,23 +1267,21 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
             )}
           </p>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            Columns auto-detected: address, amount, token, label · addresses validated · saved for reuse
+            address · amount · token · label — auto-detected & validated
           </p>
           {activeFileName && (
-            <p className="mt-1 text-[10px] font-mono text-violet-700">📄 {activeFileName}</p>
+            <p className="mt-1 inline-flex items-center gap-1.5 text-[10px] font-mono text-violet-700">
+              <DreyvStar size={9} className="text-violet-500" /> {activeFileName}
+            </p>
           )}
         </div>
 
-        {/* Saved files dropdown */}
         {showSaved && savedFiles.length > 0 && (
           <div className="rounded-xl border border-violet-100 bg-white">
             <ul className="max-h-32 divide-y divide-violet-100/70 overflow-y-auto">
               {savedFiles.slice(0, 10).map((f) => (
                 <li key={f.id} className="flex items-center justify-between px-3 py-1.5 text-[12px]">
-                  <button
-                    onClick={() => loadSaved(f.id)}
-                    className="flex-1 text-left hover:text-violet-700"
-                  >
+                  <button onClick={() => loadSaved(f.id)} className="flex-1 text-left hover:text-violet-700">
                     <span className="font-medium text-slate-800">{f.name}</span>
                     <span className="ml-2 text-[10px] text-slate-500">
                       {f.recipientCount} · {f.totalAmount.toLocaleString()} {f.tokenSummary}
@@ -1261,11 +1289,9 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
                   </button>
                   <button
                     onClick={() => deleteFile(f.id)}
-                    className="text-[10px] text-slate-400 hover:text-rose-600"
+                    className="text-[10px] text-slate-400 hover:text-violet-600"
                     aria-label="Delete saved file"
-                  >
-                    ✕
-                  </button>
+                  >✕</button>
                 </li>
               ))}
             </ul>
@@ -1273,12 +1299,14 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
         )}
 
         {parseErrors.length > 0 && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
-            {parseErrors.map((e, i) => <div key={i}>· {e}</div>)}
+          <div className="rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2 text-[11px] text-violet-900">
+            <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-700">
+              <DreyvStar size={9} className="text-violet-500" /> Parser notes
+            </p>
+            {parseErrors.map((e, i) => <div key={i} className="flex gap-1.5"><DreyvStar size={8} className="mt-1 shrink-0 text-violet-400" />{e}</div>)}
           </div>
         )}
 
-        {/* Default token + manual paste */}
         <div className="flex items-center gap-2">
           <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Default token</label>
           <select
@@ -1310,11 +1338,14 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
               <ul className="max-h-40 divide-y divide-violet-100/70 overflow-y-auto">
                 {recipients.slice(0, 50).map((r, i) => (
                   <li key={`${r.address}-${i}`} className="grid grid-cols-[1.4fr_0.7fr_0.5fr_auto] items-center gap-2 px-3 py-1.5 text-[12px]">
-                    <span className="truncate font-mono text-slate-700">{r.address ? `${r.address.slice(0,4)}…${r.address.slice(-4)}` : "—"}</span>
+                    <span className="flex min-w-0 items-center gap-1.5 truncate font-mono text-slate-700">
+                      <DreyvStar size={8} className={r.error ? "text-violet-300" : "text-violet-500"} />
+                      {r.address ? `${r.address.slice(0,4)}…${r.address.slice(-4)}` : "—"}
+                    </span>
                     <span className="text-right tabular-nums text-slate-900">{Number.isFinite(r.amount) ? r.amount.toLocaleString() : "—"}</span>
                     <span className="text-slate-600">{r.token}</span>
-                    <span className={`text-right text-[10px] font-semibold uppercase tracking-wider ${r.error ? "text-rose-600" : "text-emerald-600"}`}>
-                      {r.error ?? "ok"}
+                    <span className="flex justify-end">
+                      <SignalBadge severity={r.error ? "risk" : "good"}>{r.error ?? "ok"}</SignalBadge>
                     </span>
                   </li>
                 ))}
@@ -1330,8 +1361,8 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
           </p>
           <div className="flex items-center gap-2">
             {queuedId && (
-              <Link href="/app/inbox" className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700">
-                Queued ✓ open inbox
+              <Link href="/app/inbox" className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 hover:text-violet-900">
+                <DreyvStar size={9} className="text-violet-500" /> Queued — open inbox
               </Link>
             )}
             <button
@@ -1345,6 +1376,54 @@ function MassSendBlock({ block }: { block: CanvasBlock }) {
         </div>
       </div>
     </BlockShell>
+  );
+}
+
+/** Fan-out distribution SVG: one violet source → up to 12 ray endpoints scaled to recipient count. */
+function FanOutGraph({ count }: { count: number }) {
+  const shown = Math.min(Math.max(count, 0), 12);
+  const rays = Array.from({ length: 12 }, (_, i) => {
+    const angle = (Math.PI * (i + 0.5)) / 12 - Math.PI / 2; // -90deg..+90deg fan
+    const r = 70;
+    const x = 90 + Math.cos(angle) * r;
+    const y = 80 + Math.sin(angle) * r;
+    const active = i < shown;
+    return { x, y, active };
+  });
+  return (
+    <svg viewBox="0 0 180 110" className="h-[110px] w-full" role="img" aria-label="Mass send fan-out">
+      <defs>
+        <radialGradient id="msHub" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="20" cy="80" r="22" fill="url(#msHub)" />
+      {rays.map((r, i) => (
+        <line
+          key={i}
+          x1={20} y1={80} x2={r.x} y2={r.y}
+          stroke={r.active ? "#7c3aed" : "#ede9fe"}
+          strokeWidth={r.active ? 1.2 : 1}
+          strokeDasharray={r.active ? "0" : "2 3"}
+        />
+      ))}
+      {rays.map((r, i) => (
+        <circle
+          key={`d-${i}`}
+          cx={r.x} cy={r.y}
+          r={r.active ? 3 : 2}
+          fill={r.active ? "#7c3aed" : "#fff"}
+          stroke={r.active ? "#7c3aed" : "#c4b5fd"}
+          strokeWidth={1}
+        />
+      ))}
+      <circle cx="20" cy="80" r="9" fill="#7c3aed" />
+      <text x="20" y="83" textAnchor="middle" fontSize="9" fontWeight="700" fill="#fff">$</text>
+      <text x="92" y="14" textAnchor="middle" fontSize="9" fontWeight="600" fill="#7c3aed" letterSpacing="1.2">
+        {count} RECIPIENTS
+      </text>
+    </svg>
   );
 }
 
