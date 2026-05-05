@@ -20,6 +20,8 @@ import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
 import { parseCsv, readFileAsText } from "@/lib/csv";
 import { ForesightWhatIfBlock } from "./ForesightWhatIfBlock";
+import { SignalBadge, type Severity } from "@/components/analytics/SignalBadge";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 /**
  * Lightweight markdown renderer for narrative/summary text.
