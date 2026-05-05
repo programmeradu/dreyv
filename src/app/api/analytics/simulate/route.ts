@@ -530,7 +530,8 @@ function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC"
     asOf: new Date().toISOString(),
     ir: p.ir,
     simulated: {
-      vaultValue: p.startValue,
+      vaultValue: p.endValue,
+      startValue: p.startValue,
       vaultChange24h: simulatedChange24h,
       tokens: p.endTokens,
       valueSeries,
