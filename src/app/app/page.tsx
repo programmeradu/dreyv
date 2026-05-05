@@ -20,6 +20,8 @@ import { AgentsRail } from "@/components/canvas/AgentsRail";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenAvatar } from "@/components/TokenAvatar";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault } = useVault();
