@@ -123,13 +123,29 @@ export default function AppHomePage() {
   );
 }
 
-function NavTile({ href, eyebrow, title }: { href: string; eyebrow: string; title: string }) {
+function NavTile({
+  href,
+  eyebrow,
+  title,
+  variant,
+  tokens,
+}: {
+  href: string;
+  eyebrow: string;
+  title: string;
+  variant?: "treasury" | "analytics";
+  tokens?: any[];
+}) {
   return (
     <Link
       href={href}
-      className="group relative overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400"
+      className="group relative h-32 overflow-hidden rounded-2xl border border-violet-200 bg-white p-4 transition hover:border-violet-400"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-violet-300/25 blur-2xl transition group-hover:bg-violet-400/40" />
+
+      {variant === "treasury" && <TreasuryBubbles tokens={tokens ?? []} />}
+      {variant === "analytics" && <AnalyticsMascot />}
+
       <DreyvStar size={10} className="absolute right-3 top-3 text-violet-300 transition group-hover:text-violet-500" />
       <div className="relative">
         <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
@@ -143,5 +159,84 @@ function NavTile({ href, eyebrow, title }: { href: string; eyebrow: string; titl
         </span>
       </div>
     </Link>
+  );
+}
+
+function TreasuryBubbles({ tokens }: { tokens: any[] }) {
+  // Pick up to 5 tokens with logos; fallback to a few placeholder symbols so the
+  // tile always feels alive even before a wallet is connected.
+  const picks = (tokens || [])
+    .filter((t) => t && (t.logo || t.symbol))
+    .slice(0, 5);
+  const fallback = [
+    { symbol: "SOL" },
+    { symbol: "USDC" },
+    { symbol: "JUP" },
+    { symbol: "BONK" },
+    { symbol: "JTO" },
+  ];
+  const items = picks.length > 0 ? picks : fallback;
+
+  // Stacked in a "jar" cluster bottom-right, slight rotation for playfulness.
+  const positions = [
+    { right: 8, bottom: 6, size: 30, delay: 0 },
+    { right: 30, bottom: 10, size: 24, delay: 0.05 },
+    { right: 14, bottom: 30, size: 22, delay: 0.1 },
+    { right: 44, bottom: 4, size: 20, delay: 0.15 },
+    { right: 36, bottom: 28, size: 18, delay: 0.2 },
+  ];
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Jar curve — soft violet wash hugging bottom-right */}
+      <div className="absolute -bottom-8 -right-8 h-28 w-28 rounded-full bg-gradient-to-tl from-violet-100 to-transparent" />
+      <div className="absolute bottom-0 right-0 h-16 w-24 rounded-tl-[3rem] border-l border-t border-violet-200/70 bg-violet-50/40" />
+      {items.map((tk, i) => {
+        const p = positions[i];
+        if (!p) return null;
+        return (
+          <div
+            key={(tk.symbol || tk.mint || i) + "-" + i}
+            className="absolute animate-[float_4s_ease-in-out_infinite] drop-shadow-[0_4px_8px_rgba(124,58,237,0.18)]"
+            style={{
+              right: p.right,
+              bottom: p.bottom,
+              animationDelay: `${p.delay}s`,
+            }}
+          >
+            <TokenAvatar symbol={tk.symbol} mint={tk.mint} logo={tk.logo} size={p.size} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnalyticsMascot() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Rising bar chart bars behind mascot */}
+      <svg
+        viewBox="0 0 120 60"
+        className="absolute bottom-0 right-2 h-16 w-32 opacity-80"
+        aria-hidden
+      >
+        <rect x="6" y="38" width="10" height="22" rx="2" fill="#ddd6fe" />
+        <rect x="22" y="28" width="10" height="32" rx="2" fill="#c4b5fd" />
+        <rect x="38" y="18" width="10" height="42" rx="2" fill="#a78bfa" />
+        <rect x="54" y="10" width="10" height="50" rx="2" fill="#8b5cf6" />
+        <path
+          d="M6 36 L22 26 L38 16 L54 8 L70 4"
+          stroke="#7c3aed"
+          strokeWidth="1.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <path d="M70 4 l-4 1 l3 3 z" fill="#7c3aed" />
+      </svg>
+      <div className="absolute -bottom-2 right-1 opacity-90 transition group-hover:scale-105 group-hover:-translate-y-0.5">
+        <DryvMascot pose="celebrate" size={64} glow={false} />
+      </div>
+    </div>
   );
 }
