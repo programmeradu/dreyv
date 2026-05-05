@@ -229,7 +229,7 @@ function AnalyticsMascot() {
         viewBox="0 0 100 50"
         width="112"
         height="56"
-        className="absolute bottom-3 right-[44px]"
+        className="absolute bottom-3 right-[18px]"
         aria-hidden
       >
         <defs>
