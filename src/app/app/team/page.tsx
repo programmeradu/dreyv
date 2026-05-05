@@ -478,6 +478,8 @@ export default function TeamPage() {
     const self = useSelf();
     const { activeVault, vaultConfig } = useVault();
     const { activeTeam } = useTeam();
+    const { profile } = useProfile();
+    const selfAvatarSeed = profile?.avatarSeed || profile?.displayName || self?.info?.name || "ME";
     const vaultAddress = activeVault || "";
 
     const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
