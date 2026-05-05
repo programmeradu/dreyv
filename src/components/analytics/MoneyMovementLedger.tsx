@@ -36,6 +36,8 @@ interface Props {
   range?: "7d" | "30d" | "90d";
   /** Provisional fallback when no events exist. */
   snapshotSeries?: SnapshotPoint[];
+  /** When provided (sim mode), bypass /api/treasury/pnl-daily and synthesize rows from these events. */
+  simulatedEvents?: Array<{ id: string; type: string; category: string; amountUsd: number; capturedAt: string }> | null;
 }
 
 function fmtCompact(n: number): string {
