@@ -385,6 +385,16 @@ export function CommandBar() {
           const ir = (output.ir as import("@/lib/foresight/simulation-ir").SimulationIR | undefined) ?? null;
           const flatFromIr = output.flatVariables as ReturnType<typeof foresightVariablesToSimulationVariables> | undefined;
           const simVariables = flatFromIr && flatFromIr.length > 0 ? flatFromIr : foresightVariablesToSimulationVariables(variablesRecord);
+          const needsClarify = output.needsClarify === true;
+
+          // #3 — when planner flagged unknowns, do NOT auto-run /analytics overlay.
+          // The clarify chips render in the tool card and the user picks one.
+          if (needsClarify) {
+            toast.message("Need a couple more inputs", {
+              description: "Tap a chip below to fill in the missing piece.",
+            });
+            return;
+          }
 
           simStore.startSimulation(scenario, simVariables, timeframeMonths, ir);
           setTimeout(() => {
