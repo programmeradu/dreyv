@@ -190,9 +190,9 @@ export function TreasuryCommandDock() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">
             Ask Dreyv
           </p>
-          <h3 className="mt-0.5 font-manrope text-base font-semibold tracking-tight text-slate-900">
-            What would you like to do next?
-          </h3>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Tap a prompt or open the command bar.
+          </p>
         </div>
         <button
           type="button"
@@ -208,13 +208,13 @@ export function TreasuryCommandDock() {
         </button>
       </div>
 
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-3 grid gap-1 sm:grid-cols-2">
         {suggestions.map((s) => (
           <li key={`${s.domain}:${s.label}`}>
             <button
               type="button"
               onClick={() => send(s)}
-              className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-3 py-2.5 text-left hover:border-violet-300 hover:bg-violet-50/60"
+              className="group flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-violet-50"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-violet-800">
@@ -224,9 +224,12 @@ export function TreasuryCommandDock() {
                   {s.prompt}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border border-violet-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-                {DOMAIN_LABEL[s.domain]}
-              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-600/70 group-hover:text-violet-700">
+                  {DOMAIN_LABEL[s.domain]}
+                </span>
+                <span className="text-violet-500 opacity-0 transition group-hover:opacity-100" aria-hidden>→</span>
+              </div>
             </button>
           </li>
         ))}
