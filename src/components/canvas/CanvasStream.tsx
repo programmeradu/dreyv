@@ -11,6 +11,8 @@
 import { Reorder, AnimatePresence, motion } from "framer-motion";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { CanvasBlockView } from "./blocks/CanvasBlockView";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {}) {
   const { blocks: allBlocks, reorderBlocks } = useCanvas();
@@ -18,7 +20,6 @@ export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {
     if (!scope) return true;
     const origin = b.origin ?? "";
     if (scope === "treasury") return origin.startsWith("/app/treasury");
-    // dashboard: anything not explicitly scoped to a sub-page
     return !origin.startsWith("/app/treasury") && !origin.startsWith("/app/analytics");
   });
   const pinned = blocks.filter((b) => b.pinned);
@@ -26,18 +27,26 @@ export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {
 
   if (blocks.length === 0) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-violet-200/70 bg-white px-6 py-16 text-center">
-        {/* Brand-native ambient mark — no stock icon */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-40 w-40 -translate-y-1/2 rounded-full bg-violet-400/30 blur-3xl" />
-        <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-600 shadow-[0_10px_40px_-10px_rgba(124,58,237,0.6)]">
-          <span className="font-manrope text-xl font-bold text-white">D</span>
+      <div className="relative overflow-hidden rounded-3xl border border-violet-100 bg-white px-6 py-12 sm:py-16">
+        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-violet-300/30 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 bottom-[-100px] h-64 w-64 rounded-full bg-violet-200/40 blur-3xl" />
+        <div className="relative grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-600">
+              <DreyvStar size={10} />
+              <span>Your canvas</span>
+            </div>
+            <h3 className="mt-2 font-manrope text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+              A quiet canvas, ready when you are.
+            </h3>
+            <p className="mt-1.5 max-w-md text-sm leading-relaxed text-slate-600">
+              Ask Dreyv anything below — every answer, plan, and insight will land here as a card you can pin, reorder, or dismiss.
+            </p>
+          </div>
+          <div className="hidden sm:block">
+            <DryvMascot pose="greet" size={140} />
+          </div>
         </div>
-        <h3 className="relative mt-5 font-manrope text-lg font-semibold tracking-tight text-slate-900">
-          Your canvas is quiet
-        </h3>
-        <p className="relative mt-1 text-sm text-slate-600">
-          Ask Dreyv anything below — every answer, plan, and insight will land here.
-        </p>
       </div>
     );
   }
