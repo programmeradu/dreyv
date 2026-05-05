@@ -237,6 +237,8 @@ export function runSimulationIR(ir: SimulationIR): IRProjectionResult {
         0,
       );
       if (totalNow <= 0) continue;
+      const targetsArePriced = Object.keys(r.targetAllocationPct).every((sym) => (runningPrice[sym] || 0) > 0);
+      if (!targetsArePriced) continue;
       for (const t of tokens) {
         if (!(t.symbol in r.targetAllocationPct)) runningAmount[t.symbol] = 0;
       }
