@@ -944,31 +944,93 @@ function RunwayBlock({ block }: { block: CanvasBlock }) {
     );
   }
 
-  const tone = months >= 18 ? "emerald" : months >= 9 ? "violet" : "rose";
-  const netHint = inflow != null && burn != null
-    ? `${fmtUsd(inflow)} in / ${fmtUsd(burn)} out per month`
-    : `at ${fmtUsd(burn)}/mo burn`;
+  const severity = months >= 18 ? "good" : months >= 9 ? "neutral" : months >= 6 ? "watch" : "risk";
+  const verdict = months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : months >= 6 ? "Tight" : "Critical";
+
+  // Arc gauge — clamp 0..36 months range; healthy threshold at 18m.
+  const HORIZON = 36;
+  const clamped = Math.max(0, Math.min(months, HORIZON));
+  const t = clamped / HORIZON;
+  const R = 64;
+  const CX = 80;
+  const CY = 80;
+  const arcLen = Math.PI * R; // half-circle
+  const dash = arcLen * t;
+  const angle = -Math.PI + Math.PI * t;
+  const needleX = CX + R * Math.cos(angle);
+  const needleY = CY + R * Math.sin(angle);
+  const arcColor = severity === "good" ? "#7c3aed" : severity === "neutral" ? "#8b5cf6" : severity === "watch" ? "#a78bfa" : "#5b21b6";
 
   return (
-    <BlockShell block={block} accent={tone === "rose" ? "rose" : "violet"}>
-      <div className="flex items-end justify-between gap-4">
+    <BlockShell block={block} accent="violet">
+      <div className="grid gap-5 sm:grid-cols-[160px_1fr] sm:items-center">
+        {/* Half-donut runway gauge */}
+        <div className="relative mx-auto" style={{ width: 160, height: 96 }}>
+          <svg viewBox="0 0 160 96" className="h-24 w-40">
+            {/* Track */}
+            <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`} stroke="#f5f3ff" strokeWidth={12} fill="none" strokeLinecap="round" />
+            {/* Milestones at 6 / 12 / 18 / 24 mo */}
+            {[6, 12, 18, 24].map((m) => {
+              const a = -Math.PI + Math.PI * (m / HORIZON);
+              const x1 = CX + (R - 8) * Math.cos(a);
+              const y1 = CY + (R - 8) * Math.sin(a);
+              const x2 = CX + (R + 4) * Math.cos(a);
+              const y2 = CY + (R + 4) * Math.sin(a);
+              return <line key={m} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ddd6fe" strokeWidth={1.5} strokeLinecap="round" />;
+            })}
+            {/* Filled arc */}
+            <path
+              d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+              stroke={arcColor}
+              strokeWidth={12}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${arcLen}`}
+            />
+            {/* Needle */}
+            <line x1={CX} y1={CY} x2={needleX} y2={needleY} stroke="#0f172a" strokeWidth={2} strokeLinecap="round" />
+            <circle cx={CX} cy={CY} r={4} fill="#0f172a" />
+          </svg>
+          <div className="absolute inset-x-0 bottom-0 text-center">
+            <div className="font-manrope text-2xl font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+              {months.toFixed(1)}
+              <span className="ml-1 text-xs font-medium text-slate-500">mo</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column — numbers + signal */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Runway</p>
-          <p className="mt-1 font-manrope text-3xl font-semibold tracking-tight text-slate-900">
-            <StreamingNumber value={months} decimals={1} suffix=" months" />
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {netHint} · {fmtUsd(stableBalance)} stable balance
-          </p>
-          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-400">
-            Based on {sample} event{sample === 1 ? "" : "s"} over 90 days
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">Runway</p>
+            <SignalBadge severity={severity}>{verdict}</SignalBadge>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <RunwayStat label="Stables" value={fmtUsd(stableBalance, 0)} />
+            <RunwayStat label="Burn / mo" value={burn != null ? fmtUsd(burn, 0) : "—"} />
+            <RunwayStat label="Inflow / mo" value={inflow != null ? fmtUsd(inflow, 0) : "—"} accent />
+          </div>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-violet-50">
+            <div className="h-full rounded-full bg-violet-600" style={{ width: `${t * 100}%` }} />
+          </div>
+          <div className="mt-1 flex justify-between text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+            <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span><span>36+</span>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            From {sample} event{sample === 1 ? "" : "s"} over 90 days
           </p>
         </div>
-        <Pill tone={tone as "violet" | "emerald" | "rose"}>
-          {months >= 18 ? "Healthy" : months >= 9 ? "Comfortable" : "Tight"}
-        </Pill>
       </div>
     </BlockShell>
+  );
+}
+
+function RunwayStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-2.5 py-2 ${accent ? "border-violet-200 bg-violet-50/60" : "border-violet-100 bg-white"}`}>
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-0.5 font-manrope text-sm font-semibold tracking-tight text-slate-900 tabular-nums">{value}</div>
+    </div>
   );
 }
 
