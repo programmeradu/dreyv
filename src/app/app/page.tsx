@@ -91,8 +91,8 @@ export default function AppHomePage() {
             }
           />
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <NavTile href="/app/treasury" eyebrow="Treasury" title="Holdings & flows" />
-            <NavTile href="/app/analytics" eyebrow="Analytics" title="Performance & risk" />
+            <NavTile href="/app/treasury" eyebrow="Treasury" title="Holdings & flows" variant="treasury" tokens={vaultTokens} />
+            <NavTile href="/app/analytics" eyebrow="Analytics" title="Performance & risk" variant="analytics" />
           </div>
         </StreamIn>
 
