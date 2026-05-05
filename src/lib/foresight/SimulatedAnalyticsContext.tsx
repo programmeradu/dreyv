@@ -122,7 +122,7 @@ export function SimulatedAnalyticsProvider({
       logo: t.logo ?? t.logoURI,
     }));
 
-    const key = JSON.stringify({ variables, timeframeMonths, n: portfolio.length, v: portfolio.map((p) => p.symbol + p.amount.toFixed(4)) });
+    const key = JSON.stringify({ ir: ir ? { h: ir.horizonMonths, s: ir.shocks, f: ir.flows, r: ir.rebalances, y: ir.yields } : null, variables, timeframeMonths, n: portfolio.length, v: portfolio.map((p) => p.symbol + p.amount.toFixed(4)) });
     if (key === lastKey.current) return;
     lastKey.current = key;
 
@@ -135,14 +135,11 @@ export function SimulatedAnalyticsProvider({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: ctrl.signal,
-          body: JSON.stringify({
-            portfolio,
-            variables,
-            timeframeMonths,
-            baselineAttribution,
-            baselineDriftPctPerDay,
-            benchmarkSymbol: "SOL",
-          }),
+          body: JSON.stringify(
+            ir
+              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" }
+              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" },
+          ),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
