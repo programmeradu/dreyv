@@ -715,17 +715,17 @@ function RosterConstellation({
   // Org chart: a "Treasury" hub on the left, wallet chips fanned out to the
   // right via soft violet sinew lines. Sized so labels never clip and the
   // active wallet stays legible (no full violet wash that hides the address).
-  const W = 460;
-  const rowH = 40;
-  const padTop = 12;
-  const padBottom = 12;
-  const H = Math.max(108, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
-  const coreX = 64;
+  const W = 420;
+  const rowH = 34;
+  const padTop = 10;
+  const padBottom = 10;
+  const H = Math.max(92, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
+  const coreX = 52;
   const coreY = H / 2;
-  const coreR = 34;
-  const chipX = 168;
-  const chipW = 270;
-  const chipH = 32;
+  const coreR = 28;
+  const chipX = 138;
+  const chipW = 268;
+  const chipH = 28;
 
   const truncate = (s: string, h = 4, t = 4) =>
     s.length <= h + t + 1 ? s : `${s.slice(0, h)}…${s.slice(-t)}`;
