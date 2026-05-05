@@ -495,6 +495,8 @@ export async function POST(req: Request) {
     }
 
     let lastError: unknown = null;
+    let allFailuresWereToolValidation = true;
+    let anyAttemptMade = false;
     for (let i = 0; i < modelChain.length; i++) {
       const { name, model, maxChars } = modelChain[i];
       // Skip providers that are in rate-limit cooldown
@@ -503,6 +505,7 @@ export async function POST(req: Request) {
         continue;
       }
       try {
+        anyAttemptMade = true;
         console.log(`[Command API] Trying model: ${name}`);
         const modelBudgeted = buildBudgetedMessagesWithCap(budgeted.messages, maxChars);
         const result = streamText({ ...streamOptions, messages: modelBudgeted.messages, model, maxRetries: 0 });
@@ -587,6 +590,8 @@ export async function POST(req: Request) {
         const msg = err instanceof Error ? err.message : String(err);
         const rl = detectRateLimit(err);
         const lengthErr = detectPromptLengthError(err);
+        const toolErr = detectToolValidationErrorMessage(msg);
+        if (!toolErr) allFailuresWereToolValidation = false;
         if (rl) {
           setRateLimitCooldown(name, extractRetryAfter(msg));
         }
@@ -594,12 +599,52 @@ export async function POST(req: Request) {
           console.warn(`[Command API] ${name} rejected prompt length; trying fallback with tighter context.`);
         }
         console.warn(
-          `[Command API] ${name} failed${rl ? " (rate limit)" : lengthErr ? " (prompt length)" : ""}: ${msg.slice(0, 300)}`,
+          `[Command API] ${name} failed${rl ? " (rate limit)" : lengthErr ? " (prompt length)" : toolErr ? " (tool-call validation)" : ""}: ${msg.slice(0, 300)}`,
         );
         if (i < modelChain.length - 1) {
           console.log(`[Command API] Trying next model in fallback chain...`);
         } else {
           console.error(`[Command API] All ${modelChain.length} models exhausted.`);
+        }
+      }
+    }
+
+    // ─── Tool-call recovery pass ──────────────────────────────────────────
+    // If every provider in the chain rejected the request due to tool-call
+    // validation (model emitted a tool name/shape the provider didn't accept),
+    // re-run the FIRST available non-rate-limited provider WITHOUT `tools`.
+    // This guarantees the user gets a natural-language answer / plan instead
+    // of a silent failure — aligned with "find a way to perform the action,
+    // no matter what."
+    if (anyAttemptMade && allFailuresWereToolValidation) {
+      console.warn("[Command API] All providers failed with tool-call validation. Retrying without tools (recovery pass).");
+      const { tools: _droppedTools, toolChoice: _droppedToolChoice, ...streamOptionsNoTools } =
+        streamOptions as Record<string, unknown>;
+      void _droppedTools;
+      void _droppedToolChoice;
+      const recoverySystem =
+        (effectiveSystemPrompt || "") +
+        "\n\nIMPORTANT: Tool execution is unavailable for this turn due to a provider validation issue. Answer the user's request directly in plain language. If the request is a simulation/projection (e.g. runway, what-if), produce a clear step-by-step plan and the formula or assumptions you would use, and ask for any missing inputs. Do NOT attempt to call any tools.";
+      for (let i = 0; i < modelChain.length; i++) {
+        const { name, model, maxChars } = modelChain[i];
+        if (isRateLimited(name)) continue;
+        try {
+          console.log(`[Command API] Recovery (no-tools) trying: ${name}`);
+          const modelBudgeted = buildBudgetedMessagesWithCap(budgeted.messages, maxChars);
+          const result = streamText({
+            ...(streamOptionsNoTools as Parameters<typeof streamText>[0]),
+            system: recoverySystem,
+            messages: modelBudgeted.messages,
+            model,
+            maxRetries: 0,
+          });
+          const response = result.toUIMessageStreamResponse();
+          if (response.body) {
+            console.log(`[Command API] Recovery succeeded via ${name} (no tools).`);
+            return response;
+          }
+        } catch (err) {
+          console.warn(`[Command API] Recovery ${name} failed: ${(err as Error)?.message?.slice(0, 200)}`);
         }
       }
     }
