@@ -147,15 +147,67 @@ const foresight_simulation = defineCapability({
     if (ir) {
       const result = runSimulationIR(ir);
       const flatVariables = irToFlatVariables(ir);
+
+      // ── #3 Clarify gate: when planner flagged unknowns, build click-to-fill chips
+      const clarifyChips = (ir.unknowns || []).slice(0, 4).map((u) => {
+        const lower = u.toLowerCase();
+        if (/burn/.test(lower)) return { id: "burn", label: "Set monthly burn", suggestPrompt: `${scenario} with monthly burn of $15,000` };
+        if (/apy|yield/.test(lower)) return { id: "apy", label: "Set yield APY", suggestPrompt: `${scenario} with 8% APY` };
+        if (/inflow|revenue/.test(lower)) return { id: "inflow", label: "Set monthly inflow", suggestPrompt: `${scenario} with $10,000 monthly inflow` };
+        if (/horizon|months/.test(lower)) return { id: "horizon", label: "Set time horizon", suggestPrompt: `${scenario} over 24 months` };
+        return { id: u.slice(0, 20), label: u.slice(0, 60), suggestPrompt: `${scenario}: ${u}` };
+      });
+
+      // ── #6 Critique pass (best-effort, never blocks)
+      let critique: { verdict: "approved" | "amend"; rationale: string; followUps: string[] } | null = null;
+      try {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL ||
+          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+        if (baseUrl) {
+          const cr = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/foresight/critique`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: `${scenario}: ${JSON.stringify(variables)}`,
+              ir,
+              result: {
+                startValue: result.startValue,
+                endValue: result.endValue,
+                runwayMonths: result.runwayMonths,
+                riskFlags: result.riskFlags,
+              },
+            }),
+            signal: AbortSignal.timeout(6000),
+          });
+          if (cr.ok) {
+            const j = await cr.json();
+            if (j?.ok) critique = { verdict: j.verdict, rationale: j.rationale, followUps: j.followUps || [] };
+          }
+        }
+      } catch (e) {
+        console.warn("[foresight_simulation] critique offline", e);
+      }
+
+      const needsClarify = clarifyChips.length > 0;
+
       return {
         success: true,
         operation: "foresight_simulation",
         scenario,
         variables,
         timeframeMonths: ir.horizonMonths,
-        triggerVisualization: true,
+        triggerVisualization: !needsClarify,
         chartType: "depletion_node",
         ir,
+        irPlan: {
+          horizonMonths: ir.horizonMonths,
+          scenarioLabel: ir.scenarioLabel,
+          shocks: ir.shocks,
+          flows: ir.flows,
+          rebalances: ir.rebalances,
+          yields: ir.yields,
+        },
         flatVariables,
         startValue: Math.round(result.startValue),
         endValue: Math.round(result.endValue),
@@ -163,10 +215,13 @@ const foresight_simulation = defineCapability({
         riskFlags: result.riskFlags,
         assumptions: ir.assumptions,
         unknowns: ir.unknowns,
+        clarifyChips,
+        needsClarify,
+        critique,
         scenarioLabel: ir.scenarioLabel,
         dataSource: "live",
-        message: ir.unknowns?.length
-          ? `${ir.scenarioLabel || scenario}. Missing inputs: ${ir.unknowns.join("; ")}.`
+        message: needsClarify
+          ? `${ir.scenarioLabel || scenario}. I need a few more inputs before regenerating analytics: ${ir.unknowns.join("; ")}.`
           : `${ir.scenarioLabel || scenario}. $${Math.round(result.startValue).toLocaleString()} → $${Math.round(result.endValue).toLocaleString()} over ${ir.horizonMonths}mo${result.runwayMonths ? `, depletion @ M${result.runwayMonths}` : ""}.`,
       };
     }
