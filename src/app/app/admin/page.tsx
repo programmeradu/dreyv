@@ -8,6 +8,7 @@ import {
 import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin/AdminMetricsPanel";
 import { MetricCard } from "@/components/admin/MetricCard";
 import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
+import { PlatformReportPanel } from "@/components/admin/PlatformReportPanel";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
