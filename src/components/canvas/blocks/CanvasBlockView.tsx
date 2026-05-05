@@ -712,27 +712,36 @@ function RosterConstellation({
   vaults: Array<{ address: string; label?: string; kind?: string }>;
   activeAddress: string | null;
 }) {
-  // Signer-graph: a labeled "Treasury" core on the left, wallets fanned out
-  // to the right as rounded chips connected with soft violet sinew lines.
-  // Reads as a real org chart even with a single wallet — never a lonely dot.
-  const W = 520;
-  const rowH = 44;
-  const padTop = 16;
-  const padBottom = 16;
-  const H = Math.max(120, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
-  const coreX = 70;
+  // Org chart: a "Treasury" hub on the left, wallet chips fanned out to the
+  // right via soft violet sinew lines. Sized so labels never clip and the
+  // active wallet stays legible (no full violet wash that hides the address).
+  const W = 560;
+  const rowH = 56;
+  const padTop = 20;
+  const padBottom = 20;
+  const H = Math.max(160, padTop + padBottom + Math.max(vaults.length, 1) * rowH);
+  const coreX = 96;
   const coreY = H / 2;
-  const chipX = 280;
-  const chipW = 200;
-  const chipH = 30;
+  const coreR = 52;
+  const chipX = 240;
+  const chipW = 280;
+  const chipH = 44;
 
   const truncate = (s: string, h = 4, t = 4) =>
     s.length <= h + t + 1 ? s : `${s.slice(0, h)}…${s.slice(-t)}`;
 
   const kindStyle = (kind?: string, isActive?: boolean) => {
-    if (kind === "multisig") return { fill: "#f5f3ff", stroke: "#a78bfa", dot: "#7c3aed", label: "MULTISIG" };
-    if (kind === "watch")    return { fill: "#ffffff", stroke: "#e2e8f0", dot: "#94a3b8", label: "WATCH" };
-    return { fill: isActive ? "#7c3aed" : "#ffffff", stroke: isActive ? "#7c3aed" : "#c4b5fd", dot: isActive ? "#ffffff" : "#7c3aed", label: "SIGNER" };
+    if (kind === "multisig")
+      return { fill: "#faf5ff", stroke: "#a78bfa", tagBg: "#ede9fe", tagFg: "#6d28d9", label: "MULTISIG" };
+    if (kind === "watch")
+      return { fill: "#ffffff", stroke: "#e2e8f0", tagBg: "#f1f5f9", tagFg: "#475569", label: "WATCH" };
+    return {
+      fill: isActive ? "#f5f3ff" : "#ffffff",
+      stroke: isActive ? "#7c3aed" : "#ddd6fe",
+      tagBg: "#7c3aed",
+      tagFg: "#ffffff",
+      label: "SIGNER",
+    };
   };
 
   return (
@@ -745,20 +754,27 @@ function RosterConstellation({
     >
       <defs>
         <radialGradient id="roster-core-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.22" />
           <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
         </radialGradient>
       </defs>
 
       {/* Core: the Treasury hub */}
-      <circle cx={coreX} cy={coreY} r={48} fill="url(#roster-core-glow)" />
-      <circle cx={coreX} cy={coreY} r={26} fill="#0f172a" />
-      <circle cx={coreX} cy={coreY} r={26} fill="none" stroke="#7c3aed" strokeOpacity="0.35" />
-      <text x={coreX} y={coreY - 2} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="700" letterSpacing="1.4">
+      <circle cx={coreX} cy={coreY} r={coreR + 18} fill="url(#roster-core-glow)" />
+      <circle cx={coreX} cy={coreY} r={coreR} fill="#0f172a" />
+      <circle cx={coreX} cy={coreY} r={coreR} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />
+      {/* Dreyv mark inside core */}
+      <g transform={`translate(${coreX} ${coreY - 14})`}>
+        <path
+          d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z"
+          fill="#a78bfa"
+        />
+      </g>
+      <text x={coreX} y={coreY + 8} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="700" letterSpacing="1.6">
         TREASURY
       </text>
-      <text x={coreX} y={coreY + 11} textAnchor="middle" fill="#a78bfa" fontSize="8" letterSpacing="1.2">
-        {vaults.length} {vaults.length === 1 ? "wallet" : "wallets"}
+      <text x={coreX} y={coreY + 22} textAnchor="middle" fill="#a78bfa" fontSize="8.5" letterSpacing="1">
+        {vaults.length} {vaults.length === 1 ? "WALLET" : "WALLETS"}
       </text>
 
       {/* Wallet chips + sinew lines */}
@@ -766,34 +782,49 @@ function RosterConstellation({
         const y = padTop + i * rowH + rowH / 2;
         const isActive = v.address === activeAddress;
         const s = kindStyle(v.kind, isActive);
-        const startX = coreX + 26;
+        const startX = coreX + coreR;
         const endX = chipX;
         const midX = (startX + endX) / 2;
         const path = `M${startX},${coreY} C${midX},${coreY} ${midX},${y} ${endX},${y}`;
-        const textColor = v.kind === "multisig" || (!v.kind && !isActive) || v.kind === "watch"
-          ? "#0f172a"
-          : isActive ? "#ffffff" : "#0f172a";
-        const subColor = isActive && !v.kind ? "#ddd6fe" : "#64748b";
+        const tagW = s.label.length * 6 + 14;
+        const tagX = chipX + chipW - tagW - 10;
 
         return (
           <g key={v.address}>
-            <path d={path} fill="none" stroke={isActive ? "#7c3aed" : "#ede9fe"} strokeWidth={isActive ? 1.6 : 1} />
+            <path
+              d={path}
+              fill="none"
+              stroke={isActive ? "#7c3aed" : "#ede9fe"}
+              strokeWidth={isActive ? 1.8 : 1.2}
+            />
             <rect
               x={chipX}
               y={y - chipH / 2}
               width={chipW}
               height={chipH}
-              rx={chipH / 2}
+              rx={10}
               fill={s.fill}
               stroke={s.stroke}
-              strokeWidth={isActive ? 1.5 : 1}
+              strokeWidth={isActive ? 1.6 : 1}
             />
-            <circle cx={chipX + 14} cy={y} r={4} fill={s.dot} />
-            <text x={chipX + 26} y={y - 2} fontSize="10" fontWeight="700" fill={textColor}>
-              {truncate(v.label ?? v.address, 14, 0)}
+            <text x={chipX + 16} y={y - 4} fontSize="12" fontWeight="700" fill="#0f172a">
+              {truncate(v.label ?? v.address, 18, 0)}
             </text>
-            <text x={chipX + 26} y={y + 9} fontSize="8" fill={subColor} letterSpacing="0.6">
-              {truncate(v.address)} · {s.label}
+            <text x={chipX + 16} y={y + 12} fontSize="9.5" fill="#64748b" letterSpacing="0.4" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+              {truncate(v.address, 6, 6)}
+            </text>
+            {/* Role tag */}
+            <rect x={tagX} y={y - 9} width={tagW} height={18} rx={9} fill={s.tagBg} />
+            <text
+              x={tagX + tagW / 2}
+              y={y + 4}
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight="700"
+              letterSpacing="1"
+              fill={s.tagFg}
+            >
+              {s.label}
             </text>
           </g>
         );
