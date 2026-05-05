@@ -1370,10 +1370,38 @@ function parseRecipientsText(raw: string, defaultToken: string): MassSendRecipie
   });
 }
 
+interface WalletToken {
+  mint: string;
+  symbol: string;
+  name?: string;
+  decimals?: number;
+  balance?: string;
+}
+
 function MassSendBlock({ block }: { block: CanvasBlock }) {
   const wallet = asString(block.payload.wallet);
   const isMultisig = block.payload.isMultisig === true;
   const [defaultToken, setDefaultToken] = useState<string>(asString(block.payload.defaultToken, "USDC"));
+  const [walletTokens, setWalletTokens] = useState<WalletToken[]>([]);
+  const [tokensLoading, setTokensLoading] = useState(false);
+  const [showTokenMenu, setShowTokenMenu] = useState(false);
+  const [tokenQuery, setTokenQuery] = useState("");
+
+  useEffect(() => {
+    if (!wallet) return;
+    let cancelled = false;
+    setTokensLoading(true);
+    fetch(`/api/helius/das/wallet-holdings?address=${wallet}&limit=100`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const list: WalletToken[] = Array.isArray(d?.holdings) ? d.holdings : [];
+        setWalletTokens(list);
+      })
+      .catch(() => { /* keep fallbacks */ })
+      .finally(() => { if (!cancelled) setTokensLoading(false); });
+    return () => { cancelled = true; };
+  }, [wallet]);
   const [raw, setRaw] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [queuedId, setQueuedId] = useState<string | null>(null);
