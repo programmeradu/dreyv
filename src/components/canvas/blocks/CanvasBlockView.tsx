@@ -760,20 +760,20 @@ function RosterConstellation({
       </defs>
 
       {/* Core: the Treasury hub */}
-      <circle cx={coreX} cy={coreY} r={coreR + 18} fill="url(#roster-core-glow)" />
+      <circle cx={coreX} cy={coreY} r={coreR + 14} fill="url(#roster-core-glow)" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="#0f172a" />
       <circle cx={coreX} cy={coreY} r={coreR} fill="none" stroke="#7c3aed" strokeOpacity="0.4" />
       {/* Dreyv mark inside core */}
-      <g transform={`translate(${coreX} ${coreY - 14})`}>
+      <g transform={`translate(${coreX} ${coreY - 9})`}>
         <path
-          d="M0,-10 L2.6,-2.6 L10,0 L2.6,2.6 L0,10 L-2.6,2.6 L-10,0 L-2.6,-2.6 Z"
+          d="M0,-7 L1.8,-1.8 L7,0 L1.8,1.8 L0,7 L-1.8,1.8 L-7,0 L-1.8,-1.8 Z"
           fill="#a78bfa"
         />
       </g>
-      <text x={coreX} y={coreY + 8} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="700" letterSpacing="1.6">
+      <text x={coreX} y={coreY + 6} textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="700" letterSpacing="1.4">
         TREASURY
       </text>
-      <text x={coreX} y={coreY + 22} textAnchor="middle" fill="#a78bfa" fontSize="8.5" letterSpacing="1">
+      <text x={coreX} y={coreY + 17} textAnchor="middle" fill="#a78bfa" fontSize="7" letterSpacing="0.8">
         {vaults.length} {vaults.length === 1 ? "WALLET" : "WALLETS"}
       </text>
 
