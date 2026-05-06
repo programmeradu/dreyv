@@ -1,105 +1,123 @@
-# /treasury — Research-first rebuild as the agent-extensible foundation
+# Agent-first audit & gap-closing plan
 
-The current `/app/treasury` is a pretty placeholder with mock holdings/trend/suggestions. Before any code we do real research, then ship a foundation page that the existing **DACS agent system + Canvas + CommandBar** can stream content into — instead of hardcoding 6 dashboard sections we'll never finish.
+## 1. What "Earn on idle stables" actually does today
 
-## Design rules (locked, from memory)
+| Layer | Status | Notes |
+|---|---|---|
+| Live APY | ✅ live | `findJupiterEarnMarket()` → Jupiter Earn / Marinade, per route |
+| Live idle balance | ✅ live | Helius RPC `getTokenAccountsByOwner` / `getBalance` |
+| Arm | ✅ works | flips row to `armed`; watcher drafts deploy on next stable inflow |
+| Deploy now | ⚠️ HITL only | enqueues a `yield-deposit` tx proposal; user must sign |
+| On-chain execution | ❌ missing | no per-venue ix builder (Marinade/Jupiter Earn deposit ix); proposal carries a generic descriptor |
+| CommandBar control | ❌ missing | no NL tools `arm_yield_route`, `deploy_yield_route`, `list_yield_routes` |
+| Status correctness | ⚠️ optimistic | flips to `active` on enqueue, not on confirmation |
 
-- Stitch-light, white bg, solid violet `#7c3aed`, Manrope, ambient violet glows, violet-200 borders, flat violet CTAs. **No** gradients, fuchsia/pink, dark mode, or generic stock icons.
-- Generative + streaming: numbers count up, sections stream in, charts animate. Never grid-y or static.
-- **Hide all technical chrome** — no agent IDs, tick counters, JSON, terminals, "decisions" panels. Speak in human outcomes ("Dreyv noticed…").
-- **No mock/demo numbers ever.** Empty/unconnected state must clarify (connect wallet, paste address) — not invent figures.
-- Same brand language as `/pricing`, `/waitlist`, `/`, `/app`.
+So: **wired to live data + watcher, but the last mile (build real ix → sign → confirm → mark active) and the agent-control surface are missing.**
 
-## Phase 1 — Research (no code)
+## 2. Audit — agent control coverage across the app
 
-I'll do this with the websearch + perplexity tools and write the findings to `mem://research/treasury-landscape` so the build phase has a single source of truth.
+Scoring: ✅ NL-controllable + agent context, ⚠️ partial (UI only or context only), ❌ dashboard-only.
 
-**Competitor scan** (treasury surface coverage, NOT visual copy):
-- Squads, Realms, Parcl Treasury, Utopia Labs, Coinshift, Multis, Den, Llama (Karpatkey), Safe{Wallet} apps, Superfluid, Sablier, Request Finance, Gnosis Pay, Mean Finance, Streamflow, Lulo, Drift Vaults.
-- For each: capture features they ship under our 6 user-named buckets, pricing/positioning, what users complain about (Reddit/Twitter/G2).
+### Treasury & Payments
+- ✅ `transfer`, `mass_dispatch`, `multisig_proposal`, `create_multisig`
+- ✅ `schedule_recurring_payout`, `pause_recurring_payout`, `list_recurring_payouts`
+- ✅ `add_invoice`, `list_invoices`, `pay_overdue_invoices`, `invoice_extract`, `invoice_pay`
+- ✅ `grant_disbursement`, `grant_milestone_release`, `expense_categorize`
+- ⚠️ Gas tank: `configure_gas_tank` exists; `gas_tank_topup` exists — but no `inspect_gas_tank` / auto-refill autopilot
 
-**User-need scan** (what treasurers actually want — DAO ops, crypto-native CFOs, Solana foundations, agencies on payroll):
-- Forum threads (Realms, Squads), DAO ops job posts, Karpatkey/Steakhouse reports, Messari/Delphi treasury reports, recent (2025-2026) posts on agentic treasury.
+### Yield
+- ✅ `stake`, `yield_deposit`, `yield_withdraw`, `rebalance` (with dry-run preview), `execute_dca`
+- ⚠️ `draft_yield_route` exists, but **no** `arm_yield_route` / `pause_yield_route` / `deploy_yield_route` / `list_yield_routes` / `delete_yield_route` tools
+- ❌ No `auto_compound_yield` / `harvest_rewards`
 
-**Output**: a synthesis matrix — `feature × competitor coverage × user demand × Dreyv differentiator (agentic/autonomous)` saved to memory + a short "what to build first vs later" ranking under each of the 6 user buckets:
-1. Tokens in the treasury (holdings, valuation, provenance)
-2. Mass send-outs (payroll, airdrops, grants)
-3. Payments & Treasury Operations (recurring, invoices, gas tank)
-4. Governance & Reporting (proposals, burn statements, exports)
-5. Accounting & Financial Controls (policy, allowlists, approvals, audit)
-6. DeFi & Treasury Management (yield, hedging, rebalancing, liquidations)
-7. Wallet & Asset Security (multisig, signers, attestations, key hygiene)
+### Trading
+- ✅ `swap`, `execute_swap`, `bridge`, `deploy_sniper_bot`
+- ❌ No `limit_order`, `twap`, `cancel_order`, `list_open_orders`
 
-I'll present the synthesis back before writing code so you can shape priorities.
+### Risk
+- ✅ `counterparty_risk_score`, `stablecoin_diversification`, `tax_lot_tracker`, `hedge_position`, `liquidation_watch`, `mev_rebate_claim`
+- ❌ No `arm_liquidation_guard` (auto-deleverage on threshold)
 
-## Phase 2 — What we already have (audit, no rewrites)
+### Policy / Autopilot
+- ✅ `set_treasury_policy`, `treasury_runway_autopilot`, `treasury_attestation`
+- ⚠️ Policies exist but are **not enforced as a pre-flight gate** on every tool proposal
 
-We will **not** rebuild the agent system. Foundation reuses:
+### Intel / Foresight
+- ✅ `foresight_simulation`, `risk_assessment`, `browser_research`, `idl_extraction`, `sentiment_analysis`, `security_firewall`, `protocol_sdk_analyze`
+- ⚠️ Analytics page reads/streams data, but the Smart Insights / Foresight panels are not yet exposed as tools (`get_insights`, `get_foresight_narrative`)
 
-- **Capability registry** (`src/lib/agents/capabilities/*`) — 48 capabilities across `treasury / trading / yield / payments / policy / risk / intel / studio / dynamic / misc / deliverables / research-brief`. Already covers most of the 6 buckets (mass_dispatch, runway autopilot, gas-tank watcher, grants watcher, liq watcher, burn statement cron, streamflow reconcile, tax-lot engine, drift hedge, etc.).
-- **DACS pipeline** — intent → plan → HITL → executor → episodes → post-mortem; specialists (treasury / trading / yield / payments / policy / risk / research / builder / navigator) with CATP v1.0 handoff envelope; sub-agent runtime for watchers.
-- **Canvas** (`src/lib/canvas`, `src/components/canvas`) — `CanvasBlock` primitive (narrative/metric/chart/plan/watcher/suggestion/artifact/research-brief) is **already** the generative-UI substrate. CommandBar + agents already emit blocks via the bus bridge.
-- **App-shell primitives** — `AmbientGlow`, `Surface`, `StreamIn`, `StreamingNumber`, `Composition`, `SuggestionList`, `NarrativeStream`, `TreasuryPulseCarousel`.
+### App-shell surfaces NOT yet controllable from CommandBar
+- ❌ Vault registry: switch / add / remove / rename active vault from NL
+- ❌ Canvas blocks: add / remove / pin a block on the analytics canvas
+- ❌ Notifications & alerts: arm an alert ("ping me when SOL drops 10%"), list, mute
+- ❌ Subagents: spawn / list / pause / kill from NL (cron triggers exist in DB)
+- ❌ Studio / mini-apps: install, run, configure
+- ❌ Knowledge memory: save / recall / forget facts the agent should remember
+- ❌ Team / invites: invite member, change role, revoke
+- ❌ Billing & tier: read tier, list usage, upgrade prompt (read-only at minimum)
+- ❌ Theme/network/active-org switching
 
-So: don't invent a new dashboard framework — make `/treasury` a Canvas surface scoped to treasury intent, with skeleton "rails" that the registry's capabilities + specialists fill in dynamically.
+### Agent context (what the LLM sees per turn) — gaps
+- ✅ Yield context (LSTs + APY) is now injected
+- ✅ Active vault address is plumbed through
+- ❌ Active yield routes (armed / drafts / readyToDeploy) NOT in system prompt
+- ❌ Open tx proposals (count, oldest, total USD pending) NOT injected
+- ❌ Active policies (caps, allowlists, runway floor) NOT injected
+- ❌ Active alerts / watchers NOT injected
+- ❌ Recent agent actions ("last 5 things I did") NOT injected → no episodic continuity
+- ❌ Subagent status (running cron jobs) NOT injected
 
-## Phase 3 — Foundation build (after research approval)
+## 3. Gap-closing plan — phased
 
-### Page architecture
+### Phase A — Make the existing yield card fully agentic (1 pass)
+1. **Per-venue ix builders**: Marinade `deposit`, Jupiter Earn `deposit`/`withdraw`, native staking `delegate`. Wire into the proposal so the signer flow produces a real on-chain tx.
+2. **Confirmation-driven status**: only flip route → `active` after `confirmTransaction` succeeds; on failure → back to `armed` with `lastError`.
+3. **New CommandBar tools** (in `capabilities/yield.ts`): `list_yield_routes`, `arm_yield_route`, `pause_yield_route`, `resume_yield_route`, `deploy_yield_route`, `exit_yield_route`, `delete_yield_route`.
+4. **Inject into system prompt**: armed-route summary ("2 routes armed: USDC→Marinade 4.2% (1.26 idle, ready), USDS→JupEarn 5.1% (0 idle)").
+5. **Card → CommandBar passthrough**: every button on the card also `dispatch()`s the equivalent tool call so the action is logged in the agent timeline.
 
-```text
-/app/treasury (Canvas surface, scope="treasury")
-├── Hero rail        → live valuation, 24h move, composition strip (real data only)
-├── Pulse rail       → streamed narratives from sub-agents (runway, gas, liq, grants)
-├── Action rail      → CommandBar dock, scoped to treasury intents
-├── Canvas stream    → blocks emitted by agents/CommandBar/capabilities
-└── Suggestion rail  → policy-derivation + research-brief outputs
-```
+### Phase B — Cover the rest of the app surface as tools
+- Vault registry tools: `switch_vault`, `add_watch_vault`, `remove_vault`, `rename_vault`, `list_vaults`.
+- Alerts/notifications: `arm_alert`, `list_alerts`, `mute_alert`, `delete_alert` (+ delivery via existing `notification-delivery`).
+- Subagents: `spawn_subagent`, `list_subagents`, `pause_subagent`, `kill_subagent`, `set_subagent_cron`.
+- Canvas: `add_canvas_block`, `remove_canvas_block`, `pin_canvas_block`.
+- Knowledge memory: `remember_fact`, `recall_facts`, `forget_fact`.
+- Team: `invite_member`, `list_members`, `change_role`, `revoke_member`.
+- Read-only: `get_tier`, `get_usage`, `get_active_policies`, `get_pending_proposals`.
 
-No hardcoded "Payroll" / "Governance" / "Accounting" sections. Each bucket is **a set of capability tags** the registry already owns; a bucket renders only when there's a real block, watcher, or suggestion to show. Empty buckets show a single "Ask Dreyv to set this up" affordance that opens CommandBar pre-filled — never mock numbers.
+### Phase C — Universal context injector
+Single `buildAgentContext({ wallet, vault })` used by `/api/command`, `/api/analytics/insights`, `/api/foresight/narrative`, watcher reasoning. Returns a compact block:
+- Active vault + tier + policies (caps, allowlists, runway floor)
+- Holdings summary + yield context (already done)
+- **Yield routes summary (new)**
+- **Pending proposals summary (new)**
+- **Active alerts + subagents (new)**
+- **Last 5 agent actions (new)** — episodic memory
+- Recent treasury events (last 24h: inflows, outflows, deploys)
 
-### CommandBar ↔ agents ↔ canvas wiring (already exists; we formalise)
+### Phase D — Smart auto-deploys (true autonomy, gated by policy)
+- **Inflow autopilot**: when stable inflow > policy threshold AND a route is armed AND APY ≥ minApy → draft → if HITL disabled in policy and amount ≤ policyCap → auto-sign via session key → confirm → mark active.
+- **Runway autopilot**: extend `treasury_runway_autopilot` to actually call `arm_yield_route` + `deploy_yield_route` when projected runway < floor.
+- **Liquidation guard**: arm threshold → on breach, auto-draft `hedge_position` or `yield_withdraw` proposals.
+- **Auto-compound**: nightly cron subagent scans yield positions, drafts `harvest_rewards` + `yield_deposit` of harvested amount.
+- **Drift rebalancer**: when allocation drifts > policy band, draft `rebalance` proposal automatically.
 
-```text
-User types in dock  ──►  agent.command.submitted
-                            │
-                  intent.classified (DACS)
-                            │
-                   plan.synthesized  ──►  Canvas: "plan" block (streaming)
-                            │
-                   handoff.requested ──►  specialist runs
-                            │
-                   handoff.reported  ──►  Canvas: "capability-result" / "narrative" / "artifact"
-                            │
-                   approval.requested ──►  HITL chip inside the block (no separate modal)
-```
+Every auto-deploy: respects `set_treasury_policy` caps, requires explicit `autopilot.enabled=true` per category, logs to `agent_episodes`, surfaces in CommandBar timeline.
 
-The block renderer (`CanvasBlockView`) already supports these payload kinds. We add **treasury-scoped renderers** for the bucket-specific outputs (e.g. mass-dispatch preview, runway curve, allowlist diff, burn statement, hedge plan) — each a small, branded component that streams in.
+### Phase E — CommandBar as the universal controller
+- Replace each card's button onClick with `dispatch({ tool_id, parameters })` → agent runs the tool → UI updates from the same event stream the agent emits. (Single source of truth: agent action log → UI state.)
+- Every page mounts a `<CommandContextProvider scope="…">` that registers what's on screen so the agent knows the user's focus ("user is on /app/treasury looking at route X" goes into context).
 
-### Empty / not-connected state
+## 4. Suggested execution order
+1. **Phase A** (close the loop on the card the user just asked about) — 1 pass.
+2. **Phase C** (context injector) — unlocks every later phase being smarter from turn 1.
+3. **Phase B** (tool coverage) — incrementally, prioritized: vault switch, alerts, subagents, knowledge.
+4. **Phase D** (autopilots) — one autopilot per pass (inflow → runway → liquidation → compound → drift).
+5. **Phase E** (UI ↔ agent unification) — last, because it depends on tool coverage being broad enough.
 
-Instead of fake $X numbers: a violet ambient hero with one CTA — `Connect a wallet` or `Paste an address to preview` — and 3 example prompts that route through CommandBar so even the empty state demos the agentic flow.
+## 5. Open decisions for you
+- **Session-key signing for auto-deploy**: do we want a Squads "agent member" with a tight policy cap, or keep everything HITL until the user explicitly opts in per-category?
+- **First autopilot to ship**: inflow → yield (closes the current card's loop), runway autopilot, or liquidation guard?
+- **Tool coverage priority**: vault/alerts/subagents/knowledge — which two first?
 
-### What we explicitly do NOT build now
-
-- The 6 buckets as static UI sections.
-- Any new agent runtime, bus, or capability schema.
-- Any tab/sidebar/module pattern (violates app-shell rules).
-- Anything visual borrowed from current toast notifications or generic icon sets.
-
-## Technical notes
-
-- New file: `src/components/treasury/TreasurySurface.tsx` — Canvas-backed page body, wraps `CanvasProvider` with `scope="treasury"`.
-- New renderers under `src/components/canvas/blocks/treasury/` for bucket-specific block payloads (mass-dispatch preview, runway curve, allowlist diff, burn statement, hedge plan, gas-tank status). Each ≤ ~150 lines, uses existing primitives.
-- New: `src/components/treasury/TreasuryCommandDock.tsx` — CommandBar instance pre-scoped to treasury intents (filters capability suggestions by `domain ∈ {treasury, payments, policy, risk, yield}`).
-- Replace `src/app/app/treasury/page.tsx` body with `<TreasurySurface />`. Header/glow/typography stay identical to current page (already on-brand).
-- Reuse `useVault`, `useTreasuryTrend`, capability registry, DACS bus events. **Do not** touch DACS internals, registry shape, or canvas types.
-- Memory file to add after research: `mem://research/treasury-landscape` (competitor matrix + user-need ranking + bucket priorities).
-
-## Deliverable order
-
-1. Research synthesis → present back, you approve priorities.
-2. Foundation page (Canvas surface + dock + empty state + 2-3 reference block renderers).
-3. Iterate: add remaining bucket renderers as we wire each capability into the dock's suggestion list.
-
-Awaiting approval to start Phase 1 (research) — no code until you've seen the synthesis.
+Pick the answers and I'll start with Phase A + the chosen autopilot in the next pass.
