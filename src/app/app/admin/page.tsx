@@ -9,6 +9,8 @@ import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin
 import { MetricCard } from "@/components/admin/MetricCard";
 import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
 import { PlatformReportPanel } from "@/components/admin/PlatformReportPanel";
+import { ProtocolFeesPanel } from "@/components/admin/ProtocolFeesPanel";
+import { Coins, DollarSign } from "lucide-react";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
@@ -162,7 +164,18 @@ export default function AdminMonitoringRoom() {
             </header>
 
             <main className="relative z-10 px-4 sm:px-6 py-6 sm:py-8">
+                {/* Executive strip — protocol-wide headline numbers */}
+                <div className="max-w-[1800px] mx-auto mb-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <ExecHeadline label="Volume routed · 24h" value={usd0(safe.protocol.vol24h)} sub={`${safe.protocol.tx24h} tx`} />
+                    <ExecHeadline label="Protocol fees · 24h" value={usd(safe.protocol.fees24h)} sub="0.05% skim" accent />
+                    <ExecHeadline label="Volume routed · 30d" value={usd0(safe.protocol.vol30d)} sub={`${safe.protocol.payers30d} payers`} />
+                    <ExecHeadline label="Protocol fees · all-time" value={usd(safe.protocol.feesAll)} sub={`${safe.protocol.txAll} tx · ${safe.protocol.takeRateBps.toFixed(2)} bps eff.`} accent />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-[1800px] mx-auto pb-12">
+
+                    {/* PANEL: Protocol fees ledger (24h/7d/30d/90d) */}
+                    <ProtocolFeesPanel takeRateBps={safe.protocol.takeRateBps} />
 
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
                     <InngestHealthPanel />
@@ -384,6 +397,20 @@ export default function AdminMonitoringRoom() {
                     <InngestHealthPanel />
                 </div>
             </main>
+        </div>
+    );
+}
+
+function ExecHeadline({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+    return (
+        <div className={`relative rounded-3xl border p-4 sm:p-5 backdrop-blur-md shadow-[0_20px_60px_-30px_rgba(124,58,237,0.18)] ${
+            accent ? "border-violet-300 bg-violet-50/70" : "border-violet-200/60 bg-white/85"
+        }`}>
+            <div className="text-[10px] uppercase font-semibold tracking-[0.16em] text-slate-500 truncate">{label}</div>
+            <div className={`mt-1.5 text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums ${accent ? "text-violet-700" : "text-slate-900"}`}>
+                {value}
+            </div>
+            {sub && <div className="mt-1 text-[10px] font-medium text-slate-500">{sub}</div>}
         </div>
     );
 }
