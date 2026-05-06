@@ -83,14 +83,14 @@ const AllocBar = ({ a }: { a: { stables: number; majors: number; defi: number } 
 
 export const RiskStep = ({ data, updateData }: StepProps) => {
     return (
-        <div className="space-y-10">
+        <div className="space-y-6">
             <div className="flex items-center gap-2.5">
                 <DreyvStar size={12} className="text-violet-600" />
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Step 04 · Posture</span>
             </div>
 
             <div className="space-y-3 max-w-xl">
-                <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-slate-900">
+                <h2 className="text-[26px] sm:text-[32px] lg:text-[36px] leading-[1.1] font-semibold tracking-[-0.02em] text-slate-900">
                     How should the agent <span className="italic font-light text-violet-600">behave</span>?
                 </h2>
                 <p className="text-[14px] text-slate-500 leading-relaxed">
