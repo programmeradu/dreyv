@@ -84,26 +84,35 @@ export default function SettingsPage() {
 
                         <Section
                             eyebrow="Multisig"
-                            title="On-chain governance"
-                            subtitle="Vault policies are immutable and managed via Squads Protocol on-chain."
+                            title="On-chain governance via Squads"
+                            subtitle="When a vault is configured as a Squads v4 multisig, signers, thresholds and timelocks are enforced on-chain — not by Dreyv."
                             icon={Gavel}
                         >
                             <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/30 p-8 flex flex-col items-center text-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-violet-600 flex items-center justify-center text-white shadow-[0_12px_30px_-12px_rgba(124,58,237,0.6)]">
-                                    <Gavel size={20} />
+                                <div className="h-14 w-14 rounded-2xl bg-white border border-violet-100 flex items-center justify-center shadow-[0_12px_30px_-12px_rgba(124,58,237,0.35)]">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src="/logos/squads.png" alt="Squads Protocol" className="h-8 w-8 object-contain" />
                                 </div>
                                 <div>
-                                    <h3 className="text-[15px] font-semibold text-slate-900">Squads v4 integration active</h3>
+                                    <h3 className="text-[15px] font-semibold text-slate-900">Powered by Squads Protocol v4</h3>
                                     <p className="mt-1 text-[12px] text-slate-500 max-w-sm">
-                                        Signers, thresholds and timelocks live on-chain. View or edit them through the Squads explorer.
+                                        Proposals, approvals and execution flow through Squads. Use the explorer to inspect or rotate signers — Dreyv cannot override on-chain policy.
                                     </p>
                                 </div>
-                                <button
-                                    onClick={() => window.open("https://explorer.solana.com", "_blank")}
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition shadow-sm"
-                                >
-                                    View on-chain policy <ExternalLink size={12} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => window.open("https://app.squads.so", "_blank")}
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition shadow-sm"
+                                    >
+                                        Open Squads <ExternalLink size={12} />
+                                    </button>
+                                    <a
+                                        href="/app/team"
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-200 text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
+                                    >
+                                        Manage signers
+                                    </a>
+                                </div>
                             </div>
                         </Section>
                     </div>
