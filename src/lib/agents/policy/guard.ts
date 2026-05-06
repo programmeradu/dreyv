@@ -16,7 +16,14 @@ export interface PolicyCaps {
   allowedProtocols?: string[];
   allowedActions?: string[];
   expiresAt?: string;
+  /** Phase 8 — max acceptable slippage in basis points (default 50). */
+  maxSlippageBps?: number;
+  /** Phase 8 — N consecutive errors that auto-trip the breaker. */
+  maxConsecutiveErrors?: number;
 }
+
+export const DEFAULT_MAX_SLIPPAGE_BPS = 50;
+export const DEFAULT_MAX_CONSECUTIVE_ERRORS = 3;
 
 export interface PolicyDecision {
   decision: "allow" | "queue" | "deny";
