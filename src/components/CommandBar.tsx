@@ -354,7 +354,7 @@ export function CommandBar() {
         }
       }
     },
-    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures, setActiveVault, addVault, refresh],
+    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures, setActiveVault, addVault, refresh, refreshRegistry],
   );
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
