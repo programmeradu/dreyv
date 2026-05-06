@@ -215,10 +215,35 @@ export async function POST(req: Request) {
 
     const formattedMessages = await convertToModelMessages(messages || []);
 
+    // Build yield context (LSTs + tokenized stable yields the treasury currently earns).
+    // Pulled from vaultState.tokens passed by the client; live APYs fetched from
+    // the in-memory cached /api/yield/rates feed. Never fabricates: if no
+    // yield-bearing positions exist, the helper returns an explicit "no yield" line.
+    let yieldContext: string | undefined;
+    try {
+      const tokens = Array.isArray((vaultState as any)?.tokens) ? (vaultState as any).tokens : [];
+      if (tokens.length > 0) {
+        const origin = req.headers.get("origin") || `https://${req.headers.get("host") || ""}`;
+        const liveRates = await fetchLiveLstRates(undefined, origin || undefined).catch(() => ({}));
+        yieldContext = summarizeYieldForLLM(
+          tokens.map((t: any) => ({
+            symbol: t.symbol ?? "",
+            mint: t.mint ?? t.address ?? undefined,
+            amount: Number(t.amount ?? 0),
+            priceUsd: Number(t.price ?? t.priceUsd ?? 0),
+          })),
+          liveRates,
+        );
+      }
+    } catch (e) {
+      console.warn("[command] yield context build failed", e);
+    }
+
     const systemPrompt = buildCommandBarSystemPrompt({
       walletAddress,
       vaultState,
       walletState,
+      yieldContext,
     });
     const effectiveSystemPrompt = strictGrounding
       ? `${systemPrompt}\n\n${STRICT_GROUNDING_ADDENDUM}`
