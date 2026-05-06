@@ -996,6 +996,10 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   // Stores fields that don't have dedicated columns (policyName, runwayFloorMonths,
   // maxProtocolPct, maxSlippagePct, requireAudit, active flag, history[]).
   policyMeta: jsonb('policy_meta'),
+  // Phase 4 — structured caps used by signer-aware policy guard.
+  policyCaps: jsonb('policy_caps').notNull().default('{}'),
+  // Phase 2 — autopilot threshold for inflow→yield routing.
+  minIdleUsd: numeric('min_idle_usd'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
