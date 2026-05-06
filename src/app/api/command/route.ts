@@ -383,6 +383,7 @@ export async function POST(req: Request) {
     const capabilityCtx = buildCapabilityContext({
       walletAddress,
       rpcEndpoint,
+      vaultAddress: vaultAddress || null,
       vaultState,
       walletState,
       executionState: executionState as never,
