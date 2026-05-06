@@ -133,18 +133,18 @@ export default function OnboardingPage() {
     const mascotPose = currentStep === 0 ? "greet" : isLast ? "celebrate" : "think";
 
     return (
-        <div className="relative min-h-screen bg-white font-manrope text-slate-900 overflow-hidden">
-            {/* Ambient violet glows — flat, no gradients on UI surfaces */}
-            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-violet-300/40 blur-[140px]" />
-                <div className="absolute top-1/3 -right-32 h-[420px] w-[420px] rounded-full bg-violet-400/30 blur-[160px]" />
-                <div className="absolute -bottom-40 left-1/3 h-[480px] w-[480px] rounded-full bg-violet-200/40 blur-[150px]" />
+        <div className="relative flex min-h-screen flex-col bg-white font-manrope text-slate-900">
+            {/* Ambient violet glows — fixed so they don't expand the document */}
+            <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute -top-40 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/35 blur-[140px]" />
+                <div className="absolute top-1/3 -right-32 h-[360px] w-[360px] rounded-full bg-violet-400/25 blur-[160px]" />
+                <div className="absolute -bottom-40 left-1/3 h-[400px] w-[400px] rounded-full bg-violet-200/35 blur-[150px]" />
             </div>
 
             {/* Hairline grid texture */}
             <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-[0.025]"
+                className="pointer-events-none fixed inset-0 opacity-[0.025]"
                 style={{
                     backgroundImage:
                         "linear-gradient(to right, #0f172a 1px, transparent 1px), linear-gradient(to bottom, #0f172a 1px, transparent 1px)",
@@ -153,68 +153,63 @@ export default function OnboardingPage() {
             />
 
             {/* Topbar */}
-            <header className="relative z-10 px-6 lg:px-10 pt-6 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                    <DreyvStar size={22} className="text-violet-600" />
-                    <span className="text-[13px] font-semibold tracking-[0.18em] uppercase text-slate-900">Dreyv · Setup</span>
+            <header className="relative z-10 px-4 sm:px-6 lg:px-10 pt-4 sm:pt-5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <DreyvStar size={18} className="text-violet-600" />
+                    <span className="text-[11px] sm:text-[12px] font-semibold tracking-[0.18em] uppercase text-slate-900">Dreyv · Setup</span>
                 </div>
-                <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium tracking-[0.18em] uppercase text-slate-500">
+                <div className="flex items-center gap-2 text-[10px] font-medium tracking-[0.18em] uppercase text-slate-500">
                     <span className="tabular-nums text-slate-900">{String(currentStep + 1).padStart(2, "0")}</span>
-                    <span className="h-px w-6 bg-slate-300" />
+                    <span className="h-px w-5 bg-slate-300" />
                     <span className="tabular-nums">{String(STEPS.length).padStart(2, "0")}</span>
                 </div>
             </header>
 
             {/* Stepper rail */}
-            <nav className="relative z-10 mt-8 px-6 lg:px-10">
+            <nav className="relative z-10 mt-4 sm:mt-5 px-4 sm:px-6 lg:px-10">
                 <div className="mx-auto max-w-5xl">
-                    <ol className="grid grid-cols-6 gap-2">
+                    <ol className="grid grid-cols-6 gap-1.5 sm:gap-2">
                         {STEPS.map((step, i) => {
                             const state = i < currentStep ? "done" : i === currentStep ? "current" : "todo";
                             return (
-                                <li key={step.id} className="flex flex-col gap-2">
-                                    <div className="relative h-[3px] w-full rounded-full bg-violet-100 overflow-hidden">
+                                <li key={step.id} className="flex flex-col gap-1.5">
+                                    <div className="relative h-[2px] w-full rounded-full bg-violet-100 overflow-hidden">
                                         <div
                                             className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
                                                 state === "done" ? "w-full bg-violet-600" : state === "current" ? "w-2/3 bg-violet-600" : "w-0"
                                             }`}
                                         />
                                     </div>
-                                    <div className="flex items-baseline gap-2">
+                                    <div className="flex items-baseline gap-1.5">
                                         <span
-                                            className={`text-[10px] tabular-nums font-semibold tracking-[0.18em] ${
+                                            className={`text-[9px] tabular-nums font-semibold tracking-[0.16em] ${
                                                 state === "todo" ? "text-slate-400" : "text-violet-600"
                                             }`}
                                         >
                                             0{i + 1}
                                         </span>
                                         <span
-                                            className={`text-[11px] font-semibold tracking-[0.12em] uppercase truncate ${
+                                            className={`hidden sm:inline text-[10px] font-semibold tracking-[0.12em] uppercase truncate ${
                                                 state === "todo" ? "text-slate-400" : "text-slate-900"
                                             }`}
                                         >
                                             {step.label}
                                         </span>
                                     </div>
-                                    <span className="hidden md:block text-[10px] text-slate-400 tracking-wide">{step.hint}</span>
                                 </li>
                             );
                         })}
                     </ol>
-                    <div className="mt-4 flex items-center justify-between text-[10px] tracking-[0.18em] uppercase text-slate-400">
-                        <span>Progress</span>
-                        <span className="tabular-nums text-slate-900">{Math.round(progress)}%</span>
-                    </div>
                 </div>
             </nav>
 
-            {/* Main content */}
-            <main className="relative z-10 px-6 lg:px-10 pb-40 pt-10 sm:pt-14">
+            {/* Main content — flows in document, scrolls naturally */}
+            <main className="relative z-10 flex-1 px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 pb-8">
                 <div className="mx-auto max-w-5xl">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,260px)] gap-10 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,220px)] gap-6 items-start">
                         <section
                             key={currentStep}
-                            className="rounded-[28px] border border-violet-100 bg-white/85 backdrop-blur-sm p-6 sm:p-10 lg:p-12 animate-in fade-in slide-in-from-bottom-3 duration-500"
+                            className="rounded-2xl sm:rounded-[24px] border border-violet-100 bg-white/85 backdrop-blur-sm p-5 sm:p-7 lg:p-9 animate-in fade-in slide-in-from-bottom-3 duration-500"
                         >
                             {currentStep === 0 && <WelcomeStep {...stepProps} />}
                             {currentStep === 1 && <ProfileStep {...stepProps} />}
@@ -225,38 +220,31 @@ export default function OnboardingPage() {
                         </section>
 
                         {/* Side rail — mascot + step compass (desktop) */}
-                        <aside className="hidden lg:flex flex-col gap-5 sticky top-10">
-                            <div className="rounded-3xl border border-violet-100 bg-white p-6 flex flex-col items-center text-center">
-                                <DryvMascot pose={mascotPose} size={140} />
-                                <p className="mt-4 text-[11px] tracking-[0.2em] uppercase font-semibold text-violet-600">
+                        <aside className="hidden lg:flex flex-col gap-4 sticky top-6">
+                            <div className="rounded-2xl border border-violet-100 bg-white p-4 flex flex-col items-center text-center">
+                                <DryvMascot pose={mascotPose} size={96} />
+                                <p className="mt-2 text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-600">
                                     Dryv
                                 </p>
-                                <p className="mt-1 text-[12px] text-slate-500 leading-relaxed">
-                                    {currentStep === 0 && "Five quick steps. You stay in custody the whole way."}
-                                    {currentStep === 1 && "Your name and org show up across signers, alerts and reports."}
-                                    {currentStep === 2 && "Connect any Squads vault or single signer — read-only is fine."}
-                                    {currentStep === 3 && "Sets agent guardrails. Tweak it anytime from Agent Settings."}
-                                    {currentStep === 4 && "Skip if solo — co-signers can be added later."}
-                                    {currentStep === 5 && "Everything looks ready. Let's launch your treasury."}
+                                <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                                    {currentStep === 0 && "Five quick steps. You stay in custody."}
+                                    {currentStep === 1 && "Shows up across signers, alerts and reports."}
+                                    {currentStep === 2 && "Squads vault or single signer — read-only is fine."}
+                                    {currentStep === 3 && "Sets agent guardrails. Tweak anytime."}
+                                    {currentStep === 4 && "Skip if solo — invite later."}
+                                    {currentStep === 5 && "Looks ready. Let's launch."}
                                 </p>
                             </div>
 
-                            <div className="rounded-3xl border border-violet-100 bg-violet-50/50 p-5">
+                            <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
                                 <p className="text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-700">Compass</p>
-                                <ul className="mt-3 space-y-2.5">
+                                <ul className="mt-2.5 space-y-2">
                                     {STEPS.map((s, i) => (
-                                        <li key={s.id} className="flex items-center gap-2.5">
-                                            <span
-                                                className={`flex h-1.5 w-1.5 ${
-                                                    i === currentStep
-                                                        ? "scale-150"
-                                                        : i < currentStep
-                                                        ? ""
-                                                        : "opacity-30"
-                                                }`}
-                                            >
-                                                <DreyvStar size={i === currentStep ? 12 : 8} className="text-violet-600 -mt-1" />
-                                            </span>
+                                        <li key={s.id} className="flex items-center gap-2">
+                                            <DreyvStar
+                                                size={i === currentStep ? 11 : 8}
+                                                className={`text-violet-600 ${i > currentStep ? "opacity-30" : ""}`}
+                                            />
                                             <span
                                                 className={`text-[11px] tracking-wide ${
                                                     i === currentStep
@@ -277,10 +265,10 @@ export default function OnboardingPage() {
                 </div>
             </main>
 
-            {/* Floating navigation footer */}
-            <footer className="fixed inset-x-0 bottom-0 z-20 px-6 lg:px-10 pb-6">
+            {/* Navigation footer — in document flow, sticks to bottom of viewport when content is short */}
+            <footer className="relative z-10 px-4 sm:px-6 lg:px-10 pb-4 sm:pb-5">
                 <div className="mx-auto max-w-5xl">
-                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-violet-100 bg-white/90 backdrop-blur-md px-4 sm:px-6 py-3">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white px-4 sm:px-5 py-2.5">
                         <button
                             onClick={handleBack}
                             disabled={currentStep === 0}
