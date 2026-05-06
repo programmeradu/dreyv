@@ -313,6 +313,18 @@ export function AnalyticsCockpit({
   trend,
 }: CockpitProps) {
   const [openSignal, setOpenSignal] = useState<string | null>(null);
+  const [liveRates, setLiveRates] = useState<LiveRatesMap>({});
+
+  /* ── Live LST APYs (refreshed every 5 min) ──────────────────── */
+  useEffect(() => {
+    let cancelled = false;
+    const ctrl = new AbortController();
+    fetchLiveLstRates(ctrl.signal).then((r) => { if (!cancelled) setLiveRates(r); });
+    const id = setInterval(() => {
+      fetchLiveLstRates().then((r) => { if (!cancelled) setLiveRates(r); });
+    }, 5 * 60 * 1000);
+    return () => { cancelled = true; ctrl.abort(); clearInterval(id); };
+  }, []);
 
   /* ── Streaming USD value (manual spring so we can split the $ glyph) ── */
   const target = vaultValue ?? 0;
