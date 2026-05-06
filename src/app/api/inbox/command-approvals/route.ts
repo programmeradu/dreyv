@@ -31,12 +31,10 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: true, approvals: [], reason: "db_unavailable" });
   const url = new URL(req.url);
-  const requestedWallet = url.searchParams.get("wallet");
   const status = url.searchParams.get("status") ?? "pending";
-  if (requestedWallet && requestedWallet !== user.walletAddress) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  // Always scope to the authenticated user's wallet, regardless of query param.
+  // Always scope to the authenticated user's wallet, regardless of any
+  // ?wallet= query (which may come from a different connected wallet than
+  // the JWT cookie's wallet — e.g. user reconnected with another adapter).
   const wallet = user.walletAddress;
 
   try {
