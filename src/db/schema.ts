@@ -1723,3 +1723,29 @@ export const mediaStudioAssets = pgTable('media_studio_assets', {
   userIdx: index('media_studio_user_idx').on(t.userId, t.createdAt),
   kindIdx: index('media_studio_kind_idx').on(t.kind, t.createdAt),
 }));
+
+// ─── Protocol fees (Dreyv 0.05% skim ledger) ─────────────────────────
+// Every CommandBar / agent transaction that ships with a fee transfer to
+// TREASURY_WALLET writes a row here, so the admin "Monitoring room" can
+// show real take-rate, fee-by-day, and top fee payers without grepping
+// transaction_cache.
+export const protocolFees = pgTable('protocol_fees', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  walletAddress: text('wallet_address').notNull(),
+  // The user-tx signature this fee rides alongside (foreign-keyish).
+  parentSignature: text('parent_signature').notNull(),
+  // The fee transfer signature itself (separate tx in the signAllTransactions batch).
+  feeSignature: text('fee_signature').notNull().unique(),
+  operation: text('operation'),                          // swap | transfer | yield_deposit | …
+  source: text('source').notNull().default('commandbar'),
+  estimatedValueUsd: numeric('estimated_value_usd', { precision: 20, scale: 6 }),
+  feeUsd: numeric('fee_usd', { precision: 20, scale: 8 }).notNull(),
+  feeLamports: numeric('fee_lamports', { precision: 20, scale: 0 }).notNull(),
+  treasuryWallet: text('treasury_wallet').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  walletIdx: index('protocol_fees_wallet_idx').on(t.walletAddress, t.createdAt),
+  parentSigIdx: index('protocol_fees_parent_sig_idx').on(t.parentSignature),
+  createdAtIdx: index('protocol_fees_created_at_idx').on(t.createdAt),
+}));

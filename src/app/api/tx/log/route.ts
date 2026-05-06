@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transactionCache, agentExecutions } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { transactionCache, agentExecutions, protocolFees } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
-
-// CommandBar (and any other client-signed flow) pings this after the wallet
-// signs and the RPC accepts the transaction. We persist:
-//  1) one transaction_cache row per signature → admin "On-chain & TX volume"
-//  2) one agent_executions row per command → admin "AI agent fleet"
-// Helius webhook will still backfill the richer fields later (block_time,
-// fee, value_usd) — we just claim the row early so the dashboard isn't blank.
+import { TREASURY_WALLET } from "@/lib/commandbar/protocol-fee";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+interface ProtocolFeePayload {
+  parentSignature: string;
+  feeSignature: string;
+  feeLamports: number;
+  feeUsd: number;
+}
 
 interface LogPayload {
   signatures: string[];
@@ -22,6 +22,7 @@ interface LogPayload {
   vaultAddress?: string | null;
   estimatedValueUsd?: number | null;
   source?: "commandbar" | "agent" | "manual";
+  protocolFee?: ProtocolFeePayload | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -41,13 +42,12 @@ export async function POST(req: NextRequest) {
     const valueUsd = typeof body.estimatedValueUsd === "number" ? body.estimatedValueUsd : null;
     const now = new Date();
 
-    // 1) transaction_cache — one row per signature, idempotent on signature
     const txRows = body.signatures.map((sig) => ({
       userId: user.id,
       walletAddress: user.walletAddress,
       signature: sig,
       success: true,
-      type: "program" as const,
+      type: source === "commandbar" ? ("commandbar" as const) : ("program" as const),
       direction: "out" as const,
       programId: null,
       memo: operation,
@@ -61,7 +61,30 @@ export async function POST(req: NextRequest) {
       .values(txRows)
       .onConflictDoNothing({ target: transactionCache.signature });
 
-    // 2) agent_executions — single SUCCESS row per command, references first sig
+    // Protocol fee ledger — one row per 0.05% skim collected by the wallet.
+    if (body.protocolFee && body.protocolFee.feeSignature && body.protocolFee.feeUsd > 0) {
+      try {
+        await db
+          .insert(protocolFees)
+          .values({
+            userId: user.id,
+            walletAddress: user.walletAddress,
+            parentSignature: body.protocolFee.parentSignature,
+            feeSignature: body.protocolFee.feeSignature,
+            operation,
+            source,
+            estimatedValueUsd: valueUsd != null ? String(valueUsd) : null,
+            feeUsd: String(body.protocolFee.feeUsd),
+            feeLamports: String(body.protocolFee.feeLamports),
+            treasuryWallet: TREASURY_WALLET,
+            createdAt: now,
+          })
+          .onConflictDoNothing({ target: protocolFees.feeSignature });
+      } catch (e) {
+        console.warn("[/api/tx/log] protocol_fees insert failed", e);
+      }
+    }
+
     const execId = `exec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await db
       .insert(agentExecutions)
@@ -73,7 +96,7 @@ export async function POST(req: NextRequest) {
         status: "SUCCESS",
         progress: 100,
         input: { operation, prompt: body.prompt ?? null, toolName: body.toolName ?? null, source },
-        result: { signatures: body.signatures, valueUsd },
+        result: { signatures: body.signatures, valueUsd, protocolFeeUsd: body.protocolFee?.feeUsd ?? null },
         transactionSignature: body.signatures[0],
         approvalRequired: false,
         startedAt: now,

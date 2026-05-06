@@ -269,14 +269,28 @@ export function CommandBar() {
         // Persist to backend so /app/admin metrics (transaction_cache +
         // agent_executions) reflect the user-signed activity. Best-effort —
         // don't block the UI on logging.
+        // The fee tx is the LAST signature in the batch (we appended it
+        // after deserializing the user txs). Pass it separately so the
+        // backend can ledger the protocol fee independently.
+        const feeSignature = feeInfo ? sigs[sigs.length - 1] ?? null : null;
+        const userSignatures = feeInfo ? sigs.slice(0, -1) : sigs;
         fetch("/api/tx/log", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            signatures: sigs,
+            signatures: userSignatures,
             operation,
             toolName: operation,
             source: "commandbar",
+            estimatedValueUsd: estimatedValueUsd ?? null,
+            protocolFee: feeInfo
+              ? {
+                  parentSignature: userSignatures[0] ?? feeSignature,
+                  feeSignature,
+                  feeLamports: feeInfo.feeLamports,
+                  feeUsd: feeInfo.feeUsd,
+                }
+              : null,
           }),
         }).catch((e) => console.warn("[CommandBar] tx log failed", e));
 
