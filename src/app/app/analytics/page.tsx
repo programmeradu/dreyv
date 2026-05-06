@@ -98,6 +98,12 @@ function AnalyticsPageInner({
   const simState = sim.state;
   const simActive = sim.active;
 
+  useDeclareFocus({
+    scope: "analytics.overview",
+    label: simActive ? "Analytics (simulation overlay)" : "Analytics",
+    data: { vault: activeVault, valueUsd: vaultValue, change24h: vaultChange24h, simActive, points: valueSeries.length },
+  }, [activeVault, vaultValue, vaultChange24h, simActive, valueSeries.length]);
+
   const handleAsk = (question: string) => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
