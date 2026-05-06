@@ -39,6 +39,7 @@ import glyphAgent from "@/assets/notif/glyph-agent.png";
 import glyphSecurity from "@/assets/notif/glyph-security.png";
 import glyphPurchase from "@/assets/notif/glyph-purchase.png";
 import glyphSystem from "@/assets/notif/glyph-system.png";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 
 type TxInstruction = {
   op: string;
