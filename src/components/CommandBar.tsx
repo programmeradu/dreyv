@@ -27,6 +27,7 @@ import { HandoffStream } from "@/components/commandbar/HandoffStream";
 import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
 import { PendingApprovalsBanner } from "@/components/commandbar/PendingApprovalsBanner";
 import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
+import { useCommandFocus } from "@/lib/commandbar/focus-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
