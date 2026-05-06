@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { Urbanist } from "next/font/google";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
