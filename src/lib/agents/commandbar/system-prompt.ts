@@ -219,6 +219,7 @@ export function buildCommandBarSystemPrompt(input: CommandBarPromptInput): strin
   const policyCtxLine = input.activePolicyContext ? `\n${input.activePolicyContext}` : "";
   const recentLine = input.recentActionsContext ? `\n${input.recentActionsContext}` : "";
   const focusLine = input.userFocusContext ? `\n${input.userFocusContext}` : "";
+  const pushLine = input.agentPushContext ? `\n${input.agentPushContext}` : "";
 
   return `${PIPELINE_DOCTRINE}
 
