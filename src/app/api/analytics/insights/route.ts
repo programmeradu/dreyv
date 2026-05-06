@@ -13,6 +13,7 @@
  * progressively (token-by-token). No hardcoded prompts.
  */
 import { NextRequest } from "next/server";
+import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
