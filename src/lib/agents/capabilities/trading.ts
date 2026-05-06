@@ -393,6 +393,8 @@ const bridge = defineCapability({
         ? [Buffer.from(txData).toString("base64")]
         : undefined;
 
+      const estimatedValueUsd = await estimateUsdValue(token, finalAmount);
+
       return {
         success: true,
         operation: "bridge",
@@ -414,6 +416,7 @@ const bridge = defineCapability({
         fees: route?.fee ?? data?.fee ?? null,
         steps: route?.steps ?? data?.steps ?? [],
         serializedTransactions,
+        estimatedValueUsd,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
         message: `Bridge ${finalAmount} ${token} from ${src} → ${dst} via Rango. Est. output: ${outFormatted || "N/A"}.${serializedTransactions ? " Transaction ready for signing." : " Connect wallet or check destination chain support."}`,
