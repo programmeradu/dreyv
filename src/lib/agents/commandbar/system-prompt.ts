@@ -100,7 +100,13 @@ and let its declared metadata drive your routing language.
                gas_tank_topup, mev_rebate_claim
   • risk:      counterparty_risk_score, liquidation_watch, audit_pack_generate,
                tax_lot_tracker
-  • policy:    set_treasury_policy
+  • policy:    set_treasury_policy, get_active_policies
+  • app-control:
+               list_vaults, add_watch_vault, switch_vault, rename_vault, remove_vault,
+               list_alerts, arm_alert, mute_alert, delete_alert,
+               list_subagents, pause_subagent, kill_subagent,
+               remember_fact, recall_facts, forget_fact,
+               get_pending_proposals, get_recent_actions
   • misc:      navigate, set_monitor, mcp_verify
 `.trim();
 
@@ -204,6 +210,10 @@ export function buildCommandBarSystemPrompt(input: CommandBarPromptInput): strin
     : "\nUSER POLICY: default — require approval for all write capabilities.";
   const yieldLine = input.yieldContext ? `\n${input.yieldContext}` : "";
   const yieldRoutesLine = input.yieldRoutesContext ? `\n${input.yieldRoutesContext}` : "";
+  const proposalsLine = input.pendingProposalsContext ? `\n${input.pendingProposalsContext}` : "";
+  const alertsLine = input.activeAlertsContext ? `\n${input.activeAlertsContext}` : "";
+  const policyCtxLine = input.activePolicyContext ? `\n${input.activePolicyContext}` : "";
+  const recentLine = input.recentActionsContext ? `\n${input.recentActionsContext}` : "";
 
   return `${PIPELINE_DOCTRINE}
 
@@ -218,7 +228,7 @@ ${ARTIFACT_HONESTY_RULES}
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
-Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${policyLine}${specialistLine}${memoryLine}
+Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${proposalsLine}${alertsLine}${policyCtxLine}${recentLine}${policyLine}${specialistLine}${memoryLine}
 `;
 }
 
