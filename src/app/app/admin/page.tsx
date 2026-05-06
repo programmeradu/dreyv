@@ -102,7 +102,15 @@ export default function AdminMonitoringRoom() {
         onchain: { txCount: 0, usdVol: 0, airdropClaims: 0, airdropValue: 0, ...(m.onchain ?? {}) },
         teams: { total: 0, vaultLinked: 0, invitesTotal: 0, invitesAccepted: 0, ...(m.teams ?? {}) },
         system: { rateLimitHits24h: 0, activeMonitors: 0, activeAtlasSessions: 0, foresightAccuracy: 0, ...(m.system ?? {}) },
+        protocol: {
+            feesAll: 0, volAll: 0, txAll: 0,
+            fees24h: 0, vol24h: 0, tx24h: 0,
+            fees7d: 0, fees30d: 0, vol30d: 0, payers30d: 0, takeRateBps: 5,
+            ...(m.protocol ?? {}),
+        },
     };
+    const usd = (n: number) => "$" + (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const usd0 = (n: number) => "$" + (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
     return (
         <div className="dreyv-marketing-root relative min-h-dvh w-full font-manrope bg-white text-slate-900 overflow-x-hidden">
