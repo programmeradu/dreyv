@@ -149,6 +149,12 @@ export interface Capability<
    * "kamino", "rango"). Risk-agent uses this to enforce per-user protocol allowlists.
    */
   protocols?: string[];
+  /**
+   * Phase: Billing — minimum subscription tier required to execute this capability.
+   * "free" (default) is available to everyone; "mini" and "max" gate paid features.
+   * Read/sim/meta capabilities should generally remain "free".
+   */
+  minTier?: "free" | "mini" | "max";
   execute: (
     input: z.infer<TInput>,
     ctx: CapabilityContext,

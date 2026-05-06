@@ -39,6 +39,7 @@ import glyphAgent from "@/assets/notif/glyph-agent.png";
 import glyphSecurity from "@/assets/notif/glyph-security.png";
 import glyphPurchase from "@/assets/notif/glyph-purchase.png";
 import glyphSystem from "@/assets/notif/glyph-system.png";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 
 type TxInstruction = {
   op: string;
@@ -127,6 +128,11 @@ export default function InboxPage() {
   const [commandApprovals, setCommandApprovals] = useState<CommandApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useDeclareFocus(
+    { scope: "inbox.queue", label: "Agent inbox", data: { wallet, proposals: proposals.length, txProposals: txProposals.length, commandApprovals: commandApprovals.length, watchers: watchers.length, subagents: subagents.length } },
+    [wallet, proposals.length, txProposals.length, commandApprovals.length, watchers.length, subagents.length],
+  );
 
   // Watcher form state
   const [chain, setChain] = useState<string>("solana");

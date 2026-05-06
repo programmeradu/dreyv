@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
@@ -273,6 +274,7 @@ export function AtlasClient() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useDeclareFocus({ scope: "atlas", label: "Solana Atlas", data: { wallet: publicKey?.toBase58() ?? null, sol: solBalance ?? null, isClay } }, [publicKey?.toBase58(), solBalance, isClay]);
 
   // Leftover state from removed Command/NLP UI — kept as no-op stubs so
   // existing handlers (executeSwap/executeStake/executeLp/handleParse) compile.
