@@ -32,6 +32,7 @@ import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromScore } from "./SignalBadge";
+import { estimateLstYield } from "@/lib/foresight/lst-yield";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
