@@ -28,6 +28,7 @@ import { useWallet } from "@/lib/wallet/compat";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";
+import { CommandFocusProvider } from "@/lib/commandbar/focus-context";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
