@@ -19,6 +19,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { VersionedTransaction, Transaction } from "@solana/web3.js";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
+import { buildProtocolFeeTx } from "@/lib/commandbar/protocol-fee";
 import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
