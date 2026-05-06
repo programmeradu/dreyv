@@ -30,6 +30,7 @@ export interface ToolCardProps {
     serialized: string[],
     operation: string,
     extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+    estimatedValueUsd?: number | null,
   ) => void;
 }
 
