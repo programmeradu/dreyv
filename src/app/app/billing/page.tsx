@@ -181,7 +181,7 @@ export default function BillingPage() {
                 {/* Dryv mascot peek — celebrate on paid, greet on free */}
                 <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
                     <Image
-                        src={isPaid ? dryvCelebrate : dryvGreet}
+                        src={dryvBilling}
                         alt=""
                         width={140}
                         height={140}
