@@ -269,6 +269,7 @@ const transfer = defineCapability({
       const serialized = Buffer.from(tx.serialize({ verifySignatures: false })).toString(
         "base64",
       );
+      const estimatedValueUsd = await estimateUsdValue(token, amount);
       return {
         success: true,
         operation: "transfer",
@@ -276,8 +277,10 @@ const transfer = defineCapability({
         amount,
         recipient,
         serializedTransaction: serialized,
+        serializedTransactions: [serialized],
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd,
         message: `Transfer ${amount} ${token} to ${recipient.slice(0, 8)}… ready for signing.`,
       };
     } catch (err: unknown) {
