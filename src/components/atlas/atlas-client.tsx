@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
