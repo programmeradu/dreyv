@@ -20,6 +20,7 @@
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
+import { estimateUsdValue } from "./usd-pricing";
 
 const create_multisig = defineCapability({
   id: "create_multisig",
