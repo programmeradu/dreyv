@@ -43,6 +43,8 @@ export interface CommandBarPromptInput {
   activePolicyContext?: string;
   /** Optional one-line summary of the last 5 agent actions (episodic memory). */
   recentActionsContext?: string;
+  /** Optional one-line summary of the user's current on-screen focus (route + scope). */
+  userFocusContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
