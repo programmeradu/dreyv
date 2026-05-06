@@ -218,9 +218,22 @@ export class AnalysisAgent extends BaseAgent {
       let riskyValue = 0;
       const riskBreakdown: any = {};
 
-      for (const holding of holdings) {
-        const price = prices?.find((p) => p.mint === holding.mint)?.price || 0;
-        const value = holding.uiAmount * price;
+      // Defensive: callers occasionally pass an object map (mint→price) or a
+      // single price record instead of an array. Normalize to an array of
+      // { mint, price } so `.find` is always safe.
+      const safeHoldings: any[] = Array.isArray(holdings) ? holdings : [];
+      const safePrices: any[] = Array.isArray(prices)
+        ? prices
+        : prices && typeof prices === "object"
+          ? Object.entries(prices as Record<string, any>).map(([mint, v]) => ({
+              mint,
+              price: typeof v === "number" ? v : Number(v?.price) || 0,
+            }))
+          : [];
+
+      for (const holding of safeHoldings) {
+        const price = safePrices.find((p) => p?.mint === holding?.mint)?.price || 0;
+        const value = (Number(holding?.uiAmount) || 0) * (Number(price) || 0);
         totalValue += value;
 
         // Simple risk categorization
