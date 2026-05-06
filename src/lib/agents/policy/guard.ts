@@ -251,16 +251,6 @@ export async function recordToolMetric(opts: {
   tokensOut?: number;
   costUsdEst?: number;
 }) {
-  userId?: string;
-  capabilityId: string;
-  commandId?: string;
-  latencyMs: number;
-  outcome: "ok" | "error" | "denied" | "queued";
-  errorCode?: string;
-  tokensIn?: number;
-  tokensOut?: number;
-  costUsdEst?: number;
-}) {
   if (!db) return;
   try {
     await db.insert(agentToolMetrics).values({
