@@ -28,6 +28,7 @@ export const DACS_FUNCTIONS = [
   liquidationWatcher,
   runwayAutopilotWatcher,
   monthlyBurnStatementCron,
+  inflowYieldAutopilot,
   ...SPECIALIST_FUNCTIONS,
 ];
 
