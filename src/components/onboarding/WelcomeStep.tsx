@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { OnboardingData } from "@/app/app/onboarding/page";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface StepProps {
     data: OnboardingData;
@@ -11,159 +12,143 @@ interface StepProps {
 }
 
 /**
- * Custom premium icons — each is a unique inline SVG with gradient fills
- * and subtle glow, designed specifically for dreyv onboarding.
+ * Bespoke pillar visuals — each is a unique micro-illustration in solid
+ * violet on white, designed specifically for the Dreyv onboarding pillars.
+ * No stock iconography.
  */
 
-const VaultShieldIcon = () => (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+const PillarCustody = () => (
+    <svg viewBox="0 0 88 88" className="w-full h-full">
         <defs>
-            <linearGradient id="shield-grad" x1="4" y1="4" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#36e27b" />
-                <stop offset="1" stopColor="#059669" />
-            </linearGradient>
-            <filter id="shield-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="1.5" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
+            <pattern id="pcg" width="6" height="6" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="0.6" fill="#7c3aed" opacity="0.18" />
+            </pattern>
         </defs>
-        <g filter="url(#shield-glow)">
-            {/* Shield body */}
-            <path d="M14 3L5 7.5V13C5 19.08 8.84 24.71 14 26C19.16 24.71 23 19.08 23 13V7.5L14 3Z" stroke="url(#shield-grad)" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
-            {/* Inner lock */}
-            <rect x="11" y="13" width="6" height="5" rx="1" stroke="url(#shield-grad)" strokeWidth="1.2" fill="none" />
-            <path d="M12.5 13V11.5C12.5 10.67 13.17 10 14 10C14.83 10 15.5 10.67 15.5 11.5V13" stroke="url(#shield-grad)" strokeWidth="1.2" strokeLinecap="round" />
-            {/* Lock dot */}
-            <circle cx="14" cy="15.5" r="0.8" fill="url(#shield-grad)" />
-        </g>
+        <rect x="6" y="6" width="76" height="76" rx="20" fill="url(#pcg)" />
+        {/* Vault door circle */}
+        <circle cx="44" cy="44" r="22" stroke="#7c3aed" strokeWidth="1.4" fill="white" />
+        <circle cx="44" cy="44" r="14" stroke="#7c3aed" strokeWidth="1" fill="none" opacity="0.5" />
+        {/* Tumbler spokes */}
+        {Array.from({ length: 8 }).map((_, i) => {
+            const a = (i * Math.PI) / 4;
+            const x1 = 44 + Math.cos(a) * 22;
+            const y1 = 44 + Math.sin(a) * 22;
+            const x2 = 44 + Math.cos(a) * 26;
+            const y2 = 44 + Math.sin(a) * 26;
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7c3aed" strokeWidth="1.4" strokeLinecap="round" />;
+        })}
+        {/* Center key */}
+        <circle cx="44" cy="44" r="4" fill="#7c3aed" />
+        <rect x="43.2" y="44" width="1.6" height="9" fill="#7c3aed" />
+        <rect x="44.8" y="50" width="3" height="1.4" fill="#7c3aed" />
     </svg>
 );
 
-const NeuralBrainIcon = () => (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <linearGradient id="brain-grad" x1="4" y1="4" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#a78bfa" />
-                <stop offset="1" stopColor="#7c3aed" />
-            </linearGradient>
-            <filter id="brain-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="1.5" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-        </defs>
-        <g filter="url(#brain-glow)">
-            {/* Brain outline */}
-            <path d="M14 4C10.5 4 8 6 7 8.5C5 9 4 11 4 13C4 15 5 17 7 18C7.5 20 9 22 11 23L14 24L17 23C19 22 20.5 20 21 18C23 17 24 15 24 13C24 11 23 9 21 8.5C20 6 17.5 4 14 4Z" stroke="url(#brain-grad)" strokeWidth="1.3" fill="none" strokeLinejoin="round" />
-            {/* Neural pathways */}
-            <path d="M14 8V14M11 10L14 14L17 10" stroke="url(#brain-grad)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-            {/* Neural nodes */}
-            <circle cx="14" cy="8" r="1.2" fill="url(#brain-grad)" />
-            <circle cx="11" cy="10" r="1" fill="url(#brain-grad)" opacity="0.8" />
-            <circle cx="17" cy="10" r="1" fill="url(#brain-grad)" opacity="0.8" />
-            <circle cx="14" cy="14" r="1.3" fill="url(#brain-grad)" />
-            {/* Pulse rings */}
-            <circle cx="14" cy="14" r="3" stroke="url(#brain-grad)" strokeWidth="0.5" opacity="0.3">
-                <animate attributeName="r" values="3;5;3" dur="2.5s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.3;0;0.3" dur="2.5s" repeatCount="indefinite" />
-            </circle>
-        </g>
+const PillarAgents = () => (
+    <svg viewBox="0 0 88 88" className="w-full h-full">
+        <rect x="6" y="6" width="76" height="76" rx="20" fill="#f5f3ff" />
+        {/* Network nodes */}
+        {[
+            [44, 22], [22, 44], [66, 44], [44, 66], [44, 44],
+        ].map(([x, y], i) => (
+            <g key={i}>
+                <circle cx={x} cy={y} r={i === 4 ? 6 : 3.5} fill={i === 4 ? "#7c3aed" : "white"} stroke="#7c3aed" strokeWidth="1.3" />
+            </g>
+        ))}
+        {/* Edges */}
+        {[
+            [44, 22, 44, 44], [22, 44, 44, 44], [66, 44, 44, 44], [44, 66, 44, 44],
+            [44, 22, 22, 44], [44, 22, 66, 44], [22, 44, 44, 66], [66, 44, 44, 66],
+        ].map(([x1, y1, x2, y2], i) => (
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#7c3aed" strokeWidth="0.9" opacity="0.5" />
+        ))}
+        {/* Corner ticks */}
+        {[[10, 10], [78, 10], [10, 78], [78, 78]].map(([x, y], i) => (
+            <g key={i} stroke="#7c3aed" strokeWidth="1">
+                <line x1={x - 3} y1={y} x2={x + 3} y2={y} />
+                <line x1={x} y1={y - 3} x2={x} y2={y + 3} />
+            </g>
+        ))}
     </svg>
 );
 
-const TeamConstellationIcon = () => (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <linearGradient id="team-grad" x1="4" y1="4" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#38bdf8" />
-                <stop offset="1" stopColor="#0284c7" />
-            </linearGradient>
-            <filter id="team-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="1.5" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-        </defs>
-        <g filter="url(#team-glow)">
-            {/* Connection lines */}
-            <line x1="14" y1="7" x2="7" y2="16" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            <line x1="14" y1="7" x2="21" y2="16" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            <line x1="7" y1="16" x2="21" y2="16" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            <line x1="14" y1="7" x2="14" y2="22" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            <line x1="7" y1="16" x2="14" y2="22" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            <line x1="21" y1="16" x2="14" y2="22" stroke="url(#team-grad)" strokeWidth="0.8" opacity="0.4" />
-            {/* Person nodes as hexagonal dots */}
-            <circle cx="14" cy="7" r="2.5" fill="url(#team-grad)" opacity="0.9" />
-            <circle cx="7" cy="16" r="2.2" fill="url(#team-grad)" opacity="0.7" />
-            <circle cx="21" cy="16" r="2.2" fill="url(#team-grad)" opacity="0.7" />
-            <circle cx="14" cy="22" r="2" fill="url(#team-grad)" opacity="0.6" />
-            {/* Person silhouettes inside nodes */}
-            <path d="M14 6.2C14.5 6.2 14.8 6.5 14.8 7C14.8 7.3 14.6 7.5 14.3 7.6V7.8H13.7V7.6C13.4 7.5 13.2 7.3 13.2 7C13.2 6.5 13.5 6.2 14 6.2Z" fill="white" opacity="0.9" />
-            {/* Animated pulse on primary node */}
-            <circle cx="14" cy="7" r="2.5" stroke="url(#team-grad)" strokeWidth="0.6" opacity="0">
-                <animate attributeName="r" values="2.5;5;2.5" dur="3s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite" />
-            </circle>
+const PillarMultisig = () => (
+    <svg viewBox="0 0 88 88" className="w-full h-full">
+        <rect x="6" y="6" width="76" height="76" rx="20" fill="white" stroke="#ddd6fe" strokeWidth="1" />
+        {/* Three signers as overlapping rounded squares */}
+        <g>
+            <rect x="18" y="30" width="22" height="28" rx="6" fill="white" stroke="#7c3aed" strokeWidth="1.3" />
+            <rect x="33" y="24" width="22" height="34" rx="6" fill="white" stroke="#7c3aed" strokeWidth="1.5" />
+            <rect x="48" y="30" width="22" height="28" rx="6" fill="white" stroke="#7c3aed" strokeWidth="1.3" />
         </g>
+        {/* Avatars */}
+        <circle cx="29" cy="40" r="3.5" fill="#7c3aed" />
+        <circle cx="44" cy="36" r="4" fill="#7c3aed" />
+        <circle cx="59" cy="40" r="3.5" fill="#7c3aed" />
+        {/* Signature lines */}
+        <line x1="22" y1="50" x2="36" y2="50" stroke="#7c3aed" strokeWidth="1" opacity="0.4" />
+        <line x1="36" y1="46" x2="52" y2="46" stroke="#7c3aed" strokeWidth="1" opacity="0.4" />
+        <line x1="36" y1="50" x2="52" y2="50" stroke="#7c3aed" strokeWidth="1" opacity="0.4" />
+        <line x1="52" y1="50" x2="66" y2="50" stroke="#7c3aed" strokeWidth="1" opacity="0.4" />
+        {/* k-of-n badge */}
+        <circle cx="68" cy="22" r="9" fill="#7c3aed" />
+        <text x="68" y="25.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="ui-monospace, monospace">2/3</text>
     </svg>
 );
+
+const PILLARS = [
+    { title: "Self-custody", caption: "Non-custodial · multisig native", Visual: PillarCustody },
+    { title: "Studio agents", caption: "Build, simulate, automate", Visual: PillarAgents },
+    { title: "Signer-ready", caption: "Squads, Phantom, Ledger", Visual: PillarMultisig },
+];
 
 export const WelcomeStep = ({ onNext }: StepProps) => {
-    const features = [
-        {
-            icon: <VaultShieldIcon />,
-            title: "Your keys",
-            desc: "Non-custodial · multisig",
-            borderColor: "hover:border-emerald-500/40",
-            bgGlow: "group-hover:shadow-[0_0_24px_rgba(54,226,123,0.08)]",
-        },
-        {
-            icon: <NeuralBrainIcon />,
-            title: "Studio & agents",
-            desc: "Build and automate flows",
-            borderColor: "hover:border-violet-500/40",
-            bgGlow: "group-hover:shadow-[0_0_24px_rgba(167,139,250,0.08)]",
-        },
-        {
-            icon: <TeamConstellationIcon />,
-            title: "Multisig-ready",
-            desc: "Your signers, your policy",
-            borderColor: "hover:border-sky-500/40",
-            bgGlow: "group-hover:shadow-[0_0_24px_rgba(56,189,248,0.08)]",
-        },
-    ];
-
     return (
-        <div className="text-center space-y-10">
-            <div className="space-y-4">
-                <h1 className="text-3xl sm:text-4xl font-black text-foreground uppercase tracking-tight">
-                    Welcome to dreyv
+        <div className="space-y-10">
+            {/* Eyebrow */}
+            <div className="flex items-center gap-2.5">
+                <DreyvStar size={12} className="text-violet-600" />
+                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Step 01 · Welcome</span>
+            </div>
+
+            {/* Hero */}
+            <div className="space-y-5 max-w-xl">
+                <h1 className="text-[40px] sm:text-[52px] leading-[1.02] font-semibold tracking-[-0.02em] text-slate-900">
+                    Treasury, in <span className="italic font-light text-violet-600">plain</span> language.
                 </h1>
-                <p className="text-sm text-muted-foreground font-black uppercase tracking-widest max-w-md mx-auto leading-relaxed">
-                    Plain-language treasury intent, simulated impact, then sign with your multisig — you keep custody. Five
-                    quick steps.
+                <p className="text-[15px] leading-relaxed text-slate-500 max-w-lg">
+                    Five quick steps. You stay in custody the whole way — Dreyv handles intent, simulation
+                    and signatures, never your keys.
                 </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-5 max-w-xl mx-auto">
-                {features.map((f) => (
+            {/* Pillars */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {PILLARS.map((p) => (
                     <div
-                        key={f.title}
-                        className={`group p-5 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/60 text-center space-y-3 transition-all duration-300 cursor-default ${f.borderColor} ${f.bgGlow}`}
+                        key={p.title}
+                        className="group rounded-2xl border border-violet-100 bg-white p-5 hover:border-violet-300 transition-colors"
                     >
-                        <div className="w-14 h-14 rounded-xl bg-background/80 border border-border/40 flex items-center justify-center mx-auto transition-transform duration-300 group-hover:scale-110">
-                            {f.icon}
+                        <div className="aspect-square w-full max-w-[120px] mx-auto">
+                            <p.Visual />
                         </div>
-                        <p className="text-[10px] font-black text-foreground uppercase tracking-[0.15em]">{f.title}</p>
-                        <p className="text-[9px] text-muted-foreground/70 leading-relaxed">{f.desc}</p>
+                        <p className="mt-4 text-[13px] font-semibold text-slate-900 tracking-tight">{p.title}</p>
+                        <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">{p.caption}</p>
                     </div>
                 ))}
             </div>
 
-            <button
-                onClick={onNext}
-                className="px-10 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-[0_0_20px_var(--dashboard-accent-muted)] hover:shadow-[0_0_40px_var(--dashboard-accent-muted)] hover:scale-[1.02] active:scale-[0.98]"
-            >
-                Get Started →
-            </button>
+            {/* CTA */}
+            <div className="flex items-center gap-5 pt-2">
+                <button
+                    onClick={onNext}
+                    className="group inline-flex items-center gap-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[13px] font-semibold tracking-[0.14em] uppercase px-7 py-3.5 transition-colors"
+                >
+                    Begin setup
+                    <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+                </button>
+                <span className="text-[11px] text-slate-400 tracking-wide">≈ 90 seconds</span>
+            </div>
         </div>
     );
 };
