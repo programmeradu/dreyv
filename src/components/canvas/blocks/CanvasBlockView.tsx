@@ -3169,9 +3169,15 @@ interface YieldRoute {
   riskBand: "conservative" | "balanced" | "aggressive";
   targetAmount: string;
   minApyBps: number | null;
-  status: "draft" | "active" | "paused" | "exited";
+  status: "draft" | "armed" | "queued" | "active" | "paused" | "exited";
   lastApyBps: number | null;
   notes: string | null;
+  live?: {
+    balance: number | null;
+    apyBps: number | null;
+    idleAvail: number | null;
+    readyToDeploy: boolean;
+  };
 }
 
 const YIELD_VENUES = [
