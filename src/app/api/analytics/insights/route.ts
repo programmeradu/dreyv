@@ -42,6 +42,8 @@ interface InsightsBody {
     yieldDeltaPct: number | null;
     concentrationDeltaPct: number | null;
   } | null;
+  /** Optional vault holdings — used to compute yield context (LST APYs etc). */
+  vaultTokens?: Array<{ symbol?: string; mint?: string; address?: string; amount?: number; price?: number; priceUsd?: number }>;
 }
 
 const SYSTEM_PROMPT = `You are Dreyv's analytics narrator. You produce TWO segments in one stream, separated by exact sentinels.
