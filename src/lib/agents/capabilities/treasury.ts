@@ -440,6 +440,7 @@ const mass_dispatch = defineCapability({
         serializedTransactions: transactions,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd: await estimateUsdValue(token, total),
         message: `Mass Dispatch: ${total} ${token} to ${recipients.length} recipients in ${transactions.length} transaction(s). Ready for signing.`,
       };
     } catch (err: unknown) {
