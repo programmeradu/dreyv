@@ -52,18 +52,26 @@ export function SigningCard({
         </div>
       )}
 
-      {/* Sent — show success with signatures */}
+      {/* Sent — show success with signatures + explorer links */}
       {signingStatus === "sent" && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Transactions sent
+            {txSignatures.length === 1 ? "Transaction confirmed" : "Transactions confirmed"}
           </p>
-          {txSignatures.map((sig, i) => (
-            <p key={i} className="font-mono text-[11px] text-slate-500">
-              {sig.slice(0, 12)}…
-            </p>
-          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {txSignatures.map((sig, i) => (
+              <button
+                key={i}
+                onClick={() => openExternal(solscanUrl(sig))}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 font-mono text-[11px] text-violet-700 transition-colors hover:bg-violet-50"
+                title={sig}
+              >
+                {sig.slice(0, 8)}…{sig.slice(-4)}
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
