@@ -32,6 +32,7 @@ import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
 import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
 import { ScenarioBanner } from "@/components/analytics/ScenarioBanner";
 import { BaselineVsSimulated } from "@/components/analytics/BaselineVsSimulated";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import {
   SimulatedAnalyticsProvider,
   useSimulatedAnalytics,
