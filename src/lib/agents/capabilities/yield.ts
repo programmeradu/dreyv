@@ -74,6 +74,7 @@ const stake = defineCapability({
       status: result.status,
       executionId: result.executionId,
       requiresApproval: true,
+      estimatedValueUsd: await estimateUsdValue("SOL", amount),
       message: `Stake ${amount} SOL via ${resolvedProvider}.${serializedTransactions.length > 0 ? " Transaction ready for signing." : " Connect wallet to build transaction."}`,
     };
   },
