@@ -671,7 +671,7 @@ export function AnalyticsCockpit({
               const annualUsd = useLst ? lst.annualYieldUsd : realizedUsd;
               return (
                 <KpiTile
-                  label={useLst ? "Yield · est. APY" : "Yield · APY"}
+                  label={useLst ? (lst.source === "live" ? "Yield · live APY" : lst.source === "mixed" ? "Yield · APY (mixed)" : "Yield · est. APY") : "Yield · APY"}
                   value={apy > 0 ? `${(apy * 100).toFixed(2)}%` : "—"}
                   hint={useLst
                     ? `${fmtCompact(annualUsd)}/yr · ${lst.positions} LST`
