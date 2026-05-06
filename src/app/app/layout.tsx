@@ -56,6 +56,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         fetch('/api/auth/sync', { method: 'POST' }).catch(() => {});
     }, []);
 
+    // Phase 7 — subscribe to agent realtime push (proposals, autopilot runs, errors).
+    useAgentPushStream(true);
+
     const navItems = (
         <>
             <NavButton icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} />
