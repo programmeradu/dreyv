@@ -4,7 +4,8 @@
 // SigningCard — shown inside a ToolCard when a transaction payload requires wallet approval.
 // Phase A restyle: flat light/violet to match analytics + treasury aesthetic.
 
-import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { solscanUrl, openExternal } from "@/lib/solana/send-and-confirm";
 
 export interface SigningCardProps {
   toolCallId: string;
