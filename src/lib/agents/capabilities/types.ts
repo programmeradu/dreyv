@@ -87,6 +87,8 @@ export interface CapabilityContext {
   executionState: ExecutionState;
   /** "auto" | "build" | "execute" — gates whether financial execution tools can run. */
   promptMode: "auto" | "build" | "execute";
+  /** Active treasury/vault source selected in the app. May differ from the signer wallet. */
+  vaultAddress?: string | null;
   /** True when the LLM/router classified the intent as Studio scaffolding. */
   isStudioBuildIntent: boolean;
   /**
