@@ -441,6 +441,69 @@ export const securityReauditWatcher = inngest.createFunction(
   },
 );
 
+// ─────────────────────────────────────────────────────────────────────
+// 4b) Armed inflow watcher — 5m cadence, drafts deploy as soon as a stable
+//     inflow lands on an armed route. Mirrors the hourly heartbeat but reacts
+//     fast. Never signs — proposal goes to HITL.
+// ─────────────────────────────────────────────────────────────────────
+export const yieldRouteArmedInflowWatcher = inngest.createFunction(
+  {
+    id: "treasury-yield-route-armed-inflow",
+    name: "Treasury · Armed yield route inflow (cron)",
+    concurrency: { limit: 2, key: "global" },
+    retries: 1,
+  },
+  { cron: "*/5 * * * *" },
+  async ({ logger }) => {
+    if (!db) return { skipped: "no-db" };
+    const now = new Date();
+    const armed = await db!.select().from(treasuryYieldRoutes)
+      .where(eq(treasuryYieldRoutes.status, "armed")).limit(200);
+    let queued = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const route of armed) {
+      try {
+        const balance = await fetchTokenBalance(route.vaultAddress, route.token);
+        if (balance == null || balance <= 0) { skipped++; continue; }
+        const target = Number(route.targetAmount) || 0;
+        const amount = target > 0 ? Math.min(target, balance) : balance;
+        if (amount <= 0) { skipped++; continue; }
+        const market = await findJupiterEarnMarket(route.token);
+        if (!market) { skipped++; continue; }
+        const apyBps = Math.round(earnApyPct(market) * 100);
+        if (route.minApyBps != null && apyBps < route.minApyBps) {
+          await db!.update(treasuryYieldRoutes).set({ lastApyBps: apyBps, lastCheckedAt: now })
+            .where(eq(treasuryYieldRoutes.id, route.id));
+          skipped++; continue;
+        }
+        const built = await buildJupiterEarnDepositTx({ token: route.token, amount, signer: route.vaultAddress, market });
+        const proposal = await insertTxProposal({
+          userId: route.userId,
+          kind: "yield-deposit",
+          summary: `Auto-route idle ${route.token} · ${amount.toFixed(4)} → Jupiter Earn`,
+          unsignedTx: built.transaction,
+          instructions: [{ type: "yield-deposit", venue: "jupiter-earn", token: route.token, amount, routeId: route.id }],
+          riskLevel: route.riskBand === "conservative" ? "low" : route.riskBand === "balanced" ? "medium" : "high",
+          routing: "wallet",
+          meta: { source: "armed-yield-route-inflow", routeId: route.id, vault: route.vaultAddress, apyBps, balance },
+          ttlMinutes: 120,
+        });
+        if (proposal?.id) {
+          queued++;
+          await db!.update(treasuryYieldRoutes)
+            .set({ status: "queued", lastApyBps: apyBps, lastCheckedAt: now, updatedAt: now })
+            .where(eq(treasuryYieldRoutes.id, route.id));
+        }
+      } catch (err) {
+        failed++;
+        logger.warn(`[yield-armed-inflow] ${route.id} failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+    return { armed: armed.length, queued, skipped, failed };
+  },
+);
+
 // Phase 14 / Block B — data spine watchers (snapshots, events translator, MV refresh)
 export { treasurySnapshotsWatcher } from "./snapshots-watcher";
 export { translateTxToTreasuryEvent } from "./events-translator";
