@@ -211,6 +211,24 @@ export const commandRouter = inngest.createFunction(
       } catch (e) {
         console.warn("[command-router] policy guard failed, falling back:", e);
       }
+
+      // Phase: Billing — gate plan steps by user tier before routing.
+      try {
+        const tier = await getUserTier(walletAddress);
+        const verdict = verifyPlanTier(plan.steps, tier);
+        if (!verdict.allowed) {
+          const blocked: RouteDecision = {
+            kind: "reject",
+            plan,
+            reason: `Capability ${verdict.blockingId} requires ${verdict.required} tier (you are on ${verdict.userTier}). Upgrade to enable.`,
+          };
+          await publish({ name: "agent.plan.routed", data: { commandId, walletAddress, decision: blocked } });
+          return blocked;
+        }
+      } catch (e) {
+        console.warn("[command-router] tier gate failed:", e);
+      }
+
       const d = routePlan(intent, plan, { policy, promptMode, policyGuard });
       // Phase 2: when the router queues a plan, persist it to the HITL queue
       // and enrich the decision with the resulting approvalQueueId.
