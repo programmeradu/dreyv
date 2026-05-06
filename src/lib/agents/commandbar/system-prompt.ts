@@ -35,6 +35,14 @@ export interface CommandBarPromptInput {
   /** Optional one-line summary of configured yield routes for the active vault
    *  (armed/active/queued counts + venues). Built by `summarizeYieldRoutesForLLM`. */
   yieldRoutesContext?: string;
+  /** Optional one-line summary of pending HITL tx proposals awaiting signature. */
+  pendingProposalsContext?: string;
+  /** Optional one-line summary of active monitors/alerts. */
+  activeAlertsContext?: string;
+  /** Optional one-line summary of the active treasury policy (caps, allowlists). */
+  activePolicyContext?: string;
+  /** Optional one-line summary of the last 5 agent actions (episodic memory). */
+  recentActionsContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
