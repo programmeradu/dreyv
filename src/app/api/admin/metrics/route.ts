@@ -72,54 +72,15 @@ export async function GET(req: NextRequest) {
 
         // Run all queries concurrently
         const [
-            // Panel 1: User Growth
-            totalUsersData,
-            newUsers24hData,
-            newUsers7dData,
-            onboardingData,
-            emailUsersData,
-            
-            // Panel 2: Revenue & Tiers
-            tierBreakdownData,
-            marketplaceRevenueData,
-            marketplaceVolumeData,
-            creatorPayoutsData,
-            
-            // Panel 3: AI Agents
-            totalExecutionsData,
-            executions24hData,
-            executionsStatusData,
-            totalGasAgentData,
-            approvalsData,
-            aiRunsData,
-
-            // Panel 4: DCA Bots
-            activeBotsData,
-            botsStatusData,
-            dcaVolumeData,
-            dcaVolume24hData,
-            dcaExecutions24hData,
-
-            // Panel 5: Marketplace
-            totalAppsData,
-            publishedAppsData,
-            totalInstallsData,
-            activeInstallsData,
-            
-            // Panel 6: Teams
-            totalTeamsData,
-            vaultLinkedTeamsData,
-            teamInvitesData,
-            
-            // Panel 7: On-Chain & Analytics
-            txVolumeData,
-            airdropClaimsData,
-            
-            // Panel 8: System Health
-            monitorsData,
-            rateLimitsData,
-            atlasSessionsData,
-            foresightData,
+            totalUsersData, newUsers24hData, newUsers7dData, onboardingData, emailUsersData,
+            tierBreakdownData, marketplaceRevenueData, marketplaceVolumeData, creatorPayoutsData,
+            totalExecutionsData, executions24hData, executionsStatusData, totalGasAgentData, approvalsData, aiRunsData,
+            activeBotsData, botsStatusData, dcaVolumeData, dcaVolume24hData, dcaExecutions24hData,
+            totalAppsData, publishedAppsData, totalInstallsData, activeInstallsData,
+            totalTeamsData, vaultLinkedTeamsData, teamInvitesData,
+            txVolumeData, airdropClaimsData,
+            monitorsData, rateLimitsData, atlasSessionsData, foresightData,
+            protoFeesData,
         ] = await Promise.all([
             // Panel 1: User Growth
             dbx.select({ count: sql<number>`count(*)::int` }).from(users),
@@ -201,18 +162,9 @@ export async function GET(req: NextRequest) {
             }).from(protocolFees),
         ]);
 
-        const protoRow = (await dbx.select({
-            feesAll: sql<number>`coalesce(sum(fee_usd), 0)::float`,
-            volAll: sql<number>`coalesce(sum(estimated_value_usd), 0)::float`,
-            txAll: sql<number>`count(*)::int`,
-            fees24h: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
-            vol24h: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
-            tx24h: sql<number>`(count(*) filter (where created_at >= ${oneDayAgo}))::int`,
-            fees7d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${sevenDaysAgo}), 0)::float`,
-            fees30d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
-            vol30d: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
-            payers30d: sql<number>`(count(distinct wallet_address) filter (where created_at >= ${thirtyDaysAgo}))::int`,
-        }).from(protocolFees))[0] ?? {} as any;
+        ]);
+
+        const protoRow = (protoFeesData?.[0] ?? {}) as any;
 
         // Process data
         const totalUsers = totalUsersData[0]?.count || 0;
