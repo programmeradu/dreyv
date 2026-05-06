@@ -163,7 +163,6 @@ const recurring_payment = defineCapability({
         startTs,
         cliffTs,
         serializedTransaction: serialized,
-        serializedTransactions: [serialized],
         txKind: "versioned",
         recentBlockhash: built.hash,
         status: "READY_FOR_SIGNATURE",
