@@ -29,6 +29,7 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";
 import { CommandFocusProvider } from "@/lib/commandbar/focus-context";
+import { useAgentPushStream } from "@/lib/commandbar/use-agent-push-stream";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
