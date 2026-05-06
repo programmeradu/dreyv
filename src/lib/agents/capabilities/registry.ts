@@ -29,6 +29,7 @@ import { researchBriefCapabilities } from "./research-brief";
 import { treasuryMgmtCapabilities } from "./treasury-mgmt";
 import { yieldRoutesCapabilities } from "./yield-routes";
 import { appControlCapabilities } from "./app-control";
+import { signingCapabilities } from "./signing";
 
 let cached: Map<string, AnyCapability> | null = null;
 
