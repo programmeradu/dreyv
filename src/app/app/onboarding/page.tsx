@@ -266,7 +266,7 @@ export default function OnboardingPage() {
             </main>
 
             {/* Navigation footer — in document flow, sticks to bottom of viewport when content is short */}
-            <footer className="relative z-10 px-4 sm:px-6 lg:px-10 pb-4 sm:pb-5">
+            <footer className="relative z-10 px-4 sm:px-6 lg:px-10 pb-3 sm:pb-4">
                 <div className="mx-auto max-w-5xl">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white px-4 sm:px-5 py-2.5">
                         <button
