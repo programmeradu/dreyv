@@ -13,7 +13,7 @@ import { toast } from "@/lib/toast-notifications";
 import { billingCheckoutPath, billingStatusPath } from "@/lib/billing-endpoints";
 import {
     CheckCircle2,
-    Sparkles,
+    ArrowRight,
     Loader2,
     RefreshCw,
     ShieldCheck,
@@ -293,7 +293,7 @@ export default function BillingPage() {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Sparkles size={13} /> Upgrade to {tier.label}
+                                                    <ArrowRight size={13} /> Upgrade to {tier.label}
                                                 </>
                                             )}
                                         </button>
