@@ -8,6 +8,7 @@
  * Reads ?paystack=verify on mount to reconcile a returning checkout.
  */
 import React, { useState, useEffect, useCallback } from "react";
+import Image, { type StaticImageData } from "next/image";
 import { useSearchParams } from "next/navigation";
 import { toast } from "@/lib/toast-notifications";
 import { billingCheckoutPath, billingStatusPath } from "@/lib/billing-endpoints";
@@ -16,11 +17,13 @@ import {
     ArrowRight,
     Loader2,
     RefreshCw,
-    ShieldCheck,
-    Cpu,
-    User as UserIcon,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import tierBase from "@/assets/tier-base.png";
+import tierMini from "@/assets/tier-mini.png";
+import tierMax from "@/assets/tier-max.png";
+import dryvGreet from "@/assets/mascot/dryv-greet.png";
+import dryvCelebrate from "@/assets/mascot/dryv-celebrate.png";
 
 type Tier = "free" | "mini" | "max";
 
@@ -29,7 +32,8 @@ const TIER_DEF: Array<{
     label: string;
     tagline: string;
     price: string;
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+    image: StaticImageData;
+    imageAlt: string;
     features: string[];
     featured?: boolean;
 }> = [
@@ -38,7 +42,8 @@ const TIER_DEF: Array<{
         label: "Base",
         tagline: "Free forever",
         price: "$0",
-        icon: UserIcon,
+        image: tierBase,
+        imageAlt: "Violet crystal shard representing the Base tier",
         features: [
             "1 multisig vault",
             "Up to 3 teammates",
@@ -51,7 +56,8 @@ const TIER_DEF: Array<{
         label: "Mini",
         tagline: "Growing squads",
         price: "$49",
-        icon: ShieldCheck,
+        image: tierMini,
+        imageAlt: "Stack of violet crystal shards representing the Mini tier",
         features: [
             "Up to 5 multisig vaults",
             "10 teammates per vault",
@@ -66,7 +72,8 @@ const TIER_DEF: Array<{
         label: "Max",
         tagline: "Enterprise nexus",
         price: "$199",
-        icon: Cpu,
+        image: tierMax,
+        imageAlt: "Violet obelisk monolith representing the Max tier",
         features: [
             "Unlimited multisig vaults",
             "Unlimited teammates",
