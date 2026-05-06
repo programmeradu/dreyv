@@ -180,6 +180,24 @@ export function useKeystoneAuth(): UseKeystoneAuthReturn {
         }
     }, [publicKey, signMessage, parseJsonSafe]);
 
+    // ─── Auto re-SIWS on wallet change ───────────────────────────────
+    // If the connected wallet's pubkey no longer matches the session's
+    // wallet, silently kick off a new SIWS flow so per-wallet API calls
+    // (inbox, approvals, watchers, vault) stop 403'ing. One Phantom prompt,
+    // no manual logout. Skips while loading, while another SIWS step is in
+    // flight, or if the wallet doesn't support signMessage.
+    useEffect(() => {
+        if (isLoading) return;
+        if (!connected || !publicKey || !signMessage) return;
+        if (step === "connecting" || step === "signing" || step === "verifying") return;
+        const connectedAddress = publicKey.toBase58();
+        if (user && user.walletAddress === connectedAddress) return;
+        // Logged-out-with-wallet OR session wallet differs from connected
+        // wallet → silently re-sign so the JWT matches the active wallet.
+        signIn();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [connected, publicKey?.toBase58(), user?.walletAddress, isLoading, step]);
+
     // ─── Sign Out ─────────────────────────────────────────────────────
     const signOut = useCallback(async () => {
         try {
