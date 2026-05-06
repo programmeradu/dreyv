@@ -1603,6 +1603,8 @@ export const treasuryYieldRoutes = pgTable('treasury_yield_routes', {
   venue: text('venue').notNull(),
   riskBand: text('risk_band').notNull().default('conservative'),
   targetAmount: numeric('target_amount', { precision: 28, scale: 9 }).notNull().default('0'),
+  triggerAboveAmount: numeric('trigger_above_amount', { precision: 28, scale: 9 }).notNull().default('0'),
+  lastObservedAmount: numeric('last_observed_amount', { precision: 28, scale: 9 }),
   minApyBps: integer('min_apy_bps'),
   status: text('status').notNull().default('draft'),
   lastApyBps: integer('last_apy_bps'),
