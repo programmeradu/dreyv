@@ -245,6 +245,21 @@ export function CommandBar() {
 
         setTxSignatures(sigs);
         setSigningStatus("sent");
+
+        // Persist to backend so /app/admin metrics (transaction_cache +
+        // agent_executions) reflect the user-signed activity. Best-effort —
+        // don't block the UI on logging.
+        fetch("/api/tx/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            signatures: sigs,
+            operation,
+            toolName: operation,
+            source: "commandbar",
+          }),
+        }).catch((e) => console.warn("[CommandBar] tx log failed", e));
+
         toast.success(`${operation} signed & sent`, {
           description: `${sigs.length} transaction(s) confirmed. Sig: ${sigs[0]?.slice(0, 12)}…`,
         });
