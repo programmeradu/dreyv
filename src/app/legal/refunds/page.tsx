@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Refund Policy",
-  description: "dreyv refund and cancellation policy for subscriptions billed through FastSpring.",
+  description: "dreyv refund and cancellation policy for subscriptions billed through Paystack.",
   alternates: { canonical: "/legal/refunds" },
 };
 
@@ -12,48 +12,48 @@ export default function RefundsPage() {
     <>
       <span className="legal-meta">dreyv · Refunds</span>
       <h1>Refund &amp; cancellation policy</h1>
-      <p className="text-sm text-slate-500">Last updated: April 11, 2026</p>
+      <p className="text-sm text-slate-500">Last updated: May 6, 2026</p>
 
       <div className="legal-card">
         <h2>1. Who processes payments</h2>
         <p>
-          Paid subscriptions for dreyv are sold by <strong>FastSpring</strong> as the merchant of record.
-          FastSpring appears on your bank or card statement and handles payment processing, invoicing,
-          and many buyer support flows. This policy describes how we work with that model; it does not
-          replace FastSpring&apos;s terms for checkout.
+          Paid subscriptions for dreyv are processed by <strong>Paystack</strong>. Paystack appears on
+          your bank or card statement and handles payment processing, invoicing, and many buyer
+          support flows. This policy describes how we work with that model; it does not replace
+          Paystack&apos;s terms for checkout.
         </p>
 
         <h2>2. Cancellations</h2>
         <p>
-          You may <strong>cancel your subscription</strong> at any time. Cancellation typically stops renewal
-          at the end of the current billing period unless FastSpring&apos;s checkout or account management shows
-          a different effective date. After cancellation, your account moves to the appropriate free tier when
-          FastSpring confirms the subscription has ended (including via webhooks to our app).
+          You may <strong>cancel your subscription</strong> at any time. Cancellation typically stops
+          renewal at the end of the current billing period. After cancellation, your account moves to
+          the appropriate free tier when Paystack confirms the subscription has ended (including via
+          webhooks to our app).
         </p>
 
         <h2>3. Refunds</h2>
         <p>
-          Refund eligibility depends on what FastSpring allows for your transaction type, region, and timing.
-          If you believe you are owed a refund, contact us first at your usual dreyv support channel (e.g. the
-          email or in-app contact listed on your invoice or our site). We will coordinate with FastSpring
-          where required.
+          Refund eligibility depends on what Paystack allows for your transaction type, region, and
+          timing. If you believe you are owed a refund, contact us first at your usual dreyv support
+          channel (e.g. the email or in-app contact listed on your invoice or our site). We will
+          coordinate with Paystack where required.
         </p>
         <p>
           We do <strong>not</strong> guarantee refunds outside what we can operationally honor through
-          FastSpring and applicable law. For statutory rights in your country, those remain with you
+          Paystack and applicable law. For statutory rights in your country, those remain with you
           independent of this page.
         </p>
 
         <h2>4. Trials</h2>
         <p>
-          If a plan includes a trial, billing begins when the trial ends unless you cancel before that moment.
-          Trial terms shown at checkout control if they differ from this summary.
+          If a plan includes a trial, billing begins when the trial ends unless you cancel before that
+          moment. Trial terms shown at checkout control if they differ from this summary.
         </p>
 
         <h2>5. Chargebacks</h2>
         <p>
-          Chargebacks are handled by FastSpring and your payment network. We may restrict access if a dispute
-          indicates abuse or fraud.
+          Chargebacks are handled by Paystack and your payment network. We may restrict access if a
+          dispute indicates abuse or fraud.
         </p>
       </div>
 
