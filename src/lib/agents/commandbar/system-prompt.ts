@@ -45,6 +45,8 @@ export interface CommandBarPromptInput {
   recentActionsContext?: string;
   /** Optional one-line summary of the user's current on-screen focus (route + scope). */
   userFocusContext?: string;
+  /** Phase 7 — buffered realtime push events (autopilot/proposals/errors) since last turn. */
+  agentPushContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
@@ -217,6 +219,7 @@ export function buildCommandBarSystemPrompt(input: CommandBarPromptInput): strin
   const policyCtxLine = input.activePolicyContext ? `\n${input.activePolicyContext}` : "";
   const recentLine = input.recentActionsContext ? `\n${input.recentActionsContext}` : "";
   const focusLine = input.userFocusContext ? `\n${input.userFocusContext}` : "";
+  const pushLine = input.agentPushContext ? `\n${input.agentPushContext}` : "";
 
   return `${PIPELINE_DOCTRINE}
 
@@ -231,7 +234,7 @@ ${ARTIFACT_HONESTY_RULES}
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
-Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${proposalsLine}${alertsLine}${policyCtxLine}${recentLine}${focusLine}${policyLine}${specialistLine}${memoryLine}
+Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${proposalsLine}${alertsLine}${policyCtxLine}${recentLine}${focusLine}${pushLine}${policyLine}${specialistLine}${memoryLine}
 `;
 }
 

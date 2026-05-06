@@ -364,16 +364,37 @@ export function CommandBar() {
   const focusRef = useRef(focus);
   useEffect(() => { focusRef.current = focus; }, [focus]);
 
+  // Phase 7 — buffer agent push events; flush them on the next outgoing turn
+  // so the model can reason about autopilot runs / new proposals / errors.
+  const pendingPushesRef = useRef<unknown[]>([]);
+  useEffect(() => {
+    const onPush = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) pendingPushesRef.current.push(detail);
+      // Cap to last 20.
+      if (pendingPushesRef.current.length > 20) {
+        pendingPushesRef.current = pendingPushesRef.current.slice(-20);
+      }
+    };
+    window.addEventListener("agent:push", onPush);
+    return () => window.removeEventListener("agent:push", onPush);
+  }, []);
+
   const transport = useMemo(
     () => new DefaultChatTransport({
       api: "/api/command",
-      prepareSendMessagesRequest: ({ messages, body }) => ({
-        body: {
-          ...(body ?? {}),
-          messages,
-          focusContext: focusRef.current,
-        },
-      }),
+      prepareSendMessagesRequest: ({ messages, body }) => {
+        const pushes = pendingPushesRef.current;
+        pendingPushesRef.current = [];
+        return {
+          body: {
+            ...(body ?? {}),
+            messages,
+            focusContext: focusRef.current,
+            agentPushes: pushes.length ? pushes : undefined,
+          },
+        };
+      },
     }),
     [],
   );

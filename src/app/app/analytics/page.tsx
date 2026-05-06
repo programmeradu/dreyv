@@ -32,6 +32,7 @@ import { FlowsByCategory } from "@/components/analytics/FlowsByCategory";
 import { BenchmarkVsMarket } from "@/components/analytics/BenchmarkVsMarket";
 import { ScenarioBanner } from "@/components/analytics/ScenarioBanner";
 import { BaselineVsSimulated } from "@/components/analytics/BaselineVsSimulated";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import {
   SimulatedAnalyticsProvider,
   useSimulatedAnalytics,
@@ -97,6 +98,12 @@ function AnalyticsPageInner({
   const sim = useSimulatedAnalytics();
   const simState = sim.state;
   const simActive = sim.active;
+
+  useDeclareFocus({
+    scope: "analytics.overview",
+    label: simActive ? "Analytics (simulation overlay)" : "Analytics",
+    data: { vault: activeVault, valueUsd: vaultValue, change24h: vaultChange24h, simActive, points: valueSeries.length },
+  }, [activeVault, vaultValue, vaultChange24h, simActive, valueSeries.length]);
 
   const handleAsk = (question: string) => {
     if (typeof window === "undefined") return;

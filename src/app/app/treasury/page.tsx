@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { Urbanist } from "next/font/google";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { WalletButton } from "@/components/WalletButton";
@@ -57,6 +58,12 @@ export default function TreasuryPage() {
     isMultisig,
     proposals,
   } = useVault();
+
+  useDeclareFocus({
+    scope: "treasury.overview",
+    label: "Treasury",
+    data: { vault: activeVault, isMultisig, valueUsd: vaultValue, change24h: vaultChange24h, tokenCount: (vaultTokens ?? []).length, proposalsOpen: (proposals ?? []).length },
+  }, [activeVault, vaultValue, vaultChange24h, (vaultTokens ?? []).length, (proposals ?? []).length, isMultisig]);
 
   const holdings: HeroHolding[] = useMemo(() => {
     const tokens = (vaultTokens ?? []) as any[];
