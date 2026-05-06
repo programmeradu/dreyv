@@ -70,6 +70,9 @@ const set_monitor = defineCapability({
     console.log(`[Tool: set_monitor] ${type}: ${target} ${operator} ${value}`);
 
     const normalizedTarget = target.trim();
+    const persistedTarget = SOLANA_ADDRESS_RE.test(normalizedTarget)
+      ? normalizedTarget
+      : normalizedTarget.toUpperCase();
     if (
       !SAFE_MONITOR_TARGET_RE.test(normalizedTarget) ||
       SUPPORT_OR_COMPLAINT_TARGET_RE.test(normalizedTarget) ||
@@ -99,7 +102,7 @@ const set_monitor = defineCapability({
           .values({
             walletAddress: ctx.walletAddress,
             type,
-            target: target.toUpperCase(),
+            target: persistedTarget,
             operator,
             conditionValue: String(value),
           })
@@ -135,13 +138,13 @@ const set_monitor = defineCapability({
       success: true,
       operation: "set_monitor",
       type,
-      target: target.toUpperCase(),
+      target: persistedTarget,
       operator,
       value,
       monitorId,
       persisted,
       currentValue,
-      message: `Monitor set: Alert when ${target.toUpperCase()} ${operator} $${value}.${currentValue !== null ? ` Current: $${currentValue.toFixed(4)}.` : ""}${persisted ? ` Saved (ID: ${monitorId}).` : " Note: monitor is session-only (connect wallet to persist)."}`,
+      message: `Monitor set: Alert when ${persistedTarget} ${operator} $${value}.${currentValue !== null ? ` Current: $${currentValue.toFixed(4)}.` : ""}${persisted ? ` Saved (ID: ${monitorId}).` : " Note: monitor is session-only (connect wallet to persist)."}`,
     };
   },
 });

@@ -22,6 +22,7 @@ import { getJupiterQuote } from "@/lib/jupiter-executor";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
 import { estimateUsdValue } from "./usd-pricing";
+import { buildJupiterEarnDepositTx, earnApyPct, findJupiterEarnMarket } from "./jupiter-earn";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // stake — delegates to ExecutionCoordinator's stake_sol strategy. Provider
@@ -92,6 +93,7 @@ interface VaultInfo {
   token: string;
   address?: string;
   sharesMint?: string;
+  builder?: "jupiter-earn" | "jupiter-swap" | "marinade";
 }
 
 const yield_deposit = defineCapability({
@@ -128,7 +130,22 @@ const yield_deposit = defineCapability({
     let bestVault: VaultInfo | null = null;
 
     try {
-      if (proto === "kamino" || proto === "all") {
+      if (["jupiter", "jupiter earn", "jup", "earn", "kamino", "marginfi", "drift", "all"].includes(proto)) {
+        const market = await findJupiterEarnMarket(token);
+        if (market) {
+          bestVault = {
+            name: `Jupiter Earn ${market.asset?.uiSymbol || market.asset?.symbol || token}`,
+            apy: earnApyPct(market),
+            tvl: Number(market.totalAssets || 0) / Math.pow(10, market.asset?.decimals ?? tokenDecimals(token)),
+            token,
+            address: market.address,
+            sharesMint: market.address,
+            builder: "jupiter-earn",
+          };
+        }
+      }
+
+      if ((proto === "kamino" || proto === "all") && !bestVault) {
         const res = await fetch(
           "https://api.kamino.finance/strategies?status=LIVE",
           { signal: AbortSignal.timeout(8000) },
@@ -160,6 +177,7 @@ const yield_deposit = defineCapability({
               token,
               address: match.address,
               sharesMint: match.sharesMint || match.address,
+              builder: "jupiter-swap",
             };
           }
         }
@@ -194,6 +212,7 @@ const yield_deposit = defineCapability({
               token,
               address: match.address,
               sharesMint: match.lb_pair || match.address,
+              builder: "jupiter-swap",
             };
           }
         }
@@ -206,6 +225,10 @@ const yield_deposit = defineCapability({
       let serializedTransactions: string[] | undefined = undefined;
       if (ctx.walletAddress && bestVault.sharesMint) {
         try {
+          if (bestVault.builder === "jupiter-earn") {
+            const built = await buildJupiterEarnDepositTx({ token, amount: finalAmount, signer: ctx.walletAddress });
+            serializedTransactions = [built.transaction];
+          } else {
           // Acquire vault share token (single-sided deposit) via Jupiter.
           const inputMint = resolveTokenMint(token);
           if (inputMint) {
@@ -240,6 +263,7 @@ const yield_deposit = defineCapability({
               }
             }
           }
+          }
         } catch (txErr) {
           console.warn(
             "[capability:yield_deposit] Failed to build Jupiter deposit tx:",
@@ -266,7 +290,7 @@ const yield_deposit = defineCapability({
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
         estimatedValueUsd: await estimateUsdValue(token, finalAmount),
-        message: `Deposit ${finalAmount} ${token} into ${bestVault.name}. APY: ${bestVault.apy.toFixed(2)}%, TVL: $${Math.round(bestVault.tvl).toLocaleString()}.${splitAmount.adjusted ? ` ${splitAmount.reason}` : ""}${serializedTransactions ? " Transaction ready for signing." : " Connect wallet."}`,
+        message: `Deposit ${finalAmount} ${token} into ${bestVault.name}. APY: ${bestVault.apy.toFixed(2)}%.${splitAmount.adjusted ? ` ${splitAmount.reason}` : ""}${serializedTransactions ? " Transaction ready for signing." : " Connect wallet."}`,
       };
     }
 
@@ -279,8 +303,8 @@ const yield_deposit = defineCapability({
       estimatedAPY: "N/A",
       status: "DISCOVERY_FAILED",
       requiresApproval: false,
-      fallbackProtocols: ["meteora", "marginfi", "drift"],
-      message: `No live ${proto} vault found for ${token}. Choose an alternative protocol (meteora, marginfi, drift) or a different token.`,
+      fallbackProtocols: ["jupiter earn", "kamino", "meteora"],
+      message: `No live ${proto} yield market found for ${token}. Try Jupiter Earn for stables/SOL, or use a token with a live lending market.`,
     };
   },
 });

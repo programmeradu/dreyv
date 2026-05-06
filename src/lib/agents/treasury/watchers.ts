@@ -27,6 +27,8 @@ import {
 } from "@/db/schema";
 import { and, eq, lte, isNotNull } from "drizzle-orm";
 import { insertTxProposal } from "@/lib/agents/brains/storage";
+import { resolveTokenMint, tokenDecimals } from "@/lib/agents/capabilities/tokens";
+import { buildJupiterEarnDepositTx, earnApyPct, findJupiterEarnMarket } from "@/lib/agents/capabilities/jupiter-earn";
 
 const RPC =
   process.env.HELIUS_RPC_URL ||
@@ -165,6 +167,33 @@ async function fetchSolBalance(address: string): Promise<number | null> {
     const json = await res.json();
     const lamports = json?.result?.value;
     return typeof lamports === "number" ? lamports / 1e9 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTokenBalance(owner: string, token: string): Promise<number | null> {
+  if (token.toUpperCase() === "SOL") return fetchSolBalance(owner);
+  const mint = resolveTokenMint(token);
+  if (!mint) return null;
+  try {
+    const res = await fetch(RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenAccountsByOwner",
+        params: [owner, { mint }, { encoding: "jsonParsed" }],
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    const json = await res.json();
+    const accounts = json?.result?.value ?? [];
+    return accounts.reduce((sum: number, a: any) => {
+      const amt = a?.account?.data?.parsed?.info?.tokenAmount?.uiAmount;
+      return sum + (typeof amt === "number" ? amt : 0);
+    }, 0);
   } catch {
     return null;
   }
@@ -352,12 +381,39 @@ export const yieldRouteRefreshWatcher = inngest.createFunction(
   async () => {
     if (!db) return { skipped: "no-db" };
     const now = new Date();
+    const armed = await db!.select().from(treasuryYieldRoutes).where(eq(treasuryYieldRoutes.status, "armed")).limit(100);
+    let queued = 0;
+    for (const route of armed) {
+      const balance = await fetchTokenBalance(route.vaultAddress, route.token);
+      const amount = Number(route.targetAmount) > 0 ? Math.min(Number(route.targetAmount), balance ?? 0) : (balance ?? 0);
+      if (!balance || amount <= 0) continue;
+      const market = await findJupiterEarnMarket(route.token);
+      if (!market) continue;
+      const apyBps = Math.round(earnApyPct(market) * 100);
+      if (route.minApyBps != null && apyBps < route.minApyBps) continue;
+      const built = await buildJupiterEarnDepositTx({ token: route.token, amount, signer: route.vaultAddress, market });
+      const proposal = await insertTxProposal({
+        userId: route.userId,
+        kind: "yield-deposit",
+        summary: `Auto-route idle ${route.token} · ${amount.toFixed(4)} → Jupiter Earn`,
+        unsignedTx: built.transaction,
+        instructions: [{ type: "yield-deposit", venue: "jupiter-earn", token: route.token, amount, routeId: route.id }],
+        riskLevel: route.riskBand === "conservative" ? "low" : route.riskBand === "balanced" ? "medium" : "high",
+        routing: "wallet",
+        meta: { source: "armed-yield-route", routeId: route.id, vault: route.vaultAddress, apyBps },
+        ttlMinutes: 120,
+      });
+      if (proposal?.id) {
+        queued += 1;
+        await db!.update(treasuryYieldRoutes).set({ status: "queued", lastApyBps: apyBps, lastCheckedAt: now, updatedAt: now }).where(eq(treasuryYieldRoutes.id, route.id));
+      }
+    }
     const res = await db!
       .update(treasuryYieldRoutes)
       .set({ lastCheckedAt: now, updatedAt: now })
       .where(eq(treasuryYieldRoutes.status, "active"))
       .returning({ id: treasuryYieldRoutes.id });
-    return { refreshed: res.length };
+    return { refreshed: res.length, armed: armed.length, queued };
   },
 );
 
