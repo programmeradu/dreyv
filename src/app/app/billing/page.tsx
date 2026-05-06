@@ -8,6 +8,7 @@
  * Reads ?paystack=verify on mount to reconcile a returning checkout.
  */
 import React, { useState, useEffect, useCallback } from "react";
+import Image, { type StaticImageData } from "next/image";
 import { useSearchParams } from "next/navigation";
 import { toast } from "@/lib/toast-notifications";
 import { billingCheckoutPath, billingStatusPath } from "@/lib/billing-endpoints";
@@ -16,11 +17,13 @@ import {
     ArrowRight,
     Loader2,
     RefreshCw,
-    ShieldCheck,
-    Cpu,
-    User as UserIcon,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import tierBase from "@/assets/tier-base.png";
+import tierMini from "@/assets/tier-mini.png";
+import tierMax from "@/assets/tier-max.png";
+import dryvGreet from "@/assets/mascot/dryv-greet.png";
+import dryvCelebrate from "@/assets/mascot/dryv-celebrate.png";
 
 type Tier = "free" | "mini" | "max";
 
@@ -29,7 +32,8 @@ const TIER_DEF: Array<{
     label: string;
     tagline: string;
     price: string;
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+    image: StaticImageData;
+    imageAlt: string;
     features: string[];
     featured?: boolean;
 }> = [
@@ -38,7 +42,8 @@ const TIER_DEF: Array<{
         label: "Base",
         tagline: "Free forever",
         price: "$0",
-        icon: UserIcon,
+        image: tierBase,
+        imageAlt: "Violet crystal shard representing the Base tier",
         features: [
             "1 multisig vault",
             "Up to 3 teammates",
@@ -51,7 +56,8 @@ const TIER_DEF: Array<{
         label: "Mini",
         tagline: "Growing squads",
         price: "$49",
-        icon: ShieldCheck,
+        image: tierMini,
+        imageAlt: "Stack of violet crystal shards representing the Mini tier",
         features: [
             "Up to 5 multisig vaults",
             "10 teammates per vault",
@@ -66,7 +72,8 @@ const TIER_DEF: Array<{
         label: "Max",
         tagline: "Enterprise nexus",
         price: "$199",
-        icon: Cpu,
+        image: tierMax,
+        imageAlt: "Violet obelisk monolith representing the Max tier",
         features: [
             "Unlimited multisig vaults",
             "Unlimited teammates",
@@ -168,10 +175,23 @@ export default function BillingPage() {
     return (
         <div className="flex-1 w-full bg-white text-slate-900 font-manrope min-h-screen">
             {/* Header */}
-            <header className="relative border-b border-violet-100 bg-white">
+            <header className="relative border-b border-violet-100 bg-white overflow-hidden">
                 <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
-                <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
+
+                {/* Dryv mascot peek — celebrate on paid, greet on free */}
+                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
+                    <Image
+                        src={isPaid ? dryvCelebrate : dryvGreet}
+                        alt=""
+                        width={140}
+                        height={140}
+                        priority
+                        className="h-[120px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
+                    />
+                </div>
+
+                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
                     <div>
                         <div className="flex items-center gap-2.5">
                             <DreyvStar size={10} className="text-violet-600" />
@@ -216,7 +236,6 @@ export default function BillingPage() {
             <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {TIER_DEF.map((tier) => {
-                        const Icon = tier.icon;
                         const isCurrent = currentTier === tier.id;
                         const isLoading = loading === tier.id;
 
@@ -235,9 +254,15 @@ export default function BillingPage() {
                                     </span>
                                 )}
 
-                                <div className="flex items-center gap-3 mb-5">
-                                    <div className="h-11 w-11 shrink-0 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center">
-                                        <Icon size={18} className="text-violet-600" />
+                                <div className="flex items-center gap-4 mb-5">
+                                    <div className="h-16 w-16 shrink-0 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
+                                        <Image
+                                            src={tier.image}
+                                            alt={tier.imageAlt}
+                                            width={56}
+                                            height={56}
+                                            className="h-14 w-14 object-contain"
+                                        />
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-slate-900">{tier.label}</h2>
