@@ -32,7 +32,7 @@ import { DryvMascot } from "@/components/brand/dryv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromScore } from "./SignalBadge";
-import { estimateLstYield } from "@/lib/foresight/lst-yield";
+import { estimateLstYield, fetchLiveLstRates, type LiveRatesMap } from "@/lib/foresight/lst-yield";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
@@ -313,6 +313,18 @@ export function AnalyticsCockpit({
   trend,
 }: CockpitProps) {
   const [openSignal, setOpenSignal] = useState<string | null>(null);
+  const [liveRates, setLiveRates] = useState<LiveRatesMap>({});
+
+  /* ── Live LST APYs (refreshed every 5 min) ──────────────────── */
+  useEffect(() => {
+    let cancelled = false;
+    const ctrl = new AbortController();
+    fetchLiveLstRates(ctrl.signal).then((r) => { if (!cancelled) setLiveRates(r); });
+    const id = setInterval(() => {
+      fetchLiveLstRates().then((r) => { if (!cancelled) setLiveRates(r); });
+    }, 5 * 60 * 1000);
+    return () => { cancelled = true; ctrl.abort(); clearInterval(id); };
+  }, []);
 
   /* ── Streaming USD value (manual spring so we can split the $ glyph) ── */
   const target = vaultValue ?? 0;
@@ -648,16 +660,18 @@ export function AnalyticsCockpit({
               const lst = estimateLstYield(
                 (vaultTokens ?? []).map((t: any) => ({
                   symbol: t.symbol ?? "",
+                  mint: t.mint ?? t.address ?? undefined,
                   amount: Number(t.amount ?? 0),
                   priceUsd: Number(t.price ?? t.priceUsd ?? 0),
                 })),
+                liveRates,
               );
               const useLst = realizedApy <= 0 && lst.blendedApy > 0;
               const apy = useLst ? lst.blendedApy : realizedApy;
               const annualUsd = useLst ? lst.annualYieldUsd : realizedUsd;
               return (
                 <KpiTile
-                  label={useLst ? "Yield · est. APY" : "Yield · APY"}
+                  label={useLst ? (lst.source === "live" ? "Yield · live APY" : lst.source === "mixed" ? "Yield · APY (mixed)" : "Yield · est. APY") : "Yield · APY"}
                   value={apy > 0 ? `${(apy * 100).toFixed(2)}%` : "—"}
                   hint={useLst
                     ? `${fmtCompact(annualUsd)}/yr · ${lst.positions} LST`
