@@ -30,7 +30,7 @@ export function GET() {
                 },
             ],
             capabilities: {
-                payments: ["fastspring", "paddle", "x402:advertised"],
+                payments: ["paystack", "x402:advertised"],
                 onchain: ["solana"],
                 discovery: ["acp", "ucp", "x402"],
             },

@@ -1,5 +1,5 @@
 /**
- * Minimal validation for billing contact email (FastSpring account.create / checkout prefill).
+ * Minimal validation for billing contact email (Paystack checkout prefill).
  * Rejects obvious garbage; does not guarantee deliverability.
  */
 export function isValidBillingEmail(email: string): boolean {

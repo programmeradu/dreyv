@@ -39,7 +39,7 @@ export function GET() {
                     {
                         name: "subscriptions",
                         description:
-                            "dreyv tier subscriptions (Free / Mini / Max) via FastSpring (primary) or Paddle (reference).",
+                            "dreyv tier subscriptions (Free / Mini / Max) via Paystack.",
                         endpoint: `${origin}/pricing`,
                         methods: ["GET"],
                     },
