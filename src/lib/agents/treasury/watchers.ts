@@ -381,12 +381,39 @@ export const yieldRouteRefreshWatcher = inngest.createFunction(
   async () => {
     if (!db) return { skipped: "no-db" };
     const now = new Date();
+    const armed = await db!.select().from(treasuryYieldRoutes).where(eq(treasuryYieldRoutes.status, "armed")).limit(100);
+    let queued = 0;
+    for (const route of armed) {
+      const balance = await fetchTokenBalance(route.vaultAddress, route.token);
+      const amount = Number(route.targetAmount) > 0 ? Math.min(Number(route.targetAmount), balance ?? 0) : (balance ?? 0);
+      if (!balance || amount <= 0) continue;
+      const market = await findJupiterEarnMarket(route.token);
+      if (!market) continue;
+      const apyBps = Math.round(earnApyPct(market) * 100);
+      if (route.minApyBps != null && apyBps < route.minApyBps) continue;
+      const built = await buildJupiterEarnDepositTx({ token: route.token, amount, signer: route.vaultAddress, market });
+      const proposal = await insertTxProposal({
+        userId: route.userId,
+        kind: "yield-deposit",
+        summary: `Auto-route idle ${route.token} · ${amount.toFixed(4)} → Jupiter Earn`,
+        unsignedTx: built.transaction,
+        instructions: [{ type: "yield-deposit", venue: "jupiter-earn", token: route.token, amount, routeId: route.id }],
+        riskLevel: route.riskBand === "conservative" ? "low" : route.riskBand === "balanced" ? "medium" : "high",
+        routing: "wallet",
+        meta: { source: "armed-yield-route", routeId: route.id, vault: route.vaultAddress, apyBps },
+        ttlMinutes: 120,
+      });
+      if (proposal?.id) {
+        queued += 1;
+        await db!.update(treasuryYieldRoutes).set({ status: "queued", lastApyBps: apyBps, lastCheckedAt: now, updatedAt: now }).where(eq(treasuryYieldRoutes.id, route.id));
+      }
+    }
     const res = await db!
       .update(treasuryYieldRoutes)
       .set({ lastCheckedAt: now, updatedAt: now })
       .where(eq(treasuryYieldRoutes.status, "active"))
       .returning({ id: treasuryYieldRoutes.id });
-    return { refreshed: res.length };
+    return { refreshed: res.length, armed: armed.length, queued };
   },
 );
 
