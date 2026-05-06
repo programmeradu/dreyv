@@ -17,6 +17,7 @@ import { NetworkSelector } from "@/components/NetworkSelector";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useNotificationStore } from "@/lib/notifications";
 import { toast } from "@/lib/toast-notifications";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 
 type SettingsView = "general" | "profile" | "notifications" | "api" | "billing" | "policy";
 
