@@ -208,7 +208,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { messages, prompt, walletState, vaultState, vaultAddress } = body;
+    const { messages, prompt, walletState, vaultState, vaultAddress, focusContext } = body;
     // Always trust the authenticated session wallet — never the request body.
     const walletAddress = authUser.walletAddress;
     const strictGroundingGlobal = process.env.STRICT_GROUNDING === "1" || process.env.STRICT_GROUNDING === "true";
@@ -265,6 +265,12 @@ export async function POST(req: Request) {
       console.warn("[command] universal context build failed", e);
     }
 
+    let userFocusContext: string | undefined;
+    try {
+      const { formatFocusForLLM } = await import("@/lib/commandbar/focus-context");
+      userFocusContext = formatFocusForLLM(focusContext);
+    } catch { /* ignore */ }
+
     const systemPrompt = buildCommandBarSystemPrompt({
       walletAddress,
       vaultState,
@@ -275,6 +281,7 @@ export async function POST(req: Request) {
       activeAlertsContext,
       activePolicyContext,
       recentActionsContext,
+      userFocusContext,
     });
     const effectiveSystemPrompt = strictGrounding
       ? `${systemPrompt}\n\n${STRICT_GROUNDING_ADDENDUM}`

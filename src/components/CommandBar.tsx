@@ -27,6 +27,7 @@ import { HandoffStream } from "@/components/commandbar/HandoffStream";
 import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
 import { PendingApprovalsBanner } from "@/components/commandbar/PendingApprovalsBanner";
 import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
+import { useCommandFocus } from "@/lib/commandbar/focus-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -359,8 +360,21 @@ export function CommandBar() {
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
+  const focus = useCommandFocus();
+  const focusRef = useRef(focus);
+  useEffect(() => { focusRef.current = focus; }, [focus]);
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/command" }),
+    () => new DefaultChatTransport({
+      api: "/api/command",
+      prepareSendMessagesRequest: ({ messages, body }) => ({
+        body: {
+          ...(body ?? {}),
+          messages,
+          focusContext: focusRef.current,
+        },
+      }),
+    }),
     [],
   );
 

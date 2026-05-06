@@ -28,6 +28,7 @@ import { useWallet } from "@/lib/wallet/compat";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";
+import { CommandFocusProvider } from "@/lib/commandbar/focus-context";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
@@ -69,6 +70,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <CanvasProvider>
+        <CommandFocusProvider>
         <div
             className="flex bg-background font-sans text-foreground h-dvh overflow-hidden selection:bg-primary/20 selection:text-primary dashboard-theme relative"
             data-theme={theme}
@@ -177,6 +179,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <CommandBar />
             </main>
         </div>
+        </CommandFocusProvider>
         </CanvasProvider>
     );
 }
