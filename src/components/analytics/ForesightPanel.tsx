@@ -36,6 +36,7 @@ interface Props {
   attribution: Aggregates | null;
   timeframeMonths: number;
   loading: boolean;
+  vaultTokens?: any[];
 }
 
 function fmtCompact(n: number): string {
