@@ -528,9 +528,11 @@ const multisig_proposal = defineCapability({
       const conn = new Connection(ctx.rpcEndpoint, "confirmed");
       const proposer = new PublicKey(ctx.walletAddress);
 
-      // Resolve which address holds the multisig config. If the user passed one,
-      // use that; otherwise assume the connected wallet IS the multisig.
-      const multisigAddr = multisigAddress ?? ctx.walletAddress;
+      // Resolve which address holds the multisig config. Prefer an explicit
+      // input, then the app's active vault, then the signer wallet. This keeps
+      // proposals routed to the newly selected Squads account instead of the
+      // member wallet that signed the create transaction.
+      const multisigAddr = multisigAddress ?? ctx.vaultAddress ?? ctx.walletAddress;
       const multisigPda = new PublicKey(multisigAddr);
       const client = new SquadsClient(conn, null);
       const multisigAccount = await client.getVault(multisigAddr);

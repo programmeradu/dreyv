@@ -144,7 +144,7 @@ export function CommandBar() {
 
   const router = useRouter();
   const simStore = useSimulationStore();
-  const { vaultTokens, activeVault } = useVault();
+  const { vaultTokens, activeVault, setActiveVault, addVault, refresh } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
   const canvas = useOptionalCanvas();
@@ -164,6 +164,7 @@ export function CommandBar() {
       operation: string,
       extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
       estimatedValueUsd?: number | null,
+      metadata?: Record<string, unknown>,
     ) => {
       if (!connected || !publicKey || (!signAllTransactions && !signTransaction)) {
         toast.error("Wallet not connected", {
@@ -260,6 +261,13 @@ export function CommandBar() {
             skipPreflight: false,
             preflightCommitment: "confirmed",
           });
+          const confirmation = await connection.confirmTransaction(
+            { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+            "confirmed",
+          );
+          if (confirmation.value.err) {
+            throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+          }
           sigs.push(sig);
         }
 
@@ -274,6 +282,13 @@ export function CommandBar() {
         // backend can ledger the protocol fee independently.
         const feeSignature = feeInfo ? sigs[sigs.length - 1] ?? null : null;
         const userSignatures = feeInfo ? sigs.slice(0, -1) : sigs;
+        if (operation === "create_multisig" && typeof metadata?.multisigPda === "string") {
+          const multisigPda = metadata.multisigPda;
+          setActiveVault(multisigPda);
+          void addVault({ address: multisigPda, label: "Squads multisig", kind: "multisig" })
+            .then(() => refresh())
+            .catch((e) => console.warn("[CommandBar] multisig vault register failed", e));
+        }
         fetch("/api/tx/log", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -325,7 +340,7 @@ export function CommandBar() {
         }
       }
     },
-    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures],
+    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures, setActiveVault, addVault, refresh],
   );
 
   // ─── Chat ──────────────────────────────────────────────────────────────────

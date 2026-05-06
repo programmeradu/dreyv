@@ -35,6 +35,9 @@ const COMMON_MINTS: Record<string, string> = {
   PYTH: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
 };
 
+const SOL_MINT = COMMON_MINTS.SOL;
+const SOL_SAFE_CONCENTRATION_PCT = 40;
+
 /**
  * Execution Coordinator - Orchestrates all agents and manages execution state
  * Responsibilities:
@@ -718,9 +721,31 @@ export class ExecutionCoordinator {
         params: { holdings: portfolio, prices: {} }
       });
 
+      const projectedAllocations = this.projectAllocationsAfterRebalance({
+        assetByMint,
+        totalValue,
+        trades,
+      });
+      const solCurrentConcentration = assetByMint[SOL_MINT]?.percent ?? 0;
+      const solProjectedConcentration =
+        projectedAllocations[SOL_MINT]?.percent ?? solCurrentConcentration;
+
       context.data.portfolio = portfolio;
       context.data.totalValue = totalValue;
       context.data.trades = trades;
+      context.data.rebalancePreview = {
+        mode: "dry_run",
+        tradeCount: trades.length,
+        totalValueUsd: totalValue,
+        solCurrentConcentration,
+        solProjectedConcentration,
+        solTargetConcentration: targets[SOL_MINT] ?? null,
+        solSafeConcentration: SOL_SAFE_CONCENTRATION_PCT,
+        projectedAllocations: Object.values(projectedAllocations).sort(
+          (a, b) => b.percent - a.percent,
+        ),
+        executableTradeCount: trades.filter((t: any) => !!t.quote && !!t.serializedTransaction).length,
+      };
       context.data.operationCount = operations.length;
       context.data.serializedTransactions = serializedTransactions;
       context.approvalRequired = true;
@@ -744,6 +769,61 @@ export class ExecutionCoordinator {
       delta: op.delta,
       estimatedUsdValue: op.usdValue,
     };
+  }
+
+  private projectAllocationsAfterRebalance({
+    assetByMint,
+    totalValue,
+    trades,
+  }: {
+    assetByMint: Record<string, PortfolioAsset & { percent: number }>;
+    totalValue: number;
+    trades: Array<{ mint: string; symbol?: string; action?: string; estimatedUsdValue?: number; quote?: { inputMint?: string; outputMint?: string } }>;
+  }): Record<string, { mint: string; symbol: string; currentPercent: number; percent: number; valueUsd: number }> {
+    const values: Record<string, { mint: string; symbol: string; currentPercent: number; valueUsd: number }> = {};
+    for (const [mint, asset] of Object.entries(assetByMint)) {
+      values[mint] = {
+        mint,
+        symbol: asset.symbol || this.symbolForMint(mint),
+        currentPercent: asset.percent,
+        valueUsd: asset.totalUsdValue,
+      };
+    }
+
+    const ensure = (mint: string, symbol?: string) => {
+      values[mint] ??= {
+        mint,
+        symbol: symbol || this.symbolForMint(mint),
+        currentPercent: assetByMint[mint]?.percent ?? 0,
+        valueUsd: assetByMint[mint]?.totalUsdValue ?? 0,
+      };
+      return values[mint];
+    };
+
+    for (const trade of trades) {
+      if (!trade.quote) continue;
+      const usd = Number(trade.estimatedUsdValue || 0);
+      if (!Number.isFinite(usd) || usd <= 0) continue;
+      const inputMint = trade.quote.inputMint || (trade.action === "sell" ? trade.mint : COMMON_MINTS.USDC);
+      const outputMint = trade.quote.outputMint || (trade.action === "sell" ? COMMON_MINTS.USDC : trade.mint);
+      ensure(inputMint).valueUsd = Math.max(0, ensure(inputMint).valueUsd - usd);
+      ensure(outputMint, trade.action === "buy" ? trade.symbol : undefined).valueUsd += usd;
+    }
+
+    return Object.fromEntries(
+      Object.entries(values).map(([mint, asset]) => [
+        mint,
+        {
+          ...asset,
+          percent: totalValue > 0 ? (asset.valueUsd / totalValue) * 100 : 0,
+        },
+      ]),
+    );
+  }
+
+  private symbolForMint(mint: string): string {
+    const found = Object.entries(COMMON_MINTS).find(([, addr]) => addr === mint);
+    return found?.[0] || `${mint.slice(0, 4)}…${mint.slice(-4)}`;
   }
 
   /**

@@ -21,6 +21,7 @@ import type { AnyCapability, CapabilityContext, ExecutionState } from "./types";
 export interface BuildCapabilityContextInput {
   walletAddress: string | null;
   rpcEndpoint: string;
+  vaultAddress?: string | null;
   vaultState: { tokens?: Array<Record<string, unknown>> } | null;
   walletState: { balances?: Array<Record<string, unknown>> } | null;
   executionState: ExecutionState;
@@ -38,6 +39,7 @@ export function buildCapabilityContext(input: BuildCapabilityContextInput): Capa
   return {
     walletAddress: input.walletAddress,
     rpcEndpoint: input.rpcEndpoint,
+    vaultAddress: input.vaultAddress ?? null,
     vaultState: input.vaultState,
     walletState: input.walletState,
     executionState: input.executionState,
