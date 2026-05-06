@@ -39,7 +39,7 @@ export default function AdminTracesPage() {
     const errPct = (data?.totals.runs ?? 0) > 0 ? (((data?.totals.errors ?? 0) / (data?.totals.runs ?? 1)) * 100).toFixed(1) : "0.0";
 
     return (
-        <div className="dreyv-marketing-root relative min-h-dvh w-full font-manrope bg-white text-slate-900">
+        <div className="dreyv-marketing-root relative h-dvh w-full overflow-y-auto font-manrope bg-white text-slate-900">
             <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
                 <div className="absolute top-[-12%] left-[-10%] h-[620px] w-[620px] rounded-full bg-violet-400/[0.10] blur-[130px]" />
                 <div className="absolute top-[20%] right-[-6%] h-[520px] w-[520px] rounded-full bg-violet-300/[0.08] blur-[120px]" />
