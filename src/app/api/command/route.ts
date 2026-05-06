@@ -6,6 +6,12 @@ import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilit
 import { buildCommandBarSystemPrompt, STRICT_GROUNDING_ADDENDUM } from "@/lib/agents/commandbar/system-prompt";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
+import {
+  summarizePendingProposals,
+  summarizeActiveAlerts,
+  summarizeActivePolicy,
+  summarizeRecentActions,
+} from "@/lib/agents/capabilities/app-control";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
