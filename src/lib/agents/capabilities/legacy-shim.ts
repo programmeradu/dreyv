@@ -17,6 +17,7 @@
 import { tool } from "ai";
 import { listCapabilities } from "./registry";
 import type { AnyCapability, CapabilityContext, ExecutionState } from "./types";
+import { gateFor, tierAllows, type Tier } from "../policy/tier-gate";
 
 export interface BuildCapabilityContextInput {
   walletAddress: string | null;
@@ -53,12 +54,31 @@ export function buildCapabilityContext(input: BuildCapabilityContextInput): Capa
 /**
  * Wrap a single Capability into an AI-SDK `tool({...})` definition that
  * closes over the request `ctx`.
+ *
+ * If `userTier` is provided, capabilities gated above that tier short-circuit
+ * with a structured upgrade payload — the LLM is expected to surface this to
+ * the user as a calm upgrade prompt rather than retrying.
  */
-function capabilityToAITool(cap: AnyCapability, ctx: CapabilityContext) {
+function capabilityToAITool(cap: AnyCapability, ctx: CapabilityContext, userTier?: Tier) {
   return tool({
     description: cap.description,
     inputSchema: cap.inputSchema,
     execute: async (input: unknown) => {
+      if (userTier) {
+        const required = gateFor(cap.id);
+        if (!tierAllows(userTier, required)) {
+          return {
+            ok: false,
+            error: "tier_gate_blocked",
+            blocked: true,
+            capabilityId: cap.id,
+            requiredTier: required,
+            userTier,
+            upgradeUrl: "/app/billing",
+            message: `This capability (${cap.id}) requires the ${required.toUpperCase()} plan. You're on ${userTier.toUpperCase()}. Upgrade at /app/billing to unlock it.`,
+          };
+        }
+      }
       // Re-validate at execution time so the shim mirrors the per-tool
       // safety the AI SDK already applies; capability executors expect
       // parsed input.
@@ -73,17 +93,19 @@ function capabilityToAITool(cap: AnyCapability, ctx: CapabilityContext) {
  * keyed by capability id. Drop-in compatible with the legacy `keystoneTools`
  * object: `{ ...keystoneTools, ...buildLegacyTools(ctx) }` works.
  *
- * Optional `only` filter restricts to a subset of capability ids — used by
- * the Phase 0 shadow rollout to migrate one tool at a time.
+ * Optional `only` filter restricts to a subset of capability ids.
+ * Optional `userTier` enforces the same `CAPABILITY_TIER_GATES` map used by
+ * the DACS planner — Free users get a structured upgrade payload back from
+ * tool calls into Mini/Max-only capabilities.
  */
 export function buildLegacyTools(
   ctx: CapabilityContext,
-  options?: { only?: ReadonlySet<string> },
+  options?: { only?: ReadonlySet<string>; userTier?: Tier },
 ): Record<string, ReturnType<typeof capabilityToAITool>> {
   const out: Record<string, ReturnType<typeof capabilityToAITool>> = {};
   for (const cap of listCapabilities()) {
     if (options?.only && !options.only.has(cap.id)) continue;
-    out[cap.id] = capabilityToAITool(cap, ctx);
+    out[cap.id] = capabilityToAITool(cap, ctx, options?.userTier);
   }
   return out;
 }
