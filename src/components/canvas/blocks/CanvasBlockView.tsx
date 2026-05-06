@@ -3169,9 +3169,15 @@ interface YieldRoute {
   riskBand: "conservative" | "balanced" | "aggressive";
   targetAmount: string;
   minApyBps: number | null;
-  status: "draft" | "active" | "paused" | "exited";
+  status: "draft" | "armed" | "queued" | "active" | "paused" | "exited";
   lastApyBps: number | null;
   notes: string | null;
+  live?: {
+    balance: number | null;
+    apyBps: number | null;
+    idleAvail: number | null;
+    readyToDeploy: boolean;
+  };
 }
 
 const YIELD_VENUES = [
@@ -3198,15 +3204,20 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
 
   const refresh = async () => {
     if (!wallet) return;
-    setLoading(true);
     try {
-      const res = await fetch(`/api/treasury/yield-routes?wallet=${wallet}`);
+      const res = await fetch(`/api/treasury/yield-routes?wallet=${wallet}&live=1`);
       const json = await res.json();
       setRoutes(json.routes ?? []);
     } catch { /* ignore */ }
     setLoading(false);
   };
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+  useEffect(() => {
+    refresh();
+    if (!wallet) return;
+    const handle = setInterval(refresh, 30_000);
+    return () => clearInterval(handle);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [wallet]);
 
   const submit = async () => {
     if (!wallet || !venue || !targetAmount) return;
@@ -3299,13 +3310,29 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
             <div className="grid gap-2 sm:grid-cols-2">
               {routes.map((r) => {
                 const venueLabel = YIELD_VENUES.find((v) => v.id === r.venue)?.label ?? r.venue;
-                const sev: Severity = r.status === "active" ? "good" : r.status === "paused" ? "watch" : r.status === "exited" ? "neutral" : "neutral";
-                const liveApy = r.lastApyBps != null ? r.lastApyBps / 100 : null;
+                const sev: Severity = r.status === "active"
+                  ? "good"
+                  : r.status === "armed" || r.status === "queued"
+                  ? "good"
+                  : r.status === "paused"
+                  ? "watch"
+                  : "neutral";
+                const liveApyBps = r.live?.apyBps ?? r.lastApyBps;
+                const liveApy = liveApyBps != null ? liveApyBps / 100 : null;
                 const minApy = r.minApyBps != null ? r.minApyBps / 100 : null;
-                // APY ring: scale 0..25%
+                const liveBalance = r.live?.balance ?? null;
+                const idleAvail = r.live?.idleAvail ?? null;
                 const apyPct = liveApy != null ? Math.max(0, Math.min(1, liveApy / 25)) : 0;
                 const ringR = 18, ringC = 2 * Math.PI * ringR;
                 const dash = ringC * apyPct;
+                const armedHint =
+                  r.status === "armed"
+                    ? r.live?.readyToDeploy
+                      ? "Inflow detected · drafting on next watcher tick"
+                      : liveBalance != null
+                      ? `Watching · ${liveBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${r.token} idle${minApy != null && liveApy != null && liveApy < minApy ? ` · APY below floor` : ""}`
+                      : "Armed · waiting for stable inflow"
+                    : null;
                 return (
                   <div key={r.id} className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/30 p-3">
                     <div className="flex items-start gap-3">
@@ -3321,7 +3348,9 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           <span className="text-[11px] font-semibold text-slate-900" style={{ fontFeatureSettings: "'tnum'" }}>
                             {liveApy != null ? `${liveApy.toFixed(1)}%` : "—"}
                           </span>
-                          <span className="text-[7px] font-semibold uppercase tracking-wider text-violet-600">APY</span>
+                          <span className="text-[7px] font-semibold uppercase tracking-wider text-violet-600">
+                            {r.live?.apyBps != null ? "live APY" : "APY"}
+                          </span>
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -3331,19 +3360,48 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
                           <SignalBadge severity={sev}>{r.status}</SignalBadge>
                         </div>
                         <p className="mt-0.5 text-[12px] text-slate-600" style={{ fontFeatureSettings: "'tnum'" }}>
-                          {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {r.token}
+                          target {Number(r.targetAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {r.token}
+                          {liveBalance != null && (
+                            <> · idle {liveBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</>
+                          )}
                         </p>
                         <p className="text-[11px] text-slate-500">
                           {r.riskBand} band{minApy != null ? ` · floor ${minApy.toFixed(2)}%` : ""}
                         </p>
+                        {armedHint && (
+                          <p className="mt-1 text-[10.5px] font-medium text-violet-700">{armedHint}</p>
+                        )}
+                        {r.status === "queued" && (
+                          <p className="mt-1 text-[10.5px] font-medium text-violet-700">
+                            Deploy proposal drafted · awaiting HITL approval
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1">
                       {r.status === "draft" && (
-                        <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
-                          className="rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
-                          {busy === `${r.id}:deploy` ? "Queueing…" : "Deploy"}
-                        </button>
+                        <>
+                          <button onClick={() => action(r.id, "arm")} disabled={busy != null}
+                            className="rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                            {busy === `${r.id}:arm` ? "Arming…" : "Arm auto-deploy"}
+                          </button>
+                          <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
+                            className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+                            {busy === `${r.id}:deploy` ? "Queueing…" : "Deploy now"}
+                          </button>
+                        </>
+                      )}
+                      {r.status === "armed" && (
+                        <>
+                          {r.live?.readyToDeploy && idleAvail != null && (
+                            <button onClick={() => action(r.id, "deploy")} disabled={busy != null}
+                              className="rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                              {busy === `${r.id}:deploy` ? "Queueing…" : `Deploy ${idleAvail.toLocaleString(undefined, { maximumFractionDigits: 2 })} now`}
+                            </button>
+                          )}
+                          <button onClick={() => action(r.id, "pause")} disabled={busy != null}
+                            className="rounded-md border border-violet-200 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">Disarm</button>
+                        </>
                       )}
                       {r.status === "active" && (
                         <>
