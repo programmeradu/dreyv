@@ -196,7 +196,19 @@ export const commandRouter = inngest.createFunction(
     }
 
     const decision = await step.run("route-plan", async () => {
-      const d = routePlan(intent, plan, { policy, promptMode });
+      // Phase 4 — policy guard short-circuit (signer caps, kill switch, daily caps).
+      let policyGuard: Awaited<ReturnType<typeof evaluatePolicyGuard>> | undefined;
+      try {
+        if (walletAddress) {
+          const userId = await resolveUserIdFromWallet(walletAddress);
+          if (userId) {
+            policyGuard = await evaluatePolicyGuard({ userId, plan });
+          }
+        }
+      } catch (e) {
+        console.warn("[command-router] policy guard failed, falling back:", e);
+      }
+      const d = routePlan(intent, plan, { policy, promptMode, policyGuard });
       // Phase 2: when the router queues a plan, persist it to the HITL queue
       // and enrich the decision with the resulting approvalQueueId.
       if (d.kind === "queue_for_approval") {
