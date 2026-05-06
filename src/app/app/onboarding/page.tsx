@@ -92,6 +92,27 @@ export default function OnboardingPage() {
                 }
             }
 
+            // Persist chosen risk profile to user_agent_policy so the DACS router enforces it.
+            if (data.walletAddress && data.riskProfile) {
+                const RISK_MAP: Record<string, { autoApproveBelowUsd: number; requireMultisigAboveUsd: number; dailyValueCapUsd: number }> = {
+                    conservative: { autoApproveBelowUsd: 100, requireMultisigAboveUsd: 1_000, dailyValueCapUsd: 5_000 },
+                    moderate:     { autoApproveBelowUsd: 500, requireMultisigAboveUsd: 10_000, dailyValueCapUsd: 25_000 },
+                    aggressive:   { autoApproveBelowUsd: 2_000, requireMultisigAboveUsd: 50_000, dailyValueCapUsd: 100_000 },
+                };
+                const cfg = RISK_MAP[data.riskProfile];
+                if (cfg) {
+                    try {
+                        await fetch("/api/dacs/policy", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ walletAddress: data.walletAddress, ...cfg }),
+                        });
+                    } catch (e) {
+                        console.warn("[Onboarding] Risk policy save failed:", e);
+                    }
+                }
+            }
+
             await fetch("/api/auth/refresh-session", { method: "POST" });
 
             if (data.email || data.teamEmails.length > 0) {
