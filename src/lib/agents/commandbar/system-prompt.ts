@@ -32,6 +32,9 @@ export interface CommandBarPromptInput {
   /** Optional one-line yield summary (LSTs + tokenized stable yields the
    *  treasury currently earns). Built by `summarizeYieldForLLM`. */
   yieldContext?: string;
+  /** Optional one-line summary of configured yield routes for the active vault
+   *  (armed/active/queued counts + venues). Built by `summarizeYieldRoutesForLLM`. */
+  yieldRoutesContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
@@ -72,7 +75,10 @@ and let its declared metadata drive your routing language.
                treasury_report_pdf, treasury_report_csv
   • trading:   swap, execute_swap, bridge, deploy_sniper_bot, hedge_position
   • yield:     stake, yield_deposit, yield_withdraw, rebalance, execute_dca,
-               stablecoin_diversification
+               stablecoin_diversification,
+               draft_yield_route, list_yield_routes, arm_yield_route,
+               pause_yield_route, resume_yield_route, deploy_yield_route,
+               exit_yield_route, delete_yield_route
   • intel:     foresight_simulation, risk_assessment, browser_research,
                protocol_research_brief, idl_extraction, sentiment_analysis,
                security_firewall, protocol_sdk_analyze
@@ -189,6 +195,7 @@ export function buildCommandBarSystemPrompt(input: CommandBarPromptInput): strin
     ? `\nUSER POLICY: ${input.policySummary}`
     : "\nUSER POLICY: default — require approval for all write capabilities.";
   const yieldLine = input.yieldContext ? `\n${input.yieldContext}` : "";
+  const yieldRoutesLine = input.yieldRoutesContext ? `\n${input.yieldRoutesContext}` : "";
 
   return `${PIPELINE_DOCTRINE}
 
@@ -203,7 +210,7 @@ ${ARTIFACT_HONESTY_RULES}
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
-Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${policyLine}${specialistLine}${memoryLine}
+Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${policyLine}${specialistLine}${memoryLine}
 `;
 }
 

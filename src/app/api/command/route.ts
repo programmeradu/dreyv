@@ -5,6 +5,7 @@ import { estimateCompatibilityBudget } from "@/lib/llm/model-compatibility";
 import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilities/legacy-shim";
 import { buildCommandBarSystemPrompt, STRICT_GROUNDING_ADDENDUM } from "@/lib/agents/commandbar/system-prompt";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
+import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -239,11 +240,21 @@ export async function POST(req: Request) {
       console.warn("[command] yield context build failed", e);
     }
 
+    // Yield-routes context: armed/active routes for the LLM to reason about
+    // ("you have 2 armed routes ready to deploy on next inflow").
+    let yieldRoutesContext: string | undefined;
+    try {
+      yieldRoutesContext = await summarizeYieldRoutesForLLM(vaultAddress || walletAddress);
+    } catch (e) {
+      console.warn("[command] yield routes context build failed", e);
+    }
+
     const systemPrompt = buildCommandBarSystemPrompt({
       walletAddress,
       vaultState,
       walletState,
       yieldContext,
+      yieldRoutesContext,
     });
     const effectiveSystemPrompt = strictGrounding
       ? `${systemPrompt}\n\n${STRICT_GROUNDING_ADDENDUM}`
