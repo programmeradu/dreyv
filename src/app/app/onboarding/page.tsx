@@ -133,7 +133,7 @@ export default function OnboardingPage() {
     const mascotPose = currentStep === 0 ? "greet" : isLast ? "celebrate" : "think";
 
     return (
-        <div className="relative flex min-h-screen flex-col bg-white font-manrope text-slate-900">
+        <div className="relative flex h-screen flex-col overflow-hidden bg-white font-manrope text-slate-900">
             {/* Ambient violet glows — fixed so they don't expand the document */}
             <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute -top-40 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/35 blur-[140px]" />
