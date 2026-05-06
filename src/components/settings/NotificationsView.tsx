@@ -3,144 +3,164 @@
 import React from "react";
 import { Bell, ShieldAlert, ShoppingCart, Store, Cpu, Mail, Trash2 } from "lucide-react";
 import { useNotificationStore, type NotificationPreferences } from "@/lib/notifications";
-import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { ExternalChannelsPanel } from "./ExternalChannelsPanel";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
-type PrefKey = keyof NotificationPreferences;
-
-const TOGGLES: { key: keyof NotificationPreferences; icon: any; title: string; desc: string; color: string }[] = [
+const TOGGLES: { key: keyof NotificationPreferences; icon: any; title: string; desc: string; tone: string }[] = [
     {
         key: "security",
         icon: ShieldAlert,
-        title: "Critical Security Alerts",
+        title: "Critical security alerts",
         desc: "Immediate alerts for multisig threshold breaches or suspicious contract interactions.",
-        color: "text-destructive",
+        tone: "text-rose-600 bg-rose-50 ring-rose-100",
     },
     {
         key: "purchases",
         icon: ShoppingCart,
-        title: "Purchases & Installs",
+        title: "Purchases & installs",
         desc: "Notifications when you purchase or install an app from the Marketplace.",
-        color: "text-emerald-400",
+        tone: "text-emerald-600 bg-emerald-50 ring-emerald-100",
     },
     {
         key: "listings",
         icon: Store,
-        title: "Listing Activity",
+        title: "Listing activity",
         desc: "Alerts when your apps are listed, updated, or delisted from the Marketplace.",
-        color: "text-primary",
+        tone: "text-sky-600 bg-sky-50 ring-sky-100",
     },
     {
         key: "agentAlerts",
         icon: Cpu,
-        title: "Agent Alerts",
+        title: "Agent alerts",
         desc: "Real-time status of agent-led autonomous trades and proactive monitoring triggers.",
-        color: "text-purple-500",
+        tone: "text-violet-600 bg-violet-50 ring-violet-100",
     },
     {
         key: "system",
         icon: Bell,
-        title: "System Notifications",
+        title: "System notifications",
         desc: "General platform updates, maintenance windows, and new features.",
-        color: "text-blue-500",
+        tone: "text-slate-700 bg-slate-50 ring-slate-100",
     },
 ];
 
 export const NotificationsView = () => {
-    const { notifications, preferences, setPreference, clearAll } = useNotificationStore();
+    const { notifications, preferences, setPreference, clearAll, activeWallet } = useNotificationStore();
     const recentNotifs = [...notifications].reverse().slice(0, 10);
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-[0_0_15px_var(--dashboard-accent-muted)]">
-                    <Bell size={20} />
-                </div>
-                <div>
-                    <h2 className="text-lg font-black text-foreground uppercase tracking-tight">Signal Intelligence</h2>
-                    <p className="text-xs text-muted-foreground font-black uppercase tracking-widest">Configure alert sensitivity and signal channels.</p>
-                </div>
-            </div>
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <section className="rounded-3xl border border-violet-100 bg-white p-6 sm:p-7">
+                <header className="flex items-start gap-4 mb-6">
+                    <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 ring-1 ring-violet-100">
+                        <Bell size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Signals</p>
+                        <h2 className="mt-1 text-[20px] sm:text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
+                            Alert sensitivity
+                        </h2>
+                        <p className="mt-1 text-[13px] text-slate-500">
+                            History is scoped per wallet — switching accounts shows only that wallet's signals.
+                        </p>
+                    </div>
+                </header>
 
-            {/* Preference Toggles */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden divide-y divide-border shadow-sm">
-                {TOGGLES.map(({ key, icon: Icon, title, desc, color }) => (
-                    <div key={key} className="p-6 flex items-start gap-4 hover:bg-primary/5 transition-colors group">
-                        <div className={`mt-1 p-2 rounded-lg bg-muted border border-border ${color} shadow-sm group-hover:bg-background transition-colors`}>
-                            <Icon size={18} />
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                                <h3 className="text-sm font-black text-foreground uppercase tracking-tight">{title}</h3>
-                                <button
-                                    onClick={() => setPreference(key, !preferences[key])}
-                                    className={`w-10 h-5 rounded-full p-1 transition-colors shadow-inner ${preferences[key] ? 'bg-primary' : 'bg-muted'}`}
-                                >
-                                    <div className={`w-3 h-3 rounded-full bg-background shadow-sm transition-transform ${preferences[key] ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
+                <div className="divide-y divide-violet-100">
+                    {TOGGLES.map(({ key, icon: Icon, title, desc, tone }) => (
+                        <div key={key} className="py-4 flex items-start gap-4">
+                            <div className={`h-9 w-9 rounded-xl flex items-center justify-center ring-1 shrink-0 ${tone}`}>
+                                <Icon size={16} />
                             </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed max-w-lg font-black uppercase tracking-widest text-[9px]">
-                                {desc}
-                            </p>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <h3 className="text-[14px] font-semibold text-slate-900">{title}</h3>
+                                        <p className="mt-0.5 text-[12px] text-slate-500 leading-relaxed">{desc}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setPreference(key, !preferences[key])}
+                                        className={`relative shrink-0 w-10 h-6 rounded-full transition-colors ${preferences[key] ? "bg-violet-600" : "bg-slate-200"}`}
+                                        aria-label={`Toggle ${title}`}
+                                    >
+                                        <span
+                                            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${preferences[key] ? "translate-x-4" : "translate-x-0"}`}
+                                        />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            </section>
 
-            {/* Channels */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-card border border-border p-4 rounded-xl flex items-center justify-between shadow-sm">
+            <section className="rounded-3xl border border-violet-100 bg-white p-6 sm:p-7">
+                <header className="flex items-center gap-3 mb-4">
+                    <Mail className="text-violet-600" size={16} />
+                    <h3 className="text-[14px] font-semibold text-slate-900">Delivery channels</h3>
+                </header>
+                <ExternalChannelsPanel />
+                <div className="mt-4 flex items-center justify-between rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/40 px-4 py-3">
                     <div className="flex items-center gap-3">
-                        <Mail className="text-muted-foreground" size={18} />
+                        <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600 ring-1 ring-violet-100">
+                            <Mail size={14} />
+                        </div>
                         <div>
-                            <span className="text-xs font-black text-foreground block uppercase">Email Digest</span>
-                            <span className="text-[10px] text-muted-foreground uppercase font-black">Daily Summary</span>
+                            <p className="text-[13px] font-semibold text-slate-900">Email digest</p>
+                            <p className="text-[11px] text-slate-500">Daily summary of signals</p>
                         </div>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]" />
+                    <span className="h-2 w-2 rounded-full bg-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.6)]" />
                 </div>
-            </div>
+            </section>
 
-            {/* Phase 15 — External delivery channels (Telegram + Slack) */}
-            <ExternalChannelsPanel />
-
-            <div className="hidden">
-                {/* placeholder kept for layout symmetry */}
-            </div>
-
-
-            {/* Recent Notification History */}
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Recent History</h3>
+            <section className="rounded-3xl border border-violet-100 bg-white p-6 sm:p-7">
+                <header className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                        <DreyvStar size={10} className="text-violet-600" />
+                        <h3 className="text-[14px] font-semibold text-slate-900">Recent history</h3>
+                        {activeWallet && (
+                            <span className="text-[10px] tracking-[0.18em] uppercase font-semibold text-slate-400">
+                                · {activeWallet.slice(0, 4)}…{activeWallet.slice(-4)}
+                            </span>
+                        )}
+                    </div>
                     {notifications.length > 0 && (
-                        <Button variant="ghost" size="sm" onClick={clearAll} className="h-6 px-2 text-[10px] text-muted-foreground hover:text-red-400 gap-1">
-                            <Trash2 size={10} /> Clear All
-                        </Button>
+                        <button
+                            onClick={clearAll}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                        >
+                            <Trash2 size={11} /> Clear all
+                        </button>
                     )}
-                </div>
+                </header>
                 {recentNotifs.length === 0 ? (
-                    <div className="bg-card border border-border rounded-2xl p-8 text-center">
-                        <p className="text-xs text-muted-foreground">No notifications yet. Actions like purchases and listings will appear here.</p>
+                    <div className="rounded-2xl border border-dashed border-violet-100 px-6 py-10 text-center">
+                        <p className="text-[12px] text-slate-500">
+                            No signals yet for this wallet. Purchases, listings, and agent activity will appear here.
+                        </p>
                     </div>
                 ) : (
-                    <div className="bg-card border border-border rounded-2xl overflow-hidden divide-y divide-border shadow-sm">
+                    <ul className="divide-y divide-violet-50">
                         {recentNotifs.map((n) => (
-                            <div key={n.id} className={`px-5 py-3 flex items-start gap-3 ${n.read ? "opacity-50" : ""}`}>
-                                <div className="mt-0.5 w-2 h-2 rounded-full bg-primary shrink-0" style={{ opacity: n.read ? 0 : 1 }} />
+                            <li key={n.id} className={`py-3 flex items-start gap-3 ${n.read ? "opacity-60" : ""}`}>
+                                <span
+                                    className="mt-1.5 h-1.5 w-1.5 rounded-full bg-violet-600 shrink-0"
+                                    style={{ opacity: n.read ? 0 : 1 }}
+                                />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold truncate">{n.title}</p>
-                                    <p className="text-[10px] text-muted-foreground truncate">{n.message}</p>
+                                    <p className="text-[13px] font-semibold text-slate-900 truncate">{n.title}</p>
+                                    <p className="text-[11px] text-slate-500 truncate">{n.message}</p>
                                 </div>
-                                <span className="text-[9px] text-muted-foreground/50 font-mono shrink-0">
+                                <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">
                                     {formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}
                                 </span>
-                            </div>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 )}
-            </div>
+            </section>
         </div>
     );
 };

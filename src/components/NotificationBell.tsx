@@ -17,6 +17,7 @@ import {
     type Notification,
     type NotificationType,
 } from "@/lib/notifications";
+import { useWallet } from "@/lib/wallet/compat";
 import { AppEventBus } from "@/lib/events";
 import { formatDistanceToNowStrict } from "date-fns";
 
@@ -283,10 +284,18 @@ function NotificationItem({
 // ─── Bell ─────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
-    const { notifications, markRead, markAllRead, remove, unreadCount } =
+    const { notifications, markRead, markAllRead, remove, unreadCount, setActiveWallet } =
         useNotificationStore();
+    const { publicKey } = useWallet();
+    const walletAddress = publicKey?.toBase58() ?? null;
     const count = unreadCount();
     const [open, setOpen] = useState(false);
+
+    // Scope notification storage to the active wallet so signing into a
+    // different account never surfaces another account's history.
+    useEffect(() => {
+        setActiveWallet(walletAddress);
+    }, [walletAddress, setActiveWallet]);
 
     const handleAppEvent = useCallback((event: { type: string; payload?: any }) => {
         if (event.type === "UI_NOTIFICATION" && event.payload?.message) {

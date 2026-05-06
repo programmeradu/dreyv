@@ -77,6 +77,9 @@ export interface NotificationPreferences {
 interface NotificationStore {
     notifications: Notification[];
     preferences: NotificationPreferences;
+    activeWallet: string | null;
+    /** Switch the storage scope to a specific wallet (or null for guest). Reloads history. */
+    setActiveWallet: (wallet: string | null) => void;
     /** Add a new notification (respects preferences) */
     addNotification: (n: Omit<Notification, "id" | "timestamp" | "read">) => void;
     /** Mark a single notification as read */
@@ -94,25 +97,43 @@ interface NotificationStore {
 }
 
 // ─── LocalStorage helpers ────────────────────────────────────────────
+// Notifications are scoped per wallet so signing into a different account
+// never surfaces another account's history. Guest (no wallet) gets its own
+// ephemeral bucket.
 
-const LS_KEY = "keystone_notifications";
 const LS_PREFS_KEY = "keystone_notification_prefs";
 const MAX_NOTIFICATIONS = 100;
 
-function loadNotifications(): Notification[] {
-    if (typeof window === "undefined") return [];
+function lsKeyFor(wallet: string | null): string {
+    return wallet ? `dreyv_notifications:${wallet}` : "dreyv_notifications:guest";
+}
+
+// One-time migration: legacy global key → guest bucket.
+function migrateLegacyKey() {
+    if (typeof window === "undefined") return;
     try {
-        return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+        const legacy = localStorage.getItem("keystone_notifications");
+        if (legacy && !localStorage.getItem("dreyv_notifications:guest")) {
+            localStorage.setItem("dreyv_notifications:guest", legacy);
+        }
+        if (legacy) localStorage.removeItem("keystone_notifications");
+    } catch {}
+}
+
+function loadNotifications(wallet: string | null): Notification[] {
+    if (typeof window === "undefined") return [];
+    migrateLegacyKey();
+    try {
+        return JSON.parse(localStorage.getItem(lsKeyFor(wallet)) || "[]");
     } catch {
         return [];
     }
 }
 
-function saveNotifications(items: Notification[]) {
+function saveNotifications(wallet: string | null, items: Notification[]) {
     if (typeof window === "undefined") return;
-    // Keep only the most recent MAX_NOTIFICATIONS
     const trimmed = items.slice(-MAX_NOTIFICATIONS);
-    localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(lsKeyFor(wallet), JSON.stringify(trimmed));
 }
 
 function loadPreferences(): NotificationPreferences {
@@ -161,8 +182,14 @@ function isAllowedByPreferences(type: NotificationType, prefs: NotificationPrefe
 // ─── Zustand Store ───────────────────────────────────────────────────
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
-    notifications: loadNotifications(),
+    notifications: loadNotifications(null),
     preferences: loadPreferences(),
+    activeWallet: null,
+
+    setActiveWallet: (wallet) => {
+        if (get().activeWallet === wallet) return;
+        set({ activeWallet: wallet, notifications: loadNotifications(wallet) });
+    },
 
     addNotification: (n) => {
         const prefs = get().preferences;
@@ -177,7 +204,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
         set((state) => {
             const updated = [...state.notifications, item].slice(-MAX_NOTIFICATIONS);
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -187,7 +214,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
             const updated = state.notifications.map((n) =>
                 n.id === id ? { ...n, read: true } : n
             );
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -195,7 +222,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     markAllRead: () => {
         set((state) => {
             const updated = state.notifications.map((n) => ({ ...n, read: true }));
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -203,13 +230,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     remove: (id) => {
         set((state) => {
             const updated = state.notifications.filter((n) => n.id !== id);
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
 
     clearAll: () => {
-        saveNotifications([]);
+        const wallet = get().activeWallet;
+        saveNotifications(wallet, []);
         set({ notifications: [] });
     },
 
