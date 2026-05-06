@@ -425,7 +425,7 @@ export class ExecutionCoordinator {
     const data = await response.json();
     const items = data.result?.items || [];
 
-    return items
+    const assets: PortfolioAsset[] = items
       .filter((item: any) => item.interface === "FungibleToken" || item.interface === "FungibleAsset")
       .map((item: any) => ({
         mint: item.id,
@@ -438,6 +438,28 @@ export class ExecutionCoordinator {
         pricePerToken: item.token_info?.price_info?.price_per_token || 0,
         totalUsdValue: item.token_info?.price_info?.total_price || 0,
       }));
+
+    // Helius returns native SOL separately under `nativeBalance` — DAS items
+    // never include the wrapped/native SOL account. Without this branch a
+    // SOL-only wallet would appear empty and rebalance would abort with
+    // "No fungible token holdings".
+    const nb = data.result?.nativeBalance;
+    if (nb && (nb.lamports ?? 0) > 0) {
+      const amount = Number(nb.lamports) / 1e9;
+      const pricePerToken = Number(nb.price_per_sol ?? nb.pricePerSol ?? 0);
+      const totalUsdValue = Number(nb.total_price ?? nb.totalPrice ?? amount * pricePerToken);
+      assets.push({
+        mint: "So11111111111111111111111111111111111111112",
+        symbol: "SOL",
+        name: "Solana",
+        amount,
+        decimals: 9,
+        pricePerToken,
+        totalUsdValue,
+      });
+    }
+
+    return assets;
   }
 
   /**
