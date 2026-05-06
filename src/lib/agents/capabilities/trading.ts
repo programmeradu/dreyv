@@ -142,6 +142,7 @@ async function runSwap(
     ctx.executionState.splitRemaining = outAmount;
 
     const serializedTransactions = result.result?.serializedTransactions;
+    const estimatedValueUsd = await estimateUsdValue(inResolved.symbol || inputToken, amount);
     return {
       success: true,
       status: result.status,
@@ -159,6 +160,7 @@ async function runSwap(
       route: sr.instructions?.[0]?.pool || "Jupiter",
       executionId: result.executionId,
       duration: result.duration,
+      estimatedValueUsd,
       ...(serializedTransactions?.length ? { serializedTransactions } : {}),
     };
   }
