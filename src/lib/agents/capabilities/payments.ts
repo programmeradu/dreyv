@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
+import { estimateUsdValue } from "./usd-pricing";
 
 /** Period in seconds for Streamflow stream cadence. */
 const PERIOD_SECONDS: Record<"daily" | "weekly" | "biweekly" | "monthly", number> = {
