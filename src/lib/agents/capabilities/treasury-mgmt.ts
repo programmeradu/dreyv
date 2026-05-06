@@ -342,7 +342,7 @@ const draft_yield_route = defineCapability({
   id: "draft_yield_route",
   domain: "yield",
   description:
-    "Draft a yield route (token → venue at a risk band). Route stays in 'draft' until the user activates it from /app/treasury or via the activate API.",
+    "Draft or arm a yield route (token → venue at a risk band). For 'activates when idle stables land', create status='armed' so the watcher can queue a policy-gated deposit when funds arrive.",
   inputSchema: z.object({
     token: z.string().default("USDC"),
     venue: z.string().min(1).describe("e.g. 'Marinade', 'Kamino USDC', 'JitoSOL'"),
@@ -357,26 +357,40 @@ const draft_yield_route = defineCapability({
   execute: async (input, ctx) => {
     if (!db) return notReady("draft_yield_route");
     if (!ctx.walletAddress) return needWallet("draft_yield_route");
+    const token = input.token.toUpperCase();
+    const venue = input.venue.trim();
+    const isStable = ["USDC", "USDT", "USDS", "PYUSD"].includes(token);
+    if (isStable && /marinade|jito|blaze|stake|msol|jitosol|bsol/i.test(venue)) {
+      return {
+        success: false,
+        operation: "draft_yield_route",
+        status: "INVALID_TOKEN_VENUE_PAIR",
+        message: `${venue} is SOL staking, not a ${token} lending venue. Use Jupiter Earn, Kamino, Drift, or MarginFi for stablecoin yield.`,
+      };
+    }
+    const shouldArm = /activate|when|inflow|idle|land|auto/i.test(input.notes ?? "") || input.targetAmount === 0;
     const userId = await resolveUserIdFromWallet(ctx.walletAddress);
     const [row] = await db
       .insert(treasuryYieldRoutes)
       .values({
         userId,
         vaultAddress: ctx.walletAddress,
-        token: input.token.toUpperCase(),
-        venue: input.venue,
+        token,
+        venue,
         riskBand: input.riskBand,
         targetAmount: String(input.targetAmount),
         minApyBps: input.minApyBps ?? null,
         notes: input.notes ?? null,
-        status: "draft",
+        status: shouldArm ? "armed" : "draft",
       })
       .returning();
     return {
       success: true,
       operation: "draft_yield_route",
       routeId: row?.id,
-      message: `Drafted ${input.token} → ${input.venue} (${input.riskBand}). Activate from /app/treasury when ready.`,
+      message: shouldArm
+        ? `Armed ${token} → ${venue} (${input.riskBand}). It will queue a deposit proposal when idle ${token} lands in the vault.`
+        : `Drafted ${token} → ${venue} (${input.riskBand}). Activate from /app/treasury when ready.`,
     };
   },
 });
