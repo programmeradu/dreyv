@@ -23,6 +23,12 @@ export interface RouteOptions {
   /** Build mode short-circuits financial executions. */
   promptMode?: "auto" | "build" | "execute";
   isStudioBuildIntent?: boolean;
+  /** Phase 4 — pre-computed signer/policy decision (allow|queue|deny). */
+  policyGuard?: {
+    decision: "allow" | "queue" | "deny";
+    reasons: string[];
+    signerId?: string;
+  };
 }
 
 const DEFAULT_AUTO_APPROVE_USD = 0; // safest default: no auto-approve writes
