@@ -642,12 +642,30 @@ export function AnalyticsCockpit({
               hint={`${fmtCompact(attribution?.monthlyBurnRate ?? 0)}/mo burn`}
               emphasis={(attribution?.outflowUsd ?? 0) > 0 ? "amber" : "default"}
             />
-            <KpiTile
-              label="Yield · APY"
-              value={attribution?.annualYieldRate ? `${(attribution.annualYieldRate * 100).toFixed(2)}%` : "—"}
-              hint={fmtCompact(attribution?.yieldUsd ?? 0)}
-              emphasis={(attribution?.yieldUsd ?? 0) > 0 ? "ink" : "default"}
-            />
+            {(() => {
+              const realizedApy = attribution?.annualYieldRate ?? 0;
+              const realizedUsd = attribution?.yieldUsd ?? 0;
+              const lst = estimateLstYield(
+                (vaultTokens ?? []).map((t: any) => ({
+                  symbol: t.symbol ?? "",
+                  amount: Number(t.amount ?? 0),
+                  priceUsd: Number(t.price ?? t.priceUsd ?? 0),
+                })),
+              );
+              const useLst = realizedApy <= 0 && lst.blendedApy > 0;
+              const apy = useLst ? lst.blendedApy : realizedApy;
+              const annualUsd = useLst ? lst.annualYieldUsd : realizedUsd;
+              return (
+                <KpiTile
+                  label={useLst ? "Yield · est. APY" : "Yield · APY"}
+                  value={apy > 0 ? `${(apy * 100).toFixed(2)}%` : "—"}
+                  hint={useLst
+                    ? `${fmtCompact(annualUsd)}/yr · ${lst.positions} LST`
+                    : fmtCompact(realizedUsd)}
+                  emphasis={apy > 0 ? "ink" : "default"}
+                />
+              );
+            })()}
             <KpiTile
               label="Runway"
               value={runwayMonths == null ? "—" : runwayMonths >= 60 ? "60+ mo" : `${runwayMonths.toFixed(1)} mo`}
