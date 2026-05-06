@@ -188,6 +188,7 @@ export function buildCommandBarSystemPrompt(input: CommandBarPromptInput): strin
   const policyLine = input.policySummary
     ? `\nUSER POLICY: ${input.policySummary}`
     : "\nUSER POLICY: default — require approval for all write capabilities.";
+  const yieldLine = input.yieldContext ? `\n${input.yieldContext}` : "";
 
   return `${PIPELINE_DOCTRINE}
 
@@ -202,7 +203,7 @@ ${ARTIFACT_HONESTY_RULES}
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
-Wallet State: ${JSON.stringify(input.walletState ?? {})}${policyLine}${specialistLine}${memoryLine}
+Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${policyLine}${specialistLine}${memoryLine}
 `;
 }
 
