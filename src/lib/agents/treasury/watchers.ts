@@ -518,6 +518,7 @@ export const TREASURY_WATCHERS = [
   treasuryGasTankWatcher,
   invoiceDueWatcher,
   yieldRouteRefreshWatcher,
+  yieldRouteArmedInflowWatcher,
   securityReauditWatcher,
   // Block B — Treasury data spine
   treasurySnapshotsWatcher,
