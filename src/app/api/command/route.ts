@@ -4,6 +4,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { estimateCompatibilityBudget } from "@/lib/llm/model-compatibility";
 import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilities/legacy-shim";
 import { buildCommandBarSystemPrompt, STRICT_GROUNDING_ADDENDUM } from "@/lib/agents/commandbar/system-prompt";
+import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
