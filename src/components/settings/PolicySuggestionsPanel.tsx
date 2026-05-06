@@ -107,7 +107,7 @@ export function PolicySuggestionsPanel({ onApplied }: { onApplied?: () => void }
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Sparkles size={16} />
+            <DreyvStar size={16} />
           </div>
           <div>
             <h3 className="text-sm font-black uppercase tracking-tight">Policy suggestions</h3>
