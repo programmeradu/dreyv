@@ -127,18 +127,20 @@ export const executeApprovedPlan = inngest.createFunction(
       const stepStart = Date.now();
       try {
         // Phase 8: simulation-firewall pre-check for write-side steps.
-        if (cap.sideEffects === "write") {
+        if (cap.sideEffects === "write" && row.walletAddress) {
           try {
             const { simulationFirewall } = await import("@/lib/studio/simulation-firewall");
             const tx = (planStep.input as any)?.serializedTx as string | undefined;
             if (tx) {
-              const sim = await simulationFirewall.simulate(tx, row.walletAddress ?? undefined);
-              if (sim && sim.verdict && sim.verdict !== "ALLOW") {
-                throw new Error(`Simulation firewall ${sim.verdict}: ${sim.reasons?.join(", ") || "blocked"}`);
+              const sim = await simulationFirewall.simulate(tx, row.walletAddress);
+              if (sim && sim.success === false) {
+                throw new Error(`Simulation firewall BLOCK: ${sim.error || sim.humanSummary || "blocked"}`);
+              }
+              if (sim && (sim.riskLevel === "critical" || sim.riskLevel === "high")) {
+                throw new Error(`Simulation firewall REJECT: risk ${sim.riskLevel} — ${sim.humanSummary}`);
               }
             }
           } catch (firewallErr: any) {
-            // If the firewall itself failed (network etc.), proceed but log; if it rejected, abort.
             if (/firewall (BLOCK|DENY|REJECT)/i.test(firewallErr?.message || "")) {
               if (userId) await tripCircuitBreaker({ userId, reason: firewallErr.message, freezeMinutes: 15 });
               throw firewallErr;
