@@ -105,6 +105,17 @@ export function routePlan(intent: Intent, plan: Plan, options: RouteOptions = {}
     return { kind: "auto_execute", plan, reason: "All steps are read/sim/meta." };
   }
 
+  // 4b. Phase 4 — policy guard short-circuit (signer caps + kill switch).
+  if (options.policyGuard) {
+    if (options.policyGuard.decision === "deny") {
+      return { kind: "reject", plan, reason: `Policy guard denied: ${options.policyGuard.reasons.join("; ")}` };
+    }
+    if (options.policyGuard.decision === "queue") {
+      return { kind: "queue_for_approval", plan, reason: `Policy guard queued: ${options.policyGuard.reasons.join("; ")}` };
+    }
+    // allow → fall through to risk/value gates below as final check
+  }
+
   // 5. Write path: gate on risk + value + policy.
   const valueUsd = plan.estimatedValueUsd;
   const autoCap = options.policy?.autoApproveBelowUsd ?? DEFAULT_AUTO_APPROVE_USD;
