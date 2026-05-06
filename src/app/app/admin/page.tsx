@@ -400,3 +400,17 @@ export default function AdminMonitoringRoom() {
         </div>
     );
 }
+
+function ExecHeadline({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: boolean }) {
+    return (
+        <div className={`relative rounded-3xl border p-4 sm:p-5 backdrop-blur-md shadow-[0_20px_60px_-30px_rgba(124,58,237,0.18)] ${
+            accent ? "border-violet-300 bg-violet-50/70" : "border-violet-200/60 bg-white/85"
+        }`}>
+            <div className="text-[10px] uppercase font-semibold tracking-[0.16em] text-slate-500 truncate">{label}</div>
+            <div className={`mt-1.5 text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums ${accent ? "text-violet-700" : "text-slate-900"}`}>
+                {value}
+            </div>
+            {sub && <div className="mt-1 text-[10px] font-medium text-slate-500">{sub}</div>}
+        </div>
+    );
+}
