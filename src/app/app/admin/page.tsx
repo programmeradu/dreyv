@@ -9,6 +9,8 @@ import { AdminMetricsPanel, MetricGrid, BreakdownList } from "@/components/admin
 import { MetricCard } from "@/components/admin/MetricCard";
 import { InngestHealthPanel } from "@/components/admin/InngestHealthPanel";
 import { PlatformReportPanel } from "@/components/admin/PlatformReportPanel";
+import { ProtocolFeesPanel } from "@/components/admin/ProtocolFeesPanel";
+import { Coins, DollarSign } from "lucide-react";
 
 export default function AdminMonitoringRoom() {
     const [metrics, setMetrics] = useState<any>(null);
