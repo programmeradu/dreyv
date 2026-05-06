@@ -13,7 +13,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@/lib/wallet/compat";
-import { Sparkles, Check, X, Loader2, TrendingUp, Plus, ShieldOff, ArrowDown } from "lucide-react";
+import { Check, X, Loader2, TrendingUp, Plus, ShieldOff, ArrowDown } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { toast } from "@/lib/toast-notifications";
 
 interface Suggestion {
@@ -106,7 +107,7 @@ export function PolicySuggestionsPanel({ onApplied }: { onApplied?: () => void }
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Sparkles size={16} />
+            <DreyvStar size={16} />
           </div>
           <div>
             <h3 className="text-sm font-black uppercase tracking-tight">Policy suggestions</h3>
@@ -130,7 +131,7 @@ export function PolicySuggestionsPanel({ onApplied }: { onApplied?: () => void }
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Sparkles size={18} />
+            <DreyvStar size={18} />
           </div>
           <div>
             <h2 className="text-lg font-black uppercase tracking-tight">Policy Suggestions</h2>

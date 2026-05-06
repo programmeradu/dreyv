@@ -8,7 +8,7 @@
  * monospace meta, no shadowed dashboard tokens.
  */
 import React, { useState, useEffect, useCallback } from "react";
-import { Copy, Plus, ShieldCheck, Trash2, CheckCircle2, KeyRound, Loader2, Sparkles } from "lucide-react";
+import { Copy, Plus, ShieldCheck, Trash2, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { formatDistanceToNow } from "date-fns";
 import { DreyvStar } from "@/components/studio/DreyvStar";
@@ -159,7 +159,7 @@ export const ApiKeysView = () => {
                   disabled={creating}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold transition disabled:opacity-60"
                 >
-                  {creating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                   Generate key
                 </button>
               </div>

@@ -22,8 +22,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
-import dryvGreet from "@/assets/mascot/dryv-greet.png";
-import dryvCelebrate from "@/assets/mascot/dryv-celebrate.png";
+import dryvBilling from "@/assets/mascot/dryv-billing.png";
 
 type Tier = "free" | "mini" | "max";
 
@@ -182,7 +181,7 @@ export default function BillingPage() {
                 {/* Dryv mascot peek — celebrate on paid, greet on free */}
                 <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
                     <Image
-                        src={isPaid ? dryvCelebrate : dryvGreet}
+                        src={dryvBilling}
                         alt=""
                         width={140}
                         height={140}
