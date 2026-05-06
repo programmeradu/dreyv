@@ -80,9 +80,10 @@ function findRate(holding: LstHolding, liveRates?: LiveRatesMap): { apy: number;
  * Fetch live LST APYs from /api/yield/rates. Safe to call from the browser.
  * Returns an empty object on failure — callers should fall back to registry.
  */
-export async function fetchLiveLstRates(signal?: AbortSignal): Promise<LiveRatesMap> {
+export async function fetchLiveLstRates(signal?: AbortSignal, baseUrl?: string): Promise<LiveRatesMap> {
   try {
-    const res = await fetch("/api/yield/rates", { signal, cache: "no-store" });
+    const url = baseUrl ? `${baseUrl.replace(/\/+$/, "")}/api/yield/rates` : "/api/yield/rates";
+    const res = await fetch(url, { signal, cache: "no-store" });
     if (!res.ok) return {};
     const data = await res.json();
     return (data?.rates ?? {}) as LiveRatesMap;
