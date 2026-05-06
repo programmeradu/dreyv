@@ -29,6 +29,9 @@ export interface CommandBarPromptInput {
   activeSpecialist?: string;
   /** Optional summary of the user's policy: approval cadence, allowlists, caps. */
   policySummary?: string;
+  /** Optional one-line yield summary (LSTs + tokenized stable yields the
+   *  treasury currently earns). Built by `summarizeYieldForLLM`. */
+  yieldContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
