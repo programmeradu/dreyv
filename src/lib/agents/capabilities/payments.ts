@@ -143,6 +143,8 @@ const recurring_payment = defineCapability({
         console.warn("[capability:recurring_payment] Persist pending row failed (best-effort):", persistErr);
       }
 
+      const estimatedValueUsd = await estimateUsdValue(input.token, totalAmount);
+
       return {
         success: true,
         operation: "recurring_payment",
@@ -161,10 +163,12 @@ const recurring_payment = defineCapability({
         startTs,
         cliffTs,
         serializedTransaction: serialized,
+        serializedTransactions: [serialized],
         txKind: "versioned",
         recentBlockhash: built.hash,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd,
         message: `Streamflow stream prepared: ${input.amountPerPeriod} ${input.token} every ${input.period} → ${input.recipient.slice(0, 8)}… for ${input.durationPeriods} period(s) (total ${totalAmount} ${input.token}). Stream ID ${built.metadataId.slice(0, 8)}…. Sign to escrow funds.`,
       };
     } catch (err: unknown) {
