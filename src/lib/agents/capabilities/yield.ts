@@ -21,6 +21,7 @@ import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { getJupiterQuote } from "@/lib/jupiter-executor";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
+import { estimateUsdValue } from "./usd-pricing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // stake — delegates to ExecutionCoordinator's stake_sol strategy. Provider
