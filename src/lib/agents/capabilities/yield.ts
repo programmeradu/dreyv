@@ -265,6 +265,7 @@ const yield_deposit = defineCapability({
         ...(serializedTransactions ? { serializedTransactions } : {}),
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd: await estimateUsdValue(token, finalAmount),
         message: `Deposit ${finalAmount} ${token} into ${bestVault.name}. APY: ${bestVault.apy.toFixed(2)}%, TVL: $${Math.round(bestVault.tvl).toLocaleString()}.${splitAmount.adjusted ? ` ${splitAmount.reason}` : ""}${serializedTransactions ? " Transaction ready for signing." : " Connect wallet."}`,
       };
     }
