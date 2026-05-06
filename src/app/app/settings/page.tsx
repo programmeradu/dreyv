@@ -33,6 +33,7 @@ export default function SettingsPage() {
     const [currentView, setCurrentView] = useState<SettingsView>("general");
     const unreadCount = useNotificationStore((s) => s.notifications.filter((n) => !n.read).length);
     const deferredPrompt = useRef<any>(null);
+    useDeclareFocus({ scope: "settings", label: "Settings", data: { view: currentView, unreadCount } }, [currentView, unreadCount]);
 
     useEffect(() => {
         const handler = (e: Event) => { e.preventDefault(); deferredPrompt.current = e; };
