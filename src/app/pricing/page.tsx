@@ -12,7 +12,7 @@ import tierMax from "@/assets/tier-max.png";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "dreyv pricing — Free, Mini, and Max for non-custodial AI treasury workspaces. Billed via FastSpring; taxes shown at checkout.",
+    "dreyv pricing — Free, Mini, and Max for non-custodial AI treasury workspaces. Billed via Paystack; taxes shown at checkout.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -132,8 +132,8 @@ export default function PricingPage() {
             </p>
             <p className="mt-4 text-sm text-slate-500 leading-relaxed">
               Paid plans are billed securely through{" "}
-              <span className="font-semibold text-slate-700">FastSpring</span> (merchant of
-              record). Checkout shows your total including applicable taxes.{" "}
+              <span className="font-semibold text-slate-700">Paystack</span>. Checkout shows your
+              total including applicable taxes.{" "}
               <Link href="/legal/refunds" className="text-violet-700 font-medium hover:underline">
                 Refund policy
               </Link>
