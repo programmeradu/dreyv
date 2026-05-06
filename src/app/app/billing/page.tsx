@@ -223,7 +223,6 @@ export default function BillingPage() {
             <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {TIER_DEF.map((tier) => {
-                        const Icon = tier.icon;
                         const isCurrent = currentTier === tier.id;
                         const isLoading = loading === tier.id;
 
@@ -242,9 +241,15 @@ export default function BillingPage() {
                                     </span>
                                 )}
 
-                                <div className="flex items-center gap-3 mb-5">
-                                    <div className="h-11 w-11 shrink-0 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center">
-                                        <Icon size={18} className="text-violet-600" />
+                                <div className="flex items-center gap-4 mb-5">
+                                    <div className="h-16 w-16 shrink-0 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
+                                        <Image
+                                            src={tier.image}
+                                            alt={tier.imageAlt}
+                                            width={56}
+                                            height={56}
+                                            className="h-14 w-14 object-contain"
+                                        />
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-slate-900">{tier.label}</h2>
