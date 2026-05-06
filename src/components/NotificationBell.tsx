@@ -17,6 +17,7 @@ import {
     type Notification,
     type NotificationType,
 } from "@/lib/notifications";
+import { useWallet } from "@/lib/wallet/compat";
 import { AppEventBus } from "@/lib/events";
 import { formatDistanceToNowStrict } from "date-fns";
 
