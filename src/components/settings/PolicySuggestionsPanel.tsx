@@ -13,7 +13,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@/lib/wallet/compat";
-import { Sparkles, Check, X, Loader2, TrendingUp, Plus, ShieldOff, ArrowDown } from "lucide-react";
+import { Check, X, Loader2, TrendingUp, Plus, ShieldOff, ArrowDown } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { toast } from "@/lib/toast-notifications";
 
 interface Suggestion {
