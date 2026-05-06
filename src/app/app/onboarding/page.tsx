@@ -113,6 +113,28 @@ export default function OnboardingPage() {
                 }
             }
 
+            // Phase: Onboarding seed — provision one default watcher (SOL price < $100)
+            // so a brand-new user lands on a non-empty agent.
+            if (data.walletAddress) {
+                try {
+                    await fetch("/api/monitors", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            walletAddress: data.walletAddress,
+                            type: "price",
+                            target: "SOL",
+                            operator: "below",
+                            conditionValue: 100,
+                            active: true,
+                            label: "SOL drawdown alert",
+                        }),
+                    });
+                } catch (e) {
+                    console.warn("[Onboarding] Default monitor seed failed:", e);
+                }
+            }
+
             await fetch("/api/auth/refresh-session", { method: "POST" });
 
             if (data.email || data.teamEmails.length > 0) {
