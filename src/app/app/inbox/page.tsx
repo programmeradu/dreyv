@@ -129,6 +129,11 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  useDeclareFocus(
+    { scope: "inbox.queue", label: "Agent inbox", data: { wallet, proposals: proposals.length, txProposals: txProposals.length, commandApprovals: commandApprovals.length, watchers: watchers.length, subagents: subagents.length } },
+    [wallet, proposals.length, txProposals.length, commandApprovals.length, watchers.length, subagents.length],
+  );
+
   // Watcher form state
   const [chain, setChain] = useState<string>("solana");
   const [address, setAddress] = useState("");
