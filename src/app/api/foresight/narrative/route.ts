@@ -86,7 +86,25 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "ai_gateway_not_configured", hint: "Set LOVABLE_SUPABASE_URL + LOVABLE_SUPABASE_ANON_KEY (Lovable Cloud project) on Vercel." }), { status: 503 });
   }
 
-  const userPrompt = buildUserPrompt(body);
+  let yieldLine: string | undefined;
+  try {
+    const tokens = Array.isArray(body.vaultTokens) ? body.vaultTokens : [];
+    if (tokens.length > 0) {
+      const origin = req.headers.get("origin") || (req.headers.get("host") ? `https://${req.headers.get("host")}` : undefined);
+      const liveRates = await fetchLiveLstRates(undefined, origin).catch(() => ({}));
+      yieldLine = summarizeYieldForLLM(
+        tokens.map((t) => ({
+          symbol: t.symbol ?? "",
+          mint: t.mint ?? t.address ?? undefined,
+          amount: Number(t.amount ?? 0),
+          priceUsd: Number(t.price ?? t.priceUsd ?? 0),
+        })),
+        liveRates,
+      );
+    }
+  } catch {}
+
+  const userPrompt = buildUserPrompt(body) + (yieldLine ? `\n${yieldLine}` : "");
 
   const upstream = await fetch(proxyUrl, {
     method: "POST",
