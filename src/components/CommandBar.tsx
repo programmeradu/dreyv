@@ -163,6 +163,7 @@ export function CommandBar() {
       serialized: string[],
       operation: string,
       extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+      estimatedValueUsd?: number | null,
     ) => {
       if (!connected || !publicKey || (!signAllTransactions && !signTransaction)) {
         toast.error("Wallet not connected", {
