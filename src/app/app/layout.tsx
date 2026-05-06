@@ -179,6 +179,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <CommandBar />
             </main>
         </div>
+        </CommandFocusProvider>
         </CanvasProvider>
     );
 }
