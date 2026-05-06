@@ -19,6 +19,7 @@ import { classifyIntent } from "./intent";
 import { synthesizePlan } from "./plan";
 import { routePlan } from "./route";
 import { evaluatePolicy as evaluatePolicyGuard } from "../policy/guard";
+import { getUserTier, verifyPlanTier } from "../policy/tier-gate";
 import { resolveUserIdFromWallet } from "../brains/storage";
 import { verifyComposedPlan } from "./compose";
 import { loadUserPolicy } from "./policy-store";
