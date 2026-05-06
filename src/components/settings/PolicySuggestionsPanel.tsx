@@ -131,7 +131,7 @@ export function PolicySuggestionsPanel({ onApplied }: { onApplied?: () => void }
       <div className="flex items-center justify-between relative z-10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Sparkles size={18} />
+            <DreyvStar size={18} />
           </div>
           <div>
             <h2 className="text-lg font-black uppercase tracking-tight">Policy Suggestions</h2>
