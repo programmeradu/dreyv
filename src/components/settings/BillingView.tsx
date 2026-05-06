@@ -12,10 +12,10 @@ import {
   CheckCircle2,
   BarChart3,
   Package,
-  Zap,
+  Bell,
   Store,
   ShoppingCart,
-  Sparkles,
+  ArrowRight,
   RefreshCw,
   ArrowUpRight,
   Loader2,
@@ -213,7 +213,7 @@ export const BillingView = () => {
                   href="/pricing"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold tracking-[0.06em] transition shadow-[0_12px_30px_-12px_rgba(124,58,237,0.6)]"
                 >
-                  <Sparkles size={13} /> {meta.cta}
+                  <ArrowRight size={13} /> {meta.cta}
                 </a>
               )}
             </div>
@@ -232,7 +232,7 @@ export const BillingView = () => {
               <StatCard icon={Package} label="Apps created" value={stats.appsCreated} />
               <StatCard icon={Store} label="Listings" value={stats.appsListed} />
               <StatCard icon={ShoppingCart} label="Purchased" value={stats.appsPurchased} />
-              <StatCard icon={Zap} label="Notifications" value={notifications.length} />
+              <StatCard icon={Bell} label="Notifications" value={notifications.length} />
             </div>
           </div>
 
