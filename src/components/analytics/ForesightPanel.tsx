@@ -80,7 +80,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: ctrl.signal,
-          body: JSON.stringify({ summary, timeframeMonths, attribution: attribution ?? undefined }),
+          body: JSON.stringify({ summary, timeframeMonths, attribution: attribution ?? undefined, vaultTokens: vaultTokens ?? undefined }),
         });
         if (!res.ok || !res.body) {
           setNarrative("Foresight narrator is unavailable right now.");
