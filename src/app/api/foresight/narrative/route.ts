@@ -9,6 +9,7 @@
  * Phase 14 — foresight foundation.
  */
 import { NextRequest } from "next/server";
+import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
