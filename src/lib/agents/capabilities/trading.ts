@@ -22,6 +22,7 @@ import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
 import { resolveTokenAny, assessTokenSafety } from "./token-resolver";
+import { estimateUsdValue, priceUsd } from "./usd-pricing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared swap executor — `swap` and `execute_swap` legacy tools were identical
