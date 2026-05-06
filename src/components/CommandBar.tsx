@@ -144,7 +144,7 @@ export function CommandBar() {
 
   const router = useRouter();
   const simStore = useSimulationStore();
-  const { vaultTokens, activeVault, setActiveVault, addVault, refresh } = useVault();
+  const { vaultTokens, activeVault, setActiveVault, addVault, refresh, refreshRegistry } = useVault();
   const { connection } = useConnection();
   const { publicKey, signAllTransactions, signTransaction, connected } = useWallet();
   const canvas = useOptionalCanvas();
@@ -284,9 +284,23 @@ export function CommandBar() {
         const userSignatures = feeInfo ? sigs.slice(0, -1) : sigs;
         if (operation === "create_multisig" && typeof metadata?.multisigPda === "string") {
           const multisigPda = metadata.multisigPda;
+          // Switch the active vault context immediately so all surfaces
+          // (VaultSelector, status bar, analytics, watchers) re-render against
+          // the new Squads PDA without waiting for the registry round-trip.
           setActiveVault(multisigPda);
           void addVault({ address: multisigPda, label: "Squads multisig", kind: "multisig" })
-            .then(() => refresh())
+            .then(async (res) => {
+              await Promise.all([refreshRegistry(), refresh()]);
+              if (res?.ok) {
+                toast.success("Multisig added to your vaults", {
+                  description: `${multisigPda.slice(0, 6)}…${multisigPda.slice(-4)} is now your active treasury.`,
+                });
+              } else if (res && !res.ok) {
+                toast.error("Couldn't register multisig", {
+                  description: res.error || "Add it manually from the vault selector.",
+                });
+              }
+            })
             .catch((e) => console.warn("[CommandBar] multisig vault register failed", e));
         }
         fetch("/api/tx/log", {
@@ -340,7 +354,7 @@ export function CommandBar() {
         }
       }
     },
-    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures, setActiveVault, addVault, refresh],
+    [connected, publicKey, signAllTransactions, signTransaction, connection, setSigningToolId, setSigningStatus, setTxSignatures, setActiveVault, addVault, refresh, refreshRegistry],
   );
 
   // ─── Chat ──────────────────────────────────────────────────────────────────

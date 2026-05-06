@@ -76,7 +76,14 @@ export async function POST(request: NextRequest) {
       .from(vaults)
       .where(eq(vaults.userId, authUser.id));
 
-    if (existingVaults.length >= limit) {
+    // Tier limit applies to user-added "watch" vaults only.
+    // A user's own connected wallet and self-deployed multisigs should never be
+    // blocked — otherwise creating a Squads multisig from the CommandBar fails
+    // silently for free-tier users whose 1 slot is occupied by their wallet.
+    const countedExisting = existingVaults.filter((v) => v.kind === "watch").length;
+    const incomingCounts = kind === "watch";
+
+    if (incomingCounts && countedExisting >= limit) {
       return NextResponse.json(
         {
           error: {
