@@ -249,10 +249,20 @@ export async function POST(req: Request) {
     // Yield-routes context: armed/active routes for the LLM to reason about
     // ("you have 2 armed routes ready to deploy on next inflow").
     let yieldRoutesContext: string | undefined;
+    let pendingProposalsContext: string | undefined;
+    let activeAlertsContext: string | undefined;
+    let activePolicyContext: string | undefined;
+    let recentActionsContext: string | undefined;
     try {
-      yieldRoutesContext = await summarizeYieldRoutesForLLM(vaultAddress || walletAddress);
+      [yieldRoutesContext, pendingProposalsContext, activeAlertsContext, activePolicyContext, recentActionsContext] = await Promise.all([
+        summarizeYieldRoutesForLLM(vaultAddress || walletAddress).catch(() => undefined),
+        summarizePendingProposals(walletAddress).catch(() => undefined),
+        summarizeActiveAlerts(walletAddress).catch(() => undefined),
+        summarizeActivePolicy(walletAddress).catch(() => undefined),
+        summarizeRecentActions(walletAddress).catch(() => undefined),
+      ]);
     } catch (e) {
-      console.warn("[command] yield routes context build failed", e);
+      console.warn("[command] universal context build failed", e);
     }
 
     const systemPrompt = buildCommandBarSystemPrompt({
@@ -261,6 +271,10 @@ export async function POST(req: Request) {
       walletState,
       yieldContext,
       yieldRoutesContext,
+      pendingProposalsContext,
+      activeAlertsContext,
+      activePolicyContext,
+      recentActionsContext,
     });
     const effectiveSystemPrompt = strictGrounding
       ? `${systemPrompt}\n\n${STRICT_GROUNDING_ADDENDUM}`
