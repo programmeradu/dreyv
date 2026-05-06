@@ -8,7 +8,7 @@
  * monospace meta, no shadowed dashboard tokens.
  */
 import React, { useState, useEffect, useCallback } from "react";
-import { Copy, Plus, ShieldCheck, Trash2, CheckCircle2, KeyRound, Loader2, Sparkles } from "lucide-react";
+import { Copy, Plus, ShieldCheck, Trash2, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { formatDistanceToNow } from "date-fns";
 import { DreyvStar } from "@/components/studio/DreyvStar";
