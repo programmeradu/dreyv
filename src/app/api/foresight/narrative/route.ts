@@ -36,6 +36,7 @@ interface NarrativeBody {
     monthlyInflow: number;
     annualYieldRate: number;
   };
+  vaultTokens?: Array<{ symbol?: string; mint?: string; address?: string; amount?: number; price?: number; priceUsd?: number }>;
 }
 
 const SYSTEM_PROMPT = `You are Dreyv's treasury foresight narrator. Given a Monte Carlo projection summary, write 3 short paragraphs (markdown, no headings) for a treasury operator:
