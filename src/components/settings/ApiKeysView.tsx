@@ -159,7 +159,7 @@ export const ApiKeysView = () => {
                   disabled={creating}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold transition disabled:opacity-60"
                 >
-                  {creating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                   Generate key
                 </button>
               </div>
