@@ -50,6 +50,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...treasuryMgmtCapabilities,
     ...yieldRoutesCapabilities,
     ...appControlCapabilities,
+    ...signingCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
