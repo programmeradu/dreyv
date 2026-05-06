@@ -175,10 +175,23 @@ export default function BillingPage() {
     return (
         <div className="flex-1 w-full bg-white text-slate-900 font-manrope min-h-screen">
             {/* Header */}
-            <header className="relative border-b border-violet-100 bg-white">
+            <header className="relative border-b border-violet-100 bg-white overflow-hidden">
                 <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
-                <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
+
+                {/* Dryv mascot peek — celebrate on paid, greet on free */}
+                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
+                    <Image
+                        src={isPaid ? dryvCelebrate : dryvGreet}
+                        alt=""
+                        width={140}
+                        height={140}
+                        priority
+                        className="h-[120px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
+                    />
+                </div>
+
+                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
                     <div>
                         <div className="flex items-center gap-2.5">
                             <DreyvStar size={10} className="text-violet-600" />
