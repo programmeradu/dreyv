@@ -114,6 +114,8 @@ export const executeApprovedPlan = inngest.createFunction(
     let firstError: string | null = null;
     let signature: string | null = null;
 
+    const userId = row.walletAddress ? await resolveUserIdFromWallet(row.walletAddress) : null;
+
     for (let i = 0; i < plan.steps.length; i++) {
       const planStep = plan.steps[i];
       const cap = registry.get(planStep.capabilityId);
@@ -122,7 +124,28 @@ export const executeApprovedPlan = inngest.createFunction(
         stepResults.push({ capabilityId: planStep.capabilityId, ok: false, error: firstError });
         break;
       }
+      const stepStart = Date.now();
       try {
+        // Phase 8: simulation-firewall pre-check for write-side steps.
+        if (cap.sideEffects === "write") {
+          try {
+            const { simulationFirewall } = await import("@/lib/studio/simulation-firewall");
+            const tx = (planStep.input as any)?.serializedTx as string | undefined;
+            if (tx) {
+              const sim = await simulationFirewall.simulate(tx, row.walletAddress ?? undefined);
+              if (sim && sim.verdict && sim.verdict !== "ALLOW") {
+                throw new Error(`Simulation firewall ${sim.verdict}: ${sim.reasons?.join(", ") || "blocked"}`);
+              }
+            }
+          } catch (firewallErr: any) {
+            // If the firewall itself failed (network etc.), proceed but log; if it rejected, abort.
+            if (/firewall (BLOCK|DENY|REJECT)/i.test(firewallErr?.message || "")) {
+              if (userId) await tripCircuitBreaker({ userId, reason: firewallErr.message, freezeMinutes: 15 });
+              throw firewallErr;
+            }
+            console.warn("[executor] firewall pre-check soft-failed:", firewallErr?.message);
+          }
+        }
         // Each capability runs in its own Inngest step so failures resume
         // from the last success on retry.
         const out = await step.run(`exec-${i}-${cap.id}`, async () => {
@@ -136,9 +159,13 @@ export const executeApprovedPlan = inngest.createFunction(
           if (typeof o.signature === "string") signature = o.signature;
           else if (typeof o.txSignature === "string") signature = o.txSignature;
         }
+        await recordToolMetric({ userId: userId ?? undefined, capabilityId: cap.id, commandId: row.commandId, latencyMs: Date.now() - stepStart, outcome: "ok" });
+        await noteToolOutcome({ userId: userId ?? undefined, outcome: "ok" });
       } catch (err: any) {
         firstError = err?.message || String(err);
         stepResults.push({ capabilityId: cap.id, ok: false, error: firstError ?? undefined });
+        await recordToolMetric({ userId: userId ?? undefined, capabilityId: cap.id, commandId: row.commandId, latencyMs: Date.now() - stepStart, outcome: "error", errorCode: firstError?.slice(0, 80) });
+        await noteToolOutcome({ userId: userId ?? undefined, outcome: "error", reason: firstError ?? undefined });
         break;
       }
     }
