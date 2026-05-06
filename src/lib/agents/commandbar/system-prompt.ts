@@ -45,6 +45,8 @@ export interface CommandBarPromptInput {
   recentActionsContext?: string;
   /** Optional one-line summary of the user's current on-screen focus (route + scope). */
   userFocusContext?: string;
+  /** Phase 7 — buffered realtime push events (autopilot/proposals/errors) since last turn. */
+  agentPushContext?: string;
 }
 
 const PIPELINE_DOCTRINE = `
