@@ -27,6 +27,8 @@ import {
 } from "@/db/schema";
 import { and, eq, lte, isNotNull } from "drizzle-orm";
 import { insertTxProposal } from "@/lib/agents/brains/storage";
+import { resolveTokenMint, tokenDecimals } from "@/lib/agents/capabilities/tokens";
+import { buildJupiterEarnDepositTx, earnApyPct, findJupiterEarnMarket } from "@/lib/agents/capabilities/jupiter-earn";
 
 const RPC =
   process.env.HELIUS_RPC_URL ||
@@ -165,6 +167,33 @@ async function fetchSolBalance(address: string): Promise<number | null> {
     const json = await res.json();
     const lamports = json?.result?.value;
     return typeof lamports === "number" ? lamports / 1e9 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTokenBalance(owner: string, token: string): Promise<number | null> {
+  if (token.toUpperCase() === "SOL") return fetchSolBalance(owner);
+  const mint = resolveTokenMint(token);
+  if (!mint) return null;
+  try {
+    const res = await fetch(RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenAccountsByOwner",
+        params: [owner, { mint }, { encoding: "jsonParsed" }],
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    const json = await res.json();
+    const accounts = json?.result?.value ?? [];
+    return accounts.reduce((sum: number, a: any) => {
+      const amt = a?.account?.data?.parsed?.info?.tokenAmount?.uiAmount;
+      return sum + (typeof amt === "number" ? amt : 0);
+    }, 0);
   } catch {
     return null;
   }
