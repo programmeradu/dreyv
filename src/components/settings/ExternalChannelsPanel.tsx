@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Send, MessageSquare, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast-notifications";
+import { TelegramLogo, SlackLogo } from "@/components/brand/ChannelLogos";
 
 /**
  * Phase 15 — External channel preferences (Telegram + Slack).
@@ -119,8 +120,8 @@ export const ExternalChannelsPanel: React.FC = () => {
             <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-[#229ED9]/10 border border-[#229ED9]/20 text-[#229ED9]">
-                            <Send size={18} />
+                        <div className="p-1.5 rounded-lg bg-white border border-[#229ED9]/20 flex items-center justify-center">
+                            <TelegramLogo size={26} />
                         </div>
                         <div>
                             <h4 className="text-sm font-black text-foreground uppercase tracking-tight">Telegram</h4>
@@ -174,8 +175,8 @@ export const ExternalChannelsPanel: React.FC = () => {
             <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-[#4A154B]/10 border border-[#4A154B]/20 text-[#4A154B] dark:text-[#ECB22E]">
-                            <MessageSquare size={18} />
+                        <div className="p-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                            <SlackLogo size={26} />
                         </div>
                         <div>
                             <h4 className="text-sm font-black text-foreground uppercase tracking-tight">Slack</h4>
