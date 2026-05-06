@@ -182,8 +182,14 @@ function isAllowedByPreferences(type: NotificationType, prefs: NotificationPrefe
 // ─── Zustand Store ───────────────────────────────────────────────────
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
-    notifications: loadNotifications(),
+    notifications: loadNotifications(null),
     preferences: loadPreferences(),
+    activeWallet: null,
+
+    setActiveWallet: (wallet) => {
+        if (get().activeWallet === wallet) return;
+        set({ activeWallet: wallet, notifications: loadNotifications(wallet) });
+    },
 
     addNotification: (n) => {
         const prefs = get().preferences;
@@ -198,7 +204,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
         set((state) => {
             const updated = [...state.notifications, item].slice(-MAX_NOTIFICATIONS);
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -208,7 +214,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
             const updated = state.notifications.map((n) =>
                 n.id === id ? { ...n, read: true } : n
             );
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -216,7 +222,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     markAllRead: () => {
         set((state) => {
             const updated = state.notifications.map((n) => ({ ...n, read: true }));
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
@@ -224,13 +230,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     remove: (id) => {
         set((state) => {
             const updated = state.notifications.filter((n) => n.id !== id);
-            saveNotifications(updated);
+            saveNotifications(state.activeWallet, updated);
             return { notifications: updated };
         });
     },
 
     clearAll: () => {
-        saveNotifications([]);
+        const wallet = get().activeWallet;
+        saveNotifications(wallet, []);
         set({ notifications: [] });
     },
 
