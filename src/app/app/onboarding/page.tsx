@@ -133,7 +133,7 @@ export default function OnboardingPage() {
     const mascotPose = currentStep === 0 ? "greet" : isLast ? "celebrate" : "think";
 
     return (
-        <div className="relative flex min-h-screen flex-col bg-white font-manrope text-slate-900">
+        <div className="relative flex h-screen flex-col overflow-hidden bg-white font-manrope text-slate-900">
             {/* Ambient violet glows — fixed so they don't expand the document */}
             <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute -top-40 -left-40 h-[420px] w-[420px] rounded-full bg-violet-300/35 blur-[140px]" />
@@ -203,13 +203,13 @@ export default function OnboardingPage() {
                 </div>
             </nav>
 
-            {/* Main content — flows in document, scrolls naturally */}
-            <main className="relative z-10 flex-1 px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 pb-8">
-                <div className="mx-auto max-w-5xl">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,220px)] gap-6 items-start">
+            {/* Main content — fills remaining space, inner area scrolls if it overflows */}
+            <main className="relative z-10 flex-1 min-h-0 px-4 sm:px-6 lg:px-10 pt-4 sm:pt-5 pb-3">
+                <div className="mx-auto h-full max-w-5xl">
+                    <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_minmax(0,200px)] gap-4 items-stretch">
                         <section
                             key={currentStep}
-                            className="rounded-2xl sm:rounded-[24px] border border-violet-100 bg-white/85 backdrop-blur-sm p-5 sm:p-7 lg:p-9 animate-in fade-in slide-in-from-bottom-3 duration-500"
+                            className="rounded-2xl sm:rounded-[20px] border border-violet-100 bg-white/85 backdrop-blur-sm p-4 sm:p-5 lg:p-6 overflow-y-auto animate-in fade-in slide-in-from-bottom-3 duration-500"
                         >
                             {currentStep === 0 && <WelcomeStep {...stepProps} />}
                             {currentStep === 1 && <ProfileStep {...stepProps} />}
@@ -220,13 +220,13 @@ export default function OnboardingPage() {
                         </section>
 
                         {/* Side rail — mascot + step compass (desktop) */}
-                        <aside className="hidden lg:flex flex-col gap-4 sticky top-6">
-                            <div className="rounded-2xl border border-violet-100 bg-white p-4 flex flex-col items-center text-center">
-                                <DryvMascot pose={mascotPose} size={96} />
-                                <p className="mt-2 text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-600">
+                        <aside className="hidden lg:flex flex-col gap-3 overflow-y-auto">
+                            <div className="rounded-2xl border border-violet-100 bg-white p-3 flex flex-col items-center text-center">
+                                <DryvMascot pose={mascotPose} size={72} />
+                                <p className="mt-1.5 text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-600">
                                     Dryv
                                 </p>
-                                <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                                <p className="mt-1 text-[10.5px] text-slate-500 leading-relaxed">
                                     {currentStep === 0 && "Five quick steps. You stay in custody."}
                                     {currentStep === 1 && "Shows up across signers, alerts and reports."}
                                     {currentStep === 2 && "Squads vault or single signer — read-only is fine."}
@@ -236,9 +236,9 @@ export default function OnboardingPage() {
                                 </p>
                             </div>
 
-                            <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+                            <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-3">
                                 <p className="text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-700">Compass</p>
-                                <ul className="mt-2.5 space-y-2">
+                                <ul className="mt-2 space-y-1.5">
                                     {STEPS.map((s, i) => (
                                         <li key={s.id} className="flex items-center gap-2">
                                             <DreyvStar
@@ -266,7 +266,7 @@ export default function OnboardingPage() {
             </main>
 
             {/* Navigation footer — in document flow, sticks to bottom of viewport when content is short */}
-            <footer className="relative z-10 px-4 sm:px-6 lg:px-10 pb-4 sm:pb-5">
+            <footer className="relative z-10 px-4 sm:px-6 lg:px-10 pb-3 sm:pb-4">
                 <div className="mx-auto max-w-5xl">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white px-4 sm:px-5 py-2.5">
                         <button
