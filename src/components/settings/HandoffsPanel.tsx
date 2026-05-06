@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * DACS Phase 5.2 — Specialist handoffs timeline.
+ * DACS Phase 5.2 — Specialist handoffs timeline (Stitch-light Dreyv aesthetic).
  *
- * Compact list of recent AgentReports for the connected wallet, grouped by
- * commandId. Shows specialist, status, summary, duration. Wired to
- * /api/dacs/handoffs.
+ * Recent CATP v1.0 reports for the connected wallet, grouped by commandId.
+ * Wired to /api/dacs/handoffs.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useWallet } from "@/lib/wallet/compat";
-import { Network, Loader2, CheckCircle2, XCircle, Clock, PauseCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, PauseCircle, GitBranch } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface HandoffRow {
   id: string;
@@ -23,11 +23,11 @@ interface HandoffRow {
   createdAt: string;
 }
 
-const STATUS_META: Record<HandoffRow["status"], { label: string; cls: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
-  completed: { label: "Completed", cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30", Icon: CheckCircle2 },
-  accepted: { label: "Accepted", cls: "bg-primary/10 text-primary border-primary/30", Icon: Clock },
-  deferred: { label: "Deferred to HITL", cls: "bg-amber-500/10 text-amber-700 border-amber-500/30", Icon: PauseCircle },
-  rejected: { label: "Rejected", cls: "bg-destructive/10 text-destructive border-destructive/30", Icon: XCircle },
+const STATUS_META: Record<HandoffRow["status"], { label: string; chip: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
+  completed: { label: "Completed",        chip: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: CheckCircle2 },
+  accepted:  { label: "Accepted",         chip: "bg-violet-50 text-violet-700 border-violet-200",     Icon: Clock },
+  deferred:  { label: "Deferred to HITL", chip: "bg-amber-50 text-amber-700 border-amber-200",        Icon: PauseCircle },
+  rejected:  { label: "Rejected",         chip: "bg-rose-50 text-rose-700 border-rose-200",           Icon: XCircle },
 };
 
 function formatRelative(iso: string): string {
@@ -55,11 +55,7 @@ export function HandoffsPanel() {
       const r = await fetch(`/api/dacs/handoffs?wallet=${wallet}&limit=25`);
       const data = await r.json();
       if (data.ok) setRows(data.handoffs ?? []);
-    } catch {
-      /* swallow */
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* swallow */ } finally { setLoading(false); }
   }, [wallet]);
 
   useEffect(() => {
@@ -81,74 +77,88 @@ export function HandoffsPanel() {
   if (!wallet) return null;
 
   return (
-    <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-            <Network size={20} />
+    <section className="relative rounded-3xl border border-violet-100 bg-white p-7 sm:p-8 overflow-hidden">
+      <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
+
+      <div className="relative z-10 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <DreyvStar size={10} className="text-violet-600" />
+            <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Specialist handoffs</span>
           </div>
-          <div>
-            <h2 className="text-lg font-black uppercase tracking-tight">Specialist handoffs</h2>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
-              CATP v1.0 reports from agent fabric
-            </p>
-          </div>
+          <h2 className="mt-2 text-[24px] sm:text-[26px] font-semibold tracking-[-0.01em] text-slate-900">
+            CATP <span className="italic font-light text-violet-600">v1.0</span> reports from the agent fabric
+          </h2>
+          <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
+            Every command can fan out to specialist agents. Each one returns a signed report — accepted, completed, deferred, or rejected.
+          </p>
         </div>
-        {loading && <Loader2 className="animate-spin text-muted-foreground" size={16} />}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-violet-700">
+            <GitBranch size={11} /> {rows.length} reports
+          </span>
+          {loading && <Loader2 className="animate-spin text-violet-600" size={14} />}
+        </div>
       </div>
 
-      {grouped.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-xl">
-          No handoffs yet. Submit a command to see specialist activity.
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {grouped.map(([commandId, reports]) => (
-            <li
-              key={commandId}
-              className="border border-border rounded-xl p-3 hover:border-primary/40 transition-colors"
-            >
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <code className="text-[10px] font-mono text-muted-foreground truncate">
-                    {commandId.slice(0, 14)}…
-                  </code>
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    · {reports[0].intentKind}
+      <div className="relative z-10 mt-6">
+        {grouped.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/30 px-5 py-10 text-center">
+            <DreyvStar size={14} className="text-violet-400 mx-auto" />
+            <p className="mt-3 text-[13px] text-slate-600">No handoffs yet.</p>
+            <p className="mt-1 text-[12px] text-slate-500">
+              Submit a command and watch specialists report back here in real time.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {grouped.map(([commandId, reports]) => (
+              <li
+                key={commandId}
+                className="rounded-2xl border border-violet-100 bg-white p-4 hover:border-violet-300 transition"
+              >
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <code className="text-[10px] font-mono text-slate-500 truncate">
+                      {commandId.slice(0, 18)}…
+                    </code>
+                    <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">
+                      · {reports[0].intentKind}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap font-mono">
+                    {formatRelative(reports[0].createdAt)}
                   </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {formatRelative(reports[0].createdAt)}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {reports.map((r) => {
-                  const meta = STATUS_META[r.status] ?? STATUS_META.accepted;
-                  const Icon = meta.Icon;
-                  return (
-                    <div key={r.id} className="flex items-start gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${meta.cls}`}
-                      >
-                        <Icon size={10} />
-                        {shortSpecialist(r.specialist)}
-                      </span>
-                      <p className="text-xs text-foreground/80 leading-relaxed flex-1">
-                        {r.summary}
-                      </p>
-                      {typeof r.durationMs === "number" && (
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {r.durationMs}ms
+                <div className="space-y-2">
+                  {reports.map((r) => {
+                    const meta = STATUS_META[r.status] ?? STATUS_META.accepted;
+                    const Icon = meta.Icon;
+                    return (
+                      <div key={r.id} className="flex items-start gap-2.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-[0.14em] whitespace-nowrap ${meta.chip}`}
+                        >
+                          <Icon size={10} />
+                          {shortSpecialist(r.specialist)}
                         </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                        <p className="text-[12.5px] text-slate-700 leading-relaxed flex-1">
+                          {r.summary}
+                        </p>
+                        {typeof r.durationMs === "number" && (
+                          <span className="text-[10px] text-slate-400 whitespace-nowrap font-mono">
+                            {r.durationMs}ms
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
