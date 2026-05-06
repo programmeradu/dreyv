@@ -550,6 +550,7 @@ const rebalance = defineCapability({
     );
 
     const trades = result.result?.trades || [];
+    const rebalancePreview = result.result?.rebalancePreview || null;
     const serializedTransactions: string[] =
       result.result?.serializedTransactions || [];
 
@@ -574,13 +575,14 @@ const rebalance = defineCapability({
       targetAllocations,
       tolerance,
       trades,
+      rebalancePreview,
       tradeCount: trades.length,
       serializedTransactions:
         serializedTransactions.length > 0 ? serializedTransactions : undefined,
       status: result.status,
       executionId: result.executionId,
       requiresApproval: true,
-      message: `Portfolio rebalance: ${trades.length} trades planned.${serializedTransactions.length > 0 ? ` ${serializedTransactions.length} unsigned transaction(s) ready for client-side signing.` : " Connect wallet to build transactions."}`,
+      message: `Dry-run rebalance preview: ${trades.length} proposed trade${trades.length === 1 ? "" : "s"}.${serializedTransactions.length > 0 ? ` Review the projected concentration, then sign ${serializedTransactions.length} unsigned transaction(s) if approved.` : " Connect wallet to build transactions."}`,
     };
   },
 });
