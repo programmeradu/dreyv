@@ -156,9 +156,26 @@ export async function tripCircuitBreaker(opts: {
 }) {
   if (!db) return;
   const frozen = new Date(Date.now() + (opts.freezeMinutes ?? 15) * 60 * 1000);
-  await db
-    .insert(agentCircuitBreaker)
-    .values({
+  const existing = await db
+    .select()
+    .from(agentCircuitBreaker)
+    .where(eq(agentCircuitBreaker.userId, opts.userId))
+    .limit(1);
+  if (existing[0]) {
+    await db
+      .update(agentCircuitBreaker)
+      .set({
+        consecutiveFailures: (existing[0].consecutiveFailures ?? 0) + 1,
+        lastFirewallRejectAt: new Date(),
+        frozenUntil: frozen,
+        reason: opts.reason,
+        scope: opts.scope ?? existing[0].scope ?? "autopilot",
+        vaultId: opts.vaultId ?? existing[0].vaultId,
+        updatedAt: new Date(),
+      })
+      .where(eq(agentCircuitBreaker.id, existing[0].id));
+  } else {
+    await db.insert(agentCircuitBreaker).values({
       userId: opts.userId,
       vaultId: opts.vaultId ?? null,
       scope: opts.scope ?? "autopilot",
@@ -166,11 +183,74 @@ export async function tripCircuitBreaker(opts: {
       lastFirewallRejectAt: new Date(),
       frozenUntil: frozen,
       reason: opts.reason,
-    })
-    .onConflictDoNothing();
+    });
+  }
+}
+
+/** Reset the consecutive-failure counter on a successful run. */
+export async function resetCircuitBreaker(userId: string) {
+  if (!db) return;
+  await db
+    .update(agentCircuitBreaker)
+    .set({ consecutiveFailures: 0, frozenUntil: null, reason: null, updatedAt: new Date() })
+    .where(eq(agentCircuitBreaker.userId, userId));
+}
+
+/**
+ * Phase 8 — auto-trip the breaker when a user crosses N consecutive errors.
+ * Caller passes the most recent outcome; we maintain the counter.
+ */
+export async function noteToolOutcome(opts: {
+  userId?: string;
+  outcome: "ok" | "error" | "denied" | "queued";
+  threshold?: number;
+  reason?: string;
+}) {
+  if (!db || !opts.userId) return;
+  if (opts.outcome === "ok") {
+    await resetCircuitBreaker(opts.userId);
+    return;
+  }
+  if (opts.outcome !== "error") return;
+  const threshold = opts.threshold ?? DEFAULT_MAX_CONSECUTIVE_ERRORS;
+  const existing = await db
+    .select()
+    .from(agentCircuitBreaker)
+    .where(eq(agentCircuitBreaker.userId, opts.userId))
+    .limit(1);
+  const next = (existing[0]?.consecutiveFailures ?? 0) + 1;
+  if (next >= threshold) {
+    await tripCircuitBreaker({
+      userId: opts.userId,
+      reason: opts.reason ?? `${next} consecutive tool errors`,
+      freezeMinutes: 15,
+    });
+  } else if (existing[0]) {
+    await db
+      .update(agentCircuitBreaker)
+      .set({ consecutiveFailures: next, updatedAt: new Date() })
+      .where(eq(agentCircuitBreaker.id, existing[0].id));
+  } else {
+    await db.insert(agentCircuitBreaker).values({
+      userId: opts.userId,
+      scope: "tool",
+      consecutiveFailures: next,
+      reason: opts.reason ?? "tool error",
+    });
+  }
 }
 
 export async function recordToolMetric(opts: {
+  userId?: string;
+  capabilityId: string;
+  commandId?: string;
+  latencyMs: number;
+  outcome: "ok" | "error" | "denied" | "queued";
+  errorCode?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsdEst?: number;
+}) {
   userId?: string;
   capabilityId: string;
   commandId?: string;
