@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { users, dcaBots, dcaExecutions, agentExecutions, agentApprovals, miniApps, userInstalledApps, 
          reviews, purchases, teams, teamMembers, teamInvitations, notificationPreferences, 
          alerts, monitors, rateLimits, knowledgeEntries, atlasSessions, foresightPredictions, 
-         transactionCache, analyticsSnapshots, airdropClaims, runs } from "@/db/schema";
+         transactionCache, analyticsSnapshots, airdropClaims, runs, protocolFees } from "@/db/schema";
 import { jwtVerify } from "jose";
 
 // Force Node.js runtime for JWT and heavy aggregations
@@ -184,8 +184,35 @@ export async function GET(req: NextRequest) {
                 total: sql<number>`count(*)::int`,
                 correct: sql<number>`sum(case when correct = true then 1 else 0 end)::int`,
                 resolved: sql<number>`sum(case when resolved = true then 1 else 0 end)::int`
-            }).from(foresightPredictions)
+            }).from(foresightPredictions),
+
+            // Panel 9: Protocol fees (Dreyv 0.05% ledger)
+            dbx.select({
+                feesAll: sql<number>`coalesce(sum(fee_usd), 0)::float`,
+                volAll: sql<number>`coalesce(sum(estimated_value_usd), 0)::float`,
+                txAll: sql<number>`count(*)::int`,
+                fees24h: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
+                vol24h: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
+                tx24h: sql<number>`(count(*) filter (where created_at >= ${oneDayAgo}))::int`,
+                fees7d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${sevenDaysAgo}), 0)::float`,
+                fees30d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
+                vol30d: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
+                payers30d: sql<number>`(count(distinct wallet_address) filter (where created_at >= ${thirtyDaysAgo}))::int`,
+            }).from(protocolFees),
         ]);
+
+        const protoRow = (await dbx.select({
+            feesAll: sql<number>`coalesce(sum(fee_usd), 0)::float`,
+            volAll: sql<number>`coalesce(sum(estimated_value_usd), 0)::float`,
+            txAll: sql<number>`count(*)::int`,
+            fees24h: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
+            vol24h: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${oneDayAgo}), 0)::float`,
+            tx24h: sql<number>`(count(*) filter (where created_at >= ${oneDayAgo}))::int`,
+            fees7d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${sevenDaysAgo}), 0)::float`,
+            fees30d: sql<number>`coalesce(sum(fee_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
+            vol30d: sql<number>`coalesce(sum(estimated_value_usd) filter (where created_at >= ${thirtyDaysAgo}), 0)::float`,
+            payers30d: sql<number>`(count(distinct wallet_address) filter (where created_at >= ${thirtyDaysAgo}))::int`,
+        }).from(protocolFees))[0] ?? {} as any;
 
         // Process data
         const totalUsers = totalUsersData[0]?.count || 0;
