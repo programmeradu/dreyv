@@ -181,6 +181,7 @@ export default function StudioPage() {
     const [isCompiling, setIsCompiling] = useState(false);
     const [activeTab, setActiveTab] = useState<"preview" | "code" | "contract">("preview");
     const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
+    useDeclareFocus({ scope: "studio.editor", label: "Studio", data: { appName, activeFile, fileCount: Object.keys(files).length, activeTab, viewMode } }, [appName, activeFile, Object.keys(files).length, activeTab, viewMode]);
     
     const [programBuffer, setProgramBuffer] = useState<Buffer | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
