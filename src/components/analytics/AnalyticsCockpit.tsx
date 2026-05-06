@@ -660,9 +660,11 @@ export function AnalyticsCockpit({
               const lst = estimateLstYield(
                 (vaultTokens ?? []).map((t: any) => ({
                   symbol: t.symbol ?? "",
+                  mint: t.mint ?? t.address ?? undefined,
                   amount: Number(t.amount ?? 0),
                   priceUsd: Number(t.price ?? t.priceUsd ?? 0),
                 })),
+                liveRates,
               );
               const useLst = realizedApy <= 0 && lst.blendedApy > 0;
               const apy = useLst ? lst.blendedApy : realizedApy;
