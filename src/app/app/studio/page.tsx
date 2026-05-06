@@ -48,6 +48,7 @@ import { SDKReferencePanel } from "@/components/studio/SDKReferencePanel";
 import { CommandPalette, type PaletteCommand } from "@/components/studio/CommandPalette";
 import { GlobalSearch } from "@/components/studio/GlobalSearch";
 import { DiffReview, FileHistory } from "@/components/studio/DiffReview";
+import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { type ProjectTemplate } from "@/lib/studio/templates";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { PlanStepper } from "@/components/studio/PlanStepper";
