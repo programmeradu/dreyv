@@ -31,6 +31,7 @@ export interface ToolCardProps {
     operation: string,
     extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
     estimatedValueUsd?: number | null,
+    metadata?: Record<string, unknown>,
   ) => void;
 }
 
@@ -265,7 +266,7 @@ export function ToolCard({
                 : typeof output?.valueUsd === "number"
                   ? (output.valueUsd as number)
                   : null;
-            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput, valueUsd);
+            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput, valueUsd, output);
           }}
         />
       )}
