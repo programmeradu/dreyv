@@ -164,7 +164,18 @@ export default function AdminMonitoringRoom() {
             </header>
 
             <main className="relative z-10 px-4 sm:px-6 py-6 sm:py-8">
+                {/* Executive strip — protocol-wide headline numbers */}
+                <div className="max-w-[1800px] mx-auto mb-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <ExecHeadline label="Volume routed · 24h" value={usd0(safe.protocol.vol24h)} sub={`${safe.protocol.tx24h} tx`} />
+                    <ExecHeadline label="Protocol fees · 24h" value={usd(safe.protocol.fees24h)} sub="0.05% skim" accent />
+                    <ExecHeadline label="Volume routed · 30d" value={usd0(safe.protocol.vol30d)} sub={`${safe.protocol.payers30d} payers`} />
+                    <ExecHeadline label="Protocol fees · all-time" value={usd(safe.protocol.feesAll)} sub={`${safe.protocol.txAll} tx · ${safe.protocol.takeRateBps.toFixed(2)} bps eff.`} accent />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-[1800px] mx-auto pb-12">
+
+                    {/* PANEL: Protocol fees ledger (24h/7d/30d/90d) */}
+                    <ProtocolFeesPanel takeRateBps={safe.protocol.takeRateBps} />
 
                     {/* PANEL 0: Inngest agent runtime — rendered first so it shows even if other metrics fail */}
                     <InngestHealthPanel />
