@@ -125,6 +125,18 @@ export async function evaluatePolicy(opts: {
     }
   }
 
+  // 7. Phase 8 — slippage cap. Plan steps may carry slippageBps in input.
+  const maxSlip = caps.maxSlippageBps ?? DEFAULT_MAX_SLIPPAGE_BPS;
+  for (const s of plan.steps) {
+    const inp = (s.input ?? {}) as Record<string, unknown>;
+    const slipNum = typeof inp.slippage === "number" ? Number(inp.slippage) * 100 : NaN;
+    const sb = Number(inp.slippageBps ?? slipNum);
+    if (Number.isFinite(sb) && sb > maxSlip) {
+      reasons.push(`Step ${s.capabilityId} slippage ${sb}bps > cap ${maxSlip}bps`);
+      return { decision: "queue", reasons, signerId: signer.id };
+    }
+  }
+
   return { decision: "allow", reasons: ["Within signer caps"], signerId: signer.id };
 }
 
