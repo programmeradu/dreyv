@@ -271,6 +271,20 @@ export async function POST(req: Request) {
       userFocusContext = formatFocusForLLM(focusContext);
     } catch { /* ignore */ }
 
+    // Phase 7 — fold in any agent push events buffered on the client since
+    // the previous turn (autopilot runs, new proposals, recent tool errors).
+    let agentPushContext: string | undefined;
+    if (Array.isArray(agentPushes) && agentPushes.length > 0) {
+      const lines = agentPushes.slice(-10).map((p: any) => {
+        if (!p || typeof p !== "object") return "";
+        if (p.kind === "proposal") return `PUSH proposal id=${p.id} title="${p.title}" status=${p.status}`;
+        if (p.kind === "autopilot_run") return `PUSH autopilot job=${p.jobId} status=${p.status} vault=${p.vaultId}`;
+        if (p.kind === "tool_error") return `PUSH tool_error capability=${p.capabilityId} code=${p.errorCode || "?"}`;
+        return "";
+      }).filter(Boolean);
+      if (lines.length) agentPushContext = `RECENT AGENT EVENTS:\n${lines.join("\n")}`;
+    }
+
     const systemPrompt = buildCommandBarSystemPrompt({
       walletAddress,
       vaultState,
@@ -282,6 +296,7 @@ export async function POST(req: Request) {
       activePolicyContext,
       recentActionsContext,
       userFocusContext,
+      agentPushContext,
     });
     const effectiveSystemPrompt = strictGrounding
       ? `${systemPrompt}\n\n${STRICT_GROUNDING_ADDENDUM}`
