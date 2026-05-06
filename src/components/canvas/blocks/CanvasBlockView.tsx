@@ -3204,15 +3204,20 @@ function YieldRoutingBlock({ block }: { block: CanvasBlock }) {
 
   const refresh = async () => {
     if (!wallet) return;
-    setLoading(true);
     try {
-      const res = await fetch(`/api/treasury/yield-routes?wallet=${wallet}`);
+      const res = await fetch(`/api/treasury/yield-routes?wallet=${wallet}&live=1`);
       const json = await res.json();
       setRoutes(json.routes ?? []);
     } catch { /* ignore */ }
     setLoading(false);
   };
-  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+  useEffect(() => {
+    refresh();
+    if (!wallet) return;
+    const handle = setInterval(refresh, 30_000);
+    return () => clearInterval(handle);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [wallet]);
 
   const submit = async () => {
     if (!wallet || !venue || !targetAmount) return;
