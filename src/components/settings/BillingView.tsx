@@ -171,7 +171,7 @@ export const BillingView = () => {
             </h2>
             <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
               {isPaid
-                ? "Billed monthly via FastSpring. Manage invoices and payment method below."
+                ? "Billed monthly via Paystack. Manage invoices and payment method below."
                 : "You're on the free tier. Upgrade any time — pricing is flat, no per-tx markup."}
             </p>
           </div>

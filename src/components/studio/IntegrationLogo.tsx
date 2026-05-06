@@ -15,7 +15,7 @@ const KNOWN_DOMAINS: Record<string, string> = {
   resend: "resend.com",
   stripe: "stripe.com",
   paddle: "paddle.com",
-  fastspring: "fastspring.com",
+  paystack: "paystack.com",
   supabase: "supabase.com",
   "lovable cloud": "supabase.com",
   vercel: "vercel.com",
