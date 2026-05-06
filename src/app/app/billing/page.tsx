@@ -22,7 +22,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
-import dryvBilling from "@/assets/mascot/dryv-billing.png";
+import dryvBilling from "@/assets/mascot/dryv-celebrate.png";
 
 type Tier = "free" | "mini" | "max";
 
