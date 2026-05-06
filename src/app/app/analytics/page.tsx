@@ -211,6 +211,7 @@ function AnalyticsPageInner({
               attribution={displayAttribution}
               timeframeMonths={12}
               loading={loading || sim.loading}
+              vaultTokens={displayTokens}
             />
           </Card>
         </div>

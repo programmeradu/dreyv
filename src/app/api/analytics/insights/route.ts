@@ -13,6 +13,7 @@
  * progressively (token-by-token). No hardcoded prompts.
  */
 import { NextRequest } from "next/server";
+import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ interface InsightsBody {
     yieldDeltaPct: number | null;
     concentrationDeltaPct: number | null;
   } | null;
+  /** Optional vault holdings — used to compute yield context (LST APYs etc). */
+  vaultTokens?: Array<{ symbol?: string; mint?: string; address?: string; amount?: number; price?: number; priceUsd?: number }>;
 }
 
 const SYSTEM_PROMPT = `You are Dreyv's analytics narrator. You produce TWO segments in one stream, separated by exact sentinels.
@@ -74,7 +77,7 @@ function fmtUsd(n: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function buildUserPrompt(b: InsightsBody): string {
+function buildUserPrompt(b: InsightsBody, yieldLine?: string): string {
   const { vaultValue, vaultChange24h, topAsset, attribution, snapshotStats, foresight, diff } = b;
   const lines: string[] = [];
   lines.push(`Treasury value: ${fmtUsd(vaultValue)}.`);
@@ -86,6 +89,7 @@ function buildUserPrompt(b: InsightsBody): string {
   } else {
     lines.push(`Attribution: no events recorded yet.`);
   }
+  if (yieldLine) lines.push(yieldLine);
   if (snapshotStats) {
     lines.push(`Realized vol ${(snapshotStats.volPctPerDay * 100).toFixed(2)}%/day, drift ${(snapshotStats.driftPctPerDay * 100).toFixed(2)}%/day, ${snapshotStats.samples} snapshots.`);
   }
@@ -139,7 +143,26 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "ai_gateway_not_configured", hint: "Set LOVABLE_SUPABASE_URL + LOVABLE_SUPABASE_ANON_KEY (Lovable Cloud project) on Vercel." }), { status: 503 });
   }
 
-  const userPrompt = buildUserPrompt(body);
+  // Build yield context line from holdings + live LST APYs (if provided).
+  let yieldLine: string | undefined;
+  try {
+    const tokens = Array.isArray(body.vaultTokens) ? body.vaultTokens : [];
+    if (tokens.length > 0) {
+      const origin = req.headers.get("origin") || (req.headers.get("host") ? `https://${req.headers.get("host")}` : undefined);
+      const liveRates = await fetchLiveLstRates(undefined, origin).catch(() => ({}));
+      yieldLine = summarizeYieldForLLM(
+        tokens.map((t) => ({
+          symbol: t.symbol ?? "",
+          mint: t.mint ?? t.address ?? undefined,
+          amount: Number(t.amount ?? 0),
+          priceUsd: Number(t.price ?? t.priceUsd ?? 0),
+        })),
+        liveRates,
+      );
+    }
+  } catch {}
+
+  const userPrompt = buildUserPrompt(body, yieldLine);
 
   const upstream = await fetch(proxyUrl, {
     method: "POST",

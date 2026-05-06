@@ -36,6 +36,7 @@ interface Props {
   attribution: Aggregates | null;
   timeframeMonths: number;
   loading: boolean;
+  vaultTokens?: any[];
 }
 
 function fmtCompact(n: number): string {
@@ -57,7 +58,7 @@ function fmtMonth(iso: string): string {
   }
 }
 
-export function ForesightPanel({ projection, summary, attribution, timeframeMonths, loading }: Props) {
+export function ForesightPanel({ projection, summary, attribution, timeframeMonths, loading, vaultTokens }: Props) {
   const [narrative, setNarrative] = useState<string>("");
   const [streaming, setStreaming] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
@@ -79,7 +80,7 @@ export function ForesightPanel({ projection, summary, attribution, timeframeMont
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: ctrl.signal,
-          body: JSON.stringify({ summary, timeframeMonths, attribution: attribution ?? undefined }),
+          body: JSON.stringify({ summary, timeframeMonths, attribution: attribution ?? undefined, vaultTokens: vaultTokens ?? undefined }),
         });
         if (!res.ok || !res.body) {
           setNarrative("Foresight narrator is unavailable right now.");
