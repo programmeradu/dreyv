@@ -996,6 +996,10 @@ export const userAgentPolicy = pgTable('user_agent_policy', {
   // Stores fields that don't have dedicated columns (policyName, runwayFloorMonths,
   // maxProtocolPct, maxSlippagePct, requireAudit, active flag, history[]).
   policyMeta: jsonb('policy_meta'),
+  // Phase 4 — structured caps used by signer-aware policy guard.
+  policyCaps: jsonb('policy_caps').notNull().default('{}'),
+  // Phase 2 — autopilot threshold for inflow→yield routing.
+  minIdleUsd: numeric('min_idle_usd'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -1748,4 +1752,74 @@ export const protocolFees = pgTable('protocol_fees', {
   walletIdx: index('protocol_fees_wallet_idx').on(t.walletAddress, t.createdAt),
   parentSigIdx: index('protocol_fees_parent_sig_idx').on(t.parentSignature),
   createdAtIdx: index('protocol_fees_created_at_idx').on(t.createdAt),
+}));
+
+// ─── Phase 3 — Agent signing layer ─────────────────────────────────────
+export const agentSigners = pgTable('agent_signers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  vaultId: uuid('vault_id').notNull(),
+  kind: text('kind').notNull(), // session_key | squads_member
+  pubkey: text('pubkey').notNull(),
+  label: text('label'),
+  policyCaps: jsonb('policy_caps').notNull().default('{}'),
+  status: text('status').notNull().default('active'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  killSwitchAt: timestamp('kill_switch_at', { withTimezone: true }),
+  envelopeRef: text('envelope_ref'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('agent_signers_user_idx').on(t.userId),
+  vaultIdx: index('agent_signers_vault_idx').on(t.vaultId),
+  statusIdx: index('agent_signers_status_idx').on(t.status),
+}));
+
+export const agentCircuitBreaker = pgTable('agent_circuit_breaker', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  vaultId: uuid('vault_id'),
+  scope: text('scope').notNull().default('autopilot'),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+  lastFirewallRejectAt: timestamp('last_firewall_reject_at', { withTimezone: true }),
+  frozenUntil: timestamp('frozen_until', { withTimezone: true }),
+  reason: text('reason'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('agent_breaker_user_idx').on(t.userId),
+}));
+
+export const agentAutopilotRuns = pgTable('agent_autopilot_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  vaultId: uuid('vault_id').notNull(),
+  jobId: text('job_id').notNull(),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  status: text('status').notNull().default('pending'),
+  outcome: jsonb('outcome'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('agent_autopilot_user_idx').on(t.userId),
+  vaultIdx: index('agent_autopilot_vault_idx').on(t.vaultId),
+  createdIdx: index('agent_autopilot_created_idx').on(t.createdAt),
+}));
+
+export const agentToolMetrics = pgTable('agent_tool_metrics', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id'),
+  capabilityId: text('capability_id').notNull(),
+  commandId: text('command_id'),
+  latencyMs: integer('latency_ms').notNull(),
+  outcome: text('outcome').notNull(),
+  errorCode: text('error_code'),
+  tokensIn: integer('tokens_in'),
+  tokensOut: integer('tokens_out'),
+  costUsdEst: numeric('cost_usd_est', { precision: 10, scale: 6 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  capIdx: index('agent_metrics_cap_idx').on(t.capabilityId),
+  userIdx: index('agent_metrics_user_idx').on(t.userId),
+  createdIdx: index('agent_metrics_created_idx').on(t.createdAt),
+  outcomeIdx: index('agent_metrics_outcome_idx').on(t.outcome),
 }));

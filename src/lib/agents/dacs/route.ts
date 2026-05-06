@@ -23,6 +23,12 @@ export interface RouteOptions {
   /** Build mode short-circuits financial executions. */
   promptMode?: "auto" | "build" | "execute";
   isStudioBuildIntent?: boolean;
+  /** Phase 4 — pre-computed signer/policy decision (allow|queue|deny). */
+  policyGuard?: {
+    decision: "allow" | "queue" | "deny";
+    reasons: string[];
+    signerId?: string;
+  };
 }
 
 const DEFAULT_AUTO_APPROVE_USD = 0; // safest default: no auto-approve writes
@@ -97,6 +103,17 @@ export function routePlan(intent: Intent, plan: Plan, options: RouteOptions = {}
 
   if (allRead) {
     return { kind: "auto_execute", plan, reason: "All steps are read/sim/meta." };
+  }
+
+  // 4b. Phase 4 — policy guard short-circuit (signer caps + kill switch).
+  if (options.policyGuard) {
+    if (options.policyGuard.decision === "deny") {
+      return { kind: "reject", plan, reason: `Policy guard denied: ${options.policyGuard.reasons.join("; ")}` };
+    }
+    if (options.policyGuard.decision === "queue") {
+      return { kind: "queue_for_approval", plan, reason: `Policy guard queued: ${options.policyGuard.reasons.join("; ")}` };
+    }
+    // allow → fall through to risk/value gates below as final check
   }
 
   // 5. Write path: gate on risk + value + policy.

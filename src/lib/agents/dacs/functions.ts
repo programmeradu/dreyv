@@ -14,6 +14,7 @@ import { grantsWatcher } from "./grants-watcher";
 import { liquidationWatcher } from "./liq-watcher";
 import { runwayAutopilotWatcher } from "./runway-watcher";
 import { monthlyBurnStatementCron } from "./burn-statement-cron";
+import { inflowYieldAutopilot } from "../autopilots/inflow-yield";
 
 export const DACS_FUNCTIONS = [
   commandRouter,
@@ -27,6 +28,7 @@ export const DACS_FUNCTIONS = [
   liquidationWatcher,
   runwayAutopilotWatcher,
   monthlyBurnStatementCron,
+  inflowYieldAutopilot,
   ...SPECIALIST_FUNCTIONS,
 ];
 
