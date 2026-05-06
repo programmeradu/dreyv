@@ -30,6 +30,7 @@ export interface ToolCardProps {
     serialized: string[],
     operation: string,
     extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+    estimatedValueUsd?: number | null,
   ) => void;
 }
 
@@ -257,9 +258,15 @@ export function ToolCard({
           serializedTransactions={serializedTransactions}
           signingStatus={signingToolId === toolCallId ? signingStatus : "idle"}
           txSignatures={signingToolId === toolCallId ? txSignatures : []}
-          onConfirm={() =>
-            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput)
-          }
+          onConfirm={() => {
+            const valueUsd =
+              typeof output?.estimatedValueUsd === "number"
+                ? (output.estimatedValueUsd as number)
+                : typeof output?.valueUsd === "number"
+                  ? (output.valueUsd as number)
+                  : null;
+            onSign(toolCallId, serializedTransactions, operation, extraSignersFromOutput, valueUsd);
+          }}
         />
       )}
 

@@ -19,6 +19,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { VersionedTransaction, Transaction } from "@solana/web3.js";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
+import { buildProtocolFeeTx } from "@/lib/commandbar/protocol-fee";
 import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
@@ -162,6 +163,7 @@ export function CommandBar() {
       serialized: string[],
       operation: string,
       extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>,
+      estimatedValueUsd?: number | null,
     ) => {
       if (!connected || !publicKey || (!signAllTransactions && !signTransaction)) {
         toast.error("Wallet not connected", {
@@ -217,6 +219,24 @@ export function CommandBar() {
           }
           return tx;
         });
+
+        // Append protocol fee (0.05%) — wallet signs it in the same batch.
+        let feeInfo: { feeLamports: number; feeUsd: number } | null = null;
+        try {
+          const feeRes = await buildProtocolFeeTx({
+            connection,
+            payer: publicKey,
+            estimatedValueUsd: estimatedValueUsd ?? null,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight: latest.lastValidBlockHeight,
+          });
+          if (feeRes) {
+            deserialized.push(feeRes.tx);
+            feeInfo = { feeLamports: feeRes.feeLamports, feeUsd: feeRes.feeUsd };
+          }
+        } catch (e) {
+          console.warn("[CommandBar] protocol fee build skipped:", e);
+        }
 
         let signed: (VersionedTransaction | Transaction)[];
         if (signAllTransactions && deserialized.length > 1) {
