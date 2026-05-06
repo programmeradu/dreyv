@@ -18,6 +18,7 @@ import {
   Globe,
   AlertTriangle,
   Layers,
+  Scale,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenLogo } from "@/components/commandbar/TokenLogo";
@@ -562,6 +563,56 @@ function YieldBody({ output }: { output: Record<string, unknown> }) {
   );
 }
 
+function RebalanceBody({ output }: { output: Record<string, unknown> }) {
+  const trades = Array.isArray(output.trades) ? (output.trades as Array<Record<string, unknown>>) : [];
+  const preview = (output.rebalancePreview || {}) as Record<string, unknown>;
+  const currentSol = typeof preview.solCurrentConcentration === "number" ? preview.solCurrentConcentration : null;
+  const projectedSol = typeof preview.solProjectedConcentration === "number" ? preview.solProjectedConcentration : null;
+  const targetSol = typeof preview.solTargetConcentration === "number" ? preview.solTargetConcentration : null;
+
+  return (
+    <Section title="Dry-run rebalance preview" icon={<Scale className="h-3 w-3" />}>
+      {currentSol !== null && projectedSol !== null && (
+        <div className="mb-2 rounded-xl border border-violet-100 bg-white px-2.5 py-2">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="font-medium text-slate-500">SOL concentration</span>
+            <span className="font-semibold text-slate-900">
+              {currentSol.toFixed(2)}% <ArrowRight className="mx-1 inline h-3 w-3 text-violet-600" /> {projectedSol.toFixed(2)}%
+            </span>
+          </div>
+          {targetSol !== null && <p className="mt-1 text-[10px] font-medium text-slate-500">Target: {targetSol.toFixed(2)}%</p>}
+        </div>
+      )}
+      {trades.length > 0 ? (
+        <div className="space-y-1.5">
+          {trades.slice(0, 6).map((trade, idx) => {
+            const action = String(trade.action || "trade");
+            const symbol = String(trade.symbol || "token");
+            const usd = fmtUsd(trade.estimatedUsdValue);
+            const current = typeof trade.currentAllocation === "number" ? trade.currentAllocation.toFixed(2) : "—";
+            const target = typeof trade.targetAllocation === "number" ? trade.targetAllocation.toFixed(2) : "—";
+            const blocked = typeof trade.quoteError === "string" || typeof trade.swapBuildError === "string";
+            return (
+              <div key={`${symbol}-${idx}`} className="rounded-xl border border-violet-100 bg-white px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2 text-[12px]">
+                  <span className="font-semibold capitalize text-slate-800">{action} {symbol}</span>
+                  <span className="font-mono text-slate-600">{usd ?? "route"}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[10px] font-medium text-slate-500">
+                  <span>{current}% → {target}%</span>
+                  <span className={blocked ? "text-rose-600" : "text-violet-700"}>{blocked ? "Needs route" : "Quoted"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Row label="Trades">No trade needed inside tolerance</Row>
+      )}
+    </Section>
+  );
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────
 
 export function ToolBody({ toolName, operation, output }: Props) {
@@ -590,6 +641,8 @@ export function ToolBody({ toolName, operation, output }: Props) {
     case "yield_deposit":
     case "yield_withdraw":
       return <YieldBody output={output} />;
+    case "rebalance":
+      return <RebalanceBody output={output} />;
     default:
       return null;
   }
