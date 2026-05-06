@@ -162,8 +162,6 @@ export async function GET(req: NextRequest) {
             }).from(protocolFees),
         ]);
 
-        ]);
-
         const protoRow = (protoFeesData?.[0] ?? {}) as any;
 
         // Process data
