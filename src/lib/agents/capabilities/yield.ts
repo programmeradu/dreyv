@@ -21,6 +21,7 @@ import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { getJupiterQuote } from "@/lib/jupiter-executor";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
+import { estimateUsdValue } from "./usd-pricing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // stake — delegates to ExecutionCoordinator's stake_sol strategy. Provider
@@ -73,6 +74,7 @@ const stake = defineCapability({
       status: result.status,
       executionId: result.executionId,
       requiresApproval: true,
+      estimatedValueUsd: await estimateUsdValue("SOL", amount),
       message: `Stake ${amount} SOL via ${resolvedProvider}.${serializedTransactions.length > 0 ? " Transaction ready for signing." : " Connect wallet to build transaction."}`,
     };
   },
@@ -263,6 +265,7 @@ const yield_deposit = defineCapability({
         ...(serializedTransactions ? { serializedTransactions } : {}),
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd: await estimateUsdValue(token, finalAmount),
         message: `Deposit ${finalAmount} ${token} into ${bestVault.name}. APY: ${bestVault.apy.toFixed(2)}%, TVL: $${Math.round(bestVault.tvl).toLocaleString()}.${splitAmount.adjusted ? ` ${splitAmount.reason}` : ""}${serializedTransactions ? " Transaction ready for signing." : " Connect wallet."}`,
       };
     }
@@ -434,6 +437,7 @@ const yield_withdraw = defineCapability({
       ...(serializedTransactions ? { serializedTransactions } : {}),
       status: "READY_FOR_SIGNATURE",
       requiresApproval: true,
+      estimatedValueUsd: await estimateUsdValue(token, amount),
       message: withdrawMessage,
     };
   },

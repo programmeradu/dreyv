@@ -22,6 +22,7 @@ import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, tokenDecimals, TOKEN_MINTS } from "./tokens";
 import { resolveTokenAny, assessTokenSafety } from "./token-resolver";
+import { estimateUsdValue } from "./usd-pricing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared swap executor — `swap` and `execute_swap` legacy tools were identical
@@ -141,6 +142,7 @@ async function runSwap(
     ctx.executionState.splitRemaining = outAmount;
 
     const serializedTransactions = result.result?.serializedTransactions;
+    const estimatedValueUsd = await estimateUsdValue(inResolved.symbol || inputToken, amount);
     return {
       success: true,
       status: result.status,
@@ -158,6 +160,7 @@ async function runSwap(
       route: sr.instructions?.[0]?.pool || "Jupiter",
       executionId: result.executionId,
       duration: result.duration,
+      estimatedValueUsd,
       ...(serializedTransactions?.length ? { serializedTransactions } : {}),
     };
   }
@@ -390,6 +393,8 @@ const bridge = defineCapability({
         ? [Buffer.from(txData).toString("base64")]
         : undefined;
 
+      const estimatedValueUsd = await estimateUsdValue(token, finalAmount);
+
       return {
         success: true,
         operation: "bridge",
@@ -411,6 +416,7 @@ const bridge = defineCapability({
         fees: route?.fee ?? data?.fee ?? null,
         steps: route?.steps ?? data?.steps ?? [],
         serializedTransactions,
+        estimatedValueUsd,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
         message: `Bridge ${finalAmount} ${token} from ${src} → ${dst} via Rango. Est. output: ${outFormatted || "N/A"}.${serializedTransactions ? " Transaction ready for signing." : " Connect wallet or check destination chain support."}`,

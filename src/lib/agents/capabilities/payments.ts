@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
+import { estimateUsdValue } from "./usd-pricing";
 
 /** Period in seconds for Streamflow stream cadence. */
 const PERIOD_SECONDS: Record<"daily" | "weekly" | "biweekly" | "monthly", number> = {
@@ -142,6 +143,8 @@ const recurring_payment = defineCapability({
         console.warn("[capability:recurring_payment] Persist pending row failed (best-effort):", persistErr);
       }
 
+      const estimatedValueUsd = await estimateUsdValue(input.token, totalAmount);
+
       return {
         success: true,
         operation: "recurring_payment",
@@ -164,6 +167,7 @@ const recurring_payment = defineCapability({
         recentBlockhash: built.hash,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
+        estimatedValueUsd,
         message: `Streamflow stream prepared: ${input.amountPerPeriod} ${input.token} every ${input.period} → ${input.recipient.slice(0, 8)}… for ${input.durationPeriods} period(s) (total ${totalAmount} ${input.token}). Stream ID ${built.metadataId.slice(0, 8)}…. Sign to escrow funds.`,
       };
     } catch (err: unknown) {
@@ -466,6 +470,7 @@ const invoice_pay = defineCapability({
         operation: "invoice_pay",
         ...extracted,
         requiresApproval: true,
+        estimatedValueUsd: await estimateUsdValue(extracted.token, extracted.amount),
         message: `Invoice ${extracted.invoiceNumber ?? ""} → pay ${extracted.amount} ${extracted.token} to ${extracted.recipient.slice(0, 8)}…. Sign to send.`,
       };
     }
@@ -486,6 +491,7 @@ const invoice_pay = defineCapability({
       operation: "invoice_pay",
       ...s,
       requiresApproval: true,
+      estimatedValueUsd: await estimateUsdValue(s.token, s.amount),
       message: `Invoice ${s.invoiceNumber || ""} → pay ${s.amount} ${s.token} to ${s.recipient.slice(0, 8)}…. Sign to send.`,
     };
   },
