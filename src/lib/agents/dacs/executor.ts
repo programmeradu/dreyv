@@ -20,6 +20,8 @@ import { capabilityRegistry } from "../capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "../capabilities/types";
 import { recordEpisode } from "./episodes";
 import { recordPostMortem } from "./post-mortem";
+import { recordToolMetric, noteToolOutcome, tripCircuitBreaker } from "../policy/guard";
+import { resolveUserIdFromWallet } from "../brains/storage";
 import type { Intent, Plan, RouteDecision } from "./types";
 
 function buildHeadlessContext(walletAddress: string | null): CapabilityContext {
