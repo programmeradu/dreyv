@@ -131,6 +131,7 @@ export function SmartInsights({
             snapshotStats,
             foresight,
             diff,
+            vaultTokens,
           }),
         });
         if (!res.ok || !res.body) {
