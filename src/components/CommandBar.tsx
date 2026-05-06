@@ -220,6 +220,24 @@ export function CommandBar() {
           return tx;
         });
 
+        // Append protocol fee (0.05%) — wallet signs it in the same batch.
+        let feeInfo: { feeLamports: number; feeUsd: number } | null = null;
+        try {
+          const feeRes = await buildProtocolFeeTx({
+            connection,
+            payer: publicKey,
+            estimatedValueUsd: estimatedValueUsd ?? null,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight: latest.lastValidBlockHeight,
+          });
+          if (feeRes) {
+            deserialized.push(feeRes.tx);
+            feeInfo = { feeLamports: feeRes.feeLamports, feeUsd: feeRes.feeUsd };
+          }
+        } catch (e) {
+          console.warn("[CommandBar] protocol fee build skipped:", e);
+        }
+
         let signed: (VersionedTransaction | Transaction)[];
         if (signAllTransactions && deserialized.length > 1) {
           signed = await signAllTransactions(deserialized as VersionedTransaction[]);
