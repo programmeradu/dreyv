@@ -35,6 +35,9 @@ const COMMON_MINTS: Record<string, string> = {
   PYTH: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
 };
 
+const SOL_MINT = COMMON_MINTS.SOL;
+const SOL_SAFE_CONCENTRATION_PCT = 40;
+
 /**
  * Execution Coordinator - Orchestrates all agents and manages execution state
  * Responsibilities:
@@ -718,9 +721,31 @@ export class ExecutionCoordinator {
         params: { holdings: portfolio, prices: {} }
       });
 
+      const projectedAllocations = this.projectAllocationsAfterRebalance({
+        assetByMint,
+        totalValue,
+        trades,
+      });
+      const solCurrentConcentration = assetByMint[SOL_MINT]?.percent ?? 0;
+      const solProjectedConcentration =
+        projectedAllocations[SOL_MINT]?.percent ?? solCurrentConcentration;
+
       context.data.portfolio = portfolio;
       context.data.totalValue = totalValue;
       context.data.trades = trades;
+      context.data.rebalancePreview = {
+        mode: "dry_run",
+        tradeCount: trades.length,
+        totalValueUsd: totalValue,
+        solCurrentConcentration,
+        solProjectedConcentration,
+        solTargetConcentration: targets[SOL_MINT] ?? null,
+        solSafeConcentration: SOL_SAFE_CONCENTRATION_PCT,
+        projectedAllocations: Object.values(projectedAllocations).sort(
+          (a, b) => b.percent - a.percent,
+        ),
+        executableTradeCount: trades.filter((t: any) => !!t.quote && !!t.serializedTransaction).length,
+      };
       context.data.operationCount = operations.length;
       context.data.serializedTransactions = serializedTransactions;
       context.approvalRequired = true;
