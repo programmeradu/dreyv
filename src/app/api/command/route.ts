@@ -211,6 +211,10 @@ export async function POST(req: Request) {
     const { messages, prompt, walletState, vaultState, vaultAddress, focusContext, agentPushes } = body;
     // Always trust the authenticated session wallet — never the request body.
     const walletAddress = authUser.walletAddress;
+    // Tier from authenticated session — gates Mini/Max-only capabilities at tool-call time.
+    const userTier = ((authUser.tier as string) === "mini" || (authUser.tier as string) === "max"
+      ? (authUser.tier as "mini" | "max")
+      : "free");
     const strictGroundingGlobal = process.env.STRICT_GROUNDING === "1" || process.env.STRICT_GROUNDING === "true";
     const strictGroundingWallets = (process.env.STRICT_GROUNDING_WALLETS || "")
       .split(",")
@@ -445,7 +449,7 @@ export async function POST(req: Request) {
       blockExecutionForBuildIntent: blockExecutionForBuildIntent as never,
       resolveSplitAmount,
     });
-    const registryTools = buildLegacyTools(capabilityCtx);
+    const registryTools = buildLegacyTools(capabilityCtx, { userTier });
 
     const budgeted = buildBudgetedMessages(formattedMessages);
     const strictToolSubset =
