@@ -58,6 +58,12 @@ export default function TreasuryPage() {
     proposals,
   } = useVault();
 
+  useDeclareFocus({
+    scope: "treasury.overview",
+    label: "Treasury",
+    data: { vault: activeVault, isMultisig, valueUsd: vaultValue, change24h: vaultChange24h, tokenCount: (vaultTokens ?? []).length, proposalsOpen: (proposals ?? []).length },
+  }, [activeVault, vaultValue, vaultChange24h, (vaultTokens ?? []).length, (proposals ?? []).length, isMultisig]);
+
   const holdings: HeroHolding[] = useMemo(() => {
     const tokens = (vaultTokens ?? []) as any[];
     if (tokens.length === 0) return [];
