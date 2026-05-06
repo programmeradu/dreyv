@@ -1,223 +1,313 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+/**
+ * Billing & subscription — Stitch-light Dreyv aesthetic.
+ *
+ * White shell, solid violet accents, DreyvStar marks, no terminal styling.
+ * Paystack-powered subscription checkout (Mini / Max).
+ * Reads ?paystack=verify on mount to reconcile a returning checkout.
+ */
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "@/lib/toast-notifications";
 import { billingCheckoutPath, billingStatusPath } from "@/lib/billing-endpoints";
-import { Zap, Shield, Globe, Terminal, User, Cpu, CreditCard, CheckCircle2 } from "lucide-react";
+import {
+    CheckCircle2,
+    Sparkles,
+    Loader2,
+    RefreshCw,
+    ShieldCheck,
+    Cpu,
+    User as UserIcon,
+} from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
+
+type Tier = "free" | "mini" | "max";
+
+const TIER_DEF: Array<{
+    id: Tier;
+    label: string;
+    tagline: string;
+    price: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    features: string[];
+    featured?: boolean;
+}> = [
+    {
+        id: "free",
+        label: "Base",
+        tagline: "Free forever",
+        price: "$0",
+        icon: UserIcon,
+        features: [
+            "1 multisig vault",
+            "Up to 3 teammates",
+            "Basic command prompts",
+            "Standard security routing",
+        ],
+    },
+    {
+        id: "mini",
+        label: "Mini",
+        tagline: "Growing squads",
+        price: "$49",
+        icon: ShieldCheck,
+        features: [
+            "Up to 5 multisig vaults",
+            "10 teammates per vault",
+            "Advanced DCA + AI integrations",
+            "Custom webhooks",
+            "Priority network finality",
+        ],
+        featured: true,
+    },
+    {
+        id: "max",
+        label: "Max",
+        tagline: "Enterprise nexus",
+        price: "$199",
+        icon: Cpu,
+        features: [
+            "Unlimited multisig vaults",
+            "Unlimited teammates",
+            "Dedicated backend compute",
+            "White-glove integration",
+            "Automated treasury yield",
+            "Dedicated node RPCs",
+        ],
+    },
+];
 
 export default function BillingPage() {
-    const [loading, setLoading] = useState(false);
+    const search = useSearchParams();
+    const [loading, setLoading] = useState<Tier | null>(null);
     const [verifying, setVerifying] = useState(false);
-    const [currentTier, setCurrentTier] = useState("free");
+    const [currentTier, setCurrentTier] = useState<Tier>("free");
+    const [status, setStatus] = useState<string>("");
 
-    // Self-hydrate the user's current tier on mount
-    useEffect(() => {
-        fetch(billingStatusPath())
-            .then(res => res.json())
-            .then(data => { if (data.tier) setCurrentTier(data.tier); })
-            .catch(() => {});
+    const fetchStatus = useCallback(async (reference?: string | null) => {
+        const url = reference
+            ? `${billingStatusPath()}?reference=${encodeURIComponent(reference)}`
+            : billingStatusPath();
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.tier) setCurrentTier(data.tier as Tier);
+            if (data.status) setStatus(data.status);
+            return data;
+        } catch {
+            return null;
+        }
     }, []);
 
-    const handleSubscribe = async (tier: string) => {
-        setLoading(true);
+    // Hydrate + handle Paystack callback
+    useEffect(() => {
+        const isCallback = search?.get("paystack") === "verify";
+        const reference = search?.get("reference") || search?.get("trxref") || null;
+        if (isCallback) {
+            (async () => {
+                setVerifying(true);
+                const data = await fetchStatus(reference);
+                setVerifying(false);
+                if (data?.reconciled && data?.tier && data.tier !== "free") {
+                    toast.success(`Subscription active — ${String(data.tier).toUpperCase()}`);
+                } else if (data?.tier === "free") {
+                    toast.info("We couldn't find an active subscription yet — try Verify in a moment.");
+                }
+                // clean URL
+                if (typeof window !== "undefined") {
+                    const u = new URL(window.location.href);
+                    u.searchParams.delete("paystack");
+                    u.searchParams.delete("reference");
+                    u.searchParams.delete("trxref");
+                    window.history.replaceState({}, "", u.toString());
+                }
+            })();
+        } else {
+            fetchStatus();
+        }
+    }, [search, fetchStatus]);
+
+    const handleSubscribe = async (tier: Tier) => {
+        if (tier === "free") return;
+        setLoading(tier);
         try {
-            toast.info(`Initializing ${tier.toUpperCase()} uplink sequence...`);
             const res = await fetch(billingCheckoutPath(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tier }),
             });
             const data = await res.json();
-            if (data.url) {
+            if (data?.url) {
                 window.location.href = data.url;
-            } else {
-                toast.error(data.error || "Failed to generate checkout link.");
+                return;
             }
-        } catch(e) {
-            toast.error("Failed to establish payment uplink.");
+            toast.error(data?.error || "Failed to generate checkout link.");
+        } catch {
+            toast.error("Failed to start checkout.");
         } finally {
-            setLoading(false);
+            setLoading(null);
         }
     };
 
     const handleVerify = async () => {
         setVerifying(true);
-        try {
-            const res = await fetch(billingStatusPath());
-            const data = await res.json();
-            if (data.reconciled) {
-                toast.success(`Subscription reconciled. Your tier is now: ${data.tier.toUpperCase()}`);
-                setTimeout(() => window.location.reload(), 1500);
-            } else if (data.tier === 'free') {
-                toast.info("No active subscription found.");
-            } else {
-                toast.success(`Subscription confirmed: ${data.tier.toUpperCase()} (${data.status})`);
-            }
-        } catch (e) {
-            toast.error("Failed to verify subscription status.");
-        } finally {
-            setVerifying(false);
+        const data = await fetchStatus();
+        setVerifying(false);
+        if (data?.reconciled) {
+            toast.success(`Tier reconciled — ${String(data.tier).toUpperCase()}`);
+        } else if (data?.tier === "free") {
+            toast.info("No active subscription found.");
+        } else if (data?.tier) {
+            toast.success(`Active: ${String(data.tier).toUpperCase()} (${data.status || "current"})`);
         }
     };
 
+    const isPaid = currentTier !== "free";
+
     return (
-        <div className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-background font-mono text-foreground">
+        <div className="flex-1 w-full bg-white text-slate-900 font-manrope min-h-screen">
             {/* Header */}
-            <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-border bg-background/50 backdrop-blur-md z-10">
-                <div className="flex flex-col gap-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--dashboard-accent-muted)]" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground truncate">dreyv OS // Subscription Hub</span>
+            <header className="relative border-b border-violet-100 bg-white">
+                <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
+                <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
+                <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <div className="flex items-center gap-2.5">
+                            <DreyvStar size={10} className="text-violet-600" />
+                            <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
+                                Billing & subscription
+                            </span>
+                        </div>
+                        <h1 className="mt-2 text-[26px] sm:text-[28px] font-semibold tracking-[-0.01em] text-slate-900">
+                            Plans, payments, and capacity
+                        </h1>
+                        <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
+                            {isPaid
+                                ? "Billed monthly via Paystack. Manage invoices and payment method directly from your Paystack receipt email."
+                                : "You're on the free tier. Upgrade for more vaults, seats, and AI capacity."}
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <CreditCard className="text-primary shrink-0" size={20} />
-                        <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground uppercase truncate">Billing & Allocations</h1>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                    <Button
-                        variant="outline"
-                        onClick={handleVerify}
-                        disabled={verifying}
-                        size="sm"
-                        className="text-[10px] uppercase font-black border-border hover:border-primary"
-                    >
-                        {verifying ? "Verifying..." : "Verify Subscription"}
-                    </Button>
-                    <div className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-black text-primary">Active: {currentTier}</span>
+
+                    <div className="flex flex-col items-end gap-2">
+                        <span
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase ${
+                                isPaid
+                                    ? "bg-violet-50 text-violet-700 border-violet-200"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                        >
+                            <DreyvStar size={7} className={isPaid ? "text-violet-600" : "text-slate-400"} />
+                            {isPaid ? `Active · ${status || currentTier}` : "Free tier"}
+                        </span>
+                        <button
+                            onClick={handleVerify}
+                            disabled={verifying}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] uppercase text-slate-500 hover:text-violet-700 transition disabled:opacity-50"
+                        >
+                            {verifying ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                            Verify status
+                        </button>
                     </div>
                 </div>
             </header>
 
-            <div className="flex-1 p-4 sm:p-6 md:p-8 md:overflow-y-auto scrollbar-thin">
-                <div className="max-w-[1200px] mx-auto">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        
-                        {/* Free Tier */}
-                        <div className={`bg-card border ${currentTier === 'free' ? 'border-primary shadow-[0_0_20px_var(--dashboard-accent-muted)]' : 'border-border'} rounded-2xl p-6 relative overflow-hidden flex flex-col group`}>
-                            {currentTier === 'free' && <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg">Active Node</div>}
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 border border-primary/30 bg-primary/10 flex items-center justify-center rounded shadow-[0_0_10px_var(--dashboard-accent-muted)]">
-                                    <User className="text-primary" size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="text-foreground font-black uppercase tracking-widest text-lg">Base</h3>
-                                    <p className="text-muted-foreground text-[10px] uppercase">Free Forever</p>
-                                </div>
-                            </div>
-                            <div className="text-3xl font-black mb-6">$0<span className="text-[12px] text-muted-foreground ml-1">/mo</span></div>
-                            
-                            <ul className="space-y-4 flex-1 mb-8">
-                                {[
-                                    "1 Multisig Vault Array",
-                                    "Up to 3 Team Operatives",
-                                    "Basic Command Prompts",
-                                    "Standard Security Routing"
-                                ].map((feature, i) => (
-                                    <li key={i} className="flex items-center gap-2 text-xs uppercase font-bold text-muted-foreground">
-                                        <CheckCircle2 size={14} className="text-primary" />
-                                        {feature}
-                                    </li>
-                                ))}
-                            </ul>
+            {/* Tiers */}
+            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {TIER_DEF.map((tier) => {
+                        const Icon = tier.icon;
+                        const isCurrent = currentTier === tier.id;
+                        const isLoading = loading === tier.id;
 
-                            {currentTier === 'free' ? (
-                                <Button disabled className="w-full bg-muted text-muted-foreground text-[10px] font-black uppercase">Current Plan</Button>
-                            ) : (
-                                <Button className="w-full bg-transparent border border-primary text-primary hover:bg-primary/10 text-[10px] font-black uppercase">Downgrade to Base</Button>
-                            )}
-                        </div>
+                        return (
+                            <div
+                                key={tier.id}
+                                className={
+                                    tier.featured
+                                        ? "relative rounded-3xl border-2 border-violet-600 bg-white p-7 flex flex-col"
+                                        : "rounded-3xl border border-violet-100 bg-white p-7 flex flex-col hover:border-violet-300 transition"
+                                }
+                            >
+                                {tier.featured && (
+                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                                        Most popular
+                                    </span>
+                                )}
 
-                        {/* Mini Tier */}
-                        <div className={`bg-card border ${currentTier === 'mini' ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]' : 'border-border'} rounded-2xl p-6 relative overflow-hidden flex flex-col group`}>
-                            {currentTier === 'mini' && <div className="absolute top-0 right-0 bg-amber-500 text-amber-950 text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg">Active Node</div>}
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 border border-amber-500/30 bg-amber-500/10 flex items-center justify-center rounded shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                                    <Shield className="text-amber-500" size={20} />
+                                <div className="flex items-center gap-3 mb-5">
+                                    <div className="h-11 w-11 shrink-0 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center">
+                                        <Icon size={18} className="text-violet-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-slate-900">{tier.label}</h2>
+                                        <p className="text-[11px] text-slate-500">{tier.tagline}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-foreground font-black uppercase tracking-widest text-lg">Mini</h3>
-                                    <p className="text-muted-foreground text-[10px] uppercase">Growing Squads</p>
-                                </div>
-                            </div>
-                            <div className="text-3xl font-black mb-6">$49<span className="text-[12px] text-muted-foreground ml-1">/mo</span></div>
-                            
-                            <ul className="space-y-4 flex-1 mb-8">
-                                {[
-                                    "Up to 5 Multisig Vaults",
-                                    "10 Team Operatives / Vault",
-                                    "Advanced DCA AI Integrations",
-                                    "Custom Webhooks",
-                                    "Priority Network Finality"
-                                ].map((feature, i) => (
-                                    <li key={i} className="flex items-center gap-2 text-xs uppercase font-bold text-muted-foreground">
-                                        <CheckCircle2 size={14} className="text-amber-500" />
-                                        {feature}
-                                    </li>
-                                ))}
-                            </ul>
 
-                            {currentTier === 'mini' ? (
-                                <Button disabled className="w-full bg-muted text-muted-foreground text-[10px] font-black uppercase">Current Plan</Button>
-                            ) : (
-                                <Button 
-                                    onClick={() => handleSubscribe('mini')} 
-                                    disabled={loading}
-                                    className="w-full bg-amber-500 hover:bg-amber-600 text-amber-950 text-[10px] font-black uppercase shadow-[0_0_15px_rgba(245,158,11,0.3)] transition-all"
-                                >
-                                    {loading ? "Intializing..." : "Upgrade to Mini"}
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Max Tier */}
-                        <div className={`bg-card border ${currentTier === 'max' ? 'border-sky-500 shadow-[0_0_20px_rgba(14,165,233,0.2)]' : 'border-border'} rounded-2xl p-6 relative overflow-hidden flex flex-col group`}>
-                            {currentTier === 'max' && <div className="absolute top-0 right-0 bg-sky-500 text-sky-950 text-[9px] font-black uppercase px-3 py-1 rounded-bl-lg">Active Node</div>}
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 border border-sky-500/30 bg-sky-500/10 flex items-center justify-center rounded shadow-[0_0_10px_rgba(14,165,233,0.2)]">
-                                    <Cpu className="text-sky-500" size={20} />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-semibold tracking-tight text-slate-900">{tier.price}</span>
+                                    <span className="text-sm font-medium text-slate-500">/mo</span>
                                 </div>
-                                <div>
-                                    <h3 className="text-foreground font-black uppercase tracking-widest text-lg">Max</h3>
-                                    <p className="text-muted-foreground text-[10px] uppercase">Enterprise Nexus</p>
+                                <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400 font-medium">
+                                    {tier.id === "free" ? "No card required" : "Billed monthly via Paystack"}
+                                </p>
+
+                                <ul className="mt-6 space-y-3 flex-1">
+                                    {tier.features.map((f) => (
+                                        <li key={f} className="flex items-start gap-2.5 text-sm text-slate-700">
+                                            <CheckCircle2 size={14} className="text-violet-600 mt-0.5 shrink-0" />
+                                            <span>{f}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <div className="mt-8">
+                                    {isCurrent ? (
+                                        <button
+                                            disabled
+                                            className="w-full rounded-xl border border-violet-200 bg-violet-50 px-5 py-2.5 text-xs font-semibold text-violet-700 uppercase tracking-[0.06em]"
+                                        >
+                                            Current plan
+                                        </button>
+                                    ) : tier.id === "free" ? (
+                                        <button
+                                            disabled
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-[0.06em]"
+                                        >
+                                            Free forever
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleSubscribe(tier.id)}
+                                            disabled={isLoading}
+                                            className={
+                                                tier.featured
+                                                    ? "inline-flex w-full justify-center items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                                    : "inline-flex w-full justify-center items-center gap-2 rounded-xl border border-violet-200 bg-white hover:border-violet-400 hover:text-violet-700 px-5 py-2.5 text-xs font-semibold text-slate-800 uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                            }
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <Loader2 size={13} className="animate-spin" /> Initializing
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles size={13} /> Upgrade to {tier.label}
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                            <div className="text-3xl font-black mb-6">$199<span className="text-[12px] text-muted-foreground ml-1">/mo</span></div>
-                            
-                            <ul className="space-y-4 flex-1 mb-8">
-                                {[
-                                    "Unlimited Multisig Vaults",
-                                    "Unlimited Team Operatives",
-                                    "Dedicated Backend Compute",
-                                    "Whiteglove Integration",
-                                    "Automated Treasury Yield",
-                                    "Dedicated Node RPCs"
-                                ].map((feature, i) => (
-                                    <li key={i} className="flex items-center gap-2 text-xs uppercase font-bold text-muted-foreground">
-                                        <CheckCircle2 size={14} className="text-sky-500" />
-                                        {feature}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            {currentTier === 'max' ? (
-                                <Button disabled className="w-full bg-muted text-muted-foreground text-[10px] font-black uppercase">Current Plan</Button>
-                            ) : (
-                                <Button 
-                                    onClick={() => handleSubscribe('max')}
-                                    disabled={loading}
-                                    className="w-full bg-sky-500 hover:bg-sky-600 text-sky-950 text-[10px] font-black uppercase shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all"
-                                >
-                                    {loading ? "Intializing..." : "Upgrade to Max"}
-                                </Button>
-                            )}
-                        </div>
-
-                    </div>
+                        );
+                    })}
                 </div>
-            </div>
+
+                <p className="mt-8 text-center text-[11px] text-slate-500">
+                    Prices in USD. Taxes calculated at checkout. Cancel anytime from your Paystack receipt.
+                </p>
+            </main>
         </div>
     );
 }
