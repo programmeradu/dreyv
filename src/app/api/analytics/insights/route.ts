@@ -77,7 +77,7 @@ function fmtUsd(n: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function buildUserPrompt(b: InsightsBody): string {
+function buildUserPrompt(b: InsightsBody, yieldLine?: string): string {
   const { vaultValue, vaultChange24h, topAsset, attribution, snapshotStats, foresight, diff } = b;
   const lines: string[] = [];
   lines.push(`Treasury value: ${fmtUsd(vaultValue)}.`);
@@ -89,6 +89,7 @@ function buildUserPrompt(b: InsightsBody): string {
   } else {
     lines.push(`Attribution: no events recorded yet.`);
   }
+  if (yieldLine) lines.push(yieldLine);
   if (snapshotStats) {
     lines.push(`Realized vol ${(snapshotStats.volPctPerDay * 100).toFixed(2)}%/day, drift ${(snapshotStats.driftPctPerDay * 100).toFixed(2)}%/day, ${snapshotStats.samples} snapshots.`);
   }
