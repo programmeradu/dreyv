@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Lock, Landmark, Orbit, Rocket } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet } from "@/lib/wallet/compat";
 
 type RiskProfile = "conservative" | "balanced" | "aggressive";
 
