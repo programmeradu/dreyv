@@ -437,6 +437,7 @@ const yield_withdraw = defineCapability({
       ...(serializedTransactions ? { serializedTransactions } : {}),
       status: "READY_FOR_SIGNATURE",
       requiresApproval: true,
+      estimatedValueUsd: await estimateUsdValue(token, amount),
       message: withdrawMessage,
     };
   },
