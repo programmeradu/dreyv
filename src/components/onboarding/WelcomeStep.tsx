@@ -104,50 +104,50 @@ const PILLARS = [
 
 export const WelcomeStep = ({ onNext }: StepProps) => {
     return (
-        <div className="space-y-10">
+        <div className="space-y-7">
             {/* Eyebrow */}
-            <div className="flex items-center gap-2.5">
-                <DreyvStar size={12} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Step 01 · Welcome</span>
+            <div className="flex items-center gap-2">
+                <DreyvStar size={11} className="text-violet-600" />
+                <span className="text-[10px] tracking-[0.22em] uppercase font-semibold text-violet-700">Step 01 · Welcome</span>
             </div>
 
             {/* Hero */}
-            <div className="space-y-5 max-w-xl">
-                <h1 className="text-[40px] sm:text-[52px] leading-[1.02] font-semibold tracking-[-0.02em] text-slate-900">
+            <div className="space-y-3 max-w-xl">
+                <h1 className="text-[28px] sm:text-[34px] lg:text-[40px] leading-[1.05] font-semibold tracking-[-0.02em] text-slate-900">
                     Treasury, in <span className="italic font-light text-violet-600">plain</span> language.
                 </h1>
-                <p className="text-[15px] leading-relaxed text-slate-500 max-w-lg">
+                <p className="text-[13px] sm:text-[14px] leading-relaxed text-slate-500 max-w-lg">
                     Five quick steps. You stay in custody the whole way — Dreyv handles intent, simulation
                     and signatures, never your keys.
                 </p>
             </div>
 
             {/* Pillars */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
                 {PILLARS.map((p) => (
                     <div
                         key={p.title}
-                        className="group rounded-2xl border border-violet-100 bg-white p-5 hover:border-violet-300 transition-colors"
+                        className="group rounded-xl border border-violet-100 bg-white p-3 sm:p-4 hover:border-violet-300 transition-colors"
                     >
-                        <div className="aspect-square w-full max-w-[120px] mx-auto">
+                        <div className="aspect-square w-full max-w-[88px] mx-auto">
                             <p.Visual />
                         </div>
-                        <p className="mt-4 text-[13px] font-semibold text-slate-900 tracking-tight">{p.title}</p>
-                        <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">{p.caption}</p>
+                        <p className="mt-2.5 text-[12px] font-semibold text-slate-900 tracking-tight">{p.title}</p>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] text-slate-500 leading-relaxed">{p.caption}</p>
                     </div>
                 ))}
             </div>
 
             {/* CTA */}
-            <div className="flex items-center gap-5 pt-2">
+            <div className="flex items-center gap-4 pt-1">
                 <button
                     onClick={onNext}
-                    className="group inline-flex items-center gap-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[13px] font-semibold tracking-[0.14em] uppercase px-7 py-3.5 transition-colors"
+                    className="group inline-flex items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold tracking-[0.14em] uppercase px-5 py-3 transition-colors"
                 >
                     Begin setup
                     <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
                 </button>
-                <span className="text-[11px] text-slate-400 tracking-wide">≈ 90 seconds</span>
+                <span className="text-[10px] text-slate-400 tracking-wide">≈ 90 seconds</span>
             </div>
         </div>
     );
