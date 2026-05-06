@@ -225,6 +225,19 @@ export async function GET(req: NextRequest) {
                 foresightResolved: foresightData[0]?.resolved || 0,
                 foresightAccuracy: (foresightData[0]?.resolved || 0) > 0 ? (foresightData[0]?.correct || 0) / foresightData[0]?.resolved : 0,
             },
+            protocol: {
+                feesAll: Number(protoRow.feesAll || 0),
+                volAll: Number(protoRow.volAll || 0),
+                txAll: Number(protoRow.txAll || 0),
+                fees24h: Number(protoRow.fees24h || 0),
+                vol24h: Number(protoRow.vol24h || 0),
+                tx24h: Number(protoRow.tx24h || 0),
+                fees7d: Number(protoRow.fees7d || 0),
+                fees30d: Number(protoRow.fees30d || 0),
+                vol30d: Number(protoRow.vol30d || 0),
+                payers30d: Number(protoRow.payers30d || 0),
+                takeRateBps: Number(protoRow.volAll) > 0 ? (Number(protoRow.feesAll) / Number(protoRow.volAll)) * 10_000 : 5,
+            },
             fetchedAt: new Date().toISOString()
         };
 
