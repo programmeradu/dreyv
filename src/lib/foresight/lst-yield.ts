@@ -130,3 +130,43 @@ export function estimateLstYield(holdings: LstHolding[], liveRates?: LiveRatesMa
     breakdown,
   };
 }
+
+function fmtUsdShort(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+/**
+ * Build a compact, LLM-friendly yield context string from a holdings list +
+ * (optional) live rates. Used by every agent surface (CommandBar system
+ * prompt, /analytics insights, foresight narrative) so every reasoning pass
+ * knows what the treasury is currently earning. Never invents numbers — if
+ * no yield-bearing positions are detected, returns an explicit "no yield"
+ * line so the LLM does not hallucinate.
+ */
+export function summarizeYieldForLLM(
+  holdings: LstHolding[],
+  liveRates?: LiveRatesMap,
+): string {
+  const est = estimateLstYield(holdings, liveRates);
+  if (est.positions === 0 || est.yieldBearingUsd <= 0) {
+    return "Yield context: no yield-bearing positions detected (no LSTs or tokenized stable yield in current holdings).";
+  }
+  const top = [...est.breakdown]
+    .sort((a, b) => b.usd - a.usd)
+    .slice(0, 5)
+    .map(
+      (b) =>
+        `${b.symbol} ${fmtUsdShort(b.usd)} @ ${(b.apy * 100).toFixed(2)}% (${b.source}) → ${fmtUsdShort(b.annualUsd)}/yr`,
+    )
+    .join("; ");
+  return [
+    `Yield context (${est.source}):`,
+    `${est.positions} yield-bearing position(s), ${fmtUsdShort(est.yieldBearingUsd)} earning, blended APY ${(est.blendedApy * 100).toFixed(2)}%, projected ${fmtUsdShort(est.annualYieldUsd)}/yr.`,
+    `Breakdown: ${top}.`,
+  ].join(" ");
+}
