@@ -47,9 +47,16 @@ export function tierAllows(userTier: Tier, required: Tier): boolean {
 
 export async function getUserTier(walletAddress?: string | null): Promise<Tier> {
   if (!db || !walletAddress) return "free";
-  const [u] = await db.select({ tier: users.tier }).from(users).where(eq(users.walletAddress, walletAddress)).limit(1);
-  const t = (u?.tier ?? "free") as Tier;
-  return (t in ORDER ? t : "free") as Tier;
+  const [u] = await db
+    .select({ tier: users.tier, founding: users.isFoundingMember })
+    .from(users)
+    .where(eq(users.walletAddress, walletAddress))
+    .limit(1);
+  const raw = (u?.tier ?? "free") as Tier;
+  const base = (raw in ORDER ? raw : "free") as Tier;
+  // Founding 200: effective Mini access, never downgrade if already Max.
+  if (u?.founding && ORDER[base] < ORDER.mini) return "mini";
+  return base;
 }
 
 export interface TierVerdict {
