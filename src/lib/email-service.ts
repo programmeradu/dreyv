@@ -6,6 +6,7 @@ import {
   NotificationEmail,
   TierExpiryEmail,
   GasAlertEmail,
+  GasAlertVerificationEmail,
 } from './emails/templates';
 
 // ─── Singleton Resend client ─────────────────────────────────────────
