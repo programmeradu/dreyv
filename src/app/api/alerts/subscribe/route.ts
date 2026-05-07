@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { alerts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { Resend } from 'resend';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
 import { checkRouteLimit } from '@/lib/rate-limit-middleware';
+import { sendGasAlertVerificationEmail } from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
   try {
