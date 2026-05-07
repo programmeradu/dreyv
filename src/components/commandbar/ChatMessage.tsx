@@ -228,9 +228,10 @@ function extractChips(text: string): { body: string; chips: string[] } {
 
 // ─── ChatMessage ──────────────────────────────────────────────────────────────
 
-export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }: ChatMessageProps) {
+export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false, onChipClick }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const textContent = getTextContent(message);
+  const rawText = getTextContent(message);
+  const { body: textContent, chips } = extractChips(rawText);
   const reasoningContent = getReasoningContent(message);
   const toolParts = getToolParts(message);
 
