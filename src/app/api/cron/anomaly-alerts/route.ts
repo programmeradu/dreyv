@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const fail = verifyCron(req); if (fail) return fail;
   const users = await getEligibleUsers({
     streamColumn: 'anomalyAlerts',
-    lastSentColumn: 'lastAnomalyAlertAt',
+    lastSentColumn: 'lastAnomalyAt',
     minHoursSinceLast: 1, // immediate, but max 1/hr
   });
   let sent = 0, failed = 0, skipped = 0;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const anomaly = await getFreshAnomaly(u.id, 2);
     if (!anomaly) { skipped++; continue; }
     const r = await sendAnomalyAlertEmail({ to: u.email, ...anomaly });
-    if (r.success) { await stampSent(u.id, 'lastAnomalyAlertAt'); sent++; } else { failed++; }
+    if (r.success) { await stampSent(u.id, 'lastAnomalyAt'); sent++; } else { failed++; }
   }
   return NextResponse.json({ ok: true, eligible: users.length, sent, failed, skipped });
 }
