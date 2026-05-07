@@ -54,15 +54,15 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
     <div className="flex flex-col gap-7 px-7 pt-8 pb-6">
       {/* Hero */}
       <div className="flex items-start gap-4">
-        <div className="relative shrink-0 pt-1">
-          <Sparkle size={28} className="text-violet-600" fill="currentColor" />
+        <div className="relative shrink-0">
+          <DryvMascot pose="greet" size={56} glow priority alt="Dryv mascot" />
         </div>
-        <div className="flex flex-col gap-1 pt-0.5">
+        <div className="flex flex-col gap-1 pt-1">
           <h2 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground">
-            Hello, I'm <span className="text-violet-600">dreyv</span>.
+            Hello, I'm <span className="text-violet-600">Dryv</span>.
           </h2>
           <p className="text-sm text-muted-foreground">
-            Your platform-wide execution layer — describe an intent and I'll plan, simulate, or execute it.
+            Your treasury copilot — ask me to cut costs, find safer yield, or surface hidden risks.
           </p>
         </div>
       </div>
