@@ -30,6 +30,8 @@ export const users = pgTable('users', {
   role: text('role').notNull().default('user'), // user | creator | admin
   tier: text('tier').notNull().default('free'), // free | mini | max
   tierExpiresAt: timestamp('tier_expires_at'), // null = never expires (free tier or lifetime)
+  isFoundingMember: boolean('is_founding_member').notNull().default(false), // first 200 signups → effective Mini access
+  foundingNumber: integer('founding_number'), // 1..200 unique, null otherwise
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
   organizationName: text('organization_name'),
   supabaseUserId: text('supabase_user_id').unique(), // Supabase Auth uid

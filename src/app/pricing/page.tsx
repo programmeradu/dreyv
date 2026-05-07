@@ -4,6 +4,7 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
+import { FoundingRibbon } from "@/components/pricing/FoundingRibbon";
 import { Check, ArrowRight } from "lucide-react";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
@@ -144,6 +145,7 @@ export default function PricingPage() {
 
         {/* Tiers */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-20">
+          <FoundingRibbon />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {tiers.map((tier) => (
               <TierCard key={tier.name} tier={tier} />
