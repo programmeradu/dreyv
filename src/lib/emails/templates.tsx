@@ -608,3 +608,299 @@ export function WaitlistInviteEmail({
     </DreyvLayout>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// PROACTIVE / AGENTIC EMAIL TEMPLATES
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Shared atoms for proactive emails ───────────────────────────────
+function MetricRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <tr>
+      <td style={{ padding: '6px 0', color: v.muted, fontSize: '13px' }}>{label}</td>
+      <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 700, fontSize: '13px', color: accent ? v.violet : v.ink }}>
+        {value}
+      </td>
+    </tr>
+  );
+}
+
+function MetricCard({ rows }: { rows: { label: string; value: string; accent?: boolean }[] }) {
+  return (
+    <Section style={{ backgroundColor: v.violet50, border: `1px solid ${v.violet100}`, borderRadius: '16px', padding: '18px 22px', margin: '0 0 16px' }}>
+      <table style={{ width: '100%' }}>
+        <tbody>
+          {rows.map((r, i) => <MetricRow key={i} {...r} />)}
+        </tbody>
+      </table>
+    </Section>
+  );
+}
+
+// ─── 9. Agent Insight ────────────────────────────────────────────────
+export function AgentInsightEmail({
+  displayName,
+  headline,
+  detail,
+  metrics,
+  actionUrl,
+  actionLabel,
+}: {
+  displayName?: string | null;
+  headline: string;
+  detail: string;
+  metrics?: { label: string; value: string; accent?: boolean }[];
+  actionUrl?: string;
+  actionLabel?: string;
+}) {
+  return (
+    <DreyvLayout preview={headline} eyebrow="dryv · agent insight" mascot="think">
+      <H1>{headline}</H1>
+      <Lead>
+        {displayName ? `${displayName}, ` : ''}{detail}
+      </Lead>
+      {metrics && metrics.length > 0 && <MetricCard rows={metrics} />}
+      <PrimaryCTA href={actionUrl || `${APP}/app/analytics`}>{actionLabel || 'Open analytics'}</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 10. Opportunity ─────────────────────────────────────────────────
+export function OpportunityEmail({
+  displayName,
+  headline,
+  detail,
+  metrics,
+  actionUrl,
+}: {
+  displayName?: string | null;
+  headline: string;
+  detail: string;
+  metrics?: { label: string; value: string; accent?: boolean }[];
+  actionUrl?: string;
+}) {
+  return (
+    <DreyvLayout preview={headline} eyebrow="dryv · opportunity" mascot="celebrate">
+      <H1>{headline}</H1>
+      <Lead>{displayName ? `${displayName}, ` : ''}{detail}</Lead>
+      {metrics && metrics.length > 0 && <MetricCard rows={metrics} />}
+      <PrimaryCTA href={actionUrl || `${APP}/app`}>Review in workspace</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 11. Vault Commands (weekly tailored) ────────────────────────────
+export function VaultCommandsEmail({
+  displayName,
+  commands,
+}: {
+  displayName?: string | null;
+  commands: { title: string; why: string }[];
+}) {
+  return (
+    <DreyvLayout preview="Three commands to run on your vault this week" eyebrow="dryv · weekly commands" mascot="greet">
+      <H1>{displayName ? `${displayName}, three moves this week.` : 'Three moves this week.'}</H1>
+      <Lead>Generated from your live positions. Each one is one click in the workspace — Dryv pre-builds the plan, you approve.</Lead>
+      <Section style={{ margin: '0 0 16px' }}>
+        {commands.map((c, i) => (
+          <Section key={i} style={{ border: `1px solid ${v.violet100}`, borderRadius: '14px', padding: '14px 18px', margin: '0 0 10px', backgroundColor: v.violet50 }}>
+            <Text style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: v.ink }}>
+              <span style={{ color: v.violet, marginRight: 8 }}>{`0${i + 1}`}</span>{c.title}
+            </Text>
+            <Text style={{ margin: '4px 0 0', fontSize: '12px', color: v.muted, lineHeight: 1.5 }}>{c.why}</Text>
+          </Section>
+        ))}
+      </Section>
+      <PrimaryCTA href={`${APP}/app`}>Run in workspace</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 12. Weekly Digest ───────────────────────────────────────────────
+export function WeeklyDigestEmail({
+  displayName,
+  weekLabel,
+  pnlUsd,
+  pnlPct,
+  topMover,
+  feesUsd,
+  agentActions,
+  pendingApprovals,
+}: {
+  displayName?: string | null;
+  weekLabel: string;
+  pnlUsd: number;
+  pnlPct: number;
+  topMover: string;
+  feesUsd: number;
+  agentActions: number;
+  pendingApprovals: number;
+}) {
+  const fmt = (n: number) => `${n >= 0 ? '+' : ''}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return (
+    <DreyvLayout preview={`Your dreyv weekly digest — ${weekLabel}`} eyebrow={`dryv · weekly · ${weekLabel}`} mascot="think">
+      <H1>{displayName ? `${displayName}, your week in dreyv.` : 'Your week in dreyv.'}</H1>
+      <Lead>PnL, attribution, agent activity and what&apos;s waiting on you. One screen, no spreadsheet.</Lead>
+      <MetricCard rows={[
+        { label: 'PnL (week)', value: `${fmt(pnlUsd)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`, accent: true },
+        { label: 'Top mover', value: topMover },
+        { label: 'Fees paid', value: `$${feesUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` },
+        { label: 'Agent actions', value: `${agentActions}` },
+        { label: 'Pending approvals', value: `${pendingApprovals}`, accent: pendingApprovals > 0 },
+      ]} />
+      <PrimaryCTA href={`${APP}/app/analytics`}>Open full report</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 13. Monthly Report ──────────────────────────────────────────────
+export function MonthlyReportEmail({
+  displayName,
+  monthLabel,
+  performanceVsBenchmark,
+  driftSummary,
+  scenariosRun,
+}: {
+  displayName?: string | null;
+  monthLabel: string;
+  performanceVsBenchmark: string;
+  driftSummary: string;
+  scenariosRun: number;
+}) {
+  return (
+    <DreyvLayout preview={`Your dreyv monthly report — ${monthLabel}`} eyebrow={`dryv · monthly · ${monthLabel}`} mascot="think">
+      <H1>{`${monthLabel} in review.`}</H1>
+      <Lead>{displayName ? `${displayName}, ` : ''}performance vs benchmark, drift, and what Foresight ran for you.</Lead>
+      <MetricCard rows={[
+        { label: 'Vs benchmark', value: performanceVsBenchmark, accent: true },
+        { label: 'Drift', value: driftSummary },
+        { label: 'Scenarios run', value: `${scenariosRun}` },
+      ]} />
+      <PrimaryCTA href={`${APP}/app/analytics`}>Open monthly report</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 14. Anomaly Alert ───────────────────────────────────────────────
+export function AnomalyAlertEmail({
+  headline,
+  detail,
+  metrics,
+  actionUrl,
+}: {
+  headline: string;
+  detail: string;
+  metrics?: { label: string; value: string; accent?: boolean }[];
+  actionUrl?: string;
+}) {
+  return (
+    <DreyvLayout preview={headline} eyebrow="dryv · anomaly" mascot="alert">
+      <H1>{headline}</H1>
+      <Lead>{detail}</Lead>
+      {metrics && metrics.length > 0 && <MetricCard rows={metrics} />}
+      <PrimaryCTA href={actionUrl || `${APP}/app`}>Investigate now</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 15. Approval Nudge ──────────────────────────────────────────────
+export function ApprovalNudgeEmail({
+  displayName,
+  count,
+  oldestHours,
+  actionUrl,
+}: {
+  displayName?: string | null;
+  count: number;
+  oldestHours: number;
+  actionUrl?: string;
+}) {
+  return (
+    <DreyvLayout preview={`${count} approval${count === 1 ? '' : 's'} waiting in your vault`} eyebrow="dryv · approval pending" mascot="alert">
+      <H1>{`${count} approval${count === 1 ? '' : 's'} waiting.`}</H1>
+      <Lead>
+        {displayName ? `${displayName}, ` : ''}
+        the oldest has been pending {oldestHours}h. Multi-sig actions can&apos;t move without your signature.
+      </Lead>
+      <PrimaryCTA href={actionUrl || `${APP}/app`}>Review approvals</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 16. Upgrade Nudge ───────────────────────────────────────────────
+export function UpgradeNudgeEmail({
+  displayName,
+  currentTier,
+  suggestedTier,
+  reason,
+}: {
+  displayName?: string | null;
+  currentTier: string;
+  suggestedTier: string;
+  reason: string;
+}) {
+  return (
+    <DreyvLayout preview={`${suggestedTier} fits your usage better`} eyebrow="dryv · plan suggestion" mascot="greet">
+      <H1>{`${suggestedTier} fits your usage.`}</H1>
+      <Lead>
+        {displayName ? `${displayName}, ` : ''}you&apos;re on <strong style={{ color: v.ink }}>{currentTier}</strong>. {reason}
+      </Lead>
+      <PrimaryCTA href={`${APP}/pricing`}>See plans</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 17. Re-engagement ───────────────────────────────────────────────
+export function ReengagementEmail({
+  displayName,
+  daysAway,
+  vaultActivity,
+}: {
+  displayName?: string | null;
+  daysAway: number;
+  vaultActivity: string;
+}) {
+  return (
+    <DreyvLayout preview="Your vault kept moving while you were away" eyebrow="dryv · check-in" mascot="think">
+      <H1>{`${daysAway} days — but your vault didn't pause.`}</H1>
+      <Lead>{displayName ? `${displayName}, ` : ''}{vaultActivity} Worth a look.</Lead>
+      <PrimaryCTA href={`${APP}/app`}>Open workspace</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+// ─── 18-20. Onboarding drip (Day 1, 3, 7) ────────────────────────────
+export function OnboardingDay1Email({ displayName }: { displayName?: string | null }) {
+  return (
+    <DreyvLayout preview="Step one: connect a wallet (read-only is fine)" eyebrow="dryv · day 1" mascot="greet">
+      <H1>{displayName ? `${displayName}, start with a read-only wallet.` : 'Start with a read-only wallet.'}</H1>
+      <Lead>You don&apos;t need to move anything. Connect a Solana or EVM wallet and Dryv will profile your treasury in seconds.</Lead>
+      <PrimaryCTA href={`${APP}/app`}>Connect a wallet</PrimaryCTA>
+      <NumberedList items={[
+        'Non-custodial — keys never leave your device.',
+        'Read-only first — no signatures required.',
+        'Multisig-native — Squads & Safe supported.',
+      ]} />
+    </DreyvLayout>
+  );
+}
+
+export function OnboardingDay3Email({ displayName }: { displayName?: string | null }) {
+  return (
+    <DreyvLayout preview="Run your first simulation — Foresight is where it gets fun" eyebrow="dryv · day 3" mascot="think">
+      <H1>{displayName ? `${displayName}, run your first sim.` : 'Run your first simulation.'}</H1>
+      <Lead>Foresight runs &quot;what if&quot; on your live positions — yield rotations, drawdowns, drift, runway. Pick a scenario and watch.</Lead>
+      <PrimaryCTA href={`${APP}/app/analytics`}>Open Foresight</PrimaryCTA>
+    </DreyvLayout>
+  );
+}
+
+export function OnboardingDay7Email({ displayName }: { displayName?: string | null }) {
+  return (
+    <DreyvLayout preview="Invite your team — treasuries shouldn't be solo" eyebrow="dryv · day 7" mascot="celebrate">
+      <H1>{displayName ? `${displayName}, bring the team.` : 'Bring your team in.'}</H1>
+      <Lead>Roles, approvals, and per-vault permissions are built in. Your CFO, ops lead, or co-founder can join in a click.</Lead>
+      <PrimaryCTA href={`${APP}/app`}>Invite teammates</PrimaryCTA>
+    </DreyvLayout>
+  );
+}

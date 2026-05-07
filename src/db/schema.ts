@@ -636,6 +636,37 @@ export const notificationPreferences = pgTable('notification_preferences', {
   userIdx: index('notification_prefs_user_idx').on(table.userId),
 }));
 
+// ─── Email Preferences (proactive email streams + throttles) ─────────
+export const emailPreferences = pgTable('email_preferences', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  emailsEnabled: boolean('emails_enabled').notNull().default(true),
+  agentInsights: boolean('agent_insights').notNull().default(true),
+  opportunities: boolean('opportunities').notNull().default(true),
+  vaultCommands: boolean('vault_commands').notNull().default(true),
+  weeklyDigest: boolean('weekly_digest').notNull().default(true),
+  monthlyReport: boolean('monthly_report').notNull().default(true),
+  anomalyAlerts: boolean('anomaly_alerts').notNull().default(true),
+  approvalNudges: boolean('approval_nudges').notNull().default(true),
+  upgradeNudges: boolean('upgrade_nudges').notNull().default(true),
+  reengagement: boolean('reengagement').notNull().default(true),
+  onboardingDrip: boolean('onboarding_drip').notNull().default(true),
+  lastAgentInsightAt: timestamp('last_agent_insight_at'),
+  lastOpportunityAt: timestamp('last_opportunity_at'),
+  lastVaultCommandsAt: timestamp('last_vault_commands_at'),
+  lastWeeklyDigestAt: timestamp('last_weekly_digest_at'),
+  lastMonthlyReportAt: timestamp('last_monthly_report_at'),
+  lastAnomalyAt: timestamp('last_anomaly_at'),
+  lastApprovalNudgeAt: timestamp('last_approval_nudge_at'),
+  lastUpgradeNudgeAt: timestamp('last_upgrade_nudge_at'),
+  lastReengagementAt: timestamp('last_reengagement_at'),
+  onboardingDay1SentAt: timestamp('onboarding_day1_sent_at'),
+  onboardingDay3SentAt: timestamp('onboarding_day3_sent_at'),
+  onboardingDay7SentAt: timestamp('onboarding_day7_sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ─── Notification Deliveries (Phase 15) ───────────────────────────────
 // One row per (notification, channel) attempt. Powers per-channel audit + retry.
 export const notificationDeliveries = pgTable('notification_deliveries', {

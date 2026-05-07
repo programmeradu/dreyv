@@ -208,3 +208,162 @@ export async function sendWaitlistInviteEmail({
     react: WaitlistInviteEmail({ name, inviteUrl, expiresInDays }),
   });
 }
+
+// ─── Proactive / Agentic senders ─────────────────────────────────────
+import {
+  AgentInsightEmail,
+  OpportunityEmail,
+  VaultCommandsEmail,
+  WeeklyDigestEmail,
+  MonthlyReportEmail,
+  AnomalyAlertEmail,
+  ApprovalNudgeEmail,
+  UpgradeNudgeEmail,
+  ReengagementEmail,
+  OnboardingDay1Email,
+  OnboardingDay3Email,
+  OnboardingDay7Email,
+} from './emails/templates';
+
+type Metric = { label: string; value: string; accent?: boolean };
+
+export async function sendAgentInsightEmail(args: {
+  to: string;
+  displayName?: string | null;
+  headline: string;
+  detail: string;
+  metrics?: Metric[];
+  actionUrl?: string;
+  actionLabel?: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `dreyv insight: ${args.headline}`,
+    react: AgentInsightEmail(args),
+  });
+}
+
+export async function sendOpportunityEmail(args: {
+  to: string;
+  displayName?: string | null;
+  headline: string;
+  detail: string;
+  metrics?: Metric[];
+  actionUrl?: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `dreyv opportunity: ${args.headline}`,
+    react: OpportunityEmail(args),
+  });
+}
+
+export async function sendVaultCommandsEmail(args: {
+  to: string;
+  displayName?: string | null;
+  commands: { title: string; why: string }[];
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: 'Three commands to run this week',
+    react: VaultCommandsEmail(args),
+  });
+}
+
+export async function sendWeeklyDigestEmail(args: {
+  to: string;
+  displayName?: string | null;
+  weekLabel: string;
+  pnlUsd: number;
+  pnlPct: number;
+  topMover: string;
+  feesUsd: number;
+  agentActions: number;
+  pendingApprovals: number;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `Your dreyv weekly digest — ${args.weekLabel}`,
+    react: WeeklyDigestEmail(args),
+  });
+}
+
+export async function sendMonthlyReportEmail(args: {
+  to: string;
+  displayName?: string | null;
+  monthLabel: string;
+  performanceVsBenchmark: string;
+  driftSummary: string;
+  scenariosRun: number;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `Your dreyv ${args.monthLabel} report`,
+    react: MonthlyReportEmail(args),
+  });
+}
+
+export async function sendAnomalyAlertEmail(args: {
+  to: string;
+  headline: string;
+  detail: string;
+  metrics?: Metric[];
+  actionUrl?: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `dreyv anomaly: ${args.headline}`,
+    react: AnomalyAlertEmail(args),
+  });
+}
+
+export async function sendApprovalNudgeEmail(args: {
+  to: string;
+  displayName?: string | null;
+  count: number;
+  oldestHours: number;
+  actionUrl?: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `${args.count} approval${args.count === 1 ? '' : 's'} waiting in your vault`,
+    react: ApprovalNudgeEmail(args),
+  });
+}
+
+export async function sendUpgradeNudgeEmail(args: {
+  to: string;
+  displayName?: string | null;
+  currentTier: string;
+  suggestedTier: string;
+  reason: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: `${args.suggestedTier} fits your dreyv usage`,
+    react: UpgradeNudgeEmail(args),
+  });
+}
+
+export async function sendReengagementEmail(args: {
+  to: string;
+  displayName?: string | null;
+  daysAway: number;
+  vaultActivity: string;
+}) {
+  return sendEmail({
+    to: args.to,
+    subject: 'Your vault kept moving while you were away',
+    react: ReengagementEmail(args),
+  });
+}
+
+export async function sendOnboardingDay1Email(to: string, displayName?: string | null) {
+  return sendEmail({ to, subject: 'Step one: connect a wallet', react: OnboardingDay1Email({ displayName }) });
+}
+export async function sendOnboardingDay3Email(to: string, displayName?: string | null) {
+  return sendEmail({ to, subject: 'Run your first dreyv simulation', react: OnboardingDay3Email({ displayName }) });
+}
+export async function sendOnboardingDay7Email(to: string, displayName?: string | null) {
+  return sendEmail({ to, subject: 'Invite your team to dreyv', react: OnboardingDay7Email({ displayName }) });
+}
