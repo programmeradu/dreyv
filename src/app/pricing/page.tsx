@@ -145,6 +145,7 @@ export default function PricingPage() {
 
         {/* Tiers */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-20">
+          <FoundingRibbon />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {tiers.map((tier) => (
               <TierCard key={tier.name} tier={tier} />
