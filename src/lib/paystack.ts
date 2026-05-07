@@ -9,12 +9,17 @@
  * Env:
  *   PAYSTACK_SECRET_KEY        sk_live_… or sk_test_…
  *   PAYSTACK_WEBHOOK_SECRET    same value as PAYSTACK_SECRET_KEY (Paystack signs webhooks with the secret key)
- *   PAYSTACK_PLAN_CODE_MINI    PLN_xxx for $49/mo
- *   PAYSTACK_PLAN_CODE_MAX     PLN_xxx for $199/mo
+ *   PAYSTACK_PLAN_CODE_MINI    PLN_xxx for Mini
+ *   PAYSTACK_PLAN_CODE_MAX     PLN_xxx for Max
  */
 import crypto from "crypto";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
+
+const PAYSTACK_TIER_PRICES: Record<PaystackTier, { amount: number; currency: "GHS" }> = {
+    mini: { amount: 55000, currency: "GHS" },
+    max: { amount: 225000, currency: "GHS" },
+};
 
 export type PaystackTier = "mini" | "max";
 
@@ -37,6 +42,12 @@ export function tierForPlanCode(code: string | null | undefined): "free" | "mini
     if (max && code === max) return "max";
     if (mini && code === mini) return "mini";
     return "free";
+}
+
+function priceForPlanCode(code: string): { amount: number; currency: "GHS" } {
+    const tier = tierForPlanCode(code);
+    if (tier === "mini" || tier === "max") return PAYSTACK_TIER_PRICES[tier];
+    throw new Error("No Paystack amount configured for the selected plan");
 }
 
 async function paystackFetch(path: string, init: RequestInit = {}) {
@@ -74,10 +85,13 @@ export async function paystackInitializeTransaction(args: {
     metadata?: Record<string, unknown>;
     reference?: string;
 }): Promise<{ authorization_url: string; reference: string; access_code: string }> {
+    const price = priceForPlanCode(args.plan);
     const json = await paystackFetch("/transaction/initialize", {
         method: "POST",
         body: JSON.stringify({
             email: args.email,
+            amount: price.amount,
+            currency: price.currency,
             plan: args.plan,
             callback_url: args.callbackUrl,
             metadata: args.metadata ?? {},
