@@ -963,6 +963,7 @@ export function CommandBar() {
                         tokenLogos={TOKEN_LOGOS}
                         onSign={handleSignTransactions}
                         isStreaming={isLast && agentBusy}
+                        onChipClick={handleInlineChipClick}
                       />
                     );
                   })}
