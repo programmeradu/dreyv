@@ -4,6 +4,7 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
+import { FoundingRibbon } from "@/components/pricing/FoundingRibbon";
 import { Check, ArrowRight } from "lucide-react";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
