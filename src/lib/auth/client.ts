@@ -58,11 +58,14 @@ export const authClient = {
     },
     signIn: {
         async social(opts: { provider: string; callbackURL?: string }) {
-            const callbackPath = opts.callbackURL || '/app';
-            const callback = callbackPath.startsWith('http')
-                ? callbackPath
-                : `${window.location.origin}${callbackPath}`;
-            const errorCallback = `${window.location.origin}/auth`;
+            // Neon Auth requires RELATIVE callback paths — absolute URLs are
+            // rejected with INVALID_CALLBACKURL. Strip the origin if present.
+            const raw = opts.callbackURL || '/app';
+            let callback = raw;
+            if (raw.startsWith('http')) {
+                try { callback = new URL(raw).pathname + new URL(raw).search; } catch { callback = '/app'; }
+            }
+            const errorCallback = '/auth';
 
             const res = await fetch('/api/auth/sign-in/social', {
                 method: 'POST',
