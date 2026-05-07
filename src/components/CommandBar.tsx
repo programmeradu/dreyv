@@ -768,6 +768,29 @@ export function CommandBar() {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
+  // Inline suggestion-chip click from inside the chat thread — auto-sends.
+  const handleInlineChipClick = useCallback(
+    async (text: string) => {
+      if (agentBusy || !text.trim()) return;
+      try {
+        await sendMessage(
+          { text },
+          {
+            body: {
+              walletAddress: publicKey?.toBase58() || "",
+              vaultAddress: activeVault || null,
+              vaultState: { tokens: vaultTokens || [] },
+              walletState: { balances: vaultTokens || [] },
+            },
+          },
+        );
+      } catch (err) {
+        console.error("[CommandBar] Inline chip send error:", err);
+      }
+    },
+    [agentBusy, sendMessage, publicKey, activeVault, vaultTokens],
+  );
+
   // Programmatic submit — used by AGENT_COMMAND listeners (suggestion buttons,
   // capability palette, dashboard widgets). Mirrors handleFormSubmit but runs
   // with an explicit `text` argument instead of reading from `input` state.
