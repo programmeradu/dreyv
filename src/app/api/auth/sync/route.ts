@@ -4,6 +4,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { auth } from '@/lib/auth/server';
+import { claimFoundingSlot } from '@/lib/founding/claim';
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,18 +27,23 @@ export async function POST(req: NextRequest) {
                 .where(eq(users.id, siwsUser.id))
                 .limit(1);
 
+            let createdId: string | null = null;
             if (!existing) {
-                await db.insert(users).values({
+                const inserted = await db.insert(users).values({
                     walletAddress: siwsUser.walletAddress,
                     displayName: (siwsUser as any).displayName || siwsUser.walletAddress.slice(0, 6),
                     role: 'user',
-                });
+                }).returning({ id: users.id });
+                createdId = inserted[0]?.id ?? null;
             } else {
                 await db.update(users)
                     .set({ lastLoginAt: new Date() })
                     .where(eq(users.id, siwsUser.id));
             }
-            return NextResponse.json({ synced: true, provider: 'siws' });
+
+            const targetId = createdId ?? siwsUser.id;
+            const founding = await claimFoundingSlot(targetId).catch(() => null);
+            return NextResponse.json({ synced: true, provider: 'siws', founding });
         }
 
         // Fallback or parallel logic for Neon Auth identity
@@ -49,19 +55,23 @@ export async function POST(req: NextRequest) {
                 .where(eq(users.supabaseUserId, neonUser.id))
                 .limit(1);
 
+            let targetId = existing?.id ?? null;
             if (!existing) {
-                await db.insert(users).values({
+                const inserted = await db.insert(users).values({
                     walletAddress: `neon_${neonUser.id}`,
                     supabaseUserId: neonUser.id,
                     displayName: neonUser.name || neonUser.email?.split('@')[0] || 'User',
                     role: 'user',
-                });
+                }).returning({ id: users.id });
+                targetId = inserted[0]?.id ?? null;
             } else {
                 await db.update(users)
                     .set({ lastLoginAt: new Date() })
                     .where(eq(users.supabaseUserId, neonUser.id));
             }
-            return NextResponse.json({ synced: true, provider: 'neon' });
+
+            const founding = targetId ? await claimFoundingSlot(targetId).catch(() => null) : null;
+            return NextResponse.json({ synced: true, provider: 'neon', founding });
         }
 
         return NextResponse.json({ synced: false }, { status: 401 });
