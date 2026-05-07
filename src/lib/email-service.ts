@@ -149,6 +149,7 @@ export async function sendGasAlertEmail({
     subject: '⛽ Gas Alert: Low prices detected!',
     react: GasAlertEmail({ gasPrice, ethPrice, costUsd, gasUnits, thresholdUsd }),
   });
+}
 
 export async function sendGasAlertVerificationEmail({
   to,
