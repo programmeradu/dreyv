@@ -54,7 +54,6 @@ export function PhantomCompatProvider({
         nextPublicAppId,
         viteEnv?.VITE_PHANTOM_APP_ID,
         viteEnv?.NEXT_PUBLIC_PHANTOM_APP_ID,
-        DEFAULT_PHANTOM_APP_ID,
       ]
         .find((value) => typeof value === "string" && value.trim().length > 0)
         ?.trim() ?? "";
