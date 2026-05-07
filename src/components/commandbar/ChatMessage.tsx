@@ -206,6 +206,24 @@ export interface ChatMessageProps {
   ) => void;
   /** True when this is the latest message and the agent is still working. */
   isStreaming?: boolean;
+  /** Click handler for inline suggestion chips (lines starting with "→ "). */
+  onChipClick?: (prompt: string) => void;
+}
+
+/** Extract suggestion chips (lines starting with "→ " or "-> ") and remaining body text. */
+function extractChips(text: string): { body: string; chips: string[] } {
+  const chips: string[] = [];
+  const bodyLines: string[] = [];
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
+    const m = line.match(/^\s*(?:→|->)\s+(.+?)\s*$/);
+    if (m && m[1].length > 0 && m[1].length < 200) {
+      chips.push(m[1].replace(/[.;]+$/, ""));
+    } else {
+      bodyLines.push(rawLine);
+    }
+  }
+  return { body: bodyLines.join("\n").trim(), chips };
 }
 
 // ─── ChatMessage ──────────────────────────────────────────────────────────────
