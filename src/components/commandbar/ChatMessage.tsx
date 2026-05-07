@@ -331,6 +331,23 @@ export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false, 
           </MarkdownErrorBoundary>
         </div>
       )}
+
+      {/* Suggestion chips — clickable prompts emitted by the agent */}
+      {chips.length > 0 && !isStreaming && (
+        <div className="flex flex-wrap gap-1.5 px-1 pt-1 max-w-[90%]">
+          {chips.map((chip, i) => (
+            <button
+              key={`chip-${i}`}
+              type="button"
+              onClick={() => onChipClick?.(chip)}
+              disabled={!onChipClick}
+              className="rounded-full border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 px-3 py-1 text-xs text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
