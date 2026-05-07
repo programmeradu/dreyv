@@ -206,13 +206,32 @@ export interface ChatMessageProps {
   ) => void;
   /** True when this is the latest message and the agent is still working. */
   isStreaming?: boolean;
+  /** Click handler for inline suggestion chips (lines starting with "→ "). */
+  onChipClick?: (prompt: string) => void;
+}
+
+/** Extract suggestion chips (lines starting with "→ " or "-> ") and remaining body text. */
+function extractChips(text: string): { body: string; chips: string[] } {
+  const chips: string[] = [];
+  const bodyLines: string[] = [];
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
+    const m = line.match(/^\s*(?:→|->)\s+(.+?)\s*$/);
+    if (m && m[1].length > 0 && m[1].length < 200) {
+      chips.push(m[1].replace(/[.;]+$/, ""));
+    } else {
+      bodyLines.push(rawLine);
+    }
+  }
+  return { body: bodyLines.join("\n").trim(), chips };
 }
 
 // ─── ChatMessage ──────────────────────────────────────────────────────────────
 
-export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }: ChatMessageProps) {
+export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false, onChipClick }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const textContent = getTextContent(message);
+  const rawText = getTextContent(message);
+  const { body: textContent, chips } = extractChips(rawText);
   const reasoningContent = getReasoningContent(message);
   const toolParts = getToolParts(message);
 
@@ -310,6 +329,23 @@ export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false }
               {textContent}
             </ReactMarkdown>
           </MarkdownErrorBoundary>
+        </div>
+      )}
+
+      {/* Suggestion chips — clickable prompts emitted by the agent */}
+      {chips.length > 0 && !isStreaming && (
+        <div className="flex flex-wrap gap-1.5 px-1 pt-1 max-w-[90%]">
+          {chips.map((chip, i) => (
+            <button
+              key={`chip-${i}`}
+              type="button"
+              onClick={() => onChipClick?.(chip)}
+              disabled={!onChipClick}
+              className="rounded-full border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 px-3 py-1 text-xs text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+            >
+              {chip}
+            </button>
+          ))}
         </div>
       )}
     </div>

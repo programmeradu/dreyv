@@ -708,7 +708,17 @@ export async function POST(req: Request) {
       void _droppedToolChoice;
       const recoverySystem =
         (effectiveSystemPrompt || "") +
-        "\n\nIMPORTANT: Tool execution is unavailable for this turn due to a provider validation issue. Answer the user's request directly in plain language. If the request is a simulation/projection (e.g. runway, what-if), produce a clear step-by-step plan and the formula or assumptions you would use, and ask for any missing inputs. Do NOT attempt to call any tools.";
+        `\n\nIMPORTANT: Tool execution is unavailable for this turn. Your job is to UNBLOCK the user, not apologize.\n\n` +
+        `Respond in this exact shape:\n` +
+        `1. One short sentence acknowledging what you understood from the user's request (no apology, no mention of "tool" or "error").\n` +
+        `2. One concrete clarifying question that, once answered, lets the action proceed (e.g. which token, which source wallet, which amount, which destination).\n` +
+        `3. 2-4 suggestion chips the user can click to re-send. Each chip MUST be on its own line and start with "→ " followed by a complete, self-contained command the user could send verbatim. Keep each chip under 80 chars. No trailing punctuation.\n\n` +
+        `Example:\n` +
+        `Got it — you want to deposit into the treasury. Which token and how much?\n` +
+        `→ deposit 0.05 SOL into the treasury\n` +
+        `→ deposit 10 USDC into the treasury from my main wallet\n` +
+        `→ show treasury balance first\n\n` +
+        `Do NOT attempt to call tools. Do NOT mention providers, models, or validation errors.`;
       for (let i = 0; i < modelChain.length; i++) {
         const { name, model, maxChars } = modelChain[i];
         if (isRateLimited(name)) continue;
