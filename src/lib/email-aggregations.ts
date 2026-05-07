@@ -171,8 +171,8 @@ export async function getMonthlyReport(userId: string): Promise<MonthlyReport | 
       FULL OUTER JOIN (SELECT total_usd, jsonb_array_elements(composition) AS elem FROM last_day) l
         ON f.elem->>'symbol' = l.elem->>'symbol'
     `);
-    // @ts-expect-error neon http result rows
-    const rows = (compRows.rows ?? compRows ?? []) as Array<{ symbol: string; w_first: string; w_last: string }>;
+    const r = compRows as unknown as { rows?: Array<{ symbol: string; w_first: string; w_last: string }> } | Array<{ symbol: string; w_first: string; w_last: string }>;
+    const rows = Array.isArray(r) ? r : (r.rows ?? []);
     const drifted = rows.filter((r) => Math.abs(Number(r.w_last) - Number(r.w_first)) > 0.05);
     if (drifted.length > 0) driftSummary = `${drifted.length} of ${rows.length} positions drifted >5pp`;
     else if (rows.length > 0) driftSummary = `${rows.length} positions all within band`;
