@@ -6,6 +6,7 @@ import {
   NotificationEmail,
   TierExpiryEmail,
   GasAlertEmail,
+  GasAlertVerificationEmail,
 } from './emails/templates';
 
 // ─── Singleton Resend client ─────────────────────────────────────────
@@ -147,6 +148,24 @@ export async function sendGasAlertEmail({
     to,
     subject: '⛽ Gas Alert: Low prices detected!',
     react: GasAlertEmail({ gasPrice, ethPrice, costUsd, gasUnits, thresholdUsd }),
+  });
+}
+
+export async function sendGasAlertVerificationEmail({
+  to,
+  verificationUrl,
+  thresholdUsd,
+  minGasUnits,
+}: {
+  to: string;
+  verificationUrl: string;
+  thresholdUsd: number;
+  minGasUnits: number;
+}) {
+  return sendEmail({
+    to,
+    subject: 'Confirm your dreyv gas alert',
+    react: GasAlertVerificationEmail({ verificationUrl, thresholdUsd, minGasUnits }),
   });
 }
 

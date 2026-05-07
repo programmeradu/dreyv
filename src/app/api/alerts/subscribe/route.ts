@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { alerts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { Resend } from 'resend';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
 import { checkRouteLimit } from '@/lib/rate-limit-middleware';
+import { sendGasAlertVerificationEmail } from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,49 +122,24 @@ export async function POST(request: NextRequest) {
       alertRecord = newAlert[0];
     }
 
-    // Send verification email using Resend
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const emailFrom = process.env.EMAIL_FROM;
-    const appUrl = process.env.APP_URL;
-
-    if (!resendApiKey || !emailFrom || !appUrl) {
-      console.error('Missing required environment variables for email sending');
-      return NextResponse.json({
-        error: "Email service configuration error",
-        code: "EMAIL_CONFIG_ERROR"
-      }, { status: 500 });
-    }
-
-    const resend = new Resend(resendApiKey);
-
+    // Send verification email via shared email-service (Resend under the hood)
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://dreyv.com').replace(/\/+$/, '');
     const verificationUrl = `${appUrl}/api/alerts/verify?token=${alertRecord.verifyToken}`;
 
-    const emailHtml = `
-      <html>
-        <body>
-          <h2>Verify your gas price alert</h2>
-          <p>Thank you for subscribing to gas price alerts!</p>
-          <p>Please click the link below to verify your email address and activate your alert:</p>
-          <p><a href="${verificationUrl}" target="_blank" rel="noopener noreferrer">Verify Email Address</a></p>
-          <p>If the link doesn't work, copy and paste this URL into your browser:</p>
-          <p>${verificationUrl}</p>
-          <p>Your alert settings:</p>
-          <ul>
-            <li>Email: ${alertRecord.email}</li>
-            <li>Threshold: $${alertRecord.thresholdUsd} USD</li>
-            <li>Minimum Gas Units: ${alertRecord.minGasUnits}</li>
-          </ul>
-          <p>If you didn't request this alert, please ignore this email.</p>
-        </body>
-      </html>
-    `;
-
-    await resend.emails.send({
-      from: emailFrom,
+    const emailRes = await sendGasAlertVerificationEmail({
       to: alertRecord.email,
-      subject: "Verify your gas price alert",
-      html: emailHtml
+      verificationUrl,
+      thresholdUsd: Number(alertRecord.thresholdUsd),
+      minGasUnits: alertRecord.minGasUnits,
     });
+
+    if (!emailRes.success) {
+      console.error('[alerts/subscribe] verification email failed:', emailRes.error);
+      return NextResponse.json({
+        error: 'Could not send verification email',
+        code: 'EMAIL_SEND_FAILED',
+      }, { status: 502 });
+    }
 
     return NextResponse.json({ ok: true }, { status: 201 });
 
