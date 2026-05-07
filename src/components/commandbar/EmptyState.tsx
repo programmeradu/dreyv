@@ -82,7 +82,7 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
                 onClick={() => onChipClick(cmd.text)}
                 className={`group flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-3 text-left transition-all hover:bg-background hover:shadow-sm ${meta?.ring ?? ""}`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${meta?.dot ?? "bg-muted-foreground"} shrink-0`} />
+                <DreyvStar size={10} className="shrink-0 text-violet-600" />
                 <div className="flex flex-col min-w-0 flex-1">
                   <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     {cmd.label}
