@@ -5,26 +5,48 @@
 // light Dreyv theme: soft violet hero, semantic tokens, grouped capability chips.
 
 import React from "react";
-import { Sparkle, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 interface EmptyStateProps {
   onChipClick: (text: string) => void;
 }
 
+// Refreshed per Sid feedback (2026-05-07): focus on cost reduction + yield,
+// not generic "swap" / "scaffold a mini-app" demos.
 const EXAMPLE_COMMANDS = [
-  { text: "Swap 100 SOL to USDC", label: "Execute a swap", pillar: "treasury" },
-  { text: "Run a runway projection at $15k/mo burn", label: "Project runway", pillar: "foresight" },
-  { text: "Research Kamino Finance documentation", label: "Research a protocol", pillar: "research" },
-  { text: "Initialize a DeFi dashboard mini-app", label: "Scaffold a mini-app", pillar: "studio" },
-  { text: "Set a SOL price alert below $100", label: "Set a price alert", pillar: "monitoring" },
+  {
+    text: "Show fees and slippage I've paid in the last 12 months",
+    label: "Audit my costs",
+    pillar: "fees",
+  },
+  {
+    text: "Find the safest yield on my idle stables with AUM and risk",
+    label: "Park idle stables",
+    pillar: "yield",
+  },
+  {
+    text: "Compare top 3 yield protocols for my SOL with risk and TVL",
+    label: "Compare yield options",
+    pillar: "yield",
+  },
+  {
+    text: "Reduce my swap costs — route via the cheapest path next time",
+    label: "Cut swap costs",
+    pillar: "fees",
+  },
+  {
+    text: "Spot drift, concentration, and runway risks in my treasury",
+    label: "Find hidden risks",
+    pillar: "risk",
+  },
 ];
 
-const PILLAR_META: Record<string, { dot: string; ring: string }> = {
-  treasury:   { dot: "bg-blue-500",    ring: "hover:border-blue-300" },
-  foresight:  { dot: "bg-violet-500",  ring: "hover:border-violet-300" },
-  research:   { dot: "bg-fuchsia-500", ring: "hover:border-fuchsia-300" },
-  studio:     { dot: "bg-emerald-500", ring: "hover:border-emerald-300" },
-  monitoring: { dot: "bg-amber-500",   ring: "hover:border-amber-300" },
+const PILLAR_META: Record<string, { ring: string }> = {
+  fees:  { ring: "hover:border-violet-300" },
+  yield: { ring: "hover:border-violet-300" },
+  risk:  { ring: "hover:border-violet-300" },
 };
 
 export function EmptyState({ onChipClick }: EmptyStateProps) {
