@@ -11,7 +11,7 @@
  *             with traceable signal tiles, and a quiet KPI ladder.
  *   • Right : animated composition donut with a centered "top asset" label
  *             and a streamed legend (rank · symbol · share · USD).
- *   • Floating: Dryv mascot greeting (celebrate / think / alert) chosen from
+ *   • Floating: Dreyv mascot greeting (celebrate / think / alert) chosen from
  *             live verdict; DreyvStar accents — no dots, no sparkles.
  *
  * FLAT only — no shadow, no backdrop-blur, no gradient fills, no ring.
@@ -28,7 +28,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { ChevronRight, Wallet, ShieldCheck, AlertTriangle, Eye } from "lucide-react";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromScore } from "./SignalBadge";
@@ -365,7 +365,7 @@ export function AnalyticsCockpit({
             </Link>
           </div>
           <div className="hidden items-center justify-center lg:flex">
-            <DryvMascot pose="greet" size={180} />
+            <DreyvMascot pose="greet" size={180} />
           </div>
         </div>
       </section>
@@ -509,7 +509,7 @@ export function AnalyticsCockpit({
       {/* Floating mascot */}
       {vaultValue != null && vaultValue > 0 && (
         <div className="pointer-events-none absolute right-3 top-3 hidden md:block">
-          <DryvMascot pose={verdictMeta.pose} size={96} />
+          <DreyvMascot pose={verdictMeta.pose} size={96} />
         </div>
       )}
 

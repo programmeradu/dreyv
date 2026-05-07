@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 
 export default function AppError({
   error,
@@ -17,7 +17,7 @@ export default function AppError({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
-      <DryvMascot pose="alert" size={120} className="mb-4" />
+      <DreyvMascot pose="alert" size={120} className="mb-4" />
 
       <h2 className="text-lg font-semibold text-foreground mb-1">
         Something went wrong

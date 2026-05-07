@@ -9,7 +9,7 @@ import { VaultStep } from "@/components/onboarding/VaultStep";
 import { RiskStep } from "@/components/onboarding/RiskStep";
 import { TeamInviteStep } from "@/components/onboarding/TeamInviteStep";
 import { ReadyStep } from "@/components/onboarding/ReadyStep";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 const STEPS = [
@@ -265,9 +265,9 @@ export default function OnboardingPage() {
                         {/* Side rail — mascot + step compass (desktop) */}
                         <aside className="hidden lg:flex flex-col gap-3 overflow-y-auto">
                             <div className="rounded-2xl border border-violet-100 bg-white p-3 flex flex-col items-center text-center">
-                                <DryvMascot pose={mascotPose} size={72} />
+                                <DreyvMascot pose={mascotPose} size={72} />
                                 <p className="mt-1.5 text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-600">
-                                    Dryv
+                                    Dreyv
                                 </p>
                                 <p className="mt-1 text-[10.5px] text-slate-500 leading-relaxed">
                                     {currentStep === 0 && "Five quick steps. You stay in custody."}

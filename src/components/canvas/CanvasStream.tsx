@@ -11,7 +11,7 @@
 import { Reorder, AnimatePresence, motion } from "framer-motion";
 import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { CanvasBlockView } from "./blocks/CanvasBlockView";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {}) {
@@ -44,7 +44,7 @@ export function CanvasStream({ scope }: { scope?: "dashboard" | "treasury" } = {
             </p>
           </div>
           <div className="hidden sm:block">
-            <DryvMascot pose="greet" size={140} />
+            <DreyvMascot pose="greet" size={140} />
           </div>
         </div>
       </div>

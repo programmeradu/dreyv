@@ -15,7 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { DryvMascot, type DryvPose } from "@/components/brand/dryv-mascot";
+import { DreyvMascot, type DreyvPose } from "@/components/brand/dreyv-mascot";
 import type {
   AssetKind,
   Channel,
@@ -67,7 +67,7 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
   { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
-  { id: "mascot", label: "Mascot", icon: FileText, hint: "Dryv visuals" },
+  { id: "mascot", label: "Mascot", icon: FileText, hint: "Dreyv visuals" },
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
@@ -80,39 +80,39 @@ const ASPECTS_BY_MODE: Record<Mode, Aspect[]> = {
 };
 const DURATIONS = [10, 15, 30] as const;
 
-const MASCOT_POSES: Array<{ id: DryvPose; label: string; hint: string }> = [
+const MASCOT_POSES: Array<{ id: DreyvPose; label: string; hint: string }> = [
   { id: "greet", label: "Greet", hint: "Warm intro / waving" },
   { id: "think", label: "Think", hint: "Curious / explainer" },
   { id: "celebrate", label: "Celebrate", hint: "Launch / milestone" },
   { id: "alert", label: "Alert", hint: "Warning / risk" },
 ];
 
-const MASCOT_PRESETS: Array<{ pose: DryvPose; title: string; brief: string; channel: Channel; aspect: Aspect }> = [
+const MASCOT_PRESETS: Array<{ pose: DreyvPose; title: string; brief: string; channel: Channel; aspect: Aspect }> = [
   {
     pose: "greet",
-    title: "Dryv says hi to a new founder",
-    brief: "Dryv stands at the entrance of a clean violet portal, waving toward the viewer. Subtle violet ambient glow, white background.",
+    title: "Dreyv says hi to a new founder",
+    brief: "Dreyv stands at the entrance of a clean violet portal, waving toward the viewer. Subtle violet ambient glow, white background.",
     channel: "x",
     aspect: "1:1",
   },
   {
     pose: "think",
-    title: "Dryv thinking about runway",
-    brief: "Dryv looks thoughtfully at a single floating violet line chart, calm, hand near chin. Editorial, generous whitespace.",
+    title: "Dreyv thinking about runway",
+    brief: "Dreyv looks thoughtfully at a single floating violet line chart, calm, hand near chin. Editorial, generous whitespace.",
     channel: "linkedin",
     aspect: "4:5",
   },
   {
     pose: "celebrate",
     title: "Launch day",
-    brief: "Dryv mid-celebration with small floating violet diamond shards in the air, confetti-like but minimal and tasteful. Pure white background.",
+    brief: "Dreyv mid-celebration with small floating violet diamond shards in the air, confetti-like but minimal and tasteful. Pure white background.",
     channel: "x",
     aspect: "1:1",
   },
   {
     pose: "alert",
     title: "Drift alert",
-    brief: "Dryv with palms up, concerned, next to a thin violet warning bar. Calm, never panicked, premium fintech feel.",
+    brief: "Dreyv with palms up, concerned, next to a thin violet warning bar. Calm, never panicked, premium fintech feel.",
     channel: "linkedin",
     aspect: "16:9",
   },
@@ -182,7 +182,7 @@ export default function MediaStudioClient() {
   const [duration, setDuration] = React.useState<number>(FALLBACK_JOBS[0].durationSeconds);
 
   const [busy, setBusy] = React.useState<null | "suggestions" | "copy" | "image" | "infographic" | "video" | "mascot">(null);
-  const [mascotPose, setMascotPose] = React.useState<DryvPose>("greet");
+  const [mascotPose, setMascotPose] = React.useState<DreyvPose>("greet");
   const [mascotPrompt, setMascotPrompt] = React.useState<string>(MASCOT_PRESETS[0].brief);
   const [mascotTitle, setMascotTitle] = React.useState<string>(MASCOT_PRESETS[0].title);
   const [copyResult, setCopyResult] = React.useState<CopyResult | null>(null);
@@ -439,7 +439,7 @@ export default function MediaStudioClient() {
               >
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
                   {m.id === "mascot" ? (
-                    <DryvMascot pose="greet" size={18} glow={false} className="shrink-0" />
+                    <DreyvMascot pose="greet" size={18} glow={false} className="shrink-0" />
                   ) : (
                     <Icon className="h-3.5 w-3.5" />
                   )}
@@ -474,7 +474,7 @@ export default function MediaStudioClient() {
             {mode === "mascot" ? (
               <section className="rounded-3xl border border-studio-border bg-white/85 p-4 backdrop-blur sm:p-5">
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-studio-violet">Mascot</div>
-                <h2 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">Compose a Dryv visual.</h2>
+                <h2 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">Compose a Dreyv visual.</h2>
                 <p className="mt-1.5 text-xs leading-5 text-studio-muted">
                   The mascot reference is sent to the model so the character stays consistent. Pick a pose, describe the scene.
                 </p>
@@ -495,7 +495,7 @@ export default function MediaStudioClient() {
                               : "border-studio-border bg-white hover:border-studio-violet/40 hover:bg-studio-violet-soft")
                           }
                         >
-                          <DryvMascot pose={p.id} size={36} glow={false} className="shrink-0" />
+                          <DreyvMascot pose={p.id} size={36} glow={false} className="shrink-0" />
                           <div className="min-w-0">
                             <div className="text-xs font-bold tracking-tight">{p.label}</div>
                             <div className="truncate text-[10px] text-studio-muted">{p.hint}</div>
@@ -511,7 +511,7 @@ export default function MediaStudioClient() {
                   <input
                     value={mascotTitle}
                     onChange={(e) => setMascotTitle(e.target.value)}
-                    placeholder="e.g. Dryv welcomes a new founder"
+                    placeholder="e.g. Dreyv welcomes a new founder"
                     className="mt-1.5 w-full rounded-2xl border border-studio-border bg-white px-3 py-2 text-sm outline-none focus:border-studio-violet"
                   />
                 </div>
@@ -600,7 +600,7 @@ export default function MediaStudioClient() {
                     disabled={busy !== null || !mascotPrompt.trim()}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-studio-violet px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_rgba(124,58,237,0.55)] transition hover:opacity-95 disabled:opacity-50"
                   >
-                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <DryvMascot pose={mascotPose} size={20} glow={false} className="shrink-0" />}
+                    {busy === "mascot" ? <Loader2 className="h-4 w-4 animate-spin" /> : <DreyvMascot pose={mascotPose} size={20} glow={false} className="shrink-0" />}
                     {imagePreview ? "Regenerate mascot visual" : "Generate mascot visual"}
                   </button>
                 </div>

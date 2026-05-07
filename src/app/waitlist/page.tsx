@@ -4,7 +4,7 @@ import { COHORT_LABEL, COHORT_WINDOW } from "@/lib/waitlist/constants";
 import { getSiteOrigin } from "@/lib/seo/site";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 
 const TITLE = "Join the dreyv waitlist — Command-Ops for treasuries";
 const DESCRIPTION =
@@ -65,13 +65,13 @@ export default function WaitlistPage() {
             </p>
           </div>
 
-          {/* Right: Dryv mascot welcoming you in */}
+          {/* Right: Dreyv mascot welcoming you in */}
           <div className="relative hidden md:flex items-center justify-center">
             <div className="absolute inset-0 -z-10 m-auto h-[360px] w-[360px] rounded-full bg-violet-400/25 blur-[110px]" />
             <div className="absolute inset-0 -z-10 m-auto h-[220px] w-[220px] rounded-full bg-violet-300/40 blur-[80px]" />
-            <DryvMascot
+            <DreyvMascot
               pose="greet"
-              alt="Dryv, the dreyv mascot, waving you onto the waitlist"
+              alt="Dreyv, the dreyv mascot, waving you onto the waitlist"
               size={460}
               priority
               glow={false}

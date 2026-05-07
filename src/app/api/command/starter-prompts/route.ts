@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Starter prompts = Dryv's first-glance analysis of the active treasury.
+ * Starter prompts = Dreyv's first-glance analysis of the active treasury.
  *
  * Flow: caller passes ?address=<vault-or-wallet>. We pull a thin slice of
  * holdings + recent activity from Helius, hand the summary to Lovable AI,
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  * is missing, the model is told to say so.
  */
 
-const SYSTEM_PROMPT = `You are Dryv, a Solana treasury copilot. Voice: calm, precise, founder-to-founder. No emoji, no hype words ("revolutionize", "supercharge", "game-changer", "next-gen"). DRAVE.
+const SYSTEM_PROMPT = `You are Dreyv (pronounced "DRAVE"), a Solana treasury copilot. Voice: calm, precise, founder-to-founder. No emoji, no hype words ("revolutionize", "supercharge", "game-changer", "next-gen").
 
 You are looking at a real treasury snapshot. Your job:
 1. Write ONE sentence ("insight") describing the single most useful thing you notice. Use real numbers from the snapshot when you have them. If the snapshot is empty/zero, say so plainly ("Nothing on-chain here yet — connect a vault and I'll generate a real to-do list."). Never invent figures.

@@ -1,16 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import greet from "@/assets/mascot/dryv-greet.png";
-import think from "@/assets/mascot/dryv-think.png";
-import celebrate from "@/assets/mascot/dryv-celebrate.png";
-import alert from "@/assets/mascot/dryv-alert.png";
+import greet from "@/assets/mascot/dreyv-greet.png";
+import think from "@/assets/mascot/dreyv-think.png";
+import celebrate from "@/assets/mascot/dreyv-celebrate.png";
+import alert from "@/assets/mascot/dreyv-alert.png";
 
 const POSES = { greet, think, celebrate, alert } as const;
-export type DryvPose = keyof typeof POSES;
+export type DreyvPose = keyof typeof POSES;
 
-interface DryvMascotProps {
-  pose?: DryvPose;
+interface DreyvMascotProps {
+  pose?: DreyvPose;
   size?: number;
   className?: string;
   glow?: boolean;
@@ -19,17 +19,17 @@ interface DryvMascotProps {
 }
 
 /**
- * Dryv mascot — owl-fox treasury sentinel.
+ * Dreyv mascot — owl-fox treasury sentinel.
  * Transparent PNG, optional violet glow halo. Use sparingly at perfect moments.
  */
-export function DryvMascot({
+export function DreyvMascot({
   pose = "greet",
   size = 160,
   className = "",
   glow = true,
   priority = false,
   alt,
-}: DryvMascotProps) {
+}: DreyvMascotProps) {
   const src = POSES[pose];
   return (
     <div
@@ -44,7 +44,7 @@ export function DryvMascot({
       )}
       <Image
         src={src}
-        alt={alt ?? `Dryv mascot — ${pose}`}
+        alt={alt ?? `Dreyv mascot — ${pose}`}
         width={size}
         height={size}
         priority={priority}

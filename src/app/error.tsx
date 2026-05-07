@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import heroLiquid from "@/assets/hero-liquid-violet.png";
 
 function ArrowMark({ className = "", direction = "right" }: { className?: string; direction?: "right" | "left" | "refresh" }) {
@@ -59,9 +59,9 @@ export default function GlobalError({
       </div>
 
       <div className="relative z-10 w-full max-w-xl px-6 text-center">
-        {/* Mascot — Dryv on alert */}
+        {/* Mascot — Dreyv on alert */}
         <div className="flex justify-center mb-6">
-          <DryvMascot pose="alert" size={140} priority />
+          <DreyvMascot pose="alert" size={140} priority />
         </div>
 
         <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-700/90 mb-4">

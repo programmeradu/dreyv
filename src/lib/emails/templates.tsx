@@ -37,8 +37,8 @@ type MascotPose = 'greet' | 'think' | 'celebrate' | 'alert';
 function Mascot({ pose, size = 96 }: { pose: MascotPose; size?: number }) {
   return (
     <Img
-      src={`${MASCOT}/dryv-${pose}.png`}
-      alt={`Dryv ${pose}`}
+      src={`${MASCOT}/dreyv-${pose}.png`}
+      alt={`Dreyv ${pose}`}
       width={size}
       height={size}
       style={{ display: 'block', margin: '0 auto' }}
@@ -301,7 +301,7 @@ export function WelcomeEmail({ displayName }: { displayName: string }) {
       <H1>{`Welcome, ${displayName}.`}</H1>
       <Lead>
         Your non-custodial Command-Ops workspace is live. Connect a wallet,
-        wire your treasury, and run your first command — Dryv will keep watch.
+        wire your treasury, and run your first command — Dreyv will keep watch.
       </Lead>
       <PrimaryCTA href={`${APP}/app`}>Open workspace</PrimaryCTA>
       <NumberedList
@@ -430,7 +430,7 @@ export function GasAlertEmail({
     >
       <H1>Gas is low — good window to ship.</H1>
       <Lead>
-        Mainnet gas dropped under your threshold. Dryv flagged it so you can
+        Mainnet gas dropped under your threshold. Dreyv flagged it so you can
         batch settlements, sweep dust, or rotate positions while it&apos;s cheap.
       </Lead>
 
@@ -505,7 +505,7 @@ export function GasAlertVerificationEmail({
     >
       <H1>Confirm your gas alert.</H1>
       <Lead>
-        One click and Dryv starts watching mainnet for you. We&apos;ll only ping
+        One click and Dreyv starts watching mainnet for you. We&apos;ll only ping
         when gas drops below your threshold — no marketing, no noise.
       </Lead>
       <PrimaryCTA href={verificationUrl}>Verify email</PrimaryCTA>
@@ -654,7 +654,7 @@ export function AgentInsightEmail({
   actionLabel?: string;
 }) {
   return (
-    <DreyvLayout preview={headline} eyebrow="dryv · agent insight" mascot="think">
+    <DreyvLayout preview={headline} eyebrow="dreyv · agent insight" mascot="think">
       <H1>{headline}</H1>
       <Lead>
         {displayName ? `${displayName}, ` : ''}{detail}
@@ -680,7 +680,7 @@ export function OpportunityEmail({
   actionUrl?: string;
 }) {
   return (
-    <DreyvLayout preview={headline} eyebrow="dryv · opportunity" mascot="celebrate">
+    <DreyvLayout preview={headline} eyebrow="dreyv · opportunity" mascot="celebrate">
       <H1>{headline}</H1>
       <Lead>{displayName ? `${displayName}, ` : ''}{detail}</Lead>
       {metrics && metrics.length > 0 && <MetricCard rows={metrics} />}
@@ -698,9 +698,9 @@ export function VaultCommandsEmail({
   commands: { title: string; why: string }[];
 }) {
   return (
-    <DreyvLayout preview="Three commands to run on your vault this week" eyebrow="dryv · weekly commands" mascot="greet">
+    <DreyvLayout preview="Three commands to run on your vault this week" eyebrow="dreyv · weekly commands" mascot="greet">
       <H1>{displayName ? `${displayName}, three moves this week.` : 'Three moves this week.'}</H1>
-      <Lead>Generated from your live positions. Each one is one click in the workspace — Dryv pre-builds the plan, you approve.</Lead>
+      <Lead>Generated from your live positions. Each one is one click in the workspace — Dreyv pre-builds the plan, you approve.</Lead>
       <Section style={{ margin: '0 0 16px' }}>
         {commands.map((c, i) => (
           <Section key={i} style={{ border: `1px solid ${v.violet100}`, borderRadius: '14px', padding: '14px 18px', margin: '0 0 10px', backgroundColor: v.violet50 }}>
@@ -738,7 +738,7 @@ export function WeeklyDigestEmail({
 }) {
   const fmt = (n: number) => `${n >= 0 ? '+' : ''}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   return (
-    <DreyvLayout preview={`Your dreyv weekly digest — ${weekLabel}`} eyebrow={`dryv · weekly · ${weekLabel}`} mascot="think">
+    <DreyvLayout preview={`Your dreyv weekly digest — ${weekLabel}`} eyebrow={`dreyv · weekly · ${weekLabel}`} mascot="think">
       <H1>{displayName ? `${displayName}, your week in dreyv.` : 'Your week in dreyv.'}</H1>
       <Lead>PnL, attribution, agent activity and what&apos;s waiting on you. One screen, no spreadsheet.</Lead>
       <MetricCard rows={[
@@ -768,7 +768,7 @@ export function MonthlyReportEmail({
   scenariosRun: number;
 }) {
   return (
-    <DreyvLayout preview={`Your dreyv monthly report — ${monthLabel}`} eyebrow={`dryv · monthly · ${monthLabel}`} mascot="think">
+    <DreyvLayout preview={`Your dreyv monthly report — ${monthLabel}`} eyebrow={`dreyv · monthly · ${monthLabel}`} mascot="think">
       <H1>{`${monthLabel} in review.`}</H1>
       <Lead>{displayName ? `${displayName}, ` : ''}performance vs benchmark, drift, and what Foresight ran for you.</Lead>
       <MetricCard rows={[
@@ -794,7 +794,7 @@ export function AnomalyAlertEmail({
   actionUrl?: string;
 }) {
   return (
-    <DreyvLayout preview={headline} eyebrow="dryv · anomaly" mascot="alert">
+    <DreyvLayout preview={headline} eyebrow="dreyv · anomaly" mascot="alert">
       <H1>{headline}</H1>
       <Lead>{detail}</Lead>
       {metrics && metrics.length > 0 && <MetricCard rows={metrics} />}
@@ -816,7 +816,7 @@ export function ApprovalNudgeEmail({
   actionUrl?: string;
 }) {
   return (
-    <DreyvLayout preview={`${count} approval${count === 1 ? '' : 's'} waiting in your vault`} eyebrow="dryv · approval pending" mascot="alert">
+    <DreyvLayout preview={`${count} approval${count === 1 ? '' : 's'} waiting in your vault`} eyebrow="dreyv · approval pending" mascot="alert">
       <H1>{`${count} approval${count === 1 ? '' : 's'} waiting.`}</H1>
       <Lead>
         {displayName ? `${displayName}, ` : ''}
@@ -840,7 +840,7 @@ export function UpgradeNudgeEmail({
   reason: string;
 }) {
   return (
-    <DreyvLayout preview={`${suggestedTier} fits your usage better`} eyebrow="dryv · plan suggestion" mascot="greet">
+    <DreyvLayout preview={`${suggestedTier} fits your usage better`} eyebrow="dreyv · plan suggestion" mascot="greet">
       <H1>{`${suggestedTier} fits your usage.`}</H1>
       <Lead>
         {displayName ? `${displayName}, ` : ''}you&apos;re on <strong style={{ color: v.ink }}>{currentTier}</strong>. {reason}
@@ -861,7 +861,7 @@ export function ReengagementEmail({
   vaultActivity: string;
 }) {
   return (
-    <DreyvLayout preview="Your vault kept moving while you were away" eyebrow="dryv · check-in" mascot="think">
+    <DreyvLayout preview="Your vault kept moving while you were away" eyebrow="dreyv · check-in" mascot="think">
       <H1>{`${daysAway} days — but your vault didn't pause.`}</H1>
       <Lead>{displayName ? `${displayName}, ` : ''}{vaultActivity} Worth a look.</Lead>
       <PrimaryCTA href={`${APP}/app`}>Open workspace</PrimaryCTA>
@@ -872,9 +872,9 @@ export function ReengagementEmail({
 // ─── 18-20. Onboarding drip (Day 1, 3, 7) ────────────────────────────
 export function OnboardingDay1Email({ displayName }: { displayName?: string | null }) {
   return (
-    <DreyvLayout preview="Step one: connect a wallet (read-only is fine)" eyebrow="dryv · day 1" mascot="greet">
+    <DreyvLayout preview="Step one: connect a wallet (read-only is fine)" eyebrow="dreyv · day 1" mascot="greet">
       <H1>{displayName ? `${displayName}, start with a read-only wallet.` : 'Start with a read-only wallet.'}</H1>
-      <Lead>You don&apos;t need to move anything. Connect a Solana or EVM wallet and Dryv will profile your treasury in seconds.</Lead>
+      <Lead>You don&apos;t need to move anything. Connect a Solana or EVM wallet and Dreyv will profile your treasury in seconds.</Lead>
       <PrimaryCTA href={`${APP}/app`}>Connect a wallet</PrimaryCTA>
       <NumberedList items={[
         'Non-custodial — keys never leave your device.',
@@ -887,7 +887,7 @@ export function OnboardingDay1Email({ displayName }: { displayName?: string | nu
 
 export function OnboardingDay3Email({ displayName }: { displayName?: string | null }) {
   return (
-    <DreyvLayout preview="Run your first simulation — Foresight is where it gets fun" eyebrow="dryv · day 3" mascot="think">
+    <DreyvLayout preview="Run your first simulation — Foresight is where it gets fun" eyebrow="dreyv · day 3" mascot="think">
       <H1>{displayName ? `${displayName}, run your first sim.` : 'Run your first simulation.'}</H1>
       <Lead>Foresight runs &quot;what if&quot; on your live positions — yield rotations, drawdowns, drift, runway. Pick a scenario and watch.</Lead>
       <PrimaryCTA href={`${APP}/app/analytics`}>Open Foresight</PrimaryCTA>
@@ -897,7 +897,7 @@ export function OnboardingDay3Email({ displayName }: { displayName?: string | nu
 
 export function OnboardingDay7Email({ displayName }: { displayName?: string | null }) {
   return (
-    <DreyvLayout preview="Invite your team — treasuries shouldn't be solo" eyebrow="dryv · day 7" mascot="celebrate">
+    <DreyvLayout preview="Invite your team — treasuries shouldn't be solo" eyebrow="dreyv · day 7" mascot="celebrate">
       <H1>{displayName ? `${displayName}, bring the team.` : 'Bring your team in.'}</H1>
       <Lead>Roles, approvals, and per-vault permissions are built in. Your CFO, ops lead, or co-founder can join in a click.</Lead>
       <PrimaryCTA href={`${APP}/app`}>Invite teammates</PrimaryCTA>

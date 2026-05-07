@@ -4,7 +4,7 @@
 // <html> and <body>. Avoid next/image, next/link, and shared layout chrome.
 
 import { useEffect } from "react";
-import dryvAlert from "@/assets/mascot/dryv-alert.png";
+import dreyvAlert from "@/assets/mascot/dreyv-alert.png";
 
 export default function GlobalError({
   error,
@@ -99,7 +99,7 @@ export default function GlobalError({
               textAlign: "center",
             }}
           >
-            {/* Mascot — Dryv on alert */}
+            {/* Mascot — Dreyv on alert */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
               <div style={{ position: "relative", width: 140, height: 140 }}>
                 <div
@@ -115,8 +115,8 @@ export default function GlobalError({
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={typeof dryvAlert === "string" ? dryvAlert : (dryvAlert as { src: string }).src}
-                  alt="Dryv mascot — alert"
+                  src={typeof dreyvAlert === "string" ? dreyvAlert : (dreyvAlert as { src: string }).src}
+                  alt="Dreyv mascot — alert"
                   width={140}
                   height={140}
                   style={{

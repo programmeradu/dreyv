@@ -1,6 +1,6 @@
 "use client";
 
-// Mascot-themed tool icon: small Dryv mascot avatar with a tiny lucide glyph
+// Mascot-themed tool icon: small Dreyv mascot avatar with a tiny lucide glyph
 // badge indicating the tool category. Replaces the previous emoji icons that
 // felt generic across the app.
 
@@ -39,10 +39,10 @@ import {
 type Mascot = "think" | "alert" | "celebrate" | "greet";
 
 const MASCOT_SRC: Record<Mascot, string> = {
-  think: "/mascot/dryv-think.png",
-  alert: "/mascot/dryv-alert.png",
-  celebrate: "/mascot/dryv-celebrate.png",
-  greet: "/mascot/dryv-greet.png",
+  think: "/mascot/dreyv-think.png",
+  alert: "/mascot/dreyv-alert.png",
+  celebrate: "/mascot/dreyv-celebrate.png",
+  greet: "/mascot/dreyv-greet.png",
 };
 
 interface ToolIconMeta {

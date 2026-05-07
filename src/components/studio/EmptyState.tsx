@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, FolderOpen, LayoutTemplate } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
@@ -62,9 +62,9 @@ export function EmptyState({ onSubmit, onOpenTemplates, onOpenRecent, isSubmitti
       />
 
       <div className="relative w-full max-w-2xl px-6 pt-12 md:pt-16 pb-16 mx-auto">
-        {/* Mascot — Dryv thinking, anchored to bottom-right corner so it never clips */}
+        {/* Mascot — Dreyv thinking, anchored to bottom-right corner so it never clips */}
         <div className="pointer-events-none fixed bottom-4 right-4 md:bottom-8 md:right-8 z-0 hidden sm:block">
-          <DryvMascot pose="think" size={148} />
+          <DreyvMascot pose="think" size={148} />
         </div>
 
         {/* Brand chip */}

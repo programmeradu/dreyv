@@ -46,7 +46,7 @@ const MUTED = "#64748b";
 const LINE = "#ede9fe";
 
 const LOGO_PATH = path.join(process.cwd(), "public", "dreyv-mark-violet.png");
-const MASCOT_PATH = path.join(process.cwd(), "public", "mascot", "dryv-greet.png");
+const MASCOT_PATH = path.join(process.cwd(), "public", "mascot", "dreyv-greet.png");
 
 const styles = StyleSheet.create({
   page: { padding: 36, paddingBottom: 56, fontSize: 10, color: INK, fontFamily: "Helvetica" },
@@ -361,8 +361,8 @@ function ReportDoc(props: ReportProps) {
         <View style={styles.signature} wrap={false}>
           <Image style={styles.mascot} src={MASCOT_PATH} />
           <View style={styles.signatureText}>
-            <Text style={styles.signatureName}>Dryv</Text>
-            <Text style={styles.signatureRole}>Your Treasury Co-pilot at Dreyv</Text>
+            <Text style={styles.signatureName}>Dreyv</Text>
+            <Text style={styles.signatureRole}>Your Treasury Co-pilot</Text>
             <Text style={styles.signatureLine}>
               Generated from on-chain truth — every figure traces back to a signature on Solana.
             </Text>

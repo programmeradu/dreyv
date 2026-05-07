@@ -1,0 +1,17 @@
+{
+  "name": "dreyv-cron-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker that owns sub-daily cron heartbeats (anomaly-alerts, agent-insights, opportunities) for Dreyv. Dispatches to existing Vercel /api/cron/* routes using the shared CRON_SECRET.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250501.0",
+    "typescript": "^5.8.0",
+    "wrangler": "^3.99.0"
+  }
+}

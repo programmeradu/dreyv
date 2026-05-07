@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { rememberStudioPass } from "@/lib/media-studio/client-auth";
 import { Loader2 } from "lucide-react";
 
@@ -50,7 +50,7 @@ export default function StudioPasswordGate({ onUnlocked }: { onUnlocked?: () => 
       >
         {/* Mascot peeking from top-right */}
         <div className="pointer-events-none absolute -top-16 -right-6 z-10 hidden sm:block">
-          <DryvMascot pose="think" size={120} />
+          <DreyvMascot pose="think" size={120} />
         </div>
         <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-studio-violet">
           <DreyvStar size={14} />

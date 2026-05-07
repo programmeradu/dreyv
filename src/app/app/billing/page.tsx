@@ -22,7 +22,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
-import dryvBilling from "@/assets/mascot/dryv-celebrate.png";
+import dreyvBilling from "@/assets/mascot/dreyv-celebrate.png";
 
 type Tier = "free" | "mini" | "max";
 
@@ -178,10 +178,10 @@ export default function BillingPage() {
                 <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
 
-                {/* Dryv mascot peek — celebrate on paid, greet on free */}
+                {/* Dreyv mascot peek — celebrate on paid, greet on free */}
                 <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
                     <Image
-                        src={dryvBilling}
+                        src={dreyvBilling}
                         alt=""
                         width={140}
                         height={140}

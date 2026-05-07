@@ -11,7 +11,7 @@
  *  - Right column : animated radial composition donut with a
  *                    centered "top asset" callout and a stacked
  *                    legend that streams in.
- *  - Floating     : Dryv mascot greeting in the upper-right corner;
+ *  - Floating     : Dreyv mascot greeting in the upper-right corner;
  *                    DreyvStar accents — never dots, never sparkles.
  *
  * Pure presentational. Reads from props. Flat-only surfaces per
@@ -22,7 +22,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromDelta } from "@/components/analytics/SignalBadge";
@@ -419,7 +419,7 @@ export function SovereignHero({
       {/* Mascot — only when there's a treasury to greet */}
       {totalValue != null && totalValue > 0 && (
         <div className="pointer-events-none absolute right-3 top-3 hidden md:block">
-          <DryvMascot pose={positive ? "celebrate" : "think"} size={96} />
+          <DreyvMascot pose={positive ? "celebrate" : "think"} size={96} />
         </div>
       )}
 

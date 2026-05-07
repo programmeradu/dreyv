@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   };
 
   await run('welcome', sendWelcomeEmail(to, 'Samuel'));
-  await run('team-invite', sendTeamInviteEmail({ to, teamName: 'Aurora Treasury', inviterName: 'Dryv', role: 'admin', inviteToken: 'test-token-123' }));
+  await run('team-invite', sendTeamInviteEmail({ to, teamName: 'Aurora Treasury', inviterName: 'Dreyv', role: 'admin', inviteToken: 'test-token-123' }));
   await run('notification', sendNotificationEmail({ to, title: 'Your export is ready', message: 'The PnL export you requested has finished.', actionUrl: `${APP}/app/analytics`, actionLabel: 'Open analytics' }));
   await run('tier-expiry', sendTierExpiryEmail(to, 'mini', 7));
   await run('gas-alert', sendGasAlertEmail({ to, gasPrice: 12.4, ethPrice: 3450, costUsd: 0.86, gasUnits: 21000, thresholdUsd: 1.0 }));

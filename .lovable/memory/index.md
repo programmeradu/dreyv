@@ -12,7 +12,7 @@ Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) +
 On /app/analytics: FLAT only — no shadows, no backdrop-blur, no gradients, no ring/elevation. Cards = `rounded-3xl border border-violet-100 bg-white`. Stream numbers, chart paths, narratives, and suggestions. Cover ALL analytics (value, PnL, attribution, composition, concentration, runway, drift, foresight, DeFi, fees, benchmark, flows, anomalies, suggestions).
 Dreyv brand voice (for any AI-generated copy): calm, precise, founder-to-founder. NO emoji-spam, NO hashtags on X, NEVER "revolutionize/game-changer/synergy/disrupt/next-gen/leverage(verb)/supercharge". Pronunciation: DRAVE.
 Lovable AI (`LOVABLE_API_KEY`) is ALWAYS called via a Supabase edge function in the Lovable Cloud workspace — never directly from Vercel. Never migrate existing Groq/CF/OpenAI providers; only ADD Lovable AI as an extra provider in the loop.
-Brand mascot = **Dryv** (owl-fox sentinel, solid violet). Pose set in `src/assets/mascot/`. Use for empty states, success, alerts, marketing — never re-generate without matching existing silhouette/palette.
+Brand mascot = **Dreyv** (owl-fox sentinel, solid violet) — same name as the brand. Pose set in `src/assets/mascot/` (`dreyv-greet/think/celebrate/alert.png`). Use for empty states, success, alerts, marketing — never re-generate without matching existing silhouette/palette.
 
 ## Memories
 - [Waitlist](mem://features/waitlist) — `/waitlist` invite-only signup, AUM bands, status state machine, cohort cadence, admin pipeline.
@@ -20,5 +20,5 @@ Brand mascot = **Dryv** (owl-fox sentinel, solid violet). Pose set in `src/asset
 - [Analytics design rules](mem://design/analytics-rules) — Flat surfaces, streaming generative UI, full-coverage reporting list.
 - [Media Studio](mem://features/media-studio) — Internal team-only `/app/studio/media`; generation routes, access rules, brand voice constants, R2 persistence.
 - [Lovable AI routing](mem://constraints/lovable-ai-routing) — All Lovable AI calls go through a Supabase edge function; never migrate existing providers, only add.
-- [Dryv mascot](mem://design/mascot) — Owl-fox treasury sentinel, 4-pose set, palette + usage rules.
+- [Dreyv mascot](mem://design/mascot) — Owl-fox treasury sentinel, 4-pose set, palette + usage rules.
 - [Founding 200](mem://features/founding-200) — First 200 signups get Mini-equivalent access free; tracked on users table; live ribbon on /pricing.

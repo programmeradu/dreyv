@@ -1,7 +1,7 @@
 /**
  * POST /api/studio/media/generate-mascot
  *
- * Generates a Dryv-mascot social visual. The chosen mascot pose PNG is sent
+ * Generates a Dreyv-mascot social visual. The chosen mascot pose PNG is sent
  * to the image model as a reference so the character stays consistent
  * (deep violet owl-fox with cap + Dreyv diamond) instead of being re-imagined
  * every call. The user supplies a scene prompt; we compose around the mascot.
@@ -38,14 +38,14 @@ function aspectToSize(a: string | undefined): { w: number; h: number } {
 }
 
 function fallbackPreviewUrl(title: string | undefined, aspect: string | undefined) {
-  const label = (title || "Dryv mascot visual").slice(0, 64).replace(/[<>&]/g, "");
+  const label = (title || "Dreyv mascot visual").slice(0, 64).replace(/[<>&]/g, "");
   const { w, h } = aspectToSize(aspect);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="#ffffff"/><circle cx="${Math.round(w * 0.5)}" cy="${Math.round(h * 0.5)}" r="${Math.round(Math.min(w, h) * 0.32)}" fill="#7c3aed" opacity="0.18"/><text x="${Math.round(w * 0.5)}" y="${Math.round(h * 0.5)}" text-anchor="middle" fill="#171026" font-family="Arial, sans-serif" font-size="${Math.round(Math.min(w, h) * 0.05)}" font-weight="700">${label}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 async function loadMascotReference(pose: Pose): Promise<{ buffer: Buffer; mime: string }> {
-  const filename = `dryv-${pose}.png`;
+  const filename = `dreyv-${pose}.png`;
   // Try public/ first (works on Vercel build), fall back to src/assets in dev.
   const candidates = [
     path.join(process.cwd(), "public", "mascot", filename),
@@ -66,7 +66,7 @@ function mascotPrompt(pose: Pose, scene: string, aspect: string | undefined): st
   return [
     `You are composing a premium social-media visual for Dreyv (an agentic treasury OS for Solana-first founders).`,
     ``,
-    `MASCOT (provided as reference image): "Dryv" — a deep violet owl-fox character with a cream face/chest, dark eyes, a violet cap with the Dreyv diamond mark, a small Dreyv diamond on its chest, and a fluffy fox tail.`,
+    `MASCOT (provided as reference image): "Dreyv" — a deep violet owl-fox character with a cream face/chest, dark eyes, a violet cap with the Dreyv diamond mark, a small Dreyv diamond on its chest, and a fluffy fox tail.`,
     `Current pose: ${POSE_DESCRIPTIONS[pose]}.`,
     ``,
     `RULES — these are non-negotiable:`,
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
           userId: persistedUserId,
           kind: "post",
           channel: body.channel ?? null,
-          title: body.title ?? `Dryv (${pose})`,
+          title: body.title ?? `Dreyv (${pose})`,
           prompt: scene,
           spec: { aspect: body.aspect ?? "1:1", model: "gemini-3.1-flash-image-preview", mascotPose: pose },
           storageKey,

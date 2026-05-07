@@ -1,0 +1,32 @@
+name = "dreyv-cron-runner"
+main = "src/worker.ts"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Sub-daily heartbeats that Vercel Hobby cannot run. The Worker is the sole
+# scheduler for these three jobs — Vercel only runs the truly daily/weekly/monthly
+# ones. Each cron event routes to the matching Vercel route in src/worker.ts.
+#
+# CF Enterprise cron limits: minute granularity, no daily cap.
+# Vercel Hobby cron limit:   once per day (Pro lifts this).
+[triggers]
+crons = [
+  "*/15 * * * *",  # → /api/cron/anomaly-alerts   (every 15 min)
+  "15 * * * *",    # → /api/cron/agent-insights   (every hour at :15)
+  "30 * * * *"     # → /api/cron/opportunities    (every hour at :30)
+]
+
+[vars]
+# Public production base URL. Override per-environment in [env.*].vars if needed.
+DREYV_BASE_URL = "https://dreyv.com"
+
+# CRON_SECRET is set as a Worker secret, NOT in [vars]. Run:
+#   cd workers/cron-runner
+#   wrangler secret put CRON_SECRET
+# and paste the SAME value that's set as CRON_SECRET on Vercel. Existing routes
+# already verify `Authorization: Bearer ${CRON_SECRET}` via src/lib/cron-auth.ts,
+# so the Worker piggy-backs on that scheme — zero changes to the Vercel routes.
+
+[observability.logs]
+enabled = true
+invocation_logs = true

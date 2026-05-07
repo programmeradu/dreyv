@@ -1,16 +1,16 @@
 "use client";
 
 // Feature: commandbar-god-mode
-// EmptyState shows Dryv's first-glance read of the active treasury.
+// EmptyState shows Dreyv's first-glance read of the active treasury.
 // We pass the active vault (or signed wallet) to /api/command/starter-prompts;
 // the route fetches a thin holdings/activity slice from Helius, hands it to
 // Lovable AI, and returns { insight, prompts[5] }. The 5 chips read like
-// a to-do list ranked from what Dryv just observed (per Sid feedback).
+// a to-do list ranked from what Dreyv just observed (per Sid feedback).
 // Never fabricates numbers — empty wallet → generic seeds + "connect" hint.
 
 import React, { useEffect, useState } from "react";
 import { ArrowRight, RefreshCw } from "lucide-react";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { useWallet } from "@/lib/wallet/compat";
@@ -83,11 +83,11 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
       {/* Hero */}
       <div className="flex items-start gap-4">
         <div className="relative shrink-0">
-          <DryvMascot pose="greet" size={56} glow priority alt="Dryv mascot" />
+          <DreyvMascot pose="greet" size={56} glow priority alt="Dreyv mascot" />
         </div>
         <div className="flex flex-col gap-1 pt-1">
           <h2 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground">
-            Hello, I'm <span className="text-violet-600">Dryv</span>.
+            Hello, I'm <span className="text-violet-600">Dreyv</span>.
           </h2>
           <p className="text-sm text-muted-foreground">
             Your treasury copilot — ask me to cut costs, find safer yield, or surface hidden risks.
@@ -95,7 +95,7 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
         </div>
       </div>
 
-      {/* Insight block — Dryv's first read of the treasury */}
+      {/* Insight block — Dreyv's first read of the treasury */}
       <div className="rounded-2xl border border-violet-100 bg-violet-50/40 px-4 py-3.5">
         <div className="flex items-center gap-2 mb-1.5">
           <DreyvStar size={11} className="text-violet-600" />

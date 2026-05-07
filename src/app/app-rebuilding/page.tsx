@@ -11,7 +11,7 @@ import { motion } from "framer-motion";
 import { Urbanist } from "next/font/google";
 import { ArrowRight, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 
 const wordmark = Urbanist({
   subsets: ["latin"],
@@ -75,9 +75,9 @@ export default function AppRebuildingPage() {
                 animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                <DryvMascot
+                <DreyvMascot
                   pose="think"
-                  alt="Dryv, the Dreyv mascot, tinkering in the workshop"
+                  alt="Dreyv mascot, tinkering in the workshop"
                   size={180}
                   priority
                   glow={false}

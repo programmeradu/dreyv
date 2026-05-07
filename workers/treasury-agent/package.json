@@ -11,10 +11,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250101.0",
-    "wrangler": "^3.99.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "wrangler": "^3.99.0"
   },
   "dependencies": {
-    "@dreyv/cloudflare": "*"
+    "@dreyv/cloudflare": "file:../../packages/cloudflare-sdk"
   }
 }

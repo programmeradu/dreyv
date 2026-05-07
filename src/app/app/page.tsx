@@ -21,7 +21,7 @@ import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
-import { DryvMascot } from "@/components/brand/dryv-mascot";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault, vaultTokens } = useVault();
@@ -268,7 +268,7 @@ function AnalyticsMascot() {
 
       {/* Mascot anchored bottom-right beside the chart */}
       <div className="absolute bottom-3 right-3 opacity-95 transition duration-300 group-hover:scale-105 group-hover:-translate-y-0.5">
-        <DryvMascot pose="celebrate" size={48} glow={false} />
+        <DreyvMascot pose="celebrate" size={48} glow={false} />
       </div>
     </div>
   );

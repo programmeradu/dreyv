@@ -6,7 +6,7 @@ const APP = process.env.NEXT_PUBLIC_APP_URL || 'https://dreyv.com';
 
 const tasks: [string, () => Promise<any>][] = [
   ['welcome', () => svc.sendWelcomeEmail(TO, 'Samuel')],
-  ['team-invite', () => svc.sendTeamInviteEmail({ to: TO, teamName: 'Aurora Treasury', inviterName: 'Dryv', role: 'admin', inviteToken: 'test-token-123' })],
+  ['team-invite', () => svc.sendTeamInviteEmail({ to: TO, teamName: 'Aurora Treasury', inviterName: 'Dreyv', role: 'admin', inviteToken: 'test-token-123' })],
   ['notification', () => svc.sendNotificationEmail({ to: TO, title: 'Your export is ready', message: 'The PnL export you requested has finished.', actionUrl: `${APP}/app/analytics`, actionLabel: 'Open analytics' })],
   ['tier-expiry', () => svc.sendTierExpiryEmail(TO, 'mini', 7)],
   ['gas-alert', () => svc.sendGasAlertEmail({ to: TO, gasPrice: 12.4, ethPrice: 3450, costUsd: 0.86, gasUnits: 21000, thresholdUsd: 1.0 })],
