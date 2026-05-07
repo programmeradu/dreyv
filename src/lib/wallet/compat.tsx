@@ -22,7 +22,8 @@ import {
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
 
-const DEFAULT_PHANTOM_APP_ID = "7eeb0207-f5c1-4841-a6a9-1a0501438d1a";
+// No hardcoded fallback — appId must come from env (NEXT_PUBLIC_PHANTOM_APP_ID).
+// If missing, we degrade to injected-only so the SDK doesn't crash.
 
 // --------------------------------------------------------------------------
 // Provider
