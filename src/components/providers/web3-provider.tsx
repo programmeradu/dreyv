@@ -50,35 +50,26 @@ const rkTheme = lightTheme({
 export function Web3Providers({ children }: { children: ReactNode }) {
   const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
 
-  let appTree: ReactNode;
-  if (projectId) {
-    appTree = (
-      <RainbowKitProvider theme={rkTheme} modalSize="compact">
-        {apiKey ? (
-          <OnchainKitProvider apiKey={apiKey} chain={base}>
-            <VaultProvider>{children}</VaultProvider>
-          </OnchainKitProvider>
-        ) : (
-          <VaultProvider>{children}</VaultProvider>
-        )}
-      </RainbowKitProvider>
-    );
-  } else if (apiKey) {
-    appTree = (
-      <OnchainKitProvider apiKey={apiKey} chain={base}>
-        <VaultProvider>{children}</VaultProvider>
-      </OnchainKitProvider>
-    );
-  } else {
-    appTree = <VaultProvider>{children}</VaultProvider>;
-  }
+  // RainbowKit's ConnectButton / transaction hooks require RainbowKitProvider on
+  // every route — not only when WalletConnect projectId is set (local dev often omits it).
+  const inner: ReactNode = apiKey ? (
+    <OnchainKitProvider apiKey={apiKey} chain={base}>
+      <VaultProvider>{children}</VaultProvider>
+    </OnchainKitProvider>
+  ) : (
+    <VaultProvider>{children}</VaultProvider>
+  );
 
   return (
     <NetworkProvider>
       <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
         <PhantomCompatProvider appName="Dreyv">
           <WagmiProvider config={rainbowConfig}>
-            <QueryClientProvider client={queryClient}>{appTree}</QueryClientProvider>
+            <QueryClientProvider client={queryClient}>
+              <RainbowKitProvider theme={rkTheme} modalSize="compact">
+                {inner}
+              </RainbowKitProvider>
+            </QueryClientProvider>
           </WagmiProvider>
         </PhantomCompatProvider>
       </LiveblocksProvider>
