@@ -20,7 +20,6 @@ import {
     Siren,
     Radio,
     Cpu,
-    Sparkles,
     UserPlus,
     Activity,
     Loader2,

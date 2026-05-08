@@ -11,7 +11,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Compass, Sparkles, ShieldCheck, Shield, ShieldAlert, ArrowRight, RefreshCw } from "lucide-react";
+import { Compass, ShieldCheck, Shield, ShieldAlert, ArrowRight, RefreshCw } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useAgentContext, type AgentProposal } from "@/lib/contexts/AgentContext";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { AmbientGlow } from "@/components/app-shell/primitives";
@@ -224,7 +225,7 @@ export default function OpportunitiesPage() {
 
                 {!activeVault && (
                     <div className="mt-8 rounded-2xl border border-violet-100 bg-violet-50/40 p-5 text-sm text-slate-600">
-                        <Sparkles className="mr-1 inline h-4 w-4 text-violet-500" />
+                        <DreyvStar size={16} className="mr-1 inline text-violet-500" />
                         Connect a wallet from the <Link href="/app/treasury" className="font-semibold text-violet-700 underline-offset-4 hover:underline">treasury</Link> to unlock personalized opportunities.
                     </div>
                 )}

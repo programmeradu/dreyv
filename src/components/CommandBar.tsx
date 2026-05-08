@@ -6,7 +6,7 @@
 // Requirements: 1.1–1.8, 2.6, 3.1, 3.6, 3.7, 13.1, 13.4, 16.1–16.4, 17.1–17.3
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Sparkles } from "@/components/icons";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IntentRegistry } from "@/lib/agents/registry";
@@ -965,7 +965,7 @@ export function CommandBar() {
             aria-label="Open command bar (⌘K)"
             className="flex items-center gap-3 pl-4 pr-3 py-3 rounded-full bg-background/80 backdrop-blur-xl border border-border shadow-2xl hover:border-primary/50 hover:shadow-[0_0_20px_var(--dashboard-accent-muted)] transition-all group"
           >
-            <Sparkles size={16} className="text-primary" />
+            <DreyvStar size={16} className="text-primary" />
             <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors mr-2">
               Ask dreyv...
               {IntentRegistry.getActive().length > 0 && (
@@ -1085,7 +1085,7 @@ export function CommandBar() {
                   messages.length === 0 ? "border-t-0" : ""
                 }`}
               >
-                <Sparkles
+                <DreyvStar
                   size={18}
                   className={`text-primary mr-3 shrink-0 ${agentBusy ? "animate-spin" : ""}`}
                 />

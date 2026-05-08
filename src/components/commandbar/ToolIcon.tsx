@@ -23,7 +23,6 @@ import {
   Search,
   FileCode2,
   MessageSquareText,
-  Sparkles,
   Microscope,
   Store,
   Plug,
@@ -35,6 +34,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 
 type Mascot = "think" | "alert" | "celebrate" | "greet";
 
@@ -68,7 +68,7 @@ const TOOL_ICONS: Record<string, ToolIconMeta> = {
   browser_research: { glyph: Search, mascot: "think" },
   idl_extraction: { glyph: FileCode2, mascot: "think" },
   sentiment_analysis: { glyph: MessageSquareText, mascot: "think" },
-  studio_init_miniapp: { glyph: Sparkles, mascot: "celebrate" },
+  studio_init_miniapp: { glyph: Wrench, mascot: "celebrate" },
   studio_analyze_code: { glyph: Microscope, mascot: "think" },
   security_firewall: { glyph: ShieldCheck, mascot: "alert" },
   marketplace_publish: { glyph: Store, mascot: "celebrate" },
@@ -111,7 +111,11 @@ export function ToolIcon({ toolName, size = "sm", className = "" }: Props) {
         unoptimized
       />
       <span className={`absolute -bottom-0.5 -right-0.5 inline-flex ${dims.badge} items-center justify-center rounded-full bg-violet-600 text-white ring-2 ring-white`}>
-        <Glyph className={dims.icon} strokeWidth={2.5} />
+        {toolName === "studio_init_miniapp" ? (
+          <DreyvStar size={size === "md" ? 10 : 8} className={dims.icon} />
+        ) : (
+          <Glyph className={dims.icon} strokeWidth={2.5} />
+        )}
       </span>
     </span>
   );
