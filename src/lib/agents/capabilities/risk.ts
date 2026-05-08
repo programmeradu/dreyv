@@ -236,10 +236,21 @@ const stablecoin_diversification = defineCapability({
       plan,
       legs: builtLegs.map(l => ({ from: l.from, to: l.to, usd: l.usd, inAmount: l.inAmount, outAmount: l.outAmount })),
       serializedTransactions: builtLegs.map(l => l.serializedTransaction),
+      // Multi-leg stable diversification must be atomic — partial execution
+      // leaves the portfolio further from the target than where it started.
+      bundleStrategy: builtLegs.length > 1 ? "atomic" : "sequential",
+      bundleReason:
+        builtLegs.length > 1
+          ? "Stablecoin diversification is atomic — all legs land or none do."
+          : undefined,
       errors,
       requiresApproval: true,
       message: builtLegs.length > 0
-        ? `Built ${builtLegs.length} Jupiter swap leg(s)${errors.length ? ` (${errors.length} failed)` : ""}. Sign each tx to converge on the ${riskAppetite} target.`
+        ? `Built ${builtLegs.length} Jupiter swap leg(s)${errors.length ? ` (${errors.length} failed)` : ""}. ${
+            builtLegs.length > 1
+              ? `One wallet popup signs all ${builtLegs.length} txs as an atomic bundle.`
+              : `Sign the tx to converge on the ${riskAppetite} target.`
+          }`
         : `Failed to build any swap leg. Errors: ${errors.map(e => e.error).join("; ")}`,
     };
   },

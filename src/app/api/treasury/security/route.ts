@@ -1,8 +1,12 @@
 /**
  * /api/treasury/security — wallet & asset security audit per vault.
  *
- *   GET    ?wallet=…   latest audit (single)
- *   POST   { wallet }  run a fresh audit (signers, threshold, hygiene findings)
+ *   GET    ?wallet=…              latest audit (single)
+ *   GET    ?wallet=…&public=1     slimmed audit + soft IP rate limit; runs an
+ *                                 on-demand audit when no row exists so the
+ *                                 marketing /v/[address] preview always has
+ *                                 something to render.
+ *   POST   { wallet }             run a fresh audit (signers, threshold, findings)
  *   DELETE ?wallet=…
  */
 import { NextResponse } from "next/server";
@@ -10,19 +14,84 @@ import { db } from "@/db";
 import { treasurySecurityAudits, vaults } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveUserIdFromWallet } from "@/lib/agents/brains/storage";
+import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
-  const wallet = new URL(req.url).searchParams.get("wallet");
+  const url = new URL(req.url);
+  const wallet = url.searchParams.get("wallet");
+  const isPublic = url.searchParams.get("public") === "1";
   if (!wallet) return NextResponse.json({ ok: true, audit: null });
+
+  if (isPublic) {
+    const limited = publicRateLimitOrResponse(req, {
+      bucket: "treasury-security",
+      max: 30,
+      windowMs: 60_000,
+    });
+    if (limited) return limited;
+  }
+
+  if (!db) {
+    if (isPublic) {
+      // No DB available — synthesize a minimal hygiene snapshot so the public
+      // preview still renders. Covers cold-start preview deploys.
+      const audit = await runAudit(wallet);
+      return NextResponse.json({ ok: true, audit: slimAudit(audit, wallet) });
+    }
+    return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
+  }
+
   const [row] = await db.select().from(treasurySecurityAudits)
     .where(eq(treasurySecurityAudits.vaultAddress, wallet))
     .orderBy(desc(treasurySecurityAudits.createdAt))
     .limit(1);
+
+  if (isPublic) {
+    if (row) {
+      return NextResponse.json({ ok: true, audit: slimAudit(row, wallet) });
+    }
+    // No prior audit — run one on the fly (no DB write) so visitors always
+    // see useful findings on /v/[address].
+    const fresh = await runAudit(wallet);
+    return NextResponse.json({ ok: true, audit: slimAudit(fresh, wallet) });
+  }
+
   return NextResponse.json({ ok: true, audit: row ?? null });
+}
+
+/**
+ * Slim a security audit for public consumption: strip rich PII fields and
+ * cap finding count. Accepts both the in-memory shape returned by runAudit
+ * and the persisted row shape from treasurySecurityAudits.
+ */
+function slimAudit(
+  audit: any,
+  wallet: string,
+): {
+  score: number;
+  findings: Finding[];
+  isMultisig: boolean;
+  threshold: number | null;
+  signers: { address: string; label?: string }[];
+  vaultAddress: string;
+} {
+  const findings: Finding[] = Array.isArray(audit?.findings)
+    ? (audit.findings as Finding[]).slice(0, 6)
+    : [];
+  const signers: { address: string; label?: string }[] = Array.isArray(audit?.signers)
+    ? (audit.signers as { address: string; label?: string }[]).slice(0, 6)
+    : [];
+  return {
+    score: Number(audit?.score ?? 0),
+    findings,
+    isMultisig: Boolean(audit?.isMultisig),
+    threshold: audit?.threshold ?? null,
+    signers,
+    vaultAddress: wallet,
+  };
 }
 
 interface Finding { severity: "info" | "warn" | "high"; code: string; message: string; }

@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
-import { useWallet } from "@/lib/wallet/compat";
+import { useWallet, useConnection } from "@/lib/wallet/compat";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { Buffer } from "buffer";
 import { Card } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useTransactionExecutor } from "@/lib/hooks/useTransactionExecutor";
 import { pollConfirmation } from "@/lib/solana/poll-confirmation";
+import { buildJitoTipTx, pollJitoBundleStatus } from "@/lib/solana/jito-bundle";
 import { Connection } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
@@ -118,6 +119,7 @@ const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as c
 
 export default function InboxPage() {
   const { publicKey, signAllTransactions, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const wallet = publicKey?.toBase58() ?? null;
   const executor = useTransactionExecutor();
 
@@ -347,6 +349,7 @@ export default function InboxPage() {
           extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
           operation: string;
           buildErrors: string[];
+          bundleStrategy?: "sequential" | "atomic";
         } | null;
       };
 
@@ -358,6 +361,7 @@ export default function InboxPage() {
       }
 
       const env = json.signingEnvelope;
+      const bundleStrategy = env?.bundleStrategy ?? "sequential";
       if (!env || env.serializedTransactions.length === 0) {
         setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
         if (env?.buildErrors?.length) {
@@ -383,6 +387,8 @@ export default function InboxPage() {
       const needsEphemeral = (env.extraSigners ?? []).some((s) => s && s.length > 0);
       const Keypair = needsEphemeral ? (await import("@solana/web3.js")).Keypair : null;
 
+      const latest = await connection.getLatestBlockhash("confirmed");
+
       const deserialized = env.serializedTransactions.map((b64, i) => {
         const buf = Buffer.from(b64, "base64");
         let tx: VersionedTransaction | Transaction;
@@ -391,9 +397,12 @@ export default function InboxPage() {
         } catch {
           tx = Transaction.from(buf);
         }
-        // Apply this tx's ephemeral signers (e.g. Squads createKey) before
-        // handing to the wallet — otherwise the wallet will refuse to sign
-        // because the partial signature slot is empty.
+        if (tx instanceof VersionedTransaction) {
+          tx.message.recentBlockhash = latest.blockhash;
+        } else {
+          tx.recentBlockhash = latest.blockhash;
+          tx.lastValidBlockHeight = latest.lastValidBlockHeight;
+        }
         const stepSigners = (env.extraSigners ?? [])[i] ?? [];
         if (stepSigners.length > 0 && Keypair) {
           const kps = stepSigners.map((s) =>
@@ -408,11 +417,51 @@ export default function InboxPage() {
         return tx;
       });
 
-      let signed: (VersionedTransaction | Transaction)[] = [];
-      if (signAllTransactions && deserialized.length > 1) {
-        signed = await signAllTransactions(deserialized as VersionedTransaction[]);
+      let useAtomic =
+        bundleStrategy === "atomic" &&
+        deserialized.length > 1 &&
+        deserialized.every((t) => t instanceof VersionedTransaction) &&
+        Boolean(publicKey);
+
+      let toSign: (VersionedTransaction | Transaction)[] = [...deserialized];
+
+      if (useAtomic && publicKey) {
+        if (deserialized.length + 1 > 5) {
+          useAtomic = false;
+          toast.message("Atomic bundle skipped", {
+            description: "Too many transactions for a Jito bundle. Sending sequentially.",
+          });
+        } else {
+          try {
+            const tipBuild = await buildJitoTipTx({
+              connection,
+              payer: publicKey,
+              blockhash: latest.blockhash,
+            });
+            toSign = [...deserialized, tipBuild.tx];
+          } catch (tipErr) {
+            console.warn("[inbox] jito tip failed, sequential", tipErr);
+            useAtomic = false;
+            toSign = deserialized;
+          }
+        }
+      } else if (bundleStrategy === "atomic") {
+        if (deserialized.length <= 1) {
+          useAtomic = false;
+        } else if (!deserialized.every((t) => t instanceof VersionedTransaction)) {
+          toast.message("Atomic bundle skipped", {
+            description: "Legacy transaction format — sending sequentially.",
+          });
+          useAtomic = false;
+        }
+      }
+
+      let signed: (VersionedTransaction | Transaction)[];
+      if (signAllTransactions && toSign.length > 1) {
+        signed = await signAllTransactions(toSign as VersionedTransaction[]);
       } else {
-        for (const tx of deserialized) {
+        signed = [];
+        for (const tx of toSign) {
           const s = await (signTransaction as (
             tx: VersionedTransaction | Transaction,
           ) => Promise<VersionedTransaction | Transaction>)(tx);
@@ -420,17 +469,57 @@ export default function InboxPage() {
         }
       }
 
-      const rpc =
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-      const conn = new Connection(rpc, "confirmed");
       const sigs: string[] = [];
-      for (const tx of signed) {
-        const raw = tx.serialize();
-        const sig = await conn.sendRawTransaction(raw, {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
+      if (useAtomic) {
+        const base64Txs = signed.map((tx) => Buffer.from(tx.serialize()).toString("base64"));
+        const bundleRes = await fetch("/api/solana/jito-bundle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transactions: base64Txs }),
         });
-        sigs.push(sig);
+        const bundleJson = await bundleRes.json().catch(() => ({}));
+        if (!bundleRes.ok || bundleJson?.error) {
+          throw new Error(`Atomic bundle rejected: ${bundleJson?.error ?? bundleRes.statusText}`);
+        }
+        const bundleId = bundleJson?.bundleId as string | undefined;
+        for (const tx of signed) {
+          try {
+            const sigBytes = (tx as VersionedTransaction).signatures?.[0];
+            if (sigBytes && sigBytes.length > 0) {
+              const bs58 = await import("bs58");
+              sigs.push(bs58.default.encode(sigBytes));
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+        if (bundleId) {
+          const status = await pollJitoBundleStatus(bundleId, { timeoutMs: 30_000 });
+          if (status.state === "failed") {
+            throw new Error(`Atomic bundle failed: ${status.error ?? "unknown"}`);
+          }
+          if (status.state === "unknown") {
+            toast.message("Bundle submitted, status pending", {
+              description: `Bundle ${bundleId.slice(0, 10)}… is still landing.`,
+            });
+          }
+        }
+      } else {
+        for (const tx of signed) {
+          const raw = tx.serialize();
+          const sig = await connection.sendRawTransaction(raw, {
+            skipPreflight: false,
+            preflightCommitment: "confirmed",
+          });
+          const confirmation = await connection.confirmTransaction(
+            { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+            "confirmed",
+          );
+          if (confirmation.value.err) {
+            throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+          }
+          sigs.push(sig);
+        }
       }
 
       // Settle the approval row to executed with the resulting signature.

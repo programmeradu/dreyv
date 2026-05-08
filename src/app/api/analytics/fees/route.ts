@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
 
 /**
  * /api/analytics/fees — Extract fee and cost data from transaction history
  *
  * GET ?address=<vault>&months=6
+ * GET ?address=<vault>&public=1   slimmed payload, soft IP rate limit (30/min)
  */
 
 export const dynamic = "force-dynamic";
@@ -16,9 +18,19 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const address = searchParams.get("address");
         const months = Math.min(12, Math.max(1, parseInt(searchParams.get("months") || "6")));
+        const isPublic = searchParams.get("public") === "1";
 
         if (!address || address.length < 20) {
             return NextResponse.json({ error: "Valid address required" }, { status: 400 });
+        }
+
+        if (isPublic) {
+            const limited = publicRateLimitOrResponse(req, {
+                bucket: "analytics-fees",
+                max: 30,
+                windowMs: 60_000,
+            });
+            if (limited) return limited;
         }
 
         const cacheKey = `fees:${address}:${months}`;
@@ -146,7 +158,7 @@ export async function GET(req: NextRequest) {
             feeEntries[0] || { feeUsd: 0, signature: "", type: "" }
         );
 
-        const result = {
+        const fullResult = {
             address,
             months,
             transactionCount: feeEntries.length,
@@ -167,7 +179,24 @@ export async function GET(req: NextRequest) {
             computedAt: Date.now(),
         };
 
-        cache.set(cacheKey, { data: result, ts: Date.now() });
+        cache.set(cacheKey, { data: fullResult, ts: Date.now() });
+
+        // Public mode: strip the per-tx highest-fee signature (PII-ish for
+        // chain detectives) and limit byType / daily series length so the
+        // payload stays small for marketing-page SSR.
+        const result = isPublic
+            ? {
+                  address,
+                  months,
+                  transactionCount: fullResult.transactionCount,
+                  totalFeeSol: fullResult.totalFeeSol,
+                  totalFeeUsd: fullResult.totalFeeUsd,
+                  avgFeePerTx: fullResult.avgFeePerTx,
+                  byType: fullResult.byType.slice(0, 8),
+                  daily: fullResult.daily.slice(-30),
+                  computedAt: fullResult.computedAt,
+              }
+            : fullResult;
 
         return NextResponse.json(result, {
             headers: { "Cache-Control": "public, max-age=300" },

@@ -60,15 +60,42 @@ interface ExtraSigner {
   secretKeyBase64: string;
 }
 
+/**
+ * How the wallet should land a multi-tx envelope:
+ *   - "sequential": signAllTransactions, then send each tx via the regular RPC
+ *     loop. Default for swaps and simple multi-step plans. One popup; N
+ *     independent on-chain landings.
+ *   - "atomic": signAllTransactions, then submit the whole batch via Jito
+ *     bundle so all txs land in the same slot or none of them do. Reserved
+ *     for high-risk multi-leg flows (rebalance, mass payout, stablecoin
+ *     diversification) where partial execution is unacceptable.
+ */
+export type BundleStrategy = "sequential" | "atomic";
+
 interface SigningEnvelope {
   serializedTransactions: string[];
   /** Per-tx ephemeral signers (e.g. Squads createKey). Index-aligned with serializedTransactions. */
   extraSigners: ExtraSigner[][];
   operation: string;
   capabilityIds: string[];
+  bundleStrategy: BundleStrategy;
+  /** Capability ids that opted into atomic bundling (for diagnostics + UI tooltips). */
+  atomicCapabilityIds: string[];
   builtAt: number;
   buildErrors: string[];
 }
+
+/**
+ * Capability ids whose multi-tx output should be Jito-bundled by default.
+ * Capabilities can also opt in dynamically by returning bundleStrategy:
+ * "atomic" on the execute() result; this list covers the legacy outputs
+ * that don't yet emit that field.
+ */
+const ATOMIC_BUNDLE_CAPABILITY_IDS = new Set<string>([
+  "rebalance",
+  "mass_dispatch",
+  "stablecoin_diversification",
+]);
 
 /**
  * Walk the queued plan, run each capability with the user's wallet on
@@ -101,8 +128,10 @@ async function buildSigningEnvelope(
   const serialized: string[] = [];
   const extraSigners: ExtraSigner[][] = [];
   const capabilityIds: string[] = [];
+  const atomicCapabilityIds: string[] = [];
   const buildErrors: string[] = [];
   let operation = "Approved plan";
+  let bundleStrategy: BundleStrategy = "sequential";
 
   for (const planStep of plan.steps ?? []) {
     const cap = registry.get(planStep.capabilityId);
@@ -117,9 +146,12 @@ async function buildSigningEnvelope(
       const parsed = cap.inputSchema.parse(planStep.input);
       const out = (await cap.execute(parsed, ctx)) as Record<string, unknown> | undefined;
       capabilityIds.push(cap.id);
+      let stepWantsAtomic = ATOMIC_BUNDLE_CAPABILITY_IDS.has(cap.id);
       if (out && typeof out === "object") {
         const txs = (out as { serializedTransactions?: unknown }).serializedTransactions;
         const sigs = (out as { extraSigners?: unknown }).extraSigners;
+        const stepStrategy = (out as { bundleStrategy?: unknown }).bundleStrategy;
+        if (stepStrategy === "atomic") stepWantsAtomic = true;
         const stepSigners: ExtraSigner[] = Array.isArray(sigs)
           ? (sigs as any[]).filter(
               (s) =>
@@ -140,9 +172,23 @@ async function buildSigningEnvelope(
         const op = (out as { operation?: unknown }).operation;
         if (typeof op === "string" && op.length > 0) operation = op;
       }
+      if (stepWantsAtomic) {
+        atomicCapabilityIds.push(cap.id);
+        bundleStrategy = "atomic";
+      }
     } catch (err: any) {
       buildErrors.push(`${cap.id}: ${err?.message ?? String(err)}`);
     }
+  }
+
+  // Jito bundles cap at 5 transactions. If a capability requested atomic but
+  // the resulting envelope has more than 5 txs, we fall back to sequential
+  // and surface a build error so the UI can warn the user.
+  if (bundleStrategy === "atomic" && serialized.length > 5) {
+    buildErrors.push(
+      `bundle_too_large_for_atomic: ${serialized.length} txs > 5 (Jito limit). Falling back to sequential.`,
+    );
+    bundleStrategy = "sequential";
   }
 
   return {
@@ -150,6 +196,8 @@ async function buildSigningEnvelope(
     extraSigners,
     operation,
     capabilityIds,
+    bundleStrategy,
+    atomicCapabilityIds,
     builtAt: Date.now(),
     buildErrors,
   };

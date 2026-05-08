@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { vaultProposals, teams, teamMembers } from '@/db/schema';
+import { vaultProposals, teams, teamMembers, teamActivityLog, users } from '@/db/schema';
 import { SquadsClient } from '@/lib/squads';
 import { Connection } from '@solana/web3.js';
 import { getAuthUser } from '@/lib/auth-utils';
-import { and, asc, desc, eq, sql as sqlOp } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql as sqlOp } from 'drizzle-orm';
 
 /**
  * Squads proposal mirror sync.
@@ -65,7 +65,68 @@ export async function POST(req: NextRequest) {
     const client = new SquadsClient(connection, null);
     const liveProposals: any[] = await client.getProposals(vaultAddress);
 
+    // Fetch existing rows up-front so we can detect first-time observations
+    // (and emit team_activity_log rows for those) without extra round-trips.
+    const liveTxIndexes = liveProposals
+      .map((p) => Number(p.transactionIndex ?? p.index ?? p.id ?? 0))
+      .filter((n) => Number.isFinite(n));
+    const existingRows = liveTxIndexes.length
+      ? await db
+          .select({
+            transactionIndex: vaultProposals.transactionIndex,
+            createdBy: vaultProposals.createdBy,
+            status: vaultProposals.status,
+          })
+          .from(vaultProposals)
+          .where(
+            and(
+              eq(vaultProposals.vaultAddress, vaultAddress),
+              inArray(vaultProposals.transactionIndex, liveTxIndexes),
+            ),
+          )
+      : [];
+    const existingByIndex = new Map<number, { createdBy: string | null; status: string }>();
+    for (const r of existingRows) {
+      existingByIndex.set(r.transactionIndex, {
+        createdBy: (r.createdBy as string | null) ?? null,
+        status: r.status,
+      });
+    }
+
     let upserted = 0;
+    const activityRows: Array<{
+      teamId: string | null;
+      userId: string | null;
+      walletAddress: string | null;
+      vaultAddress: string;
+      action: string;
+      targetType: string;
+      targetId: string;
+      description: string;
+      details: any;
+    }> = [];
+
+    // Resolve proposer wallets → userIds in one pass so the activity log can
+    // attribute to a Dreyv user when one exists. Skip the lookup for indexes
+    // we've already logged, since we only emit `proposal_created` for new rows.
+    const proposerWallets = Array.from(
+      new Set(
+        liveProposals
+          .map((p) => (p?.proposer ? String(p.proposer) : null))
+          .filter((w): w is string => Boolean(w)),
+      ),
+    );
+    const walletToUserId = new Map<string, string>();
+    if (proposerWallets.length) {
+      const userRows = await db
+        .select({ id: users.id, walletAddress: users.walletAddress })
+        .from(users)
+        .where(inArray(users.walletAddress, proposerWallets));
+      for (const u of userRows) {
+        if (u.walletAddress) walletToUserId.set(u.walletAddress, u.id);
+      }
+    }
+
     for (const p of liveProposals) {
       const txIndex = Number(p.transactionIndex ?? p.index ?? p.id ?? 0);
       if (!Number.isFinite(txIndex)) continue;
@@ -76,6 +137,7 @@ export async function POST(req: NextRequest) {
       const approvals = Number(p.approvals ?? approvedBy.length ?? 0);
       const rejections = Number(p.rejections ?? rejectedBy.length ?? 0);
       const threshold = Number(p.threshold ?? 1);
+      const proposer: string | null = p.proposer ?? null;
 
       await db
         .insert(vaultProposals)
@@ -91,7 +153,7 @@ export async function POST(req: NextRequest) {
           rejectedBy,
           summary: p.summary ?? null,
           raw: p,
-          createdBy: p.proposer ?? null,
+          createdBy: proposer,
           executedAt: status === 'Executed' ? new Date() : null,
         })
         .onConflictDoUpdate({
@@ -104,14 +166,43 @@ export async function POST(req: NextRequest) {
             approvedBy,
             rejectedBy,
             raw: p,
+            // Only stamp createdBy if the existing row is missing one — never
+            // overwrite a populated initiator with null on a later sync that
+            // failed to decode the transaction account.
+            ...(proposer
+              ? { createdBy: sqlOp`COALESCE(${vaultProposals.createdBy}, ${proposer})` }
+              : {}),
             updatedAt: new Date(),
             ...(status === 'Executed' ? { executedAt: new Date() } : {}),
           },
         });
       upserted++;
+
+      const existing = existingByIndex.get(txIndex);
+      if (!existing) {
+        activityRows.push({
+          teamId: auth.teamId,
+          userId: proposer ? walletToUserId.get(proposer) ?? null : null,
+          walletAddress: proposer,
+          vaultAddress,
+          action: 'proposal_created',
+          targetType: 'proposal',
+          targetId: String(txIndex),
+          description: `Proposal #${txIndex} created${proposer ? ` by ${proposer.slice(0, 4)}…${proposer.slice(-4)}` : ''}`,
+          details: { proposalIndex: txIndex, status, threshold, txKind: p.txKind ?? null },
+        });
+      }
     }
 
-    return NextResponse.json({ ok: true, upserted });
+    if (activityRows.length) {
+      try {
+        await db.insert(teamActivityLog).values(activityRows);
+      } catch (logErr) {
+        console.warn('[squads sync] activity log insert failed', logErr);
+      }
+    }
+
+    return NextResponse.json({ ok: true, upserted, newProposals: activityRows.length });
   } catch (e: any) {
     console.error('[squads sync] failed', e);
     return NextResponse.json({ error: e?.message || 'sync_failed' }, { status: 502 });

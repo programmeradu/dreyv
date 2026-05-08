@@ -438,6 +438,14 @@ const mass_dispatch = defineCapability({
         recipients,
         transactionCount: transactions.length,
         serializedTransactions: transactions,
+        // Mass payouts must be atomic — partial dispatch confuses payroll
+        // accounting and forces manual reconciliation. Jito caps at 5 txs;
+        // the envelope builder downgrades to sequential beyond that.
+        bundleStrategy: transactions.length > 1 ? "atomic" : "sequential",
+        bundleReason:
+          transactions.length > 1
+            ? "Mass dispatch is atomic — all recipients pay or none do."
+            : undefined,
         status: "READY_FOR_SIGNATURE",
         requiresApproval: true,
         estimatedValueUsd: await estimateUsdValue(token, total),

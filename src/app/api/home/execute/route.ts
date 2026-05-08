@@ -403,12 +403,23 @@ async function execute(origin: string, tool_id: string, p: any) {
         portfolioUsd = Number(ctx.value) || 0;
         portfolioLabel = `$${portfolioUsd.toLocaleString()} AUM`;
       } else if (ctx.mode === "wallet") {
+        const addr = String(ctx.value);
         return {
           result_type: "info",
-          title: "Wallet rebalance needs sign-in",
-          summary: `For privacy, I read on-chain balances of ${String(ctx.value).slice(0, 4)}…${String(ctx.value).slice(-4)} only after you sign in.`,
-          primary_action: { label: "Sign in to load wallet", requires_auth: true, intent: "execute_rebalance" },
-          meta: { source: "Privacy gate · sign-in required for live wallet read" },
+          title: "Vault preview ready",
+          summary: `Pulled on-chain holdings, fees, yield opportunities, and security findings for ${addr.slice(0, 4)}…${addr.slice(-4)}. Connect the wallet to act on them.`,
+          primary_action: {
+            label: "Open vault preview",
+            requires_auth: false,
+            intent: "open_vault_preview",
+            url: `/v/${encodeURIComponent(addr)}`,
+          },
+          secondary_action: {
+            label: "Sign in to auto-execute",
+            requires_auth: true,
+            intent: "execute_rebalance",
+          },
+          meta: { source: "Read-only preview · no signature required" },
         };
       } else if (ctx.mode === "demo") {
         portfolioUsd = Number(ctx.value) || 100_000;

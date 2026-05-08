@@ -304,6 +304,84 @@ export function useTransactionExecutor() {
     }
   }, [wallet, connection]);
 
+  /**
+   * Execute MULTIPLE raw serialized transactions with a SINGLE wallet popup.
+   *
+   * Uses `signAllTransactions` when the adapter supports it (Phantom,
+   * Backpack, Solflare, Squads…). Falls back to looping `signTransaction`
+   * on adapters that only expose the single-tx path. The signed txs are
+   * then submitted sequentially over RPC — the user only confirms once.
+   *
+   * Use this for any pipeline that emits N >= 2 serialized txs and wants
+   * Sid's "one click, four steps done" UX. For atomic Jito bundling, the
+   * caller should pass the resulting signed txs to the bundle endpoint
+   * instead of calling this helper.
+   */
+  const executeRawTransactions = useCallback(async (
+    serializedTxs: string[],
+    onProgress?: (index: number, status: StepStatus, signature?: string) => void,
+  ): Promise<ExecutionResult[]> => {
+    if (!wallet.connected || !wallet.signTransaction || !wallet.publicKey) {
+      return serializedTxs.map(() => ({ success: false, error: "Wallet not connected" }));
+    }
+    if (serializedTxs.length === 0) return [];
+
+    try {
+      const deserialized = serializedTxs.map((s) =>
+        VersionedTransaction.deserialize(Buffer.from(s, "base64")),
+      );
+
+      let signed: VersionedTransaction[];
+      if (deserialized.length > 1 && wallet.signAllTransactions) {
+        signed = (await wallet.signAllTransactions(deserialized)) as VersionedTransaction[];
+      } else {
+        signed = [];
+        for (const tx of deserialized) {
+          signed.push(
+            (await wallet.signTransaction(tx as any)) as VersionedTransaction,
+          );
+        }
+      }
+
+      const results: ExecutionResult[] = [];
+      for (let i = 0; i < signed.length; i++) {
+        onProgress?.(i, "executing");
+        try {
+          const sig = await connection.sendRawTransaction(signed[i].serialize(), {
+            skipPreflight: false,
+            maxRetries: 2,
+          });
+          const confirmation = await connection.confirmTransaction(sig, "confirmed");
+          if (confirmation.value.err) {
+            throw new Error(`Tx ${i + 1} failed: ${JSON.stringify(confirmation.value.err)}`);
+          }
+          results.push({ success: true, signature: sig });
+          onProgress?.(i, "done", sig);
+        } catch (err: any) {
+          results.push({ success: false, error: err?.message ?? String(err) });
+          onProgress?.(i, "error");
+          // Sequential: don't keep submitting after a failure.
+          for (let j = i + 1; j < signed.length; j++) {
+            results.push({ success: false, error: "Skipped — previous tx failed" });
+            onProgress?.(j, "skipped");
+          }
+          break;
+        }
+      }
+
+      const allOk = results.every((r) => r.success);
+      if (allOk && results.length > 1) {
+        toast.success("Transactions confirmed", {
+          description: `${results.length} txs landed in one signing session.`,
+        });
+      }
+      return results;
+    } catch (err: any) {
+      // signAllTransactions throws on user reject — surface a single error per tx.
+      return serializedTxs.map(() => ({ success: false, error: err?.message ?? String(err) }));
+    }
+  }, [wallet, connection]);
+
 
   /**
    * Execute a full multi-action plan sequentially.
@@ -358,6 +436,36 @@ export function useTransactionExecutor() {
             }
             break;
 
+          case "serialized_batch":
+          case "sign_raw_batch": {
+            const raw =
+              action.parameters.serializedTransactions ??
+              action.parameters.transactions;
+            const txs = Array.isArray(raw)
+              ? raw.filter((t: unknown) => typeof t === "string")
+              : [];
+            if (txs.length === 0) {
+              result = { success: false, error: "Missing serializedTransactions" };
+              break;
+            }
+            if (txs.length === 1) {
+              result = await executeRawTransaction(txs[0] as string);
+            } else {
+              const batch = await executeRawTransactions(txs as string[]);
+              const failed = batch.find((r) => !r.success);
+              if (failed) {
+                result = { success: false, error: failed.error ?? "Batch signing failed" };
+              } else {
+                const sigs = batch.map((r) => r.signature).filter(Boolean) as string[];
+                result = {
+                  success: true,
+                  signature: sigs.length ? sigs.join(",") : undefined,
+                };
+              }
+            }
+            break;
+          }
+
           default:
             // Non-tx ops (navigate, refresh, etc.) — mark as success
             result = { success: true };
@@ -382,13 +490,14 @@ export function useTransactionExecutor() {
     }
 
     return results;
-  }, [executeSwap, executeTransfer, createProposal, isMultisig]);
+  }, [executeSwap, executeTransfer, createProposal, isMultisig, executeRawTransaction, executeRawTransactions]);
 
   return {
     executeSwap,
     executeTransfer,
     createProposal,
     executeRawTransaction,
+    executeRawTransactions,
     executePlan,
     isMultisig,
     isWalletConnected: wallet.connected && !!wallet.publicKey,

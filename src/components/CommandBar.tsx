@@ -20,12 +20,14 @@ import { useConnection, useWallet } from "@/lib/wallet/compat";
 import { VersionedTransaction, Transaction } from "@solana/web3.js";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
 import { buildProtocolFeeTx } from "@/lib/commandbar/protocol-fee";
+import { buildJitoTipTx, pollJitoBundleStatus } from "@/lib/solana/jito-bundle";
 import { ChatMessage } from "@/components/commandbar/ChatMessage";
 import { EmptyState } from "@/components/commandbar/EmptyState";
 import { TOKEN_LOGOS } from "@/components/commandbar/ChatMessage";
 import { HandoffStream } from "@/components/commandbar/HandoffStream";
 import { PipelineHeader } from "@/components/commandbar/PipelineHeader";
 import { PendingApprovalsBanner } from "@/components/commandbar/PendingApprovalsBanner";
+import { ActiveSubagentsBadge } from "@/components/commandbar/ActiveSubagentsBadge";
 import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
 import { useCommandFocus } from "@/lib/commandbar/focus-context";
 
@@ -240,6 +242,39 @@ export function CommandBar() {
           console.warn("[CommandBar] protocol fee build skipped:", e);
         }
 
+        // Bundle strategy: capabilities can mark high-risk multi-leg flows
+        // (rebalance, mass payouts, stablecoin diversification) as atomic.
+        // For atomic flows we add a small Jito tip and submit the whole
+        // signed batch as a Jito bundle so all txs land in the same slot
+        // or none do. Jito caps at 5 txs per bundle; if we exceed that
+        // (with the tip + protocol fee included), fall back to sequential.
+        const wantsAtomic =
+          (metadata as { bundleStrategy?: unknown } | undefined)?.bundleStrategy ===
+          "atomic";
+        let useAtomicBundle = wantsAtomic && deserialized.length + 1 <= 5;
+        let jitoTipInfo: { tipAccount: string; tipLamports: number } | null = null;
+        if (useAtomicBundle) {
+          try {
+            const tipBuild = await buildJitoTipTx({
+              connection,
+              payer: publicKey,
+              blockhash: latest.blockhash,
+            });
+            deserialized.push(tipBuild.tx);
+            jitoTipInfo = {
+              tipAccount: tipBuild.tipAccount,
+              tipLamports: tipBuild.tipLamports,
+            };
+          } catch (tipErr) {
+            console.warn("[CommandBar] jito tip build failed; falling back to sequential", tipErr);
+            useAtomicBundle = false;
+          }
+        } else if (wantsAtomic) {
+          console.warn(
+            "[CommandBar] atomic bundle requested but >5 txs after fees; submitting sequentially.",
+          );
+        }
+
         let signed: (VersionedTransaction | Transaction)[];
         if (signAllTransactions && deserialized.length > 1) {
           signed = await signAllTransactions(deserialized as VersionedTransaction[]);
@@ -256,20 +291,67 @@ export function CommandBar() {
         }
 
         const sigs: string[] = [];
-        for (const tx of signed) {
-          const raw = tx.serialize();
-          const sig = await connection.sendRawTransaction(raw, {
-            skipPreflight: false,
-            preflightCommitment: "confirmed",
+        if (useAtomicBundle) {
+          // Submit atomically via Jito. The route returns a bundleId; we
+          // poll for landing and then derive per-tx signatures from the
+          // signed payloads (Jito doesn't return a single sig for the
+          // bundle). On bundle rejection nothing has executed on-chain,
+          // so the user sees a clean retry path.
+          const base64Txs = signed.map((tx) => Buffer.from(tx.serialize()).toString("base64"));
+          const bundleRes = await fetch("/api/solana/jito-bundle", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transactions: base64Txs }),
           });
-          const confirmation = await connection.confirmTransaction(
-            { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
-            "confirmed",
-          );
-          if (confirmation.value.err) {
-            throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+          const bundleJson = await bundleRes.json().catch(() => ({}));
+          if (!bundleRes.ok || bundleJson?.error) {
+            throw new Error(
+              `Atomic bundle rejected: ${bundleJson?.error ?? bundleRes.statusText}`,
+            );
           }
-          sigs.push(sig);
+          const bundleId = bundleJson?.bundleId as string | undefined;
+          // Best-effort: pull per-tx sigs from the signed payloads we just
+          // computed. Bundle status confirms when they land.
+          for (const tx of signed) {
+            try {
+              const sigBytes = (tx as VersionedTransaction).signatures?.[0];
+              if (sigBytes && sigBytes.length > 0) {
+                const bs58 = await import("bs58");
+                sigs.push(bs58.default.encode(sigBytes));
+              }
+            } catch {
+              // ignore — best effort
+            }
+          }
+          if (bundleId) {
+            const status = await pollJitoBundleStatus(bundleId, { timeoutMs: 30_000 });
+            if (status.state === "failed") {
+              throw new Error(`Atomic bundle failed: ${status.error ?? "unknown"}`);
+            }
+            if (status.state === "unknown") {
+              // Don't hard-fail the UI on an inconclusive poll — surface a
+              // softer warning so users can verify on-chain.
+              toast.message("Bundle submitted, status pending", {
+                description: `Bundle ${bundleId.slice(0, 10)}… is still landing.`,
+              });
+            }
+          }
+        } else {
+          for (const tx of signed) {
+            const raw = tx.serialize();
+            const sig = await connection.sendRawTransaction(raw, {
+              skipPreflight: false,
+              preflightCommitment: "confirmed",
+            });
+            const confirmation = await connection.confirmTransaction(
+              { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+              "confirmed",
+            );
+            if (confirmation.value.err) {
+              throw new Error(`Transaction failed on-chain: ${JSON.stringify(confirmation.value.err)}`);
+            }
+            sigs.push(sig);
+          }
         }
 
         setTxSignatures(sigs);
@@ -943,6 +1025,10 @@ export function CommandBar() {
                   busy={agentBusy}
                 />
               )}
+
+              <div className="flex items-center justify-end gap-2 px-4 pt-2">
+                <ActiveSubagentsBadge />
+              </div>
 
               <PendingApprovalsBanner wallet={publicKey?.toBase58() ?? null} />
 

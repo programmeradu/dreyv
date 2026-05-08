@@ -61,7 +61,13 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setPrompts([{ label: "Get started", text: "What can you do for my treasury?", pillar: "risk" }]);
+          setPrompts([
+            { label: "Find yield", text: "Identify yield opportunities for my idle stablecoins", pillar: "yield" },
+            { label: "Audit fees", text: "Analyze fees I've paid in the last year and suggest savings", pillar: "fees" },
+            { label: "Target APR", text: "Create a rebalancing strategy targeting 10% APR with medium risk", pillar: "yield" },
+            { label: "DCA windows", text: "Show me DCA opportunities based on today's SOL drawdown", pillar: "yield" },
+            { label: "Risk audit", text: "Audit my wallet for security risks and concentration exposure", pillar: "risk" },
+          ]);
           setInsight(null);
           setAnalyzed(false);
         }

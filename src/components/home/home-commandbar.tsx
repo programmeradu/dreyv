@@ -21,7 +21,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import { marketingPrimaryCtaSm } from "./marketing-styles";
 
 type Metric = { label: string; value: string; tone?: "good" | "warn" };
-type Action = { label: string; requires_auth?: boolean; intent: string };
+type Action = { label: string; requires_auth?: boolean; intent: string; url?: string };
 type Result = {
   result_type: string;
   title: string;
@@ -187,6 +187,8 @@ export function HomeCommandbar() {
   function triggerAction(a: Action) {
     if (a.requires_auth) {
       setAuthIntent(a);
+    } else if (a.url) {
+      window.location.href = a.url;
     } else {
       window.location.href = "/app";
     }

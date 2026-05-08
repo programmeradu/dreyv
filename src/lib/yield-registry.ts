@@ -12,6 +12,8 @@
 
 export type TokenCategory = "IDLE" | "YIELD_BEARING" | "SPECULATIVE";
 
+export type RiskTier = "low" | "medium" | "high";
+
 export interface YieldTokenMeta {
     symbol: string;
     protocol: string;
@@ -19,6 +21,10 @@ export interface YieldTokenMeta {
     fallbackApy: number;
     /** Human-readable description */
     description: string;
+    /** Risk classification — affects badge color in UI */
+    riskTier: RiskTier;
+    /** Approximate AUM / TVL in USD, used as a fallback when live data isn't available */
+    aumUsd?: number;
 }
 
 // ─── Idle base assets (earning 0%) ─────────────────────────────────
@@ -40,64 +46,74 @@ export const YIELD_MINTS: Record<string, YieldTokenMeta> = {
     [NATIVE_STAKING_MINT]: {
         symbol: "Staked SOL",
         protocol: "Native Staking",
-        fallbackApy: 6.5, // Solana base staking yield (~6-7% as of early 2026)
+        fallbackApy: 6.5,
         description: "Native Solana validator staking",
+        riskTier: "low",
+        aumUsd: 60_000_000_000,
     },
-    // JitoSOL
     "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn": {
         symbol: "JitoSOL",
         protocol: "Jito",
         fallbackApy: 6.3,
         description: "MEV-enhanced liquid staking via Jito",
+        riskTier: "low",
+        aumUsd: 2_400_000_000,
     },
-    // mSOL
     "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": {
         symbol: "mSOL",
         protocol: "Marinade",
         fallbackApy: 6.1,
         description: "Marinade decentralized stake pool",
+        riskTier: "low",
+        aumUsd: 1_900_000_000,
     },
-    // bSOL
     "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1": {
         symbol: "bSOL",
         protocol: "BlazeStake",
         fallbackApy: 6.0,
         description: "BlazeStake delegated staking",
+        riskTier: "medium",
+        aumUsd: 280_000_000,
     },
-    // JupSOL
     "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v": {
         symbol: "JupSOL",
         protocol: "Jupiter",
         fallbackApy: 6.2,
         description: "Jupiter liquid staking token",
+        riskTier: "low",
+        aumUsd: 850_000_000,
     },
-    // INF (Sanctum Infinity)
     "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm": {
         symbol: "INF",
         protocol: "Sanctum",
         fallbackApy: 6.4,
         description: "Sanctum Infinity multi-LST pool",
+        riskTier: "medium",
+        aumUsd: 460_000_000,
     },
-    // bonkSOL (Sanctum LST)
     "BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs": {
         symbol: "bonkSOL",
         protocol: "Sanctum/Bonk",
         fallbackApy: 5.8,
         description: "Bonk community stake pool",
+        riskTier: "medium",
+        aumUsd: 90_000_000,
     },
-    // dSOL (Drift)
     "Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ": {
         symbol: "dSOL",
         protocol: "Drift",
         fallbackApy: 6.3,
         description: "Drift Staked SOL",
+        riskTier: "medium",
+        aumUsd: 130_000_000,
     },
-    // pathSOL
     "pathdXw4He1Xk3eX84pDdDZnGKEme3GivBamGCVPZ5a": {
         symbol: "pathSOL",
         protocol: "Pathfinders",
         fallbackApy: 5.9,
         description: "Pathfinders community stake pool",
+        riskTier: "high",
+        aumUsd: 22_000_000,
     },
 };
 

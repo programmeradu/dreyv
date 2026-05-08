@@ -9,6 +9,7 @@ import { toast } from "@/lib/toast-notifications";
 import { formatCurrency } from "@/lib/atlas-utils";
 
 type StrategyType = "stake" | "swap" | "lp";
+type SwapTarget = "USDC" | "USDT" | "ETH" | "BTC" | "JUP";
 
 interface CalculationResult {
   strategy: StrategyType;
@@ -20,12 +21,22 @@ interface CalculationResult {
   hodlReturns: number;
   performanceVsHodl: number;
   strategyReturn: number;
+  swapTarget?: SwapTarget;
 }
+
+const SWAP_TARGETS: Record<SwapTarget, { mint: string; label: string; isStable: boolean }> = {
+  USDC: { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", label: "USDC", isStable: true },
+  USDT: { mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", label: "USDT", isStable: true },
+  ETH: { mint: "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", label: "ETH (wormhole)", isStable: false },
+  BTC: { mint: "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh", label: "BTC (wormhole)", isStable: false },
+  JUP: { mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", label: "JUP", isStable: false },
+};
 
 export function TransactionTimeMachine() {
   const [strategy, setStrategy] = useState<StrategyType>("stake");
   const [amountSol, setAmountSol] = useState<string>("10");
   const [daysAgo, setDaysAgo] = useState<string>("30");
+  const [swapTarget, setSwapTarget] = useState<SwapTarget>("USDC");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -89,13 +100,32 @@ export function TransactionTimeMachine() {
           totalValue = amount * currentPrice + strategyReturn * currentPrice;
           break;
 
-        case "swap":
-          // Direct price comparison (swapped at historical price to USDC, back to SOL)
-          const usdcValue = amount * historicalPrice;
-          const solBought = usdcValue / currentPrice;
-          strategyReturn = (solBought - amount) * currentPrice;
-          totalValue = solBought * currentPrice;
+        case "swap": {
+          // Token-aware historical swap: SOL → <target> at history, mark to market today
+          const target = SWAP_TARGETS[swapTarget];
+          const usdValueAtHistory = amount * historicalPrice;
+          let targetHistoricalPrice = 1;
+          let targetCurrentPrice = 1;
+          if (!target.isStable) {
+            try {
+              const [tcurRes, thistRes] = await Promise.all([
+                fetch(`/api/jupiter/price?ids=${swapTarget}`),
+                fetch(`/api/jupiter/historical-price?symbol=${swapTarget}&mint=${target.mint}&daysAgo=${days}`),
+              ]);
+              const tcur = await tcurRes.json();
+              const thist = await thistRes.json();
+              targetCurrentPrice = tcur?.data?.[swapTarget]?.price || tcur?.data?.SOL?.price || 1;
+              targetHistoricalPrice = thist?.historicalPrice || targetCurrentPrice || 1;
+            } catch {
+              // Fall back to stable assumption (1:1)
+            }
+          }
+          const targetTokensBought = targetHistoricalPrice > 0 ? usdValueAtHistory / targetHistoricalPrice : 0;
+          const usdValueNow = targetTokensBought * targetCurrentPrice;
+          strategyReturn = usdValueNow - amount * currentPrice;
+          totalValue = usdValueNow;
           break;
+        }
 
         case "lp":
           // 20% APR for LP
@@ -123,6 +153,7 @@ export function TransactionTimeMachine() {
         hodlReturns,
         performanceVsHodl,
         strategyReturn,
+        swapTarget: strategy === "swap" ? swapTarget : undefined,
       });
 
       const sourceMsg = priceSource === "approximation"
@@ -164,6 +195,28 @@ export function TransactionTimeMachine() {
           ))}
         </div>
       </div>
+
+      {/* Swap target selector — only when strategy = swap (Sid feedback May 7) */}
+      {strategy === "swap" && (
+        <div className="space-y-1.5">
+          <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Swap to</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(SWAP_TARGETS) as SwapTarget[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setSwapTarget(t)}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                  swapTarget === t
+                    ? "border-violet-600 bg-violet-50 text-violet-700 font-medium"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {SWAP_TARGETS[t].label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Input Fields */}
       <div className="grid grid-cols-2 gap-2">
@@ -227,6 +280,12 @@ export function TransactionTimeMachine() {
           </div>
 
           <div className="space-y-1.5 text-[11px]">
+            {result.strategy === "swap" && result.swapTarget && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Swapped to</span>
+                <span className="font-mono text-slate-700">{SWAP_TARGETS[result.swapTarget].label}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-slate-500">Strategy Returns</span>
               <span className={`font-mono font-medium ${result.returns >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>

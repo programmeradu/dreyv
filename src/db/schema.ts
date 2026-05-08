@@ -24,6 +24,9 @@ const bytea = customType<{ data: Buffer; default: false }>({
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   walletAddress: text('wallet_address').notNull().unique(),
+  // Optional EVM wallet (read-only link until SIWE is added; not unique because
+  // a power-user can swap chains and we accept the latest connect).
+  evmWalletAddress: text('evm_wallet_address'),
   email: text('email'),                          // optional, collected during onboarding/settings
   displayName: text('display_name'),
   avatarSeed: text('avatar_seed'),
@@ -41,6 +44,7 @@ export const users = pgTable('users', {
   walletIdx: index('users_wallet_idx').on(table.walletAddress),
   supabaseIdx: index('users_supabase_idx').on(table.supabaseUserId),
   tierIdx: index('users_tier_idx').on(table.tier),
+  evmWalletIdx: index('users_evm_wallet_idx').on(table.evmWalletAddress),
 }));
 
 // ─── AI Runs ──────────────────────────────────────────────────────────

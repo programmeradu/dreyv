@@ -677,7 +677,7 @@ export class SquadsClient {
             // Iterate backwards from the latest index
             for (let i = lastIndex; i > Math.max(0, lastIndex - 5); i--) {
                 try {
-                    const [pda] = getTransactionPda({
+                    const [transactionPda] = getTransactionPda({
                         multisigPda: multisigKey,
                         index: BigInt(i)
                     });
@@ -690,13 +690,66 @@ export class SquadsClient {
 
                     const proposalAcc = await squads.accounts.Proposal.fromAccountAddress(this.connection, proposalPda);
 
+                    // The Proposal account itself does NOT carry the initiator. The
+                    // VaultTransaction / ConfigTransaction / Batch accounts each store
+                    // a `creator: Pubkey` — the member who submitted the tx. Try each
+                    // discriminator until one decodes; fall back to null on miss.
+                    let proposer: string | null = null;
+                    let txKind: "vault" | "config" | "batch" | null = null;
+                    const tryDecoders: Array<{
+                        kind: "vault" | "config" | "batch";
+                        fn: () => Promise<{ creator: PublicKey }>;
+                    }> = [
+                        {
+                            kind: "vault",
+                            fn: () =>
+                                (squads.accounts as any).VaultTransaction.fromAccountAddress(
+                                    this.connection,
+                                    transactionPda,
+                                ) as Promise<{ creator: PublicKey }>,
+                        },
+                        {
+                            kind: "config",
+                            fn: () =>
+                                (squads.accounts as any).ConfigTransaction.fromAccountAddress(
+                                    this.connection,
+                                    transactionPda,
+                                ) as Promise<{ creator: PublicKey }>,
+                        },
+                        {
+                            kind: "batch",
+                            fn: () =>
+                                (squads.accounts as any).Batch.fromAccountAddress(
+                                    this.connection,
+                                    transactionPda,
+                                ) as Promise<{ creator: PublicKey }>,
+                        },
+                    ];
+                    for (const decoder of tryDecoders) {
+                        try {
+                            const acc = await decoder.fn();
+                            if (acc?.creator) {
+                                proposer = acc.creator.toBase58();
+                                txKind = decoder.kind;
+                                break;
+                            }
+                        } catch {
+                            // wrong discriminator, try next decoder
+                        }
+                    }
+
                     proposals.push({
                         index: i,
+                        transactionIndex: i,
                         title: `Proposal #${i}`,
                         status: proposalAcc.status.__kind,
                         signatures: (proposalAcc.approved as any[]).length, // Signer count from Proposal account
+                        approved: ((proposalAcc.approved as any[]) || []).map((k: PublicKey) => k.toBase58()),
+                        rejected: ((proposalAcc.rejected as any[]) || []).map((k: PublicKey) => k.toBase58()),
                         threshold: Number(multisigAccount.threshold),
-                        pda: proposalPda.toBase58()
+                        pda: proposalPda.toBase58(),
+                        proposer,
+                        txKind,
                     });
                 } catch (e) {
                     // Skip if proposal doesn't exist

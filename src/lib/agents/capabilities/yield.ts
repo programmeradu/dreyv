@@ -569,6 +569,7 @@ const rebalance = defineCapability({
       };
     }
 
+    const isMultiTx = serializedTransactions.length > 1;
     return {
       success: true,
       operation: "rebalance",
@@ -579,10 +580,22 @@ const rebalance = defineCapability({
       tradeCount: trades.length,
       serializedTransactions:
         serializedTransactions.length > 0 ? serializedTransactions : undefined,
+      // Multi-leg rebalance must be atomic — partial execution leaves the
+      // portfolio further from target than the start state.
+      bundleStrategy: isMultiTx ? "atomic" : "sequential",
+      bundleReason: isMultiTx
+        ? "Rebalance is atomic — all legs land in the same slot or none do."
+        : undefined,
       status: result.status,
       executionId: result.executionId,
       requiresApproval: true,
-      message: `Dry-run rebalance preview: ${trades.length} proposed trade${trades.length === 1 ? "" : "s"}.${serializedTransactions.length > 0 ? ` Review the projected concentration, then sign ${serializedTransactions.length} unsigned transaction(s) if approved.` : " Connect wallet to build transactions."}`,
+      message: `Dry-run rebalance preview: ${trades.length} proposed trade${trades.length === 1 ? "" : "s"}.${
+        serializedTransactions.length > 0
+          ? isMultiTx
+            ? ` One wallet popup signs all ${serializedTransactions.length} txs as an atomic bundle.`
+            : ` Review the projected concentration, then sign 1 transaction if approved.`
+          : " Connect wallet to build transactions."
+      }`,
     };
   },
 });

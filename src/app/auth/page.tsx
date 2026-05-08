@@ -23,6 +23,7 @@ import { DreyvLogoLight } from "@/components/brand/dreyv-logo-light";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { motion, AnimatePresence } from "framer-motion";
 import { marketingPrimaryCta } from "@/components/home/marketing-styles";
+import { EvmConnectButton } from "@/components/EvmConnectButton";
 
 const LOGO_DEV_TOKEN = "pk_DFEjHHL4QteaMOzcFuSlwg";
 
@@ -900,13 +901,25 @@ function AuthPageContent() {
                                             </button>
                                         )}
 
+                                        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2.5">
+                                            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                                Optional · EVM read-only
+                                            </p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-[11px] font-medium leading-snug text-slate-600">
+                                                    Link an Ethereum / Base wallet to add EVM analytics &amp; bridge-for-gas hints.
+                                                </span>
+                                                <EvmConnectButton hideUntilMounted={false} />
+                                            </div>
+                                        </div>
+
                                         <div className="pt-2 text-center lg:pt-2">
                                             <button
                                                 type="button"
                                                 onClick={() => { disconnect(); }}
                                                 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-violet-600"
                                             >
-                                                Cancel & Switch Wallet
+                                                Cancel &amp; Switch Wallet
                                             </button>
                                         </div>
                                     </div>

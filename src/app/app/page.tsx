@@ -22,6 +22,9 @@ import { useTreasuryTrend } from "@/lib/hooks/useTreasuryTrend";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import { FeeAnalyticsWidget } from "@/components/dashboard/FeeAnalyticsWidget";
+import { YieldProtocolPanel } from "@/components/dashboard/YieldProtocolPanel";
+import { WatcherHeartbeatStrip } from "@/components/agent/WatcherHeartbeatStrip";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault, vaultTokens } = useVault();
@@ -99,6 +102,19 @@ export default function AppHomePage() {
         <StreamIn delay={0.12} className="md:pt-12">
           <TreasuryPulseCarousel />
         </StreamIn>
+      </section>
+
+      {/* Watcher heartbeat — agent pipeline visibility (Track B) */}
+      <section className="relative z-10 mx-auto mt-6 w-full max-w-6xl px-4 sm:mt-10 sm:px-6">
+        <WatcherHeartbeatStrip />
+      </section>
+
+      {/* Monetary hooks — Sid feedback: surface fee analytics + yield ops above the canvas */}
+      <section className="relative z-10 mx-auto mt-4 w-full max-w-6xl px-4 sm:px-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <FeeAnalyticsWidget />
+          <YieldProtocolPanel persona="balanced" limit={3} title="Top yield opportunities" />
+        </div>
       </section>
 
       {/* The Canvas + Agents Rail — rail is desktop-only (lg:block inside) */}

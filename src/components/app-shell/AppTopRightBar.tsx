@@ -9,6 +9,7 @@
  */
 
 import { WalletButton } from "@/components/WalletButton";
+import { EvmConnectButton } from "@/components/EvmConnectButton";
 import { NotificationBell } from "@/components/NotificationBell";
 import { TeamSwitcher } from "@/components/team/TeamSwitcher";
 
@@ -20,6 +21,9 @@ export function AppTopRightBar() {
       </div>
       <div className="pointer-events-auto">
         <NotificationBell />
+      </div>
+      <div className="pointer-events-auto hidden md:block">
+        <EvmConnectButton />
       </div>
       <div className="pointer-events-auto">
         <WalletButton />

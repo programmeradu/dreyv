@@ -7,6 +7,7 @@ import { YieldEngine } from "@/lib/agents/YieldEngine";
 import { classifyToken, YIELD_MINTS, type TokenCategory } from "@/lib/yield-registry";
 import { toast } from "@/lib/toast-notifications";
 import { useTransactionExecutor } from "@/lib/hooks/useTransactionExecutor";
+import { YieldProtocolPanel } from "@/components/dashboard/YieldProtocolPanel";
 
 // ─── Types ──────────────────────────────────────────────────────────
 interface YieldRate {
@@ -377,6 +378,11 @@ export const YieldOptimizer = () => {
                         EFF: {stats.efficiency}%
                     </div>
                 </div>
+            </div>
+
+            {/* Multi-protocol ranked list — top 3 protocols with risk + AUM (Sid feedback May 7) */}
+            <div className="mt-3">
+                <YieldProtocolPanel persona="balanced" limit={3} />
             </div>
 
             {/* ─── AI Strategy Overlay ────────────────────────────── */}

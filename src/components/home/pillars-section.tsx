@@ -3,7 +3,6 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
-import { LandingCommandBar } from "./landing-command-bar";
 
 const atlasData = [
   { name: "Mon", value: 28 },
@@ -125,7 +124,17 @@ export function PillarsSection() {
               report — before anyone touches approve.
             </p>
             <div className="mt-auto pt-6 flex justify-center">
-              <LandingCommandBar />
+              <a
+                href="#demo"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const demo = document.getElementById("demo");
+                  if (demo) demo.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-500 transition-colors"
+              >
+                Try the live commandbar ↓
+              </a>
             </div>
           </motion.div>
 

@@ -1,11 +1,22 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useConnection, useWallet } from "@/lib/wallet/compat";
+import { useAccount } from "wagmi";
 import { SquadsClient } from "@/lib/squads";
 import { PublicKey } from "@solana/web3.js";
 import { toast } from "@/lib/toast-notifications";
 import { useImportedTokens } from "@/lib/hooks/useImportedTokens";
+
+export type ChainKey = "solana" | "evm";
+
+export interface ActiveChainSelection {
+    chain: ChainKey;
+    address: string | null;
+    chainId?: number | null;
+}
+
+const CHAIN_STORAGE_KEY = "keystone_active_chain";
 
 const STAKE_PROGRAM_ID = new PublicKey("Stake11111111111111111111111111111111111111");
 
@@ -34,6 +45,16 @@ interface VaultContextType {
     activeVault: string | null;
     setActiveVault: (address: string | null) => void;
     disconnectVault: () => void;
+    /** D1 — current chain the user is operating on. Solana is the default. */
+    activeChain: ChainKey;
+    /** D1 — address of the currently-selected chain (Solana base58 or EVM 0x...). */
+    activeChainAddress: string | null;
+    /** D1 — EVM chain id when activeChain==="evm" (defaults to mainnet). */
+    activeChainId: number | null;
+    /** D1 — let consumers switch chain without throwing if EVM isn't linked. */
+    setActiveChain: (chain: ChainKey) => void;
+    /** D1 — EVM address connected via RainbowKit (lower-cased). */
+    evmAddress: string | null;
     vaultBalance: number | null;
     vaultTokens: any[];
     vaultValue: number | null; // Total USD Value (includes staked SOL)
@@ -64,6 +85,25 @@ const VaultContext = createContext<VaultContextType | undefined>(undefined);
 export function VaultProvider({ children }: { children: React.ReactNode }) {
     const { connection } = useConnection();
     const wallet = useWallet();
+    const { address: evmAccount, chainId: evmChainId, isConnected: evmIsConnected } = useAccount();
+    const evmAddress = useMemo(
+        () => (evmIsConnected && evmAccount ? evmAccount.toLowerCase() : null),
+        [evmIsConnected, evmAccount],
+    );
+
+    // D1 — chain switcher state. Defaults to Solana so all existing call sites
+    // keep working. Gets bumped to "evm" when the user explicitly switches.
+    const [activeChain, setActiveChainState] = useState<ChainKey>("solana");
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(CHAIN_STORAGE_KEY);
+            if (stored === "evm" || stored === "solana") setActiveChainState(stored);
+        } catch { /* ignore */ }
+    }, []);
+    const setActiveChain = useCallback((chain: ChainKey) => {
+        setActiveChainState(chain);
+        try { localStorage.setItem(CHAIN_STORAGE_KEY, chain); } catch { /* ignore */ }
+    }, []);
 
     // Rehydrate from localStorage so vault persists across navigation + refresh
     const [activeVault, setActiveVaultRaw] = useState<string | null>(null);
@@ -498,11 +538,23 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         }
     }, [activeVault, sqClient, hydrated]);
 
+    // D1 — derive {chain, address}. EVM only valid when the user has actually
+    // connected an EVM wallet; otherwise we silently fall back to Solana.
+    const effectiveChain: ChainKey = activeChain === "evm" && evmAddress ? "evm" : "solana";
+    const activeChainAddress: string | null =
+        effectiveChain === "evm" ? evmAddress : activeVault;
+    const activeChainId: number | null = effectiveChain === "evm" ? (evmChainId ?? 1) : null;
+
     return (
         <VaultContext.Provider value={{
             activeVault,
             setActiveVault,
             disconnectVault,
+            activeChain: effectiveChain,
+            activeChainAddress,
+            activeChainId,
+            setActiveChain,
+            evmAddress,
             vaultBalance,
             vaultTokens,
             vaultValue,

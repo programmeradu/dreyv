@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { YIELD_MINTS, type YieldTokenMeta } from "@/lib/yield-registry";
+import { YIELD_MINTS, type RiskTier } from "@/lib/yield-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +14,21 @@ export const dynamic = "force-dynamic";
  *
  * Response shape:
  * {
- *   rates: Record<mint, { apy: number; source: "live" | "estimated"; protocol: string; symbol: string }>,
+ *   rates: Record<mint, { apy, source, protocol, symbol, riskTier, aumUsd? }>,
  *   fetchedAt: string (ISO timestamp)
  * }
  */
 
-// ─── In-memory cache (5 min TTL) ──────────────────────────────────
-let cachedRates: Record<string, { apy: number; source: "live" | "estimated"; protocol: string; symbol: string }> | null = null;
+interface RateEntry {
+    apy: number;
+    source: "live" | "estimated";
+    protocol: string;
+    symbol: string;
+    riskTier: RiskTier;
+    aumUsd?: number;
+}
+
+let cachedRates: Record<string, RateEntry> | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -37,14 +45,15 @@ export async function GET() {
             });
         }
 
-        // Start with fallback values from the registry
-        const rates: Record<string, { apy: number; source: "live" | "estimated"; protocol: string; symbol: string }> = {};
+        const rates: Record<string, RateEntry> = {};
         for (const [mint, meta] of Object.entries(YIELD_MINTS)) {
             rates[mint] = {
                 apy: meta.fallbackApy,
                 source: "estimated",
                 protocol: meta.protocol,
                 symbol: meta.symbol,
+                riskTier: meta.riskTier,
+                aumUsd: meta.aumUsd,
             };
         }
 
@@ -59,10 +68,9 @@ export async function GET() {
                 // Marinade returns { value: 0.061 } (i.e. 6.1%)
                 if (typeof data?.value === "number") {
                     rates[msolMint] = {
+                        ...rates[msolMint],
                         apy: parseFloat((data.value * 100).toFixed(2)),
                         source: "live",
-                        protocol: "Marinade",
-                        symbol: "mSOL",
                     };
                 }
             }
@@ -84,10 +92,9 @@ export async function GET() {
                     for (const [mint, apyVal] of Object.entries(data.apys)) {
                         if (mint in rates && typeof apyVal === "number") {
                             rates[mint] = {
+                                ...rates[mint],
                                 apy: parseFloat((apyVal * 100).toFixed(2)),
                                 source: "live",
-                                protocol: rates[mint].protocol,
-                                symbol: rates[mint].symbol,
                             };
                         }
                     }
@@ -112,12 +119,11 @@ export async function GET() {
                         .filter((a: any) => typeof a === "number" && a > 0 && a < 1); // decimal format: 0.065 = 6.5%
                     if (apys.length > 0) {
                         const avgDecimal = apys.reduce((s: number, a: number) => s + a, 0) / apys.length;
-                        const avgApy = avgDecimal * 100; // convert to percentage
+                        const avgApy = avgDecimal * 100;
                         rates[nativeStakeMint] = {
+                            ...rates[nativeStakeMint],
                             apy: parseFloat(avgApy.toFixed(2)),
                             source: "live",
-                            protocol: "Native Staking",
-                            symbol: "Staked SOL",
                         };
                     }
                 }
@@ -140,10 +146,9 @@ export async function GET() {
                     // Shape varies — try to extract APY if available
                     if (typeof data?.apy === "number") {
                         rates[jitoMint] = {
+                            ...rates[jitoMint],
                             apy: parseFloat((data.apy * 100).toFixed(2)),
                             source: "live",
-                            protocol: "Jito",
-                            symbol: "JitoSOL",
                         };
                     }
                 }
@@ -163,14 +168,15 @@ export async function GET() {
         });
     } catch (error) {
         console.error("Yield rates API error:", error);
-        // Even on total failure, return fallback rates so the UI always has something
-        const fallbackRates: Record<string, { apy: number; source: "live" | "estimated"; protocol: string; symbol: string }> = {};
+        const fallbackRates: Record<string, RateEntry> = {};
         for (const [mint, meta] of Object.entries(YIELD_MINTS)) {
             fallbackRates[mint] = {
                 apy: meta.fallbackApy,
                 source: "estimated",
                 protocol: meta.protocol,
                 symbol: meta.symbol,
+                riskTier: meta.riskTier,
+                aumUsd: meta.aumUsd,
             };
         }
         return NextResponse.json({

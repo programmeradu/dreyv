@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from "react";
 import {
     useOthers,
     useSelf,
@@ -221,7 +221,14 @@ function ActivityRow({ user, action, target, time }: LogEntry) {
 }
 
 // ─── War Room (live proposals) ──────────────────────────────────────
-function WarRoom({ vaultAddress }: { vaultAddress: string }) {
+function WarRoom({
+    vaultAddress,
+    memberByWallet,
+}: {
+    vaultAddress: string;
+    /** Solana wallet pubkey → team display name (when linked) */
+    memberByWallet?: Record<string, string>;
+}) {
     const { proposals, loading, signProposal, rejectProposal, executeProposal } = useSquadsMultisig(vaultAddress);
     const broadcast = useBroadcastEvent();
     const others = useOthers();
@@ -293,6 +300,17 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                         const cancelled = status === "Cancelled" || status === "Rejected";
                         const approvedBy: string[] = Array.isArray(p.approvedBy) ? p.approvedBy : [];
                         const rejectedBy: string[] = Array.isArray(p.rejectedBy) ? p.rejectedBy : [];
+                        const createdBy: string | null =
+                            (typeof p.createdBy === "string" && p.createdBy) ||
+                            (typeof p.proposer === "string" && p.proposer) ||
+                            null;
+                        const createdByShort = createdBy
+                            ? `${createdBy.slice(0, 4)}…${createdBy.slice(-4)}`
+                            : null;
+                        const createdByLabel =
+                            createdBy && memberByWallet?.[createdBy]
+                                ? memberByWallet[createdBy]!
+                                : createdByShort;
                         return (
                             <motion.div
                                 key={txIndex}
@@ -301,7 +319,7 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="rounded-2xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
                             >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-3">
                                     <span className="text-sm font-semibold text-slate-900">
                                         Proposal #{txIndex}
                                         {p.summary && (
@@ -312,6 +330,21 @@ function WarRoom({ vaultAddress }: { vaultAddress: string }) {
                                         {status}
                                     </Pill>
                                 </div>
+                                {createdByLabel && (
+                                    <p className="mt-1 text-[11px] text-slate-500">
+                                        Proposed by{" "}
+                                        <span
+                                            className={
+                                                memberByWallet?.[createdBy!]
+                                                    ? "font-semibold text-slate-800"
+                                                    : "font-mono text-slate-700"
+                                            }
+                                            title={createdBy ?? undefined}
+                                        >
+                                            {createdByLabel}
+                                        </span>
+                                    </p>
+                                )}
 
                                 <div className="mt-3 flex items-center gap-3">
                                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-violet-100">
@@ -477,10 +510,22 @@ export default function TeamPage() {
     const others = useOthers();
     const self = useSelf();
     const { activeVault, vaultConfig } = useVault();
-    const { activeTeam } = useTeam();
+    const { activeTeam, members, fetchMembers } = useTeam();
     const { profile } = useProfile();
     const selfAvatarSeed = profile?.avatarSeed || profile?.displayName || self?.info?.name || "ME";
     const vaultAddress = activeVault || "";
+
+    useEffect(() => {
+        if (activeTeam?.teamId) fetchMembers(activeTeam.teamId);
+    }, [activeTeam?.teamId, fetchMembers]);
+
+    const memberByWallet = useMemo(() => {
+        const m: Record<string, string> = {};
+        for (const mem of members) {
+            if (mem.walletAddress && mem.displayName) m[mem.walletAddress] = mem.displayName;
+        }
+        return m;
+    }, [members]);
 
     const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
     const [vaultWizardOpen, setVaultWizardOpen] = useState(false);
@@ -737,7 +782,7 @@ export default function TeamPage() {
                             </Surface>
                         )}
 
-                        <WarRoom vaultAddress={vaultAddress} />
+                        <WarRoom vaultAddress={vaultAddress} memberByWallet={memberByWallet} />
 
                         <QuorumCore
                             others={others as any[]}

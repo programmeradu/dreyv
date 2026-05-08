@@ -13,7 +13,7 @@
  * don't fight Next.js's tree-shaking.
  */
 
-import type { AnyCapability, CapabilityDomain } from "./types";
+import type { AnyCapability, CapabilityChain, CapabilityDomain } from "./types";
 import { treasuryCapabilities } from "./treasury";
 import { tradingCapabilities } from "./trading";
 import { yieldCapabilities } from "./yield";
@@ -30,6 +30,7 @@ import { treasuryMgmtCapabilities } from "./treasury-mgmt";
 import { yieldRoutesCapabilities } from "./yield-routes";
 import { appControlCapabilities } from "./app-control";
 import { signingCapabilities } from "./signing";
+import { bridgeForGasCapabilities } from "./bridge-for-gas";
 
 let cached: Map<string, AnyCapability> | null = null;
 
@@ -51,6 +52,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...yieldRoutesCapabilities,
     ...appControlCapabilities,
     ...signingCapabilities,
+    ...bridgeForGasCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
@@ -76,6 +78,28 @@ export function getCapability(id: string): AnyCapability | undefined {
 export function listCapabilities(domain?: CapabilityDomain): AnyCapability[] {
   const all = Array.from(capabilityRegistry().values());
   return domain ? all.filter((c) => c.domain === domain) : all;
+}
+
+/**
+ * D1 — Returns the chains a capability can run on. Defaults to ["solana"]
+ * when `supportedChains` is not declared, plus auto-promotes pure-read /
+ * sim / meta capabilities to also support EVM (read-only EVM is safe).
+ *
+ * Write capabilities stay Solana-only until native EVM signing ships.
+ */
+export function chainsForCapability(cap: AnyCapability): CapabilityChain[] {
+  if (cap.supportedChains && cap.supportedChains.length > 0) return cap.supportedChains;
+  if (cap.sideEffects === "write") return ["solana"];
+  // Read / sim / meta are chain-agnostic by default.
+  return ["solana", "evm"];
+}
+
+/**
+ * D1 — Strict guard: only allow a capability to run on a given chain when
+ * its `supportedChains` (or the inferred default) includes that chain.
+ */
+export function capabilitySupportsChain(cap: AnyCapability, chain: CapabilityChain): boolean {
+  return chainsForCapability(cap).includes(chain);
 }
 
 /**

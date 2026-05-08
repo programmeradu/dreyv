@@ -9,7 +9,11 @@ import Link from "next/link";
 import { Loader2, CheckCircle2, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { TOOL_META } from "@/lib/commandbar/tool-meta";
 import { useCommandBarSigningStore } from "@/lib/stores/commandbar-signing-store";
-import { SigningCard } from "@/components/commandbar/SigningCard";
+import {
+  SigningCard,
+  type SigningRiskLevel,
+  type SigningBundleStrategy,
+} from "@/components/commandbar/SigningCard";
 import { ForesightChart, type ForesightChartProps } from "@/components/commandbar/ForesightChart";
 import { ArtifactList, extractArtifacts } from "@/components/commandbar/ArtifactChip";
 import { StreamingProgress } from "@/components/commandbar/StreamingProgress";
@@ -106,6 +110,52 @@ export function ToolCard({
     : [];
 
   const operation = (output?.operation ?? toolName) as string;
+
+  const signingRiskLevel: SigningRiskLevel | undefined = (() => {
+    if (!isDone || !output) return undefined;
+    const raw = (output as { riskLevel?: unknown }).riskLevel;
+    if (raw === "low" || raw === "medium" || raw === "high" || raw === "critical") return raw;
+    const fwChecks = (output as { firewallChecks?: unknown }).firewallChecks;
+    if (fwChecks && typeof fwChecks === "object") {
+      const checks = fwChecks as Record<string, string>;
+      const failed = Object.values(checks).filter((v) => v === "fail").length;
+      if (failed >= 2) return "high";
+      if (failed === 1) return "medium";
+      const allPass = Object.values(checks).every((v) => v === "pass");
+      if (allPass) return "low";
+    }
+    const impact = (output as { priceImpactPct?: unknown }).priceImpactPct;
+    if (typeof impact === "number") {
+      if (impact >= 5) return "high";
+      if (impact >= 1) return "medium";
+      return "low";
+    }
+    return undefined;
+  })();
+  const signingRiskReason: string | undefined = (() => {
+    if (!isDone || !output) return undefined;
+    const reason = (output as { riskReason?: unknown }).riskReason;
+    if (typeof reason === "string" && reason.length > 0) return reason;
+    const block = (output as { firewallBlockReason?: unknown }).firewallBlockReason;
+    if (typeof block === "string" && block.length > 0) return block;
+    return undefined;
+  })();
+
+  // Bundle strategy: capabilities can opt into Jito atomic submission by
+  // returning bundleStrategy: "atomic". The signing envelope inherits this
+  // from the strongest contributing step. Default sequential (1 popup, N
+  // independent landings); atomic upgrades to all-or-nothing bundle submit.
+  const signingBundleStrategy: SigningBundleStrategy = (() => {
+    if (!isDone || !output) return "sequential";
+    const raw = (output as { bundleStrategy?: unknown }).bundleStrategy;
+    return raw === "atomic" ? "atomic" : "sequential";
+  })();
+  const signingBundleReason: string | undefined = (() => {
+    if (signingBundleStrategy !== "atomic") return undefined;
+    const raw = (output as { bundleReason?: unknown })?.bundleReason;
+    if (typeof raw === "string" && raw.length > 0) return raw;
+    return "Atomic Jito bundle — all txs land in the same slot or none do.";
+  })();
 
   const studioAppId =
     isDone &&
@@ -259,6 +309,10 @@ export function ToolCard({
           serializedTransactions={serializedTransactions}
           signingStatus={signingToolId === toolCallId ? signingStatus : "idle"}
           txSignatures={signingToolId === toolCallId ? txSignatures : []}
+          riskLevel={signingRiskLevel}
+          riskReason={signingRiskReason}
+          bundleStrategy={signingBundleStrategy}
+          bundleReason={signingBundleReason}
           onConfirm={() => {
             const valueUsd =
               typeof output?.estimatedValueUsd === "number"

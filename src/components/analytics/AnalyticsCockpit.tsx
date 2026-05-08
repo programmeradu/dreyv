@@ -27,12 +27,13 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { ChevronRight, Wallet, ShieldCheck, AlertTriangle, Eye } from "lucide-react";
+import { ChevronRight, Wallet, ShieldCheck, AlertTriangle, Eye, Activity, Bot, CheckCircle2, XCircle } from "lucide-react";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { SignalBadge, severityFromScore } from "./SignalBadge";
 import { estimateLstYield, fetchLiveLstRates, type LiveRatesMap } from "@/lib/foresight/lst-yield";
+import { useAgentContext, type AgentProposal, type AgentHandoff } from "@/lib/contexts/AgentContext";
 
 /* ────────────────────────────── Types ───────────────────────────── */
 
@@ -710,6 +711,101 @@ export function AnalyticsCockpit({
           </p>
         </div>
       </div>
+
+      {/* Recent agent actions — pulled from AgentContext (Track B5) */}
+      <div className="relative border-t border-violet-100 px-6 py-6 sm:px-8 sm:py-8 lg:px-10">
+        <RecentAgentActions />
+      </div>
     </section>
+  );
+}
+
+function RecentAgentActions() {
+  const { proposals, handoffs, lastFetchedAt } = useAgentContext();
+  const items = useMemo(() => {
+    type Action = {
+      id: string;
+      title: string;
+      detail: string;
+      timestamp: number;
+      kind: "proposal" | "handoff";
+      status: string;
+    };
+    const proposalActions: Action[] = proposals
+      .filter((p) => p.status && p.status !== "open")
+      .map((p: AgentProposal) => ({
+        id: `p-${p.id}`,
+        title: p.title ?? "Agent proposal",
+        detail: p.summary ?? p.kind ?? "—",
+        timestamp: p.updatedAt ? Date.parse(p.updatedAt) : p.createdAt ? Date.parse(p.createdAt) : 0,
+        kind: "proposal",
+        status: p.status ?? "unknown",
+      }));
+    const handoffActions: Action[] = handoffs.map((h: AgentHandoff) => ({
+      id: `h-${h.id}`,
+      title: `${h.fromAgent ?? "agent"} → ${h.toAgent ?? "agent"}`,
+      detail: h.summary ?? "Handoff",
+      timestamp: h.createdAt ? Date.parse(h.createdAt) : 0,
+      kind: "handoff",
+      status: h.status ?? "complete",
+    }));
+    return [...proposalActions, ...handoffActions]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5);
+  }, [proposals, handoffs]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-600">
+          <Activity className="h-3 w-3" />
+          Recent agent actions
+        </span>
+        {lastFetchedAt && (
+          <span className="text-[11px] text-slate-400">
+            updated {new Date(lastFetchedAt).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-500">
+          No agent activity yet. As watchers run and proposals resolve, they&apos;ll show up here.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {items.map((it) => {
+            const StatusIcon =
+              it.status === "acted" || it.status === "executed" || it.status === "approved" || it.status === "complete"
+                ? CheckCircle2
+                : it.status === "dismissed" || it.status === "rejected" || it.status === "failed"
+                ? XCircle
+                : Bot;
+            const statusClass =
+              it.status === "acted" || it.status === "executed" || it.status === "approved"
+                ? "text-emerald-600"
+                : it.status === "dismissed" || it.status === "rejected" || it.status === "failed"
+                ? "text-rose-600"
+                : "text-violet-600";
+            return (
+              <li key={it.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2">
+                <StatusIcon className={`mt-0.5 h-4 w-4 shrink-0 ${statusClass}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold text-slate-900">{it.title}</p>
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      {it.status}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-600">{it.detail}</p>
+                </div>
+                <span className="shrink-0 text-[10px] text-slate-400">
+                  {it.timestamp > 0 ? new Date(it.timestamp).toLocaleTimeString() : "—"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { useSelf } from "@/liveblocks.config";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WalletCards, PieChart, Users, Settings, Database, LayoutGrid, ArchitectIcon } from "@/components/icons";
+import { Compass } from "lucide-react";
 import { DreyvMark } from "@/components/brand/dreyv-mark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,6 +31,7 @@ import { useVault } from "@/lib/contexts/VaultContext";
 import { CanvasProvider } from "@/lib/canvas/CanvasContext";
 import { CommandFocusProvider } from "@/lib/commandbar/focus-context";
 import { useAgentPushStream } from "@/lib/commandbar/use-agent-push-stream";
+import { AgentProvider } from "@/lib/contexts/AgentContext";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
@@ -66,6 +68,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
             <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
             <NavButton icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} />
+            <NavButton icon={Compass} label="Opportunities" href="/app/opportunities" active={pathname === "/app/opportunities"} />
             <NavButton icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} />
             <NavButton icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} />
             <NavButton icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} />
@@ -73,6 +76,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
 
     return (
+        <AgentProvider>
         <CanvasProvider>
         <CommandFocusProvider>
         <div
@@ -185,6 +189,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
         </CommandFocusProvider>
         </CanvasProvider>
+        </AgentProvider>
     );
 }
 

@@ -433,6 +433,10 @@ export async function middleware(request: NextRequest) {
         '/images',
         '/fonts',
         '/manifest',
+        // Public read-only vault preview ("/v/[address]") — no auth required
+        '/v/',
+        // Public report viewer
+        '/r/',
     ];
 
     const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio'];
@@ -473,9 +477,24 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
     const isStudioGatedRoute =
         pathname.startsWith('/api/studio/unlock') || pathname.startsWith('/api/studio/media');
+    // Hero paste-vault entry-point parses Solana addresses from natural-language
+    // input pre-auth; it never executes anything. Keep parse public, keep any
+    // sibling /api/ai/* routes protected by the regular gate below.
+    const isPublicAtlasParse =
+        pathname === '/api/ai/parse-atlas-command' && request.method === 'POST';
+    // /v/[address] preview SSR fetches these endpoints. They run their own
+    // ?public=1 gating + IP rate limit, so the middleware just lets them pass
+    // when the caller passes ?public=1 (or hits the home parse/execute pair).
+    const url = request.nextUrl;
+    const isPublicAnalyticsFees =
+        pathname === '/api/analytics/fees' &&
+        request.method === 'GET' &&
+        url.searchParams.get('public') === '1';
     if (
         isPublicArtifactRoute ||
         isStudioGatedRoute ||
+        isPublicAtlasParse ||
+        isPublicAnalyticsFees ||
         publicApiPaths.some((p) => pathname === p || (pathname.startsWith(p) && request.method === 'GET'))
     ) {
         return withSeoHeaders(

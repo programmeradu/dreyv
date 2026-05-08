@@ -74,6 +74,12 @@ export interface ExecutionState {
 }
 
 /**
+ * Cross-chain selector. D1 — read-only EVM is opt-in; "solana" stays the
+ * default for every existing call site so back-compat is preserved.
+ */
+export type CapabilityChain = "solana" | "evm";
+
+/**
  * The unified context every executor receives. Replaces ad-hoc closures
  * over `walletAddress`, `rpcEndpoint`, `vaultState`, etc. that the legacy
  * route.ts relied on.
@@ -91,6 +97,15 @@ export interface CapabilityContext {
   vaultAddress?: string | null;
   /** True when the LLM/router classified the intent as Studio scaffolding. */
   isStudioBuildIntent: boolean;
+  /**
+   * D1 — Active chain for this run. Defaults to "solana" everywhere it's not
+   * explicitly threaded. Capabilities marked `mode: "execute"` (`sideEffects:
+   * "write"` in our taxonomy) refuse to run when `chain !== "solana"` until
+   * native EVM execution lands.
+   */
+  chain?: CapabilityChain;
+  /** D1 — EVM chain id when chain==="evm" (e.g. 1, 8453, 42161). */
+  chainId?: number;
   /**
    * Returns a structured "blocked" payload if the capability shouldn't run
    * because the user is in build-intent mode. Returns null otherwise.
@@ -155,6 +170,13 @@ export interface Capability<
    * Read/sim/meta capabilities should generally remain "free".
    */
   minTier?: "free" | "mini" | "max";
+  /**
+   * D1 — Chains this capability supports. Defaults to ["solana"] when omitted.
+   * Use ["solana", "evm"] for read-only capabilities that work on both;
+   * keep `mode: "execute"` capabilities at ["solana"] until native EVM
+   * signing ships.
+   */
+  supportedChains?: CapabilityChain[];
   execute: (
     input: z.infer<TInput>,
     ctx: CapabilityContext,

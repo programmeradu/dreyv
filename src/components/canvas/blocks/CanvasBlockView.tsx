@@ -3483,6 +3483,13 @@ interface TreasuryReport {
   snapshot: Record<string, unknown>;
 }
 
+interface UpgradeRequiredPayload {
+  requiredTier: "free" | "mini" | "max";
+  currentTier: "free" | "mini" | "max";
+  upgradeUrl: string;
+  founding?: boolean;
+}
+
 function ReportsShareBlock({ block }: { block: CanvasBlock }) {
   const wallet = asString(block.payload.wallet);
   const valuation = asNumber(block.payload.valuation);
@@ -3493,14 +3500,70 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [upgradeNeeded, setUpgradeNeeded] = useState<UpgradeRequiredPayload | null>(null);
+  const [tierPreviewBlocked, setTierPreviewBlocked] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!wallet) {
+        setTierPreviewBlocked(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/billing/effective-tier", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const j = (await res.json()) as { effectiveTier?: string };
+        if (cancelled) return;
+        setTierPreviewBlocked(j.effectiveTier === "free");
+      } catch {
+        if (!cancelled) setTierPreviewBlocked(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet]);
+  const paywall: UpgradeRequiredPayload | null =
+    upgradeNeeded ??
+    (tierPreviewBlocked
+      ? {
+          requiredTier: "mini",
+          currentTier: "free",
+          upgradeUrl: "/pricing#mini",
+          founding: false,
+        }
+      : null);
+  const isLocked = paywall != null;
+
+  const handleUpgradeResponse = async (res: Response): Promise<boolean> => {
+    if (res.status !== 402) return false;
+    try {
+      const json = await res.json();
+      if (json && typeof json === "object" && json.requiredTier) {
+        setUpgradeNeeded({
+          requiredTier: json.requiredTier,
+          currentTier: json.currentTier,
+          upgradeUrl: json.upgradeUrl ?? "/pricing#mini",
+          founding: Boolean(json.founding),
+        });
+        return true;
+      }
+    } catch { /* ignore */ }
+    setUpgradeNeeded({ requiredTier: "mini", currentTier: "free", upgradeUrl: "/pricing#mini" });
+    return true;
+  };
 
   const refresh = async () => {
     if (!wallet) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/treasury/reports?wallet=${wallet}`);
-      const json = await res.json();
-      setReports(json.reports ?? []);
+      if (res.status === 401 || res.status === 403) {
+        setReports([]);
+      } else {
+        const json = await res.json();
+        setReports(json.reports ?? []);
+      }
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -3514,34 +3577,38 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
       tokens: tokens.map((t) => ({ symbol: t.symbol, value: t.value })),
       generatedAt: new Date().toISOString(),
     };
-    await fetch("/api/treasury/reports", {
+    const res = await fetch("/api/treasury/reports", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ wallet, snapshot }),
     });
+    if (await handleUpgradeResponse(res)) { setBusy(null); return; }
     setBusy(null); refresh();
   };
 
   const publish = async (id: string) => {
     setBusy(`${id}:pub`);
-    await fetch("/api/treasury/reports", {
+    const res = await fetch("/api/treasury/reports", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, wallet, action: "publish", expiresInDays: 30 }),
     });
+    if (await handleUpgradeResponse(res)) { setBusy(null); return; }
     setBusy(null); refresh();
   };
 
   const revoke = async (id: string) => {
     setBusy(`${id}:rev`);
-    await fetch("/api/treasury/reports", {
+    const res = await fetch("/api/treasury/reports", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, wallet, action: "revoke" }),
     });
+    if (await handleUpgradeResponse(res)) { setBusy(null); return; }
     setBusy(null); refresh();
   };
 
   const remove = async (id: string) => {
     setBusy(`${id}:del`);
-    await fetch(`/api/treasury/reports?id=${id}&wallet=${wallet}`, { method: "DELETE" });
+    const res = await fetch(`/api/treasury/reports?id=${id}&wallet=${wallet}`, { method: "DELETE" });
+    if (await handleUpgradeResponse(res)) { setBusy(null); return; }
     setBusy(null); refresh();
   };
 
@@ -3561,6 +3628,31 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
 
   return (
     <BlockShell block={block} accent="violet">
+      {isLocked && paywall && (
+        <div className="mb-3 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-violet-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+                {paywall.requiredTier === "max" ? "Max" : "Mini"} feature
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                Sharing public treasury reports is a paid feature
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                You&apos;re on <span className="font-semibold capitalize">{paywall.currentTier}</span>.
+                Upgrade to <span className="font-semibold capitalize">{paywall.requiredTier}</span> to
+                generate, publish, and rotate read-only links for accountants and stakeholders.
+              </p>
+            </div>
+            <a
+              href={paywall.upgradeUrl}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+            >
+              Upgrade
+            </a>
+          </div>
+        </div>
+      )}
       {loading && reports.length === 0 ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : (
@@ -3618,7 +3710,7 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
                       </div>
                       <div className="flex items-center gap-1">
                         {!isPublished && r.status !== "revoked" && (
-                          <button onClick={() => publish(r.id)} disabled={busy != null}
+                          <button onClick={() => publish(r.id)} disabled={busy != null || isLocked}
                             className="rounded-md bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
                             {busy === `${r.id}:pub` ? "…" : "Publish link"}
                           </button>
@@ -3645,7 +3737,7 @@ function ReportsShareBlock({ block }: { block: CanvasBlock }) {
               })}
             </div>
           )}
-          <button onClick={generate} disabled={busy === "create"}
+          <button onClick={generate} disabled={busy === "create" || isLocked}
             className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
             {busy === "create" ? "Generating…" : "Generate report"}
           </button>
@@ -3667,11 +3759,22 @@ interface SecurityAudit {
   lastAuditAt: string | null;
 }
 
+interface RecentProposalRow {
+  transactionIndex: number;
+  status: string;
+  approvals: number;
+  threshold: number;
+  createdBy: string | null;
+  summary: string | null;
+  createdAt: string | null;
+}
+
 function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
   const wallet = asString(block.payload.wallet);
   const [audit, setAudit] = useState<SecurityAudit | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [recentProposals, setRecentProposals] = useState<RecentProposalRow[]>([]);
 
   const refresh = async () => {
     if (!wallet) return;
@@ -3683,7 +3786,30 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
     } catch { /* ignore */ }
     setLoading(false);
   };
+
+  const refreshProposals = async () => {
+    if (!wallet) return;
+    try {
+      const res = await fetch(`/api/squads/proposals/sync?vault=${encodeURIComponent(wallet)}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const rows: RecentProposalRow[] = (Array.isArray(json?.proposals) ? json.proposals : [])
+        .slice(0, 5)
+        .map((p: any) => ({
+          transactionIndex: Number(p.transactionIndex ?? p.index ?? 0),
+          status: String(p.status ?? "Active"),
+          approvals: Number(p.approvals ?? p.signatures ?? 0),
+          threshold: Number(p.threshold ?? 1),
+          createdBy: typeof p.createdBy === "string" ? p.createdBy : null,
+          summary: typeof p.summary === "string" ? p.summary : null,
+          createdAt: typeof p.createdAt === "string" ? p.createdAt : null,
+        }));
+      setRecentProposals(rows);
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
+  useEffect(() => { refreshProposals(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet]);
 
   const runAudit = async () => {
     setBusy(true);
@@ -3815,6 +3941,64 @@ function WalletSecurityBlock({ block }: { block: CanvasBlock }) {
               <span className="text-[11px] text-slate-400">last {new Date(audit.lastAuditAt).toLocaleString()}</span>
             )}
           </div>
+          {audit.isMultisig && recentProposals.length > 0 && (
+            <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50/30 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">
+                Recent proposals
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {recentProposals.map((p) => {
+                  const ready = p.approvals >= p.threshold;
+                  const executed = p.status === "Executed";
+                  const cancelled = p.status === "Cancelled" || p.status === "Rejected";
+                  const tone = executed
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    : cancelled
+                    ? "bg-amber-50 text-amber-700 border-amber-100"
+                    : ready
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    : "bg-violet-50 text-violet-700 border-violet-100";
+                  const proposerShort = p.createdBy
+                    ? `${p.createdBy.slice(0, 4)}…${p.createdBy.slice(-4)}`
+                    : null;
+                  return (
+                    <li
+                      key={p.transactionIndex}
+                      className="flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                    >
+                      <div className="flex flex-1 items-center gap-2 min-w-0">
+                        <span className="font-semibold text-slate-700">#{p.transactionIndex}</span>
+                        {proposerShort ? (
+                          <span className="text-slate-500">
+                            by{" "}
+                            <span
+                              className="font-mono text-slate-700"
+                              title={p.createdBy ?? undefined}
+                            >
+                              {proposerShort}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="italic text-slate-400">unknown initiator</span>
+                        )}
+                        {p.summary && (
+                          <span className="truncate text-slate-500" title={p.summary}>
+                            — {p.summary}
+                          </span>
+                        )}
+                      </div>
+                      <span className="tabular-nums text-slate-500">
+                        {p.approvals}/{p.threshold}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 font-medium ${tone}`}>
+                        {p.status}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </>
       )}
     </BlockShell>

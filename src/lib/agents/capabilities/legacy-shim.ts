@@ -15,8 +15,8 @@
  */
 
 import { tool } from "ai";
-import { listCapabilities } from "./registry";
-import type { AnyCapability, CapabilityContext, ExecutionState } from "./types";
+import { capabilitySupportsChain, listCapabilities } from "./registry";
+import type { AnyCapability, CapabilityChain, CapabilityContext, ExecutionState } from "./types";
 import { gateFor, tierAllows, type Tier } from "../policy/tier-gate";
 
 export interface BuildCapabilityContextInput {
@@ -30,6 +30,10 @@ export interface BuildCapabilityContextInput {
   isStudioBuildIntent: boolean;
   blockExecutionForBuildIntent: CapabilityContext["blockExecutionForBuildIntent"];
   resolveSplitAmount: CapabilityContext["resolveSplitAmount"];
+  /** D1 — currently-selected chain for this run. Defaults to "solana". */
+  chain?: CapabilityChain;
+  /** D1 — EVM chain id when chain==="evm". */
+  chainId?: number;
 }
 
 /**
@@ -48,6 +52,8 @@ export function buildCapabilityContext(input: BuildCapabilityContextInput): Capa
     isStudioBuildIntent: input.isStudioBuildIntent,
     blockExecutionForBuildIntent: input.blockExecutionForBuildIntent,
     resolveSplitAmount: input.resolveSplitAmount,
+    chain: input.chain ?? "solana",
+    chainId: input.chainId,
   };
 }
 
@@ -64,6 +70,24 @@ function capabilityToAITool(cap: AnyCapability, ctx: CapabilityContext, userTier
     description: cap.description,
     inputSchema: cap.inputSchema,
     execute: async (input: unknown) => {
+      // D1 — Reject capabilities that don't support the active chain. Mostly
+      // catches `mode: "execute"` (write) capabilities being invoked while the
+      // user is on EVM; native EVM signing is post-MVP.
+      const chain: CapabilityChain = ctx.chain ?? "solana";
+      if (!capabilitySupportsChain(cap, chain)) {
+        return {
+          ok: false,
+          error: "chain_not_supported",
+          blocked: true,
+          capabilityId: cap.id,
+          activeChain: chain,
+          supportedChains: cap.supportedChains ?? ["solana"],
+          message:
+            chain === "evm"
+              ? `${cap.id} is Solana-only today. Switch back to Solana to execute, or use the read-only EVM analytics + bridge-for-gas helpers instead.`
+              : `${cap.id} doesn't support the ${chain} chain.`,
+        };
+      }
       if (userTier) {
         const required = gateFor(cap.id);
         if (!tierAllows(userTier, required)) {

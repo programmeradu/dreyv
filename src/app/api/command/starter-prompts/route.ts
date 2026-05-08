@@ -21,7 +21,7 @@ const SYSTEM_PROMPT = `You are Dreyv (pronounced "DRAVE"), a Solana treasury cop
 
 You are looking at a real treasury snapshot. Your job:
 1. Write ONE sentence ("insight") describing the single most useful thing you notice. Use real numbers from the snapshot when you have them. If the snapshot is empty/zero, say so plainly ("Nothing on-chain here yet — connect a vault and I'll generate a real to-do list."). Never invent figures.
-2. Generate 5 to-dos ("prompts") tailored to what you saw. Each one is an action the user can take right now. Cover at least one of each pillar: fees, yield, risk. If you saw idle stables, propose a yield move. If you saw a swap, propose a fee/slippage audit. If you saw concentration, propose a hedge. Keep prompts 6-14 words, no trailing punctuation.
+2. Generate 5 to-dos ("prompts") tailored to what you saw. Each prompt MUST be a curiosity-driven, monetary-hook to-do — earn more or save more. Bias hard towards: identify yield opportunities, analyze historical fees/slippage, build APR-targeted strategies, surface DCA opportunities, audit wallet risk. Cover at least one of each pillar: fees, yield, risk. Keep prompts 6-14 words, no trailing punctuation.
 
 STRICT JSON only:
 {
@@ -29,6 +29,14 @@ STRICT JSON only:
   "prompts": [ { "label": "<2-4 word verb phrase>", "text": "<full prompt>", "pillar": "fees" | "yield" | "risk" } ]
 }
 Exactly 5 prompts. Vary phrasing. Never repeat label across the 5.`;
+
+const CURATED_FALLBACK_PROMPTS = [
+  { label: "Find yield", text: "Identify yield opportunities for my idle stablecoins", pillar: "yield" as const },
+  { label: "Audit fees", text: "Analyze fees I've paid in the last year and suggest savings", pillar: "fees" as const },
+  { label: "Target APR", text: "Create a rebalancing strategy targeting 10% APR with medium risk", pillar: "yield" as const },
+  { label: "DCA windows", text: "Show me DCA opportunities based on today's SOL drawdown", pillar: "yield" as const },
+  { label: "Risk audit", text: "Audit my wallet for security risks and concentration exposure", pillar: "risk" as const },
+];
 
 interface Snapshot {
   address: string | null;
@@ -131,7 +139,16 @@ export async function GET(req: NextRequest) {
     : null;
 
   if (!proxyUrl || !supabaseAnon) {
-    return Response.json({ error: "ai_gateway_not_configured" }, { status: 503 });
+    return Response.json(
+      {
+        insight: null,
+        prompts: CURATED_FALLBACK_PROMPTS,
+        analyzed: false,
+        snapshot: null,
+        fallback: "ai_gateway_not_configured",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   const { searchParams, origin } = new URL(req.url);
@@ -165,23 +182,39 @@ export async function GET(req: NextRequest) {
   });
 
   if (!upstream.ok) {
-    return Response.json({ error: "ai_gateway_error", status: upstream.status }, { status: 502 });
+    return Response.json(
+      { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "ai_gateway_error" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   const data = (await upstream.json().catch(() => null)) as any;
   const content = data?.choices?.[0]?.message?.content;
-  if (!content) return Response.json({ error: "no_content" }, { status: 502 });
+  if (!content) {
+    return Response.json(
+      { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "no_content" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   let parsed: any;
   try {
     parsed = typeof content === "string" ? JSON.parse(content) : content;
   } catch {
-    return Response.json({ error: "parse_error" }, { status: 502 });
+    return Response.json(
+      { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "parse_error" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   const prompts = Array.isArray(parsed?.prompts) ? parsed.prompts.slice(0, 5) : [];
   const insight = typeof parsed?.insight === "string" && parsed.insight.trim() ? parsed.insight.trim() : null;
-  if (prompts.length === 0) return Response.json({ error: "empty_prompts" }, { status: 502 });
+  if (prompts.length === 0) {
+    return Response.json(
+      { insight, prompts: CURATED_FALLBACK_PROMPTS, analyzed: Boolean(address), snapshot: null, fallback: "empty_prompts" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   return Response.json(
     {

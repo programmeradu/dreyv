@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Key, Wallet, Package, Store, Pencil, Check, RefreshCw, Loader2, Mail, X, ShieldCheck, Fingerprint } from "lucide-react";
+import { Key, Wallet, Package, Store, Pencil, Check, RefreshCw, Loader2, Mail, X, ShieldCheck, Fingerprint, Network } from "lucide-react";
 import { useWallet, useWalletModal } from "@/lib/wallet/compat";
+import { EvmConnectButton } from "@/components/EvmConnectButton";
+import { useAccount } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast-notifications";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -176,6 +178,7 @@ export const ProfileView = ({ onNavigate }: { onNavigate?: (view: string) => voi
                             else openWalletModal(true);
                         }}
                     />
+                    <EvmCredentialRow />
                     <CredentialItem
                         icon={Mail}
                         label="Email"
@@ -242,6 +245,71 @@ const StatCard = ({ icon: Icon, label, value }: { icon: any; label: string; valu
         <p className="mt-2 text-[24px] font-semibold tracking-[-0.02em] text-slate-900 tabular-nums">{value}</p>
     </div>
 );
+
+function EvmCredentialRow() {
+    const { address, isConnected } = useAccount();
+    const [linked, setLinked] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch("/api/auth/link-evm", { credentials: "include" });
+                if (!cancelled && res.ok) {
+                    const data = (await res.json()) as { evmWalletAddress?: string | null };
+                    setLinked(data.evmWalletAddress ?? null);
+                }
+            } catch { /* ignore */ }
+        })();
+        return () => { cancelled = true; };
+    }, [isConnected, address]);
+
+    const display = isConnected && address
+        ? `${address.slice(0, 6)}…${address.slice(-4)}`
+        : linked
+            ? `${linked.slice(0, 6)}…${linked.slice(-4)}`
+            : "Not linked — read-only EVM analytics";
+
+    const handleUnlink = async () => {
+        try {
+            const res = await fetch("/api/auth/link-evm", { method: "DELETE", credentials: "include" });
+            if (res.ok) {
+                setLinked(null);
+                toast.success("EVM wallet unlinked");
+            } else {
+                toast.error("Could not unlink EVM wallet");
+            }
+        } catch {
+            toast.error("Could not unlink EVM wallet");
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-violet-100 bg-white">
+            <div className="flex items-center gap-3 min-w-0">
+                <span className="h-9 w-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+                    <Network size={15} />
+                </span>
+                <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-slate-900">EVM wallet (read-only)</p>
+                    <div className="text-[11px] text-slate-500 truncate font-mono">{display}</div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <EvmConnectButton hideUntilMounted={false} />
+                {linked && !isConnected && (
+                    <button
+                        type="button"
+                        onClick={handleUnlink}
+                        className="text-[11px] font-semibold tracking-[0.08em] text-amber-600 hover:text-amber-700"
+                    >
+                        Unlink
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
 
 const CredentialItem = ({
     icon: Icon, label, value, action, tone = "ok", onClick,
