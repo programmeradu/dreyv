@@ -50,33 +50,36 @@ const rkTheme = lightTheme({
 export function Web3Providers({ children }: { children: ReactNode }) {
   const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
 
+  let appTree: ReactNode;
+  if (projectId) {
+    appTree = (
+      <RainbowKitProvider theme={rkTheme} modalSize="compact">
+        {apiKey ? (
+          <OnchainKitProvider apiKey={apiKey} chain={base}>
+            <VaultProvider>{children}</VaultProvider>
+          </OnchainKitProvider>
+        ) : (
+          <VaultProvider>{children}</VaultProvider>
+        )}
+      </RainbowKitProvider>
+    );
+  } else if (apiKey) {
+    appTree = (
+      <OnchainKitProvider apiKey={apiKey} chain={base}>
+        <VaultProvider>{children}</VaultProvider>
+      </OnchainKitProvider>
+    );
+  } else {
+    appTree = <VaultProvider>{children}</VaultProvider>;
+  }
+
   return (
     <NetworkProvider>
       <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
         <PhantomCompatProvider appName="Dreyv">
-          <VaultProvider>
-            <WagmiProvider config={rainbowConfig}>
-              <QueryClientProvider client={queryClient}>
-                {projectId ? (
-                  <RainbowKitProvider theme={rkTheme} modalSize="compact">
-                    {apiKey ? (
-                      <OnchainKitProvider apiKey={apiKey} chain={base}>
-                        {children}
-                      </OnchainKitProvider>
-                    ) : (
-                      children
-                    )}
-                  </RainbowKitProvider>
-                ) : apiKey ? (
-                  <OnchainKitProvider apiKey={apiKey} chain={base}>
-                    {children}
-                  </OnchainKitProvider>
-                ) : (
-                  <>{children}</>
-                )}
-              </QueryClientProvider>
-            </WagmiProvider>
-          </VaultProvider>
+          <WagmiProvider config={rainbowConfig}>
+            <QueryClientProvider client={queryClient}>{appTree}</QueryClientProvider>
+          </WagmiProvider>
         </PhantomCompatProvider>
       </LiveblocksProvider>
     </NetworkProvider>

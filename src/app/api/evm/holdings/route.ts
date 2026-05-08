@@ -45,11 +45,11 @@ function toChain(input: string | null): Chain {
 }
 
 function hexToBigInt(hex: string | null | undefined): bigint {
-    if (!hex || typeof hex !== "string") return 0n;
+    if (!hex || typeof hex !== "string") return BigInt(0);
     try {
         return BigInt(hex);
     } catch {
-        return 0n;
+        return BigInt(0);
     }
 }
 
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
         const tokenBalances = balancesResult?.tokenBalances ?? [];
         const nonZero = tokenBalances.filter((t) => {
             const v = hexToBigInt(t.tokenBalance);
-            return v > 0n;
+            return v > BigInt(0);
         });
 
         // Cap metadata fetches at 25 to keep latency bounded.

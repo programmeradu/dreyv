@@ -56,11 +56,11 @@ async function rpcCall(chain: EvmChain, method: string, params: unknown[]): Prom
 }
 
 function hexToBigInt(hex: string | null | undefined): bigint {
-  if (!hex || typeof hex !== "string") return 0n;
+  if (!hex || typeof hex !== "string") return BigInt(0);
   try {
     return BigInt(hex);
   } catch {
-    return 0n;
+    return BigInt(0);
   }
 }
 
@@ -98,12 +98,13 @@ const bridge_for_gas = defineCapability({
     const balanceWei = hexToBigInt(balHex ?? undefined);
 
     const gasHex = (await rpcCall(targetChain, "eth_gasPrice", [])) as string | null;
-    const gasPriceWei = hexToBigInt(gasHex ?? undefined) || 1n * 10n ** 9n;
+    const gasPriceWei =
+      hexToBigInt(gasHex ?? undefined) || BigInt(1_000_000_000);
 
-    const parsedOverride = input.requiredNativeWei ? hexToBigInt(input.requiredNativeWei) : 0n;
-    const defaultNeed = gasPriceWei * 350_000n;
-    const requiredWei = parsedOverride > 0n ? parsedOverride : defaultNeed;
-    const cushion = (requiredWei * 12n) / 10n;
+    const parsedOverride = input.requiredNativeWei ? hexToBigInt(input.requiredNativeWei) : BigInt(0);
+    const defaultNeed = gasPriceWei * BigInt(350_000);
+    const requiredWei = parsedOverride > BigInt(0) ? parsedOverride : defaultNeed;
+    const cushion = (requiredWei * BigInt(12)) / BigInt(10);
 
     if (balanceWei >= cushion) {
       return {

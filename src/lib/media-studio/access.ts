@@ -43,6 +43,7 @@ export async function requireTeamMember(req: NextRequest): Promise<
         id: STUDIO_PASS_USER_ID,
         walletAddress: "studio-pass",
         tier: "max",
+        evmWalletAddress: null,
         role: "creator",
       },
     };

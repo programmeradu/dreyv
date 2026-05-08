@@ -18,6 +18,37 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Network } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 
+/** Mirrors RainbowKit `ConnectButton.Custom` render props (not exported from package root). */
+interface EvmRKRenderProps {
+    account?: {
+        address: string;
+        displayName: string;
+        ensAvatar?: string;
+        ensName?: string;
+        hasPendingTransactions: boolean;
+        balanceDecimals?: number;
+        balanceFormatted?: string;
+        balanceSymbol?: string;
+        displayBalance?: string;
+    };
+    chain?: {
+        hasIcon: boolean;
+        iconUrl?: string;
+        iconBackground?: string;
+        id: number;
+        name?: string;
+        unsupported?: boolean;
+    };
+    mounted: boolean;
+    authenticationStatus?: "loading" | "authenticated" | "unauthenticated";
+    openAccountModal: () => void;
+    openChainModal: () => void;
+    openConnectModal: () => void;
+    accountModalOpen?: boolean;
+    chainModalOpen?: boolean;
+    connectModalOpen?: boolean;
+}
+
 interface Props {
     /** Hide on SSR + during dehydration to avoid hydration mismatch. */
     hideUntilMounted?: boolean;
@@ -90,7 +121,7 @@ export function EvmConnectButton({ hideUntilMounted = true, onLinked }: Props) {
                 openConnectModal,
                 authenticationStatus,
                 mounted: rkMounted,
-            }) => {
+            }: EvmRKRenderProps) => {
                 const ready = rkMounted && authenticationStatus !== "loading";
                 const connected =
                     ready &&
