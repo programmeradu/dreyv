@@ -55,16 +55,6 @@ interface Snapshot {
   }>;
   empty: boolean;
 }
-    kind: string;
-    fromSymbol?: string;
-    toSymbol?: string;
-    fromAmount?: number;
-    toAmount?: number;
-    whenHours: number;
-    source?: string;
-  }>;
-  empty: boolean;
-}
 
 // Common Solana mints → symbol (cheap lookup before falling back to "?")
 const MINT_SYMBOLS: Record<string, string> = {
