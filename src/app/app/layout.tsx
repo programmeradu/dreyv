@@ -10,7 +10,7 @@ import { useSelf } from "@/liveblocks.config";
 import { getAvatarUrl } from "@/lib/avatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WalletCards, PieChart, Users, Settings, Database, LayoutGrid, ArchitectIcon } from "@/components/icons";
-import { Compass } from "lucide-react";
+
 import { DreyvMark } from "@/components/brand/dreyv-mark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
