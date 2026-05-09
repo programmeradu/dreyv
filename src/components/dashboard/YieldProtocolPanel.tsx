@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
-import { AppEventBus } from "@/lib/events";
 import { type RiskTier } from "@/lib/yield-registry";
 import { getProtocolLogo } from "@/lib/protocol-logos";
 
