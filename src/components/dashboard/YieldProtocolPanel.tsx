@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenAvatar } from "@/components/TokenAvatar";
 import { AppEventBus } from "@/lib/events";
 import { type RiskTier } from "@/lib/yield-registry";
+import { getProtocolLogo } from "@/lib/protocol-logos";
 
 interface ProtocolRow {
     mint: string;
@@ -30,14 +33,15 @@ function formatAum(usd?: number): string {
     return `$${usd}`;
 }
 
+// Neutral / violet-toned risk pills (no green/yellow/rose to match brand).
 function riskMeta(tier: RiskTier): { label: string; cls: string } {
     switch (tier) {
         case "low":
-            return { label: "Low risk", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+            return { label: "Low risk", cls: "border-violet-200 bg-violet-50 text-violet-700" };
         case "medium":
-            return { label: "Medium risk", cls: "border-amber-200 bg-amber-50 text-amber-700" };
+            return { label: "Medium risk", cls: "border-slate-200 bg-slate-50 text-slate-700" };
         case "high":
-            return { label: "High risk", cls: "border-rose-200 bg-rose-50 text-rose-700" };
+            return { label: "Higher risk", cls: "border-slate-300 bg-slate-100 text-slate-800" };
     }
 }
 
@@ -79,12 +83,23 @@ export function YieldProtocolPanel({
         if (!rates) return [];
         const all: ProtocolRow[] = Object.entries(rates).map(([mint, r]) => ({ ...r, mint }));
         const personaWeight: Record<typeof persona, (r: ProtocolRow) => number> = {
-            conservative: (r) => r.apy - (r.riskTier === "high" ? 5 : r.riskTier === "medium" ? 1.5 : 0),
-            balanced: (r) => r.apy - (r.riskTier === "high" ? 1.5 : 0),
+            conservative: (r) => r.apy - (r.riskTier === "high" ? 8 : r.riskTier === "medium" ? 2 : 0),
+            balanced: (r) => r.apy - (r.riskTier === "high" ? 3 : 0),
             aggressive: (r) => r.apy + (r.riskTier === "high" ? 0.5 : 0),
         };
         const score = personaWeight[persona];
-        return [...all].sort((a, b) => score(b) - score(a)).slice(0, limit);
+        // Dedupe by protocol+symbol so we don't show "Kamino USDC" three times
+        const seen = new Set<string>();
+        const sorted = [...all].sort((a, b) => score(b) - score(a));
+        const deduped: ProtocolRow[] = [];
+        for (const row of sorted) {
+            const key = `${row.protocol}|${row.symbol}`.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            deduped.push(row);
+            if (deduped.length >= limit) break;
+        }
+        return deduped;
     }, [rates, persona, limit]);
 
     const topApy = ranked[0]?.apy ?? 0;
@@ -128,26 +143,36 @@ export function YieldProtocolPanel({
             <ul className="flex-1 space-y-1.5 px-5 pb-3">
                 {ranked.map((r) => {
                     const badge = riskMeta(r.riskTier);
+                    const logo = getProtocolLogo(r.protocol);
                     return (
                         <li
                             key={r.mint}
                             className="flex items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-3 py-2"
                         >
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] font-semibold text-slate-900">
-                                    {r.protocol}
-                                    <span className="ml-1.5 text-[10px] font-medium text-slate-400">{r.symbol}</span>
-                                </p>
-                                <div className="mt-1 flex items-center gap-1.5 text-[10px]">
-                                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 font-semibold ${badge.cls}`}>
-                                        {badge.label}
-                                    </span>
-                                    <span className="text-slate-400">AUM {formatAum(r.aumUsd)}</span>
-                                    {r.source === "live" && (
-                                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
-                                            Live
+                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                                <TokenAvatar
+                                    logo={logo}
+                                    symbol={r.protocol}
+                                    mint={r.mint}
+                                    size={28}
+                                    className="shrink-0 rounded-full"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[13px] font-semibold text-slate-900">
+                                        {r.protocol}
+                                        <span className="ml-1.5 text-[10px] font-medium text-slate-400">{r.symbol}</span>
+                                    </p>
+                                    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 font-semibold ${badge.cls}`}>
+                                            {badge.label}
                                         </span>
-                                    )}
+                                        <span className="text-slate-400">AUM {formatAum(r.aumUsd)}</span>
+                                        {r.source === "live" && (
+                                            <span className="rounded-full border border-violet-200 bg-white px-1.5 py-0.5 font-semibold text-violet-700">
+                                                Live
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div className="shrink-0 text-right">
@@ -161,19 +186,28 @@ export function YieldProtocolPanel({
                 })}
             </ul>
 
-            <button
-                onClick={() => {
-                    const top = ranked[0];
-                    const cmd = top
-                        ? `Deploy idle stables and SOL into ${top.protocol} (${top.symbol}) at ~${top.apy.toFixed(2)}% APY. Confirm risk: ${top.riskTier}.`
-                        : `Show me the best yield opportunities for my treasury right now.`;
-                    AppEventBus.emit("AGENT_COMMAND", { command: cmd, source: "YieldProtocolPanel" });
-                }}
-                className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
-            >
-                {ranked[0] ? `Earn ${ranked[0].apy.toFixed(2)}% with ${ranked[0].protocol}` : "Find yield with Dreyv"}
-                <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            <div className="mt-auto flex flex-col">
+                <Link
+                    href="/app/treasury"
+                    className="flex items-center justify-between gap-2 border-t border-violet-100 px-5 py-2.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-700"
+                >
+                    See all yield routes in Treasury
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+                <button
+                    onClick={() => {
+                        const top = ranked[0];
+                        const cmd = top
+                            ? `Deploy idle stables and SOL into ${top.protocol} (${top.symbol}) at ~${top.apy.toFixed(2)}% APY. Confirm risk: ${top.riskTier}.`
+                            : `Show me the best yield opportunities for my treasury right now.`;
+                        AppEventBus.emit("AGENT_COMMAND", { command: cmd, source: "YieldProtocolPanel" });
+                    }}
+                    className="inline-flex items-center justify-center gap-2 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
+                >
+                    {ranked[0] ? `Earn ${ranked[0].apy.toFixed(2)}% with ${ranked[0].protocol}` : "Find yield with Dreyv"}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+            </div>
         </div>
     );
 }
