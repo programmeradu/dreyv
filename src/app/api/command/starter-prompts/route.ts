@@ -43,8 +43,31 @@ interface Snapshot {
   totalUsd: number | null;
   holdings: Array<{ symbol: string; usd: number | null; pct: number | null }>;
   idleStableUsd: number | null;
-  recentSwaps: Array<{ kind: string; from?: string; to?: string; whenHours: number }>;
+  recentSwaps: Array<{
+    kind: string;
+    fromSymbol?: string;
+    toSymbol?: string;
+    fromAmount?: number;
+    toAmount?: number;
+    whenHours: number;
+    source?: string;
+  }>;
   empty: boolean;
+}
+
+// Common Solana mints → symbol (cheap lookup before falling back to "?")
+const MINT_SYMBOLS: Record<string, string> = {
+  So11111111111111111111111111111111111111112: "SOL",
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: "mSOL",
+  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs": "WETH",
+  "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4": "JLP",
+  JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: "JUP",
+};
+function symFromMint(mint?: string | null): string | undefined {
+  if (!mint) return undefined;
+  return MINT_SYMBOLS[mint] || `${mint.slice(0, 4)}…`;
 }
 
 async function buildSnapshot(address: string | null, origin: string): Promise<Snapshot> {
