@@ -54,6 +54,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...appControlCapabilities,
     ...signingCapabilities,
     ...bridgeForGasCapabilities,
+    ...feeReductionCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
