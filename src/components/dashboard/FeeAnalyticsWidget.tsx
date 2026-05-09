@@ -188,7 +188,10 @@ function FeeBody({ data }: { data: FeeAnalytics }) {
                 </div>
             )}
 
-            <CTA label="See full fee breakdown in Treasury" href="/app/treasury" />
+            <CTA
+                label="Find ways to lower these fees"
+                command={`Analyze our treasury's fee spend over the last 12 months ($${formatUsd(total).replace("$", "")} across ${data.transactionCount.toLocaleString()} txs, biggest bucket: ${prettyType(top3[0]?.type ?? "UNKNOWN")}). Identify the largest cost drivers (priority fees, swap routing, failed txs, ATA churn) and propose concrete actions I can approve to reduce them.`}
+            />
         </>
     );
 }
