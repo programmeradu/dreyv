@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 const SYSTEM_PROMPT = `You are Dreyv (pronounced "DRAVE"), a Solana treasury copilot. Voice: calm, precise, founder-to-founder. No emoji, no hype words ("revolutionize", "supercharge", "game-changer", "next-gen").
 
 You are looking at a real treasury snapshot. Your job:
-1. Write ONE sentence ("insight") describing the single most useful thing you notice. Use real numbers from the snapshot when you have them. If the snapshot is empty/zero, say so plainly ("Nothing on-chain here yet — connect a vault and I'll generate a real to-do list."). Never invent figures.
+1. Write ONE sentence ("insight") describing the single most useful thing you notice. Prefer recent activity specifics when present (e.g. "You swapped 200 SOL → USDC on JUPITER 3 days ago — 12.4k now sitting idle."). Use real numbers from the snapshot when you have them. If the snapshot is empty/zero, say so plainly ("Nothing on-chain here yet — connect a vault and I'll generate a real to-do list."). Never invent figures.
 2. Generate 5 to-dos ("prompts") tailored to what you saw. Each prompt MUST be a curiosity-driven, monetary-hook to-do — earn more or save more. Bias hard towards: identify yield opportunities, analyze historical fees/slippage, build APR-targeted strategies, surface DCA opportunities, audit wallet risk. Cover at least one of each pillar: fees, yield, risk. Keep prompts 6-14 words, no trailing punctuation.
 
 STRICT JSON only:
@@ -43,8 +43,31 @@ interface Snapshot {
   totalUsd: number | null;
   holdings: Array<{ symbol: string; usd: number | null; pct: number | null }>;
   idleStableUsd: number | null;
-  recentSwaps: Array<{ kind: string; from?: string; to?: string; whenHours: number }>;
+  recentSwaps: Array<{
+    kind: string;
+    fromSymbol?: string;
+    toSymbol?: string;
+    fromAmount?: number;
+    toAmount?: number;
+    whenHours: number;
+    source?: string;
+  }>;
   empty: boolean;
+}
+
+// Common Solana mints → symbol (cheap lookup before falling back to "?")
+const MINT_SYMBOLS: Record<string, string> = {
+  So11111111111111111111111111111111111111112: "SOL",
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: "mSOL",
+  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs": "WETH",
+  "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4": "JLP",
+  JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: "JUP",
+};
+function symFromMint(mint?: string | null): string | undefined {
+  if (!mint) return undefined;
+  return MINT_SYMBOLS[mint] || `${mint.slice(0, 4)}…`;
 }
 
 async function buildSnapshot(address: string | null, origin: string): Promise<Snapshot> {
@@ -99,8 +122,31 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
         .map((tx) => {
           const ts = Number(tx.timestamp || 0);
           const whenHours = ts > 0 ? Math.round((now - ts) / 3600) : 0;
-          const kind = String(tx.type || tx.description || "tx").toUpperCase();
-          return { kind, whenHours };
+          const kind = String(tx.type || "tx").toUpperCase();
+          const source = tx.source ? String(tx.source).toUpperCase() : undefined;
+
+          // Helius enriched: tokenTransfers carry mint + amount + accounts
+          const transfers: any[] = Array.isArray(tx.tokenTransfers) ? tx.tokenTransfers : [];
+          let fromSymbol: string | undefined;
+          let toSymbol: string | undefined;
+          let fromAmount: number | undefined;
+          let toAmount: number | undefined;
+
+          if (kind === "SWAP" && transfers.length >= 2) {
+            const out = transfers.find((t) => t.fromUserAccount === address);
+            const inc = transfers.find((t) => t.toUserAccount === address);
+            if (out) { fromSymbol = symFromMint(out.mint); fromAmount = Number(out.tokenAmount || 0) || undefined; }
+            if (inc) { toSymbol = symFromMint(inc.mint); toAmount = Number(inc.tokenAmount || 0) || undefined; }
+          } else if (transfers.length >= 1) {
+            const t0 = transfers[0];
+            const isOut = t0.fromUserAccount === address;
+            const sym = symFromMint(t0.mint);
+            const amt = Number(t0.tokenAmount || 0) || undefined;
+            if (isOut) { fromSymbol = sym; fromAmount = amt; }
+            else { toSymbol = sym; toAmount = amt; }
+          }
+
+          return { kind, whenHours, source, fromSymbol, toSymbol, fromAmount, toAmount };
         })
         .filter((t) => /SWAP|TRANSFER|STAKE|UNSTAKE|DEPOSIT|WITHDRAW/.test(t.kind))
         .slice(0, 5);
