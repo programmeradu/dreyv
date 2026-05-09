@@ -140,7 +140,9 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
                 lamports: BigInt(inv.amountMinor),
             }));
         } else {
-            const { getAssociatedTokenAddress, createAssociatedTokenAccountIdempotentInstruction, createTransferCheckedInstruction, TOKEN_PROGRAM_ID } = await import("@solana/spl-token");
+            const splMod = await import("@solana/spl-token");
+            const spl = (splMod as unknown as { default?: typeof splMod }).default ?? splMod;
+            const { getAssociatedTokenAddress, createAssociatedTokenAccountIdempotentInstruction, createTransferCheckedInstruction, TOKEN_PROGRAM_ID } = spl as typeof import("@solana/spl-token");
             const mint = new PublicKey(inv.contract!);
             const recipient = new PublicKey(inv.receivingAddress);
             const fromAta = await getAssociatedTokenAddress(mint, sol.publicKey);
