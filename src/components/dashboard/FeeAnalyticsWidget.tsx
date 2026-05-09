@@ -225,14 +225,14 @@ function Body({ headline, subline }: { headline: string; subline: string }) {
     );
 }
 
-function CTA({ label, command, source }: { label: string; command: string; source: string }) {
+function CTA({ label, href }: { label: string; href: string; command?: string; source?: string }) {
     return (
-        <button
-            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command, source })}
+        <Link
+            href={href}
             className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
         >
             {label}
-            <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+            <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
     );
 }
