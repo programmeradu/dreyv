@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Receipt, TrendingDown, ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { AppEventBus } from "@/lib/events";
@@ -12,6 +12,11 @@ interface FeeBreakdown {
     count: number;
 }
 
+interface DailyFee {
+    date: string;
+    totalFees: number;
+}
+
 interface FeeAnalytics {
     address: string;
     months: number;
@@ -19,10 +24,7 @@ interface FeeAnalytics {
     totalFeeUsd: number;
     avgFeePerTx: number;
     byType: FeeBreakdown[];
-    highestFee?: {
-        feeUsd: number;
-        type: string;
-    } | null;
+    daily?: DailyFee[];
 }
 
 function formatUsd(n: number): string {
@@ -38,6 +40,53 @@ function prettyType(t: string): string {
         .toLowerCase()
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Soft sparkline of monthly fees — used as the micro-viz so the card matches
+ * the analytics CompactCard family. SVG only, no chart library. */
+function FeeSparkline({ daily }: { daily: DailyFee[] }) {
+    const points = useMemo(() => {
+        if (!daily?.length) return [];
+        // Bucket into ~14 weekly points so the line breathes.
+        const buckets: number[] = [];
+        const size = Math.max(1, Math.ceil(daily.length / 14));
+        for (let i = 0; i < daily.length; i += size) {
+            const slice = daily.slice(i, i + size);
+            const sum = slice.reduce((s, d) => s + d.totalFees, 0);
+            buckets.push(sum);
+        }
+        return buckets;
+    }, [daily]);
+
+    if (points.length < 2) {
+        return (
+            <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-violet-100 text-[10px] text-slate-400">
+                Not enough history yet
+            </div>
+        );
+    }
+
+    const W = 320;
+    const H = 64;
+    const max = Math.max(...points, 0.0001);
+    const step = W / (points.length - 1);
+    const path = points
+        .map((v, i) => `${i === 0 ? "M" : "L"} ${(i * step).toFixed(1)} ${(H - (v / max) * (H - 6) - 3).toFixed(1)}`)
+        .join(" ");
+    const area = `${path} L ${W} ${H} L 0 ${H} Z`;
+
+    return (
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" preserveAspectRatio="none" aria-hidden>
+            <defs>
+                <linearGradient id="feeArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.18" />
+                    <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+                </linearGradient>
+            </defs>
+            <path d={area} fill="url(#feeArea)" />
+            <path d={path} fill="none" stroke="#7c3aed" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
 }
 
 export function FeeAnalyticsWidget() {
@@ -73,94 +122,65 @@ export function FeeAnalyticsWidget() {
         };
     }, [activeVault]);
 
-    if (!activeVault) {
-        return (
-            <div className="rounded-2xl border border-violet-100 bg-white p-5">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    <Receipt className="h-3.5 w-3.5" />
-                    Historical Fees
-                </div>
-                <p className="mt-3 text-sm text-slate-500">
-                    Connect a vault address to see how much you've spent on fees in the last year — and where Dreyv can save you money.
-                </p>
-            </div>
-        );
-    }
+    return (
+        <Shell title="Fees · last 12 months">
+            {!activeVault ? (
+                <Body
+                    headline="—"
+                    subline="Connect a wallet to see how much you've spent on fees this year."
+                />
+            ) : loading ? (
+                <Body headline="…" subline="Analysing the last 12 months of activity" />
+            ) : error || !data ? (
+                <Body headline="—" subline={error ?? "No fee data yet"} />
+            ) : (
+                <FeeBody data={data} />
+            )}
+        </Shell>
+    );
+}
 
-    if (loading) {
-        return (
-            <div className="rounded-2xl border border-violet-100 bg-white p-5">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    <Receipt className="h-3.5 w-3.5" />
-                    Historical Fees
-                </div>
-                <p className="mt-3 text-sm text-slate-500">Analysing the last 12 months of transactions…</p>
-            </div>
-        );
-    }
-
-    if (error || !data) {
-        return (
-            <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-5">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">
-                    <Receipt className="h-3.5 w-3.5" />
-                    Historical Fees
-                </div>
-                <p className="mt-3 text-sm text-rose-600">{error ?? "No fee data available."}</p>
-            </div>
-        );
-    }
-
-    const top5 = data.byType.slice(0, 5);
-    const totalFees = data.totalFeeUsd;
-    const txCount = data.transactionCount;
+function FeeBody({ data }: { data: FeeAnalytics }) {
+    const top3 = data.byType.slice(0, 3);
+    const total = data.totalFeeUsd;
 
     return (
-        <div className="rounded-2xl border border-violet-100 bg-white p-5">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                        <Receipt className="h-3.5 w-3.5" />
-                        Fees · last 12 months
-                    </div>
-                    <p className="mt-2 text-3xl font-black tracking-tight text-slate-900 tabular-nums">
-                        {formatUsd(totalFees)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                        across <span className="font-semibold text-slate-700">{txCount.toLocaleString()}</span> transactions
-                        {" · "}avg {formatUsd(data.avgFeePerTx)}/tx
-                    </p>
-                </div>
-                <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                    <TrendingDown className="h-5 w-5" />
+        <>
+            <div className="px-5 pb-3">
+                <p className="font-manrope text-[28px] font-semibold leading-none tracking-tight tabular-nums text-slate-900">
+                    {formatUsd(total)}
+                </p>
+                <p className="mt-1.5 line-clamp-1 text-[11px] text-slate-500">
+                    across <span className="tabular-nums text-slate-700">{data.transactionCount.toLocaleString()}</span>
+                    {" "}transactions · avg {formatUsd(data.avgFeePerTx)}/tx
+                </p>
+            </div>
+
+            <div className="px-5">
+                <div className="h-[68px] w-full">
+                    <FeeSparkline daily={data.daily ?? []} />
                 </div>
             </div>
 
-            {top5.length > 0 && (
-                <div className="mt-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Top fee categories
-                    </p>
-                    <ul className="mt-2 space-y-1.5">
-                        {top5.map((row) => {
-                            const pct = totalFees > 0 ? (row.totalFees / totalFees) * 100 : 0;
+            {top3.length > 0 && (
+                <div className="mt-2 px-5">
+                    <ul className="space-y-1.5">
+                        {top3.map((row) => {
+                            const pct = total > 0 ? (row.totalFees / total) * 100 : 0;
                             return (
-                                <li key={row.type} className="flex items-center gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-2 text-xs">
-                                            <span className="truncate font-semibold text-slate-700">{prettyType(row.type)}</span>
-                                            <span className="tabular-nums text-slate-500">
-                                                {formatUsd(row.totalFees)}
-                                                <span className="ml-1 text-[10px] text-slate-400">({row.count})</span>
-                                            </span>
-                                        </div>
-                                        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-100">
-                                            <div
-                                                className="h-full rounded-full bg-violet-400"
-                                                style={{ width: `${Math.min(100, pct)}%` }}
-                                            />
-                                        </div>
-                                    </div>
+                                <li key={row.type} className="flex items-center gap-3 text-[11px]">
+                                    <span className="w-24 shrink-0 truncate font-medium text-slate-600">
+                                        {prettyType(row.type)}
+                                    </span>
+                                    <span className="relative h-1 flex-1 overflow-hidden rounded-full bg-violet-50">
+                                        <span
+                                            className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
+                                            style={{ width: `${Math.min(100, pct)}%` }}
+                                        />
+                                    </span>
+                                    <span className="w-14 shrink-0 text-right tabular-nums text-slate-500">
+                                        {formatUsd(row.totalFees)}
+                                    </span>
                                 </li>
                             );
                         })}
@@ -168,19 +188,51 @@ export function FeeAnalyticsWidget() {
                 </div>
             )}
 
-            <button
-                onClick={() =>
-                    AppEventBus.emit("AGENT_COMMAND", {
-                        command: `Analyse the ${formatUsd(totalFees)} I spent on fees over the last 12 months and show me where I can save by routing through Dreyv.`,
-                        source: "FeeAnalyticsWidget",
-                    })
-                }
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
-            >
-                <DreyvStar size={14} className="shrink-0" />
-                Use Dreyv to minimize your next fees
-                <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            <CTA
+                label="Minimize next fees with Dreyv"
+                command={`Analyse the ${formatUsd(total)} I spent on fees over the last 12 months and show me where I can save by routing through Dreyv.`}
+                source="FeeAnalyticsWidget"
+            />
+        </>
+    );
+}
+
+/* ─────────────────────────── shared shell ─────────────────────────── */
+
+function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-violet-100 bg-white">
+            <span className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-violet-300/20 blur-3xl" />
+            <div className="flex items-center gap-1.5 px-5 pt-5 text-violet-700">
+                <DreyvStar size={9} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+                    {title}
+                </span>
+            </div>
+            <div className="mt-3 flex flex-1 flex-col">{children}</div>
         </div>
+    );
+}
+
+function Body({ headline, subline }: { headline: string; subline: string }) {
+    return (
+        <div className="flex flex-1 flex-col px-5 pb-5">
+            <p className="font-manrope text-[28px] font-semibold leading-none tracking-tight tabular-nums text-slate-300">
+                {headline}
+            </p>
+            <p className="mt-2 text-[11px] text-slate-500">{subline}</p>
+        </div>
+    );
+}
+
+function CTA({ label, command, source }: { label: string; command: string; source: string }) {
+    return (
+        <button
+            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command, source })}
+            className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
+        >
+            {label}
+            <ArrowRight className="h-3.5 w-3.5" />
+        </button>
     );
 }
