@@ -53,7 +53,7 @@ export function tokenFor(chain: CryptoChain, asset: CryptoAsset): TokenInfo | nu
 }
 
 /** Phase rollout flags — flip as we ship each phase. */
-export const ENABLED_CHAINS: CryptoChain[] = ["solana"]; // Phase 1
+export const ENABLED_CHAINS: CryptoChain[] = ["solana", "base", "arbitrum", "polygon", "bsc"];
 export const ENABLED_ASSETS: Record<CryptoChain, CryptoAsset[]> = {
     solana:   ["usdc", "usdt", "sol"],
     base:     ["usdc", "usdt"],
