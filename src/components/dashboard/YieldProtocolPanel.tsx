@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { DreyvStar } from "@/components/studio/DreyvStar";
 import { AppEventBus } from "@/lib/events";
 import { type RiskTier } from "@/lib/yield-registry";
 
@@ -29,35 +30,20 @@ function formatAum(usd?: number): string {
     return `$${usd}`;
 }
 
-function riskBadge(tier: RiskTier) {
+function riskMeta(tier: RiskTier): { label: string; cls: string } {
     switch (tier) {
         case "low":
-            return {
-                label: "Low risk",
-                className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-                Icon: ShieldCheck,
-            };
+            return { label: "Low risk", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
         case "medium":
-            return {
-                label: "Medium risk",
-                className: "border-amber-200 bg-amber-50 text-amber-700",
-                Icon: Shield,
-            };
+            return { label: "Medium risk", cls: "border-amber-200 bg-amber-50 text-amber-700" };
         case "high":
-            return {
-                label: "High risk",
-                className: "border-rose-200 bg-rose-50 text-rose-700",
-                Icon: ShieldAlert,
-            };
+            return { label: "High risk", cls: "border-rose-200 bg-rose-50 text-rose-700" };
     }
 }
 
 interface YieldProtocolPanelProps {
-    /** Persona drives ranking — aggressive prefers higher APY, conservative prefers low risk */
     persona?: "conservative" | "balanced" | "aggressive";
-    /** How many protocols to show — default 3 */
     limit?: number;
-    /** Optional title override */
     title?: string;
 }
 
@@ -92,7 +78,6 @@ export function YieldProtocolPanel({
     const ranked = useMemo<ProtocolRow[]>(() => {
         if (!rates) return [];
         const all: ProtocolRow[] = Object.entries(rates).map(([mint, r]) => ({ ...r, mint }));
-
         const personaWeight: Record<typeof persona, (r: ProtocolRow) => number> = {
             conservative: (r) => r.apy - (r.riskTier === "high" ? 5 : r.riskTier === "medium" ? 1.5 : 0),
             balanced: (r) => r.apy - (r.riskTier === "high" ? 1.5 : 0),
@@ -102,93 +87,93 @@ export function YieldProtocolPanel({
         return [...all].sort((a, b) => score(b) - score(a)).slice(0, limit);
     }, [rates, persona, limit]);
 
-    if (loading) {
-        return (
-            <div className="rounded-2xl border border-violet-100 bg-white p-4 text-xs text-slate-500">
-                Loading yield opportunities…
-            </div>
-        );
-    }
-    if (error || ranked.length === 0) {
-        return (
-            <div className="rounded-2xl border border-violet-100 bg-white p-4 text-xs text-slate-500">
-                {error ?? "No yield opportunities available right now."}
-            </div>
-        );
-    }
+    const topApy = ranked[0]?.apy ?? 0;
+    const liveCount = ranked.filter((r) => r.source === "live").length;
 
     return (
-        <div className="rounded-2xl border border-violet-100 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                    {title}
-                </h3>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                    {persona} persona
+        <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-violet-100 bg-white">
+            <span className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-violet-300/20 blur-3xl" />
+
+            <div className="flex items-center justify-between gap-2 px-5 pt-5">
+                <div className="flex items-center gap-1.5 text-violet-700">
+                    <DreyvStar size={9} />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em]">{title}</span>
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                    {persona}
                 </span>
             </div>
-            <ul className="space-y-2">
-                {ranked.map((r, i) => {
-                    const badge = riskBadge(r.riskTier);
+
+            <div className="px-5 pt-3 pb-2">
+                {loading ? (
+                    <p className="font-manrope text-[28px] font-semibold leading-none tracking-tight tabular-nums text-slate-300">…</p>
+                ) : error || ranked.length === 0 ? (
+                    <p className="font-manrope text-[28px] font-semibold leading-none tracking-tight tabular-nums text-slate-300">—</p>
+                ) : (
+                    <p className="font-manrope text-[28px] font-semibold leading-none tracking-tight tabular-nums text-slate-900">
+                        {topApy.toFixed(2)}<span className="text-slate-400">%</span>
+                    </p>
+                )}
+                <p className="mt-1.5 line-clamp-1 text-[11px] text-slate-500">
+                    {loading
+                        ? "Pulling live rates from Kamino, MarginFi, Marinade…"
+                        : error
+                          ? error
+                          : ranked.length === 0
+                            ? "No yield opportunities available right now"
+                            : `Top of ${ranked.length} ranked for ${persona} · ${liveCount}/${ranked.length} live`}
+                </p>
+            </div>
+
+            <ul className="flex-1 space-y-1.5 px-5 pb-3">
+                {ranked.map((r) => {
+                    const badge = riskMeta(r.riskTier);
                     return (
                         <li
                             key={r.mint}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5"
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-white px-3 py-2"
                         >
-                            <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">
-                                    {i + 1}
-                                </span>
-                                <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
-                                        {r.protocol}
-                                        <span className="ml-1.5 text-[10px] font-medium text-slate-500">
-                                            ({r.symbol})
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-semibold text-slate-900">
+                                    {r.protocol}
+                                    <span className="ml-1.5 text-[10px] font-medium text-slate-400">{r.symbol}</span>
+                                </p>
+                                <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 font-semibold ${badge.cls}`}>
+                                        {badge.label}
+                                    </span>
+                                    <span className="text-slate-400">AUM {formatAum(r.aumUsd)}</span>
+                                    {r.source === "live" && (
+                                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
+                                            Live
                                         </span>
-                                    </p>
-                                    <p className="mt-0.5 flex items-center gap-2 text-[10px] font-medium text-slate-500">
-                                        <span>AUM {formatAum(r.aumUsd)}</span>
-                                        <span>·</span>
-                                        <span
-                                            className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-semibold ${badge.className}`}
-                                        >
-                                            <badge.Icon className="h-2.5 w-2.5" />
-                                            {badge.label}
-                                        </span>
-                                        {r.source === "live" ? (
-                                            <span className="text-emerald-600">● Live</span>
-                                        ) : (
-                                            <span className="text-slate-400">○ Est.</span>
-                                        )}
-                                    </p>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-3">
-                                <div className="text-right">
-                                    <p className="text-base font-black tabular-nums text-slate-900">
-                                        {r.apy.toFixed(2)}%
-                                    </p>
-                                    <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500">
-                                        APY
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() =>
-                                        AppEventBus.emit("AGENT_COMMAND", {
-                                            command: `Deploy idle SOL into ${r.protocol} (${r.symbol}) at the current ${r.apy.toFixed(2)}% APY. Confirm risk band: ${r.riskTier}.`,
-                                            source: "YieldProtocolPanel",
-                                        })
-                                    }
-                                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-violet-700"
-                                >
-                                    Execute
-                                    <ArrowRight className="h-3 w-3" />
-                                </button>
+                            <div className="shrink-0 text-right">
+                                <p className="font-manrope text-[15px] font-semibold tabular-nums text-slate-900">
+                                    {r.apy.toFixed(2)}<span className="text-slate-400">%</span>
+                                </p>
+                                <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-400">APY</p>
                             </div>
                         </li>
                     );
                 })}
             </ul>
+
+            <button
+                onClick={() => {
+                    const top = ranked[0];
+                    const cmd = top
+                        ? `Deploy idle stables and SOL into ${top.protocol} (${top.symbol}) at ~${top.apy.toFixed(2)}% APY. Confirm risk: ${top.riskTier}.`
+                        : `Show me the best yield opportunities for my treasury right now.`;
+                    AppEventBus.emit("AGENT_COMMAND", { command: cmd, source: "YieldProtocolPanel" });
+                }}
+                className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
+            >
+                {ranked[0] ? `Earn ${ranked[0].apy.toFixed(2)}% with ${ranked[0].protocol}` : "Find yield with Dreyv"}
+                <ArrowRight className="h-3.5 w-3.5" />
+            </button>
         </div>
     );
 }
