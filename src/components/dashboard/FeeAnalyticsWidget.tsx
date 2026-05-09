@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useVault } from "@/lib/contexts/VaultContext";
-import { AppEventBus } from "@/lib/events";
 
 interface FeeBreakdown {
     type: string;
@@ -188,11 +188,7 @@ function FeeBody({ data }: { data: FeeAnalytics }) {
                 </div>
             )}
 
-            <CTA
-                label="Minimize next fees with Dreyv"
-                command={`Analyse the ${formatUsd(total)} I spent on fees over the last 12 months and show me where I can save by routing through Dreyv.`}
-                source="FeeAnalyticsWidget"
-            />
+            <CTA label="See full fee breakdown in Treasury" href="/app/treasury" />
         </>
     );
 }
@@ -225,14 +221,14 @@ function Body({ headline, subline }: { headline: string; subline: string }) {
     );
 }
 
-function CTA({ label, command, source }: { label: string; command: string; source: string }) {
+function CTA({ label, href }: { label: string; href: string; command?: string; source?: string }) {
     return (
-        <button
-            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command, source })}
+        <Link
+            href={href}
             className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
         >
             {label}
-            <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+            <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
     );
 }

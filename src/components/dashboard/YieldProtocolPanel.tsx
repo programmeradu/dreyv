@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
-import { AppEventBus } from "@/lib/events";
 import { type RiskTier } from "@/lib/yield-registry";
 import { getProtocolLogo } from "@/lib/protocol-logos";
 
@@ -186,28 +185,15 @@ export function YieldProtocolPanel({
                 })}
             </ul>
 
-            <div className="mt-auto flex flex-col">
-                <Link
-                    href="/app/treasury"
-                    className="flex items-center justify-between gap-2 border-t border-violet-100 px-5 py-2.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-700"
-                >
-                    See all yield routes in Treasury
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-                <button
-                    onClick={() => {
-                        const top = ranked[0];
-                        const cmd = top
-                            ? `Deploy idle stables and SOL into ${top.protocol} (${top.symbol}) at ~${top.apy.toFixed(2)}% APY. Confirm risk: ${top.riskTier}.`
-                            : `Show me the best yield opportunities for my treasury right now.`;
-                        AppEventBus.emit("AGENT_COMMAND", { command: cmd, source: "YieldProtocolPanel" });
-                    }}
-                    className="inline-flex items-center justify-center gap-2 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
-                >
-                    {ranked[0] ? `Earn ${ranked[0].apy.toFixed(2)}% with ${ranked[0].protocol}` : "Find yield with Dreyv"}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-            </div>
+            <Link
+                href="/app/treasury"
+                className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
+            >
+                {ranked[0]
+                    ? `Review ${ranked[0].protocol} in Treasury`
+                    : "Open Treasury to deploy yield"}
+                <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
         </div>
     );
 }

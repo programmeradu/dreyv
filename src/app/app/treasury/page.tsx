@@ -32,6 +32,7 @@ import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
 import { TreasuryCommandDock } from "@/components/treasury/TreasuryCommandDock";
 import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
+import { EvmWatchersPanel } from "@/components/treasury/EvmWatchersPanel";
 import { SovereignHero, type HeroHolding } from "@/components/treasury/SovereignHero";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
@@ -158,6 +159,11 @@ export default function TreasuryPage() {
       {/* ACTION DOCK — contextual treasury prompts (treasury/payments/policy/risk/yield) */}
       <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
         <TreasuryCommandDock />
+      </section>
+
+      {/* CROSS-CHAIN WATCHERS — moved out of the deleted /app/opportunities */}
+      <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+        <EvmWatchersPanel />
       </section>
 
       {/* CANVAS STREAM — generative bucket surface */}
