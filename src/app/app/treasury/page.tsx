@@ -32,6 +32,7 @@ import { useCanvas } from "@/lib/canvas/CanvasContext";
 import { AppEventBus } from "@/lib/events";
 import { TreasuryCommandDock } from "@/components/treasury/TreasuryCommandDock";
 import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
+import { EvmWatchersPanel } from "@/components/treasury/EvmWatchersPanel";
 import { SovereignHero, type HeroHolding } from "@/components/treasury/SovereignHero";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
