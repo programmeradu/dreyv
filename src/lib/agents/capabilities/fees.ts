@@ -74,7 +74,9 @@ const analyze_treasury_fees = defineCapability({
       };
     }
     const months = input.months ?? 6;
-    const url = `${getSiteOrigin()}/api/analytics/fees?address=${encodeURIComponent(address)}&months=${months}`;
+    // public=1 bypasses the SIWS middleware gate for this server-internal call;
+    // the endpoint still returns the byType + totals slice the capability needs.
+    const url = `${getSiteOrigin()}/api/analytics/fees?address=${encodeURIComponent(address)}&months=${months}&public=1`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       return {
