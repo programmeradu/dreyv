@@ -113,7 +113,8 @@ and let its declared metadata drive your routing language.
                sandbox_execute_dynamic_tool
   • payments:  invoice_extract, invoice_pay, expense_categorize,
                recurring_payment, grant_disbursement, grant_milestone_release,
-               gas_tank_topup, mev_rebate_claim
+               gas_tank_topup, mev_rebate_claim,
+               upgrade_subscription, get_subscription_status
   • risk:      counterparty_risk_score, liquidation_watch, audit_pack_generate,
                tax_lot_tracker
   • policy:    set_treasury_policy, get_active_policies
