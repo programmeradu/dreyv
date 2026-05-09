@@ -77,15 +77,19 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
     totalUsd: null,
     holdings: [],
     idleStableUsd: null,
+    idleStableAmount: null,
     recentSwaps: [],
     empty: true,
   };
   if (!address) return empty;
 
-  // Holdings
+  // Holdings — keep rows even when no price is available so the LLM can still
+  // see "5 SOL + 1.2k USDC" instead of an empty list.
   let holdings: Snapshot["holdings"] = [];
   let totalUsd = 0;
   let idleStableUsd = 0;
+  let idleStableAmount = 0;
+  let rawCount = 0;
   try {
     const r = await fetch(`${origin}/api/helius/das/wallet-holdings?address=${address}&limit=50`, { cache: "no-store" });
     if (r.ok) {
@@ -93,21 +97,30 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
       const items: any[] = data?.holdings || data?.items || data?.tokens || [];
       const rows = items
         .map((it) => {
-          const symbol = String(it.symbol || it.token_info?.symbol || "?").toUpperCase();
+          const symRaw = String(it.symbol || it.token_info?.symbol || symFromMint(it.mint || it.id) || "?");
+          const symbol = symRaw.toUpperCase();
           const decimals = Number(it.decimals ?? it.token_info?.decimals ?? 0);
           const amount = Number(it.amount ?? it.balance ?? 0) / Math.pow(10, decimals || 0);
           const price = Number(it.price ?? it.token_info?.price_info?.price_per_token ?? 0);
           const usd = price > 0 ? amount * price : null;
-          return { symbol, usd };
+          return { symbol, amount: Number.isFinite(amount) ? amount : 0, usd };
         })
-        .filter((h) => h.symbol !== "?");
+        .filter((h) => h.symbol && h.symbol !== "?" && h.amount > 0);
+      rawCount = rows.length;
       totalUsd = rows.reduce((s, h) => s + (h.usd || 0), 0);
       const STABLES = new Set(["USDC", "USDT", "PYUSD", "USDS", "DAI", "USDH"]);
-      idleStableUsd = rows.filter((h) => STABLES.has(h.symbol)).reduce((s, h) => s + (h.usd || 0), 0);
+      const stableRows = rows.filter((h) => STABLES.has(h.symbol));
+      idleStableUsd = stableRows.reduce((s, h) => s + (h.usd || 0), 0);
+      idleStableAmount = stableRows.reduce((s, h) => s + h.amount, 0);
       holdings = rows
-        .sort((a, b) => (b.usd || 0) - (a.usd || 0))
+        .sort((a, b) => (b.usd || 0) - (a.usd || 0) || b.amount - a.amount)
         .slice(0, 6)
-        .map((h) => ({ symbol: h.symbol, usd: h.usd, pct: totalUsd > 0 && h.usd ? Math.round((h.usd / totalUsd) * 100) : null }));
+        .map((h) => ({
+          symbol: h.symbol,
+          amount: Number(h.amount.toFixed(4)),
+          usd: h.usd,
+          pct: totalUsd > 0 && h.usd ? Math.round((h.usd / totalUsd) * 100) : null,
+        }));
     }
   } catch {}
 
