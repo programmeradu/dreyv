@@ -105,7 +105,7 @@ export async function verifySolanaPayment(p: VerifyParams): Promise<VerifyResult
     const matches = post.filter(b => b.owner === p.receivingAddress && b.mint === p.mint);
     if (matches.length === 0) return { ok: false, reason: "no_matching_token_balance" };
 
-    let totalDelta = 0n;
+    let totalDelta = BigInt(0);
     for (const m of matches) {
         const preB = pre.find(x => x.accountIndex === m.accountIndex);
         const preAmt = BigInt(preB?.uiTokenAmount.amount ?? "0");
