@@ -79,26 +79,43 @@ function hexToUtf8(hex: string): string {
 }
 
 export async function verifyEvmPayment(p: VerifyParams): Promise<VerifyResult> {
-    const client = clientFor(p.chain);
-    let tx, receipt;
-    try {
-        [tx, receipt] = await Promise.all([
-            client.getTransaction({ hash: p.txHash as Hex }),
-            client.getTransactionReceipt({ hash: p.txHash as Hex }),
-        ]);
-    } catch (err) {
-        return { ok: false, reason: `rpc_error: ${(err as Error).message}` };
-    }
-    if (!tx || !receipt) return { ok: false, reason: "tx_not_found" };
-    if (receipt.status !== "success") return { ok: false, reason: "tx_failed" };
+    // Try Etherscan V2 first (more reliable, single endpoint for all chains).
+    let txTo: string | undefined;
+    let txInput: string | undefined;
+    let receiptStatus: "success" | "reverted" | undefined;
+    let logs: Array<{ address: string; topics: readonly string[]; data: string }> = [];
 
-    // Must call the right token contract.
-    if (tx.to?.toLowerCase() !== p.contract.toLowerCase()) {
+    const es = await fetchViaEtherscan(p.chain, p.txHash);
+    if (es) {
+        txTo = es.tx.to;
+        txInput = es.tx.input;
+        receiptStatus = es.receipt.status === "0x1" ? "success" : "reverted";
+        logs = es.receipt.logs.map(l => ({ address: l.address, topics: l.topics, data: l.data }));
+    } else {
+        // Fallback to viem + public RPC.
+        try {
+            const client = clientFor(p.chain);
+            const [tx, receipt] = await Promise.all([
+                client.getTransaction({ hash: p.txHash as Hex }),
+                client.getTransactionReceipt({ hash: p.txHash as Hex }),
+            ]);
+            if (!tx || !receipt) return { ok: false, reason: "tx_not_found" };
+            txTo = tx.to ?? undefined;
+            txInput = tx.input as string;
+            receiptStatus = receipt.status;
+            logs = receipt.logs.map((l: Log) => ({ address: l.address, topics: l.topics as string[], data: l.data as string }));
+        } catch (err) {
+            return { ok: false, reason: `rpc_error: ${(err as Error).message}` };
+        }
+    }
+
+    if (receiptStatus !== "success") return { ok: false, reason: "tx_failed" };
+    if (txTo?.toLowerCase() !== p.contract.toLowerCase()) {
         return { ok: false, reason: "wrong_token_contract" };
     }
 
     // Memo check — anything past byte 68 of the input is the memo payload.
-    const input = tx.input as string;
+    const input = txInput ?? "0x";
     if (input.length <= 2 + 68 * 2) return { ok: false, reason: "memo_missing" };
     const memoHex = input.slice(2 + 68 * 2);
     const decoded = hexToUtf8(memoHex);
@@ -106,7 +123,7 @@ export async function verifyEvmPayment(p: VerifyParams): Promise<VerifyResult> {
 
     // Sum Transfer events from anyone → receivingAddress on this token.
     const recipientTopic = pad32(p.receivingAddress);
-    const matching = receipt.logs.filter((l: Log) =>
+    const matching = logs.filter(l =>
         l.address.toLowerCase() === p.contract.toLowerCase() &&
         l.topics[0] === TRANSFER_TOPIC &&
         l.topics[2]?.toLowerCase() === recipientTopic,
@@ -114,7 +131,7 @@ export async function verifyEvmPayment(p: VerifyParams): Promise<VerifyResult> {
     if (matching.length === 0) return { ok: false, reason: "no_matching_transfer" };
 
     let total = BigInt(0);
-    for (const log of matching) total += BigInt(log.data as string);
+    for (const log of matching) total += BigInt(log.data);
     if (total < p.expectedMinor) return { ok: false, reason: "underpaid", actualMinor: total };
     return { ok: true, actualMinor: total };
 }
