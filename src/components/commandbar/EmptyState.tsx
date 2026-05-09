@@ -42,11 +42,35 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
   const [insight, setInsight] = useState<string | null>(null);
   const [analyzed, setAnalyzed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Per-vault cache key — last insight + prompts persist between opens
+  const cacheKey = targetAddress ? `dreyv:starter:${targetAddress}` : "dreyv:starter:none";
+
+  // Hydrate from cache synchronously on first render of a given target
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(cacheKey) : null;
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Array.isArray(cached?.prompts) && cached.prompts.length > 0) {
+          setPrompts(cached.prompts);
+          setInsight(typeof cached.insight === "string" ? cached.insight : null);
+          setAnalyzed(Boolean(cached.analyzed));
+          setLoading(false);
+        }
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey]);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const hasCached = prompts.some((p) => p.text);
+    if (hasCached) setRefreshing(true);
+    else setLoading(true);
+
     const url = targetAddress
       ? `/api/command/starter-prompts?address=${encodeURIComponent(targetAddress)}`
       : `/api/command/starter-prompts`;
@@ -56,11 +80,19 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
         if (cancelled) return;
         const next = Array.isArray(data?.prompts) ? data.prompts.slice(0, 5) : [];
         if (next.length > 0) setPrompts(next);
-        setInsight(typeof data?.insight === "string" ? data.insight : null);
+        const nextInsight = typeof data?.insight === "string" ? data.insight : null;
+        setInsight(nextInsight);
         setAnalyzed(Boolean(data?.analyzed));
+        try {
+          window.sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({ prompts: next, insight: nextInsight, analyzed: Boolean(data?.analyzed), at: Date.now() }),
+          );
+        } catch {}
       })
       .catch(() => {
-        if (!cancelled) {
+        if (cancelled) return;
+        if (!hasCached) {
           setPrompts([
             { label: "Find yield", text: "Identify yield opportunities for my idle stablecoins", pillar: "yield" },
             { label: "Audit fees", text: "Analyze fees I've paid in the last year and suggest savings", pillar: "fees" },
@@ -72,10 +104,15 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
           setAnalyzed(false);
         }
       })
-      .finally(() => !cancelled && setLoading(false));
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+        setRefreshing(false);
+      });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey, targetAddress]);
 
   const sourceLabel = analyzed
