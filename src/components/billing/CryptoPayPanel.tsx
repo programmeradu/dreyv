@@ -8,7 +8,7 @@
  * wallet → pastes the tx signature → POST /api/billing/crypto/verify → tier
  * flips on confirmation.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Loader2, Copy, CheckCircle2, ArrowRight } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { DreyvStar } from "@/components/studio/DreyvStar";
@@ -41,8 +41,22 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
     const [verifying, setVerifying] = useState(false);
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [signature, setSignature] = useState("");
+    const [pricing, setPricing] = useState<{ mini: number; max: number } | null>(null);
 
-    const usd = tier === "mini" ? "44.10" : "179.10";
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/billing/crypto/pricing", { cache: "no-store" })
+            .then(r => r.json())
+            .then(d => {
+                if (cancelled || !d?.tiers) return;
+                setPricing({ mini: d.tiers.mini.usd, max: d.tiers.max.usd });
+            })
+            .catch(() => { /* fall back to invoice.amountUsd */ });
+        return () => { cancelled = true; };
+    }, []);
+
+    const tierUsd = (t: Tier) => pricing ? pricing[t].toFixed(2) : "…";
+    const usd = tierUsd(tier);
 
     async function startCheckout() {
         setCreating(true);
