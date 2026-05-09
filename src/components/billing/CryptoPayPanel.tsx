@@ -34,8 +34,8 @@ const ASSETS: { id: Asset; label: string }[] = [
     { id: "sol",  label: "SOL"  },
 ];
 
-export function CryptoPayPanel({ onConfirmed }: { onConfirmed?: (tier: Tier) => void }) {
-    const [tier, setTier] = useState<Tier>("mini");
+export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (tier: Tier) => void; initialTier?: Tier }) {
+    const [tier, setTier] = useState<Tier>(initialTier ?? "mini");
     const [asset, setAsset] = useState<Asset>("usdc");
     const [creating, setCreating] = useState(false);
     const [verifying, setVerifying] = useState(false);
