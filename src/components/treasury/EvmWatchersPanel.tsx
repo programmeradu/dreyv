@@ -84,7 +84,7 @@ export function EvmWatchersPanel() {
                                 {w.chain}
                             </span>
                             <span className="font-mono text-[11px] text-slate-500">
-                                {shortAddr(w.address)}
+                                {shortAddr(w.address ?? "")}
                             </span>
                             <span
                                 className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${h.cls}`}
