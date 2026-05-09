@@ -91,6 +91,8 @@ export default function BillingPage() {
     const [verifying, setVerifying] = useState(false);
     const [currentTier, setCurrentTier] = useState<Tier>("free");
     const [status, setStatus] = useState<string>("");
+    const [picker, setPicker] = useState<Exclude<Tier, "free"> | null>(null);
+    const [cryptoSeed, setCryptoSeed] = useState<{ tier: Exclude<Tier, "free">; nonce: number } | null>(null);
 
     const fetchStatus = useCallback(async (reference?: string | null) => {
         const url = reference
@@ -135,8 +137,7 @@ export default function BillingPage() {
         }
     }, [search, fetchStatus]);
 
-    const handleSubscribe = async (tier: Tier) => {
-        if (tier === "free") return;
+    const startPaystack = async (tier: Exclude<Tier, "free">) => {
         setLoading(tier);
         try {
             const res = await fetch(billingCheckoutPath(), {
@@ -155,6 +156,28 @@ export default function BillingPage() {
         } finally {
             setLoading(null);
         }
+    };
+
+    const choosePaymentMethod = (tier: Tier) => {
+        if (tier === "free") return;
+        setPicker(tier as Exclude<Tier, "free">);
+    };
+
+    const pickCard = () => {
+        if (!picker) return;
+        const t = picker;
+        setPicker(null);
+        startPaystack(t);
+    };
+
+    const pickCrypto = () => {
+        if (!picker) return;
+        setCryptoSeed({ tier: picker, nonce: Date.now() });
+        setPicker(null);
+        // Scroll to crypto panel after render
+        requestAnimationFrame(() => {
+            document.getElementById("crypto-pay-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
     };
 
     const handleVerify = async () => {
@@ -304,7 +327,7 @@ export default function BillingPage() {
                                         </button>
                                     ) : (
                                         <button
-                                            onClick={() => handleSubscribe(tier.id)}
+                                            onClick={() => choosePaymentMethod(tier.id)}
                                             disabled={isLoading}
                                             className={
                                                 tier.featured
@@ -329,12 +352,71 @@ export default function BillingPage() {
                     })}
                 </div>
 
-                <CryptoPayPanel onConfirmed={(t) => setCurrentTier(t)} />
+                <div id="crypto-pay-panel">
+                    <CryptoPayPanel
+                        key={cryptoSeed?.nonce ?? "default"}
+                        initialTier={cryptoSeed?.tier}
+                        onConfirmed={(t) => setCurrentTier(t)}
+                    />
+                </div>
 
                 <p className="mt-8 text-center text-[11px] text-slate-500">
                     Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
                 </p>
             </main>
+
+            {picker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4" onClick={() => setPicker(null)}>
+                    <div
+                        role="dialog"
+                        aria-label="Choose payment method"
+                        className="w-full max-w-md rounded-3xl border border-violet-100 bg-white p-7"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <DreyvStar size={10} className="text-violet-600" />
+                            <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
+                                Upgrade to {picker === "mini" ? "Mini" : "Max"}
+                            </span>
+                        </div>
+                        <h3 className="mt-2 text-lg font-semibold text-slate-900">Choose how to pay</h3>
+                        <p className="mt-1 text-[13px] text-slate-500">
+                            Card billing is recurring monthly via Paystack. Crypto payments are manual per cycle and include a 10% discount.
+                        </p>
+
+                        <div className="mt-5 space-y-3">
+                            <button
+                                onClick={pickCard}
+                                disabled={loading === picker}
+                                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-violet-100 hover:border-violet-300 bg-white px-4 py-3 text-left transition disabled:opacity-60"
+                            >
+                                <div>
+                                    <div className="text-sm font-semibold text-slate-900">Card · Paystack</div>
+                                    <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo</div>
+                                </div>
+                                {loading === picker ? <Loader2 size={14} className="animate-spin text-violet-600" /> : <ArrowRight size={14} className="text-violet-600" />}
+                            </button>
+                            <button
+                                onClick={pickCrypto}
+                                className="w-full flex items-center justify-between gap-3 rounded-2xl border-2 border-violet-600 bg-violet-50/40 px-4 py-3 text-left transition hover:bg-violet-50"
+                            >
+                                <div>
+                                    <div className="text-sm font-semibold text-slate-900">Crypto · 10% off</div>
+                                    <div className="text-[12px] text-slate-500">USDC / USDT / SOL · ${picker === "mini" ? "44.10" : "179.10"} per cycle</div>
+                                </div>
+                                <ArrowRight size={14} className="text-violet-600" />
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setPicker(null)}
+                            className="mt-5 text-[11px] text-slate-500 hover:text-slate-800 uppercase tracking-[0.16em] font-semibold"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

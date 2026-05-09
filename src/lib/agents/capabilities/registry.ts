@@ -33,6 +33,7 @@ import { signingCapabilities } from "./signing";
 import { bridgeForGasCapabilities } from "./bridge-for-gas";
 import { feeReductionCapabilities } from "./fees";
 import { watcherCapabilities } from "./watchers";
+import { subscriptionCapabilities } from "./subscription";
 
 let cached: Map<string, AnyCapability> | null = null;
 
@@ -57,6 +58,7 @@ function buildRegistry(): Map<string, AnyCapability> {
     ...bridgeForGasCapabilities,
     ...feeReductionCapabilities,
     ...watcherCapabilities,
+    ...subscriptionCapabilities,
   ];
   const map = new Map<string, AnyCapability>();
   for (const cap of all) {
