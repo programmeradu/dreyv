@@ -291,6 +291,7 @@ export async function POST(req: Request) {
 
     const systemPrompt = buildCommandBarSystemPrompt({
       walletAddress,
+      vaultAddress: vaultAddress || null,
       vaultState,
       walletState,
       yieldContext,
