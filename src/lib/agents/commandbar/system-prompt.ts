@@ -21,6 +21,8 @@
 
 export interface CommandBarPromptInput {
   walletAddress: string | null;
+  /** Active vault address (treasury) — used for "deposit into the treasury" routing. */
+  vaultAddress?: string | null;
   vaultState: unknown;
   walletState: unknown;
   /** Optional 1-line context from `recallEpisodes()` (Phase 3 memory). */
