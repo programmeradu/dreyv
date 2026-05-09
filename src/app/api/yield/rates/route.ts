@@ -132,6 +132,53 @@ export async function GET() {
             // Fallback already set from registry
         }
 
+        // ─── Source 3.5: DefiLlama Solana yields (real opportunities) ──
+        try {
+            const llamaRes = await fetch("https://yields.llama.fi/pools", {
+                signal: AbortSignal.timeout(7000),
+                cache: "no-store",
+            });
+            if (llamaRes.ok) {
+                const data = await llamaRes.json();
+                const pools: any[] = Array.isArray(data?.data) ? data.data : [];
+                const solanaPools = pools
+                    .filter((p) =>
+                        String(p?.chain || "").toLowerCase() === "solana" &&
+                        Number(p?.tvlUsd) >= 5_000_000 &&
+                        Number(p?.apy) > 0 &&
+                        Number(p?.apy) < 200 // strip outliers / farm-and-dump APYs
+                    )
+                    .sort((a, b) => Number(b?.apy) - Number(a?.apy))
+                    .slice(0, 12);
+
+                for (const p of solanaPools) {
+                    const poolId = String(p?.pool || `${p?.project}-${p?.symbol}`);
+                    const project = String(p?.project || "unknown");
+                    const symbol = String(p?.symbol || "?");
+                    const apy = Number(p?.apy) || 0;
+                    const tvl = Number(p?.tvlUsd) || 0;
+                    // Risk heuristic: high TVL + low APY = low risk
+                    const riskTier: RiskTier =
+                        tvl >= 100_000_000 && apy < 8 ? "low"
+                            : tvl >= 25_000_000 && apy < 20 ? "medium"
+                                : "high";
+                    rates[`llama:${poolId}`] = {
+                        apy: parseFloat(apy.toFixed(2)),
+                        source: "live",
+                        protocol: project
+                            .split("-")
+                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                            .join(" "),
+                        symbol,
+                        riskTier,
+                        aumUsd: tvl,
+                    };
+                }
+            }
+        } catch {
+            // Fallback registry already populated
+        }
+
         // ─── Source 4: Jito staking page scrape fallback ───────────
         const jitoMint = "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn";
         if (rates[jitoMint]?.source !== "live") {
