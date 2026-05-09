@@ -91,6 +91,8 @@ export default function BillingPage() {
     const [verifying, setVerifying] = useState(false);
     const [currentTier, setCurrentTier] = useState<Tier>("free");
     const [status, setStatus] = useState<string>("");
+    const [picker, setPicker] = useState<Exclude<Tier, "free"> | null>(null);
+    const [cryptoSeed, setCryptoSeed] = useState<{ tier: Exclude<Tier, "free">; nonce: number } | null>(null);
 
     const fetchStatus = useCallback(async (reference?: string | null) => {
         const url = reference
