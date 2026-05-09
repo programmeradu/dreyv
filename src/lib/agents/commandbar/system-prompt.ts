@@ -143,6 +143,15 @@ EXECUTION RULES
    compute split amounts from the realized swap *output* (the registry's
    resolveSplitAmount handles this — pass requested amounts through and trust
    its adjustment).
+6a. TREASURY DEPOSIT — when the user says "deposit X TOKEN into the treasury"
+    (or "into the vault" / "into my treasury" / "fund the vault"), they mean
+    move funds FROM their connected wallet INTO the active vault. Call
+    \`transfer { token, amount, recipient: "<active vault address from CONTEXT>" }\`.
+    NEVER call yield_deposit for this — yield_deposit is only for moving funds
+    into a yield protocol (Kamino, MarginFi, Jupiter Earn, etc.), and only when
+    the user explicitly mentions yield/earn/lend/farm or a named protocol.
+    If no vault is active in CONTEXT, ask the user to select a vault first
+    instead of guessing a recipient.
 7. For monitoring / recurring intents (price thresholds, recurring rebalance,
    "every Monday"): call set_monitor or pass cadence in constraints. The
    router will defer to a sub-agent automatically.
