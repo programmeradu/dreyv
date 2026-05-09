@@ -122,8 +122,31 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
         .map((tx) => {
           const ts = Number(tx.timestamp || 0);
           const whenHours = ts > 0 ? Math.round((now - ts) / 3600) : 0;
-          const kind = String(tx.type || tx.description || "tx").toUpperCase();
-          return { kind, whenHours };
+          const kind = String(tx.type || "tx").toUpperCase();
+          const source = tx.source ? String(tx.source).toUpperCase() : undefined;
+
+          // Helius enriched: tokenTransfers carry mint + amount + accounts
+          const transfers: any[] = Array.isArray(tx.tokenTransfers) ? tx.tokenTransfers : [];
+          let fromSymbol: string | undefined;
+          let toSymbol: string | undefined;
+          let fromAmount: number | undefined;
+          let toAmount: number | undefined;
+
+          if (kind === "SWAP" && transfers.length >= 2) {
+            const out = transfers.find((t) => t.fromUserAccount === address);
+            const inc = transfers.find((t) => t.toUserAccount === address);
+            if (out) { fromSymbol = symFromMint(out.mint); fromAmount = Number(out.tokenAmount || 0) || undefined; }
+            if (inc) { toSymbol = symFromMint(inc.mint); toAmount = Number(inc.tokenAmount || 0) || undefined; }
+          } else if (transfers.length >= 1) {
+            const t0 = transfers[0];
+            const isOut = t0.fromUserAccount === address;
+            const sym = symFromMint(t0.mint);
+            const amt = Number(t0.tokenAmount || 0) || undefined;
+            if (isOut) { fromSymbol = sym; fromAmount = amt; }
+            else { toSymbol = sym; toAmount = amt; }
+          }
+
+          return { kind, whenHours, source, fromSymbol, toSymbol, fromAmount, toAmount };
         })
         .filter((t) => /SWAP|TRANSFER|STAKE|UNSTAKE|DEPOSIT|WITHDRAW/.test(t.kind))
         .slice(0, 5);
