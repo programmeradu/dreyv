@@ -141,7 +141,7 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
                                                 : "px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"
                                         }
                                     >
-                                        {t === "mini" ? "Mini · $44.10" : "Max · $179.10"}
+                                        {t === "mini" ? `Mini · $${tierUsd("mini")}` : `Max · $${tierUsd("max")}`}
                                     </button>
                                 ))}
                             </div>
