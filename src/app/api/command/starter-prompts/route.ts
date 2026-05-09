@@ -173,6 +173,7 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
     totalUsd: totalUsd > 0 ? Math.round(totalUsd) : null,
     holdings,
     idleStableUsd: idleStableUsd > 0 ? Math.round(idleStableUsd) : null,
+    idleStableAmount: idleStableAmount > 0 ? Number(idleStableAmount.toFixed(2)) : null,
     recentSwaps,
     empty: isEmpty,
   };
