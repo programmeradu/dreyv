@@ -19,6 +19,7 @@ import {
     RefreshCw,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { CryptoPayPanel } from "@/components/billing/CryptoPayPanel";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
@@ -328,8 +329,10 @@ export default function BillingPage() {
                     })}
                 </div>
 
+                <CryptoPayPanel onConfirmed={(t) => setCurrentTier(t)} />
+
                 <p className="mt-8 text-center text-[11px] text-slate-500">
-                    Prices in USD. Taxes calculated at checkout. Cancel anytime from your Paystack receipt.
+                    Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
                 </p>
             </main>
         </div>
