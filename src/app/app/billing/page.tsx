@@ -93,6 +93,16 @@ export default function BillingPage() {
     const [status, setStatus] = useState<string>("");
     const [picker, setPicker] = useState<Exclude<Tier, "free"> | null>(null);
     const [cryptoSeed, setCryptoSeed] = useState<{ tier: Exclude<Tier, "free">; nonce: number } | null>(null);
+    const [cryptoPricing, setCryptoPricing] = useState<{ mini: number; max: number } | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/billing/crypto/pricing", { cache: "no-store" })
+            .then(r => r.json())
+            .then(d => { if (!cancelled && d?.tiers) setCryptoPricing({ mini: d.tiers.mini.usd, max: d.tiers.max.usd }); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     const fetchStatus = useCallback(async (reference?: string | null) => {
         const url = reference
@@ -402,7 +412,7 @@ export default function BillingPage() {
                             >
                                 <div>
                                     <div className="text-sm font-semibold text-slate-900">Crypto · 10% off</div>
-                                    <div className="text-[12px] text-slate-500">USDC / USDT / SOL · ${picker === "mini" ? "44.10" : "179.10"} per cycle</div>
+                                    <div className="text-[12px] text-slate-500">USDC / USDT / SOL · ${cryptoPricing ? cryptoPricing[picker].toFixed(2) : "…"} per cycle</div>
                                 </div>
                                 <ArrowRight size={14} className="text-violet-600" />
                             </button>
