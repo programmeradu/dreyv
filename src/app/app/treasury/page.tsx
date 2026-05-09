@@ -161,6 +161,11 @@ export default function TreasuryPage() {
         <TreasuryCommandDock />
       </section>
 
+      {/* CROSS-CHAIN WATCHERS — moved out of the deleted /app/opportunities */}
+      <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+        <EvmWatchersPanel />
+      </section>
+
       {/* CANVAS STREAM — generative bucket surface */}
       <section className="relative z-10 mx-auto mt-8 max-w-6xl px-4 pb-40 sm:px-6 sm:pb-32">
         <SectionHeader
