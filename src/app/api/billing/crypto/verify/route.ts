@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { cryptoInvoices, users } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { verifySolanaPayment } from "@/lib/billing/crypto-verify-solana";
+import { verifyEvmPayment } from "@/lib/billing/crypto-verify-evm";
 
 const Body = z.object({
     invoiceId: z.string().uuid(),
@@ -43,17 +44,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "invoice_expired" }, { status: 410 });
     }
 
-    if (invoice.chain !== "solana") {
-        return NextResponse.json({ error: "chain_not_supported_yet", chain: invoice.chain }, { status: 400 });
-    }
-
-    const result = await verifySolanaPayment({
-        signature: parsed.data.signature,
-        receivingAddress: invoice.receivingAddress,
-        mint: invoice.contractAddress, // null for SOL
-        expectedMinor: BigInt(invoice.amountMinor),
-        memo: invoice.memo,
-    });
+    const result = invoice.chain === "solana"
+        ? await verifySolanaPayment({
+            signature: parsed.data.signature,
+            receivingAddress: invoice.receivingAddress,
+            mint: invoice.contractAddress, // null for SOL
+            expectedMinor: BigInt(invoice.amountMinor),
+            memo: invoice.memo,
+        })
+        : await verifyEvmPayment({
+            chain: invoice.chain as "base" | "arbitrum" | "polygon" | "bsc",
+            txHash: parsed.data.signature,
+            receivingAddress: invoice.receivingAddress,
+            contract: invoice.contractAddress!, // EVM stables always have a contract
+            expectedMinor: BigInt(invoice.amountMinor),
+            memo: invoice.memo,
+        });
 
     if (!result.ok) {
         return NextResponse.json({
