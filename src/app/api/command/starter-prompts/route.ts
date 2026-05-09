@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 const SYSTEM_PROMPT = `You are Dreyv (pronounced "DRAVE"), a Solana treasury copilot. Voice: calm, precise, founder-to-founder. No emoji, no hype words ("revolutionize", "supercharge", "game-changer", "next-gen").
 
 You are looking at a real treasury snapshot. Your job:
-1. Write ONE sentence ("insight") describing the single most useful thing you notice. Prefer recent activity specifics when present (e.g. "You swapped 200 SOL → USDC on JUPITER 3 days ago — 12.4k now sitting idle."). Use real numbers from the snapshot when you have them. If the snapshot is empty/zero, say so plainly ("Nothing on-chain here yet — connect a vault and I'll generate a real to-do list."). Never invent figures.
+1. Write ONE sentence ("insight") describing the single most useful thing you notice. Prefer recent activity specifics when present (e.g. "You swapped 200 SOL → USDC on JUPITER 3 days ago — 12.4k now sitting idle."). If no recent activity, describe the holdings concretely using token amounts ("You're holding 5.2 SOL + 1.2k USDC — stables are idle."). USD figures may be null — never invent them; use token amounts instead. Only say "Nothing on-chain here yet" when both holdings AND recent activity are empty. Never invent figures.
 2. Generate 5 to-dos ("prompts") tailored to what you saw. Each prompt MUST be a curiosity-driven, monetary-hook to-do — earn more or save more. Bias hard towards: identify yield opportunities, analyze historical fees/slippage, build APR-targeted strategies, surface DCA opportunities, audit wallet risk. Cover at least one of each pillar: fees, yield, risk. Keep prompts 6-14 words, no trailing punctuation.
 
 STRICT JSON only:
@@ -41,8 +41,9 @@ const CURATED_FALLBACK_PROMPTS = [
 interface Snapshot {
   address: string | null;
   totalUsd: number | null;
-  holdings: Array<{ symbol: string; usd: number | null; pct: number | null }>;
+  holdings: Array<{ symbol: string; amount: number | null; usd: number | null; pct: number | null }>;
   idleStableUsd: number | null;
+  idleStableAmount: number | null;
   recentSwaps: Array<{
     kind: string;
     fromSymbol?: string;
@@ -76,15 +77,19 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
     totalUsd: null,
     holdings: [],
     idleStableUsd: null,
+    idleStableAmount: null,
     recentSwaps: [],
     empty: true,
   };
   if (!address) return empty;
 
-  // Holdings
+  // Holdings — keep rows even when no price is available so the LLM can still
+  // see "5 SOL + 1.2k USDC" instead of an empty list.
   let holdings: Snapshot["holdings"] = [];
   let totalUsd = 0;
   let idleStableUsd = 0;
+  let idleStableAmount = 0;
+  let rawCount = 0;
   try {
     const r = await fetch(`${origin}/api/helius/das/wallet-holdings?address=${address}&limit=50`, { cache: "no-store" });
     if (r.ok) {
@@ -92,21 +97,30 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
       const items: any[] = data?.holdings || data?.items || data?.tokens || [];
       const rows = items
         .map((it) => {
-          const symbol = String(it.symbol || it.token_info?.symbol || "?").toUpperCase();
+          const symRaw = String(it.symbol || it.token_info?.symbol || symFromMint(it.mint || it.id) || "?");
+          const symbol = symRaw.toUpperCase();
           const decimals = Number(it.decimals ?? it.token_info?.decimals ?? 0);
           const amount = Number(it.amount ?? it.balance ?? 0) / Math.pow(10, decimals || 0);
           const price = Number(it.price ?? it.token_info?.price_info?.price_per_token ?? 0);
           const usd = price > 0 ? amount * price : null;
-          return { symbol, usd };
+          return { symbol, amount: Number.isFinite(amount) ? amount : 0, usd };
         })
-        .filter((h) => h.symbol !== "?");
+        .filter((h) => h.symbol && h.symbol !== "?" && h.amount > 0);
+      rawCount = rows.length;
       totalUsd = rows.reduce((s, h) => s + (h.usd || 0), 0);
       const STABLES = new Set(["USDC", "USDT", "PYUSD", "USDS", "DAI", "USDH"]);
-      idleStableUsd = rows.filter((h) => STABLES.has(h.symbol)).reduce((s, h) => s + (h.usd || 0), 0);
+      const stableRows = rows.filter((h) => STABLES.has(h.symbol));
+      idleStableUsd = stableRows.reduce((s, h) => s + (h.usd || 0), 0);
+      idleStableAmount = stableRows.reduce((s, h) => s + h.amount, 0);
       holdings = rows
-        .sort((a, b) => (b.usd || 0) - (a.usd || 0))
+        .sort((a, b) => (b.usd || 0) - (a.usd || 0) || b.amount - a.amount)
         .slice(0, 6)
-        .map((h) => ({ symbol: h.symbol, usd: h.usd, pct: totalUsd > 0 && h.usd ? Math.round((h.usd / totalUsd) * 100) : null }));
+        .map((h) => ({
+          symbol: h.symbol,
+          amount: Number(h.amount.toFixed(4)),
+          usd: h.usd,
+          pct: totalUsd > 0 && h.usd ? Math.round((h.usd / totalUsd) * 100) : null,
+        }));
     }
   } catch {}
 
@@ -159,6 +173,7 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
     totalUsd: totalUsd > 0 ? Math.round(totalUsd) : null,
     holdings,
     idleStableUsd: idleStableUsd > 0 ? Math.round(idleStableUsd) : null,
+    idleStableAmount: idleStableAmount > 0 ? Number(idleStableAmount.toFixed(2)) : null,
     recentSwaps,
     empty: isEmpty,
   };
