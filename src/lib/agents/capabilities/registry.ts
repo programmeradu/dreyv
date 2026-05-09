@@ -31,6 +31,7 @@ import { yieldRoutesCapabilities } from "./yield-routes";
 import { appControlCapabilities } from "./app-control";
 import { signingCapabilities } from "./signing";
 import { bridgeForGasCapabilities } from "./bridge-for-gas";
+import { feeReductionCapabilities } from "./fees";
 
 let cached: Map<string, AnyCapability> | null = null;
 
