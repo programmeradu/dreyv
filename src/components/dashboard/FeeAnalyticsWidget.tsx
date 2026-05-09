@@ -188,11 +188,7 @@ function FeeBody({ data }: { data: FeeAnalytics }) {
                 </div>
             )}
 
-            <CTA
-                label="Minimize next fees with Dreyv"
-                command={`Analyse the ${formatUsd(total)} I spent on fees over the last 12 months and show me where I can save by routing through Dreyv.`}
-                source="FeeAnalyticsWidget"
-            />
+            <CTA label="See full fee breakdown in Treasury" href="/app/treasury" />
         </>
     );
 }
