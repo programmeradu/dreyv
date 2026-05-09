@@ -327,7 +327,7 @@ export default function BillingPage() {
                                         </button>
                                     ) : (
                                         <button
-                                            onClick={() => handleSubscribe(tier.id)}
+                                            onClick={() => choosePaymentMethod(tier.id)}
                                             disabled={isLoading}
                                             className={
                                                 tier.featured
