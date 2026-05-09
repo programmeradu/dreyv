@@ -30,6 +30,34 @@ interface VerifyResult {
 }
 
 const CHAIN_MAP = { base, arbitrum, polygon, bsc } as const;
+const CHAIN_ID = { base: 8453, arbitrum: 42161, polygon: 137, bsc: 56 } as const;
+
+interface EtherscanTx { to: string; input: string; }
+interface EtherscanReceipt {
+    status: string; // "0x1" success
+    logs: Array<{ address: string; topics: string[]; data: string }>;
+}
+
+async function etherscanFetch<T>(chain: keyof typeof CHAIN_MAP, action: string, txHash: string): Promise<T | null> {
+    const key = process.env.ETHERSCAN_API_KEY;
+    if (!key) return null;
+    const url = `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID[chain]}&module=proxy&action=${action}&txhash=${txHash}&apikey=${key}`;
+    try {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) return null;
+        const j = await r.json();
+        return (j?.result ?? null) as T | null;
+    } catch { return null; }
+}
+
+async function fetchViaEtherscan(chain: keyof typeof CHAIN_MAP, txHash: string) {
+    const [tx, receipt] = await Promise.all([
+        etherscanFetch<EtherscanTx>(chain, "eth_getTransactionByHash", txHash),
+        etherscanFetch<EtherscanReceipt>(chain, "eth_getTransactionReceipt", txHash),
+    ]);
+    if (!tx || !receipt) return null;
+    return { tx, receipt };
+}
 
 /** keccak256("Transfer(address,address,uint256)") */
 const TRANSFER_TOPIC: Hex = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
