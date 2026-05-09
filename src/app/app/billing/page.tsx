@@ -137,8 +137,7 @@ export default function BillingPage() {
         }
     }, [search, fetchStatus]);
 
-    const handleSubscribe = async (tier: Tier) => {
-        if (tier === "free") return;
+    const startPaystack = async (tier: Exclude<Tier, "free">) => {
         setLoading(tier);
         try {
             const res = await fetch(billingCheckoutPath(), {
@@ -157,6 +156,28 @@ export default function BillingPage() {
         } finally {
             setLoading(null);
         }
+    };
+
+    const choosePaymentMethod = (tier: Tier) => {
+        if (tier === "free") return;
+        setPicker(tier as Exclude<Tier, "free">);
+    };
+
+    const pickCard = () => {
+        if (!picker) return;
+        const t = picker;
+        setPicker(null);
+        startPaystack(t);
+    };
+
+    const pickCrypto = () => {
+        if (!picker) return;
+        setCryptoSeed({ tier: picker, nonce: Date.now() });
+        setPicker(null);
+        // Scroll to crypto panel after render
+        requestAnimationFrame(() => {
+            document.getElementById("crypto-pay-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
     };
 
     const handleVerify = async () => {
