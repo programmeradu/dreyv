@@ -1,75 +1,120 @@
-# Launch Sprint — Agentic Control Plane
+# Crypto subscriptions (alongside Paystack)
 
-This is a big sprint. I'll execute it in the order you gave, then close with the cross-cutting items (observability, onboarding, billing gating, docs). Each phase ships end-to-end (schema → server → agent tool → UI) before moving on, so nothing is left half-wired.
+## Goals
+- Add a second checkout rail next to Paystack across two ecosystems:
+  - **Solana**: USDC, USDT, SOL
+  - **EVM**: USDC + USDT on Base, Arbitrum, Polygon, BNB Chain
+- Two renewal modes per subscription: **manual** (pay each cycle from CommandBar) and **auto-debit** (sign once, Dreyv pulls each cycle).
+- 10% discount vs USD card price → Mini $44.10 / Max $179.10 per month, settled in the chosen stable (USDC or USDT, 1:1) or SOL (live-priced).
+- Payments land in **Dreyv-controlled receiving wallets** you provide (one Solana, one EVM — same EVM address works across Base/Arbitrum/Polygon/BNB).
+- Same `users.tier` field flips on success — no parallel entitlement system.
 
-## Sequencing
+## What changes for the user
+- `/pricing` and `/app/billing` show a **Pay with crypto** toggle. Picking it reveals chain → asset → renewal-mode choice.
+- After paying, tier upgrades within ~1 block confirmation; renewal status visible in `/app/billing`.
+- CommandBar gets a `pay_subscription` capability so users can renew with one sentence ("renew Mini with USDT on Polygon").
+
+## Architecture
 
 ```text
-3 Signing + caps  →  4 Policy guard  →  2 Autopilot live  →  6 Proposal inbox
-   →  7 Realtime push  →  1 Page focus  →  8 Safety rails
-   →  Observability  →  Onboarding  →  Billing gating  →  Docs / partner kit
+                                  ┌────────────────────────┐
+  /pricing  →  /app/billing  ───▶ │  POST /api/billing/    │
+  (UI toggle: card | crypto)      │  crypto/checkout       │ creates crypto_invoice row,
+                                  └─────────┬──────────────┘ returns memo + receiving addr + amount
+                                            │
+                  ┌─────────────────────────┴──────────────────────────┐
+                  ▼                                                    ▼
+       Manual renewal (one tx)                         Auto-debit (signed once)
+       user signs SPL/ERC20 transfer                   user signs:
+       to receiving wallet                              • Solana: SPL token Approve to
+                                                         dreyv-debit PDA (delegate)
+                                                       • EVM: Permit2 signature granting
+                                                         allowance to dreyv-debit contract
+                                            │
+                                            ▼
+                              ┌──────────────────────────┐
+                              │  Indexer (Supabase edge  │  Helius webhook for Solana,
+                              │  fn `crypto-billing-     │  Alchemy address activity for
+                              │  watcher`, polled every  │  Base/Arbitrum/Polygon, BNB via
+                              │  60s by Inngest)         │  QuickNode/Ankr (Alchemy doesn't
+                              └────────────┬─────────────┘  cover BNB) → matches memo /
+                                           │                amount / asset / contract
+                                           ▼
+                              marks invoice paid, advances
+                              users.tier + users.tier_renews_at
+                                           │
+                                           ▼
+                              Inngest cron `subscription-renew`
+                              runs daily → for any subscription
+                              with auto_debit=true and renews_at
+                              ≤ now+24h, builds + submits a debit
+                              tx using stored allowance
 ```
 
-## Phase 3 — Session keys + agent member (caps-bound signing)
-- New table `agent_signers` (vault_id, kind=`session_key|squads_member`, pubkey, policy_caps jsonb, status, expires_at, kill_switch_at).
-- Capabilities: `provision_agent_signer`, `revoke_agent_signer`, `list_agent_signers`, `set_kill_switch`.
-- Squads path: add agent member with threshold-aware proposal flow (still HITL until caps satisfied); session-key path for non-multisig vaults via short-TTL keypair envelope (reuse `keypair-envelope.ts`).
-- All caps stored as `{maxUsdPerTx, maxUsdPerDay, allowedProtocols[], allowedActions[], expiresAt}`.
+## Supported assets per chain
+| Chain | Native | Stables | Token contract source |
+|---|---|---|---|
+| Solana | SOL | USDC, USDT | mainnet SPL mints (USDC `EPjF…`, USDT `Es9v…`) |
+| Base | — | USDC, USDT | USDC native `0x833589…`, USDT `0xfde4…` |
+| Arbitrum | — | USDC, USDT | USDC native `0xaf88…`, USDT `0xFd086…` |
+| Polygon | — | USDC, USDT | USDC native `0x3c499…`, USDT `0xc2132…` |
+| BNB Chain | — | USDC, USDT | USDC `0x8AC76a…`, USDT `0x55d398…` (18-dec) |
 
-## Phase 4 — Policy guard (real enforcement)
-- New `lib/agents/policy/guard.ts` `evaluate(plan, signer, episodicSpend)` → `{allow|queue|deny, reasons[]}`.
-- Wire into `dacs/route.ts` BEFORE the existing risk gate; deny → reject, queue → HITL, allow → execute.
-- Daily spend rolled up from `episodes` table; cached per vault.
-- Kill switch flips signer.status to `revoked` and forces `queue` for everything.
+Note: BNB USDT uses **18 decimals** (not 6 like every other chain) — handled in the amount-encoding helper, not hardcoded per route. SOL is included for Solana but not natively for EVM (no native ETH/MATIC/BNB pricing rail in v1; stables only on EVM).
 
-## Phase 2 — First autopilot live (inflow → yield)
-- Inngest cron `autopilot/inflow-yield` every 5 min:
-  1. Pull idle stables per registered vault (Helius).
-  2. If `idle_usdc > policy.minIdleUsd`, plan `yield_deposit` to top route from `yield-routes`.
-  3. Run through DACS router → policy guard → execute or queue.
-- Idempotency key `${vault}:${slot_bucket}:inflow-yield`.
-- Every step writes to `episodes` (capability_id, input_hash, outcome, latency_ms, cost_usd_est).
+## Data model (new tables)
+- `crypto_subscriptions` — one per user × tier × chain. Fields: `tier`, `chain` (`solana|base|arbitrum|polygon|bsc`), `asset` (`usdc|usdt|sol`), `auto_debit`, `delegate_authority` / `permit2_signature`, `next_renewal_at`, `status`, `payer_address`.
+- `crypto_invoices` — one per billing cycle. Fields: `subscription_id`, `amount_minor` (bigint, decimals-aware), `asset`, `chain`, `memo` (random 8-byte tag), `receiving_address`, `status` (`pending|confirmed|expired|failed`), `tx_signature`, `expires_at`.
+- `receiving_wallets` (config table): `chain`, `address`, `active`. Seeded with the wallets you provide (1 Solana row + 1 EVM row reused across Base/Arbitrum/Polygon/BNB).
+- `crypto_token_registry` (config table): `chain`, `asset`, `contract_address`, `decimals`, `enabled`. Single source of truth for token addresses + decimals; lets us add chains/stables without code changes.
 
-## Phase 6 — Proposal inbox
-- `/app/inbox` page + `InboxBadge` in shell.
-- Lists `agent_proposals` with diff view, risk, policy reason, approve/reject/snooze.
-- Approve → calls `/api/agentic/approve` PATCH with wallet signature.
-- New capability `list_proposals_v2`, `decide_proposal` (agent can ask "approve all low-risk USDC swaps under $500" and we resolve to ids).
+RLS: users see only their own rows; service role inserts confirmations.
 
-## Phase 7 — Realtime push to CommandBar
-- Postgres `LISTEN/NOTIFY` channel `agent_events` (or Supabase realtime on `episodes` + `agent_proposals`).
-- New SSE route `/api/command/stream` emitting `event: agent_push` with payload.
-- CommandBar subscribes via `EventSource`, injects pushes as system messages so the agent reasons over them on the next turn (and surfaces them as toast).
+## Edge functions (Supabase)
+1. `crypto-checkout` — creates an invoice, returns `{ amount, asset, chain, contract, decimals, receivingAddress, memo, expiresAt, qrPayload }`. Computes amount from USD price → 1:1 for USDC/USDT or live SOL price (Jupiter).
+2. `crypto-billing-watcher` — verifies a tx by signature: checks recipient + asset contract + amount + memo on-chain. Idempotent on `tx_signature`. Per-chain RPC adapter (Helius for Solana, Alchemy for Base/Arbitrum/Polygon, QuickNode/Ankr for BNB).
+3. `crypto-auto-debit-run` — invoked by Inngest daily; for each due auto-debit subscription, builds + signs the debit tx with the dreyv-debit keypair and broadcasts.
+4. `crypto-webhook-helius` / `crypto-webhook-alchemy` / `crypto-webhook-bnb` — push-notification path so confirmations don't wait for the 60s poll.
 
-## Phase 1 — Focus on all pages
-- Add `useDeclareFocus(...)` to: Treasury, Analytics, Yield Routes, Vault detail, Inbox, Studio project, Atlas token detail, Settings.
-- Each declares `{scope, label, data}` with the minimum stable payload (ids, not full rows).
+All webhooks use `verify_jwt = false` and validate a per-provider HMAC; `crypto-checkout` validates the SIWS session.
 
-## Phase 8 — Safety rails
-- Simulation firewall: every write capability runs `simulateTransaction` first; drop if balance delta sign-flips outside expected.
-- Slippage cap default 50 bps, override per-policy.
-- Circuit breaker: 3 consecutive tool errors OR 1 firewall reject in 10 min → freeze autopilot, raise inbox proposal "resume?".
-- Allowlist enforced in policy guard (already wired in Phase 4).
+## Auto-debit details
+- **Solana**: standard SPL `Approve` makes a Dreyv-controlled PDA the delegate of the user's USDC/USDT ATA up to a capped amount (e.g. 12 × monthly price). On renewal, dreyv-debit signs a `TransferChecked` from user → receiving wallet. Revocable any time from `/app/billing`.
+- **EVM (Base / Arbitrum / Polygon / BNB)**: Permit2 — user signs a typed-data message granting a small dreyv-debit relayer the right to pull `amount` of USDC/USDT up to `expiry`. Permit2 is deployed at the same canonical address on all four chains. Relayer just calls `permit2.transferFrom(user, receivingWallet, amount, token)`. No new contract risk surface.
 
-## Cross-cutting (smaller, ship after rails)
-- **Observability**: middleware around capability execute → records `latency_ms`, `error_code`, `tokens_in/out`, `cost_usd_est`. New `/app/admin/traces` (founder-only) reading `episodes`.
-- **Onboarding**: `/app/onboarding` 4-step (connect vault → choose risk profile → arm 1 route → set 1 alert). Skippable but default policies + 1 watcher seeded so the agent has something to reason over from message #1.
-- **Billing gating**: capability registry annotated with `minTier`; pre-execution check rejects with upgrade CTA. Agent runs/day, vaults, miniapps already in `tier-config.ts` — extend to capabilities.
-- **Docs + partner kit**: `/developers` adds Agent Capabilities reference (auto-generated from registry), Policy schema, Webhook events. New `docs/design-partner-kit.md` with onboarding script, success criteria, support SLAs.
+Both flows reuse the existing wallet adapters (`@solana/wallet-adapter`, `wagmi`).
 
-## Technical notes
-- All new tables get RLS scoped by `user_id` via existing `vaults` join helper.
-- All new agent capabilities registered in `capabilities/registry.ts` and added to `system-prompt.ts` vocabulary.
-- Episode writes go through one helper `recordEpisode()` so observability is automatic.
-- No new providers — Lovable AI only, via the existing edge function path.
+## CommandBar capability
+`pay_subscription` (new): inputs `{ tier, chain?, asset?, mode: "now"|"setup_auto" }`. Calls `crypto-checkout`, returns a structured payment card the CommandBar already renders for `tx_proposals`. Auto-debit setup returns the typed-data / approve tx for the user's wallet to sign.
 
-## Order of merges (so preview never breaks)
-1. Migrations (signers, policy caps, episodes columns, proposals v2 cols).
-2. Server libs (policy guard, episode recorder, autopilot job).
-3. Agent capabilities + registry + prompt.
-4. UI (inbox, focus hooks, onboarding, admin traces).
-5. Realtime SSE + CommandBar subscription.
-6. Safety rails toggle on by default.
-7. Docs + partner kit.
+## Failure / edge cases
+- Underpayment → invoice stays `pending`, "top up X" suggestion.
+- Overpayment → marked confirmed, excess credited to a `crypto_credit_balance` row per user×asset.
+- Auto-debit failure (insufficient balance, revoked allowance, BNB gas spike) → subscription drops to `past_due`, email + inbox notification, manual fallback link.
+- Asset price drift (SOL only): lock USDC-equivalent amount at invoice creation; SOL invoices expire in 15 min instead of 24h. USDC/USDT invoices expire in 24h.
+- Wrong-chain sends (e.g. user pays USDC on Polygon but subscribed on Base): watcher detects via `crypto_token_registry`, auto-attaches to the matching subscription, logs a soft notice.
 
-Approve and I'll start with Phase 3 migrations.
+## Secrets needed
+- `DREYV_DEBIT_SOLANA_KEYPAIR` (base58) — signs SPL delegate transfers.
+- `DREYV_DEBIT_EVM_PRIVATE_KEY` — signs Permit2 `transferFrom` calls (used across Base/Arbitrum/Polygon/BNB).
+- `ALCHEMY_API_KEY` — already needed for `/api/evm/holdings`; reuse for Base/Arbitrum/Polygon.
+- `BNB_RPC_URL` (QuickNode or Ankr) + `BNB_WEBHOOK_AUTH` — new, BNB-specific.
+- `HELIUS_API_KEY` / `HELIUS_WEBHOOK_AUTH` — already set; reuse.
+
+(I'll prompt for the two debit keys + BNB RPC + ask you to paste the two receiving wallet addresses when we start building.)
+
+## Phased rollout
+1. **Phase 1 — Manual Solana (USDC, USDT, SOL).** Tables + token registry + `crypto-checkout` + Helius webhook + `/app/billing` UI toggle + tier flip. Smallest surface to validate end-to-end.
+2. **Phase 2 — Manual EVM stables (USDC + USDT on Base, Arbitrum, Polygon).** Adds Alchemy webhook + multi-chain amount/decimals handling.
+3. **Phase 3 — BNB Chain (USDC + USDT, 18-dec USDT).** Adds QuickNode/Ankr RPC + BNB webhook adapter.
+4. **Phase 4 — Auto-debit (Solana SPL delegate, then EVM Permit2 across all four chains).** Adds debit keypairs, daily Inngest job, revoke UI.
+5. **Phase 5 — CommandBar `pay_subscription` capability + 10% crypto discount strip on `/pricing`.**
+
+## Out of scope (explicitly)
+- BTC / Lightning, third-party rails (Sphere, Helio, Loop) — rejected.
+- Annual-only crypto plans — keeping monthly parity with Paystack.
+- Native ETH / MATIC / BNB as pay assets (stables only on EVM in v1).
+- Refunds in crypto — handled manually for now.
+
+## Open question before Phase 1
+You'll need to provide the two receiving wallet addresses (one Solana, one EVM — same address reused across Base/Arbitrum/Polygon/BNB). Drop them in chat when you're ready and I'll start Phase 1.
