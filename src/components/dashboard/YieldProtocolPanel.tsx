@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { type RiskTier } from "@/lib/yield-registry";
 import { getProtocolLogo } from "@/lib/protocol-logos";
+import { AppEventBus } from "@/lib/events";
 
 interface ProtocolRow {
     mint: string;
@@ -185,15 +185,22 @@ export function YieldProtocolPanel({
                 })}
             </ul>
 
-            <Link
-                href="/app/treasury"
+            <button
+                type="button"
+                onClick={() => {
+                    const top = ranked[0];
+                    const command = top
+                        ? `Plan a yield deposit of my idle ${top.symbol} into ${top.protocol} (currently ${top.apy.toFixed(2)}% APY, ${riskMeta(top.riskTier).label.toLowerCase()}). Check my available balance, size the deposit, and queue it for my approval.`
+                        : "Find the best yield route for my idle stablecoins right now and propose a deposit for my approval.";
+                    AppEventBus.emit("AGENT_COMMAND", { command, source: "YieldProtocolPanel" });
+                }}
                 className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
             >
                 {ranked[0]
-                    ? `Review ${ranked[0].protocol} in Treasury`
-                    : "Open Treasury to deploy yield"}
+                    ? `Deploy idle ${ranked[0].symbol} into ${ranked[0].protocol}`
+                    : "Find me a yield route"}
                 <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
+            </button>
         </div>
     );
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useVault } from "@/lib/contexts/VaultContext";
+import { AppEventBus } from "@/lib/events";
 
 interface FeeBreakdown {
     type: string;
@@ -188,7 +188,10 @@ function FeeBody({ data }: { data: FeeAnalytics }) {
                 </div>
             )}
 
-            <CTA label="See full fee breakdown in Treasury" href="/app/treasury" />
+            <CTA
+                label="Find ways to lower these fees"
+                command={`Analyze our treasury's fee spend over the last 12 months ($${formatUsd(total).replace("$", "")} across ${data.transactionCount.toLocaleString()} txs, biggest bucket: ${prettyType(top3[0]?.type ?? "UNKNOWN")}). Identify the largest cost drivers (priority fees, swap routing, failed txs, ATA churn) and propose concrete actions I can approve to reduce them.`}
+            />
         </>
     );
 }
@@ -221,14 +224,15 @@ function Body({ headline, subline }: { headline: string; subline: string }) {
     );
 }
 
-function CTA({ label, href }: { label: string; href: string; command?: string; source?: string }) {
+function CTA({ label, command, source = "FeeAnalyticsWidget" }: { label: string; command: string; source?: string }) {
     return (
-        <Link
-            href={href}
+        <button
+            type="button"
+            onClick={() => AppEventBus.emit("AGENT_COMMAND", { command, source })}
             className="mt-auto inline-flex items-center justify-center gap-2 border-t border-violet-100 bg-violet-600 px-4 py-3 text-[12px] font-semibold text-white transition-colors hover:bg-violet-700"
         >
             {label}
             <ArrowUpRight className="h-3.5 w-3.5" />
-        </Link>
+        </button>
     );
 }
