@@ -38,6 +38,30 @@ function shortAddr(addr: string): string {
 
 export function EvmWatchersPanel() {
     const { watcherHealth } = useAgentContext();
+    const [evmLinked, setEvmLinked] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch("/api/auth/link-evm", { credentials: "include" });
+                if (cancelled) return;
+                if (!res.ok) {
+                    setEvmLinked(false);
+                    return;
+                }
+                const data = (await res.json().catch(() => null)) as
+                    | { evmWalletAddress?: string | null }
+                    | null;
+                setEvmLinked(Boolean(data?.evmWalletAddress));
+            } catch {
+                if (!cancelled) setEvmLinked(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const evmWatchers = useMemo(
         () =>
@@ -47,6 +71,7 @@ export function EvmWatchersPanel() {
         [watcherHealth],
     );
 
+    if (!evmLinked) return null;
     if (evmWatchers.length === 0) return null;
 
     return (
