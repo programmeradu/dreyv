@@ -140,15 +140,19 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
                 lamports: BigInt(inv.amountMinor),
             }));
         } else {
-            const splMod = await import("@solana/spl-token");
-            const spl = (splMod as unknown as { default?: typeof splMod }).default ?? splMod;
-            const { getAssociatedTokenAddress, createAssociatedTokenAccountIdempotentInstruction, createTransferCheckedInstruction, TOKEN_PROGRAM_ID } = spl as typeof import("@solana/spl-token");
+            // Types in this project are pinned to 0.1.x but runtime is 0.4 — cast through unknown.
+            const spl = (await import("@solana/spl-token")) as unknown as {
+                getAssociatedTokenAddress: (mint: unknown, owner: unknown) => Promise<unknown>;
+                createAssociatedTokenAccountIdempotentInstruction: (payer: unknown, ata: unknown, owner: unknown, mint: unknown) => unknown;
+                createTransferCheckedInstruction: (from: unknown, mint: unknown, to: unknown, owner: unknown, amount: bigint, decimals: number, signers?: unknown[], programId?: unknown) => unknown;
+                TOKEN_PROGRAM_ID: unknown;
+            };
             const mint = new PublicKey(inv.contract!);
             const recipient = new PublicKey(inv.receivingAddress);
-            const fromAta = await getAssociatedTokenAddress(mint, sol.publicKey);
-            const toAta = await getAssociatedTokenAddress(mint, recipient);
-            tx.add(createAssociatedTokenAccountIdempotentInstruction(sol.publicKey, toAta, recipient, mint));
-            tx.add(createTransferCheckedInstruction(fromAta, mint, toAta, sol.publicKey, BigInt(inv.amountMinor), inv.decimals, [], TOKEN_PROGRAM_ID));
+            const fromAta = await spl.getAssociatedTokenAddress(mint, sol.publicKey);
+            const toAta = await spl.getAssociatedTokenAddress(mint, recipient);
+            tx.add(spl.createAssociatedTokenAccountIdempotentInstruction(sol.publicKey, toAta, recipient, mint) as Parameters<typeof tx.add>[0]);
+            tx.add(spl.createTransferCheckedInstruction(fromAta, mint, toAta, sol.publicKey, BigInt(inv.amountMinor), inv.decimals, [], spl.TOKEN_PROGRAM_ID) as Parameters<typeof tx.add>[0]);
         }
         tx.add(memoIx);
 
