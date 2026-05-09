@@ -1860,3 +1860,27 @@ export const agentToolMetrics = pgTable('agent_tool_metrics', {
   createdIdx: index('agent_metrics_created_idx').on(t.createdAt),
   outcomeIdx: index('agent_metrics_outcome_idx').on(t.outcome),
 }));
+
+// ─── Crypto Subscription Invoices (Phase 1: manual renewals) ──────────
+export const cryptoInvoices = pgTable('crypto_invoices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tier: text('tier').notNull(),                              // mini | max
+  chain: text('chain').notNull(),                            // solana | base | arbitrum | polygon | bsc
+  asset: text('asset').notNull(),                            // usdc | usdt | sol
+  amountMinor: numeric('amount_minor', { precision: 40, scale: 0 }).notNull(),
+  amountUsd: numeric('amount_usd', { precision: 12, scale: 2 }).notNull(),
+  decimals: integer('decimals').notNull(),
+  contractAddress: text('contract_address'),                 // null for native SOL
+  receivingAddress: text('receiving_address').notNull(),
+  memo: text('memo').notNull(),
+  status: text('status').notNull().default('pending'),       // pending | confirmed | expired | failed
+  txSignature: text('tx_signature'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+}, (t) => ({
+  userIdx: index('crypto_invoices_user_idx').on(t.userId),
+  statusIdx: index('crypto_invoices_status_idx').on(t.status),
+  memoUniq: uniqueIndex('crypto_invoices_memo_uniq').on(t.memo),
+}));
