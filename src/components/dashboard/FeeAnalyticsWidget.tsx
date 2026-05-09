@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useVault } from "@/lib/contexts/VaultContext";
+import { AppEventBus } from "@/lib/events";
 
 interface FeeBreakdown {
     type: string;
