@@ -41,9 +41,20 @@ const CURATED_FALLBACK_PROMPTS = [
 interface Snapshot {
   address: string | null;
   totalUsd: number | null;
-  holdings: Array<{ symbol: string; usd: number | null; pct: number | null }>;
+  holdings: Array<{ symbol: string; amount: number | null; usd: number | null; pct: number | null }>;
   idleStableUsd: number | null;
+  idleStableAmount: number | null;
   recentSwaps: Array<{
+    kind: string;
+    fromSymbol?: string;
+    toSymbol?: string;
+    fromAmount?: number;
+    toAmount?: number;
+    whenHours: number;
+    source?: string;
+  }>;
+  empty: boolean;
+}
     kind: string;
     fromSymbol?: string;
     toSymbol?: string;
