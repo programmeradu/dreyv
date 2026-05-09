@@ -173,12 +173,12 @@ export function EmptyState({ onChipClick }: EmptyStateProps) {
           <button
             type="button"
             onClick={() => setRefreshKey((k) => k + 1)}
-            disabled={loading}
+            disabled={loading || refreshing}
             className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70 hover:text-violet-600 transition-colors flex items-center gap-1.5 disabled:opacity-40"
             aria-label="Regenerate to-dos"
           >
-            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
-            Re-analyze
+            <RefreshCw size={11} className={loading || refreshing ? "animate-spin" : ""} />
+            {refreshing && !loading ? "Refreshing" : "Re-analyze"}
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
