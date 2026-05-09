@@ -244,6 +244,7 @@ ${ARTIFACT_HONESTY_RULES}
 
 CONTEXT
 Wallet: ${input.walletAddress || "Not connected"}
+Active Vault (treasury): ${input.vaultAddress || "None selected"}
 Vault State: ${JSON.stringify(input.vaultState ?? {})}
 Wallet State: ${JSON.stringify(input.walletState ?? {})}${yieldLine}${yieldRoutesLine}${proposalsLine}${alertsLine}${policyCtxLine}${recentLine}${focusLine}${pushLine}${policyLine}${specialistLine}${memoryLine}
 `;
