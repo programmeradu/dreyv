@@ -780,7 +780,7 @@ function slide_addArrow(slide, x, y, w, h, color) {
   // Soft inner panel for legibility (solid)
   rrect(s, 0.9, 1.3, W - 1.8, H - 2.2, VIOLET_DEEP, 0.3, VIOLET_DARK);
 
-  pageNum += 1;
+  // pageNum already incremented by newSlide() above
   brandMark(s, 0.7, 0.5, WHITE, 0.36);
   text(s, "DREYV", {
     x: 1.15, y: 0.5, w: 3, h: 0.36, fontSize: 14, bold: true, color: WHITE, charSpacing: 6, valign: "middle",
