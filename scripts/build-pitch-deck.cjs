@@ -43,6 +43,14 @@ const MASCOT = {
   celebrate: b64(path.join(PUB, "mascot/dreyv-celebrate.png")),
   alert: b64(path.join(PUB, "mascot/dreyv-alert.png")),
 };
+const LOGO = {
+  dune:       b64(path.join(PUB, "pitch/logos/dune.png")),
+  nansen:     b64(path.join(PUB, "pitch/logos/nansen.png")),
+  streamflow: b64(path.join(PUB, "pitch/logos/streamflow.png")),
+  magna:      b64(path.join(PUB, "pitch/logos/magna.png")),
+  fireblocks: b64(path.join(PUB, "pitch/logos/fireblocks.png")),
+  safe:       b64(path.join(PUB, "pitch/logos/safe.png")),
+};
 
 // ---------- pptx setup ----------
 const pptx = new PptxGenJS();
