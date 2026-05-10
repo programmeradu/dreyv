@@ -12,8 +12,14 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
+import { EVM_ENABLED } from '@/lib/feature-flags';
 
 const HEX_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+
+const DISABLED = NextResponse.json(
+    { error: 'evm_paused', detail: 'EVM support is temporarily paused.' },
+    { status: 410 },
+);
 
 function normalizeEvm(addr: string): string | null {
     if (typeof addr !== 'string') return null;
@@ -23,6 +29,7 @@ function normalizeEvm(addr: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
+    if (!EVM_ENABLED) return DISABLED;
     try {
         const user = await getAuthUser(request);
         if (!user) {
@@ -50,6 +57,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+    if (!EVM_ENABLED) return DISABLED;
     try {
         const user = await getAuthUser(request);
         if (!user) {
@@ -67,6 +75,12 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    if (!EVM_ENABLED) {
+        // GET is also used by UI to check link state; return null so UI hides cleanly.
+        const user = await getAuthUser(request);
+        if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        return NextResponse.json({ ok: true, evmWalletAddress: null, paused: true });
+    }
     const user = await getAuthUser(request);
     if (!user) {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

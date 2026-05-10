@@ -13,6 +13,7 @@ import { cryptoInvoices, users } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { verifySolanaPayment } from "@/lib/billing/crypto-verify-solana";
 import { verifyEvmPayment } from "@/lib/billing/crypto-verify-evm";
+import { EVM_ENABLED } from "@/lib/feature-flags";
 
 const Body = z.object({
     invoiceId: z.string().uuid(),
@@ -42,6 +43,10 @@ export async function POST(req: NextRequest) {
     if (new Date(invoice.expiresAt).getTime() < Date.now()) {
         await db.update(cryptoInvoices).set({ status: "expired" }).where(eq(cryptoInvoices.id, invoice.id));
         return NextResponse.json({ error: "invoice_expired" }, { status: 410 });
+    }
+
+    if (invoice.chain !== "solana" && !EVM_ENABLED) {
+        return NextResponse.json({ error: "evm_paused" }, { status: 410 });
     }
 
     const result = invoice.chain === "solana"
