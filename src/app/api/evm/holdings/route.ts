@@ -9,7 +9,8 @@
  * Pricing: Alchemy Prices API (best-effort) — returns 0 when unavailable.
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { EVM_ENABLED } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,9 @@ interface AlchemyTokenMetadata {
 }
 
 export async function GET(req: NextRequest) {
+    if (!EVM_ENABLED) {
+        return NextResponse.json({ holdings: [], total: 0, paused: true }, { status: 200 });
+    }
     const { searchParams } = new URL(req.url);
     const addressRaw = searchParams.get("address");
     const chain = toChain(searchParams.get("chain"));
