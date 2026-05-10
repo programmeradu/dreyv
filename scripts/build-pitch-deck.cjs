@@ -260,7 +260,7 @@ function statBlock(slide, { x, y, w, h, value, unit, label, body }) {
     }
   }
 
-  pageNum += 1; // counts as slide 1; manual chrome for cover
+  // pageNum already incremented by newSlide() above
   brandMark(s, 0.7, 0.7, WHITE, 0.4);
   text(s, "DREYV", {
     x: 1.2, y: 0.72, w: 3, h: 0.4, fontSize: 16, bold: true, color: WHITE, charSpacing: 8, valign: "middle",
