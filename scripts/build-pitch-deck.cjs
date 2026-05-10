@@ -416,7 +416,7 @@ function statBlock(slide, { x, y, w, h, value, unit, label, body }) {
     });
   });
 
-  bigPunch(s, "No unified system to plan, simulate, and execute — until now.");
+  // bigPunch removed — the 4-row table fills the slide
 }
 
 // =====================================================================
