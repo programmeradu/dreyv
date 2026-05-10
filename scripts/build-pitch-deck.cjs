@@ -354,7 +354,7 @@ function statBlock(slide, { x, y, w, h, value, unit, label, body }) {
     { value: "5×", label: "COORDINATION OVERHEAD", body: "Hours moving between dashboards, signers, chats." },
     { value: "1", label: "WRONG SIGN, IRREVERSIBLE", body: "Every transaction is a high-stakes guess." },
   ];
-  const cw = 2.95, ch = 3.0, gx = 0.7, gy = 4.2, gap = 0.18;
+  const cw = 2.95, ch = 2.0, gx = 0.7, gy = 4.2, gap = 0.18;
   stats.forEach((st, i) => {
     statBlock(s, { x: gx + i * (cw + gap), y: gy, w: cw, h: ch, ...st });
   });
