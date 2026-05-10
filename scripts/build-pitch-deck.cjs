@@ -372,28 +372,47 @@ function statBlock(slide, { x, y, w, h, value, unit, label, body }) {
   title(s, "What exists vs.\nwhat's missing.", { w: 10 });
 
   const rows = [
-    ["ANALYTICS", "Dune  ·  Nansen", "Insights — no execution."],
-    ["EXECUTION", "Streamflow  ·  Magna", "Execution — no intelligence."],
-    ["CUSTODY", "Fireblocks  ·  Gnosis Safe", "Security — no orchestration."],
-    ["DREYV", "The treasury operating system", "Plan + simulate + execute."],
+    { cat: "ANALYTICS", logos: ["dune", "nansen"],     names: ["Dune", "Nansen"],          gap: "Insights — no execution." },
+    { cat: "EXECUTION", logos: ["streamflow", "magna"], names: ["Streamflow", "Magna"],     gap: "Execution — no intelligence." },
+    { cat: "CUSTODY",   logos: ["fireblocks", "safe"],  names: ["Fireblocks", "Safe"],      gap: "Security — no orchestration." },
+    { cat: "DREYV",     logos: [],                      names: ["The treasury operating system"], gap: "Plan + simulate + execute." },
   ];
-  const ry0 = 4.05, rh = 0.7, rgap = 0.12, rx = 0.7, rw = W - 1.4;
+  const ry0 = 4.05, rh = 0.78, rgap = 0.1, rx = 0.7, rw = W - 1.4;
   rows.forEach((r, i) => {
     const last = i === rows.length - 1;
     const y = ry0 + i * (rh + rgap);
     rrect(s, rx, y, rw, rh, last ? VIOLET : WHITE, 0.12, last ? VIOLET : VIOLET_200);
-    text(s, r[0], {
-      x: rx + 0.3, y, w: 2.6, h: rh,
-      fontSize: 12, bold: true, color: last ? WHITE : VIOLET, charSpacing: 4, valign: "middle",
+    text(s, r.cat, {
+      x: rx + 0.3, y, w: 1.6, h: rh,
+      fontSize: 11, bold: true, color: last ? WHITE : VIOLET, charSpacing: 4, valign: "middle",
     });
-    text(s, r[1], {
-      x: rx + 3.0, y, w: 4.2, h: rh,
-      fontSize: 13, color: last ? WHITE : SLATE, valign: "middle",
+    // Logos + names cluster
+    const baseX = rx + 2.0;
+    const logoSize = 0.4;
+    r.logos.forEach((key, j) => {
+      // White rounded chip behind logo for contrast
+      const cx = baseX + j * 2.4;
+      rrect(s, cx, y + (rh - 0.56) / 2, 0.56, 0.56, WHITE, 0.1, VIOLET_200);
+      s.addImage({
+        data: LOGO[key],
+        x: cx + 0.08, y: y + (rh - logoSize) / 2,
+        w: logoSize, h: logoSize,
+      });
+      text(s, r.names[j] || "", {
+        x: cx + 0.7, y, w: 1.65, h: rh,
+        fontSize: 13, bold: true, color: last ? WHITE : INK, valign: "middle",
+      });
     });
-    rect(s, rx + 7.3, y + 0.18, 0.012, rh - 0.36, last ? VIOLET_DARK : VIOLET_200);
-    text(s, r[2], {
+    if (last) {
+      text(s, r.names[0], {
+        x: baseX, y, w: 5.0, h: rh,
+        fontSize: 14, bold: true, color: WHITE, italic: true, valign: "middle",
+      });
+    }
+    rect(s, rx + 7.3, y + 0.2, 0.012, rh - 0.4, last ? VIOLET_DARK : VIOLET_200);
+    text(s, r.gap, {
       x: rx + 7.5, y, w: rw - 7.7, h: rh,
-      fontSize: 13.5, bold: last, color: last ? WHITE : INK, valign: "middle",
+      fontSize: 13, bold: last, color: last ? WHITE : INK, valign: "middle",
     });
   });
 
