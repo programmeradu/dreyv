@@ -17,6 +17,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useWallet, useConnection } from "@/lib/wallet/compat";
 import { useAccount, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { EVM_ENABLED } from "@/lib/feature-flags";
 
 type Tier = "mini" | "max";
 type Chain = "solana" | "base" | "arbitrum" | "polygon" | "bsc";
@@ -37,13 +38,15 @@ interface Invoice {
     amountUsd: number;
 }
 
-const CHAINS: { id: Chain; label: string; assets: Asset[] }[] = [
+const ALL_CHAINS: { id: Chain; label: string; assets: Asset[] }[] = [
     { id: "solana",   label: "Solana",         assets: ["usdc", "usdt", "sol"] },
     { id: "base",     label: "Base",           assets: ["usdc", "usdt"]        },
     { id: "arbitrum", label: "Arbitrum",       assets: ["usdc", "usdt"]        },
     { id: "polygon",  label: "Polygon",        assets: ["usdc", "usdt"]        },
     { id: "bsc",      label: "BNB Chain",      assets: ["usdc", "usdt"]        },
 ];
+// EVM paused — only Solana is offered until EVM_ENABLED is flipped back on.
+const CHAINS = EVM_ENABLED ? ALL_CHAINS : ALL_CHAINS.filter(c => c.id === "solana");
 
 const EVM_CHAIN_ID: Record<Exclude<Chain, "solana">, number> = {
     base: 8453, arbitrum: 42161, polygon: 137, bsc: 56,

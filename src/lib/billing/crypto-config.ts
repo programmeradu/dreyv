@@ -53,13 +53,17 @@ export function tokenFor(chain: CryptoChain, asset: CryptoAsset): TokenInfo | nu
 }
 
 /** Phase rollout flags — flip as we ship each phase. */
-export const ENABLED_CHAINS: CryptoChain[] = ["solana", "base", "arbitrum", "polygon", "bsc"];
+import { EVM_ENABLED } from "@/lib/feature-flags";
+
+export const ENABLED_CHAINS: CryptoChain[] = EVM_ENABLED
+    ? ["solana", "base", "arbitrum", "polygon", "bsc"]
+    : ["solana"];
 export const ENABLED_ASSETS: Record<CryptoChain, CryptoAsset[]> = {
     solana:   ["usdc", "usdt", "sol"],
-    base:     ["usdc", "usdt"],
-    arbitrum: ["usdc", "usdt"],
-    polygon:  ["usdc", "usdt"],
-    bsc:      ["usdc", "usdt"],
+    base:     EVM_ENABLED ? ["usdc", "usdt"] : [],
+    arbitrum: EVM_ENABLED ? ["usdc", "usdt"] : [],
+    polygon:  EVM_ENABLED ? ["usdc", "usdt"] : [],
+    bsc:      EVM_ENABLED ? ["usdc", "usdt"] : [],
 };
 
 export function isEnabled(chain: CryptoChain, asset: CryptoAsset): boolean {

@@ -56,7 +56,10 @@ interface Props {
     onLinked?: (address: string) => void;
 }
 
+import { EVM_ENABLED } from "@/lib/feature-flags";
+
 export function EvmConnectButton({ hideUntilMounted = true, onLinked }: Props) {
+    if (!EVM_ENABLED) return null;
     const [mounted, setMounted] = useState(false);
     const lastLinkedRef = useRef<string | null>(null);
     const { address, isConnected } = useAccount();

@@ -36,7 +36,10 @@ function shortAddr(addr: string): string {
     return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+import { EVM_ENABLED } from "@/lib/feature-flags";
+
 export function EvmWatchersPanel() {
+    if (!EVM_ENABLED) return null;
     const { watcherHealth } = useAgentContext();
     const [evmLinked, setEvmLinked] = useState<boolean | null>(null);
 
