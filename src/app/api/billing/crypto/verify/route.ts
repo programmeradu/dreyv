@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "invoice_expired" }, { status: 410 });
     }
 
+    if (invoice.chain !== "solana" && !EVM_ENABLED) {
+        return NextResponse.json({ error: "evm_paused" }, { status: 410 });
+    }
+
     const result = invoice.chain === "solana"
         ? await verifySolanaPayment({
             signature: parsed.data.signature,
