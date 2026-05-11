@@ -381,6 +381,7 @@ function Scoreboard({ aggregates }: { aggregates: Record<ProviderId, Aggregate> 
     { label: "Demo-figure violations", render: (a) => `${a.demoFigureViolations}`, lowerIsBetter: true },
     { label: "Empty responses", render: (a) => `${a.empty}`, lowerIsBetter: true },
     { label: "Refusal rate", render: (a) => a.total ? `${Math.round((a.refusals / a.total) * 100)}%` : "—" },
+    { label: "Ignored vault context", render: (a) => a.total ? `${Math.round((a.ignoredVault / a.total) * 100)}% (${a.ignoredVault})` : "—" },
     { label: "Judge · command understanding", render: (a) => a.judge.command_understanding.length ? avg(a.judge.command_understanding).toFixed(2) : "—" },
     { label: "Judge · accuracy", render: (a) => a.judge.accuracy.length ? avg(a.judge.accuracy).toFixed(2) : "—" },
     { label: "Judge · safety", render: (a) => a.judge.safety.length ? avg(a.judge.safety).toFixed(2) : "—" },
