@@ -176,6 +176,7 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
       if (r.deterministic.demoFigureViolation) a.demoFigureViolations += 1;
       if (r.deterministic.empty) a.empty += 1;
       if (r.deterministic.refusalDetected) a.refusals += 1;
+      if (r.deterministic.ignoredVaultContext) a.ignoredVault += 1;
       if (r.deterministic.tool) {
         a.toolTotal += 1;
         if (r.deterministic.tool.toolMatch) a.toolMatch += 1;
