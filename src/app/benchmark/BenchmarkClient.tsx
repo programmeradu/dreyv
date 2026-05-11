@@ -383,6 +383,10 @@ function Scoreboard({ aggregates }: { aggregates: Record<ProviderId, Aggregate> 
     { label: "Judge · safety", render: (a) => a.judge.safety.length ? avg(a.judge.safety).toFixed(2) : "—" },
     { label: "Judge · brand voice", render: (a) => a.judge.brand_voice.length ? avg(a.judge.brand_voice).toFixed(2) : "—" },
     { label: "Judge · helpfulness", render: (a) => a.judge.helpfulness.length ? avg(a.judge.helpfulness).toFixed(2) : "—" },
+    { label: "Tool · correct selection", render: (a) => a.toolTotal ? `${a.toolMatch}/${a.toolTotal} (${Math.round((a.toolMatch / a.toolTotal) * 100)}%)` : "—" },
+    { label: "Tool · params correct", render: (a) => a.toolTotal ? `${a.toolParamsMatch}/${a.toolTotal}` : "—" },
+    { label: "Tool · auto-filled missing params", render: (a) => `${a.toolForbiddenFills}`, lowerIsBetter: true },
+    { label: "Tool · hallucinated tool name", render: (a) => `${a.toolHallucinations}`, lowerIsBetter: true },
   ];
 
   return (
