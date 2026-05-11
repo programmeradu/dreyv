@@ -221,7 +221,7 @@ export default function BenchmarkClient() {
   const [rows, setRows] = useState<ScenarioRow[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [limit, setLimit] = useState(100);
+  const [limit, setLimit] = useState(115);
   const [useJudge, setUseJudge] = useState(true);
   const [activeRow, setActiveRow] = useState<number | null>(null);
 
