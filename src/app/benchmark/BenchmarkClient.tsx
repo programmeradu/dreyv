@@ -34,6 +34,17 @@ import { ArrowRight } from "lucide-react";
 
 type ProviderId = "lovable" | "groq" | "cloudflare";
 
+interface ToolCall { name: string; arguments: Record<string, unknown> }
+interface ToolScore {
+  expected: string | null;
+  called: string | null;
+  toolMatch: boolean;
+  paramsMatch: boolean;
+  paramsMissing: string[];
+  forbiddenFilled: string[];
+  hallucinatedTool: boolean;
+}
+
 interface DeterministicScore {
   includeHits: number;
   includeTotal: number;
@@ -44,6 +55,7 @@ interface DeterministicScore {
   empty: boolean;
   refusalDetected: boolean;
   outputChars: number;
+  tool?: ToolScore;
 }
 
 interface JudgeScore {
@@ -59,6 +71,7 @@ interface ProviderResult {
   ok: boolean;
   latencyMs: number;
   output: string;
+  toolCalls?: ToolCall[];
   errorMessage?: string;
   promptTokens?: number;
   completionTokens?: number;
@@ -67,7 +80,7 @@ interface ProviderResult {
 
 interface ScenarioRow {
   index: number;
-  scenario: { id: string; category: string; prompt: string; expectedKind: string; rubric: string };
+  scenario: { id: string; category: string; prompt: string; expectedKind: string; rubric: string; expectedTool?: string | null; expectedParams?: Record<string, unknown>; forbiddenParams?: string[] };
   results: { provider: ProviderId; result: ProviderResult; deterministic: DeterministicScore; judge: JudgeScore | null }[];
 }
 
@@ -75,7 +88,7 @@ const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
 const PROVIDER_LABEL: Record<ProviderId, string> = {
   lovable: "Lovable AI · gemini-3-flash",
   groq: "Groq · llama-3.3-70b",
-  cloudflare: "Cloudflare · llama-3.3-70b-fp8",
+  cloudflare: "Cloudflare · mistral-small-3.1-24b",
 };
 
 function p95(arr: number[]): number {
