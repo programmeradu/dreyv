@@ -15,6 +15,7 @@ import { SCENARIOS } from "@/lib/benchmark/scenarios";
 import { PROVIDERS, runProvider } from "@/lib/benchmark/providers";
 import { runJudge, scoreDeterministic } from "@/lib/benchmark/judge";
 import { BENCHMARK_TOOLS } from "@/lib/benchmark/tools";
+import { buildLiveVaultSnapshot, renderVaultContext } from "@/lib/benchmark/vault-live";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
