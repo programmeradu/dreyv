@@ -86,9 +86,9 @@ const S: Scenario[] = [
   { id: "sw-08", category: "swap_route", prompt: "Swap all my dust tokens into SOL.", expectedKind: "plan", mustInclude: ["dust"], rubric: "Mention Jupiter zap/SolanaFM cleanup; needs wallet." },
 
   // ─── simulation (8) ───────────────────────────────────────────────
-  { id: "sm-01", category: "simulation", prompt: "Simulate what happens if SOL drops 40% over the next 30 days.", expectedKind: "clarify", rubric: "Needs current exposure; must NOT invent portfolio." },
-  { id: "sm-02", category: "simulation", prompt: "If I move 50% of my treasury to JLP, what's the expected APY?", expectedKind: "clarify", rubric: "Needs treasury size; cite JLP yield range only as approximate." },
-  { id: "sm-03", category: "simulation", prompt: "What is the worst-case loss on my position if SOL goes to zero?", expectedKind: "clarify", rubric: "Needs position." },
+  { id: "sm-01", category: "simulation", prompt: "Simulate what happens if SOL drops 40% over the next 30 days.", expectedKind: "answer", mustInclude: ["sol"], mustNotInclude: ["connect"], rubric: "Use vault context: SOL+mSOL exposure ≈ $2.52M → ~$1.0M loss; explain delta to total $4.81M treasury." },
+  { id: "sm-02", category: "simulation", prompt: "If I move 50% of my treasury to JLP, what's the expected APY?", expectedKind: "answer", mustInclude: ["jlp"], rubric: "50% of $4.81M ≈ $2.4M into JLP; cite typical JLP APY range; reference current JLP holding." },
+  { id: "sm-03", category: "simulation", prompt: "What is the worst-case loss on my position if SOL goes to zero?", expectedKind: "answer", mustInclude: ["1,520,000"], mustNotInclude: ["connect"], rubric: "SOL exposure $1.52M (plus mSOL $1.0M of underlying SOL) — explain blast radius from context." },
   { id: "sm-04", category: "simulation", prompt: "Run a Monte Carlo on a 70/30 SOL/USDC portfolio over 6 months.", expectedKind: "explain", mustInclude: ["monte"], rubric: "Should explain the method and what inputs it needs." },
   { id: "sm-05", category: "simulation", prompt: "Simulate gas + slippage cost of rebalancing weekly vs monthly.", expectedKind: "explain", rubric: "Mention Solana priority fees; tradeoff explanation." },
   { id: "sm-06", category: "simulation", prompt: "Validate this strategy: lend USDC on Kamino, borrow SOL, stake on Jito.", expectedKind: "explain", mustInclude: ["kamino", "jito"], rubric: "Mention liquidation risk, rate spreads, recursive leverage." },
