@@ -227,6 +227,7 @@ export default function BenchmarkClient() {
   const [limit, setLimit] = useState(115);
   const [useJudge, setUseJudge] = useState(true);
   const [activeRow, setActiveRow] = useState<number | null>(null);
+  const [vault, setVault] = useState<any | null>(null);
 
   const aggregates = useMemo(() => aggregateRows(rows), [rows]);
 
