@@ -459,7 +459,15 @@ function ScenarioTable({ rows, onSelect }: { rows: ScenarioRow[]; onSelect: (i: 
                   const r = row.results.find((x) => x.provider === p);
                   if (!r) return <td key={p} className="py-2 pr-3 text-slate-400">—</td>;
                   if (!r.result.ok) {
-                    return <td key={p} className="py-2 pr-3 text-red-600 font-mono text-xs">err {r.result.status || ""}</td>;
+                    return (
+                      <td
+                        key={p}
+                        className="py-2 pr-3 text-red-600 font-mono text-xs cursor-help"
+                        title={r.result.errorMessage || "unknown error"}
+                      >
+                        err {r.result.status || ""} · {(r.result.errorMessage || "").slice(0, 40)}
+                      </td>
+                    );
                   }
                   const j = r.judge;
                   const sum = j ? (j.command_understanding + j.accuracy + j.safety + j.brand_voice + j.helpfulness) : null;
