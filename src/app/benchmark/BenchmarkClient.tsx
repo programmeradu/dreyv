@@ -88,7 +88,7 @@ const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
 const PROVIDER_LABEL: Record<ProviderId, string> = {
   lovable: "Lovable AI · gemini-3-flash",
   groq: "Groq · llama-3.3-70b",
-  cloudflare: "Cloudflare · mistral-small-3.1-24b",
+  cloudflare: "Cloudflare · qwen2.5-coder-32b",
 };
 
 function p95(arr: number[]): number {
