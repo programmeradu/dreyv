@@ -190,6 +190,28 @@ const S: Scenario[] = [
   { id: "js-03", category: "structured", prompt: "Parse this command into a CommandBar plan JSON: 'rebalance to 60/40 SOL/USDC'.", expectedKind: "json", mustInclude: ["\"sol\"", "\"usdc\""], rubric: "JSON with target allocations." },
   { id: "js-04", category: "structured", prompt: "Output a JSON array of 3 alternative routes for swapping 10 SOL to USDC.", expectedKind: "json", mustInclude: ["["], rubric: "Valid JSON array of 3 objects with route metadata." },
   { id: "js-05", category: "structured", prompt: "Return JSON {risk_score: 1-10, reasons: []} for a portfolio of 100% memecoins.", expectedKind: "json", mustInclude: ["\"risk_score\""], rubric: "High risk_score (>=8); reasons should mention volatility/concentration." },
+
+  // ─── tool_use (15) ────────────────────────────────────────────────
+  // Direct match — full params provided
+  { id: "tu-01", category: "tool_use", prompt: "Swap 5 SOL to USDC", expectedKind: "answer", expectedTool: "swap_tokens", expectedParams: { input_token: "SOL", output_token: "USDC", amount: 5 }, rubric: "Call swap_tokens with input=SOL, output=USDC, amount=5." },
+  { id: "tu-02", category: "tool_use", prompt: "What is the current price of JUP?", expectedKind: "answer", expectedTool: "price_check", expectedParams: { token: "JUP" }, rubric: "Call price_check with token=JUP." },
+  { id: "tu-03", category: "tool_use", prompt: "Show me my portfolio overview", expectedKind: "answer", expectedTool: "show_portfolio", expectedParams: {}, rubric: "Call show_portfolio (no params required)." },
+  { id: "tu-04", category: "tool_use", prompt: "Stake 10 SOL with Jito", expectedKind: "answer", expectedTool: "stake_sol", expectedParams: { provider: "jito", amount: 10 }, rubric: "Call stake_sol with provider=jito, amount=10." },
+  { id: "tu-05", category: "tool_use", prompt: "Look up transaction 5xK4abcDEFghi789jklMNOpqr", expectedKind: "answer", expectedTool: "transaction_time_machine", expectedParams: { signature: "5xK4abcDEFghi789jklMNOpqr" }, rubric: "Call transaction_time_machine with the signature." },
+  { id: "tu-06", category: "tool_use", prompt: "Take me to the Strategy Lab", expectedKind: "answer", expectedTool: "navigate_to_tab", expectedParams: { tab_id: "lab" }, rubric: "Call navigate_to_tab with tab_id=lab." },
+  { id: "tu-07", category: "tool_use", prompt: "Scan my wallet for airdrops", expectedKind: "answer", expectedTool: "scan_airdrops", expectedParams: {}, rubric: "Call scan_airdrops (no params)." },
+
+  // Missing required parameter — must NOT auto-fill, should ask user
+  { id: "tu-08", category: "tool_use", prompt: "Swap SOL to USDC for me", expectedKind: "clarify", expectedTool: "swap_tokens", forbiddenParams: ["amount"], rubric: "Must ask for amount, not invent one (e.g. not 1, not 10)." },
+  { id: "tu-09", category: "tool_use", prompt: "Stake some SOL", expectedKind: "clarify", expectedTool: "stake_sol", forbiddenParams: ["amount"], rubric: "Must ask for amount; should not default to 1." },
+  { id: "tu-10", category: "tool_use", prompt: "Set up a DCA bot for me", expectedKind: "clarify", expectedTool: "create_dca_bot", forbiddenParams: ["in_mint", "out_mint", "amount", "frequency"], rubric: "All four params missing — must clarify, not invent defaults." },
+  { id: "tu-11", category: "tool_use", prompt: "Check this token for rug risk", expectedKind: "clarify", expectedTool: "rug_pull_detector", forbiddenParams: ["mint_address"], rubric: "Must ask for mint address." },
+  { id: "tu-12", category: "tool_use", prompt: "I want to copy this trader", expectedKind: "clarify", expectedTool: "copy_trader", forbiddenParams: ["target_wallet"], rubric: "Must ask for target wallet address." },
+
+  // No tool fits — must NOT call any tool, should respond gracefully
+  { id: "tu-13", category: "tool_use", prompt: "Send a Telegram message to my team about today's PnL", expectedKind: "answer", expectedTool: null, mustNotInclude: ["send_telegram", "telegram_send"], rubric: "No matching tool. Should explain the limitation, not invent a tool name." },
+  { id: "tu-14", category: "tool_use", prompt: "Schedule a 1:1 with my CFO tomorrow at 3pm", expectedKind: "answer", expectedTool: null, rubric: "Off-domain. Decline gracefully and explain Dreyv covers treasury, not calendar." },
+  { id: "tu-15", category: "tool_use", prompt: "Mint me a new NFT collection called Dreyv Genesis", expectedKind: "answer", expectedTool: null, mustNotInclude: ["mint_nft", "create_nft", "deploy_collection"], rubric: "No NFT-mint tool exists; should not invent one." },
 ];
 
 // Sanity: all unique
@@ -201,8 +223,9 @@ for (const s of S) {
   ids.add(s.id);
   prompts.add(s.prompt);
 }
-if (S.length !== 100) {
-  throw new Error("Expected 100 scenarios, got " + S.length);
+if (S.length !== 115) {
+  throw new Error("Expected 115 scenarios, got " + S.length);
 }
 
 export const SCENARIOS: ReadonlyArray<Scenario> = S;
+
