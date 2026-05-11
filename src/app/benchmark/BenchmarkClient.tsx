@@ -124,6 +124,7 @@ interface Aggregate {
   demoFigureViolations: number;
   empty: number;
   refusals: number;
+  ignoredVault: number;
   // Tool calling
   toolTotal: number;
   toolMatch: number;
