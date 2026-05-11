@@ -82,7 +82,7 @@ function parseToolCalls(raw: any): ToolCall[] | undefined {
 // Mirrors production order:
 //   1. LOVABLE_API_KEY present → call ai.gateway.lovable.dev directly (Vercel path)
 //   2. Otherwise → Supabase lovable-ai-proxy edge function (key lives there)
-async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
+async function callLovable(prompt: string, systemPrompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const t0 = Date.now();
   const directKey = process.env.LOVABLE_API_KEY;
 
@@ -90,7 +90,7 @@ async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderR
     model: "google/gemini-3-flash-preview",
     stream: false,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: prompt || "(empty input)" },
     ],
   };
@@ -169,7 +169,7 @@ async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderR
 }
 
 // ─── Groq ────────────────────────────────────────────────────────────
-async function callGroq(prompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
+async function callGroq(prompt: string, systemPrompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const t0 = Date.now();
   const key = process.env.GROQ_API_KEY;
   if (!key) {
@@ -179,7 +179,7 @@ async function callGroq(prompt: string, tools?: ToolDef[]): Promise<ProviderResu
     const body: Record<string, unknown> = {
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: prompt || "(empty input)" },
       ],
       temperature: 0.3,
@@ -219,7 +219,7 @@ async function callGroq(prompt: string, tools?: ToolDef[]): Promise<ProviderResu
 }
 
 // ─── Cloudflare Workers AI ───────────────────────────────────────────
-async function callCloudflare(prompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
+async function callCloudflare(prompt: string, systemPrompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const t0 = Date.now();
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_AI_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
@@ -233,7 +233,7 @@ async function callCloudflare(prompt: string, tools?: ToolDef[]): Promise<Provid
   try {
     const body: Record<string, unknown> = {
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: prompt || "(empty input)" },
       ],
       max_tokens: 800,
@@ -277,10 +277,11 @@ async function callCloudflare(prompt: string, tools?: ToolDef[]): Promise<Provid
   }
 }
 
-export async function runProvider(provider: ProviderId, prompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
-  if (provider === "lovable") return callLovable(prompt, tools);
-  if (provider === "groq") return callGroq(prompt, tools);
-  return callCloudflare(prompt, tools);
+export async function runProvider(provider: ProviderId, prompt: string, vaultContext: string, tools?: ToolDef[]): Promise<ProviderResult> {
+  const systemPrompt = buildSystemPrompt(vaultContext);
+  if (provider === "lovable") return callLovable(prompt, systemPrompt, tools);
+  if (provider === "groq") return callGroq(prompt, systemPrompt, tools);
+  return callCloudflare(prompt, systemPrompt, tools);
 }
 
 export const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
