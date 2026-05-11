@@ -96,14 +96,14 @@ const S: Scenario[] = [
   { id: "sm-08", category: "simulation", prompt: "Estimate my impermanent loss on a SOL-USDC pool if SOL doubles.", expectedKind: "explain", mustInclude: ["impermanent"], rubric: "IL formula, ~5.7% for 2x; explain." },
 
   // ─── analytics (8) ────────────────────────────────────────────────
-  { id: "an-01", category: "analytics", prompt: "Plot my treasury value over the last 90 days.", expectedKind: "clarify", rubric: "Needs wallet." },
-  { id: "an-02", category: "analytics", prompt: "Break down my PnL by token for Q1.", expectedKind: "clarify", rubric: "Needs portfolio + cost basis." },
-  { id: "an-03", category: "analytics", prompt: "Show fees paid to DeFi protocols this month.", expectedKind: "clarify", rubric: "Needs wallet." },
-  { id: "an-04", category: "analytics", prompt: "Benchmark my treasury performance vs holding 100% SOL.", expectedKind: "clarify", rubric: "Needs portfolio history." },
-  { id: "an-05", category: "analytics", prompt: "What % of my treasury is in stablecoins?", expectedKind: "clarify", rubric: "Needs treasury." },
-  { id: "an-06", category: "analytics", prompt: "Are there any anomalous outflows in the last 24h?", expectedKind: "clarify", rubric: "Needs wallet + transaction history." },
-  { id: "an-07", category: "analytics", prompt: "Calculate Sharpe ratio for my portfolio over the last 6 months.", expectedKind: "clarify", rubric: "Explain Sharpe; needs returns." },
-  { id: "an-08", category: "analytics", prompt: "Which validators am I delegated to and what's my staking APY?", expectedKind: "clarify", rubric: "Needs wallet." },
+  { id: "an-01", category: "analytics", prompt: "Plot my treasury value over the last 90 days.", expectedKind: "answer", mustInclude: ["4,814,500"], mustNotInclude: ["connect"], rubric: "Reference current value $4,814,500; note historical series isn't in fixture so describe what would be plotted." },
+  { id: "an-02", category: "analytics", prompt: "Break down my PnL by token for Q1.", expectedKind: "answer", mustInclude: ["sol", "jto"], rubric: "Use unrealized PnL from context: SOL +$380k, JTO -$127.5k." },
+  { id: "an-03", category: "analytics", prompt: "Show fees paid to DeFi protocols this month.", expectedKind: "answer", mustInclude: ["marinade", "kamino"], rubric: "Acknowledge protocols (Marinade, Kamino) from context; note fee detail not in fixture and offer to fetch." },
+  { id: "an-04", category: "analytics", prompt: "Benchmark my treasury performance vs holding 100% SOL.", expectedKind: "answer", mustInclude: ["sol"], rubric: "Reference current 31.6% SOL allocation vs 100% baseline; explain methodology." },
+  { id: "an-05", category: "analytics", prompt: "What % of my treasury is in stablecoins?", expectedKind: "answer", mustInclude: ["24.9", "usdc"], mustNotInclude: ["connect"], rubric: "24.9% in USDC ($1.2M of $4.81M) — directly from context." },
+  { id: "an-06", category: "analytics", prompt: "Are there any anomalous outflows in the last 24h?", expectedKind: "answer", mustInclude: ["28,000"], rubric: "Use 7-day outflow $28k as baseline (~$4k/day) — note no 24h flag without finer-grained data." },
+  { id: "an-07", category: "analytics", prompt: "Calculate Sharpe ratio for my portfolio over the last 6 months.", expectedKind: "answer", mustInclude: ["sharpe"], rubric: "Explain Sharpe; note returns history not in fixture, offer methodology using current allocation." },
+  { id: "an-08", category: "analytics", prompt: "Which validators am I delegated to and what's my staking APY?", expectedKind: "answer", mustInclude: ["marinade"], mustNotInclude: ["connect"], rubric: "Marinade Delegated Set, 5,000 SOL via mSOL @ ~7.1% APY — from context." },
 
   // ─── risk (6) ─────────────────────────────────────────────────────
   { id: "rk-01", category: "risk", prompt: "Is this token a rug? CA: 4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", expectedKind: "explain", rubric: "Should outline rug-check signals (LP locked, mint authority, holder distribution); cannot definitively call without on-chain data." },
