@@ -209,7 +209,7 @@ function compositeScore(a: Aggregate): number {
   const reliability = a.total > 0 ? (a.ok / a.total) * 20 : 0;
   const includeRate = a.includeTotal > 0 ? a.includeHits / a.includeTotal : 1;
   const jsonRate = a.jsonExpected > 0 ? a.jsonValid / a.jsonExpected : 1;
-  const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty;
+  const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty + a.ignoredVault;
   const violationsPenalty = Math.min(15, violations * 1.5);
   const determinism = (includeRate * 0.5 + jsonRate * 0.5) * 15 - violationsPenalty;
   const toolMatchRate = a.toolTotal > 0 ? a.toolMatch / a.toolTotal : 1;
