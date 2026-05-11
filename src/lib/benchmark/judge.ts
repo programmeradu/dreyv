@@ -28,6 +28,8 @@ export interface DeterministicScore {
   demoFigureViolation: boolean;
   empty: boolean;
   refusalDetected: boolean;
+  /** Model asked the user to connect a wallet despite vault context being injected. */
+  ignoredVaultContext: boolean;
   outputChars: number;
   /** Tool-calling sub-scores (only set on tool_use scenarios). */
   tool?: {
@@ -40,6 +42,8 @@ export interface DeterministicScore {
     hallucinatedTool: boolean;
   };
 }
+
+const VAULT_DODGE_RX = /\b(connect (your |a )?wallet|provide (your |a )?wallet (address|public key)|please share your wallet|need (your |a )?wallet (address|to)|share your wallet address)\b/i;
 
 const KNOWN_TOOLS = new Set([
   "swap_tokens","stake_sol","provide_liquidity","scan_airdrops","scan_mev",
