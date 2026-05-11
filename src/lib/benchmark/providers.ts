@@ -3,7 +3,7 @@
  *
  *   - lovable    → google/gemini-3-flash-preview via Supabase edge proxy
  *   - groq       → llama-3.3-70b-versatile via api.groq.com
- *   - cloudflare → @cf/mistralai/mistral-small-3.1-24b-instruct via Workers AI
+ *   - cloudflare → @cf/qwen/qwen2.5-coder-32b-instruct via Workers AI
  *                  (different family from the Llama used by Groq, so the
  *                  benchmark spans 3 distinct model lineages)
  *
