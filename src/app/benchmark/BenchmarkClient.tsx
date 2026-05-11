@@ -291,7 +291,7 @@ export default function BenchmarkClient() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Internal · benchmark</p>
         <h1 className="mt-2 text-4xl font-semibold tracking-tight">CommandBar model stress test</h1>
         <p className="mt-3 max-w-2xl text-sm text-slate-600">
-          100 unique scenarios across treasury reads, swaps, simulations, analytics, governance, jailbreaks, and brand-voice traps. Each prompt is sent to all three providers; responses are scored by deterministic heuristics and an LLM judge.
+          115 unique scenarios spanning treasury reads, swaps, simulations, analytics, governance, jailbreaks, brand-voice traps, and 15 tool-calling tests (direct match, missing params, no-tool-fit, ambiguous). Each prompt is sent to all three providers; responses are scored by deterministic heuristics, tool-call correctness, and an LLM judge.
         </p>
       </header>
 
@@ -301,9 +301,9 @@ export default function BenchmarkClient() {
           <input
             type="number"
             min={1}
-            max={100}
+            max={115}
             value={limit}
-            onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 100)))}
+            onChange={(e) => setLimit(Math.max(1, Math.min(115, Number(e.target.value) || 115)))}
             disabled={running}
             className="w-16 bg-transparent outline-none font-mono"
           />
