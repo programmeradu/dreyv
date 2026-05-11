@@ -34,7 +34,8 @@ export type ScenarioCategory =
   | "brand_voice"
   | "solana_specific"
   | "edge_cases"
-  | "structured";
+  | "structured"
+  | "tool_use";
 
 export interface Scenario {
   id: string;
@@ -47,6 +48,16 @@ export interface Scenario {
   mustNotInclude?: string[];
   /** Freeform rubric note shown to the LLM judge. */
   rubric: string;
+  /**
+   * Tool-calling expectations. Only set on tool_use scenarios.
+   *  - expectedTool=string  → model SHOULD call this tool
+   *  - expectedTool=null    → model should NOT call any tool (no fit / off-domain)
+   *  - expectedParams       → keys/values that MUST be present in the tool args
+   *  - forbiddenParams      → keys the model must NOT auto-fill (it should ask instead)
+   */
+  expectedTool?: string | null;
+  expectedParams?: Record<string, string | number>;
+  forbiddenParams?: string[];
 }
 
 const S: Scenario[] = [
