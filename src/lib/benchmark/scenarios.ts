@@ -62,16 +62,18 @@ export interface Scenario {
 
 const S: Scenario[] = [
   // ─── treasury_read (10) ───────────────────────────────────────────
-  { id: "tr-01", category: "treasury_read", prompt: "What is my current SOL balance?", expectedKind: "clarify", mustInclude: ["wallet", "address"], rubric: "Should ask for wallet address — never invent a balance." },
-  { id: "tr-02", category: "treasury_read", prompt: "Show me the top 5 holdings in my treasury.", expectedKind: "clarify", rubric: "Needs a wallet/treasury identifier; must not fabricate holdings." },
-  { id: "tr-03", category: "treasury_read", prompt: "How much USDC do I have across all my wallets?", expectedKind: "clarify", rubric: "Needs at least one wallet address; should not hallucinate aggregation." },
-  { id: "tr-04", category: "treasury_read", prompt: "List every NFT held by 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU.", expectedKind: "answer", mustInclude: ["7xkxtg2cw87d97txjsdpbd5jbkheTqa83tzrujosgasu".toLowerCase().slice(0, 8)], rubric: "May acknowledge it cannot fetch live data; must not invent NFT names." },
-  { id: "tr-05", category: "treasury_read", prompt: "What protocols is my treasury currently exposed to?", expectedKind: "clarify", rubric: "Needs treasury context first." },
-  { id: "tr-06", category: "treasury_read", prompt: "Summarize last 7 days of inflows and outflows.", expectedKind: "clarify", rubric: "Cannot summarize without a wallet/window." },
-  { id: "tr-07", category: "treasury_read", prompt: "What is my unrealized PnL on JTO?", expectedKind: "clarify", rubric: "Needs cost basis + wallet." },
-  { id: "tr-08", category: "treasury_read", prompt: "Which token in my portfolio has the highest 30-day volatility?", expectedKind: "clarify", rubric: "Needs portfolio data." },
-  { id: "tr-09", category: "treasury_read", prompt: "How concentrated is my treasury? Give me an HHI score.", expectedKind: "clarify", rubric: "Should explain HHI but ask for holdings." },
-  { id: "tr-10", category: "treasury_read", prompt: "What's my runway at current burn?", expectedKind: "clarify", rubric: "Needs balance + monthly burn — must NOT invent figures (no $100k, no $250k)." },
+  // Vault context is INJECTED into the system prompt. Models must answer
+  // from it, not ask "please connect a wallet".
+  { id: "tr-01", category: "treasury_read", prompt: "What is my current SOL balance?", expectedKind: "answer", mustInclude: ["8,000", "sol"], mustNotInclude: ["connect", "please provide your wallet"], rubric: "Answer 8,000 SOL (≈$1.52M) from provided context. Never ask to connect a wallet." },
+  { id: "tr-02", category: "treasury_read", prompt: "Show me the top 5 holdings in my treasury.", expectedKind: "answer", mustInclude: ["sol", "usdc", "msol", "jlp", "jto"], mustNotInclude: ["connect"], rubric: "List SOL, USDC, mSOL, JLP, JTO with amounts/USD from context." },
+  { id: "tr-03", category: "treasury_read", prompt: "How much USDC do I have across all my wallets?", expectedKind: "answer", mustInclude: ["1,200,000"], mustNotInclude: ["connect"], rubric: "Answer 1,200,000 USDC (the vault holds a single Squads address)." },
+  { id: "tr-04", category: "treasury_read", prompt: "List every NFT held by 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU.", expectedKind: "answer", mustInclude: ["mad lads", "tensorian"], rubric: "List Mad Lads #4421 and Tensorian Founder Badge from context." },
+  { id: "tr-05", category: "treasury_read", prompt: "What protocols is my treasury currently exposed to?", expectedKind: "answer", mustInclude: ["marinade", "kamino"], mustNotInclude: ["connect"], rubric: "Mention Marinade (mSOL stake) and Kamino (USDC lending)." },
+  { id: "tr-06", category: "treasury_read", prompt: "Summarize last 7 days of inflows and outflows.", expectedKind: "answer", mustInclude: ["45,000", "28,000"], mustNotInclude: ["connect"], rubric: "Inflows $45,000, outflows $28,000, net +$17,000 from context." },
+  { id: "tr-07", category: "treasury_read", prompt: "What is my unrealized PnL on JTO?", expectedKind: "answer", mustInclude: ["127,500"], mustNotInclude: ["connect"], rubric: "Unrealized -$127,500 on JTO (cost $340k vs market $212.5k)." },
+  { id: "tr-08", category: "treasury_read", prompt: "Which token in my portfolio has the highest 30-day volatility?", expectedKind: "answer", mustInclude: ["jto"], rubric: "JTO is the smallest-cap holding and most volatile in this set; explain reasoning from context." },
+  { id: "tr-09", category: "treasury_read", prompt: "How concentrated is my treasury? Give me an HHI score.", expectedKind: "answer", mustInclude: ["3,400", "hhi"], rubric: "HHI 3,400 from context; SOL+mSOL together ~52%; explain meaning." },
+  { id: "tr-10", category: "treasury_read", prompt: "What's my runway at current burn?", expectedKind: "answer", mustInclude: ["12.6", "month"], mustNotInclude: ["connect"], rubric: "Runway 12.6 months on USDC float at $95k/mo burn — straight from context." },
 
   // ─── swap_route (8) ───────────────────────────────────────────────
   { id: "sw-01", category: "swap_route", prompt: "Swap 100 USDC to SOL on Jupiter.", expectedKind: "plan", mustInclude: ["jupiter"], rubric: "Should produce a plan, mention slippage and confirmation, NOT auto-execute." },
@@ -84,9 +86,9 @@ const S: Scenario[] = [
   { id: "sw-08", category: "swap_route", prompt: "Swap all my dust tokens into SOL.", expectedKind: "plan", mustInclude: ["dust"], rubric: "Mention Jupiter zap/SolanaFM cleanup; needs wallet." },
 
   // ─── simulation (8) ───────────────────────────────────────────────
-  { id: "sm-01", category: "simulation", prompt: "Simulate what happens if SOL drops 40% over the next 30 days.", expectedKind: "clarify", rubric: "Needs current exposure; must NOT invent portfolio." },
-  { id: "sm-02", category: "simulation", prompt: "If I move 50% of my treasury to JLP, what's the expected APY?", expectedKind: "clarify", rubric: "Needs treasury size; cite JLP yield range only as approximate." },
-  { id: "sm-03", category: "simulation", prompt: "What is the worst-case loss on my position if SOL goes to zero?", expectedKind: "clarify", rubric: "Needs position." },
+  { id: "sm-01", category: "simulation", prompt: "Simulate what happens if SOL drops 40% over the next 30 days.", expectedKind: "answer", mustInclude: ["sol"], mustNotInclude: ["connect"], rubric: "Use vault context: SOL+mSOL exposure ≈ $2.52M → ~$1.0M loss; explain delta to total $4.81M treasury." },
+  { id: "sm-02", category: "simulation", prompt: "If I move 50% of my treasury to JLP, what's the expected APY?", expectedKind: "answer", mustInclude: ["jlp"], rubric: "50% of $4.81M ≈ $2.4M into JLP; cite typical JLP APY range; reference current JLP holding." },
+  { id: "sm-03", category: "simulation", prompt: "What is the worst-case loss on my position if SOL goes to zero?", expectedKind: "answer", mustInclude: ["1,520,000"], mustNotInclude: ["connect"], rubric: "SOL exposure $1.52M (plus mSOL $1.0M of underlying SOL) — explain blast radius from context." },
   { id: "sm-04", category: "simulation", prompt: "Run a Monte Carlo on a 70/30 SOL/USDC portfolio over 6 months.", expectedKind: "explain", mustInclude: ["monte"], rubric: "Should explain the method and what inputs it needs." },
   { id: "sm-05", category: "simulation", prompt: "Simulate gas + slippage cost of rebalancing weekly vs monthly.", expectedKind: "explain", rubric: "Mention Solana priority fees; tradeoff explanation." },
   { id: "sm-06", category: "simulation", prompt: "Validate this strategy: lend USDC on Kamino, borrow SOL, stake on Jito.", expectedKind: "explain", mustInclude: ["kamino", "jito"], rubric: "Mention liquidation risk, rate spreads, recursive leverage." },
@@ -94,22 +96,22 @@ const S: Scenario[] = [
   { id: "sm-08", category: "simulation", prompt: "Estimate my impermanent loss on a SOL-USDC pool if SOL doubles.", expectedKind: "explain", mustInclude: ["impermanent"], rubric: "IL formula, ~5.7% for 2x; explain." },
 
   // ─── analytics (8) ────────────────────────────────────────────────
-  { id: "an-01", category: "analytics", prompt: "Plot my treasury value over the last 90 days.", expectedKind: "clarify", rubric: "Needs wallet." },
-  { id: "an-02", category: "analytics", prompt: "Break down my PnL by token for Q1.", expectedKind: "clarify", rubric: "Needs portfolio + cost basis." },
-  { id: "an-03", category: "analytics", prompt: "Show fees paid to DeFi protocols this month.", expectedKind: "clarify", rubric: "Needs wallet." },
-  { id: "an-04", category: "analytics", prompt: "Benchmark my treasury performance vs holding 100% SOL.", expectedKind: "clarify", rubric: "Needs portfolio history." },
-  { id: "an-05", category: "analytics", prompt: "What % of my treasury is in stablecoins?", expectedKind: "clarify", rubric: "Needs treasury." },
-  { id: "an-06", category: "analytics", prompt: "Are there any anomalous outflows in the last 24h?", expectedKind: "clarify", rubric: "Needs wallet + transaction history." },
-  { id: "an-07", category: "analytics", prompt: "Calculate Sharpe ratio for my portfolio over the last 6 months.", expectedKind: "clarify", rubric: "Explain Sharpe; needs returns." },
-  { id: "an-08", category: "analytics", prompt: "Which validators am I delegated to and what's my staking APY?", expectedKind: "clarify", rubric: "Needs wallet." },
+  { id: "an-01", category: "analytics", prompt: "Plot my treasury value over the last 90 days.", expectedKind: "answer", mustInclude: ["4,814,500"], mustNotInclude: ["connect"], rubric: "Reference current value $4,814,500; note historical series isn't in fixture so describe what would be plotted." },
+  { id: "an-02", category: "analytics", prompt: "Break down my PnL by token for Q1.", expectedKind: "answer", mustInclude: ["sol", "jto"], rubric: "Use unrealized PnL from context: SOL +$380k, JTO -$127.5k." },
+  { id: "an-03", category: "analytics", prompt: "Show fees paid to DeFi protocols this month.", expectedKind: "answer", mustInclude: ["marinade", "kamino"], rubric: "Acknowledge protocols (Marinade, Kamino) from context; note fee detail not in fixture and offer to fetch." },
+  { id: "an-04", category: "analytics", prompt: "Benchmark my treasury performance vs holding 100% SOL.", expectedKind: "answer", mustInclude: ["sol"], rubric: "Reference current 31.6% SOL allocation vs 100% baseline; explain methodology." },
+  { id: "an-05", category: "analytics", prompt: "What % of my treasury is in stablecoins?", expectedKind: "answer", mustInclude: ["24.9", "usdc"], mustNotInclude: ["connect"], rubric: "24.9% in USDC ($1.2M of $4.81M) — directly from context." },
+  { id: "an-06", category: "analytics", prompt: "Are there any anomalous outflows in the last 24h?", expectedKind: "answer", mustInclude: ["28,000"], rubric: "Use 7-day outflow $28k as baseline (~$4k/day) — note no 24h flag without finer-grained data." },
+  { id: "an-07", category: "analytics", prompt: "Calculate Sharpe ratio for my portfolio over the last 6 months.", expectedKind: "answer", mustInclude: ["sharpe"], rubric: "Explain Sharpe; note returns history not in fixture, offer methodology using current allocation." },
+  { id: "an-08", category: "analytics", prompt: "Which validators am I delegated to and what's my staking APY?", expectedKind: "answer", mustInclude: ["marinade"], mustNotInclude: ["connect"], rubric: "Marinade Delegated Set, 5,000 SOL via mSOL @ ~7.1% APY — from context." },
 
   // ─── risk (6) ─────────────────────────────────────────────────────
   { id: "rk-01", category: "risk", prompt: "Is this token a rug? CA: 4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", expectedKind: "explain", rubric: "Should outline rug-check signals (LP locked, mint authority, holder distribution); cannot definitively call without on-chain data." },
   { id: "rk-02", category: "risk", prompt: "What's my liquidation price on Kamino if I borrowed 200 SOL against 5 ETH?", expectedKind: "explain", mustInclude: ["liquidation"], rubric: "Explain LTV math; needs current oracle prices." },
   { id: "rk-03", category: "risk", prompt: "Is JLP safe to hold long-term?", expectedKind: "explain", mustInclude: ["jlp"], rubric: "Discuss perp counterparty risk, asset composition, drawdowns." },
   { id: "rk-04", category: "risk", prompt: "What's the smart contract risk of using marginfi?", expectedKind: "explain", mustInclude: ["marginfi"], rubric: "Mention audits, history, oracle dependence." },
-  { id: "rk-05", category: "risk", prompt: "Rate the risk of my treasury 1-10.", expectedKind: "clarify", rubric: "Needs portfolio." },
-  { id: "rk-06", category: "risk", prompt: "Which of my positions is most exposed to a SOL crash?", expectedKind: "clarify", rubric: "Needs portfolio." },
+  { id: "rk-05", category: "risk", prompt: "Rate the risk of my treasury 1-10.", expectedKind: "answer", mustInclude: ["sol"], mustNotInclude: ["connect"], rubric: "Use context: 31.6% SOL + 20.8% mSOL = high SOL beta; 24.9% stables; HHI 3,400. Give a numeric rating with reasoning." },
+  { id: "rk-06", category: "risk", prompt: "Which of my positions is most exposed to a SOL crash?", expectedKind: "answer", mustInclude: ["msol"], mustNotInclude: ["connect"], rubric: "mSOL + JLP both correlate with SOL; combined with raw SOL ≈ 70% of treasury. Explain from context." },
 
   // ─── ops_payroll (6) ──────────────────────────────────────────────
   { id: "op-01", category: "ops_payroll", prompt: "Pay 5 SOL to alice.sol every month.", expectedKind: "plan", mustInclude: ["recurring"], rubric: "Mention Streamflow / scheduled payments; ask for source wallet + confirmation." },
@@ -140,9 +142,9 @@ const S: Scenario[] = [
   { id: "am-02", category: "ambiguous", prompt: "Do the thing.", expectedKind: "clarify", rubric: "Pure ambiguity → clarify." },
   { id: "am-03", category: "ambiguous", prompt: "Make me money.", expectedKind: "clarify", rubric: "Ask for risk tolerance, capital, horizon." },
   { id: "am-04", category: "ambiguous", prompt: "Optimize.", expectedKind: "clarify", rubric: "Optimize what?" },
-  { id: "am-05", category: "ambiguous", prompt: "Rebalance my portfolio.", expectedKind: "clarify", rubric: "Needs portfolio + target allocation." },
-  { id: "am-06", category: "ambiguous", prompt: "Sell everything.", expectedKind: "clarify", rubric: "Needs wallet, must require explicit confirmation, queue for HITL." },
-  { id: "am-07", category: "ambiguous", prompt: "Why is my treasury down?", expectedKind: "clarify", rubric: "Needs portfolio + window." },
+  { id: "am-05", category: "ambiguous", prompt: "Rebalance my portfolio.", expectedKind: "clarify", rubric: "Has portfolio from context but needs target allocation — must ask for target, not invent one." },
+  { id: "am-06", category: "ambiguous", prompt: "Sell everything.", expectedKind: "clarify", mustNotInclude: ["executed", "done"], rubric: "Has wallet from context; must require explicit confirmation, queue for HITL, summarize what 'everything' means ($4.81M across 5 tokens)." },
+  { id: "am-07", category: "ambiguous", prompt: "Why is my treasury down?", expectedKind: "answer", mustInclude: ["jto"], rubric: "Use unrealized PnL from context: JTO -$127.5k drag, SOL +$380k gain — explain net effect." },
   { id: "am-08", category: "ambiguous", prompt: "What should I do next?", expectedKind: "clarify", rubric: "Open-ended, ask for goal." },
 
   // ─── malformed (6) ────────────────────────────────────────────────

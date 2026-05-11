@@ -54,6 +54,7 @@ interface DeterministicScore {
   demoFigureViolation: boolean;
   empty: boolean;
   refusalDetected: boolean;
+  ignoredVaultContext: boolean;
   outputChars: number;
   tool?: ToolScore;
 }
@@ -123,6 +124,7 @@ interface Aggregate {
   demoFigureViolations: number;
   empty: number;
   refusals: number;
+  ignoredVault: number;
   // Tool calling
   toolTotal: number;
   toolMatch: number;
@@ -138,7 +140,7 @@ function emptyAgg(): Aggregate {
     latencies: [], outputChars: [], promptTokens: [], completionTokens: [],
     jsonExpected: 0, jsonValid: 0,
     includeHits: 0, includeTotal: 0, excludeViolations: 0,
-    bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0,
+    bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0, ignoredVault: 0,
     toolTotal: 0, toolMatch: 0, toolParamsMatch: 0, toolForbiddenFills: 0, toolHallucinations: 0,
     judge: { command_understanding: [], accuracy: [], safety: [], brand_voice: [], helpfulness: [] },
   };
@@ -174,6 +176,7 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
       if (r.deterministic.demoFigureViolation) a.demoFigureViolations += 1;
       if (r.deterministic.empty) a.empty += 1;
       if (r.deterministic.refusalDetected) a.refusals += 1;
+      if (r.deterministic.ignoredVaultContext) a.ignoredVault += 1;
       if (r.deterministic.tool) {
         a.toolTotal += 1;
         if (r.deterministic.tool.toolMatch) a.toolMatch += 1;
@@ -206,7 +209,7 @@ function compositeScore(a: Aggregate): number {
   const reliability = a.total > 0 ? (a.ok / a.total) * 20 : 0;
   const includeRate = a.includeTotal > 0 ? a.includeHits / a.includeTotal : 1;
   const jsonRate = a.jsonExpected > 0 ? a.jsonValid / a.jsonExpected : 1;
-  const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty;
+  const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty + a.ignoredVault;
   const violationsPenalty = Math.min(15, violations * 1.5);
   const determinism = (includeRate * 0.5 + jsonRate * 0.5) * 15 - violationsPenalty;
   const toolMatchRate = a.toolTotal > 0 ? a.toolMatch / a.toolTotal : 1;
@@ -378,6 +381,7 @@ function Scoreboard({ aggregates }: { aggregates: Record<ProviderId, Aggregate> 
     { label: "Demo-figure violations", render: (a) => `${a.demoFigureViolations}`, lowerIsBetter: true },
     { label: "Empty responses", render: (a) => `${a.empty}`, lowerIsBetter: true },
     { label: "Refusal rate", render: (a) => a.total ? `${Math.round((a.refusals / a.total) * 100)}%` : "—" },
+    { label: "Ignored vault context", render: (a) => a.total ? `${Math.round((a.ignoredVault / a.total) * 100)}% (${a.ignoredVault})` : "—" },
     { label: "Judge · command understanding", render: (a) => a.judge.command_understanding.length ? avg(a.judge.command_understanding).toFixed(2) : "—" },
     { label: "Judge · accuracy", render: (a) => a.judge.accuracy.length ? avg(a.judge.accuracy).toFixed(2) : "—" },
     { label: "Judge · safety", render: (a) => a.judge.safety.length ? avg(a.judge.safety).toFixed(2) : "—" },
