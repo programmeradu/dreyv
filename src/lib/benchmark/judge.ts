@@ -150,9 +150,30 @@ export async function runJudge(scenario: Scenario, result: ProviderResult): Prom
   if (!result.ok || !result.output) return null;
 
   const directKey = process.env.LOVABLE_API_KEY;
+  const proxyUrl =
+    process.env.LOVABLE_AI_PROXY_URL ||
+    (() => {
+      const u =
+        process.env.LOVABLE_SUPABASE_URL ||
+        process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        process.env.SUPABASE_URL;
+      return u ? `${u.replace(/\/$/, "")}/functions/v1/lovable-ai-proxy` : "";
+    })();
+  const proxyAnon =
+    process.env.LOVABLE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+
   let endpoint: string;
   let headers: Record<string, string>;
-  if (directKey) {
+  if (proxyUrl) {
+    endpoint = proxyUrl;
+    headers = {
+      "Content-Type": "application/json",
+      ...(proxyAnon ? { Authorization: `Bearer ${proxyAnon}`, apikey: proxyAnon } : {}),
+    };
+  } else if (directKey) {
     endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
     headers = {
       "Content-Type": "application/json",
@@ -161,17 +182,7 @@ export async function runJudge(scenario: Scenario, result: ProviderResult): Prom
       "X-Lovable-AIG-SDK": "vercel-ai-sdk",
     };
   } else {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const anon =
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.SUPABASE_PUBLISHABLE_KEY ||
-      process.env.SUPABASE_ANON_KEY;
-    if (!url) return null;
-    endpoint = `${url}/functions/v1/lovable-ai-proxy`;
-    headers = {
-      "Content-Type": "application/json",
-      ...(anon ? { Authorization: `Bearer ${anon}`, apikey: anon } : {}),
-    };
+    return null;
   }
 
   const userPayload = `SCENARIO:
