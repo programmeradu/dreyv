@@ -62,9 +62,10 @@ export async function GET(req: NextRequest) {
         const scenario = list[i];
         send("scenario_start", { index: i, scenario });
 
+        const tools = scenario.category === "tool_use" ? BENCHMARK_TOOLS : undefined;
         const results = await Promise.all(
           PROVIDERS.map(async (p) => {
-            const r = await runProvider(p, scenario.prompt);
+            const r = await runProvider(p, scenario.prompt, tools);
             const det = scoreDeterministic(scenario, r);
             const judge = skipJudge ? null : await runJudge(scenario, r);
             return { provider: p, result: r, deterministic: det, judge };
