@@ -140,7 +140,7 @@ function emptyAgg(): Aggregate {
     latencies: [], outputChars: [], promptTokens: [], completionTokens: [],
     jsonExpected: 0, jsonValid: 0,
     includeHits: 0, includeTotal: 0, excludeViolations: 0,
-    bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0,
+    bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0, ignoredVault: 0,
     toolTotal: 0, toolMatch: 0, toolParamsMatch: 0, toolForbiddenFills: 0, toolHallucinations: 0,
     judge: { command_understanding: [], accuracy: [], safety: [], brand_voice: [], helpfulness: [] },
   };
