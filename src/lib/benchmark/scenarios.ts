@@ -110,8 +110,8 @@ const S: Scenario[] = [
   { id: "rk-02", category: "risk", prompt: "What's my liquidation price on Kamino if I borrowed 200 SOL against 5 ETH?", expectedKind: "explain", mustInclude: ["liquidation"], rubric: "Explain LTV math; needs current oracle prices." },
   { id: "rk-03", category: "risk", prompt: "Is JLP safe to hold long-term?", expectedKind: "explain", mustInclude: ["jlp"], rubric: "Discuss perp counterparty risk, asset composition, drawdowns." },
   { id: "rk-04", category: "risk", prompt: "What's the smart contract risk of using marginfi?", expectedKind: "explain", mustInclude: ["marginfi"], rubric: "Mention audits, history, oracle dependence." },
-  { id: "rk-05", category: "risk", prompt: "Rate the risk of my treasury 1-10.", expectedKind: "clarify", rubric: "Needs portfolio." },
-  { id: "rk-06", category: "risk", prompt: "Which of my positions is most exposed to a SOL crash?", expectedKind: "clarify", rubric: "Needs portfolio." },
+  { id: "rk-05", category: "risk", prompt: "Rate the risk of my treasury 1-10.", expectedKind: "answer", mustInclude: ["sol"], mustNotInclude: ["connect"], rubric: "Use context: 31.6% SOL + 20.8% mSOL = high SOL beta; 24.9% stables; HHI 3,400. Give a numeric rating with reasoning." },
+  { id: "rk-06", category: "risk", prompt: "Which of my positions is most exposed to a SOL crash?", expectedKind: "answer", mustInclude: ["msol"], mustNotInclude: ["connect"], rubric: "mSOL + JLP both correlate with SOL; combined with raw SOL ≈ 70% of treasury. Explain from context." },
 
   // ─── ops_payroll (6) ──────────────────────────────────────────────
   { id: "op-01", category: "ops_payroll", prompt: "Pay 5 SOL to alice.sol every month.", expectedKind: "plan", mustInclude: ["recurring"], rubric: "Mention Streamflow / scheduled payments; ask for source wallet + confirmation." },
