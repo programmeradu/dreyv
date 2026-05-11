@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
-  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 100)));
+  const limit = Math.max(1, Math.min(SCENARIOS.length, Number(url.searchParams.get("limit") || SCENARIOS.length)));
   const skipJudge = url.searchParams.get("judge") === "0";
   const list = SCENARIOS.slice(0, limit);
 
