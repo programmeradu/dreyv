@@ -92,11 +92,37 @@ async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderR
   };
   if (tools && tools.length) body.tools = tools;
 
+  // Rule: Lovable AI is ALWAYS called via the Supabase edge proxy from Vercel.
+  // Vercel envs in this project: LOVABLE_AI_PROXY_URL (full URL) +
+  // LOVABLE_SUPABASE_URL / LOVABLE_SUPABASE_ANON_KEY. Fall back to generic
+  // SUPABASE_* names for local dev. Direct gateway only as last resort.
+  const proxyUrl =
+    process.env.LOVABLE_AI_PROXY_URL ||
+    (() => {
+      const u =
+        process.env.LOVABLE_SUPABASE_URL ||
+        process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        process.env.SUPABASE_URL;
+      return u ? `${u.replace(/\/$/, "")}/functions/v1/lovable-ai-proxy` : "";
+    })();
+  const proxyAnon =
+    process.env.LOVABLE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+
   let endpoint: string;
   let headers: Record<string, string>;
   let via: "direct" | "proxy";
 
-  if (directKey) {
+  if (proxyUrl) {
+    endpoint = proxyUrl;
+    headers = {
+      "Content-Type": "application/json",
+      ...(proxyAnon ? { Authorization: `Bearer ${proxyAnon}`, apikey: proxyAnon } : {}),
+    };
+    via = "proxy";
+  } else if (directKey) {
     endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
     headers = {
       "Content-Type": "application/json",
@@ -106,20 +132,7 @@ async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderR
     };
     via = "direct";
   } else {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const anon =
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.SUPABASE_PUBLISHABLE_KEY ||
-      process.env.SUPABASE_ANON_KEY;
-    if (!url) {
-      return { provider: "lovable", ok: false, latencyMs: 0, output: "", errorMessage: "Neither LOVABLE_API_KEY nor SUPABASE_URL configured" };
-    }
-    endpoint = `${url}/functions/v1/lovable-ai-proxy`;
-    headers = {
-      "Content-Type": "application/json",
-      ...(anon ? { Authorization: `Bearer ${anon}`, apikey: anon } : {}),
-    };
-    via = "proxy";
+    return { provider: "lovable", ok: false, latencyMs: 0, output: "", errorMessage: "No LOVABLE_AI_PROXY_URL / LOVABLE_SUPABASE_URL / LOVABLE_API_KEY configured" };
   }
 
   try {
