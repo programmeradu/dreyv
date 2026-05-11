@@ -59,6 +59,16 @@ export async function GET(req: NextRequest) {
 
       send("start", { total: list.length, providers: PROVIDERS, startedAt: Date.now() });
 
+      // Fetch the live vault snapshot ONCE and feed it to every provider.
+      let snapshot;
+      try {
+        snapshot = await buildLiveVaultSnapshot();
+      } catch (e) {
+        snapshot = { address: "?", label: "fetch failed", asOf: "", totalUsd: 0, solBalance: 0, holdings: [], fungibleCount: 0, nftCount: 0, nftSample: [], source: "fallback" as const, warning: (e as Error).message };
+      }
+      const vaultContext = renderVaultContext(snapshot);
+      send("vault", { snapshot, contextChars: vaultContext.length });
+
       for (let i = 0; i < list.length; i++) {
         const scenario = list[i];
         send("scenario_start", { index: i, scenario });
@@ -66,7 +76,7 @@ export async function GET(req: NextRequest) {
         const tools = scenario.category === "tool_use" ? BENCHMARK_TOOLS : undefined;
         const results = await Promise.all(
           PROVIDERS.map(async (p) => {
-            const r = await runProvider(p, scenario.prompt, tools);
+            const r = await runProvider(p, scenario.prompt, vaultContext, tools);
             const det = scoreDeterministic(scenario, r);
             const judge = skipJudge ? null : await runJudge(scenario, r);
             return { provider: p, result: r, deterministic: det, judge };
