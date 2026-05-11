@@ -339,6 +339,36 @@ export default function BenchmarkClient() {
         {error && <span className="text-xs text-red-600">{error}</span>}
       </section>
 
+      {vault && (
+        <section className="mb-6 rounded-3xl border border-violet-200 bg-white p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">Live vault under test</p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight">{vault.label}</h2>
+              <p className="mt-0.5 font-mono text-[11px] text-slate-500 break-all">{vault.address}</p>
+            </div>
+            <div className="text-right text-sm">
+              <div className="text-slate-500">Total priced value</div>
+              <div className="text-2xl font-semibold tabular-nums">${Math.round(vault.totalUsd || 0).toLocaleString()}</div>
+              <div className="text-xs text-slate-500">
+                {vault.fungibleCount} fungible · {vault.nftCount} NFT · {vault.solBalance?.toFixed(2)} SOL · {vault.source} · {vault.asOf}
+              </div>
+            </div>
+          </div>
+          {vault.warning && <p className="mt-3 text-xs text-amber-700">⚠ {vault.warning}</p>}
+          {vault.holdings?.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-3 md:grid-cols-4">
+              {vault.holdings.slice(0, 12).map((h: any) => (
+                <div key={h.mint} className="flex justify-between gap-2 border-b border-violet-50 py-1">
+                  <span className="font-medium">{h.symbol}</span>
+                  <span className="tabular-nums text-slate-600">{h.usd ? "$" + Math.round(h.usd).toLocaleString() : "—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {progress.total > 0 && (
         <div className="mb-8 h-1.5 w-full overflow-hidden rounded-full bg-violet-100">
           <div
