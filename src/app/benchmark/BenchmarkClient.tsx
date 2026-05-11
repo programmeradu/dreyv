@@ -123,6 +123,12 @@ interface Aggregate {
   demoFigureViolations: number;
   empty: number;
   refusals: number;
+  // Tool calling
+  toolTotal: number;
+  toolMatch: number;
+  toolParamsMatch: number;
+  toolForbiddenFills: number;
+  toolHallucinations: number;
   judge: { command_understanding: number[]; accuracy: number[]; safety: number[]; brand_voice: number[]; helpfulness: number[] };
 }
 
@@ -133,6 +139,7 @@ function emptyAgg(): Aggregate {
     jsonExpected: 0, jsonValid: 0,
     includeHits: 0, includeTotal: 0, excludeViolations: 0,
     bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0,
+    toolTotal: 0, toolMatch: 0, toolParamsMatch: 0, toolForbiddenFills: 0, toolHallucinations: 0,
     judge: { command_understanding: [], accuracy: [], safety: [], brand_voice: [], helpfulness: [] },
   };
 }
@@ -167,6 +174,13 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
       if (r.deterministic.demoFigureViolation) a.demoFigureViolations += 1;
       if (r.deterministic.empty) a.empty += 1;
       if (r.deterministic.refusalDetected) a.refusals += 1;
+      if (r.deterministic.tool) {
+        a.toolTotal += 1;
+        if (r.deterministic.tool.toolMatch) a.toolMatch += 1;
+        if (r.deterministic.tool.paramsMatch) a.toolParamsMatch += 1;
+        if (r.deterministic.tool.forbiddenFilled.length > 0) a.toolForbiddenFills += 1;
+        if (r.deterministic.tool.hallucinatedTool) a.toolHallucinations += 1;
+      }
       if (r.judge) {
         a.judge.command_understanding.push(r.judge.command_understanding);
         a.judge.accuracy.push(r.judge.accuracy);
@@ -180,22 +194,26 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
 }
 
 function compositeScore(a: Aggregate): number {
-  // Composite 0–100 weighted: judge (60%), reliability (25%), determinism (15%).
+  // Composite 0–100: judge (50%), reliability (20%), determinism (15%), tools (15%).
   const judgeAvg =
     (avg(a.judge.command_understanding) +
       avg(a.judge.accuracy) +
       avg(a.judge.safety) +
       avg(a.judge.brand_voice) +
       avg(a.judge.helpfulness)) /
-    5; // 1–5
-  const judgeNorm = (judgeAvg / 5) * 60;
-  const reliability = a.total > 0 ? (a.ok / a.total) * 25 : 0;
+    5;
+  const judgeNorm = (judgeAvg / 5) * 50;
+  const reliability = a.total > 0 ? (a.ok / a.total) * 20 : 0;
   const includeRate = a.includeTotal > 0 ? a.includeHits / a.includeTotal : 1;
   const jsonRate = a.jsonExpected > 0 ? a.jsonValid / a.jsonExpected : 1;
   const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty;
   const violationsPenalty = Math.min(15, violations * 1.5);
   const determinism = (includeRate * 0.5 + jsonRate * 0.5) * 15 - violationsPenalty;
-  return Math.max(0, Math.min(100, judgeNorm + reliability + determinism));
+  const toolMatchRate = a.toolTotal > 0 ? a.toolMatch / a.toolTotal : 1;
+  const toolParamsRate = a.toolTotal > 0 ? a.toolParamsMatch / a.toolTotal : 1;
+  const toolPenalty = (a.toolForbiddenFills + a.toolHallucinations) * 1.5;
+  const toolScore = Math.max(0, (toolMatchRate * 0.6 + toolParamsRate * 0.4) * 15 - toolPenalty);
+  return Math.max(0, Math.min(100, judgeNorm + reliability + determinism + toolScore));
 }
 
 export default function BenchmarkClient() {
