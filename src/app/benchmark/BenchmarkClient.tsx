@@ -506,6 +506,22 @@ function RowDetail({ row, onClose }: { row: ScenarioRow; onClose: () => void }) 
               {r.result.ok && (
                 <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{r.result.output || "(empty)"}</pre>
               )}
+              {r.result.toolCalls && r.result.toolCalls.length > 0 && (
+                <div className="mt-2 rounded-lg bg-violet-50 p-2 font-mono text-xs text-slate-700">
+                  <span className="text-violet-700">tool_call:</span> {r.result.toolCalls[0].name}({JSON.stringify(r.result.toolCalls[0].arguments)})
+                </div>
+              )}
+              {r.deterministic.tool && (
+                <div className="mt-2 text-xs">
+                  <span className={r.deterministic.tool.toolMatch ? "text-emerald-700" : "text-red-600"}>
+                    {r.deterministic.tool.toolMatch ? "✓ correct tool" : `✗ expected ${r.deterministic.tool.expected ?? "no tool"}, got ${r.deterministic.tool.called ?? "no tool"}`}
+                  </span>
+                  {r.deterministic.tool.forbiddenFilled.length > 0 && (
+                    <span className="ml-3 text-red-600">auto-filled: {r.deterministic.tool.forbiddenFilled.join(", ")}</span>
+                  )}
+                  {r.deterministic.tool.hallucinatedTool && <span className="ml-3 text-red-600">hallucinated tool name</span>}
+                </div>
+              )}
               {r.judge?.notes && <p className="mt-2 text-xs italic text-slate-500">judge: {r.judge.notes}</p>}
               {(r.deterministic.bannedWordHits.length > 0 || r.deterministic.demoFigureViolation || r.deterministic.excludeViolations.length > 0) && (
                 <div className="mt-2 text-xs text-red-600">
