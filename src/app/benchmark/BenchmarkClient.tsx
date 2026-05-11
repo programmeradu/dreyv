@@ -34,6 +34,17 @@ import { ArrowRight } from "lucide-react";
 
 type ProviderId = "lovable" | "groq" | "cloudflare";
 
+interface ToolCall { name: string; arguments: Record<string, unknown> }
+interface ToolScore {
+  expected: string | null;
+  called: string | null;
+  toolMatch: boolean;
+  paramsMatch: boolean;
+  paramsMissing: string[];
+  forbiddenFilled: string[];
+  hallucinatedTool: boolean;
+}
+
 interface DeterministicScore {
   includeHits: number;
   includeTotal: number;
@@ -44,6 +55,7 @@ interface DeterministicScore {
   empty: boolean;
   refusalDetected: boolean;
   outputChars: number;
+  tool?: ToolScore;
 }
 
 interface JudgeScore {
@@ -59,6 +71,7 @@ interface ProviderResult {
   ok: boolean;
   latencyMs: number;
   output: string;
+  toolCalls?: ToolCall[];
   errorMessage?: string;
   promptTokens?: number;
   completionTokens?: number;
@@ -67,7 +80,7 @@ interface ProviderResult {
 
 interface ScenarioRow {
   index: number;
-  scenario: { id: string; category: string; prompt: string; expectedKind: string; rubric: string };
+  scenario: { id: string; category: string; prompt: string; expectedKind: string; rubric: string; expectedTool?: string | null; expectedParams?: Record<string, unknown>; forbiddenParams?: string[] };
   results: { provider: ProviderId; result: ProviderResult; deterministic: DeterministicScore; judge: JudgeScore | null }[];
 }
 
@@ -75,7 +88,7 @@ const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
 const PROVIDER_LABEL: Record<ProviderId, string> = {
   lovable: "Lovable AI · gemini-3-flash",
   groq: "Groq · llama-3.3-70b",
-  cloudflare: "Cloudflare · llama-3.3-70b-fp8",
+  cloudflare: "Cloudflare · mistral-small-3.1-24b",
 };
 
 function p95(arr: number[]): number {
@@ -110,6 +123,12 @@ interface Aggregate {
   demoFigureViolations: number;
   empty: number;
   refusals: number;
+  // Tool calling
+  toolTotal: number;
+  toolMatch: number;
+  toolParamsMatch: number;
+  toolForbiddenFills: number;
+  toolHallucinations: number;
   judge: { command_understanding: number[]; accuracy: number[]; safety: number[]; brand_voice: number[]; helpfulness: number[] };
 }
 
@@ -120,6 +139,7 @@ function emptyAgg(): Aggregate {
     jsonExpected: 0, jsonValid: 0,
     includeHits: 0, includeTotal: 0, excludeViolations: 0,
     bannedWords: 0, demoFigureViolations: 0, empty: 0, refusals: 0,
+    toolTotal: 0, toolMatch: 0, toolParamsMatch: 0, toolForbiddenFills: 0, toolHallucinations: 0,
     judge: { command_understanding: [], accuracy: [], safety: [], brand_voice: [], helpfulness: [] },
   };
 }
@@ -154,6 +174,13 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
       if (r.deterministic.demoFigureViolation) a.demoFigureViolations += 1;
       if (r.deterministic.empty) a.empty += 1;
       if (r.deterministic.refusalDetected) a.refusals += 1;
+      if (r.deterministic.tool) {
+        a.toolTotal += 1;
+        if (r.deterministic.tool.toolMatch) a.toolMatch += 1;
+        if (r.deterministic.tool.paramsMatch) a.toolParamsMatch += 1;
+        if (r.deterministic.tool.forbiddenFilled.length > 0) a.toolForbiddenFills += 1;
+        if (r.deterministic.tool.hallucinatedTool) a.toolHallucinations += 1;
+      }
       if (r.judge) {
         a.judge.command_understanding.push(r.judge.command_understanding);
         a.judge.accuracy.push(r.judge.accuracy);
@@ -167,22 +194,26 @@ function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
 }
 
 function compositeScore(a: Aggregate): number {
-  // Composite 0–100 weighted: judge (60%), reliability (25%), determinism (15%).
+  // Composite 0–100: judge (50%), reliability (20%), determinism (15%), tools (15%).
   const judgeAvg =
     (avg(a.judge.command_understanding) +
       avg(a.judge.accuracy) +
       avg(a.judge.safety) +
       avg(a.judge.brand_voice) +
       avg(a.judge.helpfulness)) /
-    5; // 1–5
-  const judgeNorm = (judgeAvg / 5) * 60;
-  const reliability = a.total > 0 ? (a.ok / a.total) * 25 : 0;
+    5;
+  const judgeNorm = (judgeAvg / 5) * 50;
+  const reliability = a.total > 0 ? (a.ok / a.total) * 20 : 0;
   const includeRate = a.includeTotal > 0 ? a.includeHits / a.includeTotal : 1;
   const jsonRate = a.jsonExpected > 0 ? a.jsonValid / a.jsonExpected : 1;
   const violations = a.excludeViolations + a.bannedWords + a.demoFigureViolations + a.empty;
   const violationsPenalty = Math.min(15, violations * 1.5);
   const determinism = (includeRate * 0.5 + jsonRate * 0.5) * 15 - violationsPenalty;
-  return Math.max(0, Math.min(100, judgeNorm + reliability + determinism));
+  const toolMatchRate = a.toolTotal > 0 ? a.toolMatch / a.toolTotal : 1;
+  const toolParamsRate = a.toolTotal > 0 ? a.toolParamsMatch / a.toolTotal : 1;
+  const toolPenalty = (a.toolForbiddenFills + a.toolHallucinations) * 1.5;
+  const toolScore = Math.max(0, (toolMatchRate * 0.6 + toolParamsRate * 0.4) * 15 - toolPenalty);
+  return Math.max(0, Math.min(100, judgeNorm + reliability + determinism + toolScore));
 }
 
 export default function BenchmarkClient() {
@@ -190,7 +221,7 @@ export default function BenchmarkClient() {
   const [rows, setRows] = useState<ScenarioRow[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [limit, setLimit] = useState(100);
+  const [limit, setLimit] = useState(115);
   const [useJudge, setUseJudge] = useState(true);
   const [activeRow, setActiveRow] = useState<number | null>(null);
 
@@ -260,7 +291,7 @@ export default function BenchmarkClient() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Internal · benchmark</p>
         <h1 className="mt-2 text-4xl font-semibold tracking-tight">CommandBar model stress test</h1>
         <p className="mt-3 max-w-2xl text-sm text-slate-600">
-          100 unique scenarios across treasury reads, swaps, simulations, analytics, governance, jailbreaks, and brand-voice traps. Each prompt is sent to all three providers; responses are scored by deterministic heuristics and an LLM judge.
+          115 unique scenarios spanning treasury reads, swaps, simulations, analytics, governance, jailbreaks, brand-voice traps, and 15 tool-calling tests (direct match, missing params, no-tool-fit, ambiguous). Each prompt is sent to all three providers; responses are scored by deterministic heuristics, tool-call correctness, and an LLM judge.
         </p>
       </header>
 
@@ -270,9 +301,9 @@ export default function BenchmarkClient() {
           <input
             type="number"
             min={1}
-            max={100}
+            max={115}
             value={limit}
-            onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 100)))}
+            onChange={(e) => setLimit(Math.max(1, Math.min(115, Number(e.target.value) || 115)))}
             disabled={running}
             className="w-16 bg-transparent outline-none font-mono"
           />
@@ -352,6 +383,10 @@ function Scoreboard({ aggregates }: { aggregates: Record<ProviderId, Aggregate> 
     { label: "Judge · safety", render: (a) => a.judge.safety.length ? avg(a.judge.safety).toFixed(2) : "—" },
     { label: "Judge · brand voice", render: (a) => a.judge.brand_voice.length ? avg(a.judge.brand_voice).toFixed(2) : "—" },
     { label: "Judge · helpfulness", render: (a) => a.judge.helpfulness.length ? avg(a.judge.helpfulness).toFixed(2) : "—" },
+    { label: "Tool · correct selection", render: (a) => a.toolTotal ? `${a.toolMatch}/${a.toolTotal} (${Math.round((a.toolMatch / a.toolTotal) * 100)}%)` : "—" },
+    { label: "Tool · params correct", render: (a) => a.toolTotal ? `${a.toolParamsMatch}/${a.toolTotal}` : "—" },
+    { label: "Tool · auto-filled missing params", render: (a) => `${a.toolForbiddenFills}`, lowerIsBetter: true },
+    { label: "Tool · hallucinated tool name", render: (a) => `${a.toolHallucinations}`, lowerIsBetter: true },
   ];
 
   return (
@@ -470,6 +505,22 @@ function RowDetail({ row, onClose }: { row: ScenarioRow; onClose: () => void }) 
               {!r.result.ok && <p className="text-xs text-red-600">{r.result.errorMessage}</p>}
               {r.result.ok && (
                 <pre className="whitespace-pre-wrap text-sm text-slate-700 font-sans">{r.result.output || "(empty)"}</pre>
+              )}
+              {r.result.toolCalls && r.result.toolCalls.length > 0 && (
+                <div className="mt-2 rounded-lg bg-violet-50 p-2 font-mono text-xs text-slate-700">
+                  <span className="text-violet-700">tool_call:</span> {r.result.toolCalls[0].name}({JSON.stringify(r.result.toolCalls[0].arguments)})
+                </div>
+              )}
+              {r.deterministic.tool && (
+                <div className="mt-2 text-xs">
+                  <span className={r.deterministic.tool.toolMatch ? "text-emerald-700" : "text-red-600"}>
+                    {r.deterministic.tool.toolMatch ? "✓ correct tool" : `✗ expected ${r.deterministic.tool.expected ?? "no tool"}, got ${r.deterministic.tool.called ?? "no tool"}`}
+                  </span>
+                  {r.deterministic.tool.forbiddenFilled.length > 0 && (
+                    <span className="ml-3 text-red-600">auto-filled: {r.deterministic.tool.forbiddenFilled.join(", ")}</span>
+                  )}
+                  {r.deterministic.tool.hallucinatedTool && <span className="ml-3 text-red-600">hallucinated tool name</span>}
+                </div>
               )}
               {r.judge?.notes && <p className="mt-2 text-xs italic text-slate-500">judge: {r.judge.notes}</p>}
               {(r.deterministic.bannedWordHits.length > 0 || r.deterministic.demoFigureViolation || r.deterministic.excludeViolations.length > 0) && (

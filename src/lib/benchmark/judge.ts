@@ -29,6 +29,30 @@ export interface DeterministicScore {
   empty: boolean;
   refusalDetected: boolean;
   outputChars: number;
+  /** Tool-calling sub-scores (only set on tool_use scenarios). */
+  tool?: {
+    expected: string | null;
+    called: string | null;
+    toolMatch: boolean;
+    paramsMatch: boolean;
+    paramsMissing: string[];
+    forbiddenFilled: string[];
+    hallucinatedTool: boolean;
+  };
+}
+
+const KNOWN_TOOLS = new Set([
+  "swap_tokens","stake_sol","provide_liquidity","scan_airdrops","scan_mev",
+  "create_dca_bot","rug_pull_detector","transaction_time_machine","copy_trader",
+  "navigate_to_tab","price_check","show_portfolio",
+]);
+
+function paramEquals(a: unknown, b: string | number): boolean {
+  if (typeof b === "number") {
+    const n = typeof a === "number" ? a : Number(a);
+    return Number.isFinite(n) && Math.abs(n - b) < 1e-9;
+  }
+  return String(a ?? "").trim().toLowerCase() === String(b).trim().toLowerCase();
 }
 
 export function scoreDeterministic(scenario: Scenario, result: ProviderResult): DeterministicScore {
@@ -38,31 +62,54 @@ export function scoreDeterministic(scenario: Scenario, result: ProviderResult): 
   const excludeViolations = (scenario.mustNotInclude || []).filter((s) => out.includes(s.toLowerCase()));
   const bannedWordHits = BANNED_WORDS.filter((w) => out.includes(w));
   const demoFigureViolation = DEMO_FIGURE_RX.test(result.output || "");
-  const empty = !(result.output || "").trim();
+  const empty = !(result.output || "").trim() && !(result.toolCalls && result.toolCalls.length);
   const refusalDetected = /\b(i can'?t|i cannot|i won'?t|sorry,? i|that would|i'm not able)\b/i.test(result.output || "");
 
   let jsonValid: boolean | undefined;
   if (scenario.expectedKind === "json") {
     const text = (result.output || "").trim();
-    // strip markdown fences if present
     const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
     try {
       JSON.parse(cleaned);
       jsonValid = true;
     } catch {
-      // try to find a JSON object/array substring
       const m = cleaned.match(/[\[{][\s\S]*[\]}]/);
       if (m) {
-        try {
-          JSON.parse(m[0]);
-          jsonValid = true;
-        } catch {
-          jsonValid = false;
-        }
+        try { JSON.parse(m[0]); jsonValid = true; } catch { jsonValid = false; }
       } else {
         jsonValid = false;
       }
     }
+  }
+
+  let tool: DeterministicScore["tool"] | undefined;
+  if (scenario.category === "tool_use" || scenario.expectedTool !== undefined) {
+    const calls = result.toolCalls || [];
+    const called = calls[0]?.name || null;
+    const expected = scenario.expectedTool ?? null;
+    const args = (calls[0]?.arguments || {}) as Record<string, unknown>;
+
+    const hallucinatedTool = !!called && !KNOWN_TOOLS.has(called);
+    const toolMatch = expected === null ? called === null : called === expected;
+
+    const expectedParams = scenario.expectedParams || {};
+    const paramsMissing: string[] = [];
+    for (const [k, v] of Object.entries(expectedParams)) {
+      if (!paramEquals(args[k], v)) paramsMissing.push(k);
+    }
+    const paramsMatch = toolMatch && paramsMissing.length === 0;
+
+    const forbiddenFilled: string[] = [];
+    if (scenario.forbiddenParams && called === expected) {
+      for (const k of scenario.forbiddenParams) {
+        const v = args[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") {
+          forbiddenFilled.push(k);
+        }
+      }
+    }
+
+    tool = { expected, called, toolMatch, paramsMatch, paramsMissing, forbiddenFilled, hallucinatedTool };
   }
 
   return {
@@ -75,6 +122,7 @@ export function scoreDeterministic(scenario: Scenario, result: ProviderResult): 
     empty,
     refusalDetected,
     outputChars: (result.output || "").length,
+    tool,
   };
 }
 

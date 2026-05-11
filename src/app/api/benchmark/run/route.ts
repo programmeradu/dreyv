@@ -14,6 +14,7 @@ import { jwtVerify } from "jose";
 import { SCENARIOS } from "@/lib/benchmark/scenarios";
 import { PROVIDERS, runProvider } from "@/lib/benchmark/providers";
 import { runJudge, scoreDeterministic } from "@/lib/benchmark/judge";
+import { BENCHMARK_TOOLS } from "@/lib/benchmark/tools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
-  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 100)));
+  const limit = Math.max(1, Math.min(SCENARIOS.length, Number(url.searchParams.get("limit") || SCENARIOS.length)));
   const skipJudge = url.searchParams.get("judge") === "0";
   const list = SCENARIOS.slice(0, limit);
 
@@ -61,9 +62,10 @@ export async function GET(req: NextRequest) {
         const scenario = list[i];
         send("scenario_start", { index: i, scenario });
 
+        const tools = scenario.category === "tool_use" ? BENCHMARK_TOOLS : undefined;
         const results = await Promise.all(
           PROVIDERS.map(async (p) => {
-            const r = await runProvider(p, scenario.prompt);
+            const r = await runProvider(p, scenario.prompt, tools);
             const det = scoreDeterministic(scenario, r);
             const judge = skipJudge ? null : await runJudge(scenario, r);
             return { provider: p, result: r, deterministic: det, judge };
