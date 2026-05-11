@@ -266,6 +266,8 @@ export default function BenchmarkClient() {
           try { data = JSON.parse(dataMatch[1]); } catch { continue; }
           if (ev === "start") {
             setProgress({ done: 0, total: data.total });
+          } else if (ev === "vault") {
+            setVault(data.snapshot);
           } else if (ev === "scenario_done") {
             setRows((r) => [...r, data]);
             setProgress((p) => ({ ...p, done: p.done + 1 }));
