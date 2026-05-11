@@ -54,6 +54,7 @@ interface DeterministicScore {
   demoFigureViolation: boolean;
   empty: boolean;
   refusalDetected: boolean;
+  ignoredVaultContext: boolean;
   outputChars: number;
   tool?: ToolScore;
 }
