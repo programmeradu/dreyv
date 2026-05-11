@@ -116,6 +116,8 @@ export function scoreDeterministic(scenario: Scenario, result: ProviderResult): 
     tool = { expected, called, toolMatch, paramsMatch, paramsMissing, forbiddenFilled, hallucinatedTool };
   }
 
+  const ignoredVaultContext = VAULT_DODGE_RX.test(result.output || "");
+
   return {
     includeHits,
     includeTotal,
@@ -125,6 +127,7 @@ export function scoreDeterministic(scenario: Scenario, result: ProviderResult): 
     demoFigureViolation,
     empty,
     refusalDetected,
+    ignoredVaultContext,
     outputChars: (result.output || "").length,
     tool,
   };
