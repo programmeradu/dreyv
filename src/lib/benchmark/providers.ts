@@ -3,7 +3,7 @@
  *
  *   - lovable    → google/gemini-3-flash-preview via Supabase edge proxy
  *   - groq       → llama-3.3-70b-versatile via api.groq.com
- *   - cloudflare → @cf/mistralai/mistral-small-3.1-24b-instruct via Workers AI
+ *   - cloudflare → @cf/qwen/qwen2.5-coder-32b-instruct via Workers AI
  *                  (different family from the Llama used by Groq, so the
  *                  benchmark spans 3 distinct model lineages)
  *
@@ -222,9 +222,10 @@ async function callCloudflare(prompt: string, tools?: ToolDef[]): Promise<Provid
   if (!accountId || !token) {
     return { provider: "cloudflare", ok: false, latencyMs: 0, output: "", errorMessage: "CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN not configured" };
   }
-  // Mistral Small 3.1 24B — different family than Groq (Llama) so we span
-  // three distinct model lineages: Gemini, Llama, Mistral.
-  const model = "@cf/mistralai/mistral-small-3.1-24b-instruct";
+  // Qwen 2.5 Coder 32B — strong instruction-following + native function
+  // calling, and a different family than Groq (Llama) so we span three
+  // distinct model lineages: Gemini, Llama, Qwen.
+  const model = "@cf/qwen/qwen2.5-coder-32b-instruct";
   try {
     const body: Record<string, unknown> = {
       messages: [
@@ -283,5 +284,5 @@ export const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
 export const PROVIDER_LABEL: Record<ProviderId, string> = {
   lovable: "Lovable AI · gemini-3-flash",
   groq: "Groq · llama-3.3-70b",
-  cloudflare: "Cloudflare · mistral-small-3.1-24b",
+  cloudflare: "Cloudflare · qwen2.5-coder-32b",
 };
