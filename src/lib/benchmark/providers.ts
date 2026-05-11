@@ -74,43 +74,64 @@ function parseToolCalls(raw: any): ToolCall[] | undefined {
   return out.length ? out : undefined;
 }
 
-// ─── Lovable AI (via Supabase edge proxy) ────────────────────────────
+// ─── Lovable AI ──────────────────────────────────────────────────────
+// Mirrors production order:
+//   1. LOVABLE_API_KEY present → call ai.gateway.lovable.dev directly (Vercel path)
+//   2. Otherwise → Supabase lovable-ai-proxy edge function (key lives there)
 async function callLovable(prompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const t0 = Date.now();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const anon =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-  if (!url) {
-    return { provider: "lovable", ok: false, latencyMs: 0, output: "", errorMessage: "SUPABASE_URL not configured" };
-  }
-  try {
-    const body: Record<string, unknown> = {
-      model: "google/gemini-3-flash-preview",
-      stream: false,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt || "(empty input)" },
-      ],
+  const directKey = process.env.LOVABLE_API_KEY;
+
+  const body: Record<string, unknown> = {
+    model: "google/gemini-3-flash-preview",
+    stream: false,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt || "(empty input)" },
+    ],
+  };
+  if (tools && tools.length) body.tools = tools;
+
+  let endpoint: string;
+  let headers: Record<string, string>;
+  let via: "direct" | "proxy";
+
+  if (directKey) {
+    endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${directKey}`,
+      "Lovable-API-Key": directKey,
+      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
     };
-    if (tools && tools.length) body.tools = tools;
+    via = "direct";
+  } else {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const anon =
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.SUPABASE_ANON_KEY;
+    if (!url) {
+      return { provider: "lovable", ok: false, latencyMs: 0, output: "", errorMessage: "Neither LOVABLE_API_KEY nor SUPABASE_URL configured" };
+    }
+    endpoint = `${url}/functions/v1/lovable-ai-proxy`;
+    headers = {
+      "Content-Type": "application/json",
+      ...(anon ? { Authorization: `Bearer ${anon}`, apikey: anon } : {}),
+    };
+    via = "proxy";
+  }
+
+  try {
     const res = await withTimeout(
-      fetch(`${url}/functions/v1/lovable-ai-proxy`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(anon ? { Authorization: `Bearer ${anon}`, apikey: anon } : {}),
-        },
-        body: JSON.stringify(body),
-      }),
+      fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) }),
       TIMEOUT_MS,
     );
     const latencyMs = Date.now() - t0;
     const status = res.status;
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return { provider: "lovable", ok: false, latencyMs, output: "", status, errorMessage: `HTTP ${status}: ${text.slice(0, 200)}` };
+      return { provider: "lovable", ok: false, latencyMs, output: "", status, errorMessage: `${via} HTTP ${status}: ${text.slice(0, 200)}` };
     }
     const json: any = await res.json();
     const msg = json?.choices?.[0]?.message;
