@@ -222,9 +222,10 @@ async function callCloudflare(prompt: string, tools?: ToolDef[]): Promise<Provid
   if (!accountId || !token) {
     return { provider: "cloudflare", ok: false, latencyMs: 0, output: "", errorMessage: "CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN not configured" };
   }
-  // Mistral Small 3.1 24B — different family than Groq (Llama) so we span
-  // three distinct model lineages: Gemini, Llama, Mistral.
-  const model = "@cf/mistralai/mistral-small-3.1-24b-instruct";
+  // Qwen 2.5 Coder 32B — strong instruction-following + native function
+  // calling, and a different family than Groq (Llama) so we span three
+  // distinct model lineages: Gemini, Llama, Qwen.
+  const model = "@cf/qwen/qwen2.5-coder-32b-instruct";
   try {
     const body: Record<string, unknown> = {
       messages: [
