@@ -878,16 +878,34 @@ async function execute(origin: string, tool_id: string, p: any) {
     }
 
     case "yield_overview": {
+      // Pull live rates from /api/yield/rates and surface the top 3 SOL LSTs.
+      let rows: { symbol: string; protocol: string; apy: number; source: string }[] = [];
+      try {
+        const yr = await fetch(`${origin}/api/yield/rates`, { signal: AbortSignal.timeout(6000) });
+        const yj = await yr.json().catch(() => ({}));
+        const rates: Record<string, any> = yj?.rates || {};
+        rows = Object.values(rates)
+          .filter((r: any) => r && typeof r.apy === "number")
+          .map((r: any) => ({ symbol: r.symbol, protocol: r.protocol, apy: r.apy, source: r.source }))
+          .sort((a, b) => b.apy - a.apy)
+          .slice(0, 5);
+      } catch {}
+      if (rows.length === 0) {
+        return { result_type: "error", title: "Yield feed unavailable", summary: "Live APY registry is offline — retry shortly. I won't show fake numbers." };
+      }
+      const best = rows[0];
+      const liveCount = rows.filter((r) => r.source === "live").length;
       return {
         result_type: "yield",
         title: "Top SOL yield (live)",
-        summary: "Jito 7.4% · Marinade 6.8% · BlazeStake 6.6%",
+        summary: rows.map((r) => `${r.protocol} ${r.apy.toFixed(2)}%`).join(" · "),
         metrics: [
-          { label: "Best APY", value: "7.4% · Jito", tone: "good" },
-          { label: "Most liquid", value: "mSOL (Marinade)" },
-          { label: "Risk", value: "Validator + smart-contract" },
+          { label: "Best APY", value: `${best.apy.toFixed(2)}% · ${best.protocol}`, tone: "good" },
+          { label: "Top symbol", value: best.symbol },
+          { label: "Live sources", value: `${liveCount}/${rows.length}` },
         ],
-        meta: { source: "yield-registry · live" },
+        items: rows.map((r) => ({ symbol: r.symbol, name: `${r.protocol} · ${r.apy.toFixed(2)}% APY` })),
+        meta: { source: `yield-registry · ${liveCount} live, ${rows.length - liveCount} estimated` },
       };
     }
 
