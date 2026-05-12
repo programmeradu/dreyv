@@ -76,48 +76,13 @@ async function getPrice(origin: string, sym: string): Promise<number | null> {
 }
 
 /**
- * Generic Lovable AI Gateway helper used by simulations that need real
- * reasoning (what_if projections, agent/mini-app blueprints, clarifications).
+ * Generic Lovable AI helper used by simulations that need real reasoning
+ * (what_if projections, agent/mini-app blueprints, clarifications). Routes
+ * through the Supabase edge proxy so LOVABLE_API_KEY never lives on Vercel.
  * Returns a parsed JSON object or null if the gateway is unavailable.
  */
 async function llmJson(system: string, user: string, schema?: any): Promise<any | null> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const body: any = {
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    };
-    if (schema) {
-      body.tools = [{ type: "function", function: schema }];
-      body.tool_choice = { type: "function", function: { name: schema.name } };
-    } else {
-      body.response_format = { type: "json_object" };
-    }
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!r.ok) {
-      console.warn("[home/execute] LLM", r.status);
-      return null;
-    }
-    const j = await r.json();
-    if (schema) {
-      const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-      return args ? JSON.parse(args) : null;
-    }
-    const txt = j?.choices?.[0]?.message?.content;
-    return txt ? JSON.parse(txt) : null;
-  } catch (e) {
-    console.warn("[home/execute] LLM error", e);
-    return null;
-  }
+  return lovableJson(system, user, schema);
 }
 
 /**
