@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lovableJson } from "@/lib/lovable-ai-proxy";
 
 /**
  * Public landing-page command parser.
@@ -14,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const CACHE = new Map<string, { value: any; expires: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 min
