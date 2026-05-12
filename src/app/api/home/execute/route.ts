@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lovableJson } from "@/lib/lovable-ai-proxy";
 
 /**
  * Public landing-page simulation dispatcher.
@@ -22,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const TOKENS: Record<string, { mint: string; decimals: number }> = {
   SOL: { mint: "So11111111111111111111111111111111111111112", decimals: 9 },
@@ -74,48 +76,13 @@ async function getPrice(origin: string, sym: string): Promise<number | null> {
 }
 
 /**
- * Generic Lovable AI Gateway helper used by simulations that need real
- * reasoning (what_if projections, agent/mini-app blueprints, clarifications).
+ * Generic Lovable AI helper used by simulations that need real reasoning
+ * (what_if projections, agent/mini-app blueprints, clarifications). Routes
+ * through the Supabase edge proxy so LOVABLE_API_KEY never lives on Vercel.
  * Returns a parsed JSON object or null if the gateway is unavailable.
  */
 async function llmJson(system: string, user: string, schema?: any): Promise<any | null> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const body: any = {
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    };
-    if (schema) {
-      body.tools = [{ type: "function", function: schema }];
-      body.tool_choice = { type: "function", function: { name: schema.name } };
-    } else {
-      body.response_format = { type: "json_object" };
-    }
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!r.ok) {
-      console.warn("[home/execute] LLM", r.status);
-      return null;
-    }
-    const j = await r.json();
-    if (schema) {
-      const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-      return args ? JSON.parse(args) : null;
-    }
-    const txt = j?.choices?.[0]?.message?.content;
-    return txt ? JSON.parse(txt) : null;
-  } catch (e) {
-    console.warn("[home/execute] LLM error", e);
-    return null;
-  }
+  return lovableJson(system, user, schema);
 }
 
 /**
@@ -322,10 +289,17 @@ async function execute(origin: string, tool_id: string, p: any) {
       let apy = 0;
       let apySource = "";
       try {
-        const yr = await fetch(`${origin}/api/yield/registry?provider=${provider}`, { signal: AbortSignal.timeout(5000) });
+        const yr = await fetch(`${origin}/api/yield/rates`, { signal: AbortSignal.timeout(5000) });
         const yj = await yr.json().catch(() => ({}));
-        apy = Number(yj?.apy ?? yj?.providers?.[provider]?.apy ?? 0);
-        apySource = yj?.source || "yield-registry";
+        const rates: Record<string, any> = yj?.rates || {};
+        const want =
+          provider === "jito" ? "jitoSOL" :
+          provider === "blazestake" ? "bSOL" : "mSOL";
+        const hit = Object.values(rates).find((r: any) => (r?.symbol || "").toLowerCase() === want.toLowerCase());
+        if (hit) {
+          apy = Number(hit.apy) || 0;
+          apySource = hit.source === "live" ? "live" : "estimated";
+        }
       } catch {}
 
       if (!apy || apy <= 0) {
@@ -435,26 +409,30 @@ async function execute(origin: string, tool_id: string, p: any) {
         });
       }
 
-      const legs: any[] = [];
-      let totalImpact = 0;
-      for (const [sym, pct] of Object.entries(targets)) {
-        if (sym === "SOL") continue;
-        const usdLeg = (portfolioUsd * Number(pct)) / 100;
-        const solIn = usdLeg / solPrice;
-        try {
-          const q = await getQuote(origin, "SOL", sym, solIn);
-          legs.push({
-            from: "SOL",
-            to: sym,
-            amount_in: `${solIn.toFixed(2)} SOL`,
-            amount_out: `${q.outAmount.toFixed(4)} ${sym}`,
-            impact: `${q.priceImpact.toFixed(3)}%`,
-          });
-          totalImpact += q.priceImpact;
-        } catch {
-          legs.push({ from: "SOL", to: sym, amount_in: `${solIn.toFixed(2)} SOL`, amount_out: "—", impact: "n/a" });
-        }
-      }
+      // Run all leg quotes in PARALLEL — sequential awaits used to blow past
+      // Vercel's 10s default and surfaced as plaintext "Internal Server Error".
+      const legEntries = Object.entries(targets).filter(([sym]) => sym !== "SOL");
+      const legResults = await Promise.all(
+        legEntries.map(async ([sym, pct]) => {
+          const usdLeg = (portfolioUsd * Number(pct)) / 100;
+          const solIn = usdLeg / solPrice;
+          try {
+            const q = await getQuote(origin, "SOL", sym, solIn);
+            return {
+              from: "SOL",
+              to: sym,
+              amount_in: `${solIn.toFixed(2)} SOL`,
+              amount_out: `${q.outAmount.toFixed(4)} ${sym}`,
+              impact: `${q.priceImpact.toFixed(3)}%`,
+              _impactNum: q.priceImpact,
+            };
+          } catch {
+            return { from: "SOL", to: sym, amount_in: `${solIn.toFixed(2)} SOL`, amount_out: "—", impact: "n/a", _impactNum: 0 };
+          }
+        })
+      );
+      const legs = legResults.map(({ _impactNum, ...rest }) => rest);
+      const totalImpact = legResults.reduce((s, l) => s + (l._impactNum || 0), 0);
       return {
         result_type: "rebalance",
         title: `Rebalance to ${Object.entries(targets).map(([k, v]) => `${v}% ${k}`).join(" / ")}`,
@@ -900,16 +878,34 @@ async function execute(origin: string, tool_id: string, p: any) {
     }
 
     case "yield_overview": {
+      // Pull live rates from /api/yield/rates and surface the top 3 SOL LSTs.
+      let rows: { symbol: string; protocol: string; apy: number; source: string }[] = [];
+      try {
+        const yr = await fetch(`${origin}/api/yield/rates`, { signal: AbortSignal.timeout(6000) });
+        const yj = await yr.json().catch(() => ({}));
+        const rates: Record<string, any> = yj?.rates || {};
+        rows = Object.values(rates)
+          .filter((r: any) => r && typeof r.apy === "number")
+          .map((r: any) => ({ symbol: r.symbol, protocol: r.protocol, apy: r.apy, source: r.source }))
+          .sort((a, b) => b.apy - a.apy)
+          .slice(0, 5);
+      } catch {}
+      if (rows.length === 0) {
+        return { result_type: "error", title: "Yield feed unavailable", summary: "Live APY registry is offline — retry shortly. I won't show fake numbers." };
+      }
+      const best = rows[0];
+      const liveCount = rows.filter((r) => r.source === "live").length;
       return {
         result_type: "yield",
         title: "Top SOL yield (live)",
-        summary: "Jito 7.4% · Marinade 6.8% · BlazeStake 6.6%",
+        summary: rows.map((r) => `${r.protocol} ${r.apy.toFixed(2)}%`).join(" · "),
         metrics: [
-          { label: "Best APY", value: "7.4% · Jito", tone: "good" },
-          { label: "Most liquid", value: "mSOL (Marinade)" },
-          { label: "Risk", value: "Validator + smart-contract" },
+          { label: "Best APY", value: `${best.apy.toFixed(2)}% · ${best.protocol}`, tone: "good" },
+          { label: "Top symbol", value: best.symbol },
+          { label: "Live sources", value: `${liveCount}/${rows.length}` },
         ],
-        meta: { source: "yield-registry · live" },
+        items: rows.map((r) => ({ symbol: r.symbol, name: `${r.protocol} · ${r.apy.toFixed(2)}% APY` })),
+        meta: { source: `yield-registry · ${liveCount} live, ${rows.length - liveCount} estimated` },
       };
     }
 

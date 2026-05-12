@@ -59,6 +59,20 @@ export function HomeCommandbar() {
   const [runs, setRuns] = useState(0);
   const [authIntent, setAuthIntent] = useState<Action | null>(null);
 
+  /**
+   * Safely read a fetch response as JSON. If the server returned plain-text
+   * (e.g. Vercel's "Internal Server Error" on a function timeout) we wrap it
+   * into a structured `{ error }` object instead of throwing the cryptic
+   * `Unexpected token 'I'` JSON parse error at the user.
+   */
+  async function safeJson(res: Response): Promise<any> {
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch {
+      return { _nonJson: true, status: res.status, body: text.slice(0, 200) };
+    }
+  }
+
   async function run(text: string) {
     const cmd = text.trim();
     if (!cmd) return;
@@ -73,7 +87,10 @@ export function HomeCommandbar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: cmd }),
       });
-      const parsed = await pr.json();
+      const parsed = await safeJson(pr);
+      if (parsed?._nonJson || !parsed?.tool_id) {
+        throw new Error(parsed?.body || `Parse failed (${pr.status})`);
+      }
       setParsedTool(parsed.tool_id);
 
       const er = await fetch("/api/home/execute", {
@@ -81,11 +98,18 @@ export function HomeCommandbar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool_id: parsed.tool_id, parameters: parsed.parameters }),
       });
-      const j = await er.json();
+      const j = await safeJson(er);
+      if (j?._nonJson) {
+        throw new Error(j.body || `Simulator timed out (${er.status}). Please retry.`);
+      }
       setResult(j.result);
       setRuns((r) => r + 1);
     } catch (e: any) {
-      setResult({ result_type: "error", title: "Network error", summary: e?.message || "Try again" });
+      setResult({
+        result_type: "error",
+        title: "Simulator unavailable",
+        summary: e?.message || "Please retry in a moment.",
+      });
     } finally {
       setLoading(false);
     }
@@ -108,11 +132,18 @@ export function HomeCommandbar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool_id, parameters }),
       });
-      const j = await er.json();
+      const j = await safeJson(er);
+      if (j?._nonJson) {
+        throw new Error(j.body || `Simulator timed out (${er.status}). Please retry.`);
+      }
       setResult(j.result);
       setRuns((r) => r + 1);
     } catch (e: any) {
-      setResult({ result_type: "error", title: "Network error", summary: e?.message || "Try again" });
+      setResult({
+        result_type: "error",
+        title: "Simulator unavailable",
+        summary: e?.message || "Please retry in a moment.",
+      });
     } finally {
       setLoading(false);
     }

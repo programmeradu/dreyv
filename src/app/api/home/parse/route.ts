@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lovableJson } from "@/lib/lovable-ai-proxy";
 
 /**
  * Public landing-page command parser.
@@ -14,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const CACHE = new Map<string, { value: any; expires: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 min
@@ -122,34 +124,7 @@ function regexFallback(text: string): { tool_id: string; parameters: Record<stri
 }
 
 async function callLovableAI(prompt: string, system: string) {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(7000),
-    });
-    if (!res.ok) {
-      console.warn("[home/parse] gateway", res.status);
-      return null;
-    }
-    const j = await res.json();
-    const text = j?.choices?.[0]?.message?.content;
-    if (!text) return null;
-    return JSON.parse(text);
-  } catch (e) {
-    console.warn("[home/parse] LLM error", e);
-    return null;
-  }
+  return lovableJson(system, prompt);
 }
 
 export async function POST(req: NextRequest) {
