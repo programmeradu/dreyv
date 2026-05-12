@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lovableJson } from "@/lib/lovable-ai-proxy";
 
 /**
  * Public landing-page simulation dispatcher.
@@ -22,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const TOKENS: Record<string, { mint: string; decimals: number }> = {
   SOL: { mint: "So11111111111111111111111111111111111111112", decimals: 9 },
