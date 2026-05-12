@@ -289,10 +289,17 @@ async function execute(origin: string, tool_id: string, p: any) {
       let apy = 0;
       let apySource = "";
       try {
-        const yr = await fetch(`${origin}/api/yield/registry?provider=${provider}`, { signal: AbortSignal.timeout(5000) });
+        const yr = await fetch(`${origin}/api/yield/rates`, { signal: AbortSignal.timeout(5000) });
         const yj = await yr.json().catch(() => ({}));
-        apy = Number(yj?.apy ?? yj?.providers?.[provider]?.apy ?? 0);
-        apySource = yj?.source || "yield-registry";
+        const rates: Record<string, any> = yj?.rates || {};
+        const want =
+          provider === "jito" ? "jitoSOL" :
+          provider === "blazestake" ? "bSOL" : "mSOL";
+        const hit = Object.values(rates).find((r: any) => (r?.symbol || "").toLowerCase() === want.toLowerCase());
+        if (hit) {
+          apy = Number(hit.apy) || 0;
+          apySource = hit.source === "live" ? "live" : "estimated";
+        }
       } catch {}
 
       if (!apy || apy <= 0) {
