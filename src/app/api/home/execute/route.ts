@@ -409,26 +409,30 @@ async function execute(origin: string, tool_id: string, p: any) {
         });
       }
 
-      const legs: any[] = [];
-      let totalImpact = 0;
-      for (const [sym, pct] of Object.entries(targets)) {
-        if (sym === "SOL") continue;
-        const usdLeg = (portfolioUsd * Number(pct)) / 100;
-        const solIn = usdLeg / solPrice;
-        try {
-          const q = await getQuote(origin, "SOL", sym, solIn);
-          legs.push({
-            from: "SOL",
-            to: sym,
-            amount_in: `${solIn.toFixed(2)} SOL`,
-            amount_out: `${q.outAmount.toFixed(4)} ${sym}`,
-            impact: `${q.priceImpact.toFixed(3)}%`,
-          });
-          totalImpact += q.priceImpact;
-        } catch {
-          legs.push({ from: "SOL", to: sym, amount_in: `${solIn.toFixed(2)} SOL`, amount_out: "—", impact: "n/a" });
-        }
-      }
+      // Run all leg quotes in PARALLEL — sequential awaits used to blow past
+      // Vercel's 10s default and surfaced as plaintext "Internal Server Error".
+      const legEntries = Object.entries(targets).filter(([sym]) => sym !== "SOL");
+      const legResults = await Promise.all(
+        legEntries.map(async ([sym, pct]) => {
+          const usdLeg = (portfolioUsd * Number(pct)) / 100;
+          const solIn = usdLeg / solPrice;
+          try {
+            const q = await getQuote(origin, "SOL", sym, solIn);
+            return {
+              from: "SOL",
+              to: sym,
+              amount_in: `${solIn.toFixed(2)} SOL`,
+              amount_out: `${q.outAmount.toFixed(4)} ${sym}`,
+              impact: `${q.priceImpact.toFixed(3)}%`,
+              _impactNum: q.priceImpact,
+            };
+          } catch {
+            return { from: "SOL", to: sym, amount_in: `${solIn.toFixed(2)} SOL`, amount_out: "—", impact: "n/a", _impactNum: 0 };
+          }
+        })
+      );
+      const legs = legResults.map(({ _impactNum, ...rest }) => rest);
+      const totalImpact = legResults.reduce((s, l) => s + (l._impactNum || 0), 0);
       return {
         result_type: "rebalance",
         title: `Rebalance to ${Object.entries(targets).map(([k, v]) => `${v}% ${k}`).join(" / ")}`,
