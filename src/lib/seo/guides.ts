@@ -28,7 +28,7 @@ export const GUIDES: GuideEntry[] = [
   },
   {
     slug: "solana-dao-treasury-management",
-    title: "Solana DAO Treasury Management: A 2026 Playbook",
+    title: "Solana DAO Treasury Management: 2026 Playbook",
     description:
       "How modern Solana DAOs structure runway, yield, and approvals using multisig vaults, liquid staking, and simulation-first workflows.",
     publishedAt: "2026-04-22",
@@ -38,13 +38,33 @@ export const GUIDES: GuideEntry[] = [
   },
   {
     slug: "squads-multisig-setup-guide",
-    title: "Squads Multisig Setup for Solana Treasuries",
+    title: "Squads Multisig Setup Guide (Solana, v4)",
     description:
       "Step-by-step walkthrough for setting up a Squads v4 multisig vault on Solana — signer policy, thresholds, and connecting to dreyv for simulation.",
     publishedAt: "2026-04-22",
     readMinutes: 9,
     teaser:
       "From zero to a production-ready Squads v4 vault — thresholds, signer hygiene, and dreyv integration.",
+  },
+  {
+    slug: "crypto-treasury-management-solana",
+    title: "Crypto Treasury Management on Solana: A 2026 Guide",
+    description:
+      "How crypto-native teams run treasury management on Solana — non-custodial vaults, yield, accounting, approvals, and AI-driven planning. Built for protocol, DAO, and onchain-company finance leads.",
+    publishedAt: "2026-05-10",
+    readMinutes: 11,
+    teaser:
+      "Non-custodial vaults, yield, accounting, approvals, AI planning — the Solana-native crypto treasury stack.",
+  },
+  {
+    slug: "ai-agent-treasury-management",
+    title: "AI Agent Treasury Management: Patterns for 2026",
+    description:
+      "How AI agents are starting to plan, simulate, and propose treasury actions — the architecture, the guardrails, and why simulation-before-signing is non-negotiable.",
+    publishedAt: "2026-05-10",
+    readMinutes: 9,
+    teaser:
+      "Plan with an agent, simulate on a fork, sign with humans. The emerging AI treasury pattern.",
   },
   {
     slug: "dca-on-solana-guide",
