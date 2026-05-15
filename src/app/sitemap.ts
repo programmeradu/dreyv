@@ -28,6 +28,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/atlas/strategy-lab", changeFrequency: "weekly", priority: 0.75 },
     { path: "/guides", changeFrequency: "weekly", priority: 0.85 },
     { path: "/waitlist", changeFrequency: "weekly", priority: 0.95 },
+    { path: "/solana-treasury-tracker", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/solana-portfolio-tracker", changeFrequency: "weekly", priority: 0.9 },
     { path: "/legal/privacy", changeFrequency: "yearly", priority: 0.3 },
     { path: "/legal/terms", changeFrequency: "yearly", priority: 0.3 },
     { path: "/legal/cookies", changeFrequency: "yearly", priority: 0.2 },
