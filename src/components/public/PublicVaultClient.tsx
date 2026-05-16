@@ -105,9 +105,9 @@ function authHref(intent: string, address: string, params?: Record<string, strin
 }
 
 const RISK_TONE: Record<"low" | "medium" | "high", string> = {
-  low: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  medium: "bg-amber-50 text-amber-700 border-amber-200",
-  high: "bg-rose-50 text-rose-700 border-rose-200",
+  low: "bg-violet-50 text-violet-700 border-violet-200",
+  medium: "bg-violet-100 text-violet-800 border-violet-300",
+  high: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
 export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
