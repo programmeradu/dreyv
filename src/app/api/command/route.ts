@@ -626,8 +626,8 @@ export async function POST(req: Request) {
         const decoder = new TextDecoder("utf-8", { fatal: false });
         let bufferedText = "";
 
-        const SUBSTANTIVE = /"type":"(text-delta|tool-output-available|tool-input-available|finish|finish-step|error)"/;
-        const STREAM_ERROR = /"type":"error"|invalid_request_error|failed_generation|Failed to call a function|tool call validation failed/i;
+        const SUBSTANTIVE = /"type":"(text-delta|tool-output-available|tool-input-available|finish|finish-step)"/;
+        const STREAM_ERROR = /"type":"error"|"errorText"|invalid_request_error|failed_generation|Failed to call a function|tool call validation failed|function definitions do not fully cover|Please adjust your prompt|Please enhance them/i;
 
         const errorPromise: Promise<RaceOutcome> = Promise.resolve(result.response).then(
           () => new Promise<RaceOutcome>(() => {}), // success: stay pending
