@@ -49,10 +49,12 @@ export function HandoffsPanel() {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!wallet) return;
     setLoading(true);
     try {
-      const r = await fetch(`/api/dacs/handoffs?wallet=${wallet}&limit=25`);
+      // When a wallet is connected, scope to that wallet. Otherwise show the
+      // most recent platform-wide handoffs so the panel never looks dead.
+      const qs = wallet ? `wallet=${wallet}&limit=25` : `limit=15`;
+      const r = await fetch(`/api/dacs/handoffs?${qs}`);
       const data = await r.json();
       if (data.ok) setRows(data.handoffs ?? []);
     } catch { /* swallow */ } finally { setLoading(false); }
