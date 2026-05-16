@@ -235,23 +235,35 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
       {sortedYields.length > 0 && (
         <Block title="Yield opportunities">
           <ul className="divide-y divide-violet-100">
-            {sortedYields.map((y) => (
+            {sortedYields.map((y) => {
+              const protoLogo = getProtocolLogo(y.protocol);
+              return (
               <li
                 key={`${y.symbol}-${y.protocol}`}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${RISK_TONE[y.riskTier]}`}
-                  >
-                    {y.riskTier}
-                  </span>
+                  {protoLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={protoLogo}
+                      alt={y.protocol}
+                      className="h-8 w-8 shrink-0 rounded-full border border-violet-100 bg-white object-cover"
+                    />
+                  ) : (
+                    <TokenAvatar symbol={y.symbol} size={32} />
+                  )}
                   <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="font-semibold text-slate-900">{y.symbol}</span>
                       <span className="text-xs text-slate-500">{y.protocol}</span>
+                      <span
+                        className={`inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${RISK_TONE[y.riskTier]}`}
+                      >
+                        {y.riskTier} risk
+                      </span>
                       {y.source === "live" && (
-                        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700">
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-700">
                           Live
                         </span>
                       )}
@@ -276,7 +288,8 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
                   </Link>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </Block>
       )}
