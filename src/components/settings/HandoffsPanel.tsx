@@ -95,11 +95,12 @@ export function HandoffsPanel() {
           </h2>
           <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
             Every command can fan out to specialist agents. Each one returns a signed report — accepted, completed, deferred, or rejected.
+            {!wallet && " Connect a wallet to scope this view to your own commands; below is recent platform-wide activity."}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-violet-700">
-            <GitBranch size={11} /> {rows.length} reports
+            <GitBranch size={11} /> {rows.length} {wallet ? "reports" : "recent"}
           </span>
           {loading && <Loader2 className="animate-spin text-violet-600" size={14} />}
         </div>
