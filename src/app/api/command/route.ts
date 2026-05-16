@@ -571,7 +571,7 @@ export async function POST(req: Request) {
     }
 
     function detectToolValidationErrorMessage(msg: string): boolean {
-      return /tool call validation failed|was not in request\.tools|invalid_request_error/i.test(msg);
+      return /tool call validation failed|was not in request\.tools|invalid_request_error|function definitions do not fully cover|Please adjust your prompt|Please enhance them|failed_generation/i.test(msg);
     }
 
     function detectPromptLengthError(err: unknown): boolean {
