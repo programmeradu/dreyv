@@ -85,7 +85,7 @@ export function SimulatedAnalyticsProvider({
   baselineAttribution: SimAttribution | null;
   baselineDriftPctPerDay?: number;
 }) {
-  const { vaultTokens } = useVault();
+  const { vaultTokens, activeVault } = useVault();
   const active = useSimulationStore((s) => s.active);
   const variables = useSimulationStore((s) => s.variables);
   const ir = useSimulationStore((s) => s.ir);
