@@ -317,19 +317,6 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
               </li>
               );
             })}
-              <li
-                key={t.type}
-                className="flex items-center justify-between gap-3 px-4 py-3"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">{t.type}</p>
-                  <p className="text-[11px] text-slate-500">{t.count.toLocaleString()} transactions</p>
-                </div>
-                <span className="font-mono text-base font-semibold text-rose-600 tabular-nums">
-                  {fmtUsd(t.totalFees)}
-                </span>
-              </li>
-            ))}
           </ul>
           <div className="border-t border-violet-100 bg-violet-50/40 px-4 py-3 text-sm">
             <Link
