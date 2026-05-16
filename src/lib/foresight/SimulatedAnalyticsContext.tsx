@@ -174,7 +174,7 @@ export function SimulatedAnalyticsProvider({
     })();
 
     return () => ctrl.abort();
-  }, [active, ir, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setResult, setError]);
+  }, [active, ir, variables, timeframeMonths, vaultTokens, activeVault, baselineAttribution, baselineDriftPctPerDay, setResult, setError]);
 
   const value = useMemo<ContextValue>(
     () => ({
