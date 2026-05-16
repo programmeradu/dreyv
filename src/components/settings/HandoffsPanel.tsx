@@ -110,10 +110,18 @@ export function HandoffsPanel() {
         {grouped.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/30 px-5 py-10 text-center">
             <DreyvStar size={14} className="text-violet-400 mx-auto" />
-            <p className="mt-3 text-[13px] text-slate-600">No handoffs yet.</p>
-            <p className="mt-1 text-[12px] text-slate-500">
-              Submit a command and watch specialists report back here in real time.
+            <p className="mt-3 text-[13px] text-slate-600">
+              {wallet ? "No handoffs yet for this wallet." : "No specialist activity in the recent window."}
             </p>
+            <p className="mt-1 text-[12px] text-slate-500">
+              Submit a command in the CommandBar and watch specialists report back here in real time.
+            </p>
+            <a
+              href="/app/admin/dacs-handoffs"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50"
+            >
+              Open admin audit →
+            </a>
           </div>
         ) : (
           <ul className="space-y-3">
