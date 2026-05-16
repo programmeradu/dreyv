@@ -18,8 +18,8 @@ const CONNECTION = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clus
 
 export const GET = async (req: Request) => {
   const payload: ActionGetResponse = {
-    title: "Deploy Keystone Multisig",
-    icon: "https://keystone-treasury-os.vercel.app/logo.png",
+    title: "Deploy Dreyv Multisig",
+    icon: "https://dreyv.com/icon.png",
     description: "Create a new Squads V4 multisig vault for your team instantly. Define your threshold and member list below.",
     label: "Create Squad",
     links: {

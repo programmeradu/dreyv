@@ -25,8 +25,8 @@ export const GET = async (req: Request) => {
   }
 
   const payload: ActionGetResponse = {
-    title: "Approve Keystone Proposal",
-    icon: "https://keystone-treasury-os.vercel.app/logo.png", // Replace with real URL if possible
+    title: "Approve Dreyv Proposal",
+    icon: "https://dreyv.com/icon.png",
     description: `Vote to approve proposal #${txIndex} for multisig ${vault.slice(0, 4)}...${vault.slice(-4)}.`,
     label: "Approve",
     links: {
