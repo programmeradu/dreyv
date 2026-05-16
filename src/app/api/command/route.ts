@@ -609,60 +609,73 @@ export async function POST(req: Request) {
 
         const reader = body.getReader();
 
-        // Race: first stream chunk vs provider error vs hard timeout.
-        // CRITICAL: result.response RESOLVES on success once the response is built —
-        // a naive .then(()=>null) would let the success path win the race with `null`,
-        // which the old code mis-treated as a chunk and produced a hung empty stream
-        // (the symptom users saw as "fails on most commands without any response").
-        // Instead, only signal `error` from the error path; never resolve it on success.
+        // Race: substantive-content vs provider error vs hard timeout.
+        // Keep buffering chunks until we see actual content (`text-delta` /
+        // `tool-output-available` / `finish` / `error`) — NOT just any chunk.
+        // A bare `start` / `text-start` / `tool-input-start` does not prove
+        // the provider will produce useful output; Groq's tool-call validation
+        // failures arrive AFTER those events, so we used to silently commit
+        // to a doomed stream. Now we keep reading (with a 6s budget) until
+        // we have proof of substance.
         type RaceOutcome =
-          | { type: "chunk"; value?: Uint8Array; done: boolean }
+          | { type: "ready"; buffered: Uint8Array[]; done: boolean }
           | { type: "error"; error: unknown }
-          | { type: "timeout" };
+          | { type: "timeout"; buffered: Uint8Array[] };
+
+        const buffered: Uint8Array[] = [];
+        const decoder = new TextDecoder("utf-8", { fatal: false });
+        let bufferedText = "";
+
+        const SUBSTANTIVE = /"type":"(text-delta|tool-output-available|tool-input-available|finish|finish-step|error)"/;
+        const STREAM_ERROR = /"type":"error"|invalid_request_error|failed_generation|Failed to call a function|tool call validation failed/i;
 
         const errorPromise: Promise<RaceOutcome> = Promise.resolve(result.response).then(
-          () => new Promise<RaceOutcome>(() => {}), // success: stay pending forever
+          () => new Promise<RaceOutcome>(() => {}), // success: stay pending
           (e: unknown) => ({ type: "error" as const, error: e }),
         );
-        const chunkPromise: Promise<RaceOutcome> = reader.read().then((r) => ({
-          type: "chunk" as const,
-          value: r.value,
-          done: r.done,
-        }));
         const timeoutPromise: Promise<RaceOutcome> = new Promise((resolve) =>
-          setTimeout(() => resolve({ type: "timeout" }), 15_000),
+          setTimeout(() => resolve({ type: "timeout", buffered }), 15_000),
         );
 
-        const raceResult = await Promise.race([chunkPromise, errorPromise, timeoutPromise]);
+        const readUntilSubstantive: Promise<RaceOutcome> = (async () => {
+          const start = Date.now();
+          while (Date.now() - start < 6000) {
+            const { value, done } = await reader.read();
+            if (done) return { type: "ready", buffered, done: true };
+            if (value) {
+              buffered.push(value);
+              bufferedText += decoder.decode(value, { stream: true });
+              if (STREAM_ERROR.test(bufferedText)) {
+                throw new Error(`Provider stream error from ${name}: ${bufferedText.slice(0, 400)}`);
+              }
+              if (SUBSTANTIVE.test(bufferedText)) {
+                return { type: "ready", buffered, done: false };
+              }
+            }
+          }
+          // 6s elapsed but no substantive content seen → keep what we have and proceed.
+          return { type: "ready", buffered, done: false };
+        })();
+
+        const raceResult = await Promise.race([readUntilSubstantive, errorPromise, timeoutPromise]);
 
         if (raceResult.type === "error") {
-          reader.releaseLock();
+          try { reader.releaseLock(); } catch { /* ignore */ }
           throw (raceResult as { error: unknown }).error;
         }
         if (raceResult.type === "timeout") {
           try { reader.releaseLock(); } catch { /* ignore */ }
-          throw new Error(`Provider ${name} did not produce a first chunk within 15s`);
+          throw new Error(`Provider ${name} did not produce substantive content within 15s`);
         }
 
-        // First chunk arrived successfully. Also check for inline error content.
-        const firstRead = raceResult;
-        if (firstRead.value) {
-          const text = new TextDecoder().decode(firstRead.value);
-          if (/rate.?limit|429|rate_limit_exceeded|limit reached/i.test(text) && text.length < 500) {
-            reader.releaseLock();
-            throw new Error(`Provider stream error from ${name}: ${text.slice(0, 300)}`);
-          }
-          if (detectToolValidationErrorMessage(text) && text.length < 2000) {
-            reader.releaseLock();
-            throw new Error(`Provider tool-call stream error from ${name}: ${text.slice(0, 500)}`);
-          }
-        }
-
-        // Provider is confirmed working — re-assemble the stream
+        // Provider is confirmed working — re-assemble the stream, replaying
+        // buffered chunks then forwarding the rest. Mid-stream errors now
+        // call controller.error() so the client sees an explicit failure
+        // (and useChat triggers onError) instead of a silent close.
         const finalStream = new ReadableStream({
           start(controller) {
-            if (firstRead.value) controller.enqueue(firstRead.value);
-            if (firstRead.done) {
+            for (const chunk of raceResult.buffered) controller.enqueue(chunk);
+            if (raceResult.done) {
               controller.close();
               return;
             }
@@ -673,10 +686,16 @@ export async function POST(req: Request) {
                   if (done) break;
                   if (value) controller.enqueue(value);
                 }
+                controller.close();
+              } catch (streamErr) {
+                console.warn(
+                  `[Command API] Mid-stream error from ${name}:`,
+                  streamErr instanceof Error ? streamErr.message.slice(0, 220) : String(streamErr),
+                );
+                try { controller.error(streamErr); } catch { /* ignore */ }
               } finally {
-                reader.releaseLock();
+                try { reader.releaseLock(); } catch { /* ignore */ }
               }
-              controller.close();
             })();
           },
         });
