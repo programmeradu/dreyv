@@ -20,7 +20,7 @@ const upgrade_subscription = defineCapability({
   id: "upgrade_subscription",
   domain: "payments",
   description:
-    "Initiate a Dreyv tier change (free → mini → max). Use whenever the user says 'upgrade', 'switch to mini/max', 'go pro', or asks how to pay. Returns a real Paystack checkout URL the user can open from chat (card rail) and/or a navigation target to /app/billing for the crypto rail. If the user is unauthenticated or has no billing email, returns only the /app/billing navigation.",
+    "Initiate a Dreyv tier change (free → mini → max). Use whenever the user says 'upgrade', 'switch to mini/max', 'go pro', or asks how to pay. Returns (a) a real Paystack hosted-checkout URL for card payments and/or (b) a real crypto invoice — receiving address, exact amount, memo, Solana Pay URL, and a Dreyv-branded QR PNG — so the user can pay from their connected wallet in one click OR scan with any mobile wallet. Both rails are activated when method='any'.",
   inputSchema: z.object({
     tier: z.enum(["mini", "max"]).describe("Target tier."),
     method: z
@@ -28,6 +28,16 @@ const upgrade_subscription = defineCapability({
       .optional()
       .default("any")
       .describe("Preferred payment rail. 'crypto' includes a 10% discount."),
+    asset: z
+      .enum(["usdc", "usdt", "sol"])
+      .optional()
+      .default("usdc")
+      .describe("Crypto asset for the crypto rail. Defaults to USDC."),
+    chain: z
+      .enum(["solana"])
+      .optional()
+      .default("solana")
+      .describe("Chain for the crypto rail. Solana is the only enabled rail today."),
   }),
   sideEffects: "meta",
   requiredAuth: "none",
