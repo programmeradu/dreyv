@@ -49,10 +49,12 @@ export function HandoffsPanel() {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!wallet) return;
     setLoading(true);
     try {
-      const r = await fetch(`/api/dacs/handoffs?wallet=${wallet}&limit=25`);
+      // When a wallet is connected, scope to that wallet. Otherwise show the
+      // most recent platform-wide handoffs so the panel never looks dead.
+      const qs = wallet ? `wallet=${wallet}&limit=25` : `limit=15`;
+      const r = await fetch(`/api/dacs/handoffs?${qs}`);
       const data = await r.json();
       if (data.ok) setRows(data.handoffs ?? []);
     } catch { /* swallow */ } finally { setLoading(false); }
@@ -74,7 +76,9 @@ export function HandoffsPanel() {
     return Array.from(map.entries()).slice(0, 12);
   }, [rows]);
 
-  if (!wallet) return null;
+  // Note: previously this returned null when no wallet was connected, which
+  // made the panel look broken on the settings page. Now we always render so
+  // the user can either see platform-wide activity or get a clear empty state.
 
   return (
     <section className="relative rounded-3xl border border-violet-100 bg-white p-7 sm:p-8 overflow-hidden">
@@ -91,11 +95,12 @@ export function HandoffsPanel() {
           </h2>
           <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
             Every command can fan out to specialist agents. Each one returns a signed report — accepted, completed, deferred, or rejected.
+            {!wallet && " Connect a wallet to scope this view to your own commands; below is recent platform-wide activity."}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-violet-700">
-            <GitBranch size={11} /> {rows.length} reports
+            <GitBranch size={11} /> {rows.length} {wallet ? "reports" : "recent"}
           </span>
           {loading && <Loader2 className="animate-spin text-violet-600" size={14} />}
         </div>
@@ -105,10 +110,18 @@ export function HandoffsPanel() {
         {grouped.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/30 px-5 py-10 text-center">
             <DreyvStar size={14} className="text-violet-400 mx-auto" />
-            <p className="mt-3 text-[13px] text-slate-600">No handoffs yet.</p>
-            <p className="mt-1 text-[12px] text-slate-500">
-              Submit a command and watch specialists report back here in real time.
+            <p className="mt-3 text-[13px] text-slate-600">
+              {wallet ? "No handoffs yet for this wallet." : "No specialist activity in the recent window."}
             </p>
+            <p className="mt-1 text-[12px] text-slate-500">
+              Submit a command in the CommandBar and watch specialists report back here in real time.
+            </p>
+            <a
+              href="/app/admin/dacs-handoffs"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50"
+            >
+              Open admin audit →
+            </a>
           </div>
         ) : (
           <ul className="space-y-3">
