@@ -109,13 +109,49 @@ const foresight_simulation = defineCapability({
     }
 
     // ── IR-first path: try LLM planner, fall back to preset adapter ─────
+    // Spam-token guard: many wallets hold airdropped SPL tokens that Jupiter
+    // mis-prices into millions/billions. Trust only majors + stables + LSTs;
+    // for everything else cap per-token notional at $50k so a single spam
+    // mint can't inflate the treasury into the billions.
+    const MAJOR = new Set([
+      "SOL", "WSOL", "JITOSOL", "MSOL", "BSOL", "JUPSOL", "INF",
+      "USDC", "USDT", "USDS", "PYUSD", "DAI", "USDH",
+      "JTO", "JUP", "BONK", "WIF", "PYTH", "RNDR", "RAY", "ORCA", "MNDE",
+      "ETH", "WETH", "WBTC", "BTC",
+    ]);
+    const SPAM_CAP_USD = 50_000;
     const irTokens: IRToken[] = tokens
       .filter((t) => (t.amount ?? 0) > 0 && (t.price ?? 0) > 0 && t.symbol)
-      .map((t) => ({
-        symbol: String(t.symbol).toUpperCase(),
-        amount: Number(t.amount) || 0,
-        price: Number(t.price) || 0,
-      }));
+      .map((t) => {
+        const symbol = String(t.symbol).toUpperCase();
+        const amount = Number(t.amount) || 0;
+        const price = Number(t.price) || 0;
+        const notional = amount * price;
+        if (!MAJOR.has(symbol) && notional > SPAM_CAP_USD) {
+          // Cap by reducing reported amount — keep the token visible but neutered.
+          return { symbol, amount: price > 0 ? SPAM_CAP_USD / price : 0, price };
+        }
+        return { symbol, amount, price };
+      })
+      .filter((t) => t.amount * t.price >= 1); // drop dust
+    // Recompute trusted balance (used downstream for clarify messages).
+    const trustedBalance = irTokens.reduce((s, t) => s + t.amount * t.price, 0);
+    if (trustedBalance === 0) {
+      return {
+        success: false,
+        operation: "foresight_simulation",
+        scenario,
+        variables,
+        timeframeMonths,
+        dataSource: "filtered",
+        message:
+          "No verified tokens with reliable pricing in this treasury. Connect a vault with SOL, stables, or major SPL tokens to run a simulation.",
+        clarifyChips: [
+          { id: "connect", label: "Connect a vault", suggestPrompt: "Connect my treasury wallet" },
+        ],
+        needsClarify: true,
+      };
+    }
 
     let ir: SimulationIR | null = null;
     try {
@@ -147,6 +183,37 @@ const foresight_simulation = defineCapability({
 
     if (ir) {
       ir = await enrichIRWithScenarioAssets(ir);
+
+      // ── Anti-fabrication sanitizer ─────────────────────────────────────
+      // Planner is told never to invent monthlyBurn / APY / inflow, but LLMs
+      // slip. Strip any flow/yield the user did NOT explicitly ask for and
+      // that we have NO baseline for — push to unknowns instead.
+      const promptText = `${scenario} ${JSON.stringify(variables)}`.toLowerCase();
+      const userMentions = {
+        burn: /burn|spend|expense|payroll|cost|salary|opex|outflow/.test(promptText),
+        inflow: /inflow|revenue|income|deposit|raise|grant/.test(promptText),
+        yield: /yield|apy|stake|staking|earn|interest/.test(promptText),
+        hire: /hire|hiring|engineer|headcount/.test(promptText),
+      };
+      const stripped: string[] = [];
+      const keptFlows = (ir.flows || []).filter((f: any) => {
+        const k = String(f?.kind || "");
+        if (k === "outflow" && !userMentions.burn) { stripped.push(`outflow`); return false; }
+        if (k === "inflow" && !userMentions.inflow) { stripped.push(`inflow`); return false; }
+        if (k === "hire" && !userMentions.hire) { stripped.push(`hire`); return false; }
+        if (k === "yield" && !userMentions.yield) { stripped.push(`yield`); return false; }
+        return true;
+      });
+      if (stripped.length) {
+        ir.flows = keptFlows;
+        const extra: string[] = [];
+        if (stripped.includes("outflow") || stripped.includes("hire")) extra.push("monthlyBurn unknown — ask user");
+        if (stripped.includes("inflow")) extra.push("monthlyInflow unknown — ask user");
+        if (stripped.includes("yield")) extra.push("yield APY unknown — ask user");
+        ir.unknowns = Array.from(new Set([...(ir.unknowns || []), ...extra]));
+        console.warn(`[foresight] stripped fabricated flows: ${stripped.join(", ")}`);
+      }
+
       const result = runSimulationIR(ir);
       const flatVariables = irToFlatVariables(ir);
 
