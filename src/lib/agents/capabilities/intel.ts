@@ -40,7 +40,10 @@ const foresight_simulation = defineCapability({
   id: "foresight_simulation",
   domain: "intel",
   description:
-    "Run a 'What If' simulation — runway projection, market shock, variable impact, yield forecast. Triggers Depletion Node visualization.",
+    "Run a HYPOTHETICAL 'What If' simulation on the user's treasury — runway projection, market shock, variable impact, yield forecast. " +
+    "ONLY use when the user explicitly poses a hypothetical ('what if', 'if X drops', 'project my runway', 'simulate a rebalance to…'). " +
+    "DO NOT use for: discovering DCA opportunities, finding entry points, scanning current market drawdowns, suggesting trades, listing yields, risk audits, portfolio composition, or any 'show me / find me / what are the…' present-tense question. " +
+    "Those belong to dca_opportunities / yield_lookup / risk_assessment / treasury_snapshot — not this tool.",
   inputSchema: z.object({
     scenario: z
       .string()
