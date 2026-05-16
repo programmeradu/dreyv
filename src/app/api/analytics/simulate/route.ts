@@ -275,36 +275,113 @@ function project(req: LegacyProjectInput): ProjectionResult {
 
 // ─── Foresight bands (P10/P50/P90) using realized portfolio vol ───────────────
 
+// Box-Muller standard normal sampler with a deterministic seed so two
+// requests with identical inputs return identical bands (audit-friendly).
+function makeRng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    // mulberry32
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng: () => number): number {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) return 0;
+  const i = (sorted.length - 1) * q;
+  const lo = Math.floor(i), hi = Math.ceil(i);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+const PATHS = 200;
+
 function buildForesightBands(p: ProjectionResult, portfolio: PortfolioToken[], timeframeMonths: number) {
-  // Portfolio-level annualized vol from real 24h moves, weighted by weight.
+  // Portfolio-level monthly volatility from real 24h moves, weighted by weight.
+  // |change24h| is a weak vol proxy (one observation), so floor at 1%/day for
+  // any non-stable token to avoid pathologically tight bands when the day is
+  // quiet.
   const total = p.currentValue || 1;
   let weightedVarDaily = 0;
   for (const t of portfolio) {
     if (isStable(t)) continue;
     const w = (t.amount * t.price) / total;
-    const dailySigma = Math.abs(t.change24h ?? 0) / 100;
+    const dailySigma = Math.max(0.01, Math.abs(t.change24h ?? 0) / 100);
     weightedVarDaily += (w * w) * (dailySigma * dailySigma);
   }
   const dailyVol = Math.sqrt(weightedVarDaily);
   const monthlyVol = dailyVol * Math.sqrt(30);
 
+  const steps = p.projection.length;
+  // Seed: deterministic on (currentValue, endValue, vol, steps) so identical
+  // inputs reproduce identical paths — but different scenarios get different
+  // sample paths.
+  const seed = Math.floor(
+    Math.abs(p.currentValue) * 1000 + Math.abs(p.endValue) + monthlyVol * 1e6 + steps,
+  );
+  const rng = makeRng(seed || 1);
+
+  // Per-step empirical distributions of total portfolio value across PATHS
+  // samples. Path = mean trajectory * cumulative log-normal shock.
+  const stepValues: number[][] = Array.from({ length: steps }, () => []);
+  let depletedPaths = 0;
+  const depletionMonthsList: number[] = [];
+
+  for (let path = 0; path < PATHS; path++) {
+    let logShock = 0;
+    let depleted = false;
+    let depletionMonth = -1;
+    for (let i = 0; i < steps; i++) {
+      const meanV = p.projection[i].totalValue;
+      if (i > 0) {
+        // GBM-style monthly shock with mean-zero drift on top of the
+        // deterministic mean trajectory (which already encodes scenario drift).
+        const z = gauss(rng);
+        logShock += monthlyVol * z - 0.5 * monthlyVol * monthlyVol;
+      }
+      const v = Math.max(0, meanV * Math.exp(logShock));
+      stepValues[i].push(v);
+      if (v <= 0 && !depleted) {
+        depleted = true;
+        depletionMonth = i;
+      }
+    }
+    if (depleted) {
+      depletedPaths += 1;
+      depletionMonthsList.push(depletionMonth);
+    }
+  }
+
+  for (const arr of stepValues) arr.sort((a, b) => a - b);
+
   const bands = p.projection.map((pt, i) => {
-    const sigma = monthlyVol * Math.sqrt(Math.max(1, i));
-    const v = pt.totalValue;
+    const s = stepValues[i];
     return {
       date: pt.date,
-      mean: v,
-      p50: v,
-      p10: Math.max(0, v * (1 - 1.28 * sigma)),
-      p25: Math.max(0, v * (1 - 0.67 * sigma)),
-      p75: v * (1 + 0.67 * sigma),
-      p90: v * (1 + 1.28 * sigma),
+      mean: pt.totalValue,
+      p50: quantile(s, 0.5),
+      p10: quantile(s, 0.1),
+      p25: quantile(s, 0.25),
+      p75: quantile(s, 0.75),
+      p90: quantile(s, 0.9),
     };
   });
 
   const last = bands[bands.length - 1];
-  const depletionProbability = last && last.p10 <= 0 ? 0.1 : last && last.p25 <= 0 ? 0.25 : 0;
-  const medianDepletionMonths = p.runwayMonths;
+  const depletionProbability = depletedPaths / PATHS;
+  depletionMonthsList.sort((a, b) => a - b);
+  const medianDepletionMonths =
+    depletionMonthsList.length > 0
+      ? depletionMonthsList[Math.floor(depletionMonthsList.length / 2)]
+      : p.runwayMonths;
 
   return {
     projection: bands,
@@ -318,10 +395,13 @@ function buildForesightBands(p: ProjectionResult, portfolio: PortfolioToken[], t
       riskFlags: p.riskFlags,
     },
     metadata: {
-      paths: 200,
+      paths: PATHS,
       timeframeMonths,
       granularity: "monthly" as const,
+      monthlyVol,
+      seed,
       usedPriors: true,
+      engine: "monte-carlo-gbm",
     },
   };
 }
