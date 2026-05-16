@@ -564,12 +564,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as RequestBody;
 
+    // Resolve priors once (used by both modes for the Monte Carlo bands).
+    const priors: PriorStats | undefined =
+      body.priors ?? (body.wallet ? await fetchPriorsForWallet(body.wallet) : undefined);
+
     // ─── IR mode (preferred) ────────────────────────────────────────────────
     if (body.ir && body.ir.startState?.tokens?.length) {
       const ir = await enrichIRWithScenarioAssets(body.ir);
       const horizon = Math.max(1, Math.min(60, Math.round(ir.horizonMonths || 12)));
       const result = runSimulationIR({ ...ir, horizonMonths: horizon });
-      return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL"));
+      return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL", priors));
     }
 
     // ─── Legacy mode ────────────────────────────────────────────────────────
@@ -593,7 +597,7 @@ export async function POST(req: NextRequest) {
       baselineAttribution: body.baselineAttribution,
     };
     const p = project(legacyInput);
-    const foresight = buildForesightBands(p, body.portfolio, body.timeframeMonths);
+    const foresight = buildForesightBands(p, body.portfolio, body.timeframeMonths, priors);
     const events = buildEvents(p);
     const benchmark = buildBenchmark(p, body.portfolio, body.benchmarkSymbol ?? "SOL");
 
