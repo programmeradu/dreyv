@@ -11,6 +11,35 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { TokenAvatar } from "@/components/TokenAvatar";
+import { getProtocolLogo } from "@/lib/protocol-logos";
+
+const FEE_TYPE_LABELS: Record<string, { label: string; sub: string }> = {
+  SWAP: { label: "Token swaps", sub: "DEX trades" },
+  TRANSFER: { label: "Transfers", sub: "Sends & receives" },
+  CLOSE_ACCOUNT: { label: "Closing accounts", sub: "Reclaimed rent" },
+  INITIALIZE_ACCOUNT: { label: "Opening accounts", sub: "New token accounts" },
+  CREATE_MULTISIG: { label: "Multisig setup", sub: "Squads / Realms" },
+  CREATE_ACCOUNT: { label: "Account creation", sub: "On-chain accounts" },
+  STAKE: { label: "Staking", sub: "Validator delegations" },
+  UNSTAKE: { label: "Unstaking", sub: "Withdrawals from validators" },
+  VOTE: { label: "Governance votes", sub: "DAO participation" },
+  MINT: { label: "Mints", sub: "Token / NFT minting" },
+  BURN: { label: "Burns", sub: "Token destruction" },
+  NFT_SALE: { label: "NFT sales", sub: "Marketplace trades" },
+  NFT_LISTING: { label: "NFT listings", sub: "Marketplace listings" },
+  COMPRESSED_NFT_MINT: { label: "Compressed NFTs", sub: "cNFT mints" },
+  UNKNOWN: { label: "Other activity", sub: "Misc on-chain calls" },
+};
+
+function prettifyAction(type: string): { label: string; sub: string } {
+  if (FEE_TYPE_LABELS[type]) return FEE_TYPE_LABELS[type];
+  const label = type
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return { label, sub: "On-chain activity" };
+}
 
 interface Holding {
   mint: string;
