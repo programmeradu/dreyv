@@ -2,14 +2,15 @@
  * Subscription / tier upgrade capability.
  *
  * The agent must be able to handle "upgrade to mini" / "switch to max" /
- * "what's my plan" without hallucinating. This capability returns a real
- * navigation payload pointing at /app/billing where the user picks
- * Card (Paystack) or Crypto (10% off, USDC/USDT/SOL today).
+ * "what's my plan" without hallucinating.
  *
- * It deliberately does NOT mint a Paystack URL server-side here — Paystack
- * checkout creation is auth-cookie scoped and lives on /app/billing's
- * client flow. The agent's job is to route the user there with the right
- * pre-selected tier and payment-method picker open.
+ * When the caller is authenticated (wallet known) and Paystack is configured,
+ * this capability mints a real Paystack hosted-checkout URL so the user can
+ * complete the upgrade **directly from chat** without first navigating to
+ * /app/billing. When Paystack isn't reachable or the user has no email on
+ * file, we fall back to the navigation-to-/app/billing payload so the user
+ * can finish there (with the tier preselected and the card-vs-crypto picker
+ * visible).
  */
 
 import { z } from "zod";
@@ -19,7 +20,7 @@ const upgrade_subscription = defineCapability({
   id: "upgrade_subscription",
   domain: "payments",
   description:
-    "Initiate a Dreyv tier change (free → mini → max). Use whenever the user says 'upgrade', 'switch to mini/max', 'go pro', or asks how to pay. Returns a real navigation target to /app/billing with the chosen tier preselected and the card-vs-crypto picker visible. Do NOT promise a checkout URL — the user must complete payment from /app/billing.",
+    "Initiate a Dreyv tier change (free → mini → max). Use whenever the user says 'upgrade', 'switch to mini/max', 'go pro', or asks how to pay. Returns a real Paystack checkout URL the user can open from chat (card rail) and/or a navigation target to /app/billing for the crypto rail. If the user is unauthenticated or has no billing email, returns only the /app/billing navigation.",
   inputSchema: z.object({
     tier: z.enum(["mini", "max"]).describe("Target tier."),
     method: z
@@ -32,24 +33,111 @@ const upgrade_subscription = defineCapability({
   requiredAuth: "none",
   sensitivity: "low",
   supportedChains: ["solana", "evm"],
-  execute: async (input) => {
+  execute: async (input, ctx) => {
     const usd = input.tier === "mini" ? 49 : 199;
     const cryptoUsd = (usd * 0.9).toFixed(2);
-    const url = "/app/billing";
+    const billingUrl = "/app/billing";
+
+    // Try to mint a real Paystack checkout URL when:
+    //   - the user wants the card rail (or "any"),
+    //   - we know the wallet (so we can resolve the user + email),
+    //   - Paystack is configured + plan code for tier exists,
+    //   - the user has a valid billing email.
+    let checkoutUrl: string | null = null;
+    let checkoutReference: string | null = null;
+    let checkoutError: string | null = null;
+
+    if (input.method !== "crypto" && ctx.walletAddress) {
+      try {
+        const [{ db }, { users }, { eq }, paystack, { isValidBillingEmail }, { getSiteOrigin }, { resolveUserIdFromWallet }] =
+          await Promise.all([
+            import("@/db"),
+            import("@/db/schema"),
+            import("drizzle-orm"),
+            import("@/lib/paystack"),
+            import("@/lib/billing-email"),
+            import("@/lib/seo/site"),
+            import("@/lib/agents/brains/storage"),
+          ]);
+
+        // Guard: Paystack configured + plan mapping exists.
+        try { paystack.getPaystackSecret(); } catch { throw new Error("Paystack is not configured"); }
+        const plan = paystack.planCodeForTier(input.tier);
+        if (!plan) throw new Error(`No Paystack plan code for ${input.tier}`);
+
+        // Resolve user + email from wallet.
+        if (!db) throw new Error("Database unavailable");
+        const userId = await resolveUserIdFromWallet(ctx.walletAddress);
+        if (!userId) throw new Error("No Dreyv account linked to this wallet");
+
+        const [row] = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        const email = (row?.email ?? "").trim();
+        if (!isValidBillingEmail(email)) {
+          throw new Error("Add a billing email in Settings before upgrading");
+        }
+
+        const origin = getSiteOrigin().replace(/\/$/, "");
+        const callbackUrl = `${origin}/app/billing?paystack=verify`;
+        const session = await paystack.paystackInitializeTransaction({
+          email,
+          plan,
+          callbackUrl,
+          metadata: {
+            dreyv_user_id: userId,
+            wallet: ctx.walletAddress,
+            tier: input.tier,
+            source: "commandbar",
+          },
+        });
+        checkoutUrl = session.authorization_url || null;
+        checkoutReference = session.reference || null;
+      } catch (err) {
+        checkoutError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    const cryptoMessage = `${input.tier === "mini" ? "Mini" : "Max"} via crypto settles for $${cryptoUsd} in USDC, USDT, or SOL (10% off card price) — opens at /app/billing.`;
+    const cardCheckoutMessage = checkoutUrl
+      ? `One-click Paystack checkout ready for ${input.tier === "mini" ? "Mini" : "Max"} ($${usd}/mo). Open the link to finish payment — your tier flips automatically when Paystack confirms.`
+      : null;
+    const cardFallbackMessage = `Open /app/billing and click Upgrade to ${input.tier === "mini" ? "Mini" : "Max"} — Paystack will take it from there ($${usd}/mo).`;
+
+    let message: string;
+    if (input.method === "crypto") {
+      message = cryptoMessage;
+    } else if (input.method === "card") {
+      message = cardCheckoutMessage ?? cardFallbackMessage;
+    } else {
+      message = checkoutUrl
+        ? `${cardCheckoutMessage} Prefer crypto for 10% off? ${cryptoMessage}`
+        : `Open /app/billing to upgrade to ${input.tier === "mini" ? "Mini" : "Max"}. You can pay $${usd}/mo by card (Paystack) or $${cryptoUsd}/cycle in crypto (USDC/USDT/SOL · 10% off).`;
+    }
+
+    // Preferred navigation target: the Paystack URL itself if we have it,
+    // otherwise the billing page. The agent renders `navigate` as a CTA.
+    const navigate = checkoutUrl ?? billingUrl;
+
     return {
       success: true,
       operation: "upgrade_subscription",
       tier: input.tier,
       method: input.method,
-      url,
-      navigate: url,
-      message:
-        input.method === "crypto"
-          ? `Open /app/billing and use the crypto panel — ${input.tier === "mini" ? "Mini" : "Max"} settles for $${cryptoUsd} in USDC, USDT, or SOL (10% off card price).`
-          : input.method === "card"
-            ? `Open /app/billing and click Upgrade to ${input.tier === "mini" ? "Mini" : "Max"} — Paystack will take it from there ($${usd}/mo).`
-            : `Open /app/billing to upgrade to ${input.tier === "mini" ? "Mini" : "Max"}. You can pay $${usd}/mo by card (Paystack) or $${cryptoUsd}/cycle in crypto (USDC/USDT/SOL · 10% off).`,
-      pricing: { card: { usd, recurring: true, provider: "paystack" }, crypto: { usd: Number(cryptoUsd), recurring: false, discountPct: 10, assets: ["usdc", "usdt", "sol"], chain: "solana" } },
+      url: navigate,
+      navigate,
+      checkoutUrl,
+      checkoutReference,
+      checkoutProvider: checkoutUrl ? "paystack" : null,
+      checkoutError,
+      fallbackUrl: billingUrl,
+      message,
+      pricing: {
+        card: { usd, recurring: true, provider: "paystack" },
+        crypto: { usd: Number(cryptoUsd), recurring: false, discountPct: 10, assets: ["usdc", "usdt", "sol"], chain: "solana" },
+      },
     };
   },
 });
@@ -68,7 +156,6 @@ const get_subscription_status = defineCapability({
     if (!ctx.walletAddress) {
       return { success: false, operation: "get_subscription_status", message: "Wallet required to read subscription." };
     }
-    // Best-effort: hit the same endpoint the billing page uses so we never drift.
     try {
       const origin = (await import("@/lib/seo/site")).getSiteOrigin();
       const res = await fetch(`${origin}/api/paystack/status`, { headers: { "x-wallet": ctx.walletAddress }, cache: "no-store" });
