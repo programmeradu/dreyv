@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSimulationIR, type SimulationIR, type IRProjectionResult } from "@/lib/foresight/simulation-ir";
 import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";
+import { db } from "@/db";
+import { treasurySnapshots } from "@/db/schema";
+import { and, eq, gte } from "drizzle-orm";
 
 /**
  * /api/analytics/simulate
