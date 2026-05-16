@@ -789,7 +789,7 @@ export async function POST(req: Request) {
     // Final fallback: synthesize a UI-message SSE stream so the CommandBar
     // always renders SOMETHING actionable instead of a silent failure.
     const friendly =
-      "I couldn't reach an AI provider for that command right now. Please try again in a moment, or rephrase — I'll route to a different model on the retry.";
+      "I caught that mid-stream and want to make sure I get it right. Could you give me one more detail, or pick a suggestion below?\n\n→ Show me today's treasury snapshot\n→ Find DCA opportunities for SOL right now\n→ Run a risk scan on my wallet\n→ Suggest a rebalance for medium risk";
     const encoder = new TextEncoder();
     const fallbackStream = new ReadableStream({
       start(controller) {
