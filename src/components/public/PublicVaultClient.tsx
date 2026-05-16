@@ -11,6 +11,35 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { TokenAvatar } from "@/components/TokenAvatar";
+import { getProtocolLogo } from "@/lib/protocol-logos";
+
+const FEE_TYPE_LABELS: Record<string, { label: string; sub: string }> = {
+  SWAP: { label: "Token swaps", sub: "DEX trades" },
+  TRANSFER: { label: "Transfers", sub: "Sends & receives" },
+  CLOSE_ACCOUNT: { label: "Closing accounts", sub: "Reclaimed rent" },
+  INITIALIZE_ACCOUNT: { label: "Opening accounts", sub: "New token accounts" },
+  CREATE_MULTISIG: { label: "Multisig setup", sub: "Squads / Realms" },
+  CREATE_ACCOUNT: { label: "Account creation", sub: "On-chain accounts" },
+  STAKE: { label: "Staking", sub: "Validator delegations" },
+  UNSTAKE: { label: "Unstaking", sub: "Withdrawals from validators" },
+  VOTE: { label: "Governance votes", sub: "DAO participation" },
+  MINT: { label: "Mints", sub: "Token / NFT minting" },
+  BURN: { label: "Burns", sub: "Token destruction" },
+  NFT_SALE: { label: "NFT sales", sub: "Marketplace trades" },
+  NFT_LISTING: { label: "NFT listings", sub: "Marketplace listings" },
+  COMPRESSED_NFT_MINT: { label: "Compressed NFTs", sub: "cNFT mints" },
+  UNKNOWN: { label: "Other activity", sub: "Misc on-chain calls" },
+};
+
+function prettifyAction(type: string): { label: string; sub: string } {
+  if (FEE_TYPE_LABELS[type]) return FEE_TYPE_LABELS[type];
+  const label = type
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return { label, sub: "On-chain activity" };
+}
 
 interface Holding {
   mint: string;
@@ -76,9 +105,9 @@ function authHref(intent: string, address: string, params?: Record<string, strin
 }
 
 const RISK_TONE: Record<"low" | "medium" | "high", string> = {
-  low: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  medium: "bg-amber-50 text-amber-700 border-amber-200",
-  high: "bg-rose-50 text-rose-700 border-rose-200",
+  low: "bg-violet-50 text-violet-700 border-violet-200",
+  medium: "bg-violet-100 text-violet-800 border-violet-300",
+  high: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
 export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
@@ -166,7 +195,17 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
               <tbody>
                 {topHoldings.map((h) => (
                   <tr key={h.mint} className="border-t border-violet-100/80 hover:bg-violet-50/30">
-                    <td className="px-4 py-2 align-middle font-semibold text-slate-900">{h.symbol}</td>
+                    <td className="px-4 py-2 align-middle">
+                      <div className="flex items-center gap-2.5">
+                        <TokenAvatar symbol={h.symbol} mint={h.mint} logo={h.logo} size={28} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900 leading-tight">{h.symbol}</div>
+                          {h.name && (
+                            <div className="text-[11px] text-slate-500 truncate">{h.name}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-4 py-2 align-middle tabular-nums text-slate-700">
                       {h.human.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                     </td>
@@ -196,23 +235,35 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
       {sortedYields.length > 0 && (
         <Block title="Yield opportunities">
           <ul className="divide-y divide-violet-100">
-            {sortedYields.map((y) => (
+            {sortedYields.map((y) => {
+              const protoLogo = getProtocolLogo(y.protocol);
+              return (
               <li
                 key={`${y.symbol}-${y.protocol}`}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${RISK_TONE[y.riskTier]}`}
-                  >
-                    {y.riskTier}
-                  </span>
+                  {protoLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={protoLogo}
+                      alt={y.protocol}
+                      className="h-8 w-8 shrink-0 rounded-full border border-violet-100 bg-white object-cover"
+                    />
+                  ) : (
+                    <TokenAvatar symbol={y.symbol} size={32} />
+                  )}
                   <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="font-semibold text-slate-900">{y.symbol}</span>
                       <span className="text-xs text-slate-500">{y.protocol}</span>
+                      <span
+                        className={`inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${RISK_TONE[y.riskTier]}`}
+                      >
+                        {y.riskTier} risk
+                      </span>
                       {y.source === "live" && (
-                        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700">
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-700">
                           Live
                         </span>
                       )}
@@ -237,7 +288,8 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
                   </Link>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </Block>
       )}
@@ -246,20 +298,25 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
       {topFeeTypes.length > 0 && (
         <Block title="Fees paid (last 6 months)">
           <ul className="divide-y divide-violet-100">
-            {topFeeTypes.map((t) => (
+            {topFeeTypes.map((t) => {
+              const pretty = prettifyAction(t.type);
+              return (
               <li
                 key={t.type}
                 className="flex items-center justify-between gap-3 px-4 py-3"
               >
                 <div>
-                  <p className="font-semibold text-slate-900">{t.type}</p>
-                  <p className="text-[11px] text-slate-500">{t.count.toLocaleString()} transactions</p>
+                  <p className="font-semibold text-slate-900">{pretty.label}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {pretty.sub} · {t.count.toLocaleString()} {t.count === 1 ? "transaction" : "transactions"}
+                  </p>
                 </div>
-                <span className="font-mono text-base font-semibold text-rose-600 tabular-nums">
+                <span className="font-mono text-base font-semibold text-slate-900 tabular-nums">
                   {fmtUsd(t.totalFees)}
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ul>
           <div className="border-t border-violet-100 bg-violet-50/40 px-4 py-3 text-sm">
             <Link
