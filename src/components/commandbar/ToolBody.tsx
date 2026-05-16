@@ -613,6 +613,163 @@ function RebalanceBody({ output }: { output: Record<string, unknown> }) {
   );
 }
 
+// ── Upgrade subscription ─────────────────────────────────────────────────
+
+function UpgradeBody({ output }: { output: Record<string, unknown> }) {
+  const tier = (output.tier as string) ?? "mini";
+  const checkoutUrl = output.checkoutUrl as string | null | undefined;
+  const fallbackUrl = (output.fallbackUrl as string) ?? "/app/billing";
+  const inv = output.cryptoInvoice as
+    | {
+        invoiceId: string;
+        asset: string;
+        amount: string;
+        amountUsd: number;
+        receivingAddress: string;
+        memo: string;
+        expiresAt: string;
+        solanaPayUrl: string | null;
+        qrUrl: string;
+        walletPayUrl: string;
+      }
+    | null
+    | undefined;
+  const pricing = output.pricing as
+    | { card?: { usd: number }; crypto?: { usd: number; discountPct: number } }
+    | undefined;
+  const cardUsd = pricing?.card?.usd;
+  const cryptoUsd = pricing?.crypto?.usd;
+
+  const [copied, setCopied] = React.useState<string | null>(null);
+  const copy = (label: string, text: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(label);
+        setTimeout(() => setCopied(null), 1500);
+      });
+    }
+  };
+
+  return (
+    <div className="mt-2 space-y-2.5">
+      {/* Card rail */}
+      {(checkoutUrl || fallbackUrl) && (
+        <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-semibold text-slate-900">
+                Pay with card — {tier.toUpperCase()}
+                {cardUsd ? ` · $${cardUsd}/mo` : ""}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Paystack hosted checkout. Tier flips on confirmation.
+              </div>
+            </div>
+            <a
+              href={checkoutUrl ?? fallbackUrl}
+              target={checkoutUrl ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+            >
+              {checkoutUrl ? "Open checkout" : "Go to billing"}
+              <ArrowRight className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Crypto rail */}
+      {inv && (
+        <div className="rounded-2xl border border-violet-100 bg-white p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-slate-900">
+                Pay with crypto — {inv.amount} {inv.asset.toUpperCase()}
+                {cryptoUsd ? ` (~$${cryptoUsd})` : ""}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Solana · 10% off card price · expires{" "}
+                {new Date(inv.expiresAt).toLocaleString()}
+              </div>
+              <div className="mt-2 space-y-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">To:</span>
+                  <code className="truncate font-mono text-slate-700">
+                    {inv.receivingAddress.slice(0, 6)}…{inv.receivingAddress.slice(-6)}
+                  </code>
+                  <button
+                    onClick={() => copy("addr", inv.receivingAddress)}
+                    className="text-violet-700 hover:underline"
+                  >
+                    {copied === "addr" ? "copied" : "copy"}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Memo:</span>
+                  <code className="font-mono text-slate-700">{inv.memo}</code>
+                  <button
+                    onClick={() => copy("memo", inv.memo)}
+                    className="text-violet-700 hover:underline"
+                  >
+                    {copied === "memo" ? "copied" : "copy"}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <a
+                  href={inv.walletPayUrl}
+                  className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+                >
+                  <Wallet className="h-3 w-3" />
+                  Pay from wallet
+                </a>
+                {inv.solanaPayUrl && (
+                  <a
+                    href={inv.solanaPayUrl}
+                    className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50"
+                  >
+                    Open in wallet app
+                  </a>
+                )}
+                <a
+                  href={inv.qrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Open QR
+                </a>
+              </div>
+            </div>
+            <a
+              href={inv.qrUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-xl border border-violet-100 bg-white p-1"
+              title="Scan to pay"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={inv.qrUrl}
+                alt="Dreyv crypto payment QR"
+                className="h-24 w-24 rounded-lg"
+              />
+            </a>
+          </div>
+        </div>
+      )}
+
+      {typeof output.checkoutError === "string" && output.checkoutError && (
+        <div className="text-[11px] text-rose-600">Card: {output.checkoutError}</div>
+      )}
+      {typeof output.cryptoError === "string" && output.cryptoError && (
+        <div className="text-[11px] text-rose-600">Crypto: {output.cryptoError}</div>
+      )}
+    </div>
+  );
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────
 
 export function ToolBody({ toolName, operation, output }: Props) {
@@ -620,6 +777,8 @@ export function ToolBody({ toolName, operation, output }: Props) {
   const op = operation ?? toolName;
 
   switch (op) {
+    case "upgrade_subscription":
+      return <UpgradeBody output={output} />;
     case "transfer":
     case "stake":
       return <TransferBody output={output} />;
