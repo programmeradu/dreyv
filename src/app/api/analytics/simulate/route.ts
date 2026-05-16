@@ -436,11 +436,53 @@ function buildForesightBands(
       timeframeMonths,
       granularity: "monthly" as const,
       monthlyVol,
+      dailyVol,
+      volSource,
+      volSampleSize: snapSamples,
       seed,
-      usedPriors: true,
+      usedPriors: snapVol > 0,
       engine: "monte-carlo-gbm",
     },
   };
+}
+
+// ─── Snapshot-derived priors (portfolio-level realized vol/drift) ────────────
+
+async function fetchPriorsForWallet(wallet: string): Promise<PriorStats | undefined> {
+  try {
+    if (!db) return undefined;
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({ capturedAt: treasurySnapshots.capturedAt, totalUsd: treasurySnapshots.totalUsd })
+      .from(treasurySnapshots)
+      .where(and(eq(treasurySnapshots.walletAddress, wallet), gte(treasurySnapshots.capturedAt, since)))
+      .orderBy(treasurySnapshots.capturedAt);
+    if (rows.length < 2) return { samples: rows.length };
+    // Bucket to one observation per UTC day (last snapshot wins) so vol is
+    // truly daily regardless of intra-day snapshot cadence.
+    const byDay = new Map<string, number>();
+    for (const r of rows) {
+      const d = new Date(r.capturedAt as any).toISOString().slice(0, 10);
+      byDay.set(d, Number(r.totalUsd));
+    }
+    const series = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+    if (series.length < 2) return { samples: series.length };
+    const rets: number[] = [];
+    for (let i = 1; i < series.length; i++) {
+      const prev = series[i - 1];
+      if (prev > 0) rets.push((series[i] - prev) / prev);
+    }
+    if (!rets.length) return { samples: series.length };
+    const mean = rets.reduce((s, x) => s + x, 0) / rets.length;
+    const variance = rets.reduce((s, x) => s + (x - mean) ** 2, 0) / rets.length;
+    return {
+      driftPctPerDay: mean,
+      volPctPerDay: Math.sqrt(variance),
+      samples: series.length,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── Synthetic flows / fees / events grounded in scenario aggregates ─────────
