@@ -195,7 +195,17 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
               <tbody>
                 {topHoldings.map((h) => (
                   <tr key={h.mint} className="border-t border-violet-100/80 hover:bg-violet-50/30">
-                    <td className="px-4 py-2 align-middle font-semibold text-slate-900">{h.symbol}</td>
+                    <td className="px-4 py-2 align-middle">
+                      <div className="flex items-center gap-2.5">
+                        <TokenAvatar symbol={h.symbol} mint={h.mint} logo={h.logo} size={28} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900 leading-tight">{h.symbol}</div>
+                          {h.name && (
+                            <div className="text-[11px] text-slate-500 truncate">{h.name}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-4 py-2 align-middle tabular-nums text-slate-700">
                       {h.human.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                     </td>
