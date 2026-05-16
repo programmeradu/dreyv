@@ -512,24 +512,50 @@ const foresight_simulation = defineCapability({
 // ─────────────────────────────────────────────────────────────────────────────
 // risk_assessment — concentration scoring from vaultState. Pure read.
 // ─────────────────────────────────────────────────────────────────────────────
+// SOL + liquid-staking derivatives all carry SOL price exposure → group them.
+const SOL_FAMILY = new Set(["SOL", "WSOL", "MSOL", "JITOSOL", "BSOL", "STSOL", "JUPSOL", "INF"]);
+const STABLECOINS = new Set(["USDC", "USDT", "DAI", "USDS", "PYUSD", "FDUSD", "USDH"]);
+// Rough annualized vol bands used to weight concentration severity.
+const VOL_BAND: Record<string, "stable" | "blue" | "alt" | "memecoin"> = {
+  USDC: "stable", USDT: "stable", DAI: "stable", USDS: "stable", PYUSD: "stable", FDUSD: "stable", USDH: "stable",
+  SOL: "blue", WSOL: "blue", MSOL: "blue", JITOSOL: "blue", BSOL: "blue", STSOL: "blue", JUPSOL: "blue", INF: "blue",
+  ETH: "blue", BTC: "blue", JUP: "alt", JTO: "alt", RAY: "alt", ORCA: "alt", PYTH: "alt", MNDE: "alt",
+  BONK: "memecoin", WIF: "memecoin", TRUMP: "memecoin",
+};
+
+function classifyAsset(symbol: string): { group: string; band: "stable" | "blue" | "alt" | "memecoin" } {
+  const s = (symbol || "").toUpperCase();
+  if (SOL_FAMILY.has(s)) return { group: "SOL+LSTs", band: "blue" };
+  if (STABLECOINS.has(s)) return { group: "Stablecoins", band: "stable" };
+  return { group: s, band: VOL_BAND[s] ?? "alt" };
+}
+
 const risk_assessment = defineCapability({
   id: "risk_assessment",
   domain: "intel",
   description:
-    "Run concentration risk assessment — triggers Risk Radar visualization.",
+    "Concentration & volatility-weighted risk assessment — groups SOL+LSTs and stablecoins by underlying exposure, applies dust-wallet guard, returns severity-tagged findings. Triggers Risk Radar visualization.",
   inputSchema: z.object({
     threshold: z
       .number()
       .optional()
-      .default(50)
-      .describe("Concentration threshold % to flag"),
+      .default(40)
+      .describe("Concentration threshold % to flag at the asset-group level (SOL+LSTs counted as one group)."),
+    minNotionalUsd: z
+      .number()
+      .optional()
+      .default(250)
+      .describe("Skip concentration warnings if total treasury value is below this (dust-wallet guard)."),
   }),
   sideEffects: "read",
   requiredAuth: "none",
   sensitivity: "low",
   execute: async (input, ctx) => {
-    const { threshold } = input;
-    console.log(`[capability:risk_assessment] threshold: ${threshold}%`);
+    const { threshold, minNotionalUsd } = input as {
+      threshold: number;
+      minNotionalUsd: number;
+    };
+    console.log(`[capability:risk_assessment] threshold=${threshold}% minNotional=$${minNotionalUsd}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const holdings: any[] = Array.isArray(ctx.vaultState?.tokens)
       ? (ctx.vaultState!.tokens as any[])
@@ -537,41 +563,126 @@ const risk_assessment = defineCapability({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tokenValue = (t: any) => {
       const fromUsd =
-        typeof t.usdValue === "number" && Number.isFinite(t.usdValue)
-          ? t.usdValue
-          : null;
+        typeof t.usdValue === "number" && Number.isFinite(t.usdValue) ? t.usdValue : null;
       if (fromUsd != null) return fromUsd;
       return (Number(t.amount) || 0) * (Number(t.price) || 0);
     };
-    const totalValue = holdings.reduce(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (sum: number, t: any) => sum + tokenValue(t),
-      0,
-    );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const concentrations = holdings.map((t: any) => {
+    const totalValue = holdings.reduce((sum, t) => sum + tokenValue(t), 0);
+
+    // ── Dust-wallet guard ──────────────────────────────────────────────
+    if (totalValue < minNotionalUsd) {
+      return {
+        success: true,
+        operation: "risk_assessment",
+        threshold,
+        totalValue: Math.round(totalValue * 100) / 100,
+        holdingsCount: holdings.length,
+        findings: [
+          {
+            severity: "info" as const,
+            code: "dust_wallet",
+            message: `Treasury value $${totalValue.toFixed(2)} is below the $${minNotionalUsd} concentration-analysis floor. Connect a funded vault or pass a smaller minNotionalUsd to evaluate.`,
+          },
+        ],
+        concentrationRisks: [],
+        concentrations: [],
+        groups: [],
+        riskCount: 0,
+        triggerVisualization: false,
+        chartType: "risk_radar",
+        message: `Treasury too small for meaningful concentration analysis ($${totalValue.toFixed(2)} < $${minNotionalUsd}).`,
+      };
+    }
+
+    // ── Group by underlying exposure ──────────────────────────────────
+    const groupMap = new Map<string, { group: string; value: number; band: "stable" | "blue" | "alt" | "memecoin"; members: string[] }>();
+    for (const t of holdings) {
       const value = tokenValue(t);
-      const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-      return { token: t.symbol, value, percentage };
-    });
-    const risks = concentrations.filter(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (t: any) => t.percentage >= (threshold || 50),
-    );
+      if (value <= 0) continue;
+      const { group, band } = classifyAsset(t.symbol || "UNKNOWN");
+      const existing = groupMap.get(group);
+      if (existing) {
+        existing.value += value;
+        // worst-case band wins
+        const rank = { stable: 0, blue: 1, alt: 2, memecoin: 3 } as const;
+        if (rank[band] > rank[existing.band]) existing.band = band;
+        if (t.symbol && !existing.members.includes(t.symbol)) existing.members.push(t.symbol);
+      } else {
+        groupMap.set(group, { group, value, band, members: t.symbol ? [t.symbol] : [] });
+      }
+    }
+    const groups = Array.from(groupMap.values())
+      .map((g) => ({ ...g, percentage: (g.value / totalValue) * 100 }))
+      .sort((a, b) => b.percentage - a.percentage);
+
+    // ── Volatility-weighted findings ──────────────────────────────────
+    type Severity = "info" | "warn" | "high" | "critical";
+    const findings: { severity: Severity; code: string; group: string; percentage: number; message: string }[] = [];
+
+    for (const g of groups) {
+      if (g.percentage < threshold) continue;
+      // Stablecoin concentration is informational, not a warning.
+      if (g.band === "stable") {
+        findings.push({
+          severity: "info",
+          code: "stable_concentration",
+          group: g.group,
+          percentage: g.percentage,
+          message: `${g.percentage.toFixed(1)}% in stablecoins — low market risk, but consider counterparty/issuer exposure (${g.members.join(", ")}).`,
+        });
+        continue;
+      }
+      // Severity scales by volatility band and how far above threshold.
+      const overshoot = g.percentage - threshold;
+      let severity: Severity = "warn";
+      if (g.band === "memecoin") severity = g.percentage >= 50 ? "critical" : "high";
+      else if (g.band === "alt") severity = g.percentage >= 70 ? "high" : "warn";
+      else if (g.band === "blue") severity = g.percentage >= 80 ? "high" : g.percentage >= 60 ? "warn" : "info";
+      void overshoot;
+      findings.push({
+        severity,
+        code: `${g.band}_concentration`,
+        group: g.group,
+        percentage: g.percentage,
+        message: `${g.percentage.toFixed(1)}% concentrated in ${g.group}${g.members.length > 1 ? ` (${g.members.join("+")})` : ""} — ${g.band} volatility band.`,
+      });
+    }
+
+    // Diversification floor: warn if fewer than 2 groups carry >5%.
+    const nonTrivial = groups.filter((g) => g.percentage > 5);
+    if (nonTrivial.length === 1 && nonTrivial[0].band !== "stable") {
+      findings.push({
+        severity: "high",
+        code: "single_asset_exposure",
+        group: nonTrivial[0].group,
+        percentage: nonTrivial[0].percentage,
+        message: `Treasury is effectively a single-asset position in ${nonTrivial[0].group}. A drawdown in this asset = a drawdown in the treasury.`,
+      });
+    }
+
+    const risks = findings.filter((f) => f.severity === "warn" || f.severity === "high" || f.severity === "critical");
+    const worstSeverity: Severity = findings.reduce<Severity>((acc, f) => {
+      const rank = { info: 0, warn: 1, high: 2, critical: 3 } as const;
+      return rank[f.severity] > rank[acc] ? f.severity : acc;
+    }, "info");
+
     return {
       success: true,
       operation: "risk_assessment",
       threshold,
-      totalValue,
-      concentrationRisks: risks,
-      concentrations,
+      totalValue: Math.round(totalValue * 100) / 100,
+      groups,
+      concentrations: groups.map((g) => ({ token: g.group, value: g.value, percentage: g.percentage })),
+      concentrationRisks: risks.map((r) => ({ token: r.group, percentage: r.percentage, severity: r.severity })),
+      findings,
       riskCount: risks.length,
+      worstSeverity,
       triggerVisualization: true,
       chartType: "risk_radar",
       message:
         risks.length > 0
-          ? `⚠️ ${risks.length} asset(s) exceed ${threshold}% threshold.`
-          : `✅ No concentration risks above ${threshold}%.`,
+          ? `${risks.length} concentration risk${risks.length === 1 ? "" : "s"} flagged (worst: ${worstSeverity}). Top group: ${groups[0]?.group} at ${groups[0]?.percentage.toFixed(1)}%.`
+          : `No concentration risks above ${threshold}% after grouping SOL+LSTs and stablecoins. Top group: ${groups[0]?.group} at ${groups[0]?.percentage.toFixed(1)}%.`,
     };
   },
 });
