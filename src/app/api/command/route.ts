@@ -593,10 +593,10 @@ export async function POST(req: Request) {
         anyAttemptMade = true;
         console.log(`[Command API] Trying model: ${name}`);
         const modelBudgeted = buildBudgetedMessagesWithCap(budgeted.messages, maxChars);
-        const result = streamText({ ...streamOptions, messages: modelBudgeted.messages, model, maxRetries: 0 });
+        const result = streamText({ ...streamOptions, messages: modelBudgeted.messages, model, maxRetries: 1 });
 
         // The AI SDK throws provider errors (e.g. 429) asynchronously.
-        // The error surfaces on result.text / result.response promises, NOT on reader.read().
+        // The error surfaces on result.response promise, NOT on reader.read().
         // We race the first UI stream chunk against the error promise to catch it.
         const response = result.toUIMessageStreamResponse();
         const body = response.body;
@@ -609,25 +609,43 @@ export async function POST(req: Request) {
 
         const reader = body.getReader();
 
-        // Race: first stream chunk vs provider error
-        // result.response rejects if the provider returns an error (429, etc.)
-        const errorPromise = Promise.resolve(result.response).then(() => null, (e: unknown) => e);
-        const chunkPromise = reader.read();
+        // Race: first stream chunk vs provider error vs hard timeout.
+        // CRITICAL: result.response RESOLVES on success once the response is built —
+        // a naive .then(()=>null) would let the success path win the race with `null`,
+        // which the old code mis-treated as a chunk and produced a hung empty stream
+        // (the symptom users saw as "fails on most commands without any response").
+        // Instead, only signal `error` from the error path; never resolve it on success.
+        type RaceOutcome =
+          | { type: "chunk"; value?: Uint8Array; done: boolean }
+          | { type: "error"; error: unknown }
+          | { type: "timeout" };
 
-        const raceResult = await Promise.race([
-          chunkPromise.then(r => ({ type: "chunk" as const, ...r })),
-          errorPromise.then((e: unknown) => e ? { type: "error" as const, error: e } : null),
-        ].filter(Boolean));
+        const errorPromise: Promise<RaceOutcome> = Promise.resolve(result.response).then(
+          () => new Promise<RaceOutcome>(() => {}), // success: stay pending forever
+          (e: unknown) => ({ type: "error" as const, error: e }),
+        );
+        const chunkPromise: Promise<RaceOutcome> = reader.read().then((r) => ({
+          type: "chunk" as const,
+          value: r.value,
+          done: r.done,
+        }));
+        const timeoutPromise: Promise<RaceOutcome> = new Promise((resolve) =>
+          setTimeout(() => resolve({ type: "timeout" }), 15_000),
+        );
 
-        if (raceResult && typeof raceResult === "object" && "type" in raceResult) {
-          if (raceResult.type === "error") {
-            reader.releaseLock();
-            throw (raceResult as { error: unknown }).error;
-          }
+        const raceResult = await Promise.race([chunkPromise, errorPromise, timeoutPromise]);
+
+        if (raceResult.type === "error") {
+          reader.releaseLock();
+          throw (raceResult as { error: unknown }).error;
+        }
+        if (raceResult.type === "timeout") {
+          try { reader.releaseLock(); } catch { /* ignore */ }
+          throw new Error(`Provider ${name} did not produce a first chunk within 15s`);
         }
 
         // First chunk arrived successfully. Also check for inline error content.
-        const firstRead = raceResult as { type: "chunk"; value?: Uint8Array; done: boolean };
+        const firstRead = raceResult;
         if (firstRead.value) {
           const text = new TextDecoder().decode(firstRead.value);
           if (/rate.?limit|429|rate_limit_exceeded|limit reached/i.test(text) && text.length < 500) {
