@@ -593,10 +593,10 @@ export async function POST(req: Request) {
         anyAttemptMade = true;
         console.log(`[Command API] Trying model: ${name}`);
         const modelBudgeted = buildBudgetedMessagesWithCap(budgeted.messages, maxChars);
-        const result = streamText({ ...streamOptions, messages: modelBudgeted.messages, model, maxRetries: 0 });
+        const result = streamText({ ...streamOptions, messages: modelBudgeted.messages, model, maxRetries: 1 });
 
         // The AI SDK throws provider errors (e.g. 429) asynchronously.
-        // The error surfaces on result.text / result.response promises, NOT on reader.read().
+        // The error surfaces on result.response promise, NOT on reader.read().
         // We race the first UI stream chunk against the error promise to catch it.
         const response = result.toUIMessageStreamResponse();
         const body = response.body;
@@ -609,25 +609,43 @@ export async function POST(req: Request) {
 
         const reader = body.getReader();
 
-        // Race: first stream chunk vs provider error
-        // result.response rejects if the provider returns an error (429, etc.)
-        const errorPromise = Promise.resolve(result.response).then(() => null, (e: unknown) => e);
-        const chunkPromise = reader.read();
+        // Race: first stream chunk vs provider error vs hard timeout.
+        // CRITICAL: result.response RESOLVES on success once the response is built —
+        // a naive .then(()=>null) would let the success path win the race with `null`,
+        // which the old code mis-treated as a chunk and produced a hung empty stream
+        // (the symptom users saw as "fails on most commands without any response").
+        // Instead, only signal `error` from the error path; never resolve it on success.
+        type RaceOutcome =
+          | { type: "chunk"; value?: Uint8Array; done: boolean }
+          | { type: "error"; error: unknown }
+          | { type: "timeout" };
 
-        const raceResult = await Promise.race([
-          chunkPromise.then(r => ({ type: "chunk" as const, ...r })),
-          errorPromise.then((e: unknown) => e ? { type: "error" as const, error: e } : null),
-        ].filter(Boolean));
+        const errorPromise: Promise<RaceOutcome> = Promise.resolve(result.response).then(
+          () => new Promise<RaceOutcome>(() => {}), // success: stay pending forever
+          (e: unknown) => ({ type: "error" as const, error: e }),
+        );
+        const chunkPromise: Promise<RaceOutcome> = reader.read().then((r) => ({
+          type: "chunk" as const,
+          value: r.value,
+          done: r.done,
+        }));
+        const timeoutPromise: Promise<RaceOutcome> = new Promise((resolve) =>
+          setTimeout(() => resolve({ type: "timeout" }), 15_000),
+        );
 
-        if (raceResult && typeof raceResult === "object" && "type" in raceResult) {
-          if (raceResult.type === "error") {
-            reader.releaseLock();
-            throw (raceResult as { error: unknown }).error;
-          }
+        const raceResult = await Promise.race([chunkPromise, errorPromise, timeoutPromise]);
+
+        if (raceResult.type === "error") {
+          reader.releaseLock();
+          throw (raceResult as { error: unknown }).error;
+        }
+        if (raceResult.type === "timeout") {
+          try { reader.releaseLock(); } catch { /* ignore */ }
+          throw new Error(`Provider ${name} did not produce a first chunk within 15s`);
         }
 
         // First chunk arrived successfully. Also check for inline error content.
-        const firstRead = raceResult as { type: "chunk"; value?: Uint8Array; done: boolean };
+        const firstRead = raceResult;
         if (firstRead.value) {
           const text = new TextDecoder().decode(firstRead.value);
           if (/rate.?limit|429|rate_limit_exceeded|limit reached/i.test(text) && text.length < 500) {
@@ -701,8 +719,12 @@ export async function POST(req: Request) {
     // This guarantees the user gets a natural-language answer / plan instead
     // of a silent failure — aligned with "find a way to perform the action,
     // no matter what."
-    if (anyAttemptMade && allFailuresWereToolValidation) {
-      console.warn("[Command API] All providers failed with tool-call validation. Retrying without tools (recovery pass).");
+    // GOD-MODE: trigger the no-tools recovery whenever every provider failed
+    // for ANY reason — not just tool-call validation. Better to ship a useful
+    // clarifying chat reply than to surface a 500 to the user.
+    if (anyAttemptMade && lastError) {
+      const recoveryReason = allFailuresWereToolValidation ? "tool-call validation" : "all providers failed";
+      console.warn(`[Command API] Entering no-tools recovery (${recoveryReason}).`);
       const { tools: _droppedTools, toolChoice: _droppedToolChoice, ...streamOptionsNoTools } =
         streamOptions as Record<string, unknown>;
       void _droppedTools;
@@ -745,7 +767,32 @@ export async function POST(req: Request) {
     }
 
     console.error("[Command API] All models failed. Last error:", lastError);
-    throw lastError;
+    // Final fallback: synthesize a UI-message SSE stream so the CommandBar
+    // always renders SOMETHING actionable instead of a silent failure.
+    const friendly =
+      "I couldn't reach an AI provider for that command right now. Please try again in a moment, or rephrase — I'll route to a different model on the retry.";
+    const encoder = new TextEncoder();
+    const fallbackStream = new ReadableStream({
+      start(controller) {
+        const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        const id = `msg-${Date.now()}`;
+        send({ type: "start", messageId: id });
+        send({ type: "text-start", id });
+        send({ type: "text-delta", id, delta: friendly });
+        send({ type: "text-end", id });
+        send({ type: "finish" });
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return new Response(fallbackStream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "x-vercel-ai-ui-message-stream": "v1",
+      },
+    });
   } catch (error) {
     console.error("[Command API] Error:", error);
     return new Response(
