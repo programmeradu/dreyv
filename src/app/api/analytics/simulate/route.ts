@@ -653,7 +653,7 @@ export async function POST(req: NextRequest) {
 
 // ─── IR result → response shape (matches SimulatedAnalyticsState) ───────────
 
-function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC") {
+function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC", priors?: PriorStats) {
   const horizon = p.ir.horizonMonths;
   const tokens = p.ir.startState.tokens;
 
