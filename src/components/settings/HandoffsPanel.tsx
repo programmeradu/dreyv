@@ -76,7 +76,9 @@ export function HandoffsPanel() {
     return Array.from(map.entries()).slice(0, 12);
   }, [rows]);
 
-  if (!wallet) return null;
+  // Note: previously this returned null when no wallet was connected, which
+  // made the panel look broken on the settings page. Now we always render so
+  // the user can either see platform-wide activity or get a clear empty state.
 
   return (
     <section className="relative rounded-3xl border border-violet-100 bg-white p-7 sm:p-8 overflow-hidden">
