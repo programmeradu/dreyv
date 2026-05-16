@@ -24,6 +24,7 @@ const NAVIGATION_ROUTE_ALLOWLIST = new Set([
   "/app/team",
   "/app/settings",
   "/app/atlas",
+  "/app/billing",
 ]);
 
 export function isSimpleConversation(text: string): boolean {
