@@ -110,7 +110,64 @@ const upgrade_subscription = defineCapability({
       }
     }
 
-    const cryptoMessage = `${input.tier === "mini" ? "Mini" : "Max"} via crypto settles for $${cryptoUsd} in USDC, USDT, or SOL (10% off card price) — opens at /app/billing.`;
+
+    // ── Crypto rail ─────────────────────────────────────────────────────
+    // Mint a real crypto invoice (receiving address, exact amount, memo) and
+    // expose a Solana Pay URL + Dreyv-branded QR endpoint so the agent can
+    // render "Pay from wallet" + "Scan to pay" right in the chat bubble.
+    interface CryptoInvoicePayload {
+      invoiceId: string;
+      chain: "solana";
+      asset: "usdc" | "usdt" | "sol";
+      amount: string;
+      amountUsd: number;
+      receivingAddress: string;
+      memo: string;
+      expiresAt: string;
+      solanaPayUrl: string | null;
+      qrUrl: string;
+      walletPayUrl: string;
+    }
+    let cryptoInvoice: CryptoInvoicePayload | null = null;
+    let cryptoError: string | null = null;
+
+    if (input.method !== "card" && ctx.walletAddress) {
+      try {
+        const [{ mintCryptoInvoice }, { resolveUserIdFromWallet }, { getSiteOrigin }] = await Promise.all([
+          import("@/lib/billing/crypto-invoice"),
+          import("@/lib/agents/brains/storage"),
+          import("@/lib/seo/site"),
+        ]);
+        const userId = await resolveUserIdFromWallet(ctx.walletAddress);
+        if (!userId) throw new Error("No Dreyv account linked to this wallet");
+        const inv = await mintCryptoInvoice({
+          userId,
+          tier: input.tier,
+          chain: input.chain,
+          asset: input.asset,
+        });
+        const origin = getSiteOrigin().replace(/\/$/, "");
+        cryptoInvoice = {
+          invoiceId: inv.id,
+          chain: "solana",
+          asset: inv.asset,
+          amount: inv.amount,
+          amountUsd: inv.amountUsd,
+          receivingAddress: inv.receivingAddress,
+          memo: inv.memo,
+          expiresAt: inv.expiresAt,
+          solanaPayUrl: inv.solanaPayUrl,
+          qrUrl: `${origin}/api/billing/crypto/qr/${inv.id}`,
+          walletPayUrl: `${billingUrl}?invoice=${inv.id}`,
+        };
+      } catch (err) {
+        cryptoError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    const cryptoMessage = cryptoInvoice
+      ? `Crypto rail ready: pay ${cryptoInvoice.amount} ${cryptoInvoice.asset.toUpperCase()} (~$${cryptoInvoice.amountUsd.toFixed(2)}) on Solana — tap "Pay from wallet" to sign in your connected wallet, or scan the Dreyv QR with any mobile wallet. Reference memo: ${cryptoInvoice.memo}. Invoice expires ${cryptoInvoice.expiresAt}.`
+      : `${input.tier === "mini" ? "Mini" : "Max"} via crypto settles for $${cryptoUsd} in USDC, USDT, or SOL (10% off card price) — opens at /app/billing.`;
     const cardCheckoutMessage = checkoutUrl
       ? `One-click Paystack checkout ready for ${input.tier === "mini" ? "Mini" : "Max"} ($${usd}/mo). Open the link to finish payment — your tier flips automatically when Paystack confirms.`
       : null;
@@ -122,14 +179,12 @@ const upgrade_subscription = defineCapability({
     } else if (input.method === "card") {
       message = cardCheckoutMessage ?? cardFallbackMessage;
     } else {
-      message = checkoutUrl
-        ? `${cardCheckoutMessage} Prefer crypto for 10% off? ${cryptoMessage}`
-        : `Open /app/billing to upgrade to ${input.tier === "mini" ? "Mini" : "Max"}. You can pay $${usd}/mo by card (Paystack) or $${cryptoUsd}/cycle in crypto (USDC/USDT/SOL · 10% off).`;
+      const cardPart = cardCheckoutMessage ?? cardFallbackMessage;
+      message = `${cardPart} ${cryptoMessage}`;
     }
 
-    // Preferred navigation target: the Paystack URL itself if we have it,
-    // otherwise the billing page. The agent renders `navigate` as a CTA.
-    const navigate = checkoutUrl ?? billingUrl;
+    // Preferred navigation target: crypto invoice page > Paystack URL > /app/billing.
+    const navigate = cryptoInvoice?.walletPayUrl ?? checkoutUrl ?? billingUrl;
 
     return {
       success: true,
@@ -138,10 +193,14 @@ const upgrade_subscription = defineCapability({
       method: input.method,
       url: navigate,
       navigate,
+      // Card rail
       checkoutUrl,
       checkoutReference,
       checkoutProvider: checkoutUrl ? "paystack" : null,
       checkoutError,
+      // Crypto rail
+      cryptoInvoice,
+      cryptoError,
       fallbackUrl: billingUrl,
       message,
       pricing: {
