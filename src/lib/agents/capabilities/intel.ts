@@ -183,6 +183,37 @@ const foresight_simulation = defineCapability({
 
     if (ir) {
       ir = await enrichIRWithScenarioAssets(ir);
+
+      // ── Anti-fabrication sanitizer ─────────────────────────────────────
+      // Planner is told never to invent monthlyBurn / APY / inflow, but LLMs
+      // slip. Strip any flow/yield the user did NOT explicitly ask for and
+      // that we have NO baseline for — push to unknowns instead.
+      const promptText = `${scenario} ${JSON.stringify(variables)}`.toLowerCase();
+      const userMentions = {
+        burn: /burn|spend|expense|payroll|cost|salary|opex|outflow/.test(promptText),
+        inflow: /inflow|revenue|income|deposit|raise|grant/.test(promptText),
+        yield: /yield|apy|stake|staking|earn|interest/.test(promptText),
+        hire: /hire|hiring|engineer|headcount/.test(promptText),
+      };
+      const stripped: string[] = [];
+      const keptFlows = (ir.flows || []).filter((f: any) => {
+        const k = String(f?.kind || "");
+        if (k === "outflow" && !userMentions.burn) { stripped.push(`outflow`); return false; }
+        if (k === "inflow" && !userMentions.inflow) { stripped.push(`inflow`); return false; }
+        if (k === "hire" && !userMentions.hire) { stripped.push(`hire`); return false; }
+        if (k === "yield" && !userMentions.yield) { stripped.push(`yield`); return false; }
+        return true;
+      });
+      if (stripped.length) {
+        ir.flows = keptFlows;
+        const extra: string[] = [];
+        if (stripped.includes("outflow") || stripped.includes("hire")) extra.push("monthlyBurn unknown — ask user");
+        if (stripped.includes("inflow")) extra.push("monthlyInflow unknown — ask user");
+        if (stripped.includes("yield")) extra.push("yield APY unknown — ask user");
+        ir.unknowns = Array.from(new Set([...(ir.unknowns || []), ...extra]));
+        console.warn(`[foresight] stripped fabricated flows: ${stripped.join(", ")}`);
+      }
+
       const result = runSimulationIR(ir);
       const flatVariables = irToFlatVariables(ir);
 
