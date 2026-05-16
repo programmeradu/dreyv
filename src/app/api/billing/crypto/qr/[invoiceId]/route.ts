@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ invoiceId:
         color: { dark: VIOLET, light: WHITE },
     });
 
-    return new NextResponse(png, {
+    return new NextResponse(new Uint8Array(png), {
         status: 200,
         headers: {
             "Content-Type": "image/png",
