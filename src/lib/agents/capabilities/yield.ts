@@ -767,10 +767,103 @@ const execute_dca = defineCapability({
   },
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// dca_opportunities — READ-ONLY scanner. Surfaces DCA entry candidates
+// based on current 24h drawdown vs the user's holdings. No execution,
+// no fabricated burn/runway math — pure market read.
+// ─────────────────────────────────────────────────────────────────────
+const dca_opportunities = defineCapability({
+  id: "dca_opportunities",
+  domain: "yield",
+  description:
+    "Discover DCA (dollar-cost averaging) entry opportunities based on the CURRENT market — today's drawdowns, drift from the user's target allocation, and stables available to deploy. " +
+    "Use for prompts like 'show me DCA opportunities', 'where should I DCA today', 'best entry based on SOL drawdown'. " +
+    "Read-only: does NOT set up an order (use execute_dca) and does NOT project runway (use foresight_simulation).",
+  inputSchema: z.object({
+    focusToken: z.string().optional().describe("Optional symbol the user is anchoring on (e.g. 'SOL'). Otherwise scans the whole portfolio."),
+    drawdownThresholdPct: z.number().optional().default(3).describe("Minimum 24h drawdown (in %) to qualify as a candidate. Default 3."),
+  }),
+  sideEffects: "read",
+  requiredAuth: "none",
+  sensitivity: "low",
+  execute: async (input, ctx) => {
+    const { focusToken, drawdownThresholdPct = 3 } = input as { focusToken?: string; drawdownThresholdPct?: number };
+    const tokenSource = ctx.vaultState?.tokens || ctx.walletState?.balances;
+    const tokens: Array<{ symbol?: string; amount?: number; price?: number; change24h?: number; isStable?: boolean }> =
+      Array.isArray(tokenSource) ? (tokenSource as any) : [];
+
+    if (tokens.length === 0) {
+      return {
+        success: false,
+        operation: "dca_opportunities",
+        message: "No holdings detected. Connect a wallet so I can scan today's drawdowns against your portfolio.",
+        clarifyChips: [{ id: "connect", label: "Connect a wallet", suggestPrompt: "Connect my treasury wallet" }],
+        needsClarify: true,
+      };
+    }
+
+    const STABLES = new Set(["USDC", "USDT", "USDS", "PYUSD", "DAI", "USDH"]);
+    const stableUsd = tokens
+      .filter((t) => STABLES.has(String(t.symbol ?? "").toUpperCase()) || t.isStable)
+      .reduce((s, t) => s + (t.amount ?? 0) * (t.price ?? 0), 0);
+
+    const candidates = tokens
+      .filter((t) => {
+        const sym = String(t.symbol ?? "").toUpperCase();
+        if (!sym || STABLES.has(sym) || t.isStable) return false;
+        if (focusToken && sym !== focusToken.toUpperCase()) return false;
+        const ch = typeof t.change24h === "number" ? t.change24h : 0;
+        return ch <= -Math.abs(drawdownThresholdPct);
+      })
+      .map((t) => ({
+        symbol: String(t.symbol).toUpperCase(),
+        currentPrice: t.price ?? 0,
+        change24hPct: t.change24h ?? 0,
+        currentHoldingUsd: (t.amount ?? 0) * (t.price ?? 0),
+      }))
+      .sort((a, b) => a.change24hPct - b.change24hPct);
+
+    if (candidates.length === 0) {
+      return {
+        success: true,
+        operation: "dca_opportunities",
+        dataSource: "live",
+        stableUsd,
+        candidates: [],
+        message: focusToken
+          ? `${focusToken.toUpperCase()} is not drawn down ≥${drawdownThresholdPct}% today — no DCA edge right now.`
+          : `Nothing in your portfolio is drawn down ≥${drawdownThresholdPct}% in the last 24h.`,
+        suggestions: [
+          { id: "lower", label: `Scan at ≥1% drawdown`, suggestPrompt: `Show me DCA opportunities at ≥1% drawdown` },
+          { id: "focus-sol", label: `Focus on SOL`, suggestPrompt: `DCA opportunities for SOL` },
+        ],
+      };
+    }
+
+    return {
+      success: true,
+      operation: "dca_opportunities",
+      dataSource: "live",
+      stableUsd,
+      candidates,
+      message:
+        `Found ${candidates.length} DCA candidate${candidates.length === 1 ? "" : "s"} (≥${drawdownThresholdPct}% 24h drawdown). ` +
+        `$${Math.round(stableUsd).toLocaleString()} in stables available. ` +
+        `Top: ${candidates.slice(0, 3).map((c) => `${c.symbol} ${c.change24hPct.toFixed(1)}%`).join(", ")}.`,
+      suggestions: candidates.slice(0, 3).map((c) => ({
+        id: `dca-${c.symbol}`,
+        label: `Set up DCA into ${c.symbol}`,
+        suggestPrompt: `Set up a DCA from USDC into ${c.symbol}`,
+      })),
+    };
+  },
+});
+
 export const yieldCapabilities: AnyCapability[] = [
   stake as AnyCapability,
   yield_deposit as AnyCapability,
   yield_withdraw as AnyCapability,
   rebalance as AnyCapability,
   execute_dca as AnyCapability,
+  dca_opportunities as AnyCapability,
 ];
