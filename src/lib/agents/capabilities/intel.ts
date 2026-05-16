@@ -1161,112 +1161,283 @@ const sentiment_analysis = defineCapability({
 const security_firewall = defineCapability({
   id: "security_firewall",
   domain: "intel",
-  description: "Run Pre-Flight security simulation on a mainnet fork.",
+  description:
+    "High-grade pre-flight & posture security audit. With a serialized transaction: runs SimulationFirewall on a mainnet fork + policy evaluation. Without one: fuses on-chain account inspection, treasury hygiene (multisig/signers), known-program reputation, and (when a wallet) token-approval surface. Returns severity-tagged findings, never a hardcoded 'pass'.",
   inputSchema: z.object({
-    targetAddress: z.string().describe("Contract or wallet address to audit"),
+    targetAddress: z.string().describe("Contract or wallet address to audit."),
+    signer: z
+      .string()
+      .optional()
+      .describe("Base58 pubkey of the intended signer when supplying a serialized transaction (distinct from the audited targetAddress)."),
     testType: z
-      .enum(["sandbox_escape", "bridge_auth", "balance_check", "full"])
+      .enum(["posture", "preflight", "full"])
       .optional()
       .default("full")
-      .describe("Test type"),
+      .describe("posture = read-only audit only; preflight = require serialized tx + simulation; full = both when inputs allow."),
     serializedTransaction: z
       .string()
       .optional()
-      .describe("Optional base64-encoded transaction to simulate"),
+      .describe("Optional base64-encoded transaction to simulate."),
   }),
   sideEffects: "sim",
   requiredAuth: "none",
   sensitivity: "medium",
   execute: async (input, ctx) => {
-    const { targetAddress, testType, serializedTransaction } = input;
+    const { targetAddress, testType, serializedTransaction, signer } = input as {
+      targetAddress: string;
+      testType: "posture" | "preflight" | "full";
+      serializedTransaction?: string;
+      signer?: string;
+    };
     console.log(`[capability:security_firewall] ${testType} on ${targetAddress}`);
 
-    const { SimulationFirewall } = await import(
-      "@/lib/studio/simulation-firewall"
-    );
-    const firewall = SimulationFirewall.getInstance();
+    type Severity = "info" | "warn" | "high" | "critical";
+    const findings: { severity: Severity; code: string; message: string }[] = [];
+    const checks: Record<string, "pass" | "warn" | "fail" | "skipped"> = {};
+    const results: Record<string, unknown> = {};
+    let simulated = false;
 
-    const results: Record<string, unknown> = {
-      sandboxEscape: false,
-      unauthorizedBridge: false,
-      balanceDiscrepancy: false,
-    };
-    let riskScore = 0;
-    let humanSummary = "";
-
+    // ─── 0. Validate address ────────────────────────────────────────────
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    let pubkey: InstanceType<typeof PublicKey> | null = null;
     try {
-      if (serializedTransaction) {
-        const simResult = await firewall.simulate(
-          serializedTransaction,
-          targetAddress,
-        );
+      pubkey = new PublicKey(targetAddress);
+    } catch {
+      return {
+        success: false,
+        operation: "security_firewall",
+        targetAddress,
+        testType,
+        simulated: false,
+        riskLevel: "CRITICAL" as const,
+        worstSeverity: "critical" as const,
+        findings: [{ severity: "critical", code: "invalid_address", message: `Not a valid Solana base58 address: ${targetAddress}` }],
+        checks: { addressValid: "fail" },
+        results: {},
+        message: `Invalid Solana address — cannot audit.`,
+      };
+    }
+    checks.addressValid = "pass";
+
+    // ─── 1. On-chain inspection ─────────────────────────────────────────
+    const conn = new Connection(ctx.rpcEndpoint, "confirmed");
+    let accountInfo: Awaited<ReturnType<typeof conn.getAccountInfo>> = null;
+    try {
+      accountInfo = await conn.getAccountInfo(pubkey);
+      checks.accountExists = accountInfo ? "pass" : "fail";
+      results.accountExists = !!accountInfo;
+      results.accountOwner = accountInfo?.owner?.toBase58() || null;
+      results.accountLamports = accountInfo?.lamports || 0;
+      results.isExecutable = accountInfo?.executable || false;
+      if (!accountInfo) {
+        findings.push({
+          severity: "high",
+          code: "account_missing",
+          message: `Account ${targetAddress.slice(0, 12)}… does not exist on-chain. Transferring to it will burn SOL into a non-existent account.`,
+        });
+      }
+    } catch (err) {
+      checks.accountExists = "skipped";
+      findings.push({
+        severity: "warn",
+        code: "rpc_error",
+        message: `RPC inspection failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+
+    // ─── 2. Program reputation (when target is a program) ───────────────
+    const KNOWN_PROGRAMS: Record<string, { name: string; trust: "high" | "medium" }> = {
+      "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4": { name: "Jupiter v6 Aggregator", trust: "high" },
+      "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": { name: "Orca Whirlpools", trust: "high" },
+      "MarBmsSgKXdrN1egZf5sqe1TMThczhMLJhJBKbJ3K6V": { name: "Marinade Finance", trust: "high" },
+      "Stake11111111111111111111111111111111111111": { name: "Solana Stake Program", trust: "high" },
+      "ComputeBudget111111111111111111111111111111": { name: "Compute Budget", trust: "high" },
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA": { name: "SPL Token", trust: "high" },
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL": { name: "Associated Token Account", trust: "high" },
+      "SqdsTwoB1xrEPbB1Y4xfwhWfYY7HRzGmRJK6BqXk5kf": { name: "Squads v4", trust: "high" },
+    };
+    if (accountInfo?.executable) {
+      const rep = KNOWN_PROGRAMS[targetAddress];
+      if (rep) {
+        findings.push({
+          severity: "info",
+          code: "program_known",
+          message: `Program is ${rep.name} (${rep.trust} trust).`,
+        });
+        checks.programReputation = "pass";
+      } else {
+        findings.push({
+          severity: "warn",
+          code: "program_unknown",
+          message: `Program ${targetAddress.slice(0, 12)}… is not in our trusted registry. Verify the IDL and source before approving instructions.`,
+        });
+        checks.programReputation = "warn";
+      }
+    }
+
+    // ─── 3. Wallet hygiene (treasury security audit) ────────────────────
+    if (!accountInfo?.executable) {
+      try {
+        const base = process.env.NEXT_PUBLIC_APP_URL || "https://dreyv.com";
+        const auditRes = await fetch(`${base}/api/treasury/security?wallet=${targetAddress}&public=1`, {
+          method: "GET",
+          signal: AbortSignal.timeout(8000),
+        });
+        if (auditRes.ok) {
+          const { audit } = (await auditRes.json()) as {
+            audit?: { score?: number; isMultisig?: boolean; findings?: { severity: string; code: string; message: string }[] };
+          };
+          if (audit) {
+            results.hygieneScore = audit.score ?? null;
+            results.isMultisig = !!audit.isMultisig;
+            checks.walletHygiene = (audit.score ?? 0) >= 80 ? "pass" : (audit.score ?? 0) >= 60 ? "warn" : "fail";
+            for (const f of audit.findings ?? []) {
+              const sev: Severity = f.severity === "high" ? "high" : f.severity === "warn" ? "warn" : "info";
+              findings.push({ severity: sev, code: `hygiene:${f.code}`, message: f.message });
+            }
+          }
+        }
+      } catch (err) {
+        checks.walletHygiene = "skipped";
+        console.warn("[security_firewall] hygiene audit skipped:", err);
+      }
+
+      // ─── 4. Token-approval surface (SPL delegated authority) ──────────
+      try {
+        const tokenAccounts = await conn.getParsedTokenAccountsByOwner(pubkey, {
+          programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+        });
+        const delegated = tokenAccounts.value.filter((acc) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const info = (acc.account.data as any)?.parsed?.info;
+          return info?.delegate && info?.delegatedAmount?.uiAmount > 0;
+        });
+        results.tokenAccountCount = tokenAccounts.value.length;
+        results.delegatedApprovalCount = delegated.length;
+        if (delegated.length === 0) {
+          checks.tokenApprovals = "pass";
+        } else {
+          checks.tokenApprovals = delegated.length >= 3 ? "fail" : "warn";
+          findings.push({
+            severity: delegated.length >= 3 ? "high" : "warn",
+            code: "delegated_approvals",
+            message: `${delegated.length} token account(s) have a non-zero delegated authority. Revoke unused approvals — these are a common drain vector.`,
+          });
+        }
+      } catch (err) {
+        checks.tokenApprovals = "skipped";
+        console.warn("[security_firewall] token-approval scan skipped:", err);
+      }
+    }
+
+    // ─── 5. Pre-flight simulation (when transaction provided) ───────────
+    if (testType === "preflight" && !serializedTransaction) {
+      return {
+        success: false,
+        operation: "security_firewall",
+        targetAddress,
+        testType,
+        simulated: false,
+        riskLevel: "CRITICAL" as const,
+        worstSeverity: "critical" as const,
+        findings: [...findings, { severity: "critical", code: "preflight_missing_tx", message: "preflight testType requires a serializedTransaction." }],
+        checks,
+        results,
+        message: "preflight requested but no serialized transaction supplied.",
+      };
+    }
+
+    if (serializedTransaction) {
+      const effectiveSigner = signer || targetAddress;
+      try {
+        const { SimulationFirewall } = await import("@/lib/studio/simulation-firewall");
+        const firewall = SimulationFirewall.getInstance();
+        const simResult = await firewall.simulate(serializedTransaction, effectiveSigner);
+        simulated = true;
         results.simulationPassed = simResult.success;
         results.balanceChanges = simResult.balanceChanges;
         results.estimatedFee = simResult.estimatedFee;
         results.unitsConsumed = simResult.unitsConsumed;
         results.logs = simResult.logs.slice(0, 10);
-        humanSummary = simResult.humanSummary;
+        results.simRiskLevel = simResult.riskLevel;
+        checks.simulation = simResult.success ? (simResult.riskLevel === "low" ? "pass" : "warn") : "fail";
 
-        const riskMap = { low: 0.1, medium: 0.4, high: 0.7, critical: 0.95 };
-        riskScore = riskMap[simResult.riskLevel] ?? 0.5;
-
-        results.balanceDiscrepancy = simResult.balanceChanges.some(
-          (c) => Math.abs(c.changeUsd || 0) > 500,
-        );
-      } else {
-        const { Connection, PublicKey } = await import("@solana/web3.js");
-        const conn = new Connection(ctx.rpcEndpoint, "confirmed");
-
-        let validAddress = false;
-        try {
-          new PublicKey(targetAddress);
-          validAddress = true;
-        } catch {
-          /* invalid */
-        }
-
-        if (validAddress) {
-          const info = await conn.getAccountInfo(new PublicKey(targetAddress));
-          results.accountExists = !!info;
-          results.accountOwner = info?.owner?.toBase58() || null;
-          results.accountLamports = info?.lamports || 0;
-          results.isExecutable = info?.executable || false;
-
-          if (info?.executable) {
-            riskScore = 0.2;
-            humanSummary = `Program account verified. Owner: ${info.owner.toBase58().slice(0, 12)}…. No transaction to simulate.`;
-          } else if (info) {
-            riskScore = 0.1;
-            humanSummary = `Wallet account verified. Balance: ${(info.lamports / 1e9).toFixed(4)} SOL. No transaction to simulate.`;
-          } else {
-            riskScore = 0.6;
-            humanSummary = `Account ${targetAddress.slice(0, 12)}… does not exist on-chain. Elevated risk.`;
-          }
+        if (!simResult.success) {
+          findings.push({
+            severity: "critical",
+            code: "sim_failed",
+            message: `On-chain simulation failed: ${simResult.error || "unknown program error"}.`,
+          });
         } else {
-          riskScore = 0.8;
-          humanSummary = `Invalid Solana address: ${targetAddress}. Cannot verify.`;
+          const sevMap: Record<string, Severity> = { low: "info", medium: "warn", high: "high", critical: "critical" };
+          findings.push({
+            severity: sevMap[simResult.riskLevel] ?? "warn",
+            code: "sim_risk",
+            message: simResult.humanSummary,
+          });
         }
+
+        // Relative balance-discrepancy: 25% of largest absolute move OR > $500, whichever is greater.
+        const moves = simResult.balanceChanges.map((c) => Math.abs(c.changeUsd || 0));
+        const maxMove = moves.length ? Math.max(...moves) : 0;
+        const discrepancyThreshold = Math.max(500, maxMove * 0.25);
+        const discrepancy = simResult.balanceChanges.find((c) => Math.abs(c.changeUsd || 0) > discrepancyThreshold);
+        if (discrepancy) {
+          findings.push({
+            severity: "warn",
+            code: "balance_discrepancy",
+            message: `Large balance move detected: ${discrepancy.token} ${discrepancy.change > 0 ? "+" : ""}${discrepancy.change.toFixed(4)} (~$${Math.abs(discrepancy.changeUsd || 0).toFixed(2)}).`,
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[capability:security_firewall] Simulation error:", msg);
+        checks.simulation = "fail";
+        findings.push({ severity: "critical", code: "sim_error", message: `Simulation pipeline error: ${msg}` });
+        return {
+          success: false,
+          operation: "security_firewall",
+          targetAddress,
+          testType,
+          simulated: false,
+          riskLevel: "CRITICAL" as const,
+          worstSeverity: "critical" as const,
+          findings,
+          checks,
+          results,
+          message: `Pre-flight simulation failed: ${msg}`,
+        };
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[capability:security_firewall] Simulation error:", msg);
-      riskScore = 0.5;
-      humanSummary = `Firewall check encountered an error: ${msg}`;
-      results.error = msg;
     }
 
-    results.riskScore = riskScore;
-    const riskLabel =
-      riskScore >= 0.7 ? "HIGH" : riskScore >= 0.3 ? "MEDIUM" : "LOW";
+    // ─── 6. Worst severity & overall risk label ─────────────────────────
+    const rank: Record<Severity, number> = { info: 0, warn: 1, high: 2, critical: 3 };
+    const worstSeverity: Severity = findings.reduce<Severity>(
+      (acc, f) => (rank[f.severity] > rank[acc] ? f.severity : acc),
+      "info",
+    );
+    const riskLabel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" =
+      worstSeverity === "critical" ? "CRITICAL" : worstSeverity === "high" ? "HIGH" : worstSeverity === "warn" ? "MEDIUM" : "LOW";
+    const riskScore = { LOW: 0.15, MEDIUM: 0.45, HIGH: 0.75, CRITICAL: 0.95 }[riskLabel];
+
+    const summary = simulated
+      ? `Audit + simulation complete — ${riskLabel} (${findings.length} finding${findings.length === 1 ? "" : "s"}).`
+      : `Posture audit complete — ${riskLabel} (${findings.length} finding${findings.length === 1 ? "" : "s"}). No transaction supplied, so on-chain simulation was skipped.`;
 
     return {
       success: true,
       operation: "security_firewall",
       targetAddress,
+      signer: signer || null,
       testType,
-      results,
+      simulated,
       riskLevel: riskLabel,
-      message: `Pre-Flight ${testType} simulation: ${riskLabel} risk (${riskScore.toFixed(2)}). ${humanSummary}`,
+      riskScore,
+      worstSeverity,
+      findings,
+      checks,
+      results,
+      message: summary,
     };
   },
 });
