@@ -719,8 +719,12 @@ export async function POST(req: Request) {
     // This guarantees the user gets a natural-language answer / plan instead
     // of a silent failure — aligned with "find a way to perform the action,
     // no matter what."
-    if (anyAttemptMade && allFailuresWereToolValidation) {
-      console.warn("[Command API] All providers failed with tool-call validation. Retrying without tools (recovery pass).");
+    // GOD-MODE: trigger the no-tools recovery whenever every provider failed
+    // for ANY reason — not just tool-call validation. Better to ship a useful
+    // clarifying chat reply than to surface a 500 to the user.
+    if (anyAttemptMade && lastError) {
+      const recoveryReason = allFailuresWereToolValidation ? "tool-call validation" : "all providers failed";
+      console.warn(`[Command API] Entering no-tools recovery (${recoveryReason}).`);
       const { tools: _droppedTools, toolChoice: _droppedToolChoice, ...streamOptionsNoTools } =
         streamOptions as Record<string, unknown>;
       void _droppedTools;
