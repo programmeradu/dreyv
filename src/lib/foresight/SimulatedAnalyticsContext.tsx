@@ -85,7 +85,7 @@ export function SimulatedAnalyticsProvider({
   baselineAttribution: SimAttribution | null;
   baselineDriftPctPerDay?: number;
 }) {
-  const { vaultTokens } = useVault();
+  const { vaultTokens, activeVault } = useVault();
   const active = useSimulationStore((s) => s.active);
   const variables = useSimulationStore((s) => s.variables);
   const ir = useSimulationStore((s) => s.ir);
@@ -138,8 +138,8 @@ export function SimulatedAnalyticsProvider({
           signal: ctrl.signal,
           body: JSON.stringify(
             ir
-              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" }
-              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" },
+              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL", wallet: activeVault ?? undefined }
+              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL", wallet: activeVault ?? undefined },
           ),
         });
         if (!res.ok) {
@@ -174,7 +174,7 @@ export function SimulatedAnalyticsProvider({
     })();
 
     return () => ctrl.abort();
-  }, [active, ir, variables, timeframeMonths, vaultTokens, baselineAttribution, baselineDriftPctPerDay, setResult, setError]);
+  }, [active, ir, variables, timeframeMonths, vaultTokens, activeVault, baselineAttribution, baselineDriftPctPerDay, setResult, setError]);
 
   const value = useMemo<ContextValue>(
     () => ({

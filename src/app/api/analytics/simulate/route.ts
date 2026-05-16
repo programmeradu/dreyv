@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSimulationIR, type SimulationIR, type IRProjectionResult } from "@/lib/foresight/simulation-ir";
 import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";
+import { db } from "@/db";
+import { treasurySnapshots } from "@/db/schema";
+import { and, eq, gte } from "drizzle-orm";
 
 /**
  * /api/analytics/simulate
@@ -42,6 +45,12 @@ interface BaselineAttribution {
   annualYieldRate: number; sampleSize: number;
 }
 
+interface PriorStats {
+  volPctPerDay?: number; // std of daily fractional returns (e.g. 0.018 = 1.8%/day)
+  driftPctPerDay?: number;
+  samples?: number;
+}
+
 interface RequestBody {
   ir?: SimulationIR;
   portfolio?: PortfolioToken[];
@@ -50,6 +59,10 @@ interface RequestBody {
   baselineAttribution?: BaselineAttribution | null;
   baselineDriftPctPerDay?: number;
   benchmarkSymbol?: "SOL" | "BTC";
+  /** Optional priors derived from real treasury_snapshots history. */
+  priors?: PriorStats;
+  /** When provided (and priors omitted), the route fetches snapshot-derived vol/drift itself. */
+  wallet?: string;
 }
 
 const STABLE = new Set([
@@ -304,20 +317,44 @@ function quantile(sorted: number[], q: number): number {
 
 const PATHS = 200;
 
-function buildForesightBands(p: ProjectionResult, portfolio: PortfolioToken[], timeframeMonths: number) {
-  // Portfolio-level monthly volatility from real 24h moves, weighted by weight.
-  // |change24h| is a weak vol proxy (one observation), so floor at 1%/day for
-  // any non-stable token to avoid pathologically tight bands when the day is
-  // quiet.
+function buildForesightBands(
+  p: ProjectionResult,
+  portfolio: PortfolioToken[],
+  timeframeMonths: number,
+  priors?: PriorStats,
+) {
+  // ─── Portfolio-level daily volatility ────────────────────────────────────
+  // Source A — realized vol from treasury_snapshots (preferred when we have
+  // enough samples). This is portfolio-level and already captures correlation.
+  // Source B — weighted |change24h| across non-stable tokens (one-observation
+  // proxy, floored at 1%/day per token). Used as a fallback or blended in
+  // when snapshot history is thin.
   const total = p.currentValue || 1;
-  let weightedVarDaily = 0;
+  let weighted24hVarDaily = 0;
   for (const t of portfolio) {
     if (isStable(t)) continue;
     const w = (t.amount * t.price) / total;
     const dailySigma = Math.max(0.01, Math.abs(t.change24h ?? 0) / 100);
-    weightedVarDaily += (w * w) * (dailySigma * dailySigma);
+    weighted24hVarDaily += (w * w) * (dailySigma * dailySigma);
   }
-  const dailyVol = Math.sqrt(weightedVarDaily);
+  const dailyVol24h = Math.sqrt(weighted24hVarDaily);
+
+  const snapVol = priors?.volPctPerDay && priors.volPctPerDay > 0 ? priors.volPctPerDay : 0;
+  const snapSamples = priors?.samples ?? 0;
+  // Blend: <5 samples → 24h proxy; 5–19 → linear blend; ≥20 → snapshot-only.
+  let dailyVol: number;
+  let volSource: "snapshots" | "blended" | "24h";
+  if (snapVol > 0 && snapSamples >= 20) {
+    dailyVol = snapVol;
+    volSource = "snapshots";
+  } else if (snapVol > 0 && snapSamples >= 5) {
+    const w = (snapSamples - 5) / 15; // 0 → 1 across [5..20]
+    dailyVol = w * snapVol + (1 - w) * dailyVol24h;
+    volSource = "blended";
+  } else {
+    dailyVol = dailyVol24h;
+    volSource = "24h";
+  }
   const monthlyVol = dailyVol * Math.sqrt(30);
 
   const steps = p.projection.length;
@@ -399,11 +436,53 @@ function buildForesightBands(p: ProjectionResult, portfolio: PortfolioToken[], t
       timeframeMonths,
       granularity: "monthly" as const,
       monthlyVol,
+      dailyVol,
+      volSource,
+      volSampleSize: snapSamples,
       seed,
-      usedPriors: true,
+      usedPriors: snapVol > 0,
       engine: "monte-carlo-gbm",
     },
   };
+}
+
+// ─── Snapshot-derived priors (portfolio-level realized vol/drift) ────────────
+
+async function fetchPriorsForWallet(wallet: string): Promise<PriorStats | undefined> {
+  try {
+    if (!db) return undefined;
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({ capturedAt: treasurySnapshots.capturedAt, totalUsd: treasurySnapshots.totalUsd })
+      .from(treasurySnapshots)
+      .where(and(eq(treasurySnapshots.walletAddress, wallet), gte(treasurySnapshots.capturedAt, since)))
+      .orderBy(treasurySnapshots.capturedAt);
+    if (rows.length < 2) return { samples: rows.length };
+    // Bucket to one observation per UTC day (last snapshot wins) so vol is
+    // truly daily regardless of intra-day snapshot cadence.
+    const byDay = new Map<string, number>();
+    for (const r of rows) {
+      const d = new Date(r.capturedAt as any).toISOString().slice(0, 10);
+      byDay.set(d, Number(r.totalUsd));
+    }
+    const series = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+    if (series.length < 2) return { samples: series.length };
+    const rets: number[] = [];
+    for (let i = 1; i < series.length; i++) {
+      const prev = series[i - 1];
+      if (prev > 0) rets.push((series[i] - prev) / prev);
+    }
+    if (!rets.length) return { samples: series.length };
+    const mean = rets.reduce((s, x) => s + x, 0) / rets.length;
+    const variance = rets.reduce((s, x) => s + (x - mean) ** 2, 0) / rets.length;
+    return {
+      driftPctPerDay: mean,
+      volPctPerDay: Math.sqrt(variance),
+      samples: series.length,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── Synthetic flows / fees / events grounded in scenario aggregates ─────────
@@ -485,12 +564,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as RequestBody;
 
+    // Resolve priors once (used by both modes for the Monte Carlo bands).
+    const priors: PriorStats | undefined =
+      body.priors ?? (body.wallet ? await fetchPriorsForWallet(body.wallet) : undefined);
+
     // ─── IR mode (preferred) ────────────────────────────────────────────────
     if (body.ir && body.ir.startState?.tokens?.length) {
       const ir = await enrichIRWithScenarioAssets(body.ir);
       const horizon = Math.max(1, Math.min(60, Math.round(ir.horizonMonths || 12)));
       const result = runSimulationIR({ ...ir, horizonMonths: horizon });
-      return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL"));
+      return NextResponse.json(serialiseIRResult(result, body.benchmarkSymbol ?? "SOL", priors));
     }
 
     // ─── Legacy mode ────────────────────────────────────────────────────────
@@ -514,7 +597,7 @@ export async function POST(req: NextRequest) {
       baselineAttribution: body.baselineAttribution,
     };
     const p = project(legacyInput);
-    const foresight = buildForesightBands(p, body.portfolio, body.timeframeMonths);
+    const foresight = buildForesightBands(p, body.portfolio, body.timeframeMonths, priors);
     const events = buildEvents(p);
     const benchmark = buildBenchmark(p, body.portfolio, body.benchmarkSymbol ?? "SOL");
 
@@ -570,7 +653,7 @@ export async function POST(req: NextRequest) {
 
 // ─── IR result → response shape (matches SimulatedAnalyticsState) ───────────
 
-function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC") {
+function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC", priors?: PriorStats) {
   const horizon = p.ir.horizonMonths;
   const tokens = p.ir.startState.tokens;
 
@@ -594,7 +677,7 @@ function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC"
     runwayMonths: p.runwayMonths,
     riskFlags: p.riskFlags,
   };
-  const foresight = buildForesightBands(shaped, tokens as PortfolioToken[], horizon);
+  const foresight = buildForesightBands(shaped, tokens as PortfolioToken[], horizon, priors);
   const events = buildEvents(shaped);
   const benchmark = buildBenchmark(shaped, tokens as PortfolioToken[], benchmarkSymbol);
 
