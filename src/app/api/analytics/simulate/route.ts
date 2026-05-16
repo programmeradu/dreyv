@@ -45,6 +45,12 @@ interface BaselineAttribution {
   annualYieldRate: number; sampleSize: number;
 }
 
+interface PriorStats {
+  volPctPerDay?: number; // std of daily fractional returns (e.g. 0.018 = 1.8%/day)
+  driftPctPerDay?: number;
+  samples?: number;
+}
+
 interface RequestBody {
   ir?: SimulationIR;
   portfolio?: PortfolioToken[];
@@ -53,6 +59,10 @@ interface RequestBody {
   baselineAttribution?: BaselineAttribution | null;
   baselineDriftPctPerDay?: number;
   benchmarkSymbol?: "SOL" | "BTC";
+  /** Optional priors derived from real treasury_snapshots history. */
+  priors?: PriorStats;
+  /** When provided (and priors omitted), the route fetches snapshot-derived vol/drift itself. */
+  wallet?: string;
 }
 
 const STABLE = new Set([
