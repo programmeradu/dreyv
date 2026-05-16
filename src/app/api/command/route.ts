@@ -767,7 +767,32 @@ export async function POST(req: Request) {
     }
 
     console.error("[Command API] All models failed. Last error:", lastError);
-    throw lastError;
+    // Final fallback: synthesize a UI-message SSE stream so the CommandBar
+    // always renders SOMETHING actionable instead of a silent failure.
+    const friendly =
+      "I couldn't reach an AI provider for that command right now. Please try again in a moment, or rephrase — I'll route to a different model on the retry.";
+    const encoder = new TextEncoder();
+    const fallbackStream = new ReadableStream({
+      start(controller) {
+        const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        const id = `msg-${Date.now()}`;
+        send({ type: "start", messageId: id });
+        send({ type: "text-start", id });
+        send({ type: "text-delta", id, delta: friendly });
+        send({ type: "text-end", id });
+        send({ type: "finish" });
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return new Response(fallbackStream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "x-vercel-ai-ui-message-stream": "v1",
+      },
+    });
   } catch (error) {
     console.error("[Command API] Error:", error);
     return new Response(
