@@ -317,20 +317,44 @@ function quantile(sorted: number[], q: number): number {
 
 const PATHS = 200;
 
-function buildForesightBands(p: ProjectionResult, portfolio: PortfolioToken[], timeframeMonths: number) {
-  // Portfolio-level monthly volatility from real 24h moves, weighted by weight.
-  // |change24h| is a weak vol proxy (one observation), so floor at 1%/day for
-  // any non-stable token to avoid pathologically tight bands when the day is
-  // quiet.
+function buildForesightBands(
+  p: ProjectionResult,
+  portfolio: PortfolioToken[],
+  timeframeMonths: number,
+  priors?: PriorStats,
+) {
+  // ─── Portfolio-level daily volatility ────────────────────────────────────
+  // Source A — realized vol from treasury_snapshots (preferred when we have
+  // enough samples). This is portfolio-level and already captures correlation.
+  // Source B — weighted |change24h| across non-stable tokens (one-observation
+  // proxy, floored at 1%/day per token). Used as a fallback or blended in
+  // when snapshot history is thin.
   const total = p.currentValue || 1;
-  let weightedVarDaily = 0;
+  let weighted24hVarDaily = 0;
   for (const t of portfolio) {
     if (isStable(t)) continue;
     const w = (t.amount * t.price) / total;
     const dailySigma = Math.max(0.01, Math.abs(t.change24h ?? 0) / 100);
-    weightedVarDaily += (w * w) * (dailySigma * dailySigma);
+    weighted24hVarDaily += (w * w) * (dailySigma * dailySigma);
   }
-  const dailyVol = Math.sqrt(weightedVarDaily);
+  const dailyVol24h = Math.sqrt(weighted24hVarDaily);
+
+  const snapVol = priors?.volPctPerDay && priors.volPctPerDay > 0 ? priors.volPctPerDay : 0;
+  const snapSamples = priors?.samples ?? 0;
+  // Blend: <5 samples → 24h proxy; 5–19 → linear blend; ≥20 → snapshot-only.
+  let dailyVol: number;
+  let volSource: "snapshots" | "blended" | "24h";
+  if (snapVol > 0 && snapSamples >= 20) {
+    dailyVol = snapVol;
+    volSource = "snapshots";
+  } else if (snapVol > 0 && snapSamples >= 5) {
+    const w = (snapSamples - 5) / 15; // 0 → 1 across [5..20]
+    dailyVol = w * snapVol + (1 - w) * dailyVol24h;
+    volSource = "blended";
+  } else {
+    dailyVol = dailyVol24h;
+    volSource = "24h";
+  }
   const monthlyVol = dailyVol * Math.sqrt(30);
 
   const steps = p.projection.length;
