@@ -677,7 +677,7 @@ function serialiseIRResult(p: IRProjectionResult, benchmarkSymbol: "SOL" | "BTC"
     runwayMonths: p.runwayMonths,
     riskFlags: p.riskFlags,
   };
-  const foresight = buildForesightBands(shaped, tokens as PortfolioToken[], horizon);
+  const foresight = buildForesightBands(shaped, tokens as PortfolioToken[], horizon, priors);
   const events = buildEvents(shaped);
   const benchmark = buildBenchmark(shaped, tokens as PortfolioToken[], benchmarkSymbol);
 
