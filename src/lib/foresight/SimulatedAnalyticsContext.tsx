@@ -138,8 +138,8 @@ export function SimulatedAnalyticsProvider({
           signal: ctrl.signal,
           body: JSON.stringify(
             ir
-              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" }
-              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL" },
+              ? { ir: { ...ir, startState: { tokens: portfolio, usd: portfolio.reduce((s, t) => s + t.amount * t.price, 0) } }, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL", wallet: activeVault ?? undefined }
+              : { portfolio, variables, timeframeMonths, baselineAttribution, baselineDriftPctPerDay, benchmarkSymbol: "SOL", wallet: activeVault ?? undefined },
           ),
         });
         if (!res.ok) {
