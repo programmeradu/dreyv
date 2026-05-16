@@ -298,7 +298,25 @@ export function PublicVaultClient({ address, data }: PublicVaultClientProps) {
       {topFeeTypes.length > 0 && (
         <Block title="Fees paid (last 6 months)">
           <ul className="divide-y divide-violet-100">
-            {topFeeTypes.map((t) => (
+            {topFeeTypes.map((t) => {
+              const pretty = prettifyAction(t.type);
+              return (
+              <li
+                key={t.type}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">{pretty.label}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {pretty.sub} · {t.count.toLocaleString()} {t.count === 1 ? "transaction" : "transactions"}
+                  </p>
+                </div>
+                <span className="font-mono text-base font-semibold text-slate-900 tabular-nums">
+                  {fmtUsd(t.totalFees)}
+                </span>
+              </li>
+              );
+            })}
               <li
                 key={t.type}
                 className="flex items-center justify-between gap-3 px-4 py-3"
