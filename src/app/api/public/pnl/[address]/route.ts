@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
     .sort((a, b) => b.currentValueUsd - a.currentValueUsd);
 
   return NextResponse.json(
-    { rows: rows.map(({ _hasHistory, ...r }) => r) },
+    { rows: rows.map((r) => { const { _hasHistory: _h, ...rest } = r as PnlRow & { _hasHistory: boolean }; return rest; }) },
     { headers: { "Cache-Control": "public, max-age=60" } },
   );
 }

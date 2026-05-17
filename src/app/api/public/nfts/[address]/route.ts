@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
       const thumb = it?.content?.links?.image || it?.content?.files?.[0]?.cdn_uri || it?.content?.files?.[0]?.uri;
       const cur = byGroup.get(groupId) ?? { groupId, name, count: 0, thumbnails: [] };
       cur.count += 1;
-      if (thumb && cur.thumbnails.length < 4) cur.thumbnails.push(thumb);
+      if (thumb && cur.thumbnails.length < 4) cur.thumbnails.push(thumb as string);
       byGroup.set(groupId, cur);
     }
     const collections = Array.from(byGroup.values()).sort((a, b) => b.count - a.count).slice(0, 12);
