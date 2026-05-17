@@ -27,9 +27,9 @@ export const GET = async (req: Request) => {
   }
 
   const payload: ActionGetResponse = {
-    title: "Join Keystone Team",
-    icon: "https://keystone-treasury-os.vercel.app/logo.png",
-    description: "You've been invited to join a Keystone Treasury team. Click below to accept the invitation and register your wallet.",
+    title: "Join Dreyv Team",
+    icon: "https://dreyv.com/brand/dreyv-app-icon.png",
+    description: "You've been invited to join a Dreyv team. Click below to accept the invitation and register your wallet.",
     label: "Join Team",
   };
 

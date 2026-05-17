@@ -27,8 +27,8 @@ export const GET = async (req: Request) => {
   }
 
   const payload: ActionGetResponse = {
-    title: "Execute Keystone Proposal",
-    icon: "https://keystone-treasury-os.vercel.app/logo.png",
+    title: "Execute Dreyv Proposal",
+    icon: "https://dreyv.com/brand/dreyv-app-icon.png",
     description: `Execute proposal #${txIndex} for multisig ${vault.slice(0, 4)}...${vault.slice(-4)}. Only possible if quorum is reached.`,
     label: "Execute",
   };
