@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
       const groupId = grouping?.group_value || "ungrouped";
       const name = grouping?.collection_metadata?.name || it?.content?.metadata?.name || "Untitled";
       const thumb = it?.content?.links?.image || it?.content?.files?.[0]?.cdn_uri || it?.content?.files?.[0]?.uri;
-      const cur = byGroup.get(groupId) ?? { groupId, name, count: 0, thumbnails: [] };
+      const cur: Collection = byGroup.get(groupId) ?? { groupId, name, count: 0, thumbnails: [] };
       cur.count += 1;
       if (thumb && cur.thumbnails.length < 4) cur.thumbnails.push(thumb as string);
       byGroup.set(groupId, cur);
