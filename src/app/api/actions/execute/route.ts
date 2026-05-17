@@ -28,7 +28,7 @@ export const GET = async (req: Request) => {
 
   const payload: ActionGetResponse = {
     title: "Execute Dreyv Proposal",
-    icon: "https://dreyv.com/icon.png",
+    icon: "https://dreyv.com/brand/dreyv-app-icon.png",
     description: `Execute proposal #${txIndex} for multisig ${vault.slice(0, 4)}...${vault.slice(-4)}. Only possible if quorum is reached.`,
     label: "Execute",
   };

@@ -28,7 +28,7 @@ export const GET = async (req: Request) => {
 
   const payload: ActionGetResponse = {
     title: "Join Dreyv Team",
-    icon: "https://dreyv.com/icon.png",
+    icon: "https://dreyv.com/brand/dreyv-app-icon.png",
     description: "You've been invited to join a Dreyv team. Click below to accept the invitation and register your wallet.",
     label: "Join Team",
   };

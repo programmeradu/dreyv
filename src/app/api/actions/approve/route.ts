@@ -26,7 +26,7 @@ export const GET = async (req: Request) => {
 
   const payload: ActionGetResponse = {
     title: "Approve Dreyv Proposal",
-    icon: "https://dreyv.com/icon.png",
+    icon: "https://dreyv.com/brand/dreyv-app-icon.png",
     description: `Vote to approve proposal #${txIndex} for multisig ${vault.slice(0, 4)}...${vault.slice(-4)}.`,
     label: "Approve",
     links: {
