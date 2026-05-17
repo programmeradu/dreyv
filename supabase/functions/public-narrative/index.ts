@@ -3,6 +3,7 @@
 // (3 concrete, data-grounded action ideas).
 // All Lovable AI calls go through this edge function per project rule.
 
+// @ts-ignore — Deno npm specifier resolved at runtime
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 declare const Deno: { env: { get(k: string): string | undefined }; serve(h: (r: Request) => Response | Promise<Response>): void };
