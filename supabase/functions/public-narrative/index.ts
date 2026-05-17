@@ -3,10 +3,9 @@
 // (3 concrete, data-grounded action ideas).
 // All Lovable AI calls go through this edge function per project rule.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+declare const Deno: { env: { get(k: string): string | undefined }; serve(h: (r: Request) => Response | Promise<Response>): void };
 
 interface FeaturePack {
   address: string;
