@@ -42,8 +42,6 @@ export function AgentCommandCenter() {
             }
         } else if (event.type === "AGENT_LOG") {
             // Real-time logs from the Engine
-            // System check for debug
-            // console.log("ACC Received Log:", event.payload);
             addLog(event.payload.message, event.payload.level || "INFO");
         }
     });
