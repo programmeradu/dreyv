@@ -9,7 +9,8 @@
  *   POST   { wallet }             run a fresh audit (signers, threshold, findings)
  *   DELETE ?wallet=…
  */
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { getAuthUser } from "@/lib/auth-utils";
 import { db } from "@/db";
 import { treasurySecurityAudits, vaults } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -24,6 +25,13 @@ export async function GET(req: Request) {
   const wallet = url.searchParams.get("wallet");
   const isPublic = url.searchParams.get("public") === "1";
   if (!wallet) return NextResponse.json({ ok: true, audit: null });
+
+  // Auth required for the full audit; ?public=1 stays open (rate-limited).
+  if (!isPublic) {
+    const _authUser = await getAuthUser(req as unknown as NextRequest);
+    if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
 
   if (isPublic) {
     const limited = publicRateLimitOrResponse(req, {
