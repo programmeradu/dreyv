@@ -20,13 +20,17 @@ export async function getCurrentPricesUsd(mints: string[]): Promise<PriceMap> {
     if (Object.keys(hit).length === mints.length) return hit;
   }
   try {
-    const url = `https://price.jup.ag/v6/price?ids=${mints.join(",")}`;
+    // Jupiter Lite Price API v3 — replaces deprecated price.jup.ag/v6.
+    // Response shape: { [mint]: { usdPrice, decimals, ... } }
+    const url = `https://lite-api.jup.ag/price/v3?ids=${mints.join(",")}`;
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) return {};
     const j = await r.json();
     const out: PriceMap = {};
-    for (const [mint, v] of Object.entries<any>(j?.data ?? {})) {
-      if (v?.price != null) out[mint] = Number(v.price);
+    const root = j?.data ?? j ?? {};
+    for (const [mint, v] of Object.entries<any>(root)) {
+      const px = v?.usdPrice ?? v?.price;
+      if (px != null) out[mint] = Number(px);
     }
     cache = { at: Date.now(), data: { ...(cache?.data ?? {}), ...out } };
     return out;
