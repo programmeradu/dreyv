@@ -58,9 +58,6 @@ export function OnrampDrawer({
     setError(null);
     setFallbackUrl(null);
     try {
-      const { data, error: invokeErr } = await supabase.functions.invoke(
-        "stripe-onramp-session",
-        {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-onramp-session`, {
         method: "POST",
         headers: {
@@ -85,10 +82,6 @@ export function OnrampDrawer({
 
       const StripeOnramp = (window as unknown as { StripeOnramp?: unknown })
         .StripeOnramp as any;
-      if (!StripeOnramp) throw new Error("Stripe Onramp SDK not loaded");
-      const onramp = typeof StripeOnramp === "function" ? StripeOnramp() : StripeOnramp;
-      const session = onramp.createSession({ clientSecret: data.clientSecret });
-      session.mount(mountRef.current);
       if (!StripeOnramp) throw new Error("Stripe Onramp SDK not loaded");
       const onramp = typeof StripeOnramp === "function" ? StripeOnramp() : StripeOnramp;
       const session = onramp.createSession({ clientSecret: data.clientSecret });
