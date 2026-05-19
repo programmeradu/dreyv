@@ -30,6 +30,7 @@ import { PendingApprovalsBanner } from "@/components/commandbar/PendingApprovals
 import { ActiveSubagentsBadge } from "@/components/commandbar/ActiveSubagentsBadge";
 import { useOptionalCanvas } from "@/lib/canvas/CanvasContext";
 import { useCommandFocus } from "@/lib/commandbar/focus-context";
+import { humanizeOperation } from "@/lib/agents/humanize";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
