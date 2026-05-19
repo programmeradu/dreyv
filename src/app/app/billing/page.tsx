@@ -309,61 +309,61 @@ export default function BillingPage() {
                                 key={tier.id}
                                 className={
                                     tier.featured
-                                        ? "relative rounded-3xl border-2 border-violet-600 bg-white p-7 flex flex-col"
-                                        : "rounded-3xl border border-violet-100 bg-white p-7 flex flex-col hover:border-violet-300 transition"
+                                        ? "relative rounded-2xl border-2 border-violet-600 bg-white p-4 flex flex-col"
+                                        : "rounded-2xl border border-violet-100 bg-white p-4 flex flex-col hover:border-violet-300 transition"
                                 }
                             >
                                 {tier.featured && (
-                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white">
                                         Most popular
                                     </span>
                                 )}
 
-                                <div className="flex items-center gap-4 mb-5">
-                                    <div className="h-16 w-16 shrink-0 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="h-11 w-11 shrink-0 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
                                         <Image
                                             src={tier.image}
                                             alt={tier.imageAlt}
-                                            width={56}
-                                            height={56}
-                                            className="h-14 w-14 object-contain"
+                                            width={40}
+                                            height={40}
+                                            className="h-9 w-9 object-contain"
                                         />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold text-slate-900">{tier.label}</h2>
+                                        <h2 className="text-base font-semibold text-slate-900 leading-tight">{tier.label}</h2>
                                         <p className="text-[11px] text-slate-500">{tier.tagline}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-semibold tracking-tight text-slate-900">{tier.price}</span>
-                                    <span className="text-sm font-medium text-slate-500">/mo</span>
+                                    <span className="text-2xl font-semibold tracking-tight text-slate-900">{tier.price}</span>
+                                    <span className="text-xs font-medium text-slate-500">/mo</span>
                                 </div>
-                                <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400 font-medium">
-                                    {tier.id === "free" ? "No card required" : "Billed monthly via Paystack"}
+                                <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400 font-medium">
+                                    {tier.id === "free" ? "No card required" : "Card or crypto · monthly"}
                                 </p>
 
-                                <ul className="mt-6 space-y-3 flex-1">
+                                <ul className="mt-3 space-y-1.5 flex-1">
                                     {tier.features.map((f) => (
-                                        <li key={f} className="flex items-start gap-2.5 text-sm text-slate-700">
-                                            <CheckCircle2 size={14} className="text-violet-600 mt-0.5 shrink-0" />
+                                        <li key={f} className="flex items-start gap-2 text-[12px] text-slate-700 leading-snug">
+                                            <CheckCircle2 size={12} className="text-violet-600 mt-0.5 shrink-0" />
                                             <span>{f}</span>
                                         </li>
                                     ))}
                                 </ul>
 
-                                <div className="mt-8">
+                                <div className="mt-3">
                                     {isCurrent ? (
                                         <button
                                             disabled
-                                            className="w-full rounded-xl border border-violet-200 bg-violet-50 px-5 py-2.5 text-xs font-semibold text-violet-700 uppercase tracking-[0.06em]"
+                                            className="w-full rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-[11px] font-semibold text-violet-700 uppercase tracking-[0.06em]"
                                         >
                                             Current plan
                                         </button>
                                     ) : tier.id === "free" ? (
                                         <button
                                             disabled
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-[0.06em]"
+                                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]"
                                         >
                                             Free forever
                                         </button>
@@ -373,17 +373,17 @@ export default function BillingPage() {
                                             disabled={isLoading}
                                             className={
                                                 tier.featured
-                                                    ? "inline-flex w-full justify-center items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
-                                                    : "inline-flex w-full justify-center items-center gap-2 rounded-xl border border-violet-200 bg-white hover:border-violet-400 hover:text-violet-700 px-5 py-2.5 text-xs font-semibold text-slate-800 uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                                    ? "inline-flex w-full justify-center items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-700 px-4 py-2 text-[11px] font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                                    : "inline-flex w-full justify-center items-center gap-2 rounded-lg border border-violet-200 bg-white hover:border-violet-400 hover:text-violet-700 px-4 py-2 text-[11px] font-semibold text-slate-800 uppercase tracking-[0.06em] transition disabled:opacity-60"
                                             }
                                         >
                                             {isLoading ? (
                                                 <>
-                                                    <Loader2 size={13} className="animate-spin" /> Initializing
+                                                    <Loader2 size={12} className="animate-spin" /> Initializing
                                                 </>
                                             ) : (
                                                 <>
-                                                    <ArrowRight size={13} /> Upgrade to {tier.label}
+                                                    <ArrowRight size={12} /> Upgrade to {tier.label}
                                                 </>
                                             )}
                                         </button>
@@ -404,8 +404,8 @@ export default function BillingPage() {
                 </div>
 
 
-                <p className="mt-8 text-center text-[11px] text-slate-500">
-                    Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
+                <p className="mt-4 text-center text-[10px] text-slate-500">
+                    Prices in USD. Card payments via Paystack or Stripe. Crypto settles on-chain (Solana today; EVM coming).
                 </p>
             </main>
 
