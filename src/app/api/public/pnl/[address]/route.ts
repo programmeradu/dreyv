@@ -74,6 +74,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
       return {
         mint: h.mint,
         symbol: h.symbol || "UNKNOWN",
+        logo: h.logo,
+        name: h.name,
         uiAmount,
         currentPrice,
         avgEntry: null,
