@@ -423,7 +423,7 @@ function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
     const dataPath = cats.map((c, i) => pt(i, Math.max(0.05, c.score / 100)).join(",")).join(" ");
 
     return (
-        <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[260px] h-auto">
+        <svg viewBox={`-40 -14 ${size + 80} ${size + 28}`} className="w-full max-w-[280px] h-auto overflow-visible">
             {grid.map((g, i) => (
                 <polygon key={i} points={g} fill="none" stroke="hsl(263 70% 91%)" strokeWidth={1} />
             ))}
