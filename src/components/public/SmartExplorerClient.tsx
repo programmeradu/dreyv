@@ -402,11 +402,11 @@ interface RiskResponseUI {
     checks: RiskCheckUI[];
 }
 
-const STATUS_TONE: Record<RiskStatus, { star: string; pill: string; text: string }> = {
-    pass: { star: "text-violet-300", pill: "bg-white text-violet-700 border-violet-200", text: "text-violet-700" },
-    warn: { star: "text-violet-600", pill: "bg-violet-50 text-violet-800 border-violet-300", text: "text-violet-800" },
-    fail: { star: "text-white", pill: "bg-violet-600 text-white border-violet-700", text: "text-violet-900" },
-    info: { star: "text-violet-400", pill: "bg-violet-50/60 text-violet-700 border-violet-100", text: "text-violet-700" },
+const STATUS_TONE: Record<RiskStatus, { icon: React.ComponentType<{ size?: number; className?: string }>; iconClass: string; pill: string; text: string }> = {
+    pass: { icon: CheckCircle2, iconClass: "text-violet-400", pill: "bg-white text-slate-600 border-violet-200", text: "text-slate-700" },
+    warn: { icon: AlertTriangle, iconClass: "text-amber-500", pill: "bg-amber-50 text-amber-800 border-amber-200", text: "text-amber-900" },
+    fail: { icon: ShieldAlert, iconClass: "text-rose-500", pill: "bg-rose-50 text-rose-700 border-rose-200", text: "text-rose-800" },
+    info: { icon: InfoIcon, iconClass: "text-violet-500", pill: "bg-violet-50/60 text-violet-700 border-violet-100", text: "text-violet-700" },
 };
 
 function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
