@@ -15,21 +15,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowRight,
-    ArrowUpRight,
-    Bell,
     ChevronDown,
     Loader2,
-    PiggyBank,
-    Recycle,
-    Receipt,
-    Scale,
-    Sigma,
-    Compass,
-    Shield,
-    TrendingUp,
-    Clock,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { CrystalIcon, type CrystalName } from "@/components/marketplace/CrystalIcon";
 import dreyvGreet from "@/assets/mascot/dreyv-greet.png";
 import dreyvThink from "@/assets/mascot/dreyv-think.png";
 import dreyvCelebrate from "@/assets/mascot/dreyv-celebrate.png";
@@ -66,16 +56,17 @@ interface EdgeInsightsResponse {
     insights: EdgeInsight[];
 }
 
-const KIND_ICON: Record<Kind, React.ComponentType<{ size?: number; className?: string }>> = {
-    fees: Receipt,
-    idle: PiggyBank,
-    dust: Recycle,
-    lost: Clock,
-    concentration: Scale,
-    dca: Sigma,
-    counterparty: Shield,
-    stale: Bell,
-    earn: TrendingUp,
+// Map each insight kind to a custom violet-crystal mark (no stock iconography).
+const KIND_CRYSTAL: Record<Kind, CrystalName> = {
+    fees: "trading",
+    idle: "free",
+    dust: "utility",
+    lost: "trending",
+    concentration: "security",
+    dca: "analytics",
+    counterparty: "social",
+    stale: "featured",
+    earn: "trending",
 };
 
 function fmtUsdShort(n: number): string {
