@@ -162,6 +162,12 @@ export default function RootLayout({
           src="https://plugin.jup.ag/plugin-v1.js"
           strategy="afterInteractive"
         />
+        {process.env.NEXT_PUBLIC_STRIPE_ONRAMP_ENABLED === "true" && (
+          <>
+            <Script src="https://js.stripe.com/dahlia/stripe.js" strategy="afterInteractive" />
+            <Script src="https://crypto-js.stripe.com/crypto-onramp-outer.js" strategy="afterInteractive" />
+          </>
+        )}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
           strategy="afterInteractive"
