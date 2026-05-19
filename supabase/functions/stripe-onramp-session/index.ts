@@ -91,8 +91,8 @@ Deno.serve(async (req: Request) => {
     source_currency: sourceCurrency,
     destination_currency: asset,
     destination_network: network,
-    source_amount: sourceAmount,
-    destination_amount: destinationAmount,
+    source_exchange_amount: sourceAmount,
+    destination_exchange_amount: destinationAmount,
     destination_currencies: destinationCurrencies,
     destination_networks: destinationNetworks,
   });
