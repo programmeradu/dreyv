@@ -25,12 +25,16 @@ import {
     Loader2,
     Wallet,
     Shield,
+    ShieldAlert,
     TrendingUp,
     Users,
     Layers,
     Activity,
     Bell,
     GitCompare,
+    CheckCircle2,
+    AlertTriangle,
+    Info as InfoIcon,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
