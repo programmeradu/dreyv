@@ -493,24 +493,24 @@ function RiskPanel({ address }: { address: string }) {
                     <RiskRadar cats={data.categories} />
                 </div>
                 <div className="space-y-3">
-                    {/* Compact summary chips: pass/warn/fail counts */}
+                    {/* Compact summary chips: pass/warn/fail counts (brand violet only, DreyvStar glyph) */}
                     <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{counts.pass} passing
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-violet-700 border-violet-200">
+                            <DreyvStar size={10} className="text-violet-300" />{counts.pass} passing
                         </span>
                         {counts.warn > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{counts.warn} watch
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-800 border-violet-300">
+                                <DreyvStar size={10} className="text-violet-600" />{counts.warn} watch
                             </span>
                         )}
                         {counts.fail > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />{counts.fail} critical
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-600 text-white border-violet-700">
+                                <DreyvStar size={10} className="text-white" />{counts.fail} critical
                             </span>
                         )}
                         {counts.info > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-700 border-violet-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />{counts.info} info
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50/60 text-violet-700 border-violet-100">
+                                <DreyvStar size={10} className="text-violet-400" />{counts.info} info
                             </span>
                         )}
                     </div>
