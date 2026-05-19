@@ -21,6 +21,8 @@ interface Holding {
 interface PnlRow {
   mint: string;
   symbol: string;
+  logo?: string;
+  name?: string;
   uiAmount: number;
   currentPrice: number;
   avgEntry: number | null;
