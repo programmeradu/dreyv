@@ -370,38 +370,180 @@ function PerformanceChart({ address }: { address: string }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* Risk score                                                                */
+/* Risk & Hygiene — sophisticated multi-category profile + radar             */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function RiskPanel({ address }: { address: string }) {
-    const { data, loading } = useFetchJson<{ score: number; factors: RiskFactor[] }>(`/api/public/risk/${address}`, [address]);
+type RiskStatus = "pass" | "warn" | "fail" | "info";
+interface RiskCheckUI {
+    id: string;
+    category: "custody" | "diversification" | "counterparty" | "activity" | "approvals";
+    title: string;
+    status: RiskStatus;
+    note: string;
+    evidence?: string[];
+    weight: number;
+}
+interface RiskCategoryUI {
+    category: RiskCheckUI["category"];
+    label: string;
+    score: number;
+    status: RiskStatus;
+    summary: string;
+}
+interface RiskResponseUI {
+    score: number;
+    grade: "A" | "B" | "C" | "D" | "F";
+    headline: string;
+    categories: RiskCategoryUI[];
+    checks: RiskCheckUI[];
+}
+
+const STATUS_TONE: Record<RiskStatus, { dot: string; pill: string; text: string }> = {
+    pass: { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700 border-emerald-200", text: "text-emerald-700" },
+    warn: { dot: "bg-amber-500", pill: "bg-amber-50 text-amber-800 border-amber-200", text: "text-amber-700" },
+    fail: { dot: "bg-rose-500", pill: "bg-rose-50 text-rose-700 border-rose-200", text: "text-rose-700" },
+    info: { dot: "bg-violet-400", pill: "bg-violet-50 text-violet-700 border-violet-200", text: "text-violet-700" },
+};
+
+function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
+    // Pentagon radar — 5 categories
+    const size = 220;
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = 84;
+    const n = cats.length || 5;
+    const angle = (i: number) => (-Math.PI / 2) + (i * 2 * Math.PI) / n;
+    const pt = (i: number, mag: number) => {
+        const a = angle(i);
+        return [cx + Math.cos(a) * r * mag, cy + Math.sin(a) * r * mag] as const;
+    };
+    const grid = [0.25, 0.5, 0.75, 1].map((m) =>
+        cats.map((_, i) => pt(i, m).join(",")).join(" "),
+    );
+    const dataPath = cats.map((c, i) => pt(i, Math.max(0.05, c.score / 100)).join(",")).join(" ");
+
     return (
-        <Section icon={Shield} title="Risk & hygiene" subtitle="Diversification, signing setup, protocol spread.">
-            {loading ? <Skeleton className="h-32" /> : data ? (
-                <div className="flex items-center gap-6">
-                    <div className="shrink-0">
-                        <div className="text-4xl font-semibold text-violet-700">{data.score}<span className="text-base text-slate-400">/100</span></div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 mt-1">Overall</div>
+        <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[260px] h-auto">
+            {grid.map((g, i) => (
+                <polygon key={i} points={g} fill="none" stroke="hsl(263 70% 91%)" strokeWidth={1} />
+            ))}
+            {cats.map((_, i) => {
+                const [x, y] = pt(i, 1);
+                return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="hsl(263 70% 94%)" strokeWidth={1} />;
+            })}
+            <polygon points={dataPath} fill="hsl(263 90% 60% / 0.18)" stroke="hsl(263 90% 55%)" strokeWidth={1.5} />
+            {cats.map((c, i) => {
+                const [x, y] = pt(i, 1.18);
+                const anchor = Math.abs(x - cx) < 4 ? "middle" : x > cx ? "start" : "end";
+                return (
+                    <g key={c.category}>
+                        <text x={x} y={y} textAnchor={anchor} dominantBaseline="middle" className="text-[9px] fill-slate-600 font-semibold uppercase tracking-[0.12em]">
+                            {c.label.split(" ")[0]}
+                        </text>
+                        <text x={x} y={y + 11} textAnchor={anchor} dominantBaseline="middle" className="text-[10px] fill-violet-700 font-bold">
+                            {c.score}
+                        </text>
+                    </g>
+                );
+            })}
+        </svg>
+    );
+}
+
+function RiskPanel({ address }: { address: string }) {
+    const { data, loading } = useFetchJson<RiskResponseUI>(`/api/public/risk/${address}`, [address]);
+    const [activeCat, setActiveCat] = useState<RiskCheckUI["category"] | "all">("all");
+
+    if (loading) {
+        return (
+            <Section icon={Shield} title="Risk & hygiene" subtitle="Custody, diversification, counterparties, activity, approvals.">
+                <Skeleton className="h-64" />
+            </Section>
+        );
+    }
+    if (!data) {
+        return (
+            <Section icon={Shield} title="Risk & hygiene"><p className="text-[13px] text-slate-500">Risk profile unavailable.</p></Section>
+        );
+    }
+
+    const visibleChecks = activeCat === "all" ? data.checks : data.checks.filter((c) => c.category === activeCat);
+
+    return (
+        <Section
+            icon={Shield}
+            title="Risk & hygiene"
+            subtitle={data.headline}
+            action={
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                        <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-slate-500">Overall</div>
+                        <div className="text-[24px] font-semibold text-slate-900 leading-none">{data.score}<span className="text-[12px] text-slate-400">/100</span></div>
                     </div>
-                    <div className="flex-1 space-y-2.5 min-w-0">
-                        {data.factors.map(f => (
-                            <div key={f.label}>
-                                <div className="flex items-center justify-between text-[12px]">
-                                    <span className="font-medium text-slate-700">{f.label}</span>
-                                    <span className="font-mono text-slate-500">{f.value}</span>
-                                </div>
-                                <div className="mt-1 h-1.5 rounded-full bg-violet-50 overflow-hidden">
-                                    <div className="h-full bg-violet-600" style={{ width: `${f.value}%` }} />
-                                </div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">{f.note}</div>
-                            </div>
-                        ))}
-                    </div>
+                    <div className="rounded-xl bg-violet-600 text-white px-3 py-1.5 text-[14px] font-bold">{data.grade}</div>
                 </div>
-            ) : <p className="text-[13px] text-slate-500">No risk data.</p>}
+            }
+        >
+            <div className="grid lg:grid-cols-[260px,1fr] gap-6">
+                <div className="flex flex-col items-center justify-center">
+                    <RiskRadar cats={data.categories} />
+                </div>
+                <div className="space-y-4">
+                    {/* Category chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                        <button
+                            onClick={() => setActiveCat("all")}
+                            className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.14em] font-semibold border ${activeCat === "all" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-700 border-violet-200 hover:border-violet-400"}`}
+                        >
+                            All {data.checks.length}
+                        </button>
+                        {data.categories.map((c) => {
+                            const tone = STATUS_TONE[c.status];
+                            const active = activeCat === c.category;
+                            return (
+                                <button
+                                    key={c.category}
+                                    onClick={() => setActiveCat(c.category)}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.14em] font-semibold border ${active ? "bg-slate-900 text-white border-slate-900" : `${tone.pill} hover:border-violet-400`}`}
+                                >
+                                    <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+                                    {c.label} <span className="opacity-70">{c.score}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Checks list */}
+                    <ul className="divide-y divide-violet-50">
+                        {visibleChecks.map((c) => {
+                            const tone = STATUS_TONE[c.status];
+                            return (
+                                <li key={c.id} className="py-2.5 flex items-start gap-3">
+                                    <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${tone.dot}`} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
+                                            <span className={`shrink-0 inline-block text-[9px] uppercase tracking-[0.16em] font-semibold border rounded-full px-2 py-0.5 ${tone.pill}`}>{c.status}</span>
+                                        </div>
+                                        <p className="text-[12px] text-slate-600 leading-relaxed mt-0.5">{c.note}</p>
+                                        {c.evidence && c.evidence.length > 0 && (
+                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                {c.evidence.filter(Boolean).slice(0, 4).map((ev, i) => (
+                                                    <span key={i} className="text-[10px] text-slate-500 bg-violet-50/60 border border-violet-100 rounded px-1.5 py-0.5">{ev}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            </div>
         </Section>
     );
 }
+
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Counterparties (in/out)                                                   */
