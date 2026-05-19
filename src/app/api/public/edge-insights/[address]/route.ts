@@ -116,6 +116,17 @@ function lostOppFromSwaps(
   return best;
 }
 
+function fmtMoney(n: number): string {
+  if (!isFinite(n)) return "$0";
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}k`;
+  if (abs >= 10) return `${sign}$${abs.toFixed(0)}`;
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ address: string }> },
@@ -157,7 +168,7 @@ export async function GET(
         kind: "fees",
         title: "Fee leakage",
         subtitle: "You're paying more than you need to",
-        metric: `$${savings.toFixed(2)} / yr`,
+        metric: `${fmtMoney(savings)} / yr`,
         impactUsd: savings,
         impact: impactOf(savings),
         detail: `Across the last ${txs.length} transactions you paid ${totalFeeSol.toFixed(4)} SOL (~$${totalFeeUsd.toFixed(2)}) in network and priority fees. Dreyv can batch sends, time priority fees, and route swaps through cheaper paths to recover roughly 30% — about $${savings.toFixed(2)} a year at your current pace.`,
@@ -185,7 +196,7 @@ export async function GET(
       kind: "idle",
       title: "Idle capital",
       subtitle: "Cash sitting at 0%",
-      metric: `$${annual.toFixed(2)} / yr`,
+      metric: `${fmtMoney(annual)} / yr`,
       impactUsd: annual,
       impact: impactOf(annual),
       detail: `You're holding about $${idleTotalUsd.toFixed(2)} (${pack.idle.solUiAmount.toFixed(3)} SOL + ${pack.idle.usdcUiAmount.toFixed(2)} USDC) that isn't earning yield. At ~${safeApy.toFixed(1)}% APY${safeYield ? ` on ${safeYield.protocol}` : " via a liquid staking token"} that's roughly $${annual.toFixed(2)} a year you're walking away from — with no lockup.`,
@@ -209,7 +220,7 @@ export async function GET(
       kind: "dust",
       title: "Reclaim rent",
       subtitle: "Empty token accounts holding SOL hostage",
-      metric: `$${dustUsd.toFixed(2)}`,
+      metric: fmtMoney(dustUsd),
       impactUsd: dustUsd,
       impact: impactOf(dustUsd * 4), // one-time, weigh higher
       detail: `You have ${pack.idle.emptyTokenAccounts} empty SPL token accounts each locking ~0.002 SOL in rent. Closing them returns ${dustSol.toFixed(4)} SOL (~$${dustUsd.toFixed(2)}) to your wallet in one click.`,
@@ -252,7 +263,7 @@ export async function GET(
         kind: "lost",
         title: "Past exit, today's price",
         subtitle: "What that swap would be worth now",
-        metric: `$${lost.nowWorthUsd.toFixed(2)}`,
+        metric: fmtMoney(lost.nowWorthUsd),
         impactUsd: 0, // historical — not future $ impact
         impact: "low",
         detail: `You once swapped out ${lost.amountSold.toFixed(2)} ${lost.symbol}. At today's price that position would be worth $${lost.nowWorthUsd.toFixed(2)}. Dreyv flags exit-then-recovery patterns so the next one doesn't slip past you.`,
@@ -339,7 +350,7 @@ export async function GET(
       kind: "earn",
       title: "Yield on current holdings",
       subtitle: `Up to ${Math.min(best.apy, 25).toFixed(1)}% APY available`,
-      metric: `$${potential.toFixed(2)} / yr`,
+      metric: `${fmtMoney(potential)} / yr`,
       impactUsd: potential * 0.4, // discount since not all of portfolio is eligible
       impact: impactOf(potential * 0.4),
       detail: `Routes like ${best.protocol} (${best.symbol}) are paying ${best.apy.toFixed(1)}% APY at ${best.riskTier} risk. Even a partial allocation of your $${pack.totalUsd.toFixed(2)} could earn meaningful yield — Dreyv ranks routes weekly so you're never chasing stale rates.`,

@@ -81,9 +81,11 @@ const KIND_ICON: Record<Kind, React.ComponentType<{ size?: number; className?: s
 function fmtUsdShort(n: number): string {
     if (!isFinite(n)) return "—";
     if (n === 0) return "$0";
-    if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-    if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
-    if (Math.abs(n) >= 10) return `$${n.toFixed(0)}`;
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+    if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
+    if (abs >= 10) return `$${n.toFixed(0)}`;
     return `$${n.toFixed(2)}`;
 }
 
@@ -289,43 +291,57 @@ function EdgeInsightCard({
     const [open, setOpen] = useState(false);
     const Icon = KIND_ICON[insight.kind] ?? Compass;
     const toneRing =
-        insight.impact === "high" ? "border-violet-300 bg-violet-50/60" :
+        insight.impact === "high" ? "border-violet-300 bg-violet-50/50" :
         insight.impact === "medium" ? "border-violet-200 bg-white" :
         "border-violet-100 bg-white";
+    const impactDot =
+        insight.impact === "high" ? "bg-violet-600" :
+        insight.impact === "medium" ? "bg-violet-300" :
+        "bg-violet-200";
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index * 0.05, 0.4) }}
-            className={`rounded-2xl border p-4 flex flex-col ${toneRing}`}
+            className={`group relative rounded-2xl border p-5 flex flex-col gap-4 ${toneRing}`}
         >
+            {/* Header: icon medallion + kind/impact */}
             <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5 min-w-0">
-                    <div className="shrink-0 rounded-xl bg-violet-600 text-white p-2">
-                        <Icon size={14} className="text-white" />
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="shrink-0 rounded-2xl bg-white border border-violet-200 p-2.5 shadow-[0_1px_0_rgba(124,58,237,0.06)]">
+                        <Icon size={18} className="text-violet-600" />
                     </div>
                     <div className="min-w-0">
-                        <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-violet-700">{insight.kind}</div>
-                        <div className="text-[14px] font-semibold text-slate-900 leading-snug">{insight.title}</div>
-                        <div className="text-[11.5px] text-slate-500 mt-0.5 leading-snug">{insight.subtitle}</div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">{insight.kind}</div>
+                        <div className="text-[14.5px] font-semibold text-slate-900 leading-snug mt-0.5 line-clamp-2">{insight.title}</div>
                     </div>
                 </div>
-                <div className="text-right shrink-0">
-                    <div className="text-[16px] font-semibold text-slate-900 leading-none">{insight.metric}</div>
-                    <div className={`mt-1 inline-block text-[9px] uppercase tracking-[0.16em] font-semibold ${
+                <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${impactDot}`} aria-hidden />
+                    <span className={`text-[9px] uppercase tracking-[0.16em] font-semibold ${
                         insight.impact === "high" ? "text-violet-700" :
                         insight.impact === "medium" ? "text-slate-600" :
                         "text-slate-400"
-                    }`}>{insight.impact}</div>
+                    }`}>{insight.impact}</span>
                 </div>
             </div>
 
-            <p className="mt-3 text-[12.5px] text-slate-600 leading-relaxed flex-1">
+            {/* Metric block — primary number anchored, tabular */}
+            <div className="rounded-xl border border-violet-100 bg-white px-3.5 py-2.5 flex items-baseline justify-between gap-3">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-slate-500">
+                    {insight.subtitle}
+                </span>
+                <span className="text-[17px] font-semibold text-slate-900 tabular-nums tracking-tight truncate">
+                    {insight.metric}
+                </span>
+            </div>
+
+            <p className="text-[12.5px] text-slate-600 leading-relaxed flex-1">
                 {insight.detail}
             </p>
 
-            <div className="mt-3 flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-violet-100">
                 {insight.action ? (
                     <Link
                         href={`/auth?claim=${address}&intent=${insight.action.intent}`}
@@ -350,7 +366,7 @@ function EdgeInsightCard({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 space-y-1 overflow-hidden border-t border-violet-100 pt-3"
+                        className="space-y-1 overflow-hidden"
                     >
                         {insight.evidence.map((ev, j) => (
                             <li key={j} className="text-[11px] text-slate-600 flex items-start gap-2">

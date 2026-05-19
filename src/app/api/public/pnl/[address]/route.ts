@@ -14,11 +14,15 @@ interface Holding {
   symbol: string;
   balance: string;
   decimals: number;
+  logo?: string;
+  name?: string;
 }
 
 interface PnlRow {
   mint: string;
   symbol: string;
+  logo?: string;
+  name?: string;
   uiAmount: number;
   currentPrice: number;
   avgEntry: number | null;
@@ -70,6 +74,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
       return {
         mint: h.mint,
         symbol: h.symbol || "UNKNOWN",
+        logo: h.logo,
+        name: h.name,
         uiAmount,
         currentPrice,
         avgEntry: null,

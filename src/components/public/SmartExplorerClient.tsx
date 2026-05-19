@@ -25,12 +25,16 @@ import {
     Loader2,
     Wallet,
     Shield,
+    ShieldAlert,
     TrendingUp,
     Users,
     Layers,
     Activity,
     Bell,
     GitCompare,
+    CheckCircle2,
+    AlertTriangle,
+    Info as InfoIcon,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
@@ -63,7 +67,7 @@ interface FeaturePack {
 
 interface Suggestion { title: string; detail: string; intent: string }
 interface RiskFactor { label: string; weight: number; value: number; note: string }
-interface PnlRow { mint: string; symbol: string; uiAmount: number; currentPrice: number; currentValueUsd: number; avgEntry: number | null; pnlUsd: number | null; pnlPct: number | null }
+interface PnlRow { mint: string; symbol: string; logo?: string; name?: string; uiAmount: number; currentPrice: number; currentValueUsd: number; avgEntry: number | null; pnlUsd: number | null; pnlPct: number | null }
 interface PerfPoint { ts: number; value: number }
 interface Counterparty { address: string; label: string; category: string | null; logoSlug?: string; count: number; solDelta: number }
 interface ActivityItem { signature: string; timestamp: number; type: string; source?: string; description: string; protocol?: string }
@@ -110,20 +114,20 @@ function useFetchJson<T>(url: string | null, deps: React.DependencyList = []): {
 /* Section primitives                                                        */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function Section({ icon: Icon, title, subtitle, children, action }: { icon?: React.ComponentType<{ size?: number; className?: string }>; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Section({ icon: Icon, title, subtitle, children, action, className = "" }: { icon?: React.ComponentType<{ size?: number; className?: string }>; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
     return (
-        <section className="rounded-3xl border border-violet-100 bg-white p-6 sm:p-7">
+        <section className={`rounded-3xl border border-violet-100 bg-white p-6 sm:p-7 flex flex-col h-full ${className}`}>
             <div className="flex items-start justify-between gap-4 mb-5">
-                <div className="flex items-start gap-3">
-                    {Icon ? <Icon size={16} className="mt-0.5 text-violet-600" /> : <DreyvStar size={12} className="mt-1 text-violet-600" />}
-                    <div>
+                <div className="flex items-start gap-3 min-w-0">
+                    {Icon ? <Icon size={16} className="mt-0.5 text-violet-600 shrink-0" /> : <DreyvStar size={12} className="mt-1 text-violet-600 shrink-0" />}
+                    <div className="min-w-0">
                         <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">{title}</h2>
                         {subtitle && <p className="text-[12px] text-slate-500 mt-0.5">{subtitle}</p>}
                     </div>
                 </div>
                 {action}
             </div>
-            {children}
+            <div className="flex-1 min-h-0 flex flex-col">{children}</div>
         </section>
     );
 }
@@ -233,21 +237,21 @@ function HoldingsPanel({ address, onPickToken }: { address: string; onPickToken:
     const { data, loading } = useFetchJson<{ rows: PnlRow[] }>(`/api/public/pnl/${address}`, [address]);
     const rows = data?.rows ?? [];
     return (
-        <Section icon={Layers} title="Holdings" subtitle={rows.length ? `${rows.length} positions · click a row for the token sheet` : "Token positions"}>
+        <Section icon={Layers} title="Holdings" subtitle={rows.length ? `${rows.length} positions · click a row for details` : "Token positions"}>
             {loading ? (
                 <div className="space-y-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>
             ) : rows.length === 0 ? (
                 <p className="text-[13px] text-slate-500">No fungible holdings detected.</p>
             ) : (
-                <div className="divide-y divide-violet-50">
-                    {rows.slice(0, 12).map((r) => (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[440px] divide-y divide-violet-50">
+                    {rows.map((r) => (
                         <button
                             key={r.mint}
                             onClick={() => onPickToken(r.mint, r.symbol)}
                             className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-violet-50/40 px-2 -mx-2 rounded-lg transition"
                         >
                             <div className="flex items-center gap-3 min-w-0">
-                                <TokenAvatar symbol={r.symbol} mint={r.mint} size={28} />
+                                <TokenAvatar symbol={r.symbol} mint={r.mint} logo={r.logo} size={28} />
                                 <div className="min-w-0">
                                     <div className="text-[13px] font-semibold text-slate-900 truncate">{r.symbol}</div>
                                     <div className="text-[11px] text-slate-500 font-mono">{fmtNum(r.uiAmount)}</div>
@@ -398,11 +402,11 @@ interface RiskResponseUI {
     checks: RiskCheckUI[];
 }
 
-const STATUS_TONE: Record<RiskStatus, { star: string; pill: string; text: string }> = {
-    pass: { star: "text-violet-300", pill: "bg-white text-violet-700 border-violet-200", text: "text-violet-700" },
-    warn: { star: "text-violet-600", pill: "bg-violet-50 text-violet-800 border-violet-300", text: "text-violet-800" },
-    fail: { star: "text-white", pill: "bg-violet-600 text-white border-violet-700", text: "text-violet-900" },
-    info: { star: "text-violet-400", pill: "bg-violet-50/60 text-violet-700 border-violet-100", text: "text-violet-700" },
+const STATUS_TONE: Record<RiskStatus, { icon: React.ComponentType<{ size?: number; className?: string }>; iconClass: string; pill: string; text: string }> = {
+    pass: { icon: CheckCircle2, iconClass: "text-violet-400", pill: "bg-white text-slate-600 border-violet-200", text: "text-slate-700" },
+    warn: { icon: AlertTriangle, iconClass: "text-amber-500", pill: "bg-amber-50 text-amber-800 border-amber-200", text: "text-amber-900" },
+    fail: { icon: ShieldAlert, iconClass: "text-rose-500", pill: "bg-rose-50 text-rose-700 border-rose-200", text: "text-rose-800" },
+    info: { icon: InfoIcon, iconClass: "text-violet-500", pill: "bg-violet-50/60 text-violet-700 border-violet-100", text: "text-violet-700" },
 };
 
 function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
@@ -493,24 +497,24 @@ function RiskPanel({ address }: { address: string }) {
                     <RiskRadar cats={data.categories} />
                 </div>
                 <div className="space-y-3">
-                    {/* Compact summary chips: pass/warn/fail counts (brand violet only, DreyvStar glyph) */}
+                    {/* Compact summary chips with status-conveying icons (amber/rose only on glyph, surfaces stay violet) */}
                     <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-violet-700 border-violet-200">
-                            <DreyvStar size={10} className="text-violet-300" />{counts.pass} passing
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-slate-700 border-violet-200">
+                            <CheckCircle2 size={12} className="text-violet-400" />{counts.pass} passing
                         </span>
                         {counts.warn > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-800 border-violet-300">
-                                <DreyvStar size={10} className="text-violet-600" />{counts.warn} watch
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
+                                <AlertTriangle size={12} className="text-amber-500" />{counts.warn} watch
                             </span>
                         )}
                         {counts.fail > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-600 text-white border-violet-700">
-                                <DreyvStar size={10} className="text-white" />{counts.fail} critical
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
+                                <ShieldAlert size={12} className="text-rose-500" />{counts.fail} critical
                             </span>
                         )}
                         {counts.info > 0 && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50/60 text-violet-700 border-violet-100">
-                                <DreyvStar size={10} className="text-violet-400" />{counts.info} info
+                                <InfoIcon size={12} className="text-violet-500" />{counts.info} info
                             </span>
                         )}
                     </div>
@@ -543,9 +547,10 @@ function RiskPanel({ address }: { address: string }) {
                 <ul className="mt-5 divide-y divide-violet-50 border-t border-violet-100 pt-3">
                     {data.checks.map((c) => {
                         const tone = STATUS_TONE[c.status];
+                        const StatusIcon = tone.icon;
                         return (
                             <li key={c.id} className="py-2.5 flex items-start gap-3">
-                                <DreyvStar size={12} className={`mt-1 shrink-0 ${tone.star}`} />
+                                <StatusIcon size={14} className={`mt-0.5 shrink-0 ${tone.iconClass}`} />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
@@ -592,14 +597,18 @@ function CounterpartiesPanel({ address }: { address: string }) {
     return (
         <Section icon={Users} title="Counterparties" subtitle="Top inflows and outflows from recent activity.">
             {loading ? <Skeleton className="h-40" /> : (
-                <div className="grid sm:grid-cols-2 gap-5">
-                    <div>
+                <div className="grid sm:grid-cols-2 gap-5 flex-1 min-h-0">
+                    <div className="flex flex-col min-h-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700 mb-1">In</div>
-                        {(data?.inbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No inbound activity.</p> : data!.inbound.map(c => <Row key={c.address} c={c} />)}
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[360px]">
+                            {(data?.inbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No inbound activity.</p> : data!.inbound.map(c => <Row key={c.address} c={c} />)}
+                        </div>
                     </div>
-                    <div>
+                    <div className="flex flex-col min-h-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700 mb-1">Out</div>
-                        {(data?.outbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No outbound activity.</p> : data!.outbound.map(c => <Row key={c.address} c={c} />)}
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[360px]">
+                            {(data?.outbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No outbound activity.</p> : data!.outbound.map(c => <Row key={c.address} c={c} />)}
+                        </div>
                     </div>
                 </div>
             )}
