@@ -376,7 +376,7 @@ export async function GET(
       metric: `${fmtMoney(potential)} / yr`,
       impactUsd: potential * 0.4, // discount since not all of portfolio is eligible
       impact: impactOf(potential * 0.4),
-      detail: `Routes like ${best.protocol} (${best.symbol}) are paying ${best.apy.toFixed(1)}% APY at ${best.riskTier} risk. Even a partial allocation of your $${pack.totalUsd.toFixed(2)} could earn meaningful yield — Dreyv ranks routes weekly so you're never chasing stale rates.`,
+      detail: `Routes like ${best.protocol} (${best.symbol}) are paying ${best.apy.toFixed(1)}% APY at ${best.riskTier} risk. Even a partial allocation of your ${fmtUsdFull(pack.totalUsd)} could earn meaningful yield — Dreyv ranks routes weekly so you're never chasing stale rates.`,
       action: { label: "Compare routes", intent: "yield_routes" },
       evidence: pack.topYields.slice(0, 3).map((y) => `${y.protocol} · ${y.symbol} · ${y.apy.toFixed(1)}% APY (${y.riskTier})`),
     });
