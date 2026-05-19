@@ -116,7 +116,7 @@ export function OnrampDrawer({
     } finally {
       setLoading(false);
     }
-  }, [walletAddress, walletNetwork, params, onCompleted]);
+  }, [walletAddress, walletNetwork, params, onCompleted, refresh]);
 
   useEffect(() => {
     if (!open) return;
