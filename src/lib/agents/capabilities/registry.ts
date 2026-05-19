@@ -34,6 +34,7 @@ import { bridgeForGasCapabilities } from "./bridge-for-gas";
 import { feeReductionCapabilities } from "./fees";
 import { watcherCapabilities } from "./watchers";
 import { subscriptionCapabilities } from "./subscription";
+import { onrampCapabilities } from "./onramp";
 
 let cached: Map<string, AnyCapability> | null = null;
 
