@@ -497,24 +497,24 @@ function RiskPanel({ address }: { address: string }) {
                     <RiskRadar cats={data.categories} />
                 </div>
                 <div className="space-y-3">
-                    {/* Compact summary chips: pass/warn/fail counts (brand violet only, DreyvStar glyph) */}
+                    {/* Compact summary chips with status-conveying icons (amber/rose only on glyph, surfaces stay violet) */}
                     <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-violet-700 border-violet-200">
-                            <DreyvStar size={10} className="text-violet-300" />{counts.pass} passing
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-slate-700 border-violet-200">
+                            <CheckCircle2 size={12} className="text-violet-400" />{counts.pass} passing
                         </span>
                         {counts.warn > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-800 border-violet-300">
-                                <DreyvStar size={10} className="text-violet-600" />{counts.warn} watch
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
+                                <AlertTriangle size={12} className="text-amber-500" />{counts.warn} watch
                             </span>
                         )}
                         {counts.fail > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-600 text-white border-violet-700">
-                                <DreyvStar size={10} className="text-white" />{counts.fail} critical
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
+                                <ShieldAlert size={12} className="text-rose-500" />{counts.fail} critical
                             </span>
                         )}
                         {counts.info > 0 && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50/60 text-violet-700 border-violet-100">
-                                <DreyvStar size={10} className="text-violet-400" />{counts.info} info
+                                <InfoIcon size={12} className="text-violet-500" />{counts.info} info
                             </span>
                         )}
                     </div>
