@@ -545,7 +545,7 @@ function RiskPanel({ address }: { address: string }) {
                         const tone = STATUS_TONE[c.status];
                         return (
                             <li key={c.id} className="py-2.5 flex items-start gap-3">
-                                <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${tone.dot}`} />
+                                <DreyvStar size={12} className={`mt-1 shrink-0 ${tone.star}`} />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
