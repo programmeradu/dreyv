@@ -50,6 +50,7 @@ export interface EdgeInsight {
   detail: string;       // friendly 1-2 sentence explanation
   action?: { label: string; intent: string };
   evidence?: string[];  // bullet evidence shown on expand
+  assets?: Array<{ symbol: string; mint: string; logo?: string; pctUsd: number; usd: number }>;
 }
 
 export interface EdgeInsightsResponse {
