@@ -41,6 +41,7 @@ interface EdgeInsight {
     detail: string;
     action?: { label: string; intent: string };
     evidence?: string[];
+    assets?: Array<{ symbol: string; mint: string; logo?: string; pctUsd: number; usd: number }>;
 }
 
 interface EdgeInsightsResponse {
