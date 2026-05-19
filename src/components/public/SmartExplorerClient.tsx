@@ -398,11 +398,11 @@ interface RiskResponseUI {
     checks: RiskCheckUI[];
 }
 
-const STATUS_TONE: Record<RiskStatus, { dot: string; pill: string; text: string }> = {
-    pass: { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-700 border-emerald-200", text: "text-emerald-700" },
-    warn: { dot: "bg-amber-500", pill: "bg-amber-50 text-amber-800 border-amber-200", text: "text-amber-700" },
-    fail: { dot: "bg-rose-500", pill: "bg-rose-50 text-rose-700 border-rose-200", text: "text-rose-700" },
-    info: { dot: "bg-violet-400", pill: "bg-violet-50 text-violet-700 border-violet-200", text: "text-violet-700" },
+const STATUS_TONE: Record<RiskStatus, { star: string; pill: string; text: string }> = {
+    pass: { star: "text-violet-300", pill: "bg-white text-violet-700 border-violet-200", text: "text-violet-700" },
+    warn: { star: "text-violet-600", pill: "bg-violet-50 text-violet-800 border-violet-300", text: "text-violet-800" },
+    fail: { star: "text-white", pill: "bg-violet-600 text-white border-violet-700", text: "text-violet-900" },
+    info: { star: "text-violet-400", pill: "bg-violet-50/60 text-violet-700 border-violet-100", text: "text-violet-700" },
 };
 
 function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
@@ -493,24 +493,24 @@ function RiskPanel({ address }: { address: string }) {
                     <RiskRadar cats={data.categories} />
                 </div>
                 <div className="space-y-3">
-                    {/* Compact summary chips: pass/warn/fail counts */}
+                    {/* Compact summary chips: pass/warn/fail counts (brand violet only, DreyvStar glyph) */}
                     <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{counts.pass} passing
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white text-violet-700 border-violet-200">
+                            <DreyvStar size={10} className="text-violet-300" />{counts.pass} passing
                         </span>
                         {counts.warn > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{counts.warn} watch
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-800 border-violet-300">
+                                <DreyvStar size={10} className="text-violet-600" />{counts.warn} watch
                             </span>
                         )}
                         {counts.fail > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />{counts.fail} critical
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-600 text-white border-violet-700">
+                                <DreyvStar size={10} className="text-white" />{counts.fail} critical
                             </span>
                         )}
                         {counts.info > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-700 border-violet-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />{counts.info} info
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50/60 text-violet-700 border-violet-100">
+                                <DreyvStar size={10} className="text-violet-400" />{counts.info} info
                             </span>
                         )}
                     </div>
@@ -545,7 +545,7 @@ function RiskPanel({ address }: { address: string }) {
                         const tone = STATUS_TONE[c.status];
                         return (
                             <li key={c.id} className="py-2.5 flex items-start gap-3">
-                                <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${tone.dot}`} />
+                                <DreyvStar size={12} className={`mt-1 shrink-0 ${tone.star}`} />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
