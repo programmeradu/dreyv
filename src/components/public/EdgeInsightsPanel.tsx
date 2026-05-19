@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { CrystalIcon, type CrystalName } from "@/components/marketplace/CrystalIcon";
+import { TokenAvatar } from "@/components/TokenAvatar";
 import dreyvGreet from "@/assets/mascot/dreyv-greet.png";
 import dreyvThink from "@/assets/mascot/dreyv-think.png";
 import dreyvCelebrate from "@/assets/mascot/dreyv-celebrate.png";
