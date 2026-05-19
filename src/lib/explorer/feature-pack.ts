@@ -211,6 +211,7 @@ export async function buildFeaturePack(address: string): Promise<FeaturePack> {
     ageDays: deriveAgeDays(txs),
     totalUsd,
     composition: composition.slice(0, 12),
+    unpricedCount,
     topProtocols,
     delta30dPct,
     txCount30d: tx30.length,
