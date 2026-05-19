@@ -106,6 +106,8 @@ export default function AppHomePage() {
                 sourceAmount="100"
                 label="Fund wallet with card"
                 variant="ghost"
+                walletAddress={activeVault ?? undefined}
+                walletNetwork="solana"
               />
             </div>
           )}
