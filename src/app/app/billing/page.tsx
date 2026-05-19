@@ -20,9 +20,8 @@ import {
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { CryptoPayPanel } from "@/components/billing/CryptoPayPanel";
-import { OnrampButton } from "@/components/onramp/OnrampButton";
-import { isOnrampEnabled } from "@/lib/onramp/stripe";
 import { useVault } from "@/lib/contexts/VaultContext";
+import { StripeLogo, PaystackLogo, UsdcLogo, UsdtLogo, SolLogo } from "@/components/billing/PaymentLogos";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
@@ -371,25 +370,10 @@ export default function BillingPage() {
                         key={cryptoSeed?.nonce ?? "default"}
                         initialTier={cryptoSeed?.tier}
                         onConfirmed={(t) => setCurrentTier(t)}
+                        walletAddress={activeVault ?? undefined}
                     />
                 </div>
 
-                {isOnrampEnabled() && (
-                    <div className="mt-6 rounded-3xl border border-violet-100 bg-white p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div>
-                            <div className="text-sm font-semibold text-slate-900">Wallet empty? Top up with a card.</div>
-                            <div className="text-[12px] text-slate-500 mt-0.5">Buy USDC on Solana via Stripe — drops straight into your connected wallet. Dreyv never touches the fiat.</div>
-                        </div>
-                        <OnrampButton
-                            asset="usdc"
-                            network="solana"
-                            sourceAmount="100"
-                            label="Top up via Stripe"
-                            walletAddress={activeVault ?? undefined}
-                            walletNetwork="solana"
-                        />
-                    </div>
-                )}
 
                 <p className="mt-8 text-center text-[11px] text-slate-500">
                     Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
@@ -421,9 +405,12 @@ export default function BillingPage() {
                                 disabled={loading === picker}
                                 className="w-full flex items-center justify-between gap-3 rounded-2xl border border-violet-100 hover:border-violet-300 bg-white px-4 py-3 text-left transition disabled:opacity-60"
                             >
-                                <div>
-                                    <div className="text-sm font-semibold text-slate-900">Card · Paystack</div>
-                                    <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo</div>
+                                <div className="flex items-center gap-3">
+                                    <PaystackLogo size={22} />
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">Card · Paystack</div>
+                                        <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo</div>
+                                    </div>
                                 </div>
                                 {loading === picker ? <Loader2 size={14} className="animate-spin text-violet-600" /> : <ArrowRight size={14} className="text-violet-600" />}
                             </button>
@@ -431,9 +418,16 @@ export default function BillingPage() {
                                 onClick={pickCrypto}
                                 className="w-full flex items-center justify-between gap-3 rounded-2xl border-2 border-violet-600 bg-violet-50/40 px-4 py-3 text-left transition hover:bg-violet-50"
                             >
-                                <div>
-                                    <div className="text-sm font-semibold text-slate-900">Crypto · 10% off</div>
-                                    <div className="text-[12px] text-slate-500">USDC / USDT / SOL · ${cryptoPricing ? cryptoPricing[picker].toFixed(2) : "…"} per cycle</div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex -space-x-1.5">
+                                        <UsdcLogo size={22} className="ring-2 ring-white rounded-full" />
+                                        <UsdtLogo size={22} className="ring-2 ring-white rounded-full" />
+                                        <SolLogo size={22} className="ring-2 ring-white rounded-full" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">Crypto · 10% off</div>
+                                        <div className="text-[12px] text-slate-500">USDC / USDT / SOL · ${cryptoPricing ? cryptoPricing[picker].toFixed(2) : "…"} per cycle · or top up via Stripe</div>
+                                    </div>
                                 </div>
                                 <ArrowRight size={14} className="text-violet-600" />
                             </button>

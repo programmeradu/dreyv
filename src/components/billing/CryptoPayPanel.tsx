@@ -11,13 +11,16 @@
  * EVM USDT on BSC has 18 decimals — handled per-row from the registry.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, Copy, CheckCircle2, ArrowRight, Wallet } from "lucide-react";
+import { Loader2, Copy, CheckCircle2, ArrowRight, Wallet, CreditCard } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useWallet, useConnection } from "@/lib/wallet/compat";
 import { useAccount, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { EVM_ENABLED } from "@/lib/feature-flags";
+import { OnrampButton } from "@/components/onramp/OnrampButton";
+import { isOnrampEnabled } from "@/lib/onramp/stripe";
+import { StripeLogo, UsdcLogo, UsdtLogo, SolLogo, EthLogo, PhantomLogo, ASSET_LOGOS } from "@/components/billing/PaymentLogos";
 
 type Tier = "mini" | "max";
 type Chain = "solana" | "base" | "arbitrum" | "polygon" | "bsc";
@@ -62,7 +65,7 @@ function encodeErc20TransferWithMemo(to: string, amountMinor: bigint, memo: stri
     return `0x${selector}${padAddr}${padAmt}${memoHex}`;
 }
 
-export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (tier: Tier) => void; initialTier?: Tier }) {
+export function CryptoPayPanel({ onConfirmed, initialTier, walletAddress }: { onConfirmed?: (tier: Tier) => void; initialTier?: Tier; walletAddress?: string }) {
     const [tier, setTier] = useState<Tier>(initialTier ?? "mini");
     const [chain, setChain] = useState<Chain>("solana");
     const [asset, setAsset] = useState<Asset>("usdc");
@@ -243,12 +246,51 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
 
     return (
         <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-7">
-            <div className="flex items-center gap-2.5 mb-4">
-                <DreyvStar size={10} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
-                    Pay with crypto · 10% off
-                </span>
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                    <DreyvStar size={10} className="text-violet-600" />
+                    <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
+                        Pay with crypto · 10% off
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 opacity-80">
+                    <UsdcLogo size={18} />
+                    <UsdtLogo size={18} />
+                    <SolLogo size={18} />
+                    {EVM_ENABLED && <EthLogo size={18} />}
+                    <span className="mx-1 h-4 w-px bg-violet-100" />
+                    <PhantomLogo size={18} />
+                </div>
             </div>
+
+            {/* Stripe onramp top-up rail — for users without crypto on hand */}
+            {isOnrampEnabled() && (
+                <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50/30 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 shrink-0 rounded-xl bg-white border border-violet-100 flex items-center justify-center">
+                            <CreditCard size={16} className="text-violet-600" />
+                        </div>
+                        <div>
+                            <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                                No crypto? Top up with a card
+                                <StripeLogo size={14} />
+                            </div>
+                            <div className="text-[12px] text-slate-500 mt-0.5">
+                                Buy USDC on Solana via Stripe — drops straight into your connected wallet. Dreyv never touches the fiat.
+                            </div>
+                        </div>
+                    </div>
+                    <OnrampButton
+                        asset="usdc"
+                        network="solana"
+                        sourceAmount={pricing ? String(pricing[tier]) : "100"}
+                        label="Top up via Stripe"
+                        walletAddress={walletAddress}
+                        walletNetwork="solana"
+                    />
+                </div>
+            )}
+
 
             <div className="grid lg:grid-cols-2 gap-6">
                 <div>
@@ -290,16 +332,21 @@ export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (ti
                         <div>
                             <label className="text-[10px] font-semibold tracking-[0.18em] uppercase text-slate-500">Asset</label>
                             <div className="mt-2 inline-flex rounded-xl border border-violet-100 p-1">
-                                {assetsForChain.map(a => (
-                                    <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
-                                        className={asset === a
-                                            ? "px-4 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
-                                            : "px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
-                                        {a.toUpperCase()}
-                                    </button>
-                                ))}
+                                {assetsForChain.map(a => {
+                                    const Logo = ASSET_LOGOS[a];
+                                    return (
+                                        <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
+                                            className={asset === a
+                                                ? "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
+                                                : "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
+                                            <Logo size={14} />
+                                            {a.toUpperCase()}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
+
 
                         {/* Wallet connect strip */}
                         {!walletConnected && (
