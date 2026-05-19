@@ -15,7 +15,8 @@ export interface FeaturePack {
   chain: "solana";
   ageDays: number | null;
   totalUsd: number;
-  composition: Array<{ symbol: string; mint: string; pctUsd: number; usd: number; uiAmount: number }>;
+  composition: Array<{ symbol: string; mint: string; pctUsd: number; usd: number; uiAmount: number; logo?: string; priced: boolean }>;
+  unpricedCount: number;
   topProtocols: string[];
   delta30dPct: number | null;
   txCount30d: number;
