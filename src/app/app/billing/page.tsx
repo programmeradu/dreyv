@@ -370,6 +370,8 @@ export default function BillingPage() {
                     />
                 </div>
 
+                <OnrampFallbackStrip />
+
                 <p className="mt-8 text-center text-[11px] text-slate-500">
                     Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
                 </p>
