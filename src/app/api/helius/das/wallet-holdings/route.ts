@@ -99,10 +99,16 @@ export async function GET(req: NextRequest) {
       return new Response(JSON.stringify({ error: msg }), { status: res.status || 502 });
     }
 
-    // Parse the response to extract token holdings
+    // Parse fungible items returned by DAS
     const items = data?.result?.items || [];
     let holdings = items
-      .filter((item: any) => item.interface === "FungibleToken" || item.interface === "FungibleAsset")
+      .filter((item: any) =>
+        item.interface === "FungibleToken" ||
+        item.interface === "FungibleAsset" ||
+        item.interface === "Custom" ||
+        // some pNFT/SPL-token-22 items show up as MplCoreAsset with token_info — only keep when there's a balance
+        (item.token_info?.balance && Number(item.token_info?.balance) > 0)
+      )
       .map((item: any) => {
         const files = item.content?.files || item.content?.links;
         const logo =
@@ -112,49 +118,82 @@ export async function GET(req: NextRequest) {
           undefined;
         return {
           mint: item.id,
-          symbol: item.content?.metadata?.symbol || item.content?.metadata?.name || "UNKNOWN",
+          symbol: item.content?.metadata?.symbol || item.token_info?.symbol || item.content?.metadata?.name || "UNKNOWN",
           name: item.content?.metadata?.name || item.content?.metadata?.symbol || "Unknown Token",
           address: item.id,
-          balance: item.token_info?.balance || "0",
-          amount: item.token_info?.balance || "0",
+          balance: item.token_info?.balance ?? "0",
+          amount: item.token_info?.balance ?? "0",
           decimals: item.token_info?.decimals ?? 9,
           logo,
         };
-      });
+      })
+      .filter((h: any) => Number(h.balance) > 0);
 
-    // If Helius returned no holdings (sometimes happens), attempt a lightweight RPC fallback
+    // CRITICAL: include native SOL balance — DAS returns it under `result.nativeBalance`, NOT in items.
+    const nativeLamports = Number(data?.result?.nativeBalance?.lamports ?? 0);
+    if (nativeLamports > 0) {
+      const SOL_MINT = "So11111111111111111111111111111111111111112";
+      // Replace any wSOL entry to avoid double-count, then prepend native SOL.
+      holdings = holdings.filter((h: any) => h.mint !== SOL_MINT);
+      holdings.unshift({
+        mint: SOL_MINT,
+        symbol: "SOL",
+        name: "Solana",
+        address: SOL_MINT,
+        balance: String(nativeLamports),
+        amount: String(nativeLamports),
+        decimals: 9,
+        logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+      });
+    }
+
+    // RPC fallback if we still got nothing (DAS occasionally returns empty for fresh wallets)
     if ((!holdings || holdings.length === 0) && address) {
       try {
-        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || process.env.SOLANA_RPC_URL || `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
         const connection = new Connection(rpcUrl, "confirmed");
         const pub = new PublicKey(address);
 
-        // Fetch parsed token accounts (lightweight) - this returns native SOL as well as SPL tokens
-        const resp = await connection.getParsedTokenAccountsByOwner(pub, { programId: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQmcysN5TqGKddxih") });
-        const parsed = resp.value || [];
-        const rpcHoldings = parsed.map((p) => {
-          const info: any = p.account.data?.parsed?.info || {};
-          const mint = info?.mint || p.pubkey?.toBase58() || null;
-          const tokenAmount = info?.tokenAmount || {};
-          return {
-            mint,
-            symbol: info?.meta?.symbol || tokenAmount?.uiAmountString ? undefined : undefined,
-            name: info?.meta?.name || "Unknown",
-            address: mint,
-            balance: tokenAmount?.amount || tokenAmount?.uiAmountString || "0",
-            amount: tokenAmount?.amount || tokenAmount?.uiAmountString || "0",
-            decimals: tokenAmount?.decimals || 0,
-          };
-        }).filter(Boolean);
+        // Native SOL via getBalance
+        const lamports = await connection.getBalance(pub);
+        if (lamports > 0) {
+          const SOL_MINT = "So11111111111111111111111111111111111111112";
+          holdings.push({
+            mint: SOL_MINT,
+            symbol: "SOL",
+            name: "Solana",
+            address: SOL_MINT,
+            balance: String(lamports),
+            amount: String(lamports),
+            decimals: 9,
+          });
+        }
 
-        if (rpcHoldings.length) {
-          holdings = rpcHoldings;
+        // SPL token accounts — correct program ID
+        const SPL_TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+        const resp = await connection.getParsedTokenAccountsByOwner(pub, { programId: SPL_TOKEN_PROGRAM });
+        const parsed = resp.value || [];
+        for (const p of parsed) {
+          const info: any = p.account.data?.parsed?.info || {};
+          const mint = info?.mint;
+          const tokenAmount = info?.tokenAmount || {};
+          const raw = Number(tokenAmount?.amount ?? 0);
+          if (!mint || raw === 0) continue;
+          holdings.push({
+            mint,
+            symbol: "UNKNOWN",
+            name: "Unknown Token",
+            address: mint,
+            balance: String(raw),
+            amount: String(raw),
+            decimals: tokenAmount?.decimals ?? 0,
+          });
         }
       } catch (rpcErr) {
-        // swallow; we'll return whatever holdings we have (likely empty)
-        console.error("Helius fallback RPC failed:", rpcErr);
+        console.error("Helius RPC fallback failed:", rpcErr);
       }
     }
+
 
     return new Response(
       JSON.stringify({ holdings, total: holdings.length }),
