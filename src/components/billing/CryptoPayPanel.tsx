@@ -332,16 +332,21 @@ export function CryptoPayPanel({ onConfirmed, initialTier, walletAddress }: { on
                         <div>
                             <label className="text-[10px] font-semibold tracking-[0.18em] uppercase text-slate-500">Asset</label>
                             <div className="mt-2 inline-flex rounded-xl border border-violet-100 p-1">
-                                {assetsForChain.map(a => (
-                                    <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
-                                        className={asset === a
-                                            ? "px-4 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
-                                            : "px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
-                                        {a.toUpperCase()}
-                                    </button>
-                                ))}
+                                {assetsForChain.map(a => {
+                                    const Logo = ASSET_LOGOS[a];
+                                    return (
+                                        <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
+                                            className={asset === a
+                                                ? "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
+                                                : "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
+                                            <Logo size={14} />
+                                            {a.toUpperCase()}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
+
 
                         {/* Wallet connect strip */}
                         {!walletConnected && (
