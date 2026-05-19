@@ -171,16 +171,44 @@ export default function BillingPage() {
         }
     };
 
+    const startStripe = async (tier: Exclude<Tier, "free">) => {
+        setLoading(tier);
+        try {
+            const res = await fetch("/api/stripe/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tier }),
+            });
+            const data = await res.json();
+            if (data?.url) {
+                window.location.href = data.url;
+                return;
+            }
+            toast.error(data?.error || "Failed to generate Stripe checkout link.");
+        } catch {
+            toast.error("Failed to start Stripe checkout.");
+        } finally {
+            setLoading(null);
+        }
+    };
+
     const choosePaymentMethod = (tier: Tier) => {
         if (tier === "free") return;
         setPicker(tier as Exclude<Tier, "free">);
     };
 
-    const pickCard = () => {
+    const pickPaystack = () => {
         if (!picker) return;
         const t = picker;
         setPicker(null);
         startPaystack(t);
+    };
+
+    const pickStripe = () => {
+        if (!picker) return;
+        const t = picker;
+        setPicker(null);
+        startStripe(t);
     };
 
     const pickCrypto = () => {
@@ -192,6 +220,7 @@ export default function BillingPage() {
             document.getElementById("crypto-pay-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
     };
+
 
     const handleVerify = async () => {
         setVerifying(true);
