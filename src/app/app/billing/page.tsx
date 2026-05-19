@@ -238,45 +238,45 @@ export default function BillingPage() {
     const isPaid = currentTier !== "free";
 
     return (
-        <div className="flex-1 w-full bg-white text-slate-900 font-manrope min-h-screen">
+        <div className="flex-1 w-full bg-white text-slate-900 font-manrope">
             {/* Header */}
             <header className="relative border-b border-violet-100 bg-white overflow-hidden">
                 <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
 
                 {/* Dreyv mascot peek — celebrate on paid, greet on free */}
-                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
+                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-2 z-0 select-none">
                     <Image
                         src={dreyvBilling}
                         alt=""
                         width={140}
                         height={140}
                         priority
-                        className="h-[120px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
+                        className="h-[78px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
                     />
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                        <div className="flex items-center gap-2.5">
-                            <DreyvStar size={10} className="text-violet-600" />
+                        <div className="flex items-center gap-2">
+                            <DreyvStar size={9} className="text-violet-600" />
                             <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
                                 Billing & subscription
                             </span>
                         </div>
-                        <h1 className="mt-2 text-[26px] sm:text-[28px] font-semibold tracking-[-0.01em] text-slate-900">
+                        <h1 className="mt-1 text-[20px] sm:text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
                             Plans, payments, and capacity
                         </h1>
-                        <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
+                        <p className="mt-0.5 text-[12px] text-slate-500 max-w-xl">
                             {isPaid
-                                ? "Billed monthly via Paystack. Manage invoices and payment method directly from your Paystack receipt email."
+                                ? "Billed monthly via Paystack. Manage invoices from your receipt email."
                                 : "You're on the free tier. Upgrade for more vaults, seats, and AI capacity."}
                         </p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-1.5">
                         <span
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase ${
+                            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] uppercase ${
                                 isPaid
                                     ? "bg-violet-50 text-violet-700 border-violet-200"
                                     : "bg-slate-100 text-slate-600 border-slate-200"
@@ -298,8 +298,8 @@ export default function BillingPage() {
             </header>
 
             {/* Tiers */}
-            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {TIER_DEF.map((tier) => {
                         const isCurrent = currentTier === tier.id;
                         const isLoading = loading === tier.id;
