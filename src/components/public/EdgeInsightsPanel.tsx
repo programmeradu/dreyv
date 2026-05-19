@@ -280,15 +280,11 @@ function EdgeInsightCard({
     address, insight, index,
 }: { address: string; insight: EdgeInsight; index: number }) {
     const [open, setOpen] = useState(false);
-    const Icon = KIND_ICON[insight.kind] ?? Compass;
+    const crystal = KIND_CRYSTAL[insight.kind] ?? "all";
     const toneRing =
         insight.impact === "high" ? "border-violet-300 bg-violet-50/50" :
         insight.impact === "medium" ? "border-violet-200 bg-white" :
         "border-violet-100 bg-white";
-    const impactDot =
-        insight.impact === "high" ? "bg-violet-600" :
-        insight.impact === "medium" ? "bg-violet-300" :
-        "bg-violet-200";
 
     return (
         <motion.div
@@ -297,11 +293,11 @@ function EdgeInsightCard({
             transition={{ delay: Math.min(index * 0.05, 0.4) }}
             className={`group relative rounded-2xl border p-5 flex flex-col gap-4 ${toneRing}`}
         >
-            {/* Header: icon medallion + kind/impact */}
+            {/* Header: crystal medallion + kind/impact */}
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="shrink-0 rounded-2xl bg-white border border-violet-200 p-2.5 shadow-[0_1px_0_rgba(124,58,237,0.06)]">
-                        <Icon size={18} className="text-violet-600" />
+                    <div className="shrink-0 grid place-items-center h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-200 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.25)]">
+                        <CrystalIcon name={crystal} size={26} alt={insight.kind} />
                     </div>
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">{insight.kind}</div>
@@ -309,7 +305,11 @@ function EdgeInsightCard({
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 mt-1">
-                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${impactDot}`} aria-hidden />
+                    <DreyvStar size={10} className={
+                        insight.impact === "high" ? "text-violet-700" :
+                        insight.impact === "medium" ? "text-violet-400" :
+                        "text-violet-200"
+                    } />
                     <span className={`text-[9px] uppercase tracking-[0.16em] font-semibold ${
                         insight.impact === "high" ? "text-violet-700" :
                         insight.impact === "medium" ? "text-slate-600" :
@@ -317,6 +317,7 @@ function EdgeInsightCard({
                     }`}>{insight.impact}</span>
                 </div>
             </div>
+
 
             {/* Metric block — primary number anchored, tabular */}
             <div className="rounded-xl border border-violet-100 bg-white px-3.5 py-2.5 flex items-baseline justify-between gap-3">
