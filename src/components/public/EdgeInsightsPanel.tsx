@@ -81,9 +81,11 @@ const KIND_ICON: Record<Kind, React.ComponentType<{ size?: number; className?: s
 function fmtUsdShort(n: number): string {
     if (!isFinite(n)) return "—";
     if (n === 0) return "$0";
-    if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-    if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
-    if (Math.abs(n) >= 10) return `$${n.toFixed(0)}`;
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+    if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
+    if (abs >= 10) return `$${n.toFixed(0)}`;
     return `$${n.toFixed(2)}`;
 }
 
