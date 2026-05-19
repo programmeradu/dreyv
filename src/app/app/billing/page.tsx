@@ -22,6 +22,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import { CryptoPayPanel } from "@/components/billing/CryptoPayPanel";
 import { OnrampButton } from "@/components/onramp/OnrampButton";
 import { isOnrampEnabled } from "@/lib/onramp/stripe";
+import { useVault } from "@/lib/contexts/VaultContext";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
@@ -89,6 +90,7 @@ const TIER_DEF: Array<{
 
 export default function BillingPage() {
     const search = useSearchParams();
+    const { activeVault } = useVault();
     const [loading, setLoading] = useState<Tier | null>(null);
     const [verifying, setVerifying] = useState(false);
     const [currentTier, setCurrentTier] = useState<Tier>("free");
@@ -378,7 +380,14 @@ export default function BillingPage() {
                             <div className="text-sm font-semibold text-slate-900">Wallet empty? Top up with a card.</div>
                             <div className="text-[12px] text-slate-500 mt-0.5">Buy USDC on Solana via Stripe — drops straight into your connected wallet. Dreyv never touches the fiat.</div>
                         </div>
-                        <OnrampButton asset="usdc" network="solana" sourceAmount="100" label="Top up via Stripe" />
+                        <OnrampButton
+                            asset="usdc"
+                            network="solana"
+                            sourceAmount="100"
+                            label="Top up via Stripe"
+                            walletAddress={activeVault ?? undefined}
+                            walletNetwork="solana"
+                        />
                     </div>
                 )}
 
