@@ -15,7 +15,8 @@ export interface FeaturePack {
   chain: "solana";
   ageDays: number | null;
   totalUsd: number;
-  composition: Array<{ symbol: string; mint: string; pctUsd: number; usd: number; uiAmount: number }>;
+  composition: Array<{ symbol: string; mint: string; pctUsd: number; usd: number; uiAmount: number; logo?: string; priced: boolean }>;
+  unpricedCount: number;
   topProtocols: string[];
   delta30dPct: number | null;
   txCount30d: number;
@@ -126,11 +127,12 @@ export async function buildFeaturePack(address: string): Promise<FeaturePack> {
       const px = prices[h.mint] ?? (h.mint === SOL ? (solUsd ?? 0) : 0);
       const usd = uiAmount * px;
       totalUsd += usd;
-      return { symbol: h.symbol || "UNKNOWN", mint: h.mint, pctUsd: 0, usd, uiAmount };
+      return { symbol: h.symbol || "UNKNOWN", mint: h.mint, pctUsd: 0, usd, uiAmount, logo: h.logo, priced: px > 0 };
     })
-    .filter((c) => c.usd > 0.01)
+    .filter((c) => c.uiAmount > 0)
     .sort((a, b) => b.usd - a.usd);
   for (const c of composition) c.pctUsd = totalUsd > 0 ? c.usd / totalUsd : 0;
+  const unpricedCount = composition.filter((c) => !c.priced).length;
 
   // Activity windows
   const now = Math.floor(Date.now() / 1000);
@@ -209,6 +211,7 @@ export async function buildFeaturePack(address: string): Promise<FeaturePack> {
     ageDays: deriveAgeDays(txs),
     totalUsd,
     composition: composition.slice(0, 12),
+    unpricedCount,
     topProtocols,
     delta30dPct,
     txCount30d: tx30.length,

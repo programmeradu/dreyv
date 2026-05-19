@@ -15,21 +15,12 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowRight,
-    ArrowUpRight,
-    Bell,
     ChevronDown,
     Loader2,
-    PiggyBank,
-    Recycle,
-    Receipt,
-    Scale,
-    Sigma,
-    Compass,
-    Shield,
-    TrendingUp,
-    Clock,
 } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { CrystalIcon, type CrystalName } from "@/components/marketplace/CrystalIcon";
+import { TokenAvatar } from "@/components/TokenAvatar";
 import dreyvGreet from "@/assets/mascot/dreyv-greet.png";
 import dreyvThink from "@/assets/mascot/dreyv-think.png";
 import dreyvCelebrate from "@/assets/mascot/dreyv-celebrate.png";
@@ -50,6 +41,7 @@ interface EdgeInsight {
     detail: string;
     action?: { label: string; intent: string };
     evidence?: string[];
+    assets?: Array<{ symbol: string; mint: string; logo?: string; pctUsd: number; usd: number }>;
 }
 
 interface EdgeInsightsResponse {
@@ -66,16 +58,17 @@ interface EdgeInsightsResponse {
     insights: EdgeInsight[];
 }
 
-const KIND_ICON: Record<Kind, React.ComponentType<{ size?: number; className?: string }>> = {
-    fees: Receipt,
-    idle: PiggyBank,
-    dust: Recycle,
-    lost: Clock,
-    concentration: Scale,
-    dca: Sigma,
-    counterparty: Shield,
-    stale: Bell,
-    earn: TrendingUp,
+// Map each insight kind to a custom violet-crystal mark (no stock iconography).
+const KIND_CRYSTAL: Record<Kind, CrystalName> = {
+    fees: "trading",
+    idle: "free",
+    dust: "utility",
+    lost: "trending",
+    concentration: "security",
+    dca: "analytics",
+    counterparty: "social",
+    stale: "featured",
+    earn: "trending",
 };
 
 function fmtUsdShort(n: number): string {
@@ -289,15 +282,11 @@ function EdgeInsightCard({
     address, insight, index,
 }: { address: string; insight: EdgeInsight; index: number }) {
     const [open, setOpen] = useState(false);
-    const Icon = KIND_ICON[insight.kind] ?? Compass;
+    const crystal = KIND_CRYSTAL[insight.kind] ?? "all";
     const toneRing =
         insight.impact === "high" ? "border-violet-300 bg-violet-50/50" :
         insight.impact === "medium" ? "border-violet-200 bg-white" :
         "border-violet-100 bg-white";
-    const impactDot =
-        insight.impact === "high" ? "bg-violet-600" :
-        insight.impact === "medium" ? "bg-violet-300" :
-        "bg-violet-200";
 
     return (
         <motion.div
@@ -306,11 +295,11 @@ function EdgeInsightCard({
             transition={{ delay: Math.min(index * 0.05, 0.4) }}
             className={`group relative rounded-2xl border p-5 flex flex-col gap-4 ${toneRing}`}
         >
-            {/* Header: icon medallion + kind/impact */}
+            {/* Header: crystal medallion + kind/impact */}
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="shrink-0 rounded-2xl bg-white border border-violet-200 p-2.5 shadow-[0_1px_0_rgba(124,58,237,0.06)]">
-                        <Icon size={18} className="text-violet-600" />
+                    <div className="shrink-0 grid place-items-center h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-200 shadow-[0_2px_10px_-4px_rgba(124,58,237,0.25)]">
+                        <CrystalIcon name={crystal} size={26} alt={insight.kind} />
                     </div>
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">{insight.kind}</div>
@@ -318,7 +307,11 @@ function EdgeInsightCard({
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 mt-1">
-                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${impactDot}`} aria-hidden />
+                    <DreyvStar size={10} className={
+                        insight.impact === "high" ? "text-violet-700" :
+                        insight.impact === "medium" ? "text-violet-400" :
+                        "text-violet-200"
+                    } />
                     <span className={`text-[9px] uppercase tracking-[0.16em] font-semibold ${
                         insight.impact === "high" ? "text-violet-700" :
                         insight.impact === "medium" ? "text-slate-600" :
@@ -326,6 +319,7 @@ function EdgeInsightCard({
                     }`}>{insight.impact}</span>
                 </div>
             </div>
+
 
             {/* Metric block — primary number anchored, tabular */}
             <div className="rounded-xl border border-violet-100 bg-white px-3.5 py-2.5 flex items-baseline justify-between gap-3">
@@ -337,9 +331,26 @@ function EdgeInsightCard({
                 </span>
             </div>
 
+            {insight.assets && insight.assets.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {insight.assets.slice(0, 6).map((a) => (
+                        <span
+                            key={a.mint}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-violet-100 bg-white pl-1 pr-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                            title={`${a.symbol} · ${(a.pctUsd * 100).toFixed(1)}%`}
+                        >
+                            <TokenAvatar symbol={a.symbol} mint={a.mint} logo={a.logo} size={16} />
+                            <span className="tabular-nums">{a.symbol}</span>
+                            <span className="text-slate-400 tabular-nums">{(a.pctUsd * 100).toFixed(0)}%</span>
+                        </span>
+                    ))}
+                </div>
+            )}
+
             <p className="text-[12.5px] text-slate-600 leading-relaxed flex-1">
                 {insight.detail}
             </p>
+
 
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-violet-100">
                 {insight.action ? (

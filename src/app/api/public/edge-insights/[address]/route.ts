@@ -50,6 +50,7 @@ export interface EdgeInsight {
   detail: string;       // friendly 1-2 sentence explanation
   action?: { label: string; intent: string };
   evidence?: string[];  // bullet evidence shown on expand
+  assets?: Array<{ symbol: string; mint: string; logo?: string; pctUsd: number; usd: number }>;
 }
 
 export interface EdgeInsightsResponse {
@@ -127,6 +128,19 @@ function fmtMoney(n: number): string {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
+/** Full USD with thousands separators — used inside detail copy where compact reads poorly. */
+function fmtUsdFull(n: number, decimals = 2): string {
+  if (!isFinite(n)) return "$0";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+/** Token amount with thousands separators (no $). */
+function fmtAmount(n: number, decimals = 2): string {
+  if (!isFinite(n)) return "0";
+  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ address: string }> },
@@ -171,11 +185,11 @@ export async function GET(
         metric: `${fmtMoney(savings)} / yr`,
         impactUsd: savings,
         impact: impactOf(savings),
-        detail: `Across the last ${txs.length} transactions you paid ${totalFeeSol.toFixed(4)} SOL (~$${totalFeeUsd.toFixed(2)}) in network and priority fees. Dreyv can batch sends, time priority fees, and route swaps through cheaper paths to recover roughly 30% — about $${savings.toFixed(2)} a year at your current pace.`,
+      detail: `Across the last ${txs.length} transactions you paid ${fmtAmount(totalFeeSol, 4)} SOL (${fmtUsdFull(totalFeeUsd)}) in network and priority fees. Dreyv can batch sends, time priority fees, and route swaps through cheaper paths to recover roughly 30% — about ${fmtUsdFull(savings)} a year at your current pace.`,
         action: { label: "Show me how", intent: "fee_optimize" },
         evidence: [
-          `${totalFeeSol.toFixed(4)} SOL paid in fees over ~${span.toFixed(0)} days`,
-          `Annualized: ~$${annualFee.toFixed(2)}`,
+          `${fmtAmount(totalFeeSol, 4)} SOL paid in fees over ~${span.toFixed(0)} days`,
+          `Annualized: ~${fmtUsdFull(annualFee)}`,
           `Smart batching + priority tuning typically recovers 25–35%`,
         ],
       });
@@ -199,11 +213,11 @@ export async function GET(
       metric: `${fmtMoney(annual)} / yr`,
       impactUsd: annual,
       impact: impactOf(annual),
-      detail: `You're holding about $${idleTotalUsd.toFixed(2)} (${pack.idle.solUiAmount.toFixed(3)} SOL + ${pack.idle.usdcUiAmount.toFixed(2)} USDC) that isn't earning yield. At ~${safeApy.toFixed(1)}% APY${safeYield ? ` on ${safeYield.protocol}` : " via a liquid staking token"} that's roughly $${annual.toFixed(2)} a year you're walking away from — with no lockup.`,
+      detail: `You're holding about ${fmtUsdFull(idleTotalUsd)} (${fmtAmount(pack.idle.solUiAmount, 3)} SOL + ${fmtAmount(pack.idle.usdcUiAmount)} USDC) that isn't earning yield. At ~${safeApy.toFixed(1)}% APY${safeYield ? ` on ${safeYield.protocol}` : " via a liquid staking token"} that's roughly ${fmtUsdFull(annual)} a year you're walking away from — with no lockup.`,
       action: { label: "Put it to work", intent: "stake_idle" },
       evidence: [
-        `Idle SOL: ${pack.idle.solUiAmount.toFixed(4)} (~$${idleSolUsd.toFixed(2)})`,
-        `Idle USDC: $${idleUsdcUsd.toFixed(2)}`,
+        `Idle SOL: ${fmtAmount(pack.idle.solUiAmount, 4)} (${fmtUsdFull(idleSolUsd)})`,
+        `Idle USDC: ${fmtUsdFull(idleUsdcUsd)}`,
         safeYield
           ? `Reference yield: ${safeYield.protocol} ${safeYield.symbol} at ${safeYield.apy.toFixed(2)}% APY (${safeYield.riskTier} risk)`
           : `Reference yield: liquid staking tokens at ~6–7% APY`,
@@ -223,20 +237,28 @@ export async function GET(
       metric: fmtMoney(dustUsd),
       impactUsd: dustUsd,
       impact: impactOf(dustUsd * 4), // one-time, weigh higher
-      detail: `You have ${pack.idle.emptyTokenAccounts} empty SPL token accounts each locking ~0.002 SOL in rent. Closing them returns ${dustSol.toFixed(4)} SOL (~$${dustUsd.toFixed(2)}) to your wallet in one click.`,
+      detail: `You have ${pack.idle.emptyTokenAccounts} empty SPL token accounts each locking ~0.002 SOL in rent. Closing them returns ${fmtAmount(dustSol, 4)} SOL (${fmtUsdFull(dustUsd)}) to your wallet in one click.`,
       action: { label: "Reclaim now", intent: "close_dust" },
       evidence: [
         `${pack.idle.emptyTokenAccounts} empty accounts detected`,
         `Per-account rent: 0.00203928 SOL`,
-        `Total recoverable: ${dustSol.toFixed(4)} SOL`,
+        `Total recoverable: ${fmtAmount(dustSol, 4)} SOL`,
       ],
     });
   }
 
   /* ── 4. Concentration risk ── */
-  const top = pack.composition[0];
+  const pricedComp = pack.composition.filter((c) => c.priced);
+  const top = pricedComp[0];
+  const otherHoldings = pack.composition.length - 1;
   if (top && top.pctUsd >= 0.6 && pack.totalUsd >= 50) {
     const pct = (top.pctUsd * 100).toFixed(0);
+    const unpricedNote =
+      pack.unpricedCount > 0
+        ? ` Note: ${pack.unpricedCount} other position${pack.unpricedCount === 1 ? "" : "s"} held here ${pack.unpricedCount === 1 ? "isn't" : "aren't"} priced by Jupiter yet, so this % is of the priced AUM only.`
+        : otherHoldings > 0
+          ? ` You also hold ${otherHoldings} smaller position${otherHoldings === 1 ? "" : "s"} (<${(100 - Number(pct)).toFixed(0)}% combined).`
+          : "";
     insights.push({
       id: "concentration",
       kind: "concentration",
@@ -245,12 +267,17 @@ export async function GET(
       metric: `${pct}%`,
       impactUsd: top.usd * 0.1, // notional "at risk" framing
       impact: top.pctUsd >= 0.85 ? "high" : "medium",
-      detail: `${pct}% of your portfolio sits in ${top.symbol}. A 20% drawdown there is a ${(top.pctUsd * 20).toFixed(0)}% hit to your entire wallet. Dreyv can suggest a gentle hedge or rebalance — no all-or-nothing moves.`,
+      detail: `${pct}% of priced portfolio value sits in ${top.symbol}. A 20% drawdown there is a ${(top.pctUsd * 20).toFixed(0)}% hit to your priced AUM. Dreyv can suggest a gentle hedge or rebalance — no all-or-nothing moves.${unpricedNote}`,
       action: { label: "See hedge options", intent: "hedge" },
       evidence: [
-        `${top.symbol}: $${top.usd.toFixed(2)} (${pct}%)`,
-        `Portfolio total: $${pack.totalUsd.toFixed(2)}`,
+        `${top.symbol}: ${fmtUsdFull(top.usd)} (${pct}% of priced)`,
+        `Priced portfolio total: ${fmtUsdFull(pack.totalUsd)}`,
+        ...(pack.unpricedCount > 0 ? [`${pack.unpricedCount} unpriced position${pack.unpricedCount === 1 ? "" : "s"} not included in %`] : []),
+        ...(otherHoldings > 0 ? [`${otherHoldings} other position${otherHoldings === 1 ? "" : "s"} in this wallet`] : []),
       ],
+      assets: pack.composition.slice(0, 6).map((c) => ({
+        symbol: c.symbol, mint: c.mint, logo: c.logo, pctUsd: c.pctUsd, usd: c.usd,
+      })),
     });
   }
 
@@ -266,11 +293,11 @@ export async function GET(
         metric: fmtMoney(lost.nowWorthUsd),
         impactUsd: 0, // historical — not future $ impact
         impact: "low",
-        detail: `You once swapped out ${lost.amountSold.toFixed(2)} ${lost.symbol}. At today's price that position would be worth $${lost.nowWorthUsd.toFixed(2)}. Dreyv flags exit-then-recovery patterns so the next one doesn't slip past you.`,
+        detail: `You once swapped out ${fmtAmount(lost.amountSold, 2)} ${lost.symbol}. At today's price that position would be worth ${fmtUsdFull(lost.nowWorthUsd)}. Dreyv flags exit-then-recovery patterns so the next one doesn't slip past you.`,
         action: { label: "Set price alerts", intent: "alerts" },
         evidence: [
-          `Amount swapped out: ${lost.amountSold.toFixed(4)} ${lost.symbol}`,
-          `Today's value: $${lost.nowWorthUsd.toFixed(2)}`,
+          `Amount swapped out: ${fmtAmount(lost.amountSold, 4)} ${lost.symbol}`,
+          `Today's value: ${fmtUsdFull(lost.nowWorthUsd)}`,
         ],
       });
     }
@@ -353,7 +380,7 @@ export async function GET(
       metric: `${fmtMoney(potential)} / yr`,
       impactUsd: potential * 0.4, // discount since not all of portfolio is eligible
       impact: impactOf(potential * 0.4),
-      detail: `Routes like ${best.protocol} (${best.symbol}) are paying ${best.apy.toFixed(1)}% APY at ${best.riskTier} risk. Even a partial allocation of your $${pack.totalUsd.toFixed(2)} could earn meaningful yield — Dreyv ranks routes weekly so you're never chasing stale rates.`,
+      detail: `Routes like ${best.protocol} (${best.symbol}) are paying ${best.apy.toFixed(1)}% APY at ${best.riskTier} risk. Even a partial allocation of your ${fmtUsdFull(pack.totalUsd)} could earn meaningful yield — Dreyv ranks routes weekly so you're never chasing stale rates.`,
       action: { label: "Compare routes", intent: "yield_routes" },
       evidence: pack.topYields.slice(0, 3).map((y) => `${y.protocol} · ${y.symbol} · ${y.apy.toFixed(1)}% APY (${y.riskTier})`),
     });
