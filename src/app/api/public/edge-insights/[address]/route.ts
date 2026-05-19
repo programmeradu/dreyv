@@ -275,6 +275,9 @@ export async function GET(
         ...(pack.unpricedCount > 0 ? [`${pack.unpricedCount} unpriced position${pack.unpricedCount === 1 ? "" : "s"} not included in %`] : []),
         ...(otherHoldings > 0 ? [`${otherHoldings} other position${otherHoldings === 1 ? "" : "s"} in this wallet`] : []),
       ],
+      assets: pack.composition.slice(0, 6).map((c) => ({
+        symbol: c.symbol, mint: c.mint, logo: c.logo, pctUsd: c.pctUsd, usd: c.usd,
+      })),
     });
   }
 
