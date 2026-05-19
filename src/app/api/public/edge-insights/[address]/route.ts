@@ -127,6 +127,19 @@ function fmtMoney(n: number): string {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
+/** Full USD with thousands separators — used inside detail copy where compact reads poorly. */
+function fmtUsdFull(n: number, decimals = 2): string {
+  if (!isFinite(n)) return "$0";
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+/** Token amount with thousands separators (no $). */
+function fmtAmount(n: number, decimals = 2): string {
+  if (!isFinite(n)) return "0";
+  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ address: string }> },
