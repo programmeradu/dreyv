@@ -9,6 +9,7 @@
  * Phase 14 — foresight foundation.
  */
 import { NextRequest } from "next/server";
+import { getAuthUser } from "@/lib/auth-utils";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
 export const runtime = "nodejs";
@@ -53,6 +54,9 @@ Rules:
 - Maximum 140 words total.`;
 
 export async function POST(req: NextRequest) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req);
+  if (!_authUser) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
   let body: NarrativeBody;
   try {
     body = await req.json();
