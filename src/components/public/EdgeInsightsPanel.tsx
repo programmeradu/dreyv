@@ -310,7 +310,7 @@ function EdgeInsightCard({
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="shrink-0 rounded-2xl bg-white border border-violet-200 p-2.5 shadow-[0_1px_0_rgba(124,58,237,0.06)]">
-                        <Icon size={18} className="text-violet-600" strokeWidth={1.75} />
+                        <Icon size={18} className="text-violet-600" />
                     </div>
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">{insight.kind}</div>
