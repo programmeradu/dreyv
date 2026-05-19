@@ -25,6 +25,7 @@ import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { FeeAnalyticsWidget } from "@/components/dashboard/FeeAnalyticsWidget";
 import { YieldProtocolPanel } from "@/components/dashboard/YieldProtocolPanel";
 import { WatcherHeartbeatStrip } from "@/components/agent/WatcherHeartbeatStrip";
+import { OnrampButton } from "@/components/onramp/OnrampButton";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault, vaultTokens } = useVault();
