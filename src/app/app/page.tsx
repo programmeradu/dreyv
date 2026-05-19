@@ -98,6 +98,17 @@ export default function AppHomePage() {
             <NavTile href="/app/treasury" eyebrow="Treasury" title="Holdings & flows" variant="treasury" tokens={vaultTokens} />
             <NavTile href="/app/analytics" eyebrow="Analytics" title="Performance & risk" variant="analytics" />
           </div>
+          {(!vaultValue || vaultValue < 1) && (
+            <div className="pt-3">
+              <OnrampButton
+                asset="usdc"
+                network="solana"
+                sourceAmount="100"
+                label="Fund wallet with card"
+                variant="ghost"
+              />
+            </div>
+          )}
         </StreamIn>
 
         <StreamIn delay={0.12} className="md:pt-12">
