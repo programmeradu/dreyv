@@ -331,9 +331,26 @@ function EdgeInsightCard({
                 </span>
             </div>
 
+            {insight.assets && insight.assets.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {insight.assets.slice(0, 6).map((a) => (
+                        <span
+                            key={a.mint}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-violet-100 bg-white pl-1 pr-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                            title={`${a.symbol} · ${(a.pctUsd * 100).toFixed(1)}%`}
+                        >
+                            <TokenAvatar symbol={a.symbol} mint={a.mint} logo={a.logo} size={16} />
+                            <span className="tabular-nums">{a.symbol}</span>
+                            <span className="text-slate-400 tabular-nums">{(a.pctUsd * 100).toFixed(0)}%</span>
+                        </span>
+                    ))}
+                </div>
+            )}
+
             <p className="text-[12.5px] text-slate-600 leading-relaxed flex-1">
                 {insight.detail}
             </p>
+
 
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-violet-100">
                 {insight.action ? (
