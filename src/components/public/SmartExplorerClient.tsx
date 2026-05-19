@@ -35,6 +35,7 @@ import {
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { getProtocolLogo } from "@/lib/protocol-logos";
+import { EdgeInsightsHero, EdgeInsightsGrid, useEdgeInsights } from "./EdgeInsightsPanel";
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Types                                                                    */
