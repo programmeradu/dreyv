@@ -238,45 +238,45 @@ export default function BillingPage() {
     const isPaid = currentTier !== "free";
 
     return (
-        <div className="flex-1 w-full bg-white text-slate-900 font-manrope min-h-screen">
+        <div className="flex-1 w-full bg-white text-slate-900 font-manrope">
             {/* Header */}
             <header className="relative border-b border-violet-100 bg-white overflow-hidden">
                 <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl" />
 
                 {/* Dreyv mascot peek — celebrate on paid, greet on free */}
-                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-3 z-0 select-none">
+                <div className="pointer-events-none hidden md:block absolute right-6 lg:right-10 bottom-0 translate-y-2 z-0 select-none">
                     <Image
                         src={dreyvBilling}
                         alt=""
                         width={140}
                         height={140}
                         priority
-                        className="h-[120px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
+                        className="h-[78px] w-auto opacity-95 drop-shadow-[0_18px_30px_rgba(124,58,237,0.18)]"
                     />
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-7 flex items-start justify-between gap-4 flex-wrap">
+                <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                        <div className="flex items-center gap-2.5">
-                            <DreyvStar size={10} className="text-violet-600" />
+                        <div className="flex items-center gap-2">
+                            <DreyvStar size={9} className="text-violet-600" />
                             <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
                                 Billing & subscription
                             </span>
                         </div>
-                        <h1 className="mt-2 text-[26px] sm:text-[28px] font-semibold tracking-[-0.01em] text-slate-900">
+                        <h1 className="mt-1 text-[20px] sm:text-[22px] font-semibold tracking-[-0.01em] text-slate-900">
                             Plans, payments, and capacity
                         </h1>
-                        <p className="mt-1 text-[13px] text-slate-500 max-w-xl">
+                        <p className="mt-0.5 text-[12px] text-slate-500 max-w-xl">
                             {isPaid
-                                ? "Billed monthly via Paystack. Manage invoices and payment method directly from your Paystack receipt email."
+                                ? "Billed monthly via Paystack. Manage invoices from your receipt email."
                                 : "You're on the free tier. Upgrade for more vaults, seats, and AI capacity."}
                         </p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-1.5">
                         <span
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase ${
+                            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] uppercase ${
                                 isPaid
                                     ? "bg-violet-50 text-violet-700 border-violet-200"
                                     : "bg-slate-100 text-slate-600 border-slate-200"
@@ -298,8 +298,8 @@ export default function BillingPage() {
             </header>
 
             {/* Tiers */}
-            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {TIER_DEF.map((tier) => {
                         const isCurrent = currentTier === tier.id;
                         const isLoading = loading === tier.id;
@@ -309,61 +309,61 @@ export default function BillingPage() {
                                 key={tier.id}
                                 className={
                                     tier.featured
-                                        ? "relative rounded-3xl border-2 border-violet-600 bg-white p-7 flex flex-col"
-                                        : "rounded-3xl border border-violet-100 bg-white p-7 flex flex-col hover:border-violet-300 transition"
+                                        ? "relative rounded-2xl border-2 border-violet-600 bg-white p-4 flex flex-col"
+                                        : "rounded-2xl border border-violet-100 bg-white p-4 flex flex-col hover:border-violet-300 transition"
                                 }
                             >
                                 {tier.featured && (
-                                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white">
                                         Most popular
                                     </span>
                                 )}
 
-                                <div className="flex items-center gap-4 mb-5">
-                                    <div className="h-16 w-16 shrink-0 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="h-11 w-11 shrink-0 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center overflow-hidden">
                                         <Image
                                             src={tier.image}
                                             alt={tier.imageAlt}
-                                            width={56}
-                                            height={56}
-                                            className="h-14 w-14 object-contain"
+                                            width={40}
+                                            height={40}
+                                            className="h-9 w-9 object-contain"
                                         />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold text-slate-900">{tier.label}</h2>
+                                        <h2 className="text-base font-semibold text-slate-900 leading-tight">{tier.label}</h2>
                                         <p className="text-[11px] text-slate-500">{tier.tagline}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-semibold tracking-tight text-slate-900">{tier.price}</span>
-                                    <span className="text-sm font-medium text-slate-500">/mo</span>
+                                    <span className="text-2xl font-semibold tracking-tight text-slate-900">{tier.price}</span>
+                                    <span className="text-xs font-medium text-slate-500">/mo</span>
                                 </div>
-                                <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400 font-medium">
-                                    {tier.id === "free" ? "No card required" : "Billed monthly via Paystack"}
+                                <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400 font-medium">
+                                    {tier.id === "free" ? "No card required" : "Card or crypto · monthly"}
                                 </p>
 
-                                <ul className="mt-6 space-y-3 flex-1">
+                                <ul className="mt-3 space-y-1.5 flex-1">
                                     {tier.features.map((f) => (
-                                        <li key={f} className="flex items-start gap-2.5 text-sm text-slate-700">
-                                            <CheckCircle2 size={14} className="text-violet-600 mt-0.5 shrink-0" />
+                                        <li key={f} className="flex items-start gap-2 text-[12px] text-slate-700 leading-snug">
+                                            <CheckCircle2 size={12} className="text-violet-600 mt-0.5 shrink-0" />
                                             <span>{f}</span>
                                         </li>
                                     ))}
                                 </ul>
 
-                                <div className="mt-8">
+                                <div className="mt-3">
                                     {isCurrent ? (
                                         <button
                                             disabled
-                                            className="w-full rounded-xl border border-violet-200 bg-violet-50 px-5 py-2.5 text-xs font-semibold text-violet-700 uppercase tracking-[0.06em]"
+                                            className="w-full rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-[11px] font-semibold text-violet-700 uppercase tracking-[0.06em]"
                                         >
                                             Current plan
                                         </button>
                                     ) : tier.id === "free" ? (
                                         <button
                                             disabled
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-[0.06em]"
+                                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]"
                                         >
                                             Free forever
                                         </button>
@@ -373,17 +373,17 @@ export default function BillingPage() {
                                             disabled={isLoading}
                                             className={
                                                 tier.featured
-                                                    ? "inline-flex w-full justify-center items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
-                                                    : "inline-flex w-full justify-center items-center gap-2 rounded-xl border border-violet-200 bg-white hover:border-violet-400 hover:text-violet-700 px-5 py-2.5 text-xs font-semibold text-slate-800 uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                                    ? "inline-flex w-full justify-center items-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-700 px-4 py-2 text-[11px] font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
+                                                    : "inline-flex w-full justify-center items-center gap-2 rounded-lg border border-violet-200 bg-white hover:border-violet-400 hover:text-violet-700 px-4 py-2 text-[11px] font-semibold text-slate-800 uppercase tracking-[0.06em] transition disabled:opacity-60"
                                             }
                                         >
                                             {isLoading ? (
                                                 <>
-                                                    <Loader2 size={13} className="animate-spin" /> Initializing
+                                                    <Loader2 size={12} className="animate-spin" /> Initializing
                                                 </>
                                             ) : (
                                                 <>
-                                                    <ArrowRight size={13} /> Upgrade to {tier.label}
+                                                    <ArrowRight size={12} /> Upgrade to {tier.label}
                                                 </>
                                             )}
                                         </button>
@@ -404,8 +404,8 @@ export default function BillingPage() {
                 </div>
 
 
-                <p className="mt-8 text-center text-[11px] text-slate-500">
-                    Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
+                <p className="mt-4 text-center text-[10px] text-slate-500">
+                    Prices in USD. Card payments via Paystack or Stripe. Crypto settles on-chain (Solana today; EVM coming).
                 </p>
             </main>
 
