@@ -14,6 +14,8 @@ interface Holding {
   symbol: string;
   balance: string;
   decimals: number;
+  logo?: string;
+  name?: string;
 }
 
 interface PnlRow {
