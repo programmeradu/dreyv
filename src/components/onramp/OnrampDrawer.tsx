@@ -21,11 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildOnrampUrl, buildOnrampUrlServer, type BuildOnrampUrlParams } from "@/lib/onramp/stripe";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    StripeOnramp?: any;
-  }
-}
 
 interface OnrampDrawerProps extends BuildOnrampUrlParams {
   open: boolean;
@@ -74,14 +69,10 @@ export function OnrampDrawer({
       if (invokeErr) throw new Error(invokeErr.message);
       if (!data?.clientSecret) throw new Error(data?.error || "No client secret returned");
 
-      if (!window.StripeOnramp) {
-        throw new Error("Stripe Onramp SDK not loaded");
-      }
-      // crypto-onramp-outer.js exposes a global constructor function.
-      const onramp =
-        typeof window.StripeOnramp === "function"
-          ? window.StripeOnramp()
-          : window.StripeOnramp;
+      const StripeOnramp = (window as unknown as { StripeOnramp?: unknown })
+        .StripeOnramp as any;
+      if (!StripeOnramp) throw new Error("Stripe Onramp SDK not loaded");
+      const onramp = typeof StripeOnramp === "function" ? StripeOnramp() : StripeOnramp;
       const session = onramp.createSession({ clientSecret: data.clientSecret });
       session.mount(mountRef.current);
       session.addEventListener("onramp_session_updated", (event: any) => {
