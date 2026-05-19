@@ -22,6 +22,7 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import { CryptoPayPanel } from "@/components/billing/CryptoPayPanel";
 import { OnrampButton } from "@/components/onramp/OnrampButton";
 import { isOnrampEnabled } from "@/lib/onramp/stripe";
+import { useVault } from "@/lib/contexts/VaultContext";
 import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
