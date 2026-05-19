@@ -6,6 +6,7 @@
  */
 
 import type { CanvasBlock } from "@/lib/canvas/types";
+import { humanizeOperation } from "@/lib/agents/humanize";
 import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";

@@ -510,12 +510,12 @@ export function CommandBar() {
             : undefined);
           const failed = out?.success === false;
           return {
-            title: String(p.toolName ?? "step"),
+            title: humanizeOperation(String(p.toolName ?? "step")) || "Step",
             detail:
               typeof out?.message === "string"
                 ? (out.message as string)
                 : typeof out?.operation === "string"
-                  ? `operation: ${out.operation as string}`
+                  ? humanizeOperation(out.operation as string)
                   : undefined,
             status: failed ? "failed" : p.state === "output-available" ? "success" : "running",
           };
