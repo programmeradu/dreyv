@@ -65,7 +65,7 @@ function encodeErc20TransferWithMemo(to: string, amountMinor: bigint, memo: stri
     return `0x${selector}${padAddr}${padAmt}${memoHex}`;
 }
 
-export function CryptoPayPanel({ onConfirmed, initialTier }: { onConfirmed?: (tier: Tier) => void; initialTier?: Tier }) {
+export function CryptoPayPanel({ onConfirmed, initialTier, walletAddress }: { onConfirmed?: (tier: Tier) => void; initialTier?: Tier; walletAddress?: string }) {
     const [tier, setTier] = useState<Tier>(initialTier ?? "mini");
     const [chain, setChain] = useState<Chain>("solana");
     const [asset, setAsset] = useState<Asset>("usdc");
