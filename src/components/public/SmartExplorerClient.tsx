@@ -63,7 +63,7 @@ interface FeaturePack {
 
 interface Suggestion { title: string; detail: string; intent: string }
 interface RiskFactor { label: string; weight: number; value: number; note: string }
-interface PnlRow { mint: string; symbol: string; uiAmount: number; currentPrice: number; currentValueUsd: number; avgEntry: number | null; pnlUsd: number | null; pnlPct: number | null }
+interface PnlRow { mint: string; symbol: string; logo?: string; name?: string; uiAmount: number; currentPrice: number; currentValueUsd: number; avgEntry: number | null; pnlUsd: number | null; pnlPct: number | null }
 interface PerfPoint { ts: number; value: number }
 interface Counterparty { address: string; label: string; category: string | null; logoSlug?: string; count: number; solDelta: number }
 interface ActivityItem { signature: string; timestamp: number; type: string; source?: string; description: string; protocol?: string }
