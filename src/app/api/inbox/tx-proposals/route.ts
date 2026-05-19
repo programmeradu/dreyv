@@ -7,6 +7,8 @@
  * back with the resulting signature. We never sign server-side.
  */
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 import {
   listQueuedTxProposals,
   updateTxProposalStatus,
@@ -20,6 +22,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
   const status = url.searchParams.get("status") ?? "queued";
@@ -49,6 +55,10 @@ const VALID_ACTIONS = new Set(["approve", "reject", "submitted", "confirmed", "f
  *   }
  */
 export async function POST(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: Partial<InsertTxProposalInput> & { wallet?: string | null };
   try {
     body = await req.json();
@@ -81,6 +91,10 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: {
     id?: string;
     action?: string;

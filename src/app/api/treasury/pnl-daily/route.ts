@@ -11,6 +11,8 @@
  */
 import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +56,10 @@ async function ensureMv(sql: any) {
 }
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
   const range = url.searchParams.get("range") ?? "30d";

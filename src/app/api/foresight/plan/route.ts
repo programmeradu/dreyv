@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR, IRToken } from "@/lib/foresight/simulation-ir";
+import { getAuthUser } from "@/lib/auth-utils";
 
 /**
  * /api/foresight/plan
@@ -132,6 +133,10 @@ function safeParseIR(raw: string): SimulationIR | null {
 }
 
 export async function POST(req: NextRequest) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: PlanBody;
   try {
     body = (await req.json()) as PlanBody;

@@ -10,11 +10,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { dacsHandoffs } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) {
     return NextResponse.json({ ok: false, error: "db_unavailable", handoffs: [] }, { status: 503 });
   }
