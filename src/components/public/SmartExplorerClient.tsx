@@ -597,14 +597,18 @@ function CounterpartiesPanel({ address }: { address: string }) {
     return (
         <Section icon={Users} title="Counterparties" subtitle="Top inflows and outflows from recent activity.">
             {loading ? <Skeleton className="h-40" /> : (
-                <div className="grid sm:grid-cols-2 gap-5">
-                    <div>
+                <div className="grid sm:grid-cols-2 gap-5 flex-1 min-h-0">
+                    <div className="flex flex-col min-h-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700 mb-1">In</div>
-                        {(data?.inbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No inbound activity.</p> : data!.inbound.map(c => <Row key={c.address} c={c} />)}
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[360px]">
+                            {(data?.inbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No inbound activity.</p> : data!.inbound.map(c => <Row key={c.address} c={c} />)}
+                        </div>
                     </div>
-                    <div>
+                    <div className="flex flex-col min-h-0">
                         <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700 mb-1">Out</div>
-                        {(data?.outbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No outbound activity.</p> : data!.outbound.map(c => <Row key={c.address} c={c} />)}
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[360px]">
+                            {(data?.outbound ?? []).length === 0 ? <p className="text-[12px] text-slate-500">No outbound activity.</p> : data!.outbound.map(c => <Row key={c.address} c={c} />)}
+                        </div>
                     </div>
                 </div>
             )}
