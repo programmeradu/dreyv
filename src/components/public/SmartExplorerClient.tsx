@@ -110,20 +110,20 @@ function useFetchJson<T>(url: string | null, deps: React.DependencyList = []): {
 /* Section primitives                                                        */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function Section({ icon: Icon, title, subtitle, children, action }: { icon?: React.ComponentType<{ size?: number; className?: string }>; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Section({ icon: Icon, title, subtitle, children, action, className = "" }: { icon?: React.ComponentType<{ size?: number; className?: string }>; title: string; subtitle?: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
     return (
-        <section className="rounded-3xl border border-violet-100 bg-white p-6 sm:p-7">
+        <section className={`rounded-3xl border border-violet-100 bg-white p-6 sm:p-7 flex flex-col h-full ${className}`}>
             <div className="flex items-start justify-between gap-4 mb-5">
-                <div className="flex items-start gap-3">
-                    {Icon ? <Icon size={16} className="mt-0.5 text-violet-600" /> : <DreyvStar size={12} className="mt-1 text-violet-600" />}
-                    <div>
+                <div className="flex items-start gap-3 min-w-0">
+                    {Icon ? <Icon size={16} className="mt-0.5 text-violet-600 shrink-0" /> : <DreyvStar size={12} className="mt-1 text-violet-600 shrink-0" />}
+                    <div className="min-w-0">
                         <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">{title}</h2>
                         {subtitle && <p className="text-[12px] text-slate-500 mt-0.5">{subtitle}</p>}
                     </div>
                 </div>
                 {action}
             </div>
-            {children}
+            <div className="flex-1 min-h-0 flex flex-col">{children}</div>
         </section>
     );
 }
