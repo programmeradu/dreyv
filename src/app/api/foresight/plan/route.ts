@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR, IRToken } from "@/lib/foresight/simulation-ir";
 import { getAuthUser } from "@/lib/auth-utils";
-import type { NextRequest } from "next/server";
 
 /**
  * /api/foresight/plan

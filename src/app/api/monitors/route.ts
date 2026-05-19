@@ -7,7 +7,6 @@ import { z } from "zod";
 import { db } from "@/db";
 import { monitors } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
-import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
