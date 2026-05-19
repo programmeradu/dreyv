@@ -90,7 +90,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userMsg = JSON.stringify(pack);
+    const edgeInsights = Array.isArray(body.edgeInsights) ? body.edgeInsights : [];
+    const userMsg = JSON.stringify({ featurePack: pack, edgeInsights });
     if (mode === "narrative") {
       const content = await callLovableAI(SYSTEM_NARRATIVE, userMsg, false);
       return new Response(JSON.stringify({ narrative: content.trim() }), {
