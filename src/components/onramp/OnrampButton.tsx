@@ -1,14 +1,19 @@
 "use client";
 
 /**
- * Reusable "Fund with card" button — opens the Stripe-hosted crypto onramp
- * in a new tab with the destination asset/network/amount prefilled.
+ * Reusable "Fund with card" button.
  *
- * Hidden when NEXT_PUBLIC_STRIPE_ONRAMP_ENABLED !== "true" so it stays dark
- * until the Stripe onramp account is approved.
+ * Default: opens the in-app <OnrampDrawer /> which mints a server-side Stripe
+ * Crypto Onramp session (locked to the user's wallet when provided) and
+ * embeds the session via crypto-onramp-outer.js.
+ *
+ * `mode="redirect"` keeps the legacy new-tab Standalone flow for surfaces
+ * that can't host the drawer (e.g. agent chat link cards).
+ *
+ * Hidden when NEXT_PUBLIC_STRIPE_ONRAMP_ENABLED !== "true".
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import {
   buildOnrampUrl,
@@ -17,27 +22,40 @@ import {
   type BuildOnrampUrlParams,
 } from "@/lib/onramp/stripe";
 import { cn } from "@/lib/utils";
+import { OnrampDrawer } from "./OnrampDrawer";
 
 interface OnrampButtonProps extends BuildOnrampUrlParams {
   label?: string;
   className?: string;
   variant?: "primary" | "ghost";
+  /** "drawer" (default) mints a session in-app; "redirect" opens a new tab. */
+  mode?: "drawer" | "redirect";
+  walletAddress?: string;
+  walletNetwork?: string;
 }
 
 export function OnrampButton({
   label = "Fund with card",
   className,
   variant = "primary",
+  mode = "drawer",
+  walletAddress,
+  walletNetwork,
   ...params
 }: OnrampButtonProps) {
   const enabled = isOnrampEnabled();
+  const [open, setOpen] = useState(false);
   const fallbackUrl = useMemo(() => buildOnrampUrlServer(params), [params]);
 
   const handleClick = useCallback(() => {
     if (!enabled) return;
+    if (mode === "drawer") {
+      setOpen(true);
+      return;
+    }
     const url = buildOnrampUrl(params) ?? fallbackUrl;
     window.open(url, "_blank", "noopener,noreferrer");
-  }, [enabled, params, fallbackUrl]);
+  }, [enabled, mode, params, fallbackUrl]);
 
   if (!enabled) return null;
 
@@ -49,9 +67,20 @@ export function OnrampButton({
       : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50";
 
   return (
-    <button type="button" onClick={handleClick} className={cn(base, styles, className)}>
-      {label}
-      <ArrowUpRight className="h-3.5 w-3.5" />
-    </button>
+    <>
+      <button type="button" onClick={handleClick} className={cn(base, styles, className)}>
+        {label}
+        <ArrowUpRight className="h-3.5 w-3.5" />
+      </button>
+      {mode === "drawer" && (
+        <OnrampDrawer
+          open={open}
+          onClose={() => setOpen(false)}
+          walletAddress={walletAddress}
+          walletNetwork={walletNetwork ?? params.network}
+          {...params}
+        />
+      )}
+    </>
   );
 }
