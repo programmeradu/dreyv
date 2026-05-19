@@ -157,6 +157,8 @@ async function runAudit(wallet: string) {
 }
 
 export async function POST(req: Request) {
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 }); }
@@ -177,6 +179,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   const wallet = new URL(req.url).searchParams.get("wallet");
   if (!wallet) return NextResponse.json({ ok: false, error: "wallet_required" }, { status: 400 });
