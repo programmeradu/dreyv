@@ -35,6 +35,7 @@ import {
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { TokenAvatar } from "@/components/TokenAvatar";
 import { getProtocolLogo } from "@/lib/protocol-logos";
+import { EdgeInsightsHero, EdgeInsightsGrid, useEdgeInsights } from "./EdgeInsightsPanel";
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Types                                                                    */
@@ -663,8 +664,24 @@ function ClaimCta({ address }: { address: string }) {
 
 export function SmartExplorerClient({ address, compareAddress, embed }: Props) {
     const { data: pack } = useFetchJson<FeaturePack>(`/api/public/feature-pack/${address}`, [address]);
+    const edge = useEdgeInsights(address);
+    const narr = useFetchJson<{ narrative?: string; archetype?: string }>(`/api/public/narrative/${address}`, [address]);
     const [picked, setPicked] = useState<{ mint: string; symbol: string } | null>(null);
     const [copied, setCopied] = useState(false);
+
+    // Type-in narrative
+    const [shown, setShown] = useState("");
+    useEffect(() => {
+        const full = narr.data?.narrative ?? "";
+        if (!full) { setShown(""); return; }
+        let i = 0;
+        const id = window.setInterval(() => {
+            i = Math.min(full.length, i + 5);
+            setShown(full.slice(0, i));
+            if (i >= full.length) window.clearInterval(id);
+        }, 16);
+        return () => window.clearInterval(id);
+    }, [narr.data?.narrative]);
 
     const copy = () => {
         navigator.clipboard?.writeText(address);
@@ -674,13 +691,11 @@ export function SmartExplorerClient({ address, compareAddress, embed }: Props) {
 
     return (
         <>
-            {/* Hero — narrative-as-hero */}
-            <div className="relative border-b border-violet-100/80 overflow-hidden">
-                <div className="pointer-events-none absolute -top-32 left-1/3 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-40 right-0 h-[320px] w-[520px] rounded-full bg-violet-300/30 blur-3xl" />
+            {/* Hero — Edge Insights led */}
+            <div className="relative border-b border-violet-100/80 overflow-hidden bg-white">
                 <div className="relative mx-auto max-w-6xl px-6 py-10 sm:py-14">
                     {!embed && (
-                        <div className="flex items-center justify-between gap-4 mb-6">
+                        <div className="flex items-center justify-between gap-4 mb-8">
                             <Link href="/" className="text-xs uppercase tracking-[0.22em] font-semibold text-violet-700">Dreyv</Link>
                             <div className="flex items-center gap-2">
                                 <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] font-semibold text-violet-700">
@@ -692,11 +707,39 @@ export function SmartExplorerClient({ address, compareAddress, embed }: Props) {
                             </div>
                         </div>
                     )}
-                    <NarrativeHeader address={address} />
+                    <EdgeInsightsHero
+                        address={address}
+                        data={edge.data}
+                        loading={edge.loading}
+                        narrative={{
+                            text: shown,
+                            archetype: narr.data?.archetype,
+                            loading: narr.loading,
+                        }}
+                    />
                 </div>
             </div>
 
-            <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
+            <div className="mx-auto max-w-6xl px-6 py-8 space-y-8">
+                {/* Edge insights grid — the differentiator */}
+                <section className="space-y-4">
+                    <div className="flex items-end justify-between flex-wrap gap-3">
+                        <div>
+                            <h2 className="text-[18px] font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+                                <DreyvStar size={14} className="text-violet-600" />
+                                The Dreyv Edge
+                            </h2>
+                            <p className="text-[12.5px] text-slate-500 mt-1">Value moves and pattern signals we found in this wallet's actual on-chain history.</p>
+                        </div>
+                        {!embed && (
+                            <Link href={`/auth?claim=${address}`} className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2 text-[12px] font-semibold text-white uppercase tracking-[0.08em]">
+                                Act on all of this <ArrowRight size={12} />
+                            </Link>
+                        )}
+                    </div>
+                    <EdgeInsightsGrid address={address} data={edge.data} loading={edge.loading} />
+                </section>
+
                 {/* Sticky connect rail */}
                 {!embed && (
                     <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -713,6 +756,7 @@ export function SmartExplorerClient({ address, compareAddress, embed }: Props) {
                     </div>
                 )}
 
+                {/* Analyst grid below the fold */}
                 <StatStrip pack={pack} />
                 <SuggestionsPanel address={address} />
 
