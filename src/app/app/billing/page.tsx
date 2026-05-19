@@ -373,22 +373,6 @@ export default function BillingPage() {
                     />
                 </div>
 
-                {isOnrampEnabled() && (
-                    <div className="mt-6 rounded-3xl border border-violet-100 bg-white p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div>
-                            <div className="text-sm font-semibold text-slate-900">Wallet empty? Top up with a card.</div>
-                            <div className="text-[12px] text-slate-500 mt-0.5">Buy USDC on Solana via Stripe — drops straight into your connected wallet. Dreyv never touches the fiat.</div>
-                        </div>
-                        <OnrampButton
-                            asset="usdc"
-                            network="solana"
-                            sourceAmount="100"
-                            label="Top up via Stripe"
-                            walletAddress={activeVault ?? undefined}
-                            walletNetwork="solana"
-                        />
-                    </div>
-                )}
 
                 <p className="mt-8 text-center text-[11px] text-slate-500">
                     Prices in USD. Card payments via Paystack. Crypto payments settle on-chain (Solana today; EVM coming).
