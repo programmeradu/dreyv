@@ -19,6 +19,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { buildOnrampUrl, buildOnrampUrlServer, type BuildOnrampUrlParams } from "@/lib/onramp/stripe";
 import { cn } from "@/lib/utils";
+import { useVault } from "@/lib/contexts/VaultContext";
+import { toast } from "@/lib/toast-notifications";
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -48,6 +50,7 @@ export function OnrampDrawer({
   ...params
 }: OnrampDrawerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const { refresh } = useVault();
   const sessionRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,7 +91,19 @@ export function OnrampDrawer({
       session.mount(mountRef.current);
       session.addEventListener("onramp_session_updated", (event: any) => {
         const status = event?.payload?.session?.status;
-        if (status === "fulfillment_complete" || status === "rejected") {
+        if (status === "fulfillment_complete") {
+          toast.success("Funds delivered", {
+            description: `${(params.asset ?? "USDC").toString().toUpperCase()} landed in your wallet. Refreshing balances…`,
+          });
+          // Stripe settles seconds after this event — kick a refresh now and
+          // again 8s later to catch on-chain confirmation.
+          refresh().catch(() => undefined);
+          setTimeout(() => refresh().catch(() => undefined), 8000);
+          onCompleted?.({ id: data.id, status });
+        } else if (status === "rejected") {
+          toast.error("Onramp session rejected", {
+            description: "Stripe was unable to complete this purchase.",
+          });
           onCompleted?.({ id: data.id, status });
         }
       });
