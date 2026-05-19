@@ -11,13 +11,16 @@
  * EVM USDT on BSC has 18 decimals — handled per-row from the registry.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, Copy, CheckCircle2, ArrowRight, Wallet } from "lucide-react";
+import { Loader2, Copy, CheckCircle2, ArrowRight, Wallet, CreditCard } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { useWallet, useConnection } from "@/lib/wallet/compat";
 import { useAccount, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { EVM_ENABLED } from "@/lib/feature-flags";
+import { OnrampButton } from "@/components/onramp/OnrampButton";
+import { isOnrampEnabled } from "@/lib/onramp/stripe";
+import { StripeLogo, UsdcLogo, UsdtLogo, SolLogo, EthLogo, PhantomLogo, ASSET_LOGOS } from "@/components/billing/PaymentLogos";
 
 type Tier = "mini" | "max";
 type Chain = "solana" | "base" | "arbitrum" | "polygon" | "bsc";
