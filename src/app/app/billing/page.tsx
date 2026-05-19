@@ -425,12 +425,12 @@ export default function BillingPage() {
                         </div>
                         <h3 className="mt-2 text-lg font-semibold text-slate-900">Choose how to pay</h3>
                         <p className="mt-1 text-[13px] text-slate-500">
-                            Card billing is recurring monthly via Paystack. Crypto payments are manual per cycle and include a 10% discount.
+                            Card billing is recurring monthly via Paystack or Stripe. Crypto payments are manual per cycle and include a 10% discount.
                         </p>
 
                         <div className="mt-5 space-y-3">
                             <button
-                                onClick={pickCard}
+                                onClick={pickPaystack}
                                 disabled={loading === picker}
                                 className="w-full flex items-center justify-between gap-3 rounded-2xl border border-violet-100 hover:border-violet-300 bg-white px-4 py-3 text-left transition disabled:opacity-60"
                             >
@@ -438,7 +438,21 @@ export default function BillingPage() {
                                     <PaystackLogo size={22} />
                                     <div>
                                         <div className="text-sm font-semibold text-slate-900">Card · Paystack</div>
-                                        <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo</div>
+                                        <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo · best for Africa</div>
+                                    </div>
+                                </div>
+                                {loading === picker ? <Loader2 size={14} className="animate-spin text-violet-600" /> : <ArrowRight size={14} className="text-violet-600" />}
+                            </button>
+                            <button
+                                onClick={pickStripe}
+                                disabled={loading === picker}
+                                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-violet-100 hover:border-violet-300 bg-white px-4 py-3 text-left transition disabled:opacity-60"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <StripeLogo size={22} />
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">Card · Stripe</div>
+                                        <div className="text-[12px] text-slate-500">Auto-renews monthly · ${picker === "mini" ? "49" : "199"}/mo · global cards & wallets</div>
                                     </div>
                                 </div>
                                 {loading === picker ? <Loader2 size={14} className="animate-spin text-violet-600" /> : <ArrowRight size={14} className="text-violet-600" />}
@@ -461,6 +475,7 @@ export default function BillingPage() {
                                 <ArrowRight size={14} className="text-violet-600" />
                             </button>
                         </div>
+
 
                         <button
                             onClick={() => setPicker(null)}
