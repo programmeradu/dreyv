@@ -370,6 +370,7 @@ export default function BillingPage() {
                         key={cryptoSeed?.nonce ?? "default"}
                         initialTier={cryptoSeed?.tier}
                         onConfirmed={(t) => setCurrentTier(t)}
+                        walletAddress={activeVault ?? undefined}
                     />
                 </div>
 
