@@ -66,12 +66,26 @@ export function OnrampButton({
       ? "bg-violet-600 text-white hover:bg-violet-700"
       : "border border-violet-200 bg-white text-violet-700 hover:bg-violet-50";
 
+  const newTabUrl = buildOnrampUrl(params) ?? fallbackUrl;
+
   return (
     <>
-      <button type="button" onClick={handleClick} className={cn(base, styles, className)}>
-        {label}
-        <ArrowUpRight className="h-3.5 w-3.5" />
-      </button>
+      <div className="inline-flex flex-col items-start gap-1">
+        <button type="button" onClick={handleClick} className={cn(base, styles, className)}>
+          {label}
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </button>
+        {mode === "drawer" && (
+          <a
+            href={newTabUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-medium text-violet-600 hover:text-violet-700 hover:underline"
+          >
+            or open in a new tab →
+          </a>
+        )}
+      </div>
       {mode === "drawer" && (
         <OnrampDrawer
           open={open}

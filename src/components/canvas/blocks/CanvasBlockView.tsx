@@ -6,6 +6,7 @@
  */
 
 import type { CanvasBlock } from "@/lib/canvas/types";
+import { humanizeOperation } from "@/lib/agents/humanize";
 import { BlockShell } from "../BlockShell";
 import { Pill, StreamingNumber } from "@/components/app-shell/primitives";
 import { TrendCurve } from "@/components/app-shell/Composition";
@@ -428,7 +429,7 @@ function CapabilityResultBlock({ block }: { block: CanvasBlock }) {
           <div className="flex items-center justify-between gap-2">
             {operation && (
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                {operation}
+                {humanizeOperation(operation)}
               </p>
             )}
             <SignalBadge severity={success ? "good" : "risk"}>{success ? "complete" : "failed"}</SignalBadge>
