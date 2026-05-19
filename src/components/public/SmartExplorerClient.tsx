@@ -452,7 +452,7 @@ function RiskRadar({ cats }: { cats: RiskCategoryUI[] }) {
 
 function RiskPanel({ address }: { address: string }) {
     const { data, loading } = useFetchJson<RiskResponseUI>(`/api/public/risk/${address}`, [address]);
-    const [activeCat, setActiveCat] = useState<RiskCheckUI["category"] | "all">("all");
+    const [expanded, setExpanded] = useState(false);
 
     if (loading) {
         return (
@@ -467,7 +467,11 @@ function RiskPanel({ address }: { address: string }) {
         );
     }
 
-    const visibleChecks = activeCat === "all" ? data.checks : data.checks.filter((c) => c.category === activeCat);
+    const counts = data.checks.reduce(
+        (acc, c) => { acc[c.status] = (acc[c.status] ?? 0) + 1; return acc; },
+        { pass: 0, warn: 0, fail: 0, info: 0 } as Record<RiskStatus, number>,
+    );
+    const topIssue = data.checks.find((c) => c.status === "fail") || data.checks.find((c) => c.status === "warn");
 
     return (
         <Section
@@ -484,62 +488,83 @@ function RiskPanel({ address }: { address: string }) {
                 </div>
             }
         >
-            <div className="grid lg:grid-cols-[260px,1fr] gap-6">
+            <div className="grid lg:grid-cols-[260px,1fr] gap-6 items-center">
                 <div className="flex flex-col items-center justify-center">
                     <RiskRadar cats={data.categories} />
                 </div>
-                <div className="space-y-4">
-                    {/* Category chips */}
-                    <div className="flex flex-wrap gap-1.5">
-                        <button
-                            onClick={() => setActiveCat("all")}
-                            className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.14em] font-semibold border ${activeCat === "all" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-700 border-violet-200 hover:border-violet-400"}`}
-                        >
-                            All {data.checks.length}
-                        </button>
-                        {data.categories.map((c) => {
-                            const tone = STATUS_TONE[c.status];
-                            const active = activeCat === c.category;
-                            return (
-                                <button
-                                    key={c.category}
-                                    onClick={() => setActiveCat(c.category)}
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.14em] font-semibold border ${active ? "bg-slate-900 text-white border-slate-900" : `${tone.pill} hover:border-violet-400`}`}
-                                >
-                                    <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-                                    {c.label} <span className="opacity-70">{c.score}</span>
-                                </button>
-                            );
-                        })}
+                <div className="space-y-3">
+                    {/* Compact summary chips: pass/warn/fail counts */}
+                    <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{counts.pass} passing
+                        </span>
+                        {counts.warn > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{counts.warn} watch
+                            </span>
+                        )}
+                        {counts.fail > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />{counts.fail} critical
+                            </span>
+                        )}
+                        {counts.info > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-violet-50 text-violet-700 border-violet-200">
+                                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />{counts.info} info
+                            </span>
+                        )}
                     </div>
 
-                    {/* Checks list */}
-                    <ul className="divide-y divide-violet-50">
-                        {visibleChecks.map((c) => {
-                            const tone = STATUS_TONE[c.status];
-                            return (
-                                <li key={c.id} className="py-2.5 flex items-start gap-3">
-                                    <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${tone.dot}`} />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
-                                            <span className={`shrink-0 inline-block text-[9px] uppercase tracking-[0.16em] font-semibold border rounded-full px-2 py-0.5 ${tone.pill}`}>{c.status}</span>
-                                        </div>
-                                        <p className="text-[12px] text-slate-600 leading-relaxed mt-0.5">{c.note}</p>
-                                        {c.evidence && c.evidence.length > 0 && (
-                                            <div className="mt-1 flex flex-wrap gap-1">
-                                                {c.evidence.filter(Boolean).slice(0, 4).map((ev, i) => (
-                                                    <span key={i} className="text-[10px] text-slate-500 bg-violet-50/60 border border-violet-100 rounded px-1.5 py-0.5">{ev}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                    {/* Headline insight under the chart */}
+                    {topIssue ? (
+                        <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-violet-700">Top focus</div>
+                            <div className="mt-1 text-[13px] font-semibold text-slate-900">{topIssue.title}</div>
+                            <p className="text-[12px] text-slate-600 leading-relaxed mt-0.5">{topIssue.note}</p>
+                        </div>
+                    ) : (
+                        <p className="text-[13px] text-slate-600 leading-relaxed">
+                            All {data.checks.length} hygiene checks look clean. Keep monitoring as activity grows.
+                        </p>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((v) => !v)}
+                        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-violet-700 hover:text-violet-900"
+                    >
+                        {expanded ? "Hide details" : `View details (${data.checks.length})`}
+                        <span className={`transition-transform ${expanded ? "rotate-180" : ""}`}>▾</span>
+                    </button>
                 </div>
             </div>
+
+            {expanded && (
+                <ul className="mt-5 divide-y divide-violet-50 border-t border-violet-100 pt-3">
+                    {data.checks.map((c) => {
+                        const tone = STATUS_TONE[c.status];
+                        return (
+                            <li key={c.id} className="py-2.5 flex items-start gap-3">
+                                <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${tone.dot}`} />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
+                                        <span className={`shrink-0 inline-block text-[9px] uppercase tracking-[0.16em] font-semibold border rounded-full px-2 py-0.5 ${tone.pill}`}>{c.status}</span>
+                                    </div>
+                                    <p className="text-[12px] text-slate-600 leading-relaxed mt-0.5">{c.note}</p>
+                                    {c.evidence && c.evidence.length > 0 && (
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                            {c.evidence.filter(Boolean).slice(0, 4).map((ev, i) => (
+                                                <span key={i} className="text-[10px] text-slate-500 bg-violet-50/60 border border-violet-100 rounded px-1.5 py-0.5">{ev}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
         </Section>
     );
 }
