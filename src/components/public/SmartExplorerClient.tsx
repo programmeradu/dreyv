@@ -233,21 +233,21 @@ function HoldingsPanel({ address, onPickToken }: { address: string; onPickToken:
     const { data, loading } = useFetchJson<{ rows: PnlRow[] }>(`/api/public/pnl/${address}`, [address]);
     const rows = data?.rows ?? [];
     return (
-        <Section icon={Layers} title="Holdings" subtitle={rows.length ? `${rows.length} positions · click a row for the token sheet` : "Token positions"}>
+        <Section icon={Layers} title="Holdings" subtitle={rows.length ? `${rows.length} positions · click a row for details` : "Token positions"}>
             {loading ? (
                 <div className="space-y-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>
             ) : rows.length === 0 ? (
                 <p className="text-[13px] text-slate-500">No fungible holdings detected.</p>
             ) : (
-                <div className="divide-y divide-violet-50">
-                    {rows.slice(0, 12).map((r) => (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 max-h-[440px] divide-y divide-violet-50">
+                    {rows.map((r) => (
                         <button
                             key={r.mint}
                             onClick={() => onPickToken(r.mint, r.symbol)}
                             className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-violet-50/40 px-2 -mx-2 rounded-lg transition"
                         >
                             <div className="flex items-center gap-3 min-w-0">
-                                <TokenAvatar symbol={r.symbol} mint={r.mint} size={28} />
+                                <TokenAvatar symbol={r.symbol} mint={r.mint} logo={r.logo} size={28} />
                                 <div className="min-w-0">
                                     <div className="text-[13px] font-semibold text-slate-900 truncate">{r.symbol}</div>
                                     <div className="text-[11px] text-slate-500 font-mono">{fmtNum(r.uiAmount)}</div>
