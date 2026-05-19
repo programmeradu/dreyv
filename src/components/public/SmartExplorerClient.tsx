@@ -547,9 +547,10 @@ function RiskPanel({ address }: { address: string }) {
                 <ul className="mt-5 divide-y divide-violet-50 border-t border-violet-100 pt-3">
                     {data.checks.map((c) => {
                         const tone = STATUS_TONE[c.status];
+                        const StatusIcon = tone.icon;
                         return (
                             <li key={c.id} className="py-2.5 flex items-start gap-3">
-                                <DreyvStar size={12} className={`mt-1 shrink-0 ${tone.star}`} />
+                                <StatusIcon size={14} className={`mt-0.5 shrink-0 ${tone.iconClass}`} />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="text-[13px] font-semibold text-slate-900 truncate">{c.title}</div>
