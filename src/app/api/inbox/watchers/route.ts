@@ -10,6 +10,8 @@
  * a session check here.
  */
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 import {
   listWatchersByWallet,
   upsertWatcher,
@@ -23,6 +25,10 @@ export const dynamic = "force-dynamic";
 const VALID_CHAINS: WatcherChain[] = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"];
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
   if (!wallet) return NextResponse.json({ ok: true, watchers: [] });
@@ -31,6 +37,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: { walletAddress?: string; chain?: string; address?: string; label?: string };
   try {
     body = await req.json();
@@ -54,6 +64,10 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });

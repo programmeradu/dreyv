@@ -9,11 +9,17 @@
  */
 import { NextResponse } from "next/server";
 import { listSubagents, setSubagentStatus, getSubagent } from "@/lib/agents/dacs/subagent-store";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
   const rows = await listSubagents(wallet, 100);
@@ -23,6 +29,10 @@ export async function GET(req: Request) {
 const VALID = new Set(["pause", "resume", "cancel"]);
 
 export async function PATCH(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: { id?: string; action?: string };
   try {
     body = await req.json();

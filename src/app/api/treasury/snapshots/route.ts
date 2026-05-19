@@ -16,6 +16,8 @@ import { db } from "@/db";
 import { treasurySnapshots } from "@/db/schema";
 import { and, eq, gte, desc, sql as dsql } from "drizzle-orm";
 import { resolveUserIdFromWallet } from "@/lib/agents/brains/storage";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +31,10 @@ const RANGE_MS: Record<string, number | null> = {
 };
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
@@ -65,6 +71,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   let body: any;
   try {

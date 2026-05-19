@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR } from "@/lib/foresight/simulation-ir";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 /**
  * /api/foresight/critique
@@ -52,6 +54,10 @@ function resolveProxy(): { proxyUrl: string | null; anon: string | null } {
 }
 
 export async function POST(req: NextRequest) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: CritiqueBody;
   try {
     body = (await req.json()) as CritiqueBody;

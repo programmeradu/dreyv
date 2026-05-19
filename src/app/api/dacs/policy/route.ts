@@ -11,6 +11,8 @@
  * and protocol allowlists from the UI.
  */
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 import {
   loadUserPolicy,
   upsertUserPolicy,
@@ -21,6 +23,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const url = new URL(req.url);
   const wallet = url.searchParams.get("wallet");
   if (!wallet) {
@@ -31,6 +37,10 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: UpsertPolicyInput;
   try {
     body = await req.json();

@@ -17,11 +17,17 @@ import { db } from "@/db";
 import { treasuryGasTankWatchers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { resolveUserIdFromWallet, insertTxProposal } from "@/lib/agents/brains/storage";
+import { getAuthUser } from "@/lib/auth-utils";
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   const wallet = new URL(req.url).searchParams.get("wallet");
   if (!wallet) return NextResponse.json({ ok: true, watcher: null });
@@ -30,6 +36,10 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 }); }
@@ -57,6 +67,10 @@ export async function PUT(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 }); }
@@ -120,6 +134,10 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  /* __AUTH_GUARD__ */
+  const _authUser = await getAuthUser(req as unknown as NextRequest);
+  if (!_authUser) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   if (!db) return NextResponse.json({ ok: false, error: "no_db" }, { status: 500 });
   const wallet = new URL(req.url).searchParams.get("wallet");
   if (!wallet) return NextResponse.json({ ok: false, error: "wallet_required" }, { status: 400 });
