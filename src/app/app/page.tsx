@@ -25,6 +25,7 @@ import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { FeeAnalyticsWidget } from "@/components/dashboard/FeeAnalyticsWidget";
 import { YieldProtocolPanel } from "@/components/dashboard/YieldProtocolPanel";
 import { WatcherHeartbeatStrip } from "@/components/agent/WatcherHeartbeatStrip";
+import { OnrampButton } from "@/components/onramp/OnrampButton";
 
 export default function AppHomePage() {
   const { vaultValue, vaultChange24h, activeVault, vaultTokens } = useVault();
@@ -97,6 +98,17 @@ export default function AppHomePage() {
             <NavTile href="/app/treasury" eyebrow="Treasury" title="Holdings & flows" variant="treasury" tokens={vaultTokens} />
             <NavTile href="/app/analytics" eyebrow="Analytics" title="Performance & risk" variant="analytics" />
           </div>
+          {(!vaultValue || vaultValue < 1) && (
+            <div className="pt-3">
+              <OnrampButton
+                asset="usdc"
+                network="solana"
+                sourceAmount="100"
+                label="Fund wallet with card"
+                variant="ghost"
+              />
+            </div>
+          )}
         </StreamIn>
 
         <StreamIn delay={0.12} className="md:pt-12">
