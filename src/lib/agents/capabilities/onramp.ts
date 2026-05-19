@@ -56,13 +56,26 @@ const onramp_fiat_to_crypto = defineCapability({
     });
 
     const amountPart = input.sourceAmount ? `~$${input.sourceAmount} of ` : "";
-    const message = `Fiat onramp ready: buy ${amountPart}${input.asset.toUpperCase()} on ${input.network} via Stripe. Open the link, complete KYC + card payment, and the ${input.asset.toUpperCase()} drops straight into ${ctx.walletAddress ? "your connected wallet" : "the wallet you specify at Stripe"}. Dreyv never touches the fiat.`;
+    const locked = Boolean(ctx.walletAddress);
+    const message = locked
+      ? `Opening Stripe Onramp in-app to buy ${amountPart}${input.asset.toUpperCase()} on ${input.network}. Wallet locked to your connected address — Stripe cannot redirect funds elsewhere. Dreyv never touches the fiat.`
+      : `Fiat onramp ready: buy ${amountPart}${input.asset.toUpperCase()} on ${input.network} via Stripe. Open the link, complete KYC + card payment, and the ${input.asset.toUpperCase()} drops straight into the wallet you specify at Stripe.`;
 
     return {
       success: true,
       operation: "onramp_fiat_to_crypto",
       url,
-      navigate: url,
+      navigate: locked ? "drawer:onramp" : url,
+      drawer: locked
+        ? {
+            kind: "onramp",
+            walletAddress: ctx.walletAddress,
+            walletNetwork: input.network,
+            asset: input.asset,
+            sourceAmount: input.sourceAmount ?? null,
+            sourceCurrency: input.sourceCurrency,
+          }
+        : undefined,
       provider: "stripe",
       asset: input.asset,
       network: input.network,
