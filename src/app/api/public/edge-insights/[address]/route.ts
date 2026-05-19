@@ -289,11 +289,11 @@ export async function GET(
         metric: fmtMoney(lost.nowWorthUsd),
         impactUsd: 0, // historical — not future $ impact
         impact: "low",
-        detail: `You once swapped out ${lost.amountSold.toFixed(2)} ${lost.symbol}. At today's price that position would be worth $${lost.nowWorthUsd.toFixed(2)}. Dreyv flags exit-then-recovery patterns so the next one doesn't slip past you.`,
+        detail: `You once swapped out ${fmtAmount(lost.amountSold, 2)} ${lost.symbol}. At today's price that position would be worth ${fmtUsdFull(lost.nowWorthUsd)}. Dreyv flags exit-then-recovery patterns so the next one doesn't slip past you.`,
         action: { label: "Set price alerts", intent: "alerts" },
         evidence: [
-          `Amount swapped out: ${lost.amountSold.toFixed(4)} ${lost.symbol}`,
-          `Today's value: $${lost.nowWorthUsd.toFixed(2)}`,
+          `Amount swapped out: ${fmtAmount(lost.amountSold, 4)} ${lost.symbol}`,
+          `Today's value: ${fmtUsdFull(lost.nowWorthUsd)}`,
         ],
       });
     }
