@@ -245,201 +245,165 @@ export function CryptoPayPanel({ onConfirmed, initialTier, walletAddress }: { on
     };
 
     return (
-        <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-7">
-            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                <div className="flex items-center gap-2.5">
-                    <DreyvStar size={10} className="text-violet-600" />
-                    <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">
-                        Pay with crypto · 10% off
+        <section className="mt-6 rounded-2xl border border-violet-100 bg-white">
+            {/* Thin header strip */}
+            <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-violet-100/70">
+                <div className="flex items-center gap-2">
+                    <DreyvStar size={9} className="text-violet-600" />
+                    <span className="text-[10px] tracking-[0.22em] uppercase font-semibold text-violet-700">
+                        Pay with crypto
                     </span>
+                    <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">10% OFF</span>
                 </div>
-                <div className="flex items-center gap-2 opacity-80">
-                    <UsdcLogo size={18} />
-                    <UsdtLogo size={18} />
-                    <SolLogo size={18} />
-                    {EVM_ENABLED && <EthLogo size={18} />}
-                    <span className="mx-1 h-4 w-px bg-violet-100" />
-                    <PhantomLogo size={18} />
+                <div className="flex items-center gap-1.5 opacity-90">
+                    <UsdcLogo size={14} />
+                    <UsdtLogo size={14} />
+                    <SolLogo size={14} />
+                    {EVM_ENABLED && <EthLogo size={14} />}
+                    <span className="mx-1 h-3 w-px bg-violet-100" />
+                    <PhantomLogo size={14} />
+                    {isOnrampEnabled() && <><span className="mx-1 h-3 w-px bg-violet-100" /><StripeLogo size={14} /></>}
                 </div>
             </div>
 
-            {/* Stripe onramp top-up rail — for users without crypto on hand */}
-            {isOnrampEnabled() && (
-                <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50/30 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 shrink-0 rounded-xl bg-white border border-violet-100 flex items-center justify-center">
-                            <CreditCard size={16} className="text-violet-600" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                                No crypto? Top up with a card
-                                <StripeLogo size={14} />
-                            </div>
-                            <div className="text-[12px] text-slate-500 mt-0.5">
-                                Buy USDC on Solana via Stripe — drops straight into your connected wallet. Dreyv never touches the fiat.
-                            </div>
-                        </div>
-                    </div>
+            {/* Compact single-row controls */}
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+                {/* Tier */}
+                <div className="inline-flex rounded-lg border border-violet-100 p-0.5">
+                    {(["mini", "max"] as Tier[]).map(t => (
+                        <button key={t} onClick={() => setTier(t)} disabled={!!invoice}
+                            className={tier === t
+                                ? "px-2.5 py-1 text-[11px] font-semibold rounded-md bg-violet-600 text-white"
+                                : "px-2.5 py-1 text-[11px] font-semibold rounded-md text-slate-600 hover:text-violet-700"}>
+                            {t === "mini" ? `Mini $${tierUsd("mini")}` : `Max $${tierUsd("max")}`}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Chain (only show selector if >1 chain available) */}
+                {CHAINS.length > 1 && (
+                    <select
+                        value={chain}
+                        onChange={e => setChain(e.target.value as Chain)}
+                        disabled={!!invoice}
+                        className="rounded-lg border border-violet-100 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none focus:border-violet-400"
+                    >
+                        {CHAINS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                )}
+
+                {/* Asset */}
+                <div className="inline-flex rounded-lg border border-violet-100 p-0.5">
+                    {assetsForChain.map(a => {
+                        const Logo = ASSET_LOGOS[a];
+                        return (
+                            <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
+                                className={asset === a
+                                    ? "inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-violet-600 text-white"
+                                    : "inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-slate-600 hover:text-violet-700"}>
+                                <Logo size={11} />
+                                {a.toUpperCase()}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="flex-1" />
+
+                {/* Wallet status / connect */}
+                {!walletConnected ? (
+                    isEvm ? (
+                        <ConnectButton accountStatus="address" chainStatus="none" showBalance={false} label="Connect" />
+                    ) : (
+                        <button onClick={() => sol.select(null)} className="inline-flex items-center gap-1 rounded-lg border border-violet-200 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50">
+                            <Wallet size={12} /> Connect wallet
+                        </button>
+                    )
+                ) : null}
+
+                {/* Pay button */}
+                <button
+                    onClick={handleConnectAndPay}
+                    disabled={creating || paying || verifying || !walletConnected}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 px-3.5 py-1.5 text-[11px] font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
+                >
+                    {creating ? <><Loader2 size={11} className="animate-spin" /> Invoice…</>
+                        : paying ? <><Loader2 size={11} className="animate-spin" /> Sign…</>
+                        : verifying ? <><Loader2 size={11} className="animate-spin" /> Confirming…</>
+                        : <><ArrowRight size={11} /> Pay ${usd}</>}
+                </button>
+
+                {/* Stripe onramp inline */}
+                {isOnrampEnabled() && (
                     <OnrampButton
                         asset="usdc"
                         network="solana"
                         sourceAmount={pricing ? String(pricing[tier]) : "100"}
-                        label="Top up via Stripe"
+                        label="Card top-up"
                         walletAddress={walletAddress}
                         walletNetwork="solana"
                     />
-                </div>
-            )}
+                )}
+            </div>
 
-
-            <div className="grid lg:grid-cols-2 gap-6">
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Connect → Pay</h3>
-                    <p className="mt-1 text-[13px] text-slate-500">
-                        One click: we build the transfer, your wallet signs, we auto-confirm on-chain.
-                        Solana (USDC, USDT, SOL) and EVM stables on Base, Arbitrum, Polygon, BNB Chain.
-                    </p>
-
-                    <div className="mt-5 space-y-4">
+            {/* Invoice panel — only shown when active */}
+            {invoice && (
+                <div className="border-t border-violet-100 bg-violet-50/30 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                         <div>
-                            <label className="text-[10px] font-semibold tracking-[0.18em] uppercase text-slate-500">Tier</label>
-                            <div className="mt-2 inline-flex rounded-xl border border-violet-100 p-1">
-                                {(["mini", "max"] as Tier[]).map(t => (
-                                    <button key={t} onClick={() => setTier(t)} disabled={!!invoice}
-                                        className={tier === t
-                                            ? "px-4 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
-                                            : "px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
-                                        {t === "mini" ? `Mini · $${tierUsd("mini")}` : `Max · $${tierUsd("max")}`}
-                                    </button>
-                                ))}
+                            <div className="text-[9px] uppercase tracking-[0.18em] font-semibold text-violet-700">Invoice</div>
+                            <div className="text-base font-semibold text-slate-900 leading-tight">
+                                {invoice.amount} <span className="text-[11px] font-medium text-slate-500">{invoice.asset.toUpperCase()}</span>
+                                <span className="ml-2 text-[10px] text-slate-500 font-normal">≈ ${invoice.amountUsd.toFixed(2)} · expires {new Date(invoice.expiresAt).toLocaleTimeString()}</span>
                             </div>
                         </div>
-
-                        <div>
-                            <label className="text-[10px] font-semibold tracking-[0.18em] uppercase text-slate-500">Chain</label>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                {CHAINS.map(c => (
-                                    <button key={c.id} onClick={() => setChain(c.id)} disabled={!!invoice}
-                                        className={chain === c.id
-                                            ? "px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
-                                            : "px-3 py-1.5 text-xs font-semibold rounded-lg border border-violet-100 text-slate-600 hover:border-violet-300 hover:text-violet-700"}>
-                                        {c.label}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="flex-1 min-w-[200px]">
+                            <div className="text-[9px] uppercase tracking-[0.18em] font-semibold text-slate-500">Recipient</div>
+                            <button onClick={() => copy(invoice.receivingAddress, "Address")} className="flex items-center gap-1.5 text-[11px] font-mono text-slate-800 hover:text-violet-700 truncate max-w-full">
+                                <span className="truncate">{invoice.receivingAddress}</span> <Copy size={10} className="shrink-0" />
+                            </button>
                         </div>
-
                         <div>
-                            <label className="text-[10px] font-semibold tracking-[0.18em] uppercase text-slate-500">Asset</label>
-                            <div className="mt-2 inline-flex rounded-xl border border-violet-100 p-1">
-                                {assetsForChain.map(a => {
-                                    const Logo = ASSET_LOGOS[a];
-                                    return (
-                                        <button key={a} onClick={() => setAsset(a)} disabled={!!invoice}
-                                            className={asset === a
-                                                ? "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white"
-                                                : "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:text-violet-700"}>
-                                            <Logo size={14} />
-                                            {a.toUpperCase()}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <div className="text-[9px] uppercase tracking-[0.18em] font-semibold text-slate-500">Memo</div>
+                            <button onClick={() => copy(invoice.memo, "Memo")} className="flex items-center gap-1.5 text-[11px] font-mono text-slate-800 hover:text-violet-700">
+                                {invoice.memo} <Copy size={10} />
+                            </button>
                         </div>
-
-
-                        {/* Wallet connect strip */}
-                        {!walletConnected && (
-                            <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-3 flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 text-[12px] text-slate-700">
-                                    <Wallet size={14} className="text-violet-600" />
-                                    Connect a {isEvm ? "EVM" : "Solana"} wallet to pay in one click.
-                                </div>
-                                {isEvm
-                                    ? <ConnectButton accountStatus="address" chainStatus="none" showBalance={false} label="Connect" />
-                                    : <button onClick={() => sol.select(null)} className="rounded-lg bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-[11px] font-semibold text-white uppercase tracking-[0.06em]">Connect Solana</button>}
-                            </div>
-                        )}
-
-                        <button
-                            onClick={handleConnectAndPay}
-                            disabled={creating || paying || verifying || !walletConnected}
-                            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-5 py-2.5 text-xs font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
-                        >
-                            {creating ? <><Loader2 size={13} className="animate-spin" /> Creating invoice</>
-                                : paying ? <><Loader2 size={13} className="animate-spin" /> Awaiting signature</>
-                                : verifying ? <><Loader2 size={13} className="animate-spin" /> Confirming on-chain</>
-                                : <><ArrowRight size={13} /> Pay {tier === "mini" ? "Mini" : "Max"} (${usd}) with {asset.toUpperCase()}</>}
-                        </button>
-                    </div>
-                </div>
-
-                <div>
-                    {invoice ? (
-                        <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5 space-y-4">
-                            <div>
-                                <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-violet-700">Invoice live</div>
-                                <div className="mt-1 text-2xl font-semibold text-slate-900">
-                                    {invoice.amount} <span className="text-sm font-medium text-slate-500">{invoice.asset.toUpperCase()}</span>
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                    ≈ ${invoice.amountUsd.toFixed(2)} USD · {invoice.chain.toUpperCase()} · expires {new Date(invoice.expiresAt).toLocaleTimeString()}
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-slate-500">Recipient</div>
-                                <button onClick={() => copy(invoice.receivingAddress, "Address")} className="mt-1 flex items-center gap-2 text-[12px] font-mono text-slate-800 hover:text-violet-700 break-all text-left">
-                                    {invoice.receivingAddress} <Copy size={12} className="shrink-0" />
-                                </button>
-                            </div>
-
-                            <div>
-                                <div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-slate-500">Memo (auto-attached)</div>
-                                <button onClick={() => copy(invoice.memo, "Memo")} className="mt-1 flex items-center gap-2 text-[12px] font-mono text-slate-800 hover:text-violet-700">
-                                    {invoice.memo} <Copy size={12} />
-                                </button>
-                            </div>
-
+                        <div className="flex items-center gap-3 ml-auto">
                             <button
                                 onClick={() => setShowFallback(s => !s)}
-                                className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 hover:text-violet-700"
+                                className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 hover:text-violet-700"
                             >
-                                {showFallback ? "Hide" : "Cold wallet?"} Paste tx hash manually
+                                {showFallback ? "Hide" : "Cold wallet"}
                             </button>
-
-                            {showFallback && (
-                                <div>
-                                    <input
-                                        value={signature}
-                                        onChange={e => setSignature(e.target.value)}
-                                        placeholder={isEvm ? "0x… EVM tx hash" : "Solana tx signature"}
-                                        className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-[12px] font-mono text-slate-800 focus:outline-none focus:border-violet-500"
-                                    />
-                                    <button
-                                        onClick={submitManualVerify}
-                                        disabled={verifying || !signature.trim()}
-                                        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2 text-xs font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
-                                    >
-                                        {verifying ? <><Loader2 size={13} className="animate-spin" /> Verifying</> : <><CheckCircle2 size={13} /> Verify</>}
-                                    </button>
-                                </div>
-                            )}
-
                             <button
                                 onClick={() => { setInvoice(null); setSignature(""); setShowFallback(false); }}
-                                className="text-[11px] text-slate-500 hover:text-slate-800 uppercase tracking-[0.16em] font-semibold"
+                                className="text-[10px] text-slate-500 hover:text-slate-800 uppercase tracking-[0.14em] font-semibold"
                             >
-                                Cancel invoice
+                                Cancel
                             </button>
                         </div>
-                    ) : (
-                        <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/30 p-5 text-[12px] text-slate-600">
-                            Pick a tier, chain and asset, then click <span className="font-semibold">Pay</span>. We&apos;ll build the transfer, your wallet signs, and we confirm it on-chain automatically. Cold-wallet users can paste the tx hash from anywhere using the fallback that appears after the invoice is created.
+                    </div>
+
+                    {showFallback && (
+                        <div className="mt-3 flex items-center gap-2">
+                            <input
+                                value={signature}
+                                onChange={e => setSignature(e.target.value)}
+                                placeholder={isEvm ? "0x… EVM tx hash" : "Solana tx signature"}
+                                className="flex-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-[11px] font-mono text-slate-800 focus:outline-none focus:border-violet-500"
+                            />
+                            <button
+                                onClick={submitManualVerify}
+                                disabled={verifying || !signature.trim()}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-[11px] font-semibold text-white uppercase tracking-[0.06em] transition disabled:opacity-60"
+                            >
+                                {verifying ? <><Loader2 size={11} className="animate-spin" /> Verifying</> : <><CheckCircle2 size={11} /> Verify</>}
+                            </button>
                         </div>
                     )}
                 </div>
-            </div>
+            )}
         </section>
     );
 }
