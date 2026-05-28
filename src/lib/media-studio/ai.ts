@@ -19,7 +19,23 @@ const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-type Provider = "gemini" | "lovable-proxy" | "lovable";
+type Provider =
+  | "gemini"
+  | "lovable-proxy"
+  | "lovable"
+  | "groq"
+  | "openai"
+  | "anthropic"
+  | "cloudflare";
+
+type ProviderEntry =
+  | { provider: "gemini"; key: string }
+  | { provider: "lovable-proxy"; proxyUrl: string }
+  | { provider: "lovable"; key: string }
+  | { provider: "groq"; key: string; model: string }
+  | { provider: "openai"; key: string; model: string }
+  | { provider: "anthropic"; key: string; model: string }
+  | { provider: "cloudflare"; accountId: string; token: string; model: string };
 
 /** Resolve the Supabase edge-function URL for the lovable-ai-proxy, if available. */
 function resolveProxyUrl(): string | null {
@@ -33,23 +49,69 @@ function resolveProxyUrl(): string | null {
   return null;
 }
 
-function pickProvider(): { provider: Provider; key?: string; proxyUrl?: string } {
+/**
+ * Build a provider chain. The Studio works as long as ANY of these are set —
+ * Lovable AI is preferred but not required.
+ */
+function buildProviderChain(): ProviderEntry[] {
+  const chain: ProviderEntry[] = [];
+
   const gem =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_AI_API_KEY ||
     process.env.GOOGLE_GENAI_API_KEY;
-  if (gem) return { provider: "gemini", key: gem };
+  if (gem) chain.push({ provider: "gemini", key: gem });
 
   const proxyUrl = resolveProxyUrl();
-  if (proxyUrl) return { provider: "lovable-proxy", proxyUrl };
+  if (proxyUrl) chain.push({ provider: "lovable-proxy", proxyUrl });
 
-  const lov = process.env.LOVABLE_API_KEY;
-  if (lov) return { provider: "lovable", key: lov };
+  if (process.env.LOVABLE_API_KEY) {
+    chain.push({ provider: "lovable", key: process.env.LOVABLE_API_KEY });
+  }
 
-  throw new Error(
-    "No AI provider configured. Set GEMINI_API_KEY, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY.",
-  );
+  if (process.env.GROQ_API_KEY) {
+    chain.push({
+      provider: "groq",
+      key: process.env.GROQ_API_KEY,
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    });
+  }
+  if (process.env.OPENAI_API_KEY) {
+    chain.push({
+      provider: "openai",
+      key: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    });
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    chain.push({
+      provider: "anthropic",
+      key: process.env.ANTHROPIC_API_KEY,
+      model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest",
+    });
+  }
+  if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_AI_TOKEN) {
+    chain.push({
+      provider: "cloudflare",
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+      token: process.env.CLOUDFLARE_AI_TOKEN,
+      model: process.env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    });
+  }
+
+  return chain;
 }
+
+function pickProvider(): ProviderEntry {
+  const chain = buildProviderChain();
+  if (chain.length === 0) {
+    throw new Error(
+      "No AI provider configured. Set one of: GEMINI_API_KEY, LOVABLE_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN. The lovable-ai-proxy edge function is auto-detected when SUPABASE_URL is set.",
+    );
+  }
+  return chain[0]!;
+}
+
 
 /** Map our generic model id to a Google AI Studio model name. */
 function toGoogleModel(model: string, kind: "text" | "image"): string {
