@@ -265,31 +265,180 @@ async function proxyChatJson<T>(opts: {
   return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
 }
 
+/**
+ * OpenAI-compatible JSON chat (used by Groq, OpenAI, Cloudflare Workers AI).
+ */
+async function openaiCompatChatJson<T>(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+  supportsTools?: boolean;
+  supportsJsonObject?: boolean;
+  providerLabel: string;
+}): Promise<T> {
+  const body: Record<string, unknown> = {
+    model: opts.model,
+    messages: opts.schema && !opts.supportsTools
+      ? [
+          ...opts.messages.filter((m) => m.role !== "system"),
+          { role: "system", content: `${opts.messages.find((m) => m.role === "system")?.content ?? ""}\n\nRespond ONLY with valid JSON matching this schema: ${JSON.stringify(opts.schema.parameters)}` },
+        ]
+      : opts.messages,
+    temperature: opts.temperature ?? 0.7,
+    stream: false,
+  };
+  if (opts.schema && opts.supportsTools) {
+    body.tools = [{ type: "function", function: opts.schema }];
+    body.tool_choice = { type: "function", function: { name: opts.schema.name } };
+  } else if (opts.supportsJsonObject) {
+    body.response_format = { type: "json_object" };
+  }
+  const res = await fetch(opts.baseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.apiKey}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${opts.providerLabel} ${res.status}: ${text.slice(0, 300)}`);
+  }
+  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema && opts.supportsTools));
+}
+
+async function anthropicChatJson<T>(opts: {
+  apiKey: string;
+  model: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
+  const system = opts.messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+  const sysWithSchema = opts.schema
+    ? `${system}\n\nRespond ONLY with valid JSON matching this schema: ${JSON.stringify(opts.schema.parameters)}`
+    : `${system}\n\nRespond ONLY with valid JSON.`;
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": opts.apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: opts.model,
+      max_tokens: 4096,
+      temperature: opts.temperature ?? 0.7,
+      system: sysWithSchema,
+      messages: opts.messages
+        .filter((m) => m.role !== "system")
+        .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Anthropic ${res.status}: ${text.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const txt: string | undefined = data?.content?.[0]?.text;
+  if (!txt) throw new Error("Anthropic returned no content");
+  // Strip optional code fences
+  const cleaned = txt.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  return JSON.parse(cleaned) as T;
+}
+
+async function callOne<T>(entry: ProviderEntry, opts: {
+  model?: string;
+  messages: ChatMessage[];
+  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
+  temperature?: number;
+}): Promise<T> {
+  switch (entry.provider) {
+    case "gemini":
+      return googleChatJson<T>({
+        model: opts.model ?? "google/gemini-3-flash-preview",
+        apiKey: entry.key,
+        messages: opts.messages,
+        schema: opts.schema,
+        temperature: opts.temperature,
+      });
+    case "lovable-proxy":
+      return proxyChatJson<T>({ ...opts, proxyUrl: entry.proxyUrl });
+    case "lovable":
+      return lovableChatJson<T>({ ...opts, apiKey: entry.key });
+    case "groq":
+      return openaiCompatChatJson<T>({
+        baseUrl: "https://api.groq.com/openai/v1/chat/completions",
+        apiKey: entry.key,
+        model: opts.model ?? entry.model,
+        messages: opts.messages,
+        schema: opts.schema,
+        temperature: opts.temperature,
+        supportsTools: false,
+        supportsJsonObject: true,
+        providerLabel: "Groq",
+      });
+    case "openai":
+      return openaiCompatChatJson<T>({
+        baseUrl: "https://api.openai.com/v1/chat/completions",
+        apiKey: entry.key,
+        model: opts.model ?? entry.model,
+        messages: opts.messages,
+        schema: opts.schema,
+        temperature: opts.temperature,
+        supportsTools: true,
+        supportsJsonObject: true,
+        providerLabel: "OpenAI",
+      });
+    case "anthropic":
+      return anthropicChatJson<T>({
+        apiKey: entry.key,
+        model: opts.model ?? entry.model,
+        messages: opts.messages,
+        schema: opts.schema,
+        temperature: opts.temperature,
+      });
+    case "cloudflare":
+      return openaiCompatChatJson<T>({
+        baseUrl: `https://api.cloudflare.com/client/v4/accounts/${entry.accountId}/ai/v1/chat/completions`,
+        apiKey: entry.token,
+        model: opts.model ?? entry.model,
+        messages: opts.messages,
+        schema: opts.schema,
+        temperature: opts.temperature,
+        supportsTools: false,
+        supportsJsonObject: false,
+        providerLabel: "Cloudflare AI",
+      });
+  }
+}
+
 export async function chatJson<T = unknown>(opts: {
   model?: string;
   messages: ChatMessage[];
   schema?: { name: string; description?: string; parameters: Record<string, unknown> };
   temperature?: number;
 }): Promise<T> {
-  const picked = pickProvider();
-  if (picked.provider === "gemini") {
-    return googleChatJson<T>({
-      model: opts.model ?? "google/gemini-3-flash-preview",
-      apiKey: picked.key as string,
-      messages: opts.messages,
-      schema: opts.schema,
-      temperature: opts.temperature,
-    });
+  const chain = buildProviderChain();
+  if (chain.length === 0) pickProvider(); // throws standard error
+  const errors: string[] = [];
+  for (const entry of chain) {
+    try {
+      return await callOne<T>(entry, opts);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`${entry.provider}: ${msg}`);
+      // For rate/credit errors, try next provider; for everything else also try next.
+      continue;
+    }
   }
-  if (picked.provider === "lovable-proxy") {
-    return proxyChatJson<T>({ ...opts, proxyUrl: picked.proxyUrl as string });
-  }
-  return lovableChatJson<T>({ ...opts, apiKey: picked.key as string });
+  throw new Error(`All AI providers failed. ${errors.join(" | ")}`);
 }
 
 /**
- * Generate an image. Provider order: Gemini direct → lovable-ai-proxy
- * (Supabase edge function) → Lovable AI Gateway direct.
+ * Generate an image. Only Gemini and Lovable AI support image output today;
+ * if neither is configured we throw a clear error (text providers can't help).
  */
 export async function generateImage(opts: {
   prompt: string;
@@ -302,82 +451,93 @@ export async function generateImage(opts: {
    */
   referenceImages?: Array<{ buffer: Buffer; mime: string }>;
 }): Promise<{ buffer: Buffer; mime: string }> {
-  const picked = pickProvider();
+  const chain = buildProviderChain().filter(
+    (e) => e.provider === "gemini" || e.provider === "lovable-proxy" || e.provider === "lovable",
+  );
+  if (chain.length === 0) {
+    throw new Error(
+      "Image generation needs Gemini (GEMINI_API_KEY) or Lovable AI (LOVABLE_API_KEY / lovable-ai-proxy). Text providers like Groq/OpenAI/Anthropic can't generate images here.",
+    );
+  }
   const refs = opts.referenceImages ?? [];
-
-  if (picked.provider === "gemini") {
-    const apiKey = picked.key as string;
-    const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
-    const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const parts: Array<Record<string, unknown>> = [{ text: opts.prompt }];
-    for (const r of refs) {
-      parts.push({ inlineData: { mimeType: r.mime, data: r.buffer.toString("base64") } });
-    }
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error("Gemini is rate limited. Please try again shortly.");
-      throw new Error(`Gemini image ${res.status}: ${text.slice(0, 300)}`);
-    }
-    const data = await res.json();
-    const respParts: Array<{ inlineData?: { data?: string; mimeType?: string }; inline_data?: { data?: string; mime_type?: string } }> =
-      data?.candidates?.[0]?.content?.parts ?? [];
-    for (const p of respParts) {
-      const inline = (p.inlineData ?? p.inline_data) as { data?: string; mimeType?: string; mime_type?: string } | undefined;
-      if (inline?.data) {
-        const mime = inline.mimeType || inline.mime_type || "image/png";
-        return { buffer: Buffer.from(inline.data, "base64"), mime };
+  let lastErr: unknown = null;
+  for (const picked of chain) {
+    try {
+      if (picked.provider === "gemini") {
+        const apiKey = picked.key;
+        const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
+        const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const parts: Array<Record<string, unknown>> = [{ text: opts.prompt }];
+        for (const r of refs) {
+          parts.push({ inlineData: { mimeType: r.mime, data: r.buffer.toString("base64") } });
+        }
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`Gemini image ${res.status}: ${text.slice(0, 300)}`);
+        }
+        const data = await res.json();
+        const respParts: Array<{ inlineData?: { data?: string; mimeType?: string }; inline_data?: { data?: string; mime_type?: string } }> =
+          data?.candidates?.[0]?.content?.parts ?? [];
+        for (const p of respParts) {
+          const inline = (p.inlineData ?? p.inline_data) as { data?: string; mimeType?: string; mime_type?: string } | undefined;
+          if (inline?.data) {
+            const mime = inline.mimeType || inline.mime_type || "image/png";
+            return { buffer: Buffer.from(inline.data, "base64"), mime };
+          }
+        }
+        throw new Error("Gemini returned no image");
       }
+
+      const isProxy = picked.provider === "lovable-proxy";
+      const endpoint = isProxy ? picked.proxyUrl : LOVABLE_GATEWAY_URL;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (!isProxy && picked.provider === "lovable") headers.Authorization = `Bearer ${picked.key}`;
+
+      const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
+      const userContent: Array<Record<string, unknown>> = [{ type: "text", text: opts.prompt }];
+      for (const r of refs) {
+        userContent.push({
+          type: "image_url",
+          image_url: { url: `data:${r.mime};base64,${r.buffer.toString("base64")}` },
+        });
+      }
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: refs.length > 0 ? userContent : opts.prompt }],
+          modalities: ["image", "text"],
+          stream: false,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Lovable AI image ${res.status}: ${text.slice(0, 300)}`);
+      }
+      const data = await res.json();
+      const images = data?.choices?.[0]?.message?.images;
+      const url: string | undefined = images?.[0]?.image_url?.url;
+      if (!url) throw new Error("Lovable AI returned no image");
+      const m = /^data:([^;]+);base64,(.+)$/.exec(url);
+      if (!m) throw new Error("Lovable AI image was not a base64 data URL");
+      const mime = m[1] ?? "image/png";
+      const buffer = Buffer.from(m[2] ?? "", "base64");
+      return { buffer, mime };
+    } catch (e) {
+      lastErr = e;
+      continue;
     }
-    throw new Error("Gemini returned no image");
   }
-
-  // Both lovable-proxy and lovable speak the same OpenAI-compatible body.
-  const isProxy = picked.provider === "lovable-proxy";
-  const endpoint = isProxy ? (picked.proxyUrl as string) : LOVABLE_GATEWAY_URL;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (!isProxy) headers.Authorization = `Bearer ${picked.key as string}`;
-
-  const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
-  // OpenAI-compatible multimodal: content is an array of parts.
-  const userContent: Array<Record<string, unknown>> = [{ type: "text", text: opts.prompt }];
-  for (const r of refs) {
-    userContent.push({
-      type: "image_url",
-      image_url: { url: `data:${r.mime};base64,${r.buffer.toString("base64")}` },
-    });
-  }
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: refs.length > 0 ? userContent : opts.prompt }],
-      modalities: ["image", "text"],
-      stream: false,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
-    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
-    throw new Error(`Lovable AI image ${res.status}: ${text.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const images = data?.choices?.[0]?.message?.images;
-  const url: string | undefined = images?.[0]?.image_url?.url;
-  if (!url) throw new Error("Lovable AI returned no image");
-  const m = /^data:([^;]+);base64,(.+)$/.exec(url);
-  if (!m) throw new Error("Lovable AI image was not a base64 data URL");
-  const mime = m[1] ?? "image/png";
-  const buffer = Buffer.from(m[2] ?? "", "base64");
-  return { buffer, mime };
+  throw lastErr instanceof Error ? lastErr : new Error("Image generation failed");
 }
+
 
