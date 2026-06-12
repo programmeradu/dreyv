@@ -16,7 +16,7 @@ const siteOrigin = siteUrl.origin;
 
 const titleDefault = "dreyv | AI treasury command layer for Solana & Web3 teams";
 const description =
-  "dreyv (dreyv.com) — non-custodial treasury for DAOs and protocols: plain-language intent, simulation before you sign, human-readable impact for approvers, multisig-native (e.g. Squads). Solana-native; you keep the keys. Includes dreyv atlas.";
+  "Non-custodial AI treasury for Solana DAOs & protocols. Plain-language intent, simulation before you sign, multisig-native (Squads).";
 
 export const viewport: Viewport = {
   themeColor: "#fdf7ff",
@@ -56,7 +56,6 @@ export const metadata: Metadata = {
     telephone: false,
   },
   alternates: {
-    canonical: "/",
     languages: {
       "en-US": "/",
       "x-default": "/",
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/opengraph-image",
+        url: new URL("/opengraph-image", siteUrl).toString(),
         width: 1200,
         height: 630,
         alt: "dreyv — AI treasury command layer for Solana teams",
@@ -82,7 +81,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: titleDefault,
     description,
-    images: ["/opengraph-image"],
+    images: [new URL("/opengraph-image", siteUrl).toString()],
   },
   robots: {
     index: true,
