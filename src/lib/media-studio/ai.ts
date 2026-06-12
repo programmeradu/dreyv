@@ -15,7 +15,15 @@
  */
 
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// Vertex AI global publisher endpoint — accepts API keys via x-goog-api-key
+// header and bills usage to the Cloud project (so GenAI App Builder / free-trial
+// credits apply). Set GEMINI_USE_AI_STUDIO=1 to fall back to the AI Studio
+// endpoint (generativelanguage.googleapis.com) which does NOT bill to GCP.
+const VERTEX_API_BASE = "https://aiplatform.googleapis.com/v1/publishers/google/models";
+const AI_STUDIO_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+function googleApiBase(): string {
+  return process.env.GEMINI_USE_AI_STUDIO === "1" ? AI_STUDIO_API_BASE : VERTEX_API_BASE;
+}
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -153,7 +161,7 @@ async function googleChatJson<T>(opts: {
   temperature?: number;
 }): Promise<T> {
   const model = toGoogleModel(opts.model, "text");
-  const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
+  const url = `${googleApiBase()}/${model}:generateContent`;
   const { systemInstruction, contents } = flattenMessages(opts.messages);
 
   const body: Record<string, unknown> = {
@@ -168,7 +176,7 @@ async function googleChatJson<T>(opts: {
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": opts.apiKey },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -466,14 +474,14 @@ export async function generateImage(opts: {
       if (picked.provider === "gemini") {
         const apiKey = picked.key;
         const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
-        const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const url = `${googleApiBase()}/${model}:generateContent`;
         const parts: Array<Record<string, unknown>> = [{ text: opts.prompt }];
         for (const r of refs) {
           parts.push({ inlineData: { mimeType: r.mime, data: r.buffer.toString("base64") } });
         }
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
           body: JSON.stringify({
             contents: [{ role: "user", parts }],
             generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
