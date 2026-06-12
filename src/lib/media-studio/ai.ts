@@ -15,7 +15,15 @@
  */
 
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// Vertex AI global publisher endpoint — accepts API keys via x-goog-api-key
+// header and bills usage to the Cloud project (so GenAI App Builder / free-trial
+// credits apply). Set GEMINI_USE_AI_STUDIO=1 to fall back to the AI Studio
+// endpoint (generativelanguage.googleapis.com) which does NOT bill to GCP.
+const VERTEX_API_BASE = "https://aiplatform.googleapis.com/v1/publishers/google/models";
+const AI_STUDIO_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+function googleApiBase(): string {
+  return process.env.GEMINI_USE_AI_STUDIO === "1" ? AI_STUDIO_API_BASE : VERTEX_API_BASE;
+}
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
