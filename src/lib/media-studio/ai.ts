@@ -176,7 +176,7 @@ async function googleChatJson<T>(opts: {
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": opts.apiKey },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
