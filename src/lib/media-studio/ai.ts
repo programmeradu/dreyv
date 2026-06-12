@@ -474,14 +474,14 @@ export async function generateImage(opts: {
       if (picked.provider === "gemini") {
         const apiKey = picked.key;
         const model = toGoogleModel(opts.model ?? "google/gemini-3.1-flash-image-preview", "image");
-        const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const url = `${googleApiBase()}/${model}:generateContent`;
         const parts: Array<Record<string, unknown>> = [{ text: opts.prompt }];
         for (const r of refs) {
           parts.push({ inlineData: { mimeType: r.mime, data: r.buffer.toString("base64") } });
         }
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
           body: JSON.stringify({
             contents: [{ role: "user", parts }],
             generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
