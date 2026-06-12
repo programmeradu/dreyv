@@ -161,7 +161,7 @@ async function googleChatJson<T>(opts: {
   temperature?: number;
 }): Promise<T> {
   const model = toGoogleModel(opts.model, "text");
-  const url = `${GOOGLE_API_BASE}/${model}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
+  const url = `${googleApiBase()}/${model}:generateContent`;
   const { systemInstruction, contents } = flattenMessages(opts.messages);
 
   const body: Record<string, unknown> = {
