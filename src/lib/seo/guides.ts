@@ -76,6 +76,16 @@ export const GUIDES: GuideEntry[] = [
     teaser:
       "DCA from a multisig: funding, frequency, slippage controls, and which venues actually work.",
   },
+  {
+    slug: "best-solana-multisig-tools",
+    title: "Best Solana Multisig Tools in 2026: Squads, Snowflake & the Intelligence Layer",
+    description:
+      "An honest comparison of the top Solana multisig and treasury tools — Squads v4, Snowflake Safe, Mean Multisig — and where intent-driven intelligence sits on top.",
+    publishedAt: "2026-06-13",
+    readMinutes: 10,
+    teaser:
+      "Squads vs Snowflake vs Mean — which multisig fits your team, and why the intelligence layer matters more than the vault.",
+  },
 ];
 
 export function getGuide(slug: string): GuideEntry | undefined {
