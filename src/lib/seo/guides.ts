@@ -86,6 +86,46 @@ export const GUIDES: GuideEntry[] = [
     teaser:
       "Squads vs Snowflake vs Mean — which multisig fits your team, and why the intelligence layer matters more than the vault.",
   },
+  {
+    slug: "solana-liquid-staking-treasury",
+    title: "Solana Liquid Staking for Treasuries: JitoSOL, mSOL, bSOL Compared",
+    description:
+      "How Solana treasuries use liquid staking tokens (LSTs) for yield without losing liquidity — JitoSOL, mSOL, bSOL trade-offs, validator risk, and unstake mechanics.",
+    publishedAt: "2026-06-13",
+    readMinutes: 9,
+    teaser:
+      "JitoSOL vs mSOL vs bSOL — which LST fits a treasury, and how to size the allocation without breaking runway.",
+  },
+  {
+    slug: "solana-treasury-yield-strategies",
+    title: "Solana Treasury Yield Strategies: From USDC Reserves to Onchain Income",
+    description:
+      "A practical map of yield strategies for Solana treasuries — money markets (Kamino, marginfi, Drift), LSTs, delta-neutral, and where each one breaks.",
+    publishedAt: "2026-06-13",
+    readMinutes: 11,
+    teaser:
+      "Money markets, LSTs, delta-neutral — a sober walk through what actually yields for a Solana treasury in 2026.",
+  },
+  {
+    slug: "non-custodial-treasury-explained",
+    title: "Non-Custodial Treasury, Explained: Why Keys Should Never Leave Your Wallets",
+    description:
+      "What non-custodial actually means for an onchain treasury, how it differs from custodial and MPC setups, and what to ask any treasury tool before signing in.",
+    publishedAt: "2026-06-13",
+    readMinutes: 8,
+    teaser:
+      "Custodial, MPC, non-custodial — what the words actually mean, and the questions every treasury team should ask.",
+  },
+  {
+    slug: "solana-treasury-accounting-guide",
+    title: "Solana Treasury Accounting: Cost Basis, PnL, and Audit Trails",
+    description:
+      "How to keep clean books for a Solana treasury — cost basis methods, realized vs unrealized PnL, transfers vs swaps, and what auditors actually want to see.",
+    publishedAt: "2026-06-13",
+    readMinutes: 10,
+    teaser:
+      "Cost basis, PnL, transfers vs swaps, audit trails — the accounting layer most Solana treasuries skip until it's too late.",
+  },
 ];
 
 export function getGuide(slug: string): GuideEntry | undefined {
