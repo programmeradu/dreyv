@@ -1010,3 +1010,16 @@ nextjs-portal {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 }
+
+/* Prevent horizontal overflow on mobile across the site.
+   Marketing sections occasionally have negative-offset glow blobs and
+   wide decorative elements that can push the body wider than the
+   viewport on small screens, exposing the dark <html> background as a
+   "shaky" blank strip on the right. Clamping html/body to 100vw and
+   hiding x-overflow fixes that without affecting the /app shell, which
+   manages its own internal scrolling. */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: clip;
+}
