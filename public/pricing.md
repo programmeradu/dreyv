@@ -2,7 +2,7 @@
 
 > Machine-readable pricing for AI agents. Canonical source: https://dreyv.com/pricing
 
-Billing provider: **FastSpring** (Merchant of Record). Paddle is a configured fallback.
+Billing providers: **Stripe** (cards, global) and **Paystack** (cards, mobile money, bank — Africa-first). Pick whichever rails work best for you at checkout.
 All prices in USD. Taxes shown at checkout. Monthly billing; annual available on request.
 
 ## Plans
