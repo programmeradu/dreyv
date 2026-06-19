@@ -134,7 +134,7 @@ export default function MigrationsAdminPage() {
               type="password"
               value={adminKey}
               onChange={(e) => persistKey(e.target.value)}
-              placeholder="paste JWT_SECRET"
+              placeholder="paste migration admin key"
               className="flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-violet-400"
             />
             <button
@@ -155,7 +155,7 @@ export default function MigrationsAdminPage() {
           </label>
           {keyLoaded && !adminKey && (
             <p className="mt-2 text-xs text-neutral-500">
-              The key is stored only in this browser via localStorage.
+              This page is reachable without app login; the key is stored only in this browser via localStorage.
             </p>
           )}
         </section>
