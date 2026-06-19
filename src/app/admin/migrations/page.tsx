@@ -127,7 +127,7 @@ export default function MigrationsAdminPage() {
 
         <section className="mb-8 rounded-2xl border border-violet-200 bg-white p-5 shadow-sm">
           <label className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-            Admin key (sent as <code>x-admin-key</code>, must match <code>JWT_SECRET</code>)
+            Admin key (sent as <code>x-admin-key</code>, must match <code>MIGRATION_ADMIN_KEY</code>)
           </label>
           <div className="mt-2 flex gap-2">
             <input
