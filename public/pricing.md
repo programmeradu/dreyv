@@ -2,7 +2,7 @@
 
 > Machine-readable pricing for AI agents. Canonical source: https://dreyv.com/pricing
 
-Billing provider: **FastSpring** (Merchant of Record). Paddle is a configured fallback.
+Billing providers: **Stripe** (cards, global) and **Paystack** (cards, mobile money, bank — Africa-first). Pick whichever rails work best for you at checkout.
 All prices in USD. Taxes shown at checkout. Monthly billing; annual available on request.
 
 ## Plans
@@ -55,7 +55,7 @@ See https://dreyv.com/legal/refunds
 ```json
 {
   "currency": "USD",
-  "billing_provider": "fastspring",
+  "billing_providers": ["stripe", "paystack"],
   "plans": [
     {"id": "free",  "name": "Free",  "price_month": 0,   "vaults": 1,         "teammates_per_vault": 2,  "agent_runs_per_day": 10,   "api_calls_per_hour": 60,   "storage_gb": 1},
     {"id": "mini",  "name": "Mini",  "price_month": 49,  "vaults": 5,         "teammates_per_vault": 10, "agent_runs_per_day": 200,  "api_calls_per_hour": 600,  "storage_gb": 10},
