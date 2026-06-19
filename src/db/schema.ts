@@ -1884,3 +1884,44 @@ export const cryptoInvoices = pgTable('crypto_invoices', {
   statusIdx: index('crypto_invoices_status_idx').on(t.status),
   memoUniq: uniqueIndex('crypto_invoices_memo_uniq').on(t.memo),
 }));
+
+// ─── Agent API keys + x402-style payments ─────────────────────────────
+// Per-user API keys an autonomous agent presents on each call.
+// Only the SHA-256 hash + 12-char prefix are stored.
+export const agentApiKeys = pgTable('agent_api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  label: text('label').notNull(),
+  keyPrefix: text('key_prefix').notNull(),
+  keyHash: text('key_hash').notNull(),
+  scopes: text('scopes').notNull().default('x402.pay'),       // comma-separated
+  spendLimitUsd: numeric('spend_limit_usd', { precision: 12, scale: 2 }),
+  spentUsd: numeric('spent_usd', { precision: 14, scale: 4 }).notNull().default('0'),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  hashUniq: uniqueIndex('agent_api_keys_hash_uniq').on(t.keyHash),
+  userIdx: index('agent_api_keys_user_idx').on(t.userId),
+}));
+
+// Links an agent API key + SKU + crypto invoice into one billable record.
+// `receiptToken` is what an agent presents to claim the paid fulfilment.
+export const agentPayments = pgTable('agent_payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  apiKeyId: uuid('api_key_id').references(() => agentApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  invoiceId: uuid('invoice_id').references(() => cryptoInvoices.id, { onDelete: 'cascade' }).notNull(),
+  sku: text('sku').notNull(),
+  amountUsd: numeric('amount_usd', { precision: 12, scale: 2 }).notNull(),
+  status: text('status').notNull().default('pending'),      // pending | paid | expired | failed
+  txSignature: text('tx_signature'),
+  receiptToken: text('receipt_token'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  receiptUniq: uniqueIndex('agent_payments_receipt_uniq').on(t.receiptToken),
+  keyIdx: index('agent_payments_key_idx').on(t.apiKeyId),
+  invoiceIdx: index('agent_payments_invoice_idx').on(t.invoiceId),
+  userIdx: index('agent_payments_user_idx').on(t.userId),
+}));

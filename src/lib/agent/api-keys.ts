@@ -103,7 +103,7 @@ export async function resolveAgentKey(bearer: string | null): Promise<ResolvedAg
         id: row.id,
         userId: row.userId,
         label: row.label,
-        scopes: (row.scopes ?? "x402.pay").split(",").map((s) => s.trim()).filter(Boolean),
+        scopes: (row.scopes ?? "x402.pay").split(",").map((s: string) => s.trim()).filter(Boolean),
         spendLimitUsd: row.spendLimitUsd != null ? Number(row.spendLimitUsd) : null,
         spentUsd: row.spentUsd != null ? Number(row.spentUsd) : 0,
     };
