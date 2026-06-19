@@ -55,7 +55,7 @@ See https://dreyv.com/legal/refunds
 ```json
 {
   "currency": "USD",
-  "billing_provider": "fastspring",
+  "billing_providers": ["stripe", "paystack"],
   "plans": [
     {"id": "free",  "name": "Free",  "price_month": 0,   "vaults": 1,         "teammates_per_vault": 2,  "agent_runs_per_day": 10,   "api_calls_per_hour": 60,   "storage_gb": 1},
     {"id": "mini",  "name": "Mini",  "price_month": 49,  "vaults": 5,         "teammates_per_vault": 10, "agent_runs_per_day": 200,  "api_calls_per_hour": 600,  "storage_gb": 10},
