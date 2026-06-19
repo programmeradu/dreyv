@@ -107,36 +107,69 @@ export default function BillingPage() {
         return () => { cancelled = true; };
     }, []);
 
-    const fetchStatus = useCallback(async (reference?: string | null) => {
-        const url = reference
-            ? `${billingStatusPath()}?reference=${encodeURIComponent(reference)}`
-            : billingStatusPath();
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.tier) setCurrentTier(data.tier as Tier);
-            if (data.status) setStatus(data.status);
-            return data;
-        } catch {
-            return null;
-        }
-    }, []);
+    const fetchStatus = useCallback(
+        async (opts?: { reference?: string | null; sessionId?: string | null }) => {
+            const base = billingStatusPath();
+            const params = new URLSearchParams();
+            if (opts?.reference) params.set("reference", opts.reference);
+            if (opts?.sessionId) params.set("session_id", opts.sessionId);
+            const url = params.toString() ? `${base}?${params.toString()}` : base;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.tier) setCurrentTier(data.tier as Tier);
+                if (data.status) setStatus(data.status);
+                return data;
+            } catch {
+                return null;
+            }
+        },
+        [],
+    );
 
-    // Hydrate + handle Paystack callback
+    // Hydrate + handle Stripe / Paystack callbacks
     useEffect(() => {
-        const isCallback = search?.get("paystack") === "verify";
+        const stripeFlag = search?.get("stripe");
+        const sessionId = search?.get("session_id");
+        const isStripeCallback = stripeFlag === "success";
+        const isPaystackCallback = search?.get("paystack") === "verify";
         const reference = search?.get("reference") || search?.get("trxref") || null;
-        if (isCallback) {
+
+        if (isStripeCallback) {
             (async () => {
                 setVerifying(true);
-                const data = await fetchStatus(reference);
+                const data = await fetchStatus({ sessionId });
+                setVerifying(false);
+                if (data?.tier && data.tier !== "free") {
+                    toast.success(`Subscription active — ${String(data.tier).toUpperCase()}`);
+                } else {
+                    toast.info("Payment received — finalizing your plan. Click Verify in a moment.");
+                }
+                if (typeof window !== "undefined") {
+                    const u = new URL(window.location.href);
+                    u.searchParams.delete("stripe");
+                    u.searchParams.delete("session_id");
+                    window.history.replaceState({}, "", u.toString());
+                }
+            })();
+        } else if (stripeFlag === "cancel") {
+            toast.info("Checkout cancelled.");
+            if (typeof window !== "undefined") {
+                const u = new URL(window.location.href);
+                u.searchParams.delete("stripe");
+                window.history.replaceState({}, "", u.toString());
+            }
+            fetchStatus();
+        } else if (isPaystackCallback) {
+            (async () => {
+                setVerifying(true);
+                const data = await fetchStatus({ reference });
                 setVerifying(false);
                 if (data?.reconciled && data?.tier && data.tier !== "free") {
                     toast.success(`Subscription active — ${String(data.tier).toUpperCase()}`);
                 } else if (data?.tier === "free") {
                     toast.info("We couldn't find an active subscription yet — try Verify in a moment.");
                 }
-                // clean URL
                 if (typeof window !== "undefined") {
                     const u = new URL(window.location.href);
                     u.searchParams.delete("paystack");
