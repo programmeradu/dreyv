@@ -75,6 +75,7 @@ async function getInviteAllowEmail(request: NextRequest): Promise<string | null>
 function isPrivateSeoPath(pathname: string): boolean {
     if (pathname === '/hello' || pathname.startsWith('/hello/')) return true;
     if (pathname === '/working-swap' || pathname.startsWith('/working-swap/')) return true;
+    if (pathname === '/admin/migrations' || pathname.startsWith('/admin/migrations/')) return true;
     return (
         pathname.startsWith('/app') ||
         pathname.startsWith('/auth') ||
@@ -428,6 +429,8 @@ export async function middleware(request: NextRequest) {
     const publicPaths = [
         '/api/auth',
         '/api/health',
+        // Self-authenticated by x-admin-key in the route handler so DB fixes can run even when app auth is broken.
+        '/api/admin/migrations/run',
         '/_next',
         '/favicon',
         '/images',
@@ -439,7 +442,7 @@ export async function middleware(request: NextRequest) {
         '/r/',
     ];
 
-    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio'];
+    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio', '/admin/migrations'];
 
     if (
         publicPaths.some((p) => pathname.startsWith(p)) ||
