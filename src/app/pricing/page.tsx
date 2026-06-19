@@ -10,11 +10,26 @@ import tierBase from "@/assets/tier-base.png";
 import tierMini from "@/assets/tier-mini.png";
 import tierMax from "@/assets/tier-max.png";
 
+const pricingTitle = "Pricing";
+const pricingDescription =
+  "dreyv pricing — Free, Mini, and Max for non-custodial AI treasury workspaces. Billed via Paystack; taxes shown at checkout.";
+
 export const metadata: Metadata = {
-  title: "Pricing",
-  description:
-    "dreyv pricing — Free, Mini, and Max for non-custodial AI treasury workspaces. Billed via Paystack; taxes shown at checkout.",
+  title: pricingTitle,
+  description: pricingDescription,
   alternates: { canonical: "/pricing" },
+  openGraph: {
+    type: "website",
+    url: "/pricing",
+    title: `${pricingTitle} | dreyv — Free, Mini, Max`,
+    description: pricingDescription,
+    siteName: "dreyv",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${pricingTitle} | dreyv — Free, Mini, Max`,
+    description: pricingDescription,
+  },
 };
 
 type Tier = {

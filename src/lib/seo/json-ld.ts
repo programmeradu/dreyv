@@ -11,25 +11,16 @@ function organizationSameAs(): string[] {
   return [...new Set([...DEFAULT_ORG_SAME_AS, ...getOrgSameAsFromEnv()])];
 }
 
-/** JSON-LD @graph for Organization + WebSite + SoftwareApplication + FAQPage (Google-friendly). */
+/**
+ * Sitewide JSON-LD @graph: Organization + WebSite + SoftwareApplication only.
+ * WebPage and FAQPage are emitted per-route (see `buildHomeJsonLd`) because
+ * they describe a specific URL, not the whole site.
+ */
 export function buildRootJsonLd(): Record<string, unknown> {
   const origin = getSiteOrigin();
   const logoUrl = `${origin}/icon.png`;
   const orgId = `${origin}/#organization`;
   const sameAs = organizationSameAs();
-
-  const faqPage: Record<string, unknown> = {
-    "@type": "FAQPage",
-    "@id": `${origin}/#faq`,
-    mainEntity: HOME_FAQ_ITEMS.map((item) => ({
-      "@type": "Question",
-      name: item.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: item.answer,
-      },
-    })),
-  };
 
   return {
     "@context": "https://schema.org",
@@ -67,20 +58,6 @@ export function buildRootJsonLd(): Record<string, unknown> {
           "Official site for dreyv — AI treasury workspace and dreyv atlas for Solana DAOs and protocols.",
       },
       {
-        "@type": "WebPage",
-        "@id": `${origin}/#webpage`,
-        url: origin,
-        name: "dreyv — AI treasury command layer for Solana",
-        isPartOf: { "@id": `${origin}/#website` },
-        inLanguage: "en-US",
-        speakable: {
-          "@type": "SpeakableSpecification",
-          cssSelector: ["h1", "[data-speakable]", ".hero-tagline", ".hero-subtitle"],
-          xpath: ["/html/head/title", "/html/head/meta[@name='description']/@content"],
-        },
-        primaryImageOfPage: { "@type": "ImageObject", url: `${origin}/opengraph-image` },
-      },
-      {
         "@type": "SoftwareApplication",
         "@id": `${origin}/#product`,
         name: "dreyv",
@@ -98,7 +75,47 @@ export function buildRootJsonLd(): Record<string, unknown> {
         url: origin,
         provider: { "@id": orgId },
       },
-      faqPage,
+    ],
+  };
+}
+
+/**
+ * Homepage JSON-LD: WebPage (route-specific @id) + FAQPage.
+ * Render this only on `/` — the FAQ content lives there.
+ */
+export function buildHomeJsonLd(): Record<string, unknown> {
+  const origin = getSiteOrigin().replace(/\/$/, "");
+  const url = `${origin}/`;
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: "dreyv — AI treasury for Solana & Web3 teams",
+        isPartOf: { "@id": `${origin}/#website` },
+        inLanguage: "en-US",
+        primaryImageOfPage: { "@type": "ImageObject", url: `${origin}/opengraph-image` },
+        speakable: {
+          "@type": "SpeakableSpecification",
+          cssSelector: ["h1", "[data-speakable]", ".hero-tagline", ".hero-subtitle"],
+          xpath: ["/html/head/title", "/html/head/meta[@name='description']/@content"],
+        },
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${url}#faq`,
+        mainEntity: HOME_FAQ_ITEMS.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      },
     ],
   };
 }

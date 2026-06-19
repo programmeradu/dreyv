@@ -14,7 +14,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 const siteUrl = getSiteUrl();
 const siteOrigin = siteUrl.origin;
 
-const titleDefault = "dreyv | AI treasury command layer for Solana & Web3 teams";
+const titleDefault = "dreyv | AI treasury for Solana & Web3 teams";
 const description =
   "Non-custodial AI treasury for Solana DAOs & protocols. Plain-language intent, simulation before you sign, multisig-native (Squads).";
 

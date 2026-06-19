@@ -166,6 +166,16 @@ export const GUIDES: GuideEntry[] = [
     teaser:
       "Squads vs Safe — fees, signer UX, integrations, recovery, and when running both actually makes sense.",
   },
+  {
+    slug: "solana-multisig-treasury-management",
+    title: "Solana Multisig Treasury Management: From Click-Ops to Command-Ops",
+    description:
+      "How Solana DAOs, protocols, and crypto funds run multisig treasury operations in 2026 — moving from click-ops to command-ops with simulation, risk modeling, and intent-driven workflows on Squads.",
+    publishedAt: "2026-06-19",
+    readMinutes: 11,
+    teaser:
+      "Click-ops to command-ops — running a Solana multisig treasury with simulation, risk modeling, and intent-driven approvals.",
+  },
 ];
 
 export function getGuide(slug: string): GuideEntry | undefined {
