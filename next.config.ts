@@ -2,6 +2,29 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: __dirname,
+  outputFileTracingExcludes: {
+    "/api/admin/migrations/run": [
+      "node_modules/**",
+      ".next/**",
+      "public/**",
+      "src/**",
+      "contracts/**",
+      "programs/**",
+      "mini-apps/**",
+      "packages/**",
+      "workers/**",
+      "scripts/**",
+      "supabase/**",
+      ".git/**",
+      "*.csv",
+    ],
+  },
+  outputFileTracingIncludes: {
+    "/api/admin/migrations/run": [
+      "db-migrations/**/*.sql",
+      "migrations/sql/**/*.sql",
+    ],
+  },
   async redirects() {
     return [
       {
