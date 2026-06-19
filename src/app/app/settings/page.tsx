@@ -8,6 +8,7 @@ import { WalletButton } from "@/components/WalletButton";
 import { ProfileView } from "@/components/settings/ProfileView";
 import { NotificationsView } from "@/components/settings/NotificationsView";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
+import { AgentKeysPanel } from "@/components/settings/AgentKeysPanel";
 import { BillingView } from "@/components/settings/BillingView";
 import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
 import { PolicySuggestionsPanel } from "@/components/settings/PolicySuggestionsPanel";
@@ -60,7 +61,12 @@ export default function SettingsPage() {
             case "notifications":
                 return <NotificationsView />;
             case "api":
-                return <ApiKeysView />;
+                return (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <ApiKeysView />
+                        <AgentKeysPanel />
+                    </div>
+                );
             case "billing":
                 return <BillingView />;
             case "policy":
