@@ -10,8 +10,14 @@ const ROOTS = ["db-migrations", "migrations/sql"];
 
 function authorized(req: NextRequest): boolean {
   const key = req.headers.get("x-admin-key");
-  const expected = process.env.JWT_SECRET;
-  return !!expected && key === expected;
+  if (!key) return false;
+  const expected = process.env.MIGRATION_ADMIN_KEY || process.env.JWT_SECRET;
+  if (!expected) return false;
+  // constant-time compare to avoid timing leaks
+  if (key.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
 }
 
 async function listFiles() {
