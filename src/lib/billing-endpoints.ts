@@ -1,15 +1,29 @@
 /**
- * Client-visible billing API paths. Dreyv now bills via Paystack (primary).
- * Set NEXT_PUBLIC_BILLING_PROVIDER=square to use the Square fallback if it's wired up.
+ * Client-visible billing API paths. Dreyv bills via Stripe by default.
+ * Override with NEXT_PUBLIC_BILLING_PROVIDER=paystack | square if you ever
+ * need to fall back to a different provider.
  */
-export function billingCheckoutPath(): string {
+type Provider = "stripe" | "paystack" | "square";
+
+function provider(): Provider {
     const p = process.env.NEXT_PUBLIC_BILLING_PROVIDER?.trim().toLowerCase();
-    if (p === "square") return "/api/square/checkout";
-    return "/api/paystack/checkout";
+    if (p === "paystack") return "paystack";
+    if (p === "square") return "square";
+    return "stripe";
+}
+
+export function billingCheckoutPath(): string {
+    switch (provider()) {
+        case "paystack": return "/api/paystack/checkout";
+        case "square": return "/api/square/checkout";
+        default: return "/api/stripe/checkout";
+    }
 }
 
 export function billingStatusPath(): string {
-    const p = process.env.NEXT_PUBLIC_BILLING_PROVIDER?.trim().toLowerCase();
-    if (p === "square") return "/api/square/status";
-    return "/api/paystack/status";
+    switch (provider()) {
+        case "paystack": return "/api/paystack/status";
+        case "square": return "/api/square/status";
+        default: return "/api/stripe/status";
+    }
 }
