@@ -126,6 +126,46 @@ export const GUIDES: GuideEntry[] = [
     teaser:
       "Cost basis, PnL, transfers vs swaps, audit trails — the accounting layer most Solana treasuries skip until it's too late.",
   },
+  {
+    slug: "what-is-a-digital-asset-treasury",
+    title: "What Is a Digital Asset Treasury? (DAT, Explained for 2026)",
+    description:
+      "Digital asset treasuries (DATs) are how modern companies, DAOs, and protocols hold and operate crypto on their balance sheet. What they are, how they differ from custodial accounts, and what a credible DAT looks like in 2026.",
+    publishedAt: "2026-06-19",
+    readMinutes: 10,
+    teaser:
+      "What a digital asset treasury actually is, how DATs differ from custodial accounts, and what a credible 2026 setup looks like.",
+  },
+  {
+    slug: "how-to-create-solana-multisig-wallet",
+    title: "How to Create a Solana Multisig Wallet (Step by Step)",
+    description:
+      "A practical walkthrough for creating a Solana multisig wallet — picking signers, choosing a threshold, deploying via Squads v4, funding the vault, and signing the first transaction.",
+    publishedAt: "2026-06-19",
+    readMinutes: 9,
+    teaser:
+      "From zero to a funded Solana multisig — signers, thresholds, Squads v4 deploy, first transaction.",
+  },
+  {
+    slug: "crypto-treasury-management-startup-playbook",
+    title: "Crypto Treasury Management for Startups: A 2026 Playbook",
+    description:
+      "A founder-grade playbook for managing a crypto treasury at a startup — runway buckets, stablecoin reserves, yield without idiocy, approvals, and the reporting your investors expect.",
+    publishedAt: "2026-06-19",
+    readMinutes: 11,
+    teaser:
+      "Runway buckets, stablecoin reserves, sensible yield, approvals, investor reporting — the 2026 startup playbook.",
+  },
+  {
+    slug: "solana-multisig-vs-ethereum-safe",
+    title: "Solana Multisig vs Ethereum Safe: Which Fits Your Treasury",
+    description:
+      "Squads v4 on Solana vs Safe on Ethereum — fees, signer UX, integrations, recovery, and how to pick (or run both) for your treasury in 2026.",
+    publishedAt: "2026-06-19",
+    readMinutes: 10,
+    teaser:
+      "Squads vs Safe — fees, signer UX, integrations, recovery, and when running both actually makes sense.",
+  },
 ];
 
 export function getGuide(slug: string): GuideEntry | undefined {
