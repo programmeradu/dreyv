@@ -2,9 +2,9 @@
 
 ## Learned User Preferences
 
-- Founder (Samuel Adu) is based in Ghana; payment providers must support Ghana-domiciled sellers — Stripe and Lemon Squeezy are unavailable, Paddle rejected the account; FastSpring is the current active MoR; prefers API-driven automation (e.g. catalog seed scripts) over manual dashboard setup
+- Founder (Samuel Adu) is based in Ghana; payment providers must support Ghana-domiciled sellers — Paddle rejected the account and Lemon Squeezy is unavailable. **Live providers: Stripe (global cards) + Paystack (cards, mobile money, bank — Africa-first).** FastSpring has been removed. Prefers API-driven automation (catalog seed scripts) over manual dashboard setup
 - Secrets belong in `.env.local` (gitignored), never committed; rotate any credentials exposed in chat immediately
-- Billing: use Paddle (fallback/reference) and FastSpring (primary) with the same tier model — Free / Mini ($49/mo) / Max ($199/mo)
+- Billing: **Stripe + Paystack** both active in parallel — same tier model Free / Mini ($49/mo) / Max ($199/mo). Paddle/FastSpring code is legacy and not the source of truth
 - React: use `useEffect` only to interact with external systems (no side-effect-free `useEffect`)
 - Documentation: prefers comprehensive strategic Markdown with tables, gap analyses, and phased roadmaps
 - Public marketing (home; `/auth` should match) targets Stitch-inspired premium light, purple-forward UI — Manrope, violet tokens, flat primary CTAs, light shells (not a pixel copy of Stitch); `/auth` still largely legacy dark/emerald pending restyle
