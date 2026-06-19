@@ -58,7 +58,7 @@ export default function Page() {
           stated purposes. The exact mix depends on your stage and burn, but the
           shape is consistent:
         </p>
-        <ul>
+        <ol>
           <li><strong>Operating reserve (3–6 months of burn).</strong> 100% stablecoins. USDC primary, USDT secondary if you need redundancy. This is payroll, vendors, taxes. It does not earn yield. It does not move.</li>
           <li><strong>Working capital (3–9 months).</strong> Stablecoins, optionally in a blue-chip money market (Kamino, marginfi) for low-single-digit yield. Liquid in under 24 hours.</li>
           <li><strong>Strategic reserve (12+ months).</strong> A mix of stables and majors (SOL, BTC, ETH). This is the bucket that can earn meaningful yield via liquid staking — see <Link href="/guides/solana-liquid-staking-treasury">Solana liquid staking for treasuries</Link>.</li>
