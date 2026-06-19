@@ -80,7 +80,7 @@ Operator surface:
 - **Mini** — $49/mo. 5 vaults, 10 teammates/vault, more agent capacity, advanced simulation.
 - **Max** — $199/mo. Unlimited vaults, priority models, dedicated firewall policies, SLA support.
 
-Billed via FastSpring (Merchant of Record). Paddle kept as fallback. Taxes shown at checkout.
+Billed via Stripe (global cards) and Paystack (cards, mobile money, bank — Africa-first). Taxes shown at checkout.
 
 ## 7. API surface (canonical: `/openapi.json`)
 
