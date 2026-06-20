@@ -1,8 +1,11 @@
 /**
  * GET /api/x402/checkout/[id]
- * Poll the status of an agent payment. Returns one of pending / paid / expired.
- * When paid, includes the single-use receipt token (only ever returned to the
- * caller that owns the originating API key).
+ * Poll the status of an agent payment. Returns pending / paid / expired.
+ * When paid, includes the single-use receipt token (only ever returned to
+ * the caller that owns the originating API key).
+ *
+ * Card-rail rows (Stripe, Paystack) have no on-chain invoice; their
+ * expiry / address fields will be null.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
@@ -23,41 +26,41 @@ export async function GET(
     if (!key) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     const { id } = await ctx.params;
-    const [row] = await db
-        .select({
-            id: agentPayments.id,
-            sku: agentPayments.sku,
-            status: agentPayments.status,
-            amountUsd: agentPayments.amountUsd,
-            txSignature: agentPayments.txSignature,
-            receiptToken: agentPayments.receiptToken,
-            paidAt: agentPayments.paidAt,
-            invoiceId: agentPayments.invoiceId,
-            expiresAt: cryptoInvoices.expiresAt,
-            memo: cryptoInvoices.memo,
-            receivingAddress: cryptoInvoices.receivingAddress,
-        })
+    const [payment] = await db
+        .select()
         .from(agentPayments)
-        .innerJoin(cryptoInvoices, eq(cryptoInvoices.id, agentPayments.invoiceId))
         .where(and(eq(agentPayments.id, id), eq(agentPayments.apiKeyId, key.id)))
         .limit(1);
 
-    if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (!payment) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-    let status = row.status;
-    if (status === "pending" && row.expiresAt && row.expiresAt.getTime() < Date.now()) {
+    let invoice: typeof cryptoInvoices.$inferSelect | null = null;
+    if (payment.invoiceId) {
+        const [row] = await db
+            .select()
+            .from(cryptoInvoices)
+            .where(eq(cryptoInvoices.id, payment.invoiceId))
+            .limit(1);
+        invoice = row ?? null;
+    }
+
+    let status = payment.status;
+    if (status === "pending" && invoice?.expiresAt && invoice.expiresAt.getTime() < Date.now()) {
         status = "expired";
     }
 
     return NextResponse.json({
-        id: row.id,
-        sku: row.sku,
+        id: payment.id,
+        sku: payment.sku,
         status,
-        amount_usd: Number(row.amountUsd),
-        tx_signature: row.txSignature,
-        receipt_token: status === "paid" ? row.receiptToken : null,
-        paid_at: row.paidAt,
-        memo: row.memo,
-        receiving_address: row.receivingAddress,
+        rail: payment.rail,
+        amount_usd: Number(payment.amountUsd),
+        tx_signature: payment.txSignature,
+        provider_ref: payment.providerRef,
+        checkout_url: payment.checkoutUrl,
+        receipt_token: status === "paid" ? payment.receiptToken : null,
+        paid_at: payment.paidAt,
+        memo: invoice?.memo ?? null,
+        receiving_address: invoice?.receivingAddress ?? null,
     });
 }
