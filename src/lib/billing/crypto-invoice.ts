@@ -41,13 +41,17 @@ export async function mintCryptoInvoice(args: {
   tier: CryptoTier;
   chain: CryptoChain;
   asset: CryptoAsset;
+  /** Override the tier's USD price (used by per-call x402 SKUs like $0.10 snapshot). */
+  amountUsdOverride?: number;
+  /** Override the Solana Pay `message` shown in wallets. Defaults to "Dreyv {tier} subscription". */
+  message?: string;
 }): Promise<MintedInvoice> {
   if (!db) throw new Error("Database unavailable");
   if (!isEnabled(args.chain, args.asset)) throw new Error(`Asset not enabled: ${args.chain}/${args.asset}`);
   const token = tokenFor(args.chain, args.asset);
   if (!token) throw new Error("Unknown asset");
 
-  const pricing = await computeAmountMinor(args.tier, args.chain, args.asset);
+  const pricing = await computeAmountMinor(args.tier, args.chain, args.asset, args.amountUsdOverride);
 
   const memo = "DRYV-" + randomBytes(6).toString("hex").toUpperCase();
   const receiving = receivingAddressFor(args.chain);
@@ -69,6 +73,8 @@ export async function mintCryptoInvoice(args: {
     expiresAt,
   }).returning();
 
+  const message = args.message ?? `Dreyv ${args.tier === "mini" ? "Mini" : "Max"} subscription`;
+
   return {
     id: row.id,
     tier: args.tier,
@@ -89,7 +95,7 @@ export async function mintCryptoInvoice(args: {
           splToken: token.contract,
           memo,
           label: "Dreyv",
-          message: `Dreyv ${args.tier === "mini" ? "Mini" : "Max"} subscription`,
+          message,
         })
       : null,
   };

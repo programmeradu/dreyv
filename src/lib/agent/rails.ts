@@ -112,7 +112,17 @@ export async function createStripeRail(args: {
     });
     const data = await res.json();
     if (!res.ok) {
-        throw new Error(data?.error?.message || "Stripe checkout failed");
+        // Surface the full Stripe error so callers can distinguish "account
+        // restricted" / "invalid_request_error" / etc. from a generic failure.
+        const msg = data?.error?.message || "Stripe checkout failed";
+        const code = data?.error?.code ? ` [${data.error.code}]` : "";
+        const type = data?.error?.type ? ` (${data.error.type})` : "";
+        console.error("[x402] Stripe session create failed:", { status: res.status, error: data?.error });
+        throw new Error(`${msg}${code}${type}`);
+    }
+    if (!data?.url || !data?.id) {
+        console.error("[x402] Stripe session missing url/id:", data);
+        throw new Error("Stripe returned no checkout URL");
     }
     const expiresAt = typeof data.expires_at === "number" ? new Date(data.expires_at * 1000) : null;
     return {
