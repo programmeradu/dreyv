@@ -4,8 +4,9 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import devCrystal from "@/assets/dev-crystal.png";
+import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 
 export const metadata: Metadata = {
   title: "Developers — APIs, SDKs & agent integration",
@@ -29,17 +30,13 @@ curl -X POST https://dreyv.com/api/planner \\
   -H "Content-Type: application/json" \\
   -d '{"intent":"rebalance 25% USDC into mSOL over 5 days"}'`;
 
-const resources: Array<{ label: string; href: string; desc: string }> = [
-  { label: "OpenAPI 3.1 spec", href: "/openapi.json", desc: "Machine-readable API surface." },
-  { label: "ai-plugin manifest", href: "/.well-known/ai-plugin.json", desc: "OpenAI plugin discovery." },
-  { label: "ACP descriptor", href: "/.well-known/acp.json", desc: "Agentic Commerce Protocol." },
-  { label: "UCP profile", href: "/.well-known/ucp", desc: "Universal Commerce Protocol." },
-  { label: "API catalog", href: "/.well-known/api-catalog", desc: "RFC 9727 catalog." },
-  { label: "x402 capability", href: "/.well-known/x402", desc: "Agent-native payments (advertised)." },
-  { label: "llms.txt", href: "/llms.txt", desc: "Short canonical context for LLMs." },
-  { label: "llms-full.txt", href: "/llms-full.txt", desc: "Full single-request context." },
-  { label: "pricing.md", href: "/pricing.md", desc: "Machine-readable pricing." },
-];
+const resources = RESOURCE_DOCS.map((d) => ({
+  slug: d.slug,
+  label: d.label,
+  href: `/developers/docs/${d.slug}`,
+  endpoint: d.endpoint,
+  desc: d.tagline,
+}));
 
 const authMethods = [
   {
@@ -173,24 +170,36 @@ export default function DevelopersPage() {
         </section>
 
         {/* Resources */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
+        <section id="resources" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16 scroll-mt-24">
           <div className="mb-6">
             <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Resources</h2>
             <p className="mt-2 text-sm md:text-base text-slate-600 max-w-2xl">
-              Discovery files, machine-readable manifests, and agent context — all live and crawlable.
+              Discovery files, machine-readable manifests, and agent context — each card opens a full
+              doc page; the chevron jumps straight to the raw endpoint.
             </p>
           </div>
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {resources.map((r) => (
-              <li
-                key={r.href}
-                className="rounded-2xl border border-slate-200 bg-white/85 backdrop-blur p-5 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
-              >
-                <Link href={r.href} className="text-sm font-semibold text-slate-900 hover:text-violet-700">
-                  {r.label}
+              <li key={r.slug} className="group relative">
+                <Link
+                  href={r.href}
+                  className="block h-full rounded-2xl border border-slate-200 bg-white/85 backdrop-blur p-5 pr-12 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
+                >
+                  <span className="text-sm font-semibold text-slate-900 group-hover:text-violet-700">
+                    {r.label}
+                  </span>
+                  <p className="mt-1.5 text-xs text-slate-600 leading-relaxed line-clamp-2">{r.desc}</p>
+                  <p className="mt-2 text-[11px] font-mono text-violet-700/80 break-all">{r.endpoint}</p>
                 </Link>
-                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">{r.desc}</p>
-                <p className="mt-2 text-[11px] font-mono text-violet-700/80">{r.href}</p>
+                <a
+                  href={r.endpoint}
+                  target="_blank"
+                  rel="noopener"
+                  aria-label={`Open raw ${r.label}`}
+                  className="absolute top-4 right-4 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-700 transition-colors"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
               </li>
             ))}
           </ul>
