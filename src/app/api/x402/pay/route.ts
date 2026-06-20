@@ -250,4 +250,18 @@ export async function POST(req: NextRequest) {
         },
         paid_at: now,
     });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[x402/pay] unhandled:", message, stack);
+    return NextResponse.json(
+      {
+        error: "unhandled_exception",
+        message,
+        where: stack?.split("\n").slice(0, 5).join(" | "),
+      },
+      { status: 500 },
+    );
+  }
 }
+
