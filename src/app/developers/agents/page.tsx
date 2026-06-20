@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Bot, Coins, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Bot, Coins, KeyRound, ShieldCheck, Wallet, Globe, Rocket } from "lucide-react";
 
 export const metadata: Metadata = {
     title: "Agent Payments (x402) | Dreyv Developers",
@@ -95,8 +95,133 @@ export default function AgentPaymentsPage() {
                     </div>
                 </div>
 
-                <div className="mt-12 space-y-6">
-                    <Step n={1} title="Issue an agent key">
+                {/* ─── Which path should my agent use? ────────────────────── */}
+                <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-6 md:p-8">
+                    <h2 className="text-lg font-semibold text-slate-900">Which path should my agent use?</h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+                        Agents don&apos;t need a &quot;card skill&quot; — they pay over HTTP. Pick the path that matches what your agent has access to. All three return the same single-use <code className="font-mono text-[12px]">rcpt_…</code> receipt token.
+                    </p>
+                    <div className="mt-5 overflow-x-auto">
+                        <table className="w-full min-w-[720px] text-left text-sm">
+                            <thead className="text-xs uppercase tracking-wide text-slate-500">
+                                <tr className="border-b border-violet-100">
+                                    <th className="py-3 pr-4 font-medium">If your agent has…</th>
+                                    <th className="py-3 pr-4 font-medium">Use</th>
+                                    <th className="py-3 pr-4 font-medium">Round-trips</th>
+                                    <th className="py-3 pr-4 font-medium">Human needed?</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-violet-100 text-slate-700">
+                                <tr>
+                                    <td className="py-3 pr-4">An <strong>API key only</strong> (no wallet, no browser)</td>
+                                    <td className="py-3 pr-4"><strong className="text-violet-700">Hosted wallet</strong> — <code className="font-mono text-[12px]">POST /api/x402/pay</code></td>
+                                    <td className="py-3 pr-4">1</td>
+                                    <td className="py-3 pr-4">No (after one-time funding)</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-3 pr-4">Its own <strong>Solana keypair</strong> (Privy/Turnkey/Crossmint/wallet-as-a-service)</td>
+                                    <td className="py-3 pr-4">BYO wallet — <code className="font-mono text-[12px]">/checkout</code> → sign + send → <code className="font-mono text-[12px]">/verify</code></td>
+                                    <td className="py-3 pr-4">2-3</td>
+                                    <td className="py-3 pr-4">No</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-3 pr-4">A <strong>browser tool</strong> (Cursor, Computer Use, Operator)</td>
+                                    <td className="py-3 pr-4">Card rail — open <code className="font-mono text-[12px]">checkout_url</code></td>
+                                    <td className="py-3 pr-4">2 + checkout</td>
+                                    <td className="py-3 pr-4">Often yes (card form)</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-3 pr-4">A <strong>backend caller</strong> surfacing to a human</td>
+                                    <td className="py-3 pr-4">Card rail — return <code className="font-mono text-[12px]">checkout_url</code> to user</td>
+                                    <td className="py-3 pr-4">2 + checkout</td>
+                                    <td className="py-3 pr-4">Yes (by design)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                {/* ─── Path 1: Fully autonomous one-call ──────────────────── */}
+                <section className="mt-8 rounded-3xl border-2 border-violet-200 bg-white p-6 md:p-8">
+                    <div className="flex items-start gap-4">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-violet-600 text-white">
+                            <Rocket className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
+                                Path 1 · zero-setup autonomous
+                            </p>
+                            <h2 className="mt-2 text-xl font-semibold text-slate-900">Hosted agent wallet — one call, no human</h2>
+                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+                                Every Dreyv user gets a custodial Solana wallet at{" "}
+                                <Link href="/app/settings" className="font-medium text-violet-700 underline-offset-4 hover:underline">Settings → API keys</Link>.
+                                Fund it once with USDC (and a tiny SOL float for fees); from then on, agents pay invoices in a single HTTP call.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 space-y-4 text-sm text-slate-700">
+                        <p><strong>1. Fund the wallet once</strong> — open Settings, copy the address (or scan the QR), send USDC + ~0.01 SOL from any Solana wallet.</p>
+                        <p><strong>2. Hand the agent its key</strong> — same <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">dak_…</code> key as the other paths.</p>
+                        <p><strong>3. Pay in one call:</strong></p>
+                        <Code>{`curl -X POST https://dreyv.com/api/x402/pay \\
+  -H "Authorization: Bearer dak_…" \\
+  -H "Content-Type: application/json" \\
+  -d '{"sku":"dreyv.treasury.snapshot"}'`}</Code>
+                        <p>Successful response — signature confirmed on-chain, receipt minted, balance debited:</p>
+                        <Code>{`{
+  "payment_id": "8f4c…",
+  "status": "paid",
+  "rail": "solana",
+  "tx_signature": "5jK…",
+  "receipt_token": "rcpt_uK7m…",
+  "amount_usd": 0.10,
+  "amount_usdc": "0.1",
+  "sku": { "id": "dreyv.treasury.snapshot", "name": "Treasury snapshot", "fulfilment": "…" },
+  "agent_wallet": "Bq4…",
+  "balance_remaining": { "usdc": "9.9", "usdc_minor": "9900000" },
+  "paid_at": "2026-06-20T18:11:42Z"
+}`}</Code>
+                        <p>If the wallet is underfunded, the same endpoint returns <code className="font-mono text-[12px]">HTTP 402</code> with the exact USDC amount needed and a <code className="font-mono text-[12px]">solana_pay_url</code> the agent can surface to its operator:</p>
+                        <Code>{`{
+  "error": "insufficient_funds",
+  "message": "Agent wallet needs 0.05 more USDC (and a tiny SOL float for tx fees).",
+  "agent_wallet": "Bq4…",
+  "required":  { "usdc": "0.10", "usdc_minor": "100000", "sol_lamports_min": "50000" },
+  "balance":   { "usdc": "0.05", "usdc_minor": "50000",  "sol_lamports": "12000000" },
+  "fund_with": {
+    "address": "Bq4…",
+    "usdc_mint": "EPjFWdd5Aufq…",
+    "solana_pay_url": "solana:Bq4…?amount=0.05&spl-token=EPj…",
+    "note": "Send USDC (SPL) on Solana mainnet. Include ~0.01 SOL once for tx fees."
+  },
+  "retry_after_funding": true
+}`}</Code>
+                        <p className="text-[12px] text-slate-500">
+                            <strong>How it works:</strong> Dreyv generates a Solana keypair per user, encrypts it at rest with AES-256-GCM, and uses it solely to settle invoices for that user&apos;s API keys. Same spend caps, same receipt tokens. <Link href="/legal/terms" className="text-violet-700 underline-offset-4 hover:underline">Custodial terms apply.</Link>
+                        </p>
+                    </div>
+                </section>
+
+                {/* ─── Path 2: BYO wallet (existing 5-step) ───────────────── */}
+                <div className="mt-12">
+                    <div className="flex items-center gap-3">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white ring-2 ring-violet-200">
+                            <Wallet className="h-4 w-4 text-violet-700" />
+                        </span>
+                        <h2 className="text-xl font-semibold text-slate-900">Path 2 — Bring your own Solana wallet</h2>
+                    </div>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+                        Already have a keypair (or using a wallet-as-a-service like{" "}
+                        <a href="https://privy.io" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Privy server wallets</a>,{" "}
+                        <a href="https://turnkey.com" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Turnkey</a>, or{" "}
+                        <a href="https://crossmint.com" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Crossmint</a>)?
+                        Use the classic x402 dance — request → 402 → sign + send → verify.
+                    </p>
+
+                    <div className="mt-6 space-y-6">
+                        <Step n={1} title="Issue an agent key">
+
                         <p>
                             From <Link href="/app/settings" className="font-medium text-violet-700 underline-offset-4 hover:underline">Settings → API keys</Link>,
                             click <strong>New agent key</strong>. Set an optional spend cap. The
@@ -193,7 +318,9 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
                             dedicated <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">/api/x402/fulfil/…</code> endpoint.
                         </p>
                     </Step>
+                    </div>
                 </div>
+
 
 
                 <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-6 md:p-8">
