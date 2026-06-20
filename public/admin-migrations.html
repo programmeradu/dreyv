@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>DB migration runner · Dreyv internal</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #171717;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 1024px; margin: 0 auto; padding: 48px 24px; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #7c3aed; margin: 0; }
+    h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin: 8px 0 8px; }
+    p.lead { color: #525252; font-size: 14px; max-width: 640px; margin: 0; }
+    code { background: #f5f5f5; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    section { margin-top: 32px; }
+    .card { border: 1px solid #ede9fe; border-radius: 16px; background: #fff; padding: 20px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    label.small { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: #737373; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    input[type=password], textarea {
+      flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; outline: none;
+    }
+    input[type=password]:focus, textarea:focus { border-color: #a78bfa; }
+    button {
+      border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+      border: 1px solid transparent;
+    }
+    button.primary { background: #7c3aed; color: #fff; }
+    button.primary:hover { background: #6d28d9; }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.ghost { background: #fff; color: #6d28d9; border-color: #7c3aed; }
+    button.ghost:hover { background: #f5f3ff; }
+    button.ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .check { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; color: #525252; }
+    .hint { font-size: 12px; color: #737373; margin-top: 8px; }
+    .err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 12px; border-radius: 12px; font-size: 13px; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    ul.files { list-style: none; margin: 0; padding: 0; border: 1px solid #e5e5e5; border-radius: 16px; overflow: hidden; }
+    ul.files li { padding: 16px; border-top: 1px solid #f5f5f5; display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+    ul.files li:first-child { border-top: none; }
+    .filepath { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 500; }
+    .filemeta { font-size: 11px; color: #737373; margin-top: 2px; }
+    .result { margin-top: 12px; border: 1px solid #e5e5e5; background: #fafafa; border-radius: 12px; padding: 12px; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+    .pill.ok { background: #d1fae5; color: #047857; }
+    .pill.fail { background: #fee2e2; color: #b91c1c; }
+    .stmts { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .stmts li { background: #fff; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px; }
+    .stmts li.bad { border-color: #fecaca; }
+    .stmts li.good { border-color: #bbf7d0; }
+    .stmtline { display: flex; justify-content: space-between; gap: 12px; }
+    .stmtline code { background: transparent; padding: 0; font-size: 11px; color: #404040;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .ms { color: #737373; font-size: 10px; flex-shrink: 0; }
+    .stmterr { color: #b91c1c; font-size: 11px; margin-top: 4px; }
+    textarea { width: 100%; resize: vertical; min-height: 200px; padding: 12px; font-size: 12px; }
+    .right { display: flex; justify-content: flex-end; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Internal · admin</p>
+      <h1>DB migration runner</h1>
+      <p class="lead">
+        Lists every <code>.sql</code> file under <code>db-migrations/</code> and
+        <code>migrations/sql/</code>, and runs them statement-by-statement against
+        <code>DATABASE_URL</code>. This page is a static HTML file outside the app, so no login,
+        wallet, or React providers load here. Migrations should be idempotent.
+      </p>
+    </header>
+
+    <section>
+      <div class="card">
+        <label class="small" for="key">Admin key (sent as <code>x-admin-key</code>, must match <code>MIGRATION_ADMIN_KEY</code>)</label>
+        <div class="row">
+          <input id="key" type="password" placeholder="paste migration admin key" autocomplete="off" />
+          <button id="load" class="primary" type="button">Load migrations</button>
+        </div>
+        <label class="check"><input type="checkbox" id="stopOnError" checked /> Stop on first failed statement (recommended)</label>
+        <p class="hint">Listing migrations does not require the key; the key is required only to execute SQL and is stored only in this browser via localStorage.</p>
+      </div>
+    </section>
+
+    <div id="error" style="display:none" class="err"></div>
+
+    <section>
+      <h2>Migration files</h2>
+      <div id="filesEmpty" class="hint">No files loaded yet — click Load migrations.</div>
+      <ul id="files" class="files" style="display:none"></ul>
+    </section>
+
+    <section style="margin-bottom: 64px;">
+      <h2>Run ad-hoc SQL</h2>
+      <p class="hint" style="margin-top:0;margin-bottom:8px;">Statements are split on <code>;</code> (respecting strings, comments, and <code>$$ … $$</code> blocks) and executed sequentially.</p>
+      <textarea id="inlineSql" spellcheck="false" placeholder="-- paste SQL here"></textarea>
+      <div class="right"><button id="runInline" class="primary" type="button">Run SQL</button></div>
+      <div id="inlineResult"></div>
+    </section>
+  </div>
+
+<script>
+(function () {
+  var KEY_STORAGE = "dreyv.admin.migration.key";
+  var API = "/api/admin/migrations/run";
+
+  var $key = document.getElementById("key");
+  var $load = document.getElementById("load");
+  var $stopOnError = document.getElementById("stopOnError");
+  var $error = document.getElementById("error");
+  var $files = document.getElementById("files");
+  var $filesEmpty = document.getElementById("filesEmpty");
+  var $inlineSql = document.getElementById("inlineSql");
+  var $runInline = document.getElementById("runInline");
+  var $inlineResult = document.getElementById("inlineResult");
+
+  try {
+    var saved = window.localStorage.getItem(KEY_STORAGE);
+    if (saved) $key.value = saved;
+  } catch (_) {}
+  $key.addEventListener("input", function () {
+    try {
+      if ($key.value) window.localStorage.setItem(KEY_STORAGE, $key.value);
+      else window.localStorage.removeItem(KEY_STORAGE);
+    } catch (_) {}
+  });
+
+  function showError(msg) {
+    if (!msg) { $error.style.display = "none"; $error.textContent = ""; return; }
+    $error.style.display = "block"; $error.textContent = msg;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderResultPanel(r) {
+    var stmts = (r.results || []).map(function (s) {
+      return '<li class="' + (s.ok ? "good" : "bad") + '">' +
+        '<div class="stmtline"><code>' + (s.index + 1) + '. ' + escapeHtml(s.preview) + '</code>' +
+        '<span class="ms">' + s.ms + 'ms</span></div>' +
+        (s.error ? '<div class="stmterr">' + escapeHtml(s.error) + '</div>' : '') +
+        '</li>';
+    }).join("");
+    return '<div class="result">' +
+      '<span class="pill ' + (r.ok ? "ok" : "fail") + '">' + (r.ok ? "Success" : "Failed") + '</span> ' +
+      '<span style="color:#525252;font-size:12px">' + r.okCount + '/' + r.total + ' statements ok' +
+      (r.failCount > 0 ? ', ' + r.failCount + ' failed' : '') + '</span>' +
+      '<ol class="stmts">' + stmts + '</ol></div>';
+  }
+
+  async function loadFiles() {
+    showError(null);
+    $load.disabled = true;
+    var prev = $load.textContent;
+    $load.textContent = "Loading…";
+    try {
+      var headers = {};
+      if ($key.value) headers["x-admin-key"] = $key.value;
+      var res = await fetch(API, { headers: headers });
+      if (!res.ok) {
+        var j = await res.json().catch(function () { return {}; });
+        throw new Error(j.error || "HTTP " + res.status);
+      }
+      var data = await res.json();
+      renderFiles(data.files || []);
+    } catch (e) {
+      showError(e.message || String(e));
+    } finally {
+      $load.disabled = false;
+      $load.textContent = prev;
+    }
+  }
+
+  function renderFiles(files) {
+    if (!files.length) {
+      $files.style.display = "none";
+      $filesEmpty.style.display = "block";
+      $filesEmpty.textContent = "No migration files found.";
+      return;
+    }
+    $filesEmpty.style.display = "none";
+    $files.style.display = "block";
+    $files.innerHTML = files.map(function (f) {
+      return '<li data-path="' + escapeHtml(f.path) + '">' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="filepath">' + escapeHtml(f.path) + '</div>' +
+          '<div class="filemeta">' + f.bytes.toLocaleString() + ' bytes</div>' +
+          '<div class="slot"></div>' +
+        '</div>' +
+        '<button class="ghost run" type="button">Run</button>' +
+      '</li>';
+    }).join("");
+    Array.prototype.forEach.call($files.querySelectorAll("li"), function (li) {
+      var btn = li.querySelector("button.run");
+      btn.addEventListener("click", function () { runFile(li); });
+    });
+  }
+
+  async function runFile(li) {
+    var path = li.getAttribute("data-path");
+    var btn = li.querySelector("button.run");
+    var slot = li.querySelector(".slot");
+    if (!$key.value) { showError("Enter the migration admin key first."); return; }
+    if (!confirm("Run " + path + " against the live database?")) return;
+    btn.disabled = true; var prev = btn.textContent; btn.textContent = "Running…";
+    try {
+      var res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": $key.value },
+        body: JSON.stringify({ file: path, stopOnError: $stopOnError.checked }),
+      });
+      var j = await res.json();
+      if (j && typeof j.ok === "boolean") slot.innerHTML = renderResultPanel(j);
+      else slot.innerHTML = '<div class="result"><span class="pill fail">Failed</span> ' +
+        '<span style="font-size:12px;color:#b91c1c">' + escapeHtml(j.error || "Unknown error") + '</span></div>';
+    } catch (e) {
+      slot.innerHTML = '<div class="result"><span class="pill fail">Failed</span> ' +
+        '<span style="font-size:12px;color:#b91c1c">' + escapeHtml(e.message || String(e)) + '</span></div>';
+    } finally {
+      btn.disabled = false; btn.textContent = prev;
+    }
+  }
+
+  async function runInline() {
+    if (!$key.value) { showError("Enter the migration admin key first."); return; }
+    var sql = $inlineSql.value.trim();
+    if (!sql) return;
+    if (!confirm("Run the pasted SQL against the live database?")) return;
+    $runInline.disabled = true; var prev = $runInline.textContent; $runInline.textContent = "Running…";
+    try {
+      var res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": $key.value },
+        body: JSON.stringify({ sql: sql, stopOnError: $stopOnError.checked }),
+      });
+      var j = await res.json();
+      if (j && typeof j.ok === "boolean") $inlineResult.innerHTML = renderResultPanel(j);
+      else $inlineResult.innerHTML = '<div class="result"><span class="pill fail">Failed</span> ' +
+        '<span style="font-size:12px;color:#b91c1c">' + escapeHtml(j.error || "Unknown error") + '</span></div>';
+    } catch (e) {
+      $inlineResult.innerHTML = '<div class="result"><span class="pill fail">Failed</span> ' +
+        '<span style="font-size:12px;color:#b91c1c">' + escapeHtml(e.message || String(e)) + '</span></div>';
+    } finally {
+      $runInline.disabled = false; $runInline.textContent = prev;
+    }
+  }
+
+  $load.addEventListener("click", loadFiles);
+  $runInline.addEventListener("click", runInline);
+})();
+</script>
+</body>
+</html>
