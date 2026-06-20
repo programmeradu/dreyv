@@ -16,6 +16,10 @@ import {
     Transaction,
     TransactionInstruction,
 } from "@solana/web3.js";
+// TS doesn't resolve @solana/spl-token's deep `export *` re-exports in this
+// bundler-mode workspace (same issue handled by `@ts-ignore` in
+// src/lib/studio/marketplace-payments.ts). Runtime exports are correct.
+// @ts-ignore
 import {
     createAssociatedTokenAccountInstruction,
     createTransferCheckedInstruction,
@@ -24,6 +28,7 @@ import {
     TokenAccountNotFoundError,
     TokenInvalidAccountOwnerError,
 } from "@solana/spl-token";
+
 
 
 import bs58 from "bs58";
