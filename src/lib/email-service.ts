@@ -7,7 +7,12 @@ import {
   TierExpiryEmail,
   GasAlertEmail,
   GasAlertVerificationEmail,
+  AgentDeliverableEmail,
+  SubscriptionActivatedEmail,
+  type AgentDeliverableEmailProps,
+  type SubscriptionActivatedEmailProps,
 } from './emails/templates';
+
 
 // ─── Singleton Resend client ─────────────────────────────────────────
 let resendClient: Resend | null = null;
@@ -366,4 +371,29 @@ export async function sendOnboardingDay3Email(to: string, displayName?: string |
 }
 export async function sendOnboardingDay7Email(to: string, displayName?: string | null) {
   return sendEmail({ to, subject: 'Invite your team to dreyv', react: OnboardingDay7Email({ displayName }) });
+}
+
+// ─── Agent deliverable (snapshot/report) ─────────────────────────────
+export async function sendAgentDeliverableEmail(
+  to: string,
+  props: AgentDeliverableEmailProps,
+) {
+  const subject =
+    props.kind === 'snapshot'
+      ? `Your treasury snapshot is ready · ${props.skuName}`
+      : `Your treasury AI report is ready · ${props.skuName}`;
+  return sendEmail({ to, subject, react: AgentDeliverableEmail(props) });
+}
+
+// ─── Subscription activation ─────────────────────────────────────────
+export async function sendSubscriptionActivatedEmail(
+  to: string,
+  props: SubscriptionActivatedEmailProps,
+) {
+  const tierName = props.tier === 'max' ? 'Max' : 'Mini';
+  return sendEmail({
+    to,
+    subject: `Welcome to dreyv ${tierName} — your plan is active`,
+    react: SubscriptionActivatedEmail(props),
+  });
 }

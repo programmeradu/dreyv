@@ -1,67 +1,81 @@
-# Pitch Case Studies — "What Dreyv would have caught"
-
 ## Goal
 
-Turn 4 real, public Solana treasuries into pitch-ready case studies that quantify *what Dreyv would have caught* — idle yield, fee leak, concentration risk, approval hygiene, missed windows. Counterfactual analysis on public on-chain data, fully transparent framing.
+After an agent pays — for a snapshot, a report, or a subscription — the user gets a polished, branded deliverable: a permanent dashboard record, an email, and (for reports) a downloadable PDF. No more "where did it go?".
 
-## Target wallets (all 4)
+## Money flow (for context)
 
-1. **Marinade DAO Realm** — `899YG3yk4F66ZgbNWLHriZHTXSKk9e1kvsKEquW7L6Mo`
-2. **Jito Foundation treasury** — resolve canonical address
-3. **Drift Protocol DAO** — resolve canonical address
-4. **Named whale** — propose 2–3 verifiable public addresses (Toly, Ansem, Mert), let you pick one
+- **USDC/SOL SKUs** → agent's hosted wallet signs an SPL transfer → lands **directly on Solana mainnet** to your merchant treasury address (`mintCryptoInvoice` resolves it). No Stripe involved.
+- **Card SKUs** → Stripe / Paystack (existing `/api/x402/checkout` flow).
 
-I'll verify each address against Helius before generating.
+## What ships in this pass
 
-## What each case study computes
+### 1. New table `agent_deliverables`
+Stores every paid output as a first-class entity (one row per payment that produces a deliverable).
 
-Single one-pager per wallet with these sections, all from real on-chain data:
+Columns: `id`, `payment_id` → `agent_payments`, `user_id`, `api_key_id`, `kind` (`snapshot` | `report` | `subscription`), `sku`, `target_wallet` (nullable for subscription), `status` (`generating` | `ready` | `failed`), `summary` (jsonb — headline numbers), `payload` (jsonb — full structured data), `html_url` (permalink), `pdf_url` (R2, reports only), `email_to`, `email_message_id`, `email_sent_at`, `error`, `created_at`, `ready_at`, `expires_at`.
 
-| Section | Source | Output |
-|---|---|---|
-| **Snapshot** | Helius DAS | Total USD, holdings, age, multisig status |
-| **Idle capital leak** | Holdings × `/api/yield/rates` | "$X USDC/SOL idle N days → $Y/yr forgone at prevailing APY" |
-| **Fee & slippage leak** | Helius enhanced tx + Jupiter quote replay | "Z swaps executed N bps above optimal route → $A overspent" |
-| **Concentration risk** | Composition % | "X% in one asset, no rebalance trigger" |
-| **Counterparty exposure** | Tx counterparties + label db | "N% outflows to CEX hot wallets, no approval gate" |
-| **Approval hygiene** | Multisig audit | "Single-sig on $XM" or "M/N multisig — N inactive signers" |
-| **Missed yield windows** | Historical APY × holdings timeline | "When mSOL APY hit X% on date Y, wallet held native SOL — $Z forgone" |
-| **What Dreyv would have done** | Rule engine | 4–6 concrete proposals tied to the findings above |
+Indexed by user, api_key, payment.
 
-Every number is sourced and verifiable. No fabrication. If a data point isn't available, the section says so plainly.
+### 2. Wallet resolver — `src/lib/agent/wallet-resolver.ts`
+- `resolvePrimaryTreasuryWallet(userId)` → reads existing vault tables; returns the primary wallet or `null`.
+- `listTreasuryWallets(userId)` → all candidates for the 409-clarify response.
+- Pure read, no side effects.
 
-## Surfaces
+### 3. `/api/x402/pay` refactor
+- Body adds optional `target_wallet`.
+- For `snapshot` / `report` SKUs:
+  - If `target_wallet` omitted → resolve primary; if account has 0 → require it (return `409 wallet_required`); if account has >1 and none is primary → also return `409 wallet_required` with the candidate list so the agent can ask the human.
+  - After Solana settlement, call `createDeliverable()` which:
+    1. Runs `buildLiveVaultSnapshot` / report builder inline.
+    2. Inserts the `agent_deliverables` row.
+    3. (Reports only) renders a PDF and uploads to R2, sets `pdf_url`.
+    4. Sends the email.
+- For `dreyv.tier.*` SKUs:
+  - Existing `users.tier` upgrade stays.
+  - `createDeliverable({ kind: 'subscription' })` writes a subscription record + sends the activation email with the new tier, renewal date, and link to billing.
+- Response gains a top-level `deliverable: { id, view_url, pdf_url?, kind, summary }`. Receipt token is still returned and continues to redeem the existing pull endpoints (idempotent).
 
-### Public — `/case/[address]`
-Pitch-ready one-pager. Stitch-light aesthetic matching `/pricing`. Header: "Counterfactual analysis on public on-chain data. Treasury not affiliated with Dreyv." OG image auto-generated so it screenshots cleanly into the deck.
+### 4. Email templates (Resend, premium light, Manrope, violet)
+Two new templates in `src/lib/emails/templates.tsx` matching the existing `WelcomeEmail` aesthetic (white bg, violet accents, `Mascot` helper):
+- **`AgentDeliverableEmail`** — hero with the appropriate mascot pose (`celebrate` for snapshot/report), the SKU name, target wallet (truncated middle, full on hover), 3 headline stats from `summary`, big violet CTA "View full report", footer with the agent-key label so the operator knows which agent triggered it.
+- **`SubscriptionActivatedEmail`** — `celebrate` mascot, the tier name, renewal date, what's unlocked (3 bullets), CTA to `/app/settings/billing`.
 
-Routes:
-- `/case` — index listing the 4 featured case studies
-- `/case/[address]` — the one-pager
+Both senders wired into `src/lib/email-service.ts` and called from `createDeliverable()`. Failures are logged but never block the payment response (delivery is fire-and-forget after settlement).
 
-### Internal — `/app/studio/case-studies`
-Generator behind the team allowlist. Paste any address → runs the same pipeline → preview → "Publish to /case/[address]". Lets you regenerate for new wallets on demand.
+### 5. Premium asset
+Generate one new mascot variant if missing — `dreyv-deliver.png` (mascot handing over a violet crystal envelope, 3D, transparent bg). If `public/mascot/dreyv-celebrate.png` already covers it, reuse; otherwise generate once and use across the email + view page hero.
 
-## Technical
+### 6. Dashboard — view page `/app/agent/deliverables/[id]`
+Premium light shell, white bg, violet ambient glows, Manrope, flat surfaces. Layout:
+- Breadcrumb back to deliverables list.
+- Hero: SKU name, mascot, target wallet, paid_at, agent-key label, tx_signature → Solscan.
+- Stats row from `summary` (3–4 cards).
+- Full payload rendered as a real report (for snapshot: holdings table + composition donut; for report: PnL, attribution, concentration, runway — using existing `/app/analytics` building blocks).
+- "Download PDF" button when `pdf_url` set.
 
-- New route group `src/app/case/`, internal page at `src/app/app/studio/case-studies/`
-- New lib `src/lib/case-study/builder.ts` — orchestrates the 8 computations, returns a typed `CaseStudy` object
-- Reuses existing infra: `buildFeaturePack`, `buildLiveVaultSnapshot`, `getEnhancedTransactions`, `/api/yield/rates`, `/api/treasury/security`, label db, Jupiter price/quote
-- One new internal API route `/api/case-study/[address]` returns the computed object (cached in Postgres for 24h via a tiny `case_studies` table — generate-once, screenshot-many)
-- Narrative bullets ("What Dreyv would have done") generated via Lovable AI edge function using the structured findings as input — calm founder voice, no fluff
-- OG image: edge `opengraph-image.tsx` per case showing wallet label + headline savings number
+### 7. Dashboard — list page `/app/agent/deliverables`
+Premium light table:
+- Filter by kind (snapshot/report/subscription) + agent key + date range.
+- Columns: when, kind (chip), SKU, target wallet (truncated middle), agent key label, amount USDC, status chip, "Open" link.
+- Empty state with mascot + 1-line explainer.
+- Row-level "Re-send email" action (re-fires the existing email; rate-limited to 3/hour per deliverable).
 
-## Out of scope
+### 8. Nav
+Add "Deliverables" entry in the agent section of the sidebar/nav next to "Keys" and "Wallet".
 
-- No new charts library — reuse what `/app/analytics` already has
-- No live monitoring claims — the page is explicit it's a snapshot
-- No outreach automation — that's a separate workstream
+## Technical details
 
-## Deliverable
+- Schema changes via Drizzle migration `db-migrations/0031_agent_deliverables.sql` + matching `schema.ts` entry.
+- PDF generation: use existing Puppeteer-less path if present; otherwise render server-side with `@react-pdf/renderer` (already pulled in for some flows) — if neither, skip PDF for v1 and emit the HTML permalink only; the email button just deep-links to the view page.
+- Email send is wrapped in try/catch inside `createDeliverable` — if it throws (Resend down, no email on account), the deliverable still saves with `email_sent_at = null` and the dashboard surfaces a "Resend" affordance.
+- `target_wallet` is validated with the existing `SOLANA_ADDR_RE`.
+- All new public-schema work is on the Vercel Neon DB (Drizzle), **not** Lovable Cloud / Supabase — so no Supabase migration tool, no Lovable Emails setup. We continue using the existing Resend + `EMAIL_FROM=dreyv <noreply@stauniverse.tech>` pipeline.
 
-After approval:
-1. Migration for `case_studies` cache table
-2. Builder lib + API route
-3. Public `/case` + `/case/[address]` pages
-4. Internal generator at `/app/studio/case-studies`
-5. 4 generated case studies (Marinade, Jito, Drift, your pick of whale)
+## Out of scope (deliberate)
+
+- Webhook callbacks to the agent's caller (could come later as an "Agent callbacks" feature).
+- Streaming/long-running report generation — v1 runs inline within the 60s `maxDuration` of `/api/x402/pay`. If a report ever exceeds that, we move to a job queue later.
+- Stripe invoice PDFs for the card rail — separate flow, covered when we touch card-rail UX.
+
+## Confirm before I build
+Anything you want cut, added, or reshaped? Otherwise I'll execute exactly this.

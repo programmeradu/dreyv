@@ -904,3 +904,158 @@ export function OnboardingDay7Email({ displayName }: { displayName?: string | nu
     </DreyvLayout>
   );
 }
+
+// ─── Agent Deliverable (snapshot / report ready) ─────────────────────
+// Premium light, mascot=celebrate. Renders 3 headline stats from `summary`,
+// the truncated target wallet, the agent-key label, and a deep link to the
+// permalink view page on the dashboard.
+function StatGrid({ stats }: { stats: { label: string; value: string }[] }) {
+  return (
+    <Section
+      style={{
+        marginTop: '24px',
+        padding: '18px 12px',
+        backgroundColor: v.violet50,
+        border: `1px solid ${v.violet100}`,
+        borderRadius: '16px',
+      }}
+    >
+      <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={{ borderCollapse: 'collapse' }}>
+        <tbody>
+          <tr>
+            {stats.map((s, i) => (
+              <td
+                key={i}
+                style={{
+                  width: `${100 / stats.length}%`,
+                  textAlign: 'center',
+                  padding: '4px 8px',
+                  borderLeft: i === 0 ? 'none' : `1px solid ${v.violet100}`,
+                }}
+              >
+                <Text style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: v.violet, margin: 0 }}>
+                  {s.label}
+                </Text>
+                <Text style={{ fontSize: '18px', fontWeight: 700, color: v.ink, margin: '6px 0 0', lineHeight: '1.2' }}>
+                  {s.value}
+                </Text>
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </Section>
+  );
+}
+
+function MetaRow({ rows }: { rows: { label: string; value: string }[] }) {
+  return (
+    <Section style={{ marginTop: '20px' }}>
+      {rows.map((r, i) => (
+        <Text
+          key={i}
+          style={{
+            fontSize: '12px',
+            color: v.muted,
+            margin: i === 0 ? '0' : '6px 0 0',
+            lineHeight: '1.5',
+            wordBreak: 'break-all',
+          }}
+        >
+          <span style={{ color: v.faint, display: 'inline-block', minWidth: '92px' }}>{r.label}</span>
+          <span style={{ color: v.ink, fontWeight: 600 }}>{r.value}</span>
+        </Text>
+      ))}
+    </Section>
+  );
+}
+
+export interface AgentDeliverableEmailProps {
+  kind: 'snapshot' | 'report';
+  skuName: string;
+  targetWallet: string;
+  agentKeyLabel: string;
+  amountUsdc: string;
+  stats: { label: string; value: string }[];
+  viewUrl: string;
+  pdfUrl?: string | null;
+  paidAt: string;
+}
+
+export function AgentDeliverableEmail(props: AgentDeliverableEmailProps) {
+  const verb = props.kind === 'snapshot' ? 'snapshot' : 'report';
+  return (
+    <DreyvLayout
+      preview={`Your treasury ${verb} is ready — paid via agent in USDC.`}
+      eyebrow={`dreyv · ${verb} ready`}
+      mascot="celebrate"
+      footerNote={`Triggered by agent key “${props.agentKeyLabel}”.`}
+    >
+      <H1>{`Your ${props.skuName} is ready.`}</H1>
+      <Lead>
+        Your agent paid {props.amountUsdc} USDC on Solana mainnet and we've generated a fresh
+        {' '}{verb} for the wallet below. It's permanently saved to your workspace.
+      </Lead>
+      <StatGrid stats={props.stats} />
+      <MetaRow
+        rows={[
+          { label: 'Wallet', value: props.targetWallet },
+          { label: 'Agent key', value: props.agentKeyLabel },
+          { label: 'Paid', value: props.paidAt },
+        ]}
+      />
+      <PrimaryCTA href={props.viewUrl}>{`Open ${verb}`}</PrimaryCTA>
+      {props.pdfUrl ? (
+        <Section style={{ textAlign: 'center', marginTop: '4px' }}>
+          <Link href={props.pdfUrl} style={{ fontSize: '12px', color: v.violet, textDecoration: 'none', fontWeight: 600 }}>
+            Download PDF →
+          </Link>
+        </Section>
+      ) : null}
+      <FallbackUrl href={props.viewUrl} />
+    </DreyvLayout>
+  );
+}
+
+// ─── Subscription Activated ──────────────────────────────────────────
+export interface SubscriptionActivatedEmailProps {
+  tier: 'mini' | 'max';
+  renewalDate: string;
+  agentKeyLabel: string;
+  amountUsdc: string;
+  manageUrl: string;
+}
+
+export function SubscriptionActivatedEmail(props: SubscriptionActivatedEmailProps) {
+  const tierName = props.tier === 'max' ? 'Max' : 'Mini';
+  const perks =
+    props.tier === 'max'
+      ? [
+          'Unlimited Foresight simulations + multi-agent runs.',
+          'Priority RPC tier and 10× higher rate limits across the API.',
+          'Direct line to the team via Slack Connect for incidents.',
+        ]
+      : [
+          'Full /app workspace: Analytics, Atlas, Studio, Agent Store.',
+          '10× higher rate limits than Free across every endpoint.',
+          'Email + in-app alerts for anomalies, drift, and approvals.',
+        ];
+  return (
+    <DreyvLayout
+      preview={`Your dreyv ${tierName} plan is active — paid via agent in USDC.`}
+      eyebrow={`dreyv · ${tierName.toLowerCase()} active`}
+      mascot="celebrate"
+      footerNote={`Activated by agent key “${props.agentKeyLabel}”.`}
+    >
+      <H1>{`Welcome to dreyv ${tierName}.`}</H1>
+      <Lead>
+        Your agent paid {props.amountUsdc} USDC on Solana mainnet. Your plan is active and
+        renews on {props.renewalDate}.
+      </Lead>
+      <NumberedList items={perks} />
+      <PrimaryCTA href={props.manageUrl}>Manage subscription</PrimaryCTA>
+      <FallbackUrl href={props.manageUrl} />
+    </DreyvLayout>
+  );
+}
+
