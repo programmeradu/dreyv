@@ -8,15 +8,15 @@
  */
 import type { StaticImageData } from "next/image";
 
-import openapi from "@/assets/docs/openapi-crystal.png";
-import aiplugin from "@/assets/docs/aiplugin-crystal.png";
-import acp from "@/assets/docs/acp-crystal.png";
-import ucp from "@/assets/docs/ucp-crystal.png";
-import catalog from "@/assets/docs/catalog-crystal.png";
-import x402 from "@/assets/docs/x402-crystal.png";
-import llms from "@/assets/docs/llms-crystal.png";
-import llmsFull from "@/assets/docs/llms-full-crystal.png";
-import pricing from "@/assets/docs/pricing-crystal.png";
+import openapi from "@/assets/resource-docs/openapi-crystal.png";
+import aiplugin from "@/assets/resource-docs/aiplugin-crystal.png";
+import acp from "@/assets/resource-docs/acp-crystal.png";
+import ucp from "@/assets/resource-docs/ucp-crystal.png";
+import catalog from "@/assets/resource-docs/catalog-crystal.png";
+import x402 from "@/assets/resource-docs/x402-crystal.png";
+import llms from "@/assets/resource-docs/llms-crystal.png";
+import llmsFull from "@/assets/resource-docs/llms-full-crystal.png";
+import pricing from "@/assets/resource-docs/pricing-crystal.png";
 
 import type { DreyvPose } from "@/components/brand/dreyv-mascot";
 
