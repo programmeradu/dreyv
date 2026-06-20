@@ -52,7 +52,26 @@ export async function POST(
         .where(and(eq(agentPayments.id, id), eq(agentPayments.apiKeyId, key.id)))
         .limit(1);
 
-    if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (!row) {
+        // Card-rail payment? It exists but has no invoice — verify is not
+        // applicable; the provider webhook settles it asynchronously.
+        const [bare] = await db
+            .select({ id: agentPayments.id, rail: agentPayments.rail, status: agentPayments.status })
+            .from(agentPayments)
+            .where(and(eq(agentPayments.id, id), eq(agentPayments.apiKeyId, key.id)))
+            .limit(1);
+        if (bare && bare.rail !== "solana") {
+            return NextResponse.json(
+                {
+                    error: "verify_not_applicable",
+                    rail: bare.rail,
+                    message: `Card rails settle via provider webhook. Poll GET /api/x402/checkout/${bare.id} until status="paid".`,
+                },
+                { status: 409 },
+            );
+        }
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
 
     // Already paid → return idempotent success (but never re-reveal the receipt).
     if (row.payment.status === "paid") {
