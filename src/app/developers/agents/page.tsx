@@ -318,7 +318,9 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
                             dedicated <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">/api/x402/fulfil/…</code> endpoint.
                         </p>
                     </Step>
+                    </div>
                 </div>
+
 
 
                 <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-6 md:p-8">
