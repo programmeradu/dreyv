@@ -36,10 +36,11 @@ export async function computeAmountMinor(
     tier: CryptoTier,
     chain: CryptoChain,
     asset: CryptoAsset,
+    amountUsdOverride?: number,
 ): Promise<{ amountMinor: bigint; amountDisplay: string; amountUsd: number; decimals: number }> {
     const token = tokenFor(chain, asset);
     if (!token) throw new Error(`Unsupported asset ${asset} on ${chain}`);
-    const usd = usdPriceFor(tier);
+    const usd = amountUsdOverride != null ? amountUsdOverride : usdPriceFor(tier);
 
     let amountFloat: number;
     if (token.stable) {
@@ -54,9 +55,16 @@ export async function computeAmountMinor(
     const frac = (fracRaw + "0".repeat(token.decimals)).slice(0, token.decimals);
     const amountMinor = BigInt(whole + frac);
 
+    // Stables show up to 6 decimal places (drop trailing zeros) so micro-payments
+    // like $0.10 don't get rounded to 0.10 when the SKU is actually $0.001234.
     const display = token.stable
-        ? amountFloat.toFixed(2)
-        : amountFloat.toFixed(Math.min(6, token.decimals));
+        ? trimTrailingZeros(amountFloat.toFixed(Math.min(6, token.decimals)))
+        : trimTrailingZeros(amountFloat.toFixed(Math.min(6, token.decimals)));
 
     return { amountMinor, amountDisplay: display, amountUsd: usd, decimals: token.decimals };
+}
+
+function trimTrailingZeros(s: string): string {
+    if (!s.includes(".")) return s;
+    return s.replace(/\.?0+$/, "") || "0";
 }
