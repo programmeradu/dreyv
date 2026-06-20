@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Bot, Coins, KeyRound, ShieldCheck, Zap, Wallet, Globe } from "lucide-react";
+import { ArrowUpRight, Bot, Coins, KeyRound, ShieldCheck, Wallet, Globe, Rocket } from "lucide-react";
 
 export const metadata: Metadata = {
     title: "Agent Payments (x402) | Dreyv Developers",
