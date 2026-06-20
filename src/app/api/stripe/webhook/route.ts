@@ -110,6 +110,15 @@ export async function POST(req: NextRequest) {
         const obj = event.data.object as Record<string, unknown>;
         const metadata = (obj.metadata as Record<string, string> | undefined) ?? {};
         const userId = metadata.dreyv_user_id;
+        const agentPaymentId = metadata.dreyv_agent_payment_id;
+
+        // x402 card rail: settle the agent_payments row + mint receipt.
+        // Runs in addition to the tier reconciliation below for tier SKUs.
+        if (agentPaymentId && (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded")) {
+            const { settleAgentPayment } = await import("@/lib/agent/settle");
+            const providerRef = (obj.id as string | undefined) ?? null;
+            await settleAgentPayment({ paymentId: agentPaymentId, providerRef });
+        }
 
         switch (event.type) {
             case "checkout.session.completed": {

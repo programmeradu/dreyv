@@ -121,6 +121,7 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
 {
   "x402": {
     "scheme": "solana-usdc",
+    "rail": "solana",
     "amount": "1.00",
     "asset": "USDC",
     "chain": "solana",
@@ -131,29 +132,50 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
     "payment_id": "8f4c…",
     "verify_url": "/api/x402/checkout/8f4c…/verify"
   },
+  "alternatives": {
+    "stripe":   { "rail": "stripe",   "checkout_url": "https://checkout.stripe.com/…",  "payment_id": "a91b…", "poll_url": "/api/x402/checkout/a91b…" },
+    "paystack": { "rail": "paystack", "checkout_url": "https://checkout.paystack.com/…", "payment_id": "c702…", "poll_url": "/api/x402/checkout/c702…" }
+  },
   "sku": { "id": "dreyv.treasury.report", "name": "Treasury AI Report" }
 }`}</Code>
+                        <p className="mt-2 text-[12px] text-slate-500">
+                            Card rails (Stripe, Paystack) are offered as alternatives when the SKU price is ≥ $0.50 and the key owner has a billing email on file. To force a single rail, pass <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">{"\"rail\": \"stripe\""}</code> or <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">{"\"rail\": \"paystack\""}</code> in the request body.
+                        </p>
                     </Step>
 
-                    <Step n={3} title="Settle USDC on Solana">
+                    <Step n={3} title="Settle the payment">
+                        <p className="mb-2"><strong>USDC on Solana (default rail):</strong></p>
                         <p>
                             Send exactly <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">amount</code> USDC
                             to <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">receiving_address</code> with
                             the <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">memo</code> attached
                             (Memo program <code className="font-mono text-[11px]">MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr</code>). Most agent
-                            wallets do this in a single instruction.
+                            wallets do this in a single instruction. Then POST the signature to <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">verify_url</code>.
+                        </p>
+                        <p className="mt-3 mb-2"><strong>Card (Stripe / Paystack):</strong></p>
+                        <p>
+                            Open <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">checkout_url</code> in
+                            the agent&apos;s browser (or hand it to a human). On successful
+                            payment the provider webhook settles the row server-side and
+                            mints the receipt — no verify call needed. Poll <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">poll_url</code> until <code className="font-mono text-[12px]">status: &quot;paid&quot;</code> and the
+                            response includes <code className="font-mono text-[12px]">receipt_token</code>.
                         </p>
                     </Step>
 
-                    <Step n={4} title="POST the signature to verify">
+                    <Step n={4} title="Verify (Solana) or poll (card)">
+                        <p className="mb-2"><strong>Solana:</strong></p>
                         <Code>{`curl -X POST https://dreyv.com/api/x402/checkout/8f4c…/verify \\
   -H "Authorization: Bearer dak_…" \\
   -H "Content-Type: application/json" \\
   -d '{"signature":"5jK…"}'`}</Code>
-                        <p>On success the agent receives a single-use receipt:</p>
+                        <p className="mt-3 mb-2"><strong>Card:</strong></p>
+                        <Code>{`curl https://dreyv.com/api/x402/checkout/a91b… \\
+  -H "Authorization: Bearer dak_…"`}</Code>
+                        <p className="mt-2">Both paths converge on the same response shape:</p>
                         <Code>{`{
   "id": "8f4c…",
   "status": "paid",
+  "rail": "solana",
   "tx_signature": "5jK…",
   "receipt_token": "rcpt_uK7m…",
   "sku": {
@@ -172,6 +194,7 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
                         </p>
                     </Step>
                 </div>
+
 
                 <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-6 md:p-8">
                     <h2 className="text-lg font-semibold text-slate-900">SKU catalog</h2>

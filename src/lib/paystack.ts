@@ -109,6 +109,47 @@ export async function paystackInitializeTransaction(args: {
 }
 
 /**
+ * Initialize a one-off (non-subscription) Paystack transaction. Used by the
+ * agent x402 rail for per-call SKUs that don't map to a plan.
+ *
+ * `amountUsd` is converted to GHS at the env-configured rate
+ * `PAYSTACK_USD_GHS_RATE` (defaults to 15) and rounded UP to whole pesewas.
+ * Returns { authorization_url, reference }.
+ */
+export async function paystackInitializeOneTime(args: {
+    email: string;
+    amountUsd: number;
+    callbackUrl: string;
+    metadata?: Record<string, unknown>;
+    reference?: string;
+}): Promise<{ authorization_url: string; reference: string; access_code: string; amount: number; currency: "GHS" }> {
+    const rate = Number(process.env.PAYSTACK_USD_GHS_RATE?.trim() || "15");
+    const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 15;
+    const amountMinor = Math.max(1, Math.ceil(args.amountUsd * safeRate * 100));
+    const json = await paystackFetch("/transaction/initialize", {
+        method: "POST",
+        body: JSON.stringify({
+            email: args.email,
+            amount: amountMinor,
+            currency: "GHS",
+            callback_url: args.callbackUrl,
+            metadata: args.metadata ?? {},
+            ...(args.reference ? { reference: args.reference } : {}),
+        }),
+    });
+    if (!json?.status || !json?.data?.authorization_url) {
+        throw new Error(`Paystack initialize returned no authorization_url: ${JSON.stringify(json)}`);
+    }
+    return {
+        authorization_url: json.data.authorization_url,
+        reference: json.data.reference,
+        access_code: json.data.access_code,
+        amount: amountMinor,
+        currency: "GHS",
+    };
+}
+
+/**
  * Verify a transaction by reference. Returns the full transaction record.
  */
 export async function paystackVerifyTransaction(reference: string): Promise<any> {
