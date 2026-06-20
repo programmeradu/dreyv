@@ -1925,6 +1925,9 @@ export const agentPayments = pgTable('agent_payments', {
   txSignature: text('tx_signature'),
   receiptToken: text('receipt_token'),
   paidAt: timestamp('paid_at', { withTimezone: true }),
+  // Set the first time a receipt is redeemed against a fulfilment endpoint.
+  // Receipts are single-use: once non-null, the token no longer unlocks output.
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   receiptUniq: uniqueIndex('agent_payments_receipt_uniq').on(t.receiptToken),
