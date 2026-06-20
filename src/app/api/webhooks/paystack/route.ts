@@ -57,6 +57,16 @@ export async function POST(req: NextRequest) {
     }
 
     const data = payload.data || {};
+
+    // x402 card rail: settle the agent_payments row + mint receipt.
+    // Paystack metadata round-trips on charge.success.
+    const agentPaymentId: string | undefined = data?.metadata?.dreyv_agent_payment_id;
+    if (agentPaymentId && event === "charge.success") {
+        const { settleAgentPayment } = await import("@/lib/agent/settle");
+        const providerRef: string | null = data?.reference ?? null;
+        await settleAgentPayment({ paymentId: agentPaymentId, providerRef });
+    }
+
     const customerCode: string | undefined =
         data?.customer?.customer_code || data?.subscription?.customer?.customer_code;
     const customerEmail: string | undefined =
