@@ -218,10 +218,10 @@ export default function AgentPaymentsPage() {
                         <a href="https://crossmint.com" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Crossmint</a>)?
                         Use the classic x402 dance — request → 402 → sign + send → verify.
                     </p>
-                </div>
 
+                    <div className="mt-6 space-y-6">
+                        <Step n={1} title="Issue an agent key">
 
-                    <Step n={1} title="Issue an agent key">
                         <p>
                             From <Link href="/app/settings" className="font-medium text-violet-700 underline-offset-4 hover:underline">Settings → API keys</Link>,
                             click <strong>New agent key</strong>. Set an optional spend cap. The
