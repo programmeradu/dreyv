@@ -184,8 +184,7 @@ export async function createDeliverable(args: CreateArgs): Promise<CreateResult>
             // The AI narrative is rendered on-demand from the snapshot via
             // existing /api/x402/fulfil/treasury-report when the user opens
             // the view page — keeps this path < 60s for big wallets.
-        } else {
-            // subscription
+        } else if (args.kind === "subscription") {
             summary = {
                 tier: args.tier,
                 renewalAt: args.renewalAt.toISOString(),
@@ -196,6 +195,7 @@ export async function createDeliverable(args: CreateArgs): Promise<CreateResult>
                 manageUrl: `${APP}/app/settings/billing`,
             };
         }
+
 
         await db
             .update(agentDeliverables)
