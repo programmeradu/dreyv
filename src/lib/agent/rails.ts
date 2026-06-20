@@ -63,8 +63,8 @@ export async function createStripeRail(args: {
     }
 
     const origin = originFromHeaders(args.headers);
-    const successUrl = `${origin}/api/x402/checkout/${args.paymentId}?card=success`;
-    const cancelUrl = `${origin}/api/x402/checkout/${args.paymentId}?card=cancel`;
+    const successUrl = `${origin}/developers/agents/payment/success?payment_id=${args.paymentId}`;
+    const cancelUrl = `${origin}/developers/agents/payment/cancel?payment_id=${args.paymentId}`;
 
     const isTier = args.sku.id.startsWith("dreyv.tier.");
     const form = new URLSearchParams();
@@ -151,7 +151,7 @@ export async function createPaystackRail(args: {
     }
 
     const origin = originFromHeaders(args.headers);
-    const callbackUrl = `${origin}/api/x402/checkout/${args.paymentId}?card=verify`;
+    const callbackUrl = `${origin}/developers/agents/payment/success?payment_id=${args.paymentId}`;
     const metadata = {
         dreyv_user_id: args.userId,
         dreyv_agent_payment_id: args.paymentId,
