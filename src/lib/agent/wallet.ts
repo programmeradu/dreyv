@@ -20,14 +20,8 @@ import {
 // bundler-mode workspace (same issue handled by `@ts-ignore` in
 // src/lib/studio/marketplace-payments.ts). Runtime exports are correct.
 // @ts-ignore
-import {
-    createAssociatedTokenAccountInstruction,
-    createTransferCheckedInstruction,
-    getAccount,
-    getAssociatedTokenAddress,
-    TokenAccountNotFoundError,
-    TokenInvalidAccountOwnerError,
-} from "@solana/spl-token";
+import { createAssociatedTokenAccountInstruction, createTransferCheckedInstruction, getAccount, getAssociatedTokenAddress, TokenAccountNotFoundError, TokenInvalidAccountOwnerError } from "@solana/spl-token";
+
 
 
 
