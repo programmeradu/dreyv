@@ -7,7 +7,12 @@ import {
   TierExpiryEmail,
   GasAlertEmail,
   GasAlertVerificationEmail,
+  AgentDeliverableEmail,
+  SubscriptionActivatedEmail,
+  type AgentDeliverableEmailProps,
+  type SubscriptionActivatedEmailProps,
 } from './emails/templates';
+
 
 // ─── Singleton Resend client ─────────────────────────────────────────
 let resendClient: Resend | null = null;
