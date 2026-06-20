@@ -1911,10 +1911,17 @@ export const agentPayments = pgTable('agent_payments', {
   id: uuid('id').defaultRandom().primaryKey(),
   apiKeyId: uuid('api_key_id').references(() => agentApiKeys.id, { onDelete: 'cascade' }).notNull(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  invoiceId: uuid('invoice_id').references(() => cryptoInvoices.id, { onDelete: 'cascade' }).notNull(),
+  // Only present for the Solana/USDC rail.
+  invoiceId: uuid('invoice_id').references(() => cryptoInvoices.id, { onDelete: 'cascade' }),
   sku: text('sku').notNull(),
   amountUsd: numeric('amount_usd', { precision: 12, scale: 2 }).notNull(),
   status: text('status').notNull().default('pending'),      // pending | paid | expired | failed
+  // Which payment rail this row settles on.
+  rail: text('rail').notNull().default('solana'),           // solana | stripe | paystack
+  // Provider-side identifier (Stripe Checkout Session id, Paystack reference).
+  providerRef: text('provider_ref'),
+  // Hosted checkout URL the agent / human follows for card rails.
+  checkoutUrl: text('checkout_url'),
   txSignature: text('tx_signature'),
   receiptToken: text('receipt_token'),
   paidAt: timestamp('paid_at', { withTimezone: true }),
@@ -1924,4 +1931,6 @@ export const agentPayments = pgTable('agent_payments', {
   keyIdx: index('agent_payments_key_idx').on(t.apiKeyId),
   invoiceIdx: index('agent_payments_invoice_idx').on(t.invoiceId),
   userIdx: index('agent_payments_user_idx').on(t.userId),
+  railIdx: index('agent_payments_rail_idx').on(t.rail),
+  providerRefIdx: index('agent_payments_provider_ref_idx').on(t.providerRef),
 }));
