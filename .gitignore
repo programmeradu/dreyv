@@ -63,5 +63,5 @@ build-output.txt
 # firecrawl cache
 .firecrawl/
 
-# research & strategy docs (private)
-docs/
+# research & strategy docs (private) — only top-level /docs, not nested route dirs
+/docs/
