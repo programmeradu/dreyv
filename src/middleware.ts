@@ -75,7 +75,7 @@ async function getInviteAllowEmail(request: NextRequest): Promise<string | null>
 function isPrivateSeoPath(pathname: string): boolean {
     if (pathname === '/hello' || pathname.startsWith('/hello/')) return true;
     if (pathname === '/working-swap' || pathname.startsWith('/working-swap/')) return true;
-    if (pathname === '/admin/migrations' || pathname.startsWith('/admin/migrations/')) return true;
+    
     return (
         pathname.startsWith('/app') ||
         pathname.startsWith('/auth') ||
@@ -442,7 +442,7 @@ export async function middleware(request: NextRequest) {
         '/r/',
     ];
 
-    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio', '/admin/migrations'];
+    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio'];
 
     if (
         publicPaths.some((p) => pathname.startsWith(p)) ||
