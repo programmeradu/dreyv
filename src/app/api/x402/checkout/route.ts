@@ -183,6 +183,13 @@ export async function POST(req: NextRequest) {
         tier,
         chain,
         asset,
+        // Per-call SKUs must price the on-chain transfer at the SKU's own USD
+        // amount — not the tier's $44.10/$179.10 subscription price. Otherwise
+        // the Solana Pay URL asks the wallet for the wrong amount.
+        amountUsdOverride: isTierSku ? undefined : sku.priceUsd,
+        message: isTierSku
+            ? `Dreyv ${tier === "mini" ? "Mini" : "Max"} subscription`
+            : `Dreyv · ${sku.name}`,
     });
 
     const amountUsd = isTierSku ? invoice.amountUsd : sku.priceUsd;
