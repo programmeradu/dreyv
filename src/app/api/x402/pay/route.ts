@@ -47,7 +47,9 @@ function formatToken(minor: bigint, decimals: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  try {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
 
     const key = await resolveAgentKey(extractBearer(req));
     if (!key) {
