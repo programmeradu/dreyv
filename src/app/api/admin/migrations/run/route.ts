@@ -135,11 +135,8 @@ function splitStatements(sql: string): string[] {
 }
 
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
   const files = await listFiles();
-  return NextResponse.json({ files });
+  return NextResponse.json({ files, canRun: authorized(req) });
 }
 
 export async function POST(req: NextRequest) {

@@ -48,12 +48,11 @@ export default function MigrationsAdminPage() {
   };
 
   const loadFiles = useCallback(async () => {
-    if (!adminKey) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/migrations/run", {
-        headers: { "x-admin-key": adminKey },
+        headers: adminKey ? { "x-admin-key": adminKey } : undefined,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -127,7 +126,7 @@ export default function MigrationsAdminPage() {
 
         <section className="mb-8 rounded-2xl border border-violet-200 bg-white p-5 shadow-sm">
           <label className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-            Admin key (sent as <code>x-admin-key</code>, must match <code>MIGRATION_ADMIN_KEY</code>)
+            Admin key for running SQL (sent as <code>x-admin-key</code>, must match <code>MIGRATION_ADMIN_KEY</code>)
           </label>
           <div className="mt-2 flex gap-2">
             <input
@@ -139,7 +138,7 @@ export default function MigrationsAdminPage() {
             />
             <button
               onClick={loadFiles}
-              disabled={!adminKey || loading}
+              disabled={loading}
               className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {loading ? "Loading…" : "Load migrations"}
@@ -155,7 +154,7 @@ export default function MigrationsAdminPage() {
           </label>
           {keyLoaded && !adminKey && (
             <p className="mt-2 text-xs text-neutral-500">
-              This page is reachable without app login; the key is stored only in this browser via localStorage.
+              This page is reachable without app login. Migration files can be listed without the key; the key is required only to execute SQL and is stored only in this browser via localStorage.
             </p>
           )}
         </section>
@@ -170,7 +169,7 @@ export default function MigrationsAdminPage() {
           <h2 className="mb-3 text-lg font-semibold">Migration files</h2>
           {files.length === 0 ? (
             <p className="text-sm text-neutral-500">
-              {adminKey ? "No files loaded yet — click Load migrations." : "Enter the admin key above."}
+              No files loaded yet — click Load migrations.
             </p>
           ) : (
             <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
@@ -191,7 +190,8 @@ export default function MigrationsAdminPage() {
                     </div>
                     <button
                       onClick={() => runFile(f.path)}
-                      disabled={isRunning || !!running}
+                      disabled={!adminKey || isRunning || !!running}
+                      title={adminKey ? `Run ${f.path}` : "Enter the migration admin key to run SQL"}
                       className="shrink-0 rounded-lg border border-violet-600 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50"
                     >
                       {isRunning ? "Running…" : "Run"}

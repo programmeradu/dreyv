@@ -3,7 +3,7 @@ import "./globals.css";
 import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
 import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
-import { Web3Providers } from "@/components/providers/web3-provider";
+import { ConditionalAppProviders } from "@/components/providers/conditional-app-providers";
 import { ToastContainer } from "@/components/ToastContainer";
 import { CookieBanner } from "@/components/CookieBanner";
 import { RootJsonLd } from "@/components/seo/JsonLd";
@@ -179,7 +179,7 @@ export default function RootLayout({
             gtag('config', '${gaMeasurementId}');
           `}
         </Script>
-        <Web3Providers>{children}</Web3Providers>
+        <ConditionalAppProviders>{children}</ConditionalAppProviders>
         <VisualEditsMessenger />
         <ToastContainer />
         <CookieBanner />
