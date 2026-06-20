@@ -1934,3 +1934,17 @@ export const agentPayments = pgTable('agent_payments', {
   railIdx: index('agent_payments_rail_idx').on(t.rail),
   providerRefIdx: index('agent_payments_provider_ref_idx').on(t.providerRef),
 }));
+
+// Hosted Solana wallet per user — funds end-to-end autonomous agent
+// payments (POST /api/x402/pay). One per user; private key encrypted with
+// KEYPAIR_MASTER_KEY via src/lib/keypair-envelope.ts. Custodial by design.
+export const agentWallets = pgTable('agent_wallets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  publicKey: text('public_key').notNull().unique(),
+  encryptedSecret: text('encrypted_secret').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  publicKeyIdx: index('agent_wallets_public_key_idx').on(t.publicKey),
+}));
+
