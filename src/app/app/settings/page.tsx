@@ -9,6 +9,8 @@ import { ProfileView } from "@/components/settings/ProfileView";
 import { NotificationsView } from "@/components/settings/NotificationsView";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { AgentKeysPanel } from "@/components/settings/AgentKeysPanel";
+import { AgentWalletPanel } from "@/components/settings/AgentWalletPanel";
+
 import { BillingView } from "@/components/settings/BillingView";
 import { AgentPolicyView } from "@/components/settings/AgentPolicyView";
 import { PolicySuggestionsPanel } from "@/components/settings/PolicySuggestionsPanel";
@@ -65,8 +67,10 @@ export default function SettingsPage() {
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <ApiKeysView />
                         <AgentKeysPanel />
+                        <AgentWalletPanel />
                     </div>
                 );
+
             case "billing":
                 return <BillingView />;
             case "policy":
