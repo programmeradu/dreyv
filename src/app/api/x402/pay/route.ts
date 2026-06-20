@@ -1,15 +1,24 @@
 /**
  * POST /api/x402/pay
  *
- * One-call, end-to-end autonomous agent payment. The agent presents its
- * dak_ bearer key + a SKU; Dreyv mints an invoice, signs and broadcasts
- * the USDC transfer from the user's hosted agent wallet, and returns the
- * receipt token in a single round-trip.
+ * One-call, end-to-end autonomous agent payment + delivery.
  *
- * If the hosted wallet is underfunded, returns HTTP 402 with funding
- * instructions (address, USDC needed, SOL needed). The agent can then
- * stop and surface the funding request to the human operator, or fall
- * back to the manual /checkout + /verify or card-rail flow.
+ * - For dreyv.treasury.snapshot / .report:
+ *     body may pass an optional `target_wallet`. If absent we resolve a
+ *     primary treasury wallet from the API-key owner's vaults; if we can't
+ *     unambiguously pick one we return HTTP 409 with the candidate list so
+ *     the calling agent can ask the human.
+ *
+ * - For dreyv.tier.mini.month / .max.month:
+ *     bumps users.tier + tierExpiresAt, sends a branded activation email.
+ *
+ * On success, `createDeliverable` runs the SKU's fulfilment inline,
+ * persists a permanent `agent_deliverables` row, and emails the API-key
+ * owner. Response carries both the legacy receipt token (single-use,
+ * back-compat with /fulfil) and a `deliverable` object with a permalink
+ * view URL on the dashboard.
+ *
+ * Underfunded wallet → HTTP 402 + funding instructions, same as before.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -28,13 +37,22 @@ import {
     payInvoiceFromAgentWallet,
 } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
+import { createDeliverable } from "@/lib/agent/deliverables";
+import { resolvePrimaryTreasuryWallet } from "@/lib/agent/wallet-resolver";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const SOLANA_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 const Body = z.object({
     sku: z.string().min(1).max(200),
+    target_wallet: z
+        .string()
+        .trim()
+        .regex(SOLANA_ADDR_RE, "target_wallet must be a base58 Solana address")
+        .optional(),
 });
 
 function formatToken(minor: bigint, decimals: number): string {
@@ -49,7 +67,6 @@ function formatToken(minor: bigint, decimals: number): string {
 export async function POST(req: NextRequest) {
   try {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
-
 
     const key = await resolveAgentKey(extractBearer(req));
     if (!key) {
@@ -83,6 +100,40 @@ export async function POST(req: NextRequest) {
         );
     }
 
+    // 0. Resolve `target_wallet` for snapshot/report BEFORE we charge,
+    //    so an agent that doesn't pass one isn't billed for output it
+    //    can't address.
+    const isWalletSku = sku.id === "dreyv.treasury.snapshot" || sku.id === "dreyv.treasury.report";
+    const isTierSku = sku.id.startsWith("dreyv.tier.");
+    const tier: "mini" | "max" = isTierSku && sku.id.includes(".max.") ? "max" : "mini";
+
+    let targetWallet: string | null = null;
+    if (isWalletSku) {
+        if (parsed.data.target_wallet) {
+            targetWallet = parsed.data.target_wallet;
+        } else {
+            const { wallet, candidates } = await resolvePrimaryTreasuryWallet(key.userId);
+            if (!wallet) {
+                return NextResponse.json(
+                    {
+                        error: "wallet_required",
+                        message: candidates.length === 0
+                            ? "This account has no treasury wallet connected yet. Pass `target_wallet` explicitly, or connect a wallet in /app first."
+                            : "Multiple treasury wallets connected and none is unambiguously primary. Ask the human which wallet to use, then resend with `target_wallet` set.",
+                        candidates: candidates.map((c) => ({
+                            address: c.address,
+                            label: c.label,
+                            kind: c.kind,
+                            is_multisig: c.isMultisig,
+                        })),
+                    },
+                    { status: 409 },
+                );
+            }
+            targetWallet = wallet.address;
+        }
+    }
+
     const usdc = tokenFor("solana", "usdc");
     if (!usdc?.contract) {
         return NextResponse.json({ error: "usdc_mint_unconfigured" }, { status: 500 });
@@ -102,8 +153,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Mint the on-chain invoice (also pinned to this user).
-    const isTierSku = sku.id.startsWith("dreyv.tier.");
-    const tier = isTierSku ? (sku.id.includes(".max.") ? "max" : "mini") : "mini";
     const invoice = await mintCryptoInvoice({
         userId: key.userId,
         tier,
@@ -224,12 +273,63 @@ export async function POST(req: NextRequest) {
         .set({ spentUsd: sql`${agentApiKeys.spentUsd} + ${amountUsd.toFixed(4)}` })
         .where(eq(agentApiKeys.id, key.id));
 
-    if (sku.id === "dreyv.tier.mini.month" || sku.id === "dreyv.tier.max.month") {
-        const newTier = sku.id === "dreyv.tier.max.month" ? "max" : "mini";
-        const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    let tierExpiresAt: Date | null = null;
+    if (isTierSku) {
+        tierExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         await db.update(users)
-            .set({ tier: newTier, tierExpiresAt: expires })
+            .set({ tier, tierExpiresAt })
             .where(eq(users.id, key.userId));
+    }
+
+    // 7. Create the persistent deliverable + email — best-effort, never
+    //    fails the response.
+    let deliverableOut: {
+        id: string;
+        view_url: string;
+        pdf_url: string | null;
+        kind: string;
+        summary: Record<string, unknown>;
+        emailed: boolean;
+    } | null = null;
+    try {
+        const paidAtIso = now.toISOString();
+        const amountUsdcStr = formatToken(amountMinor, usdc.decimals);
+
+        if (isWalletSku && targetWallet) {
+            const d = await createDeliverable({
+                paymentId: payment.id,
+                userId: key.userId,
+                apiKeyId: key.id,
+                sku: sku.id,
+                amountUsdc: amountUsdcStr,
+                paidAtIso,
+                kind: sku.id === "dreyv.treasury.snapshot" ? "snapshot" : "report",
+                targetWallet,
+            });
+            deliverableOut = {
+                id: d.deliverableId, view_url: d.viewUrl, pdf_url: d.pdfUrl,
+                kind: d.kind, summary: d.summary, emailed: d.emailed,
+            };
+        } else if (isTierSku && tierExpiresAt) {
+            const d = await createDeliverable({
+                paymentId: payment.id,
+                userId: key.userId,
+                apiKeyId: key.id,
+                sku: sku.id,
+                amountUsdc: amountUsdcStr,
+                paidAtIso,
+                kind: "subscription",
+                tier,
+                renewalAt: tierExpiresAt,
+            });
+            deliverableOut = {
+                id: d.deliverableId, view_url: d.viewUrl, pdf_url: d.pdfUrl,
+                kind: d.kind, summary: d.summary, emailed: d.emailed,
+            };
+        }
+    } catch (err) {
+        // Already logged inside createDeliverable; do not fail the call.
+        console.error("[x402/pay] deliverable creation failed:", err);
     }
 
     const balanceRemainingMinor = balances.tokenMinor - amountMinor;
@@ -249,6 +349,8 @@ export async function POST(req: NextRequest) {
             usdc_minor: balanceRemainingMinor.toString(),
         },
         paid_at: now,
+        target_wallet: targetWallet,
+        deliverable: deliverableOut,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -264,4 +366,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
