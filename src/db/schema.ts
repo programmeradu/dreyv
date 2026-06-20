@@ -1951,3 +1951,35 @@ export const agentWallets = pgTable('agent_wallets', {
   publicKeyIdx: index('agent_wallets_public_key_idx').on(t.publicKey),
 }));
 
+// First-class record of every paid agent output. One row per payment that
+// produces a deliverable — drives /app/agent/deliverables, the post-payment
+// email, and the permalink view page.
+export const agentDeliverables = pgTable('agent_deliverables', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  paymentId: uuid('payment_id').references(() => agentPayments.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  apiKeyId: uuid('api_key_id').references(() => agentApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').notNull(),                  // snapshot | report | subscription
+  sku: text('sku').notNull(),
+  targetWallet: text('target_wallet'),           // null for subscription
+  status: text('status').notNull().default('generating'), // generating | ready | failed
+  summary: jsonb('summary').notNull().default({}),
+  payload: jsonb('payload').notNull().default({}),
+  pdfUrl: text('pdf_url'),
+  emailTo: text('email_to'),
+  emailMessageId: text('email_message_id'),
+  emailSentAt: timestamp('email_sent_at', { withTimezone: true }),
+  emailError: text('email_error'),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  readyAt: timestamp('ready_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+}, (t) => ({
+  userIdx: index('agent_deliverables_user_idx').on(t.userId, t.createdAt),
+  apiKeyIdx: index('agent_deliverables_api_key_idx').on(t.apiKeyId, t.createdAt),
+  paymentIdx: index('agent_deliverables_payment_idx').on(t.paymentId),
+  kindIdx: index('agent_deliverables_kind_idx').on(t.kind),
+  paymentUniq: uniqueIndex('agent_deliverables_payment_uniq').on(t.paymentId),
+}));
+
+
