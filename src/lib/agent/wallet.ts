@@ -16,14 +16,16 @@ import {
     Transaction,
     TransactionInstruction,
 } from "@solana/web3.js";
-import {
+import * as splToken from "@solana/spl-token";
+const {
     createAssociatedTokenAccountInstruction,
     createTransferCheckedInstruction,
     getAccount,
     getAssociatedTokenAddress,
     TokenAccountNotFoundError,
     TokenInvalidAccountOwnerError,
-} from "@solana/spl-token";
+} = splToken;
+
 import bs58 from "bs58";
 import { eq } from "drizzle-orm";
 
