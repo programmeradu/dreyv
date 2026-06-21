@@ -6352,3 +6352,441 @@ export async function exportsPolicy(_input: Record<string, never>, ctx: Capabili
     ],
   };
 }
+
+// ─── Pillar AG — Tags, Labels & Annotations (Phase 23) ───────────────
+import { publicApiTags as _tagsAG, publicApiTagLinks as _tagLinksAG } from "@/db/schema";
+
+const _TAG_COLORS_AG = [
+  "violet", "indigo", "blue", "sky", "cyan", "teal", "emerald",
+  "lime", "amber", "orange", "rose", "pink", "fuchsia", "slate",
+] as const;
+type _TagColor = (typeof _TAG_COLORS_AG)[number];
+
+const _ENTITY_TYPES_AG = [
+  "address", "tx", "capability", "job", "run", "artifact",
+  "proposal", "watcher", "monitor", "export", "notification",
+  "delivery", "webhook", "custom",
+] as const;
+type _EntityType = (typeof _ENTITY_TYPES_AG)[number];
+
+const _TIER_TAG_LIMITS_AG: Record<
+  string,
+  { tags: number; linksPerTag: number; linksPerEntity: number }
+> = {
+  free: { tags: 25,  linksPerTag: 500,    linksPerEntity: 8  },
+  mini: { tags: 250, linksPerTag: 10_000, linksPerEntity: 32 },
+  max:  { tags: 2_500, linksPerTag: 100_000, linksPerEntity: 128 },
+};
+
+const _MAX_TAG_NAME_AG = 64;
+const _MAX_TAG_DESC_AG = 280;
+const _MAX_NOTE_AG = 1_000;
+const _MAX_ENTITY_ID_AG = 256;
+
+function _normalizeTagNameAG(raw: string): { name: string; display: string } {
+  const display = raw.trim().replace(/\s+/g, " ").slice(0, _MAX_TAG_NAME_AG);
+  if (!display) throw new CapabilityError("Tag name cannot be empty", 400, null);
+  const name = display.toLowerCase();
+  // Ban control characters and stray separators.
+  if (/[\x00-\x1f\x7f]/.test(name)) {
+    throw new CapabilityError("Tag name contains control characters", 400, null);
+  }
+  return { name, display };
+}
+
+function _assertColorAG(c: string | undefined): _TagColor {
+  const v = (c ?? "violet").toLowerCase();
+  if (!(_TAG_COLORS_AG as readonly string[]).includes(v)) {
+    throw new CapabilityError(
+      `Unknown color '${c}'. Allowed: ${_TAG_COLORS_AG.join(", ")}`,
+      400,
+      null,
+    );
+  }
+  return v as _TagColor;
+}
+
+function _assertEntityTypeAG(t: string): _EntityType {
+  if (!(_ENTITY_TYPES_AG as readonly string[]).includes(t)) {
+    throw new CapabilityError(
+      `Unknown entityType '${t}'. Allowed: ${_ENTITY_TYPES_AG.join(", ")}`,
+      400,
+      null,
+    );
+  }
+  return t as _EntityType;
+}
+
+function _assertEntityIdAG(id: string): string {
+  const v = id.trim();
+  if (!v) throw new CapabilityError("entityId cannot be empty", 400, null);
+  if (v.length > _MAX_ENTITY_ID_AG) {
+    throw new CapabilityError(`entityId exceeds ${_MAX_ENTITY_ID_AG} chars`, 400, null);
+  }
+  return v;
+}
+
+async function _loadTagAG(idOrName: string, userId: string) {
+  const d = requireDb();
+  // Try uuid first, then fall back to normalized name lookup.
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrName);
+  const [row] = isUuid
+    ? await d.select().from(_tagsAG).where(and(eq(_tagsAG.id, idOrName), eq(_tagsAG.userId, userId))).limit(1)
+    : await d.select().from(_tagsAG).where(and(eq(_tagsAG.name, idOrName.trim().toLowerCase()), eq(_tagsAG.userId, userId))).limit(1);
+  if (!row) throw new CapabilityError(`Tag '${idOrName}' not found`, 404, null);
+  return row;
+}
+
+export async function tagsCreate(
+  input: { name: string; color?: string; description?: string; metadata?: Record<string, unknown> },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { name, display } = _normalizeTagNameAG(input.name);
+  const color = _assertColorAG(input.color);
+  const description = input.description?.slice(0, _MAX_TAG_DESC_AG) ?? null;
+
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_TAG_LIMITS_AG[tier];
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_tagsAG)
+    .where(eq(_tagsAG.userId, ctx.userId));
+  if (n >= limits.tags) {
+    throw new CapabilityError(
+      `Tag quota reached for tier '${tier}' (${n}/${limits.tags})`,
+      429,
+      null,
+    );
+  }
+
+  // Idempotent on (userId, name): re-creating returns the existing row.
+  const [existing] = await d
+    .select()
+    .from(_tagsAG)
+    .where(and(eq(_tagsAG.userId, ctx.userId), eq(_tagsAG.name, name)))
+    .limit(1);
+  if (existing) return { ...existing, alreadyExisted: true };
+
+  const [row] = await d
+    .insert(_tagsAG)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      name,
+      display,
+      color,
+      description,
+      metadata: input.metadata ?? {},
+    })
+    .returning();
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "tags.create",
+    target: row.id,
+    meta: { name, color },
+  });
+
+  return { ...row, alreadyExisted: false };
+}
+
+export async function tagsList(
+  input: { query?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 200, 1), 1000);
+  const conds: unknown[] = [eq(_tagsAG.userId, ctx.userId)];
+  if (input.query) {
+    const q = `%${input.query.trim().toLowerCase().replace(/[%_]/g, "\\$&")}%`;
+    conds.push(_sqlAE`${_tagsAG.name} ILIKE ${q}`);
+  }
+  const rows = await d
+    .select()
+    .from(_tagsAG)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(_tagsAG.createdAt))
+    .limit(limit);
+
+  // Hydrate per-tag link count in a single grouped query.
+  const ids = rows.map((r) => r.id);
+  let counts: Record<string, number> = {};
+  if (ids.length > 0) {
+    const grouped = await d
+      .select({
+        tagId: _tagLinksAG.tagId,
+        count: _sqlAE<number>`count(*)::int`,
+      })
+      .from(_tagLinksAG)
+      .where(and(eq(_tagLinksAG.userId, ctx.userId), inArray(_tagLinksAG.tagId, ids)))
+      .groupBy(_tagLinksAG.tagId);
+    counts = Object.fromEntries(grouped.map((g) => [g.tagId, g.count]));
+  }
+  return {
+    count: rows.length,
+    tags: rows.map((r) => ({ ...r, linkCount: counts[r.id] ?? 0 })),
+  };
+}
+
+export async function tagsUpdate(
+  input: { id: string; display?: string; color?: string; description?: string; metadata?: Record<string, unknown> },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tag = await _loadTagAG(input.id, ctx.userId);
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.display !== undefined) {
+    const display = input.display.trim().replace(/\s+/g, " ").slice(0, _MAX_TAG_NAME_AG);
+    if (!display) throw new CapabilityError("display cannot be empty", 400, null);
+    patch.display = display;
+    // Keep `name` (the lookup key) stable — display is the only relabel surface.
+  }
+  if (input.color !== undefined) patch.color = _assertColorAG(input.color);
+  if (input.description !== undefined) patch.description = input.description.slice(0, _MAX_TAG_DESC_AG);
+  if (input.metadata !== undefined) patch.metadata = input.metadata;
+
+  const [row] = await d.update(_tagsAG).set(patch).where(eq(_tagsAG.id, tag.id)).returning();
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "tags.update",
+    target: tag.id,
+    meta: { fields: Object.keys(patch).filter((k) => k !== "updatedAt") },
+  });
+  return row;
+}
+
+export async function tagsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const tag = await _loadTagAG(input.id, ctx.userId);
+  // Count links for the audit trail before cascade.
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_tagLinksAG)
+    .where(eq(_tagLinksAG.tagId, tag.id));
+  await d.delete(_tagsAG).where(eq(_tagsAG.id, tag.id));
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "tags.delete",
+    target: tag.id,
+    meta: { name: tag.name, removedLinks: n },
+  });
+  return { id: tag.id, deleted: true, removedLinks: n };
+}
+
+export async function tagsAttach(
+  input: { tag: string; entityType: string; entityId: string; note?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tag = await _loadTagAG(input.tag, ctx.userId);
+  const entityType = _assertEntityTypeAG(input.entityType);
+  const entityId = _assertEntityIdAG(input.entityId);
+  const note = input.note ? input.note.slice(0, _MAX_NOTE_AG) : null;
+
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_TAG_LIMITS_AG[tier];
+
+  // Per-tag and per-entity quotas.
+  const [linksOnTag] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_tagLinksAG)
+    .where(eq(_tagLinksAG.tagId, tag.id));
+  if (linksOnTag.n >= limits.linksPerTag) {
+    throw new CapabilityError(
+      `Per-tag link cap reached (${linksOnTag.n}/${limits.linksPerTag}) for tier '${tier}'`,
+      429,
+      null,
+    );
+  }
+  const [linksOnEntity] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_tagLinksAG)
+    .where(and(
+      eq(_tagLinksAG.userId, ctx.userId),
+      eq(_tagLinksAG.entityType, entityType),
+      eq(_tagLinksAG.entityId, entityId),
+    ));
+  if (linksOnEntity.n >= limits.linksPerEntity) {
+    throw new CapabilityError(
+      `Per-entity tag cap reached (${linksOnEntity.n}/${limits.linksPerEntity}) for tier '${tier}'`,
+      429,
+      null,
+    );
+  }
+
+  // Idempotent on (tagId, entityType, entityId).
+  const [existing] = await d
+    .select()
+    .from(_tagLinksAG)
+    .where(and(
+      eq(_tagLinksAG.tagId, tag.id),
+      eq(_tagLinksAG.entityType, entityType),
+      eq(_tagLinksAG.entityId, entityId),
+    ))
+    .limit(1);
+  if (existing) {
+    // Allow note-only updates without re-creating the row.
+    if (note !== null && note !== existing.note) {
+      const [updated] = await d
+        .update(_tagLinksAG)
+        .set({ note })
+        .where(eq(_tagLinksAG.id, existing.id))
+        .returning();
+      return { ...updated, alreadyExisted: true, noteUpdated: true };
+    }
+    return { ...existing, alreadyExisted: true, noteUpdated: false };
+  }
+
+  const [row] = await d
+    .insert(_tagLinksAG)
+    .values({
+      userId: ctx.userId,
+      tagId: tag.id,
+      entityType,
+      entityId,
+      note,
+    })
+    .returning();
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "tags.attach",
+    target: row.id,
+    meta: { tagId: tag.id, name: tag.name, entityType, entityId },
+  });
+  return { ...row, alreadyExisted: false, noteUpdated: false };
+}
+
+export async function tagsDetach(
+  input: { tag: string; entityType: string; entityId: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tag = await _loadTagAG(input.tag, ctx.userId);
+  const entityType = _assertEntityTypeAG(input.entityType);
+  const entityId = _assertEntityIdAG(input.entityId);
+  const [existing] = await d
+    .select()
+    .from(_tagLinksAG)
+    .where(and(
+      eq(_tagLinksAG.tagId, tag.id),
+      eq(_tagLinksAG.entityType, entityType),
+      eq(_tagLinksAG.entityId, entityId),
+      eq(_tagLinksAG.userId, ctx.userId),
+    ))
+    .limit(1);
+  if (!existing) {
+    return { deleted: false, alreadyDetached: true, tagId: tag.id, entityType, entityId };
+  }
+  await d.delete(_tagLinksAG).where(eq(_tagLinksAG.id, existing.id));
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "tags.detach",
+    target: existing.id,
+    meta: { tagId: tag.id, entityType, entityId },
+  });
+  return { deleted: true, alreadyDetached: false, tagId: tag.id, entityType, entityId };
+}
+
+export async function tagsEntities(
+  input: {
+    tag?: string;
+    entityType?: string;
+    entityId?: string;
+    limit?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 200, 1), 1000);
+
+  // Mode A: by tag → list its attached entities.
+  if (input.tag) {
+    const tag = await _loadTagAG(input.tag, ctx.userId);
+    const rows = await d
+      .select({
+        id: _tagLinksAG.id,
+        entityType: _tagLinksAG.entityType,
+        entityId: _tagLinksAG.entityId,
+        note: _tagLinksAG.note,
+        createdAt: _tagLinksAG.createdAt,
+      })
+      .from(_tagLinksAG)
+      .where(eq(_tagLinksAG.tagId, tag.id))
+      .orderBy(desc(_tagLinksAG.createdAt))
+      .limit(limit);
+    return {
+      mode: "by_tag" as const,
+      tag: { id: tag.id, name: tag.name, display: tag.display, color: tag.color },
+      count: rows.length,
+      entities: rows,
+    };
+  }
+
+  // Mode B: by entity → list its tags.
+  if (input.entityType && input.entityId) {
+    const entityType = _assertEntityTypeAG(input.entityType);
+    const entityId = _assertEntityIdAG(input.entityId);
+    const rows = await d
+      .select({
+        linkId: _tagLinksAG.id,
+        note: _tagLinksAG.note,
+        attachedAt: _tagLinksAG.createdAt,
+        tagId: _tagsAG.id,
+        name: _tagsAG.name,
+        display: _tagsAG.display,
+        color: _tagsAG.color,
+        description: _tagsAG.description,
+      })
+      .from(_tagLinksAG)
+      .innerJoin(_tagsAG, eq(_tagsAG.id, _tagLinksAG.tagId))
+      .where(and(
+        eq(_tagLinksAG.userId, ctx.userId),
+        eq(_tagLinksAG.entityType, entityType),
+        eq(_tagLinksAG.entityId, entityId),
+      ))
+      .orderBy(desc(_tagLinksAG.createdAt))
+      .limit(limit);
+    return {
+      mode: "by_entity" as const,
+      entity: { type: entityType, id: entityId },
+      count: rows.length,
+      tags: rows,
+    };
+  }
+
+  throw new CapabilityError(
+    "Supply either `tag` (to list attached entities) or both `entityType` + `entityId` (to list tags on an entity).",
+    400,
+    null,
+  );
+}
+
+export async function tagsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_TAG_LIMITS_AG[tier],
+    perTier: _TIER_TAG_LIMITS_AG,
+    colors: _TAG_COLORS_AG,
+    entityTypes: _ENTITY_TYPES_AG,
+    fieldLimits: {
+      nameMaxChars: _MAX_TAG_NAME_AG,
+      descriptionMaxChars: _MAX_TAG_DESC_AG,
+      noteMaxChars: _MAX_NOTE_AG,
+      entityIdMaxChars: _MAX_ENTITY_ID_AG,
+    },
+    notes: [
+      "Tag `name` is the lowercased lookup key and is immutable; `display` is the relabel surface.",
+      "Re-attaching the same (tag, entityType, entityId) tuple is idempotent and may update the note.",
+      "entityId is opaque text (uuid, numeric id, address, tx hash, capability id, or freeform).",
+      "Deleting a tag cascades and removes every link; `removedLinks` is reported in the audit row.",
+    ],
+  };
+}

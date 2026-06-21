@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs" | "exports";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs" | "exports" | "tags";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -2428,7 +2428,134 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.exportsPolicy(i, c),
   },
+
+  // ─── Pillar AG — Tags, Labels & Annotations (Phase 23) ────────────
+  {
+    id: "tags.create",
+    mcpName: "dreyv_tags_create",
+    pillar: "tags",
+    scope: "write:tags",
+    sideEffects: "write",
+    status: "stable",
+    title: "Create a tag (idempotent on normalized name)",
+    description: "Creates a user-scoped tag with a normalized lowercase `name` (the lookup key), the original-cased `display`, a `color` from the 14-preset palette (default `violet`), and an optional `description` and free-form `metadata`. Idempotent on `(userId, name)`: re-creating returns the existing row with `alreadyExisted:true`. Per-tier tag quota enforced (free 25 / mini 250 / max 2500). Writes a hash-chained audit row.",
+    inputSchema: z.object({
+      name: z.string().min(1).max(64),
+      color: z.string().max(32).optional(),
+      description: z.string().max(280).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    }).strict(),
+    handler: (i, c) => caps.tagsCreate(i, c),
+  },
+  {
+    id: "tags.list",
+    mcpName: "dreyv_tags_list",
+    pillar: "tags",
+    scope: "read:tags",
+    sideEffects: "read",
+    status: "stable",
+    title: "List your tags with link counts",
+    description: "Returns up to `limit` (default 200, max 1000) of the caller's tags, newest first, each hydrated with its current `linkCount` (number of entities attached). Optional case-insensitive `query` does a substring match against the normalized name.",
+    inputSchema: z.object({
+      query: z.string().max(64).optional(),
+      limit: z.number().int().min(1).max(1000).optional(),
+    }).strict(),
+    handler: (i, c) => caps.tagsList(i, c),
+  },
+  {
+    id: "tags.update",
+    mcpName: "dreyv_tags_update",
+    pillar: "tags",
+    scope: "write:tags",
+    sideEffects: "write",
+    status: "stable",
+    title: "Update a tag's display, color, description, or metadata",
+    description: "Patches the named/uuid'd tag. `name` (the lowercase lookup key) is immutable — pass a new `display` to relabel without breaking existing links. `color` must come from the preset palette. Writes a hash-chained audit row recording which fields changed.",
+    inputSchema: z.object({
+      id: z.string().min(1).max(128),
+      display: z.string().min(1).max(64).optional(),
+      color: z.string().max(32).optional(),
+      description: z.string().max(280).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    }).strict(),
+    handler: (i, c) => caps.tagsUpdate(i, c),
+  },
+  {
+    id: "tags.delete",
+    mcpName: "dreyv_tags_delete",
+    pillar: "tags",
+    scope: "write:tags",
+    sideEffects: "write",
+    status: "stable",
+    title: "Delete a tag and cascade-remove its links",
+    description: "Removes the tag and every link attached to it. `id` accepts either the tag uuid or its normalized name. The number of cascaded links is reported as `removedLinks` and recorded in the audit row.",
+    inputSchema: z.object({ id: z.string().min(1).max(128) }).strict(),
+    handler: (i, c) => caps.tagsDelete(i, c),
+  },
+  {
+    id: "tags.attach",
+    mcpName: "dreyv_tags_attach",
+    pillar: "tags",
+    scope: "write:tags",
+    sideEffects: "write",
+    status: "stable",
+    title: "Attach a tag to any entity (idempotent on the triple)",
+    description: "Links the tag to `(entityType, entityId)` with an optional `note` (<= 1000 chars). `entityType` is one of address|tx|capability|job|run|artifact|proposal|watcher|monitor|export|notification|delivery|webhook|custom. `entityId` is opaque text (uuid, numeric id, address, tx hash, capability id, freeform). Idempotent on `(tagId, entityType, entityId)`: a duplicate attach returns the existing row, and a non-null `note` will be updated in-place (`noteUpdated:true`). Per-tag and per-entity quotas enforced.",
+    inputSchema: z.object({
+      tag: z.string().min(1).max(128),
+      entityType: z.string().min(1).max(32),
+      entityId: z.string().min(1).max(256),
+      note: z.string().max(1000).optional(),
+    }).strict(),
+    handler: (i, c) => caps.tagsAttach(i, c),
+  },
+  {
+    id: "tags.detach",
+    mcpName: "dreyv_tags_detach",
+    pillar: "tags",
+    scope: "write:tags",
+    sideEffects: "write",
+    status: "stable",
+    title: "Detach a tag from an entity",
+    description: "Removes the link for the `(tag, entityType, entityId)` triple. Idempotent: if no such link exists the response is `{ deleted:false, alreadyDetached:true }`. Writes a hash-chained audit row when an actual delete occurs.",
+    inputSchema: z.object({
+      tag: z.string().min(1).max(128),
+      entityType: z.string().min(1).max(32),
+      entityId: z.string().min(1).max(256),
+    }).strict(),
+    handler: (i, c) => caps.tagsDetach(i, c),
+  },
+  {
+    id: "tags.entities",
+    mcpName: "dreyv_tags_entities",
+    pillar: "tags",
+    scope: "read:tags",
+    sideEffects: "read",
+    status: "stable",
+    title: "List entities for a tag, or tags for an entity",
+    description: "Two modes. (1) `tag` only → returns up to `limit` entities attached to that tag (`mode:'by_tag'`). (2) `entityType` + `entityId` → returns every tag attached to that entity (`mode:'by_entity'`), with the tag row joined inline. Default limit 200, max 1000.",
+    inputSchema: z.object({
+      tag: z.string().min(1).max(128).optional(),
+      entityType: z.string().min(1).max(32).optional(),
+      entityId: z.string().min(1).max(256).optional(),
+      limit: z.number().int().min(1).max(1000).optional(),
+    }).strict(),
+    handler: (i, c) => caps.tagsEntities(i, c),
+  },
+  {
+    id: "tags.policy",
+    mcpName: "dreyv_tags_policy",
+    pillar: "tags",
+    scope: "read:tags",
+    sideEffects: "read",
+    status: "stable",
+    title: "Tagging engine limits, palette, and entity taxonomy",
+    description: "Returns the caller's tier and its quotas (max tags, max links per tag, max tags per entity), the full 14-color preset palette, the 14-value entity-type taxonomy, and per-field length caps. Stable and cache-safe.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.tagsPolicy(i, c),
+  },
 ];
+
 
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));

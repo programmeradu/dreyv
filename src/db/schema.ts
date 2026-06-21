@@ -2206,6 +2206,39 @@ export const publicApiExports = pgTable('public_api_exports', {
   statusIdx: index('public_api_exports_status_idx').on(t.status, t.expiresAt),
 }));
 
+// ─── Phase 23 — Tags, Labels & Annotations (Pillar AG) ───────────────
+export const publicApiTags = pgTable('public_api_tags', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  display: text('display').notNull(),
+  color: text('color').notNull().default('violet'),
+  description: text('description'),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('public_api_tags_user_name_uq').on(t.userId, t.name),
+  userIdx: index('public_api_tags_user_idx').on(t.userId, t.createdAt),
+}));
+
+export const publicApiTagLinks = pgTable('public_api_tag_links', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tagId: uuid('tag_id').references(() => publicApiTags.id, { onDelete: 'cascade' }).notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uq: uniqueIndex('public_api_tag_links_uq').on(t.tagId, t.entityType, t.entityId),
+  userIdx: index('public_api_tag_links_user_idx').on(t.userId, t.createdAt),
+  entityIdx: index('public_api_tag_links_entity_idx').on(t.userId, t.entityType, t.entityId),
+  tagIdx: index('public_api_tag_links_tag_idx').on(t.tagId, t.createdAt),
+}));
+
+
 
 
 
