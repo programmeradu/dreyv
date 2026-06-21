@@ -107,6 +107,25 @@ export async function POST() {
               metadata: { monitorId: monitor.id, type: monitor.type, target: monitor.target, value: currentValue, threshold },
             });
           } catch { /* notification insert best-effort */ }
+
+          // Phase 5 — fan out `monitor.tripped` to subscribed webhooks.
+          void import("@/lib/webhooks/dispatcher").then(({ emitWebhookEvent }) =>
+            emitWebhookEvent({
+              userId: monitor.userId!,
+              event: "monitor.tripped",
+              data: {
+                monitorId: monitor.id,
+                type: monitor.type,
+                target: monitor.target,
+                operator: monitor.operator,
+                threshold,
+                currentValue,
+                walletAddress: monitor.walletAddress,
+                triggerCount: (monitor.triggerCount || 0) + 1,
+                triggeredAt: new Date().toISOString(),
+              },
+            }).catch((err) => console.error("[monitors/evaluate] webhook fanout failed:", err)),
+          );
         }
       }
     }
