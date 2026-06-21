@@ -121,25 +121,46 @@ export function extractBearer(req: Request): string | null {
  *
  * Internal callers (the public capability surface, /api/v1/economy/*) prove
  * trust with `x-dreyv-internal: <CRON_SECRET>` + `x-dreyv-user-id: <uuid>`.
- * When matched we synthesize a ResolvedAgentKey scoped to that user with
- * no spend cap — the upstream public-API key already enforced its own
- * scope/rate-limit before reaching this route.
  *
- * Falls back to the regular dak_ resolution path.
+ * Because downstream rows (`agent_payments.api_key_id`) require a real
+ * agent_api_keys FK, we get-or-create a singleton "internal-public-api"
+ * dak_ row per user. The hash is a synthetic, non-bearer string so the
+ * row can never be authenticated against by a real bearer — it exists
+ * purely as an FK anchor for internal-trust calls.
  */
 export async function resolveAgentKeyOrInternal(req: Request): Promise<ResolvedAgentKey | null> {
     const trust = req.headers.get("x-dreyv-internal");
     const cronSecret = process.env.CRON_SECRET;
     if (trust && cronSecret && trust === cronSecret) {
         const userId = req.headers.get("x-dreyv-user-id");
-        if (userId) {
+        if (userId && db) {
+            const syntheticHash = createHash("sha256")
+                .update(`internal:public-api:${userId}`, "utf8")
+                .digest("hex");
+            let [row] = await db
+                .select()
+                .from(agentApiKeys)
+                .where(eq(agentApiKeys.keyHash, syntheticHash))
+                .limit(1);
+            if (!row) {
+                [row] = await db
+                    .insert(agentApiKeys)
+                    .values({
+                        userId,
+                        label: "internal · public API",
+                        keyPrefix: "dak_intern",
+                        keyHash: syntheticHash,
+                        scopes: "x402.pay,x402.checkout",
+                    })
+                    .returning();
+            }
             return {
-                id: `internal:${req.headers.get("x-dreyv-key-id") ?? "public-api"}`,
-                userId,
-                label: "internal (public API)",
-                scopes: ["x402.pay", "x402.checkout"],
-                spendLimitUsd: null,
-                spentUsd: 0,
+                id: row.id,
+                userId: row.userId,
+                label: row.label,
+                scopes: (row.scopes ?? "x402.pay").split(",").map((s: string) => s.trim()).filter(Boolean),
+                spendLimitUsd: row.spendLimitUsd != null ? Number(row.spendLimitUsd) : null,
+                spentUsd: row.spentUsd != null ? Number(row.spentUsd) : 0,
             };
         }
     }
