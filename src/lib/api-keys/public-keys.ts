@@ -51,9 +51,13 @@ export const ALL_SCOPES = [
   "read:insights",
   "read:reports",
   "write:reports",
+  "read:marketplace",
+  "write:marketplace",
+  "publish:marketplace",
 
   "pay:x402",
   "agent:delegate",
+
 ] as const;
 export type ApiScope = (typeof ALL_SCOPES)[number];
 

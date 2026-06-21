@@ -2426,3 +2426,111 @@ export const publicApiReportShares = pgTable('public_api_report_shares', {
   snapshotIdx: index('public_api_report_shares_snapshot_idx').on(t.snapshotId),
 }));
 
+// ─── Pillar AM — Marketplace & Catalog (Phase 29) ───────────────────
+// Publisher identity (one per workspace), public catalog listings,
+// immutable version history, per-user installs, and ratings/reviews.
+export const publicApiPublishers = pgTable('public_api_publishers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  slug: text('slug').notNull(),
+  displayName: text('display_name').notNull(),
+  website: text('website'),
+  supportEmail: text('support_email'),
+  description: text('description'),
+  logoUrl: text('logo_url'),
+  verified: boolean('verified').notNull().default(false),
+  verificationAt: timestamp('verification_at', { withTimezone: true }),
+  payoutsAccount: text('payouts_account'),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userUq: uniqueIndex('public_api_publishers_user_uq').on(t.userId),
+  slugUq: uniqueIndex('public_api_publishers_slug_uq').on(t.slug),
+}));
+
+export const publicApiListings = pgTable('public_api_listings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  publisherId: uuid('publisher_id').references(() => publicApiPublishers.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  longDescription: text('long_description'),
+  category: text('category').notNull().default('general'),
+  kind: text('kind').notNull().default('capability'),    // capability | template | agent | dataset | workflow
+  pricingModel: text('pricing_model').notNull().default('free'),
+  priceMinor: integer('price_minor').notNull().default(0),
+  currency: text('currency').notNull().default('USD'),
+  status: text('status').notNull().default('draft'),     // draft | pending | published | suspended | archived
+  visibility: text('visibility').notNull().default('public'),
+  tags: jsonb('tags').notNull().default('[]'),
+  manifest: jsonb('manifest').notNull().default('{}'),
+  currentVersion: text('current_version').notNull().default('0.1.0'),
+  installCount: integer('install_count').notNull().default(0),
+  ratingAvg: numeric('rating_avg', { precision: 3, scale: 2 }).notNull().default('0'),
+  ratingCount: integer('rating_count').notNull().default(0),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  unpublishedAt: timestamp('unpublished_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  publisherSlugUq: uniqueIndex('public_api_listings_publisher_slug_uq').on(t.publisherId, t.slug),
+  userIdx: index('public_api_listings_user_idx').on(t.userId, t.createdAt),
+  statusIdx: index('public_api_listings_status_idx').on(t.status, t.visibility, t.publishedAt),
+  categoryIdx: index('public_api_listings_category_idx').on(t.category, t.kind, t.status),
+}));
+
+export const publicApiListingVersions = pgTable('public_api_listing_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  listingId: uuid('listing_id').references(() => publicApiListings.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  version: text('version').notNull(),
+  changelog: text('changelog'),
+  manifest: jsonb('manifest').notNull().default('{}'),
+  manifestHash: text('manifest_hash').notNull(),
+  yankedAt: timestamp('yanked_at', { withTimezone: true }),
+  yankReason: text('yank_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  listingVersionUq: uniqueIndex('public_api_listing_versions_listing_version_uq').on(t.listingId, t.version),
+  listingIdx: index('public_api_listing_versions_listing_idx').on(t.listingId, t.createdAt),
+}));
+
+export const publicApiListingInstalls = pgTable('public_api_listing_installs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  listingId: uuid('listing_id').references(() => publicApiListings.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid('version_id').references(() => publicApiListingVersions.id, { onDelete: 'set null' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'set null' }),
+  status: text('status').notNull().default('active'),
+  pricingModel: text('pricing_model').notNull().default('free'),
+  priceMinor: integer('price_minor').notNull().default(0),
+  currency: text('currency').notNull().default('USD'),
+  billingRef: text('billing_ref'),
+  config: jsonb('config').notNull().default('{}'),
+  installedAt: timestamp('installed_at', { withTimezone: true }).defaultNow().notNull(),
+  uninstalledAt: timestamp('uninstalled_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userListingUq: uniqueIndex('public_api_listing_installs_user_listing_uq').on(t.userId, t.listingId),
+  listingIdx: index('public_api_listing_installs_listing_idx').on(t.listingId, t.status),
+}));
+
+export const publicApiListingReviews = pgTable('public_api_listing_reviews', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  listingId: uuid('listing_id').references(() => publicApiListings.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  rating: integer('rating').notNull(),
+  title: text('title'),
+  body: text('body'),
+  hiddenAt: timestamp('hidden_at', { withTimezone: true }),
+  hiddenReason: text('hidden_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userListingUq: uniqueIndex('public_api_listing_reviews_user_listing_uq').on(t.userId, t.listingId),
+  listingIdx: index('public_api_listing_reviews_listing_idx').on(t.listingId, t.createdAt),
+}));
+
+
