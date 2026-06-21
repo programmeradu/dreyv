@@ -143,6 +143,7 @@
     "wagmi": "2",
     "ws": "^8.18.3",
     "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
