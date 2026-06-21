@@ -2113,6 +2113,27 @@ export const privacyConsents = pgTable('privacy_consents', {
   userTopicUniq: uniqueIndex('privacy_consents_user_topic_uniq').on(t.userId, t.topic),
 }));
 
+// ─── Phase 18 — Storage & Artifacts (Pillar Z) ───────────────────────
+export const publicApiArtifacts = pgTable('public_api_artifacts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  storageKey: text('storage_key').notNull(),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull().default('application/octet-stream'),
+  bytes: integer('bytes').notNull(),
+  sha256: text('sha256').notNull(),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  visibility: text('visibility').notNull().default('private'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => ({
+  userIdx: index('public_api_artifacts_user_idx').on(t.userId, t.createdAt),
+  keyIdx: index('public_api_artifacts_key_idx').on(t.keyId, t.createdAt),
+  shaIdx: index('public_api_artifacts_sha_idx').on(t.userId, t.sha256),
+}));
+
+
 
 
 

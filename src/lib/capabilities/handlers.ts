@@ -3755,3 +3755,398 @@ export async function privacyRetentionPolicy(_input: Record<string, never>, _ctx
 export const __pillarYTouch = { _privReqY, _privConsY };
 
 
+
+// ════════════════════════════════════════════════════════════════════════
+// ─── Pillar Z — Storage & Artifacts (Phase 18) ──────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// R2-backed artifact store. Caller PUTs base64 → R2 object key
+// `dreyv/artifacts/<userId>/<artifactId>/<filename>`, we mint a pointer
+// row in `public_api_artifacts`, and serve downloads via short-lived
+// presigned GET URLs (no public bucket, no plaintext exposure).
+// Per-tier quota enforced in-process; quota breaches emit a webhook AND
+// refuse the write (no silent truncation).
+
+import { createHash as _chZ } from "node:crypto";
+import { sql as _drizzleSqlZ } from "drizzle-orm";
+import {
+  publicApiArtifacts as _artifactsZ,
+  users as _usersZ2,
+} from "@/db/schema";
+import {
+  isR2Configured as _isR2Z,
+  putR2Object as _putR2Z,
+  presignR2Get as _presignR2Z,
+  deleteR2Object as _delR2Z,
+} from "@/lib/agents/artifacts/r2-storage";
+
+const _MIB = 1024 * 1024;
+const _GIB = 1024 * _MIB;
+
+const _STORAGE_TIER_QUOTAS = {
+  free: { bytes: 100 * _MIB, objects: 100 },
+  mini: { bytes: 5 * _GIB, objects: 5_000 },
+  max: { bytes: 50 * _GIB, objects: 50_000 },
+} as const;
+
+const _SINGLE_OBJECT_CAP = 25 * _MIB;
+const _PRESIGN_MAX_TTL = 3600;
+const _PRESIGN_DEFAULT_TTL = 600;
+
+// MIME prefixes that don't need a `mime` override on PUT. Anything else
+// is accepted as the caller-supplied value (we don't gatekeep payloads).
+const _ACCEPTED_MIME_PREFIXES = [
+  "image/", "video/", "audio/", "text/", "application/",
+];
+
+type StorageTierZ = keyof typeof _STORAGE_TIER_QUOTAS;
+
+function _normalizeTierZ(raw: string | null | undefined): StorageTierZ {
+  const t = (raw ?? "free").toLowerCase();
+  return (t in _STORAGE_TIER_QUOTAS ? t : "free") as StorageTierZ;
+}
+
+async function _resolveTierZ(userId: string): Promise<StorageTierZ> {
+  const d = requireDb();
+  const [u] = await d
+    .select({ tier: _usersZ2.tier })
+    .from(_usersZ2)
+    .where(eq(_usersZ2.id, userId))
+    .limit(1);
+  return _normalizeTierZ(u?.tier ?? null);
+}
+
+async function _aggregateUsageZ(userId: string) {
+  const d = requireDb();
+  const [agg] = await d
+    .select({
+      bytes: _drizzleSqlZ<number>`coalesce(sum(${_artifactsZ.bytes}), 0)`,
+      objects: _drizzleSqlZ<number>`count(*)`,
+    })
+    .from(_artifactsZ)
+    .where(and(eq(_artifactsZ.userId, userId), _drizzleSqlZ`${_artifactsZ.deletedAt} IS NULL`));
+  return {
+    bytes: Number(agg?.bytes ?? 0),
+    objects: Number(agg?.objects ?? 0),
+  };
+}
+
+function _storageKeyZ(userId: string, artifactId: string, filename: string) {
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 200) || "file";
+  return `dreyv/artifacts/${userId}/${artifactId}/${safe}`;
+}
+
+export async function storagePut(
+  input: {
+    filename: string;
+    mime?: string;
+    bodyBase64: string;
+    metadata?: Record<string, string | number | boolean>;
+    visibility?: "private" | "unlisted";
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!_isR2Z()) throw new CapabilityError("Storage backend not configured (R2 missing).", 503, null);
+
+  // Decode + size-check before touching R2.
+  let body: Buffer;
+  try {
+    body = Buffer.from(input.bodyBase64, "base64");
+  } catch {
+    throw new CapabilityError("bodyBase64 is not valid base64.", 400, null);
+  }
+  if (body.length === 0) throw new CapabilityError("Empty body.", 400, null);
+  if (body.length > _SINGLE_OBJECT_CAP) {
+    throw new CapabilityError(`Object exceeds per-call cap (${_SINGLE_OBJECT_CAP} bytes).`, 413, null);
+  }
+
+  // Quota check (pre-flight).
+  const tier = await _resolveTierZ(ctx.userId);
+  const quota = _STORAGE_TIER_QUOTAS[tier];
+  const usage = await _aggregateUsageZ(ctx.userId);
+  const projectedBytes = usage.bytes + body.length;
+  const projectedObjects = usage.objects + 1;
+  if (projectedBytes > quota.bytes || projectedObjects > quota.objects) {
+    // Surface as a webhook so dashboards can react.
+    try {
+      await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "storage.quota_exceeded",
+        data: {
+          tier,
+          quota,
+          attemptedBytes: body.length,
+          currentBytes: usage.bytes,
+          currentObjects: usage.objects,
+        },
+      });
+    } catch { /* webhook best-effort */ }
+    throw new CapabilityError(
+      `Storage quota exceeded for tier '${tier}' (${quota.bytes} bytes / ${quota.objects} objects).`,
+      413,
+      { tier, quota, usage },
+    );
+  }
+
+  const mime = input.mime?.trim() || "application/octet-stream";
+  const sha = _chZ("sha256").update(body).digest("hex");
+
+  // Insert the pointer first so we have an id for the R2 key.
+  const [row] = await d
+    .insert(_artifactsZ)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      storageKey: "", // patched below once we have id
+      filename: input.filename,
+      mime,
+      bytes: body.length,
+      sha256: sha,
+      metadata: input.metadata ?? {},
+      visibility: input.visibility ?? "private",
+    })
+    .returning();
+
+  const storageKey = _storageKeyZ(ctx.userId, row.id, input.filename);
+
+  try {
+    await _putR2Z({ key: storageKey, body, mime, filename: input.filename });
+  } catch (err) {
+    // Roll back the pointer row on upload failure — no orphan rows.
+    await d.delete(_artifactsZ).where(eq(_artifactsZ.id, row.id));
+    throw new CapabilityError(
+      `R2 upload failed: ${err instanceof Error ? err.message : String(err)}`,
+      502,
+      null,
+    );
+  }
+
+  const [updated] = await d
+    .update(_artifactsZ)
+    .set({ storageKey })
+    .where(eq(_artifactsZ.id, row.id))
+    .returning();
+
+  const downloadUrl = await _presignR2Z({
+    key: storageKey,
+    filename: input.filename,
+    mime,
+    ttlSeconds: _PRESIGN_DEFAULT_TTL,
+  });
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "storage.put",
+    target: updated.id,
+    meta: { bytes: body.length, sha256: sha, mime, filename: input.filename, tier },
+  });
+
+  const deliveryErrors: string[] = [];
+  try {
+    await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "storage.artifact_created",
+      data: {
+        id: updated.id,
+        filename: input.filename,
+        mime,
+        bytes: body.length,
+        sha256: sha,
+        visibility: updated.visibility,
+      },
+    });
+  } catch (e) {
+    deliveryErrors.push(e instanceof Error ? e.message : String(e));
+  }
+
+  return {
+    artifact: {
+      id: updated.id,
+      filename: updated.filename,
+      mime: updated.mime,
+      bytes: updated.bytes,
+      sha256: updated.sha256,
+      visibility: updated.visibility,
+      metadata: updated.metadata,
+      createdAt: updated.createdAt,
+    },
+    downloadUrl,
+    downloadExpiresIn: _PRESIGN_DEFAULT_TTL,
+    auditHash: audit.hash,
+    deliveryErrors,
+  };
+}
+
+export async function storageList(
+  input: { prefix?: string; keyOnly?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [
+    eq(_artifactsZ.userId, ctx.userId),
+    _drizzleSqlZ`${_artifactsZ.deletedAt} IS NULL`,
+  ];
+  if (input.keyOnly) conds.push(eq(_artifactsZ.keyId, ctx.keyId));
+  if (input.prefix) {
+    const safe = input.prefix.replace(/[%_\\]/g, "\\$&");
+    conds.push(_drizzleSqlZ`${_artifactsZ.filename} LIKE ${safe + "%"}`);
+  }
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const rows = await d
+    .select({
+      id: _artifactsZ.id,
+      filename: _artifactsZ.filename,
+      mime: _artifactsZ.mime,
+      bytes: _artifactsZ.bytes,
+      sha256: _artifactsZ.sha256,
+      visibility: _artifactsZ.visibility,
+      metadata: _artifactsZ.metadata,
+      createdAt: _artifactsZ.createdAt,
+    })
+    .from(_artifactsZ)
+    .where(and(...conds))
+    .orderBy(desc(_artifactsZ.createdAt))
+    .limit(limit);
+  return { count: rows.length, artifacts: rows };
+}
+
+async function _loadArtifactZ(id: string, userId: string) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_artifactsZ)
+    .where(and(eq(_artifactsZ.id, id), eq(_artifactsZ.userId, userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Artifact ${id} not found`, 404, null);
+  return row;
+}
+
+export async function storageGet(
+  input: { id: string; inline?: boolean; ttlSeconds?: number },
+  ctx: CapabilityRunContext,
+) {
+  const row = await _loadArtifactZ(input.id, ctx.userId);
+  if (row.deletedAt) throw new CapabilityError(`Artifact ${input.id} is deleted`, 410, null);
+  const ttl = Math.min(Math.max(input.ttlSeconds ?? _PRESIGN_DEFAULT_TTL, 60), _PRESIGN_MAX_TTL);
+  const url = await _presignR2Z({
+    key: row.storageKey,
+    filename: row.filename,
+    mime: row.mime,
+    inline: input.inline ?? false,
+    ttlSeconds: ttl,
+  });
+  return {
+    id: row.id,
+    filename: row.filename,
+    mime: row.mime,
+    bytes: row.bytes,
+    sha256: row.sha256,
+    downloadUrl: url,
+    expiresIn: ttl,
+  };
+}
+
+export async function storageStat(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const row = await _loadArtifactZ(input.id, ctx.userId);
+  return {
+    artifact: {
+      id: row.id,
+      filename: row.filename,
+      mime: row.mime,
+      bytes: row.bytes,
+      sha256: row.sha256,
+      visibility: row.visibility,
+      metadata: row.metadata,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    },
+  };
+}
+
+export async function storageDelete(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const row = await _loadArtifactZ(input.id, ctx.userId);
+  if (row.deletedAt) {
+    return { artifact: row, alreadyDeleted: true, auditHash: null, deliveryErrors: [] };
+  }
+  // Best-effort R2 delete; we still soft-delete the row even if R2 returns
+  // an error so the user isn't blocked from cleaning their ledger.
+  let r2Error: string | null = null;
+  try {
+    await _delR2Z(row.storageKey);
+  } catch (e) {
+    r2Error = e instanceof Error ? e.message : String(e);
+  }
+  const [updated] = await d
+    .update(_artifactsZ)
+    .set({ deletedAt: new Date() })
+    .where(eq(_artifactsZ.id, row.id))
+    .returning();
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "storage.delete",
+    target: row.id,
+    meta: { bytes: row.bytes, sha256: row.sha256, r2Error },
+  });
+
+  const deliveryErrors: string[] = [];
+  try {
+    await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "storage.artifact_deleted",
+      data: { id: row.id, filename: row.filename, bytes: row.bytes, sha256: row.sha256 },
+    });
+  } catch (e) {
+    deliveryErrors.push(e instanceof Error ? e.message : String(e));
+  }
+
+  return { artifact: updated, alreadyDeleted: false, r2Error, auditHash: audit.hash, deliveryErrors };
+}
+
+export async function storageQuota(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _resolveTierZ(ctx.userId);
+  const quota = _STORAGE_TIER_QUOTAS[tier];
+  const usage = await _aggregateUsageZ(ctx.userId);
+  return {
+    tier,
+    quota,
+    usage,
+    utilization: {
+      bytesPct: quota.bytes > 0 ? +(usage.bytes / quota.bytes * 100).toFixed(2) : 0,
+      objectsPct: quota.objects > 0 ? +(usage.objects / quota.objects * 100).toFixed(2) : 0,
+    },
+    singleObjectCapBytes: _SINGLE_OBJECT_CAP,
+    presignTtl: { defaultSeconds: _PRESIGN_DEFAULT_TTL, maxSeconds: _PRESIGN_MAX_TTL },
+  };
+}
+
+export async function storagePolicy(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    backend: "cloudflare-r2",
+    durability: "11x9s (R2 SLA)",
+    encryption: "AES-256 at rest (R2 default); TLS 1.2+ in transit",
+    visibility: ["private", "unlisted"],
+    singleObjectCapBytes: _SINGLE_OBJECT_CAP,
+    presignTtl: { defaultSeconds: _PRESIGN_DEFAULT_TTL, maxSeconds: _PRESIGN_MAX_TTL },
+    acceptedMimePrefixes: _ACCEPTED_MIME_PREFIXES,
+    quotasByTier: _STORAGE_TIER_QUOTAS,
+    retention: {
+      activeArtifacts: "lifetime_of_account",
+      softDeleted: "30 days then purged from R2 and ledger",
+      auditEntries: "7 years (per privacy.retention_policy)",
+    },
+    privacyBasis: "contract (user-uploaded content)",
+  };
+}
+
+// Silences unused-import lints.
+export const __pillarZTouch = { _artifactsZ, _usersZ2 };

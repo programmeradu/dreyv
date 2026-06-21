@@ -37,6 +37,9 @@ export type WebhookEventName =
   | "privacy.export_ready"
   | "privacy.deletion_requested"
   | "privacy.consent_changed"
+  | "storage.artifact_created"
+  | "storage.artifact_deleted"
+  | "storage.quota_exceeded"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -56,6 +59,9 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "privacy.export_ready",
   "privacy.deletion_requested",
   "privacy.consent_changed",
+  "storage.artifact_created",
+  "storage.artifact_deleted",
+  "storage.quota_exceeded",
   "test.ping",
 ];
 

@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1881,6 +1881,106 @@ export const CAPABILITIES: PublicCapability[] = [
     description: "Returns Dreyv's public retention policy: per-table maximum retention windows, lawful basis, controller/processor designation, and the address for written DSAR escalations.",
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.privacyRetentionPolicy(i, c),
+  },
+
+  // ─── Pillar Z — Storage & Artifacts (Phase 18) ───────────────────────
+  {
+    id: "storage.put",
+    mcpName: "dreyv_storage_put",
+    pillar: "storage",
+    scope: "write:storage",
+    sideEffects: "write",
+    status: "stable",
+    title: "Upload an artifact to Dreyv-managed storage",
+    description: "Streams a base64-encoded body to R2-backed object storage and registers a pointer in `public_api_artifacts`. Enforces per-tier quota (free / mini / max), per-object cap (25 MiB), and computes sha-256. Returns the artifact id and a presigned download URL. Fires `storage.artifact_created` and appends a hash-chained audit entry. If quota would be exceeded, fires `storage.quota_exceeded` and refuses the write with 413.",
+    inputSchema: z.object({
+      filename: z.string().min(1).max(255),
+      mime: z.string().min(1).max(255).optional(),
+      bodyBase64: z.string().min(1),
+      metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      visibility: z.enum(["private", "unlisted"]).optional(),
+    }).strict(),
+    handler: (i, c) => caps.storagePut(i, c),
+  },
+  {
+    id: "storage.list",
+    mcpName: "dreyv_storage_list",
+    pillar: "storage",
+    scope: "read:storage",
+    sideEffects: "read",
+    status: "stable",
+    title: "List the caller's artifacts",
+    description: "Returns non-deleted artifacts owned by the caller, newest first. Optional `prefix` filters by filename, `keyOnly` restricts to artifacts created with the current key.",
+    inputSchema: z.object({
+      prefix: z.string().max(255).optional(),
+      keyOnly: z.boolean().optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).strict(),
+    handler: (i, c) => caps.storageList(i, c),
+  },
+  {
+    id: "storage.get",
+    mcpName: "dreyv_storage_get",
+    pillar: "storage",
+    scope: "read:storage",
+    sideEffects: "read",
+    status: "stable",
+    title: "Issue a short-lived presigned download URL",
+    description: "Looks up the artifact, verifies caller ownership, and returns a presigned GET URL valid for `ttlSeconds` (default 600, max 3600). The URL streams directly from R2 with the original filename and mime as Content-Disposition.",
+    inputSchema: z.object({
+      id: z.string().uuid(),
+      inline: z.boolean().optional(),
+      ttlSeconds: z.number().int().min(60).max(3600).optional(),
+    }).strict(),
+    handler: (i, c) => caps.storageGet(i, c),
+  },
+  {
+    id: "storage.stat",
+    mcpName: "dreyv_storage_stat",
+    pillar: "storage",
+    scope: "read:storage",
+    sideEffects: "read",
+    status: "stable",
+    title: "Fetch artifact metadata without downloading",
+    description: "Returns the artifact row (filename, mime, bytes, sha-256, metadata, visibility, createdAt) without issuing a download URL.",
+    inputSchema: z.object({ id: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.storageStat(i, c),
+  },
+  {
+    id: "storage.delete",
+    mcpName: "dreyv_storage_delete",
+    pillar: "storage",
+    scope: "write:storage",
+    sideEffects: "write",
+    status: "stable",
+    title: "Soft-delete an artifact and purge its R2 object",
+    description: "Marks `deleted_at` on the artifact row, removes the underlying R2 object best-effort, appends an audit entry, and fires `storage.artifact_deleted`. Idempotent: deleting an already-deleted artifact returns the same row without error.",
+    inputSchema: z.object({ id: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.storageDelete(i, c),
+  },
+  {
+    id: "storage.quota",
+    mcpName: "dreyv_storage_quota",
+    pillar: "storage",
+    scope: "read:storage",
+    sideEffects: "read",
+    status: "stable",
+    title: "Storage usage and tier quota for the caller",
+    description: "Aggregates live byte and object counts against the tier-specific quota (free: 100 MiB / 100 objects, mini: 5 GiB / 5,000 objects, max: 50 GiB / 50,000 objects) and returns percent-utilised plus a single-object cap (25 MiB).",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.storageQuota(i, c),
+  },
+  {
+    id: "storage.policy",
+    mcpName: "dreyv_storage_policy",
+    pillar: "storage",
+    scope: "read:storage",
+    sideEffects: "read",
+    status: "stable",
+    title: "Dreyv storage SLA, retention, and accepted MIME policy",
+    description: "Returns the storage tier matrix, retention windows, presign TTL bounds, accepted MIME prefixes, single-object cap, and durability target. Public, deterministic — safe to cache.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.storagePolicy(i, c),
   },
 ];
 
