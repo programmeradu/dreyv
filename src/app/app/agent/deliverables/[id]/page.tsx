@@ -23,6 +23,52 @@ import {
 } from "lucide-react";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenAvatar } from "@/components/TokenAvatar";
+
+// Client-side token logo + name lookup via Jupiter's public token API.
+// Cached per-mount in a Map so re-renders never refetch.
+type JupTokenMeta = { icon: string | null; name: string | null; symbol: string | null };
+const logoMemo = new Map<string, JupTokenMeta>();
+
+function useTokenMeta(mints: string[]): Record<string, JupTokenMeta> {
+    const [, force] = useState(0);
+    const key = mints.join(",");
+    useEffect(() => {
+        let cancelled = false;
+        const missing = mints.filter((m) => m && !logoMemo.has(m));
+        if (missing.length === 0) return;
+        (async () => {
+            await Promise.all(
+                missing.map(async (mint) => {
+                    try {
+                        const r = await fetch(
+                            `https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(mint)}`,
+                            { cache: "force-cache" },
+                        );
+                        if (!r.ok) throw new Error(String(r.status));
+                        const arr = (await r.json()) as Array<{ id: string; icon?: string; name?: string; symbol?: string }>;
+                        const hit = arr.find((t) => t.id === mint) ?? arr[0];
+                        logoMemo.set(mint, {
+                            icon: hit?.icon ?? null,
+                            name: hit?.name ?? null,
+                            symbol: hit?.symbol ?? null,
+                        });
+                    } catch {
+                        logoMemo.set(mint, { icon: null, name: null, symbol: null });
+                    }
+                }),
+            );
+            if (!cancelled) force((n) => n + 1);
+        })();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
+    const out: Record<string, JupTokenMeta> = {};
+    for (const m of mints) out[m] = logoMemo.get(m) ?? { icon: null, name: null, symbol: null };
+    return out;
+}
 
 interface Holding {
     symbol: string;
@@ -158,12 +204,26 @@ export default function DeliverableViewPage({
     const KindIcon = d.kind === "snapshot" ? Camera : d.kind === "report" ? FileText : Crown;
     const kindName =
         d.kind === "snapshot" ? "Treasury Snapshot" : d.kind === "report" ? "Treasury AI Report" : "Subscription";
+    const kindBlurb =
+        d.kind === "snapshot"
+            ? "Point-in-time holdings"
+            : d.kind === "report"
+                ? "Analyst-grade narrative"
+                : "Recurring access";
     const snap = d.payload?.snapshot;
 
     return (
-        <main className="relative min-h-screen overflow-hidden bg-white text-zinc-900">
-            <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
-            <div aria-hidden className="pointer-events-none absolute top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
+        <main className="relative min-h-screen bg-white text-zinc-900 deliverable-page">
+            <style jsx global>{`
+                .deliverable-page,
+                .deliverable-page * { scrollbar-width: thin; scrollbar-color: rgb(196 181 253) transparent; }
+                .deliverable-page *::-webkit-scrollbar { width: 6px; height: 6px; }
+                .deliverable-page *::-webkit-scrollbar-track { background: transparent; }
+                .deliverable-page *::-webkit-scrollbar-thumb { background: rgb(221 214 254); border-radius: 999px; }
+                .deliverable-page *::-webkit-scrollbar-thumb:hover { background: rgb(167 139 250); }
+            `}</style>
+            <div aria-hidden className="pointer-events-none fixed -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
+            <div aria-hidden className="pointer-events-none fixed top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
 
             <div className="relative mx-auto w-full max-w-5xl px-6 pt-12 pb-24 sm:pt-16">
                 <Link href="/app/agent/deliverables" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-violet-700">
@@ -206,23 +266,27 @@ export default function DeliverableViewPage({
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <KindIcon className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">SKU</div>
-                                    <div className="font-mono text-zinc-900 text-[13px] break-all">{d.sku}</div>
+                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Service</div>
+                                    <div className="text-zinc-900" title={d.sku}>{kindName} · <span className="text-zinc-500">{kindBlurb}</span></div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <DreyvStar className="text-violet-600 mt-0.5 flex-shrink-0" size={16} />
                                 <div className="min-w-0">
                                     <div className="text-[11px] uppercase tracking-wide text-zinc-500">Agent key</div>
-                                    <div className="text-zinc-900">{d.agentKeyLabel || "—"}{d.agentKeyPrefix ? ` · ${d.agentKeyPrefix}…` : ""}</div>
+                                    <div className="text-zinc-900 truncate">{d.agentKeyLabel || "—"}{d.agentKeyPrefix ? ` · ${d.agentKeyPrefix}…` : ""}</div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <Mail className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Email</div>
+                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Delivered to</div>
                                     <div className="text-zinc-900 truncate">
-                                        {d.emailTo ? d.emailTo : <span className="text-zinc-400">no email on account</span>}
+                                        {d.emailTo ? d.emailTo : (
+                                            <Link href="/app/settings" className="text-violet-700 hover:underline">
+                                                Add email in settings →
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -326,6 +390,8 @@ function SnapshotBody({
     onGenerate: () => Promise<void>;
 }) {
     const m = summary as { totalUsd?: number; stableShare?: number; topSymbol?: string; topShare?: number; hhi?: number; holdings?: number };
+    const mints = snap.holdings.slice(0, 25).map((h) => h.mint);
+    const meta = useTokenMeta(mints);
 
     const stats = [
         { label: "Total value", value: fmtUsd(m.totalUsd ?? 0) },
@@ -370,11 +436,26 @@ function SnapshotBody({
                                 {snap.holdings.slice(0, 25).map((h) => {
                                     const total = m.totalUsd ?? snap.totalUsd;
                                     const share = total > 0 && h.usd ? h.usd / total : 0;
+                                    const tm = meta[h.mint] ?? { icon: null, name: null, symbol: null };
+                                    const displaySymbol = h.symbol || tm.symbol || "(unknown)";
+                                    const displayName = tm.name && tm.name !== displaySymbol ? tm.name : null;
                                     return (
                                         <tr key={h.mint} className="border-b border-violet-100 last:border-b-0">
                                             <td className="px-6 py-3.5">
-                                                <div className="font-semibold text-zinc-900">{h.symbol || "(unknown)"}</div>
-                                                <div className="text-[11px] font-mono text-zinc-400" title={h.mint}>{truncateMiddle(h.mint, 6, 6)}</div>
+                                                <div className="flex items-center gap-3">
+                                                    <TokenAvatar
+                                                        symbol={displaySymbol}
+                                                        mint={h.mint}
+                                                        logo={tm.icon ?? undefined}
+                                                        size={32}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold text-zinc-900 truncate">{displaySymbol}</div>
+                                                        <div className="text-[11px] text-zinc-500 truncate" title={h.mint}>
+                                                            {displayName ?? truncateMiddle(h.mint, 6, 6)}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-3.5 text-right text-zinc-700">{h.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                                             <td className="px-6 py-3.5 text-right text-zinc-700">{h.priceUsd != null ? fmtUsd(h.priceUsd) : "—"}</td>
