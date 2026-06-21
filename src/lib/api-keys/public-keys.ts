@@ -54,6 +54,9 @@ export const ALL_SCOPES = [
   "read:marketplace",
   "write:marketplace",
   "publish:marketplace",
+  "read:sla",
+  "write:sla",
+  "publish:sla",
 
   "pay:x402",
   "agent:delegate",
