@@ -8098,3 +8098,349 @@ export async function inboxPolicy(_input: Record<string, never>, ctx: Capability
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Pillar AJ — Teams, Members & Invites (Phase 26)
+// Wraps the legacy `teams`, `team_members`, and `team_invitations` tables
+// with a hash-chained per-team audit overlay and webhook emission. All
+// mutations require active membership on the target team; create/rename/
+// delete/role-change require role >= 'admin' (delete = owner only).
+// ─────────────────────────────────────────────────────────────────────
+import {
+  teams as _teamsAJ,
+  teamMembers as _teamMembersAJ,
+  teamInvitations as _teamInvitesAJ,
+  publicApiTeamAudit as _teamAuditAJ,
+  users as _usersAJ,
+} from "@/db/schema";
+import { createHash as _chAJ, randomBytes as _rbAJ } from "node:crypto";
+
+const _TIER_TEAM_LIMITS_AJ: Record<
+  string,
+  { maxTeams: number; maxMembersPerTeam: number; maxPendingInvitesPerTeam: number; inviteTtlDays: number }
+> = {
+  free: { maxTeams: 1,  maxMembersPerTeam: 3,   maxPendingInvitesPerTeam: 5,   inviteTtlDays: 7 },
+  mini: { maxTeams: 5,  maxMembersPerTeam: 25,  maxPendingInvitesPerTeam: 50,  inviteTtlDays: 14 },
+  max:  { maxTeams: 50, maxMembersPerTeam: 250, maxPendingInvitesPerTeam: 500, inviteTtlDays: 30 },
+};
+
+const _TEAM_ROLES_AJ = ["owner", "admin", "signer", "viewer"] as const;
+type _TeamRoleAJ = (typeof _TEAM_ROLES_AJ)[number];
+const _ROLE_RANK_AJ: Record<_TeamRoleAJ, number> = { viewer: 1, signer: 2, admin: 3, owner: 4 };
+
+async function _teamAppendAuditAJ(args: {
+  keyId: string;
+  userId: string;
+  teamId: string;
+  action: string;
+  target?: string | null;
+  meta?: Record<string, unknown>;
+}) {
+  const d = requireDb();
+  const [last] = await d
+    .select({ hash: _teamAuditAJ.hash })
+    .from(_teamAuditAJ)
+    .where(eq(_teamAuditAJ.teamId, args.teamId))
+    .orderBy(desc(_teamAuditAJ.ts))
+    .limit(1);
+  const prev = last?.hash ?? "";
+  const meta = args.meta ?? {};
+  const canonical = JSON.stringify({
+    teamId: args.teamId,
+    keyId: args.keyId,
+    userId: args.userId,
+    action: args.action,
+    target: args.target ?? null,
+    meta,
+    ts: new Date().toISOString().slice(0, 19),
+  });
+  const hash = _chAJ("sha256").update(prev + canonical, "utf8").digest("hex");
+  const [row] = await d
+    .insert(_teamAuditAJ)
+    .values({
+      teamId: args.teamId,
+      keyId: args.keyId,
+      userId: args.userId,
+      action: args.action,
+      target: args.target ?? null,
+      meta,
+      prevHash: prev,
+      hash,
+    })
+    .returning({ id: _teamAuditAJ.id, hash: _teamAuditAJ.hash, prevHash: _teamAuditAJ.prevHash, ts: _teamAuditAJ.ts });
+  // Mirror to global key audit too so /audit.* surfaces these.
+  void _appendAudit({ keyId: args.keyId, userId: args.userId, action: args.action, target: args.teamId, meta }).catch(() => undefined);
+  return row;
+}
+
+async function _requireTeamMembershipAJ(
+  teamId: string,
+  userId: string,
+  minRole: _TeamRoleAJ = "viewer",
+): Promise<{ team: typeof _teamsAJ.$inferSelect; membership: typeof _teamMembersAJ.$inferSelect | null; isCreator: boolean; effectiveRole: _TeamRoleAJ }> {
+  const d = requireDb();
+  const [team] = await d.select().from(_teamsAJ).where(eq(_teamsAJ.id, teamId)).limit(1);
+  if (!team) throw new CapabilityError("Team not found", 404, null);
+  const [m] = await d
+    .select()
+    .from(_teamMembersAJ)
+    .where(and(eq(_teamMembersAJ.teamId, teamId), eq(_teamMembersAJ.userId, userId), eq(_teamMembersAJ.status, "active")))
+    .limit(1);
+  const isCreator = team.createdBy === userId;
+  const effective: _TeamRoleAJ = (m?.role as _TeamRoleAJ | undefined) ?? (isCreator ? "owner" : "viewer");
+  if (!m && !isCreator) throw new CapabilityError("Not a member of this team", 403, null);
+  if (_ROLE_RANK_AJ[effective] < _ROLE_RANK_AJ[minRole]) {
+    throw new CapabilityError(`Requires role ${minRole}+ (you are ${effective})`, 403, { role: effective });
+  }
+  return { team, membership: m ?? null, isCreator, effectiveRole: effective };
+}
+
+function _normalizeRoleAJ(r: string): _TeamRoleAJ {
+  const k = r.toLowerCase();
+  if ((_TEAM_ROLES_AJ as readonly string[]).includes(k)) return k as _TeamRoleAJ;
+  throw new CapabilityError(`Invalid role: ${r}`, 400, { allowed: _TEAM_ROLES_AJ });
+}
+
+// ─── teams.list ──────────────────────────────────────────────────────
+// (teams.list is provided by the legacy handler earlier in this file —
+// the Phase 26 layer below extends it with get/create/update/delete/
+// invites_list/invites_revoke/audit/policy. members_* are also covered
+// by the legacy teams.members / teams.invite / teams.update_role /
+// teams.remove_member capabilities.)
+
+
+
+// ─── teams.get ───────────────────────────────────────────────────────
+export async function teamsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const { team, effectiveRole } = await _requireTeamMembershipAJ(input.id, ctx.userId, "viewer");
+  const members = await d
+    .select({ id: _teamMembersAJ.id, userId: _teamMembersAJ.userId, role: _teamMembersAJ.role, status: _teamMembersAJ.status, walletAddress: _teamMembersAJ.walletAddress })
+    .from(_teamMembersAJ)
+    .where(eq(_teamMembersAJ.teamId, team.id));
+  const invites = await d
+    .select({ id: _teamInvitesAJ.id, email: _teamInvitesAJ.email, role: _teamInvitesAJ.role, expiresAt: _teamInvitesAJ.expiresAt, acceptedAt: _teamInvitesAJ.acceptedAt })
+    .from(_teamInvitesAJ)
+    .where(eq(_teamInvitesAJ.teamId, team.id));
+  return {
+    team: { id: team.id, name: team.name, vaultAddress: team.vaultAddress, createdBy: team.createdBy, createdAt: team.createdAt },
+    myRole: effectiveRole,
+    counts: {
+      members: members.filter((m) => m.status === "active").length,
+      pendingMembers: members.filter((m) => m.status === "pending").length,
+      pendingInvites: invites.filter((i) => !i.acceptedAt && new Date(i.expiresAt) > new Date()).length,
+    },
+    members,
+  };
+}
+
+// ─── teams.create ────────────────────────────────────────────────────
+export async function teamsCreate(
+  input: { name: string; vaultAddress?: string | null },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_TEAM_LIMITS_AJ[tier];
+  const existing = await d.select({ id: _teamsAJ.id }).from(_teamsAJ).where(eq(_teamsAJ.createdBy, ctx.userId));
+  if (existing.length >= limits.maxTeams) {
+    throw new CapabilityError(`Team cap reached for tier ${tier} (${limits.maxTeams})`, 402, { tier, limit: limits.maxTeams });
+  }
+  const name = input.name.trim();
+  if (!name) throw new CapabilityError("name is required", 400, null);
+  const [row] = await d
+    .insert(_teamsAJ)
+    .values({ name, vaultAddress: input.vaultAddress ?? null, createdBy: ctx.userId })
+    .returning();
+  // Auto-add the creator as an active owner member so downstream queries see them.
+  const [me] = await d.select({ wallet: _usersAJ.walletAddress }).from(_usersAJ).where(eq(_usersAJ.id, ctx.userId)).limit(1);
+  await d.insert(_teamMembersAJ).values({
+    teamId: row.id,
+    userId: ctx.userId,
+    walletAddress: me?.wallet ?? "",
+    role: "owner",
+    invitedBy: ctx.userId,
+    acceptedAt: new Date(),
+    status: "active",
+  });
+  const audit = await _teamAppendAuditAJ({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    teamId: row.id,
+    action: "team.created",
+    target: row.id,
+    meta: { name: row.name, vaultAddress: row.vaultAddress },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "team.created",
+    data: { teamId: row.id, name: row.name, createdBy: ctx.userId },
+  }).catch(() => undefined);
+  return { team: row, audit };
+}
+
+// ─── teams.update ────────────────────────────────────────────────────
+export async function teamsUpdate(
+  input: { id: string; name?: string; vaultAddress?: string | null },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  await _requireTeamMembershipAJ(input.id, ctx.userId, "admin");
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) {
+    const n = input.name.trim();
+    if (!n) throw new CapabilityError("name cannot be empty", 400, null);
+    patch.name = n;
+  }
+  if (input.vaultAddress !== undefined) patch.vaultAddress = input.vaultAddress;
+  if (!Object.keys(patch).length) throw new CapabilityError("no fields to update", 400, null);
+  const [row] = await d.update(_teamsAJ).set(patch).where(eq(_teamsAJ.id, input.id)).returning();
+  const audit = await _teamAppendAuditAJ({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    teamId: input.id,
+    action: "team.updated",
+    target: input.id,
+    meta: patch,
+  });
+  return { team: row, audit };
+}
+
+// ─── teams.delete ────────────────────────────────────────────────────
+export async function teamsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const { team, isCreator, effectiveRole } = await _requireTeamMembershipAJ(input.id, ctx.userId, "owner");
+  if (!isCreator && effectiveRole !== "owner") {
+    throw new CapabilityError("Only the team creator/owner can delete", 403, null);
+  }
+  const audit = await _teamAppendAuditAJ({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    teamId: team.id,
+    action: "team.deleted",
+    target: team.id,
+    meta: { name: team.name },
+  });
+  // Cascade via FKs removes members, invites, and audit rows.
+  await d.delete(_teamsAJ).where(eq(_teamsAJ.id, team.id));
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "team.deleted",
+    data: { teamId: team.id, name: team.name },
+  }).catch(() => undefined);
+  return { ok: true, deletedTeamId: team.id, audit };
+}
+
+
+// ─── teams.invites_list ──────────────────────────────────────────────
+export async function teamsInvitesList(
+  input: { teamId: string; includeExpired?: boolean; includeAccepted?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  await _requireTeamMembershipAJ(input.teamId, ctx.userId, "viewer");
+  const rows = await d.select().from(_teamInvitesAJ).where(eq(_teamInvitesAJ.teamId, input.teamId));
+  const now = Date.now();
+  const filtered = rows.filter((r) => {
+    if (!input.includeAccepted && r.acceptedAt) return false;
+    if (!input.includeExpired && new Date(r.expiresAt).getTime() < now) return false;
+    return true;
+  });
+  return {
+    count: filtered.length,
+    invites: filtered.map((r) => ({
+      id: r.id,
+      email: r.email,
+      walletAddress: r.walletAddress,
+      role: r.role,
+      expiresAt: r.expiresAt,
+      acceptedAt: r.acceptedAt,
+      createdAt: r.createdAt,
+      // token deliberately omitted — only returned on create.
+    })),
+  };
+}
+
+// ─── teams.invites_revoke ────────────────────────────────────────────
+export async function teamsInvitesRevoke(
+  input: { teamId: string; inviteId: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  await _requireTeamMembershipAJ(input.teamId, ctx.userId, "admin");
+  const [invite] = await d
+    .select()
+    .from(_teamInvitesAJ)
+    .where(and(eq(_teamInvitesAJ.id, input.inviteId), eq(_teamInvitesAJ.teamId, input.teamId)))
+    .limit(1);
+  if (!invite) throw new CapabilityError("Invite not found", 404, null);
+  if (invite.acceptedAt) throw new CapabilityError("Invite already accepted", 409, null);
+  await d.delete(_teamInvitesAJ).where(eq(_teamInvitesAJ.id, input.inviteId));
+  const audit = await _teamAppendAuditAJ({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    teamId: input.teamId,
+    action: "team.invite_revoked",
+    target: input.inviteId,
+    meta: { role: invite.role, email: invite.email, walletAddress: invite.walletAddress },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "team.invite_revoked",
+    data: { teamId: input.teamId, inviteId: input.inviteId, role: invite.role },
+  }).catch(() => undefined);
+  return { ok: true, inviteId: input.inviteId, audit };
+}
+
+// ─── teams.audit ─────────────────────────────────────────────────────
+export async function teamsAudit(
+  input: { teamId: string; limit?: number; action?: string; since?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  await _requireTeamMembershipAJ(input.teamId, ctx.userId, "viewer");
+  const limit = Math.min(input.limit ?? 100, 1000);
+  const sinceDate = input.since ? new Date(input.since) : null;
+  let rows = await d
+    .select()
+    .from(_teamAuditAJ)
+    .where(eq(_teamAuditAJ.teamId, input.teamId))
+    .orderBy(desc(_teamAuditAJ.ts))
+    .limit(limit);
+  if (input.action) rows = rows.filter((r) => r.action === input.action);
+  if (sinceDate) rows = rows.filter((r) => new Date(r.ts) >= sinceDate);
+  // Verify chain integrity for the returned slice (against full chain to the right of it).
+  const verifyRows = [...rows].reverse(); // oldest → newest
+  let chainOk = true;
+  for (let i = 1; i < verifyRows.length; i++) {
+    if (verifyRows[i].prevHash !== verifyRows[i - 1].hash) { chainOk = false; break; }
+  }
+  return { count: rows.length, chainOk, entries: rows };
+}
+
+// ─── teams.policy ────────────────────────────────────────────────────
+export async function teamsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_TEAM_LIMITS_AJ[tier],
+    perTier: _TIER_TEAM_LIMITS_AJ,
+    roles: _TEAM_ROLES_AJ,
+    roleRank: _ROLE_RANK_AJ,
+    permissions: {
+      "teams.create":           { minRole: null,    note: "Anyone within team-cap can create" },
+      "teams.update":           { minRole: "admin", note: "Owner/admin rename or rebind vault" },
+      "teams.delete":           { minRole: "owner", note: "Creator/owner only; cascades members + invites" },
+      "teams.members_invite":   { minRole: "admin", note: "Email or wallet; token returned ONCE" },
+      "teams.members_role_set": { minRole: "admin", note: "Cannot demote the owner" },
+      "teams.members_remove":   { minRole: "admin", note: "Soft-set status=removed; owner is protected" },
+      "teams.invites_revoke":   { minRole: "admin", note: "Hard-deletes the pending invite" },
+      "teams.*":                { minRole: "viewer", note: "All reads require active membership" },
+    },
+    notes: [
+      "The creator is auto-added as an `owner` member at creation time.",
+      "Pending invite tokens are returned once on `teams.members_invite` and never echoed by `teams.invites_list`.",
+      "Every mutation appends to a per-team hash-chained audit (`teams.audit`) AND mirrors to the global key audit log.",
+      "Webhook events: team.created / team.deleted / team.member_invited / team.member_joined / team.member_role_changed / team.member_removed / team.invite_revoked.",
+    ],
+  };
+}

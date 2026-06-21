@@ -2313,4 +2313,28 @@ export const publicApiInboxDigests = pgTable('public_api_inbox_digests', {
   userIdx: index('public_api_inbox_digests_user_idx').on(t.userId, t.createdAt),
 }));
 
+// ─── Phase 26 — Teams, Members & Invites (Pillar AJ) ─────────────────
+// Hash-chained audit overlay for team mutations. The legacy `teams`,
+// `team_members`, and `team_invitations` tables are wrapped by the
+// `teams.*` capabilities; every mutation appends one row here so callers
+// can prove integrity of the team's history.
+export const publicApiTeamAudit = pgTable('public_api_team_audit', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  action: text('action').notNull(),
+  target: text('target'),
+  meta: jsonb('meta').notNull().default('{}'),
+  prevHash: text('prev_hash').notNull().default(''),
+  hash: text('hash').notNull(),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  teamTsIdx: index('public_api_team_audit_team_ts_idx').on(t.teamId, t.ts),
+  userTsIdx: index('public_api_team_audit_user_ts_idx').on(t.userId, t.ts),
+  keyTsIdx: index('public_api_team_audit_key_ts_idx').on(t.keyId, t.ts),
+  actionIdx: index('public_api_team_audit_action_idx').on(t.teamId, t.action, t.ts),
+}));
+
+
 

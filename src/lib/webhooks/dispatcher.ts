@@ -28,9 +28,13 @@ export type WebhookEventName =
   | "x402.paid"
   | "delegation.expiring"
   | "notification.created"
+  | "team.created"
+  | "team.deleted"
   | "team.member_invited"
+  | "team.member_joined"
   | "team.member_role_changed"
   | "team.member_removed"
+  | "team.invite_revoked"
   | "billing.invoice_created"
   | "billing.invoice_paid"
   | "billing.tier_changed"
@@ -60,9 +64,13 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "x402.paid",
   "delegation.expiring",
   "notification.created",
+  "team.created",
+  "team.deleted",
   "team.member_invited",
+  "team.member_joined",
   "team.member_role_changed",
   "team.member_removed",
+  "team.invite_revoked",
   "billing.invoice_created",
   "billing.invoice_paid",
   "billing.tier_changed",
