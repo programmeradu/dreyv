@@ -183,14 +183,14 @@ export default function DeliverableViewPage({
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-white text-zinc-600">
+            <div className="h-full w-full flex items-center justify-center bg-white text-zinc-600">
                 <Loader2 className="h-5 w-5 animate-spin" />
             </div>
         );
     }
     if (err || !d) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+            <div className="h-full w-full flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
                 <DreyvMascot pose="alert" size={120} />
                 <h1 className="text-2xl font-semibold text-zinc-900">Deliverable unavailable</h1>
                 <p className="max-w-md text-sm text-zinc-600">{err || "Not found."}</p>
@@ -213,7 +213,7 @@ export default function DeliverableViewPage({
     const snap = d.payload?.snapshot;
 
     return (
-        <main className="relative min-h-screen bg-white text-zinc-900 deliverable-page">
+        <main className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-zinc-900 deliverable-page">
             <style jsx global>{`
                 .deliverable-page,
                 .deliverable-page * { scrollbar-width: thin; scrollbar-color: rgb(196 181 253) transparent; }
