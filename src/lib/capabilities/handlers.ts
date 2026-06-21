@@ -444,7 +444,30 @@ export async function marketPriceHistory(
   const qs = new URLSearchParams({ daysAgo: String(input.daysAgo) });
   if (isMint) qs.set("mint", t);
   else qs.set("symbol", t.toUpperCase());
-  return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
+  try {
+    return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
+  } catch (e) {
+    if (e instanceof CapabilityError) {
+      // Historical price providers occasionally lack coverage for thin tokens
+      // or older windows. Surface a structured empty result with a hint instead
+      // of a 502 so callers can branch on `priceUsd === null`.
+      const msg = (e.message || "").toLowerCase();
+      if (
+        msg.includes("could not fetch historical price") ||
+        msg.includes("no provider") ||
+        msg.includes("not found")
+      ) {
+        return {
+          token: t,
+          daysAgo: input.daysAgo,
+          priceUsd: null,
+          available: false,
+          note: "No historical-price provider returned data for this token/window. Try a major asset (SOL, USDC, WBTC) or a smaller `daysAgo` value.",
+        };
+      }
+    }
+    throw e;
+  }
 }
 
 // ─── Pillar H — Agentic delegation (Phase 3) ─────────────────────────
