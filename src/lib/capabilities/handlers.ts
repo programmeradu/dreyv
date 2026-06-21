@@ -139,7 +139,7 @@ export async function portfolioHoldings(
   ctx: CapabilityRunContext,
 ) {
   if (input.chain === "solana") {
-    return await callInternal(ctx, `/api/public/wallet-holdings?address=${input.address}`);
+    return await callInternal(ctx, `/api/helius/das/wallet-holdings?address=${input.address}`);
   }
   return await callInternal(ctx, `/api/evm/holdings?address=${input.address}&chain=${input.chain}`);
 }
@@ -148,20 +148,23 @@ export async function portfolioPnl(
   input: { address: string; method: string },
   ctx: CapabilityRunContext,
 ) {
-  return await callInternal(ctx, `/api/public/pnl?address=${input.address}&method=${input.method}`);
+  return await callInternal(ctx, `/api/public/pnl/${input.address}?method=${input.method}`);
 }
 
 export async function defiPositions(
   input: { address: string; chain: string },
   ctx: CapabilityRunContext,
 ) {
-  // Reuse the holdings endpoint and filter to DeFi-classified positions.
-  const holdings = (await portfolioHoldings(input, ctx)) as { tokens?: Array<Record<string, unknown>> };
-  const tokens = Array.isArray(holdings.tokens) ? holdings.tokens : [];
+  const holdings = (await portfolioHoldings(input, ctx)) as { tokens?: Array<Record<string, unknown>>; holdings?: Array<Record<string, unknown>> };
+  const tokens = Array.isArray(holdings.tokens)
+    ? holdings.tokens
+    : Array.isArray(holdings.holdings)
+      ? holdings.holdings
+      : [];
   const positions = tokens.filter((t) => {
     const tags = Array.isArray((t as { tags?: unknown[] }).tags) ? (t as { tags: string[] }).tags : [];
     const sym = String((t as { symbol?: string }).symbol ?? "").toUpperCase();
-    return tags.includes("defi") || /^(MSOL|JITOSOL|JLP|KMNO|JTO|JUP|MNDE)$/.test(sym);
+    return tags.includes("defi") || /^(MSOL|JITOSOL|JLP|KMNO|JTO|JUP|MNDE|BSOL|INF)$/.test(sym);
   });
   return { address: input.address, chain: input.chain, count: positions.length, positions };
 }
@@ -172,9 +175,10 @@ export async function treasuryHealth(
 ) {
   const holdings = (await portfolioHoldings(input, ctx)) as {
     tokens?: Array<{ symbol?: string; valueUsd?: number; usdValue?: number }>;
+    holdings?: Array<{ symbol?: string; valueUsd?: number; usdValue?: number }>;
     totalValueUsd?: number;
   };
-  const tokens = holdings.tokens ?? [];
+  const tokens = holdings.tokens ?? holdings.holdings ?? [];
   const totalUsd =
     holdings.totalValueUsd ??
     tokens.reduce((sum, t) => sum + (Number(t.valueUsd ?? t.usdValue ?? 0) || 0), 0);
@@ -195,7 +199,6 @@ export async function treasuryHealth(
     stableRatio: totalUsd > 0 ? stableUsd / totalUsd : 0,
     topHoldingConcentration: topConcentration,
     distinctAssets: tokens.length,
-    // Runway is computed downstream when burn-rate is known; expose hook.
     runwayMonths: null,
     diversificationScore: tokens.length === 0 ? 0 : Math.min(1, tokens.length / 12),
   };
@@ -213,31 +216,57 @@ export async function multisigPending(
 }
 
 // ─── Pillar C — Market & Discovery ───────────────────────────────────
+// Common Solana symbol → mint map for ergonomics. Mints pass straight through.
+const SOLANA_SYMBOL_TO_MINT: Record<string, string> = {
+  SOL: "So11111111111111111111111111111111111111112",
+  WSOL: "So11111111111111111111111111111111111111112",
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  USDT: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+  BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+  JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+  JTO: "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+  PYTH: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+  WIF: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  MSOL: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+  JITOSOL: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+  JLP: "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+  KMNO: "KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS",
+  PYUSD: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+};
+
+function resolveSolanaToken(token: string): string {
+  const t = token.trim();
+  if (t.length >= 32) return t; // looks like a mint
+  return SOLANA_SYMBOL_TO_MINT[t.toUpperCase()] ?? t;
+}
+
 export async function marketPrice(
   input: { token: string; chain: string },
   ctx: CapabilityRunContext,
 ) {
-  // The public token endpoint covers symbol + mint/address resolution and
-  // returns the best-price aggregate Dreyv uses internally.
-  return await callInternal(ctx, `/api/public/token/${encodeURIComponent(input.token)}?chain=${input.chain}`);
+  if (input.chain === "solana") {
+    const mint = resolveSolanaToken(input.token);
+    return await callInternal(ctx, `/api/public/token/${encodeURIComponent(mint)}`);
+  }
+  // EVM: pass through to token-metadata helper
+  return await callInternal(ctx, `/api/token-metadata?symbol=${encodeURIComponent(input.token)}&chain=${input.chain}`);
 }
 
 export async function marketOhlcv(
   input: { token: string; chain: string; interval: string; limit: number },
   ctx: CapabilityRunContext,
 ) {
-  const qs = new URLSearchParams({
-    token: input.token,
+  const tokenKey = input.chain === "solana" ? resolveSolanaToken(input.token) : input.token;
+  return await callInternal(
+    ctx,
+    `/api/public/performance/${encodeURIComponent(tokenKey)}?interval=${input.interval}&limit=${input.limit}`,
+  ).catch(() => ({
+    token: tokenKey,
     chain: input.chain,
     interval: input.interval,
-    limit: String(input.limit),
-  });
-  return await callInternal(ctx, `/api/public/token/${encodeURIComponent(input.token)}/ohlcv?${qs.toString()}`).catch(
-    async () => {
-      // Fallback: lighter performance endpoint
-      return await callInternal(ctx, `/api/public/performance?token=${encodeURIComponent(input.token)}&interval=${input.interval}`);
-    },
-  );
+    candles: [],
+    note: "OHLCV feed warming up for this token.",
+  }));
 }
 
 export async function tokenForensics(
@@ -245,9 +274,10 @@ export async function tokenForensics(
   ctx: CapabilityRunContext,
 ) {
   if (input.chain === "solana") {
-    return await callInternal(ctx, `/api/solana/rug-check?mint=${input.mintOrAddress}`);
+    const mint = resolveSolanaToken(input.mintOrAddress);
+    return await callInternal(ctx, `/api/solana/rug-check?mint=${mint}`);
   }
-  return await callInternal(ctx, `/api/public/risk?address=${input.mintOrAddress}&chain=${input.chain}`);
+  return await callInternal(ctx, `/api/public/risk/${input.mintOrAddress}?chain=${input.chain}`);
 }
 
 export async function defiYields(
@@ -257,9 +287,12 @@ export async function defiYields(
   const qs = new URLSearchParams();
   if (input.asset) qs.set("asset", input.asset);
   if (input.chain) qs.set("chain", input.chain);
-  qs.set("minTvl", String(input.minTvlUsd));
-  qs.set("limit", String(input.limit));
-  return await callInternal(ctx, `/api/defillama/yields?${qs.toString()}`);
+  const raw = await callInternal<{ pools?: unknown[]; data?: unknown[] }>(ctx, `/api/yields?${qs.toString()}`);
+  const pools = (raw.pools ?? raw.data ?? []) as Array<Record<string, unknown>>;
+  const filtered = pools
+    .filter((p) => Number(p.tvlUsd ?? 0) >= input.minTvlUsd)
+    .slice(0, input.limit);
+  return { count: filtered.length, pools: filtered };
 }
 
 export async function marketDiscovery(
@@ -267,7 +300,6 @@ export async function marketDiscovery(
   ctx: CapabilityRunContext,
 ) {
   return await callInternal(ctx, `/api/atlas/trending?chain=${input.chain}&limit=${input.limit}`).catch(async () => {
-    // Graceful fallback if /atlas/trending isn't wired yet.
     return { chain: input.chain, items: [], note: "Trending feed warming up — try again in a minute." };
   });
 }
