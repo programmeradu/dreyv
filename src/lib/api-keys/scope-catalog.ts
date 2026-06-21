@@ -116,13 +116,6 @@ export const WRITE_SCOPE_IDS: ApiScope[] = SCOPE_CATALOG
   .filter((s) => s.id.startsWith("write:"))
   .map((s) => s.id);
 
-// ── Sanity: every server scope must appear in the catalog ──────────────
-{
-  const catalogIds = new Set<string>(ALL_SCOPE_IDS);
-  const missing = SERVER_ALL_SCOPES.filter((s) => !catalogIds.has(s));
-  if (missing.length > 0 && typeof window === "undefined") {
-    // Build-time / SSR warning so drift surfaces in logs.
-    // eslint-disable-next-line no-console
-    console.warn("[scope-catalog] missing UI metadata for server scopes:", missing);
-  }
-}
+// Drift check against server's ALL_SCOPES lives in scope-catalog.server.ts
+// (server-only, to keep this module client-bundle-safe).
+
