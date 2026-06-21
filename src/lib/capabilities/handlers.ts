@@ -1378,3 +1378,193 @@ export async function economyWalletBalance(_input: Record<string, never>, ctx: C
     sol: (Number(balances.solLamports) / 1e9).toFixed(9),
   };
 }
+
+// ─── Pillar N — Reasoning & Knowledge ─────────────────────────────────
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+async function callLovableAI(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<string> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new CapabilityError("LOVABLE_API_KEY not configured", 503, null);
+  const res = await fetch(LOVABLE_AI_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: opts.model || "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.user },
+      ],
+      max_tokens: opts.maxTokens ?? 800,
+      temperature: opts.temperature ?? 0.3,
+      ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+    }),
+  });
+  if (res.status === 429) throw new CapabilityError("Lovable AI rate-limited", 429, null);
+  if (res.status === 402) throw new CapabilityError("Lovable AI credits exhausted", 402, null);
+  if (!res.ok) throw new CapabilityError(`Lovable AI failed: ${res.status}`, 502, null);
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "";
+}
+
+export async function reasoningAsk(
+  input: { question: string; context?: string; ground_with_memory?: boolean; model?: string },
+  ctx: CapabilityRunContext,
+) {
+  let groundedContext = input.context ?? "";
+  const sources: Array<{ title: string; url: string }> = [];
+  if (input.ground_with_memory) {
+    const { knowledgeMemory } = await import("@/lib/knowledge-memory");
+    try {
+      const recalled = await knowledgeMemory.recall(input.question, 5);
+      if (recalled.length) {
+        groundedContext = [
+          groundedContext,
+          "### Knowledge memory:\n" +
+            recalled.map((r) => `- ${r.title ?? r.sourceUrl ?? "(untitled)"}: ${(r.summary ?? "").slice(0, 300)}`).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        for (const r of recalled) {
+          if (r.sourceUrl) sources.push({ title: r.title ?? r.sourceUrl, url: r.sourceUrl });
+        }
+      }
+    } catch {}
+  }
+  const userMsg = groundedContext
+    ? `Question:\n${input.question}\n\n---\nContext:\n${groundedContext.slice(0, 8000)}`
+    : input.question;
+  const answer = await callLovableAI({
+    system:
+      "You are Dreyv's on-chain reasoning assistant. Be precise, cite numbers, never fabricate addresses or balances. If the context does not contain the answer, say so plainly.",
+    user: userMsg,
+    model: input.model,
+    maxTokens: 900,
+    temperature: 0.2,
+  });
+  return { answer, sources, model: input.model || "google/gemini-3-flash-preview" };
+}
+
+export async function reasoningSummarize(
+  input: { text: string; style?: "bullets" | "paragraph" | "tldr"; max_words?: number },
+  _ctx: CapabilityRunContext,
+) {
+  const style = input.style || "tldr";
+  const maxWords = input.max_words ?? 120;
+  const system = `You summarize text crisply for an agent caller. Style: ${style}. Hard cap: ${maxWords} words. No preamble.`;
+  const summary = await callLovableAI({
+    system,
+    user: input.text.slice(0, 16000),
+    maxTokens: Math.min(800, maxWords * 6),
+    temperature: 0.2,
+  });
+  return { summary, style, wordCount: summary.trim().split(/\s+/).length };
+}
+
+export async function reasoningClarify(
+  input: { intent: string; max_questions?: number },
+  _ctx: CapabilityRunContext,
+) {
+  const max = Math.min(Math.max(input.max_questions ?? 3, 1), 5);
+  const raw = await callLovableAI({
+    system: `You are an agent-orchestration assistant. Given a vague intent, return ${max} targeted clarifying questions that would let an autonomous agent execute it. Prefer chip/radio options over free text. Respond ONLY as JSON: {"questions":[{"id":"snake_case","text":"...","options":["..."],"multi":false}]}`,
+    user: input.intent.slice(0, 1500),
+    jsonMode: true,
+    maxTokens: 700,
+    temperature: 0.3,
+  });
+  let parsed: { questions?: unknown };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new CapabilityError("LLM returned non-JSON", 502, { raw });
+  }
+  const qs = Array.isArray(parsed.questions) ? parsed.questions.slice(0, max) : [];
+  return { intent: input.intent, questions: qs };
+}
+
+export async function reasoningResearch(
+  input: { query: string; depth?: "shallow" | "deep" },
+  _ctx: CapabilityRunContext,
+) {
+  const { knowledgeBase } = await import("@/lib/knowledge");
+  const result = await knowledgeBase.study(input.query);
+  if (input.depth === "deep" && result.sources.length === 0) {
+    throw new CapabilityError("No sources found and deep mode requested", 404, null);
+  }
+  return {
+    query: input.query,
+    summary: result.summary,
+    sources: result.sources,
+    rawContent: result.rawContent.slice(0, input.depth === "deep" ? 20000 : 6000),
+  };
+}
+
+export async function knowledgeReadUrl(
+  input: { url: string; max_chars?: number },
+  _ctx: CapabilityRunContext,
+) {
+  const { markdown } = await import("@/lib/cloudflare/cf-browser");
+  let md: string;
+  try {
+    md = await markdown({ url: input.url });
+  } catch (e: any) {
+    throw new CapabilityError(`URL fetch failed: ${e?.message ?? "unknown"}`, 502, null);
+  }
+  if (!md) throw new CapabilityError("Empty response from URL", 404, null);
+  const cap = Math.min(Math.max(input.max_chars ?? 8000, 500), 30000);
+  return { url: input.url, markdown: md.slice(0, cap), truncated: md.length > cap, length: md.length };
+}
+
+export async function knowledgeRecall(
+  input: { query: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const { knowledgeMemory } = await import("@/lib/knowledge-memory");
+  const limit = Math.min(Math.max(input.limit ?? 5, 1), 50);
+  const rows = await knowledgeMemory.recall(input.query, limit);
+  return {
+    query: input.query,
+    count: rows.length,
+    entries: rows
+      .filter((r) => !r.userId || r.userId === ctx.userId)
+      .map((r) => ({
+        id: r.id,
+        source: r.source,
+        title: r.title,
+        summary: r.summary,
+        sourceUrl: r.sourceUrl,
+        tags: r.tags,
+        createdAt: r.createdAt,
+      })),
+  };
+}
+
+export async function knowledgeStore(
+  input: {
+    title: string;
+    content: string;
+    summary?: string;
+    sourceUrl?: string;
+    tags?: string[];
+  },
+  ctx: CapabilityRunContext,
+) {
+  const { knowledgeMemory } = await import("@/lib/knowledge-memory");
+  const stored = await knowledgeMemory.store({
+    source: "public_api",
+    title: input.title,
+    content: input.content,
+    summary: input.summary,
+    sourceUrl: input.sourceUrl,
+    tags: input.tags,
+    userId: ctx.userId,
+  });
+  return { id: stored.id, createdAt: stored.createdAt, title: stored.title };
+}
