@@ -12,6 +12,7 @@ Two-track front door: `/waitlist` (gated, qualified — primary marketing CTA) +
 On /app/analytics: FLAT only — no shadows, no backdrop-blur, no gradients, no ring/elevation. Cards = `rounded-3xl border border-violet-100 bg-white`. Stream numbers, chart paths, narratives, and suggestions. Cover ALL analytics (value, PnL, attribution, composition, concentration, runway, drift, foresight, DeFi, fees, benchmark, flows, anomalies, suggestions).
 Dreyv brand voice (for any AI-generated copy): calm, precise, founder-to-founder. NO emoji-spam, NO hashtags on X, NEVER "revolutionize/game-changer/synergy/disrupt/next-gen/leverage(verb)/supercharge". Pronunciation: DRAVE.
 Lovable AI (`LOVABLE_API_KEY`) is ALWAYS called via a Supabase edge function in the Lovable Cloud workspace — never directly from Vercel. Never migrate existing Groq/CF/OpenAI providers; only ADD Lovable AI as an extra provider in the loop.
+Dreyv public API (`/api/v1/*`) and MCP (`/api/mcp`) — NO FALLBACKS, NO STUBS, NO "warming up" placeholders. If an upstream is missing, do not register the capability; if it fails, surface the real error. Empty arrays disguised as success are banned. See `mem://constraints/no-api-fallbacks`.
 Brand mascot = **Dreyv** (owl-fox sentinel, solid violet) — same name as the brand. Pose set in `src/assets/mascot/` (`dreyv-greet/think/celebrate/alert.png`). Use for empty states, success, alerts, marketing — never re-generate without matching existing silhouette/palette.
 
 ## Memories
