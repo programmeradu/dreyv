@@ -7,7 +7,7 @@
  * persisted snapshot/report payload (no re-fetch from chain) plus the
  * tx + email metadata.
  */
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
