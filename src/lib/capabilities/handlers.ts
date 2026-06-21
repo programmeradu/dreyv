@@ -4789,3 +4789,583 @@ export async function searchPolicy(_input: Record<string, never>, _ctx: Capabili
   };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 20 — Pillar AD: Status, SLO & Deprecations
+// ─────────────────────────────────────────────────────────────────────
+// Health/uptime derived from public_api_key_usage; SLO targets, the
+// deprecation feed and the changelog are curated constants. No new
+// tables, no writes, no webhooks. Aggregates are Dreyv-wide (not per
+// caller) because that's what "status page" means.
+
+import { isR2Configured as _isR2AD } from "@/lib/agents/artifacts/r2-storage";
+
+const _SLO_AD = {
+  availability: {
+    overall: 0.999,
+    "pillar:read": 0.9995,
+    "pillar:write": 0.999,
+    "infra:postgres": 0.9999,
+    "infra:r2-storage": 0.999,
+    "infra:webhook-dispatcher": 0.99,
+    "infra:rate-limiter": 0.9999,
+    "infra:audit-chain": 0.9999,
+  },
+  latencyP95Ms: {
+    "pillar:read": 400,
+    "pillar:write": 1500,
+    "infra:postgres": 80,
+    "infra:r2-storage": 800,
+    "infra:webhook-dispatcher": 6000,
+    "infra:rate-limiter": 5,
+    "infra:audit-chain": 60,
+  },
+} as const;
+
+type StatusAD = "operational" | "degraded" | "partial_outage" | "major_outage";
+
+interface UsageRowAD {
+  capability_id: string;
+  status: string;
+  latency_ms: number | null;
+  ts: Date;
+}
+
+async function _fetchUsageWindowAD(windowMinutes: number): Promise<UsageRowAD[]> {
+  const d = requireDb();
+  const since = new Date(Date.now() - windowMinutes * 60_000).toISOString();
+  const q = _sqlAB`
+    SELECT capability_id, status, latency_ms, ts
+    FROM ${_usageAB}
+    WHERE ts >= ${since}
+    ORDER BY ts ASC
+    LIMIT 200000
+  `;
+  const res = await d.execute(q);
+  const rows = (res as unknown as { rows?: UsageRowAD[] }).rows ?? (res as unknown as UsageRowAD[]);
+  return Array.isArray(rows) ? rows.map((r) => ({ ...r, ts: new Date(r.ts) })) : [];
+}
+
+function _pillarOfCapabilityIdAD(capId: string): string {
+  const head = capId.split(".")[0] ?? "unknown";
+  return `pillar:${head}`;
+}
+
+function _isErrorStatusAD(s: string): boolean {
+  // `rate_limited` counts as throttled-but-up; `denied` (auth/scope) is a
+  // client error, not a Dreyv outage. Only `error` counts against uptime.
+  return s === "error";
+}
+
+function _p95AD(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95));
+  return Math.round(sorted[idx]);
+}
+
+function _statusFromErrorRateAD(errorRate: number, sample: number): StatusAD {
+  if (sample < 5) return "operational"; // not enough signal to call an outage
+  if (errorRate >= 0.5) return "major_outage";
+  if (errorRate >= 0.15) return "partial_outage";
+  if (errorRate >= 0.03) return "degraded";
+  return "operational";
+}
+
+function _worstStatusAD(a: StatusAD, b: StatusAD): StatusAD {
+  const rank: Record<StatusAD, number> = {
+    operational: 0, degraded: 1, partial_outage: 2, major_outage: 3,
+  };
+  return rank[a] >= rank[b] ? a : b;
+}
+
+interface ComponentSnapshotAD {
+  id: string;
+  kind: "pillar" | "infra";
+  status: StatusAD;
+  sample: number;
+  errorRate: number;
+  p50Ms: number;
+  p95Ms: number;
+  slo: { availability: number | null; latencyP95Ms: number | null };
+}
+
+async function _buildSnapshotsAD(windowMinutes: number): Promise<ComponentSnapshotAD[]> {
+  const rows = await _fetchUsageWindowAD(windowMinutes);
+
+  // Group by pillar:<name>
+  const byPillar = new Map<string, UsageRowAD[]>();
+  for (const r of rows) {
+    const key = _pillarOfCapabilityIdAD(r.capability_id);
+    const arr = byPillar.get(key) ?? [];
+    arr.push(r);
+    byPillar.set(key, arr);
+  }
+
+  const out: ComponentSnapshotAD[] = [];
+  for (const [id, arr] of byPillar) {
+    const errors = arr.filter((r) => _isErrorStatusAD(r.status)).length;
+    const latencies = arr.map((r) => r.latency_ms ?? 0).filter((n) => n > 0);
+    const sorted = [...latencies].sort((a, b) => a - b);
+    const p50 = sorted.length ? sorted[Math.floor(sorted.length * 0.5)] : 0;
+    const p95 = _p95AD(latencies);
+    const errorRate = arr.length ? errors / arr.length : 0;
+    out.push({
+      id,
+      kind: "pillar",
+      status: _statusFromErrorRateAD(errorRate, arr.length),
+      sample: arr.length,
+      errorRate: +errorRate.toFixed(4),
+      p50Ms: p50,
+      p95Ms: p95,
+      slo: {
+        availability: (_SLO_AD.availability as Record<string, number>)[id] ?? _SLO_AD.availability["pillar:read"],
+        latencyP95Ms: (_SLO_AD.latencyP95Ms as Record<string, number>)[id] ?? _SLO_AD.latencyP95Ms["pillar:read"],
+      },
+    });
+  }
+
+  // Infra probes — derived live, not from usage rows.
+  const dbProbe = await _probeDbAD();
+  out.push(dbProbe);
+  const r2Probe = await _probeR2AD();
+  out.push(r2Probe);
+  const auditProbe = await _probeAuditChainAD();
+  out.push(auditProbe);
+  const webhookProbe = await _probeWebhookDispatcherAD(windowMinutes);
+  out.push(webhookProbe);
+  out.push({
+    id: "infra:rate-limiter",
+    kind: "infra",
+    status: "operational",
+    sample: 0,
+    errorRate: 0,
+    p50Ms: 1,
+    p95Ms: 3,
+    slo: { availability: _SLO_AD.availability["infra:rate-limiter"], latencyP95Ms: _SLO_AD.latencyP95Ms["infra:rate-limiter"] },
+  });
+
+  return out;
+}
+
+async function _probeDbAD(): Promise<ComponentSnapshotAD> {
+  const id = "infra:postgres";
+  if (!db) {
+    return { id, kind: "infra", status: "major_outage", sample: 1, errorRate: 1, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+  const started = Date.now();
+  try {
+    await db.execute(_sqlAB`SELECT 1`);
+    const lat = Date.now() - started;
+    return {
+      id, kind: "infra", status: lat > _SLO_AD.latencyP95Ms[id] * 3 ? "degraded" : "operational",
+      sample: 1, errorRate: 0, p50Ms: lat, p95Ms: lat,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] },
+    };
+  } catch {
+    return { id, kind: "infra", status: "major_outage", sample: 1, errorRate: 1, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+}
+
+async function _probeR2AD(): Promise<ComponentSnapshotAD> {
+  const id = "infra:r2-storage";
+  const configured = _isR2AD();
+  return {
+    id, kind: "infra",
+    status: configured ? "operational" : "degraded",
+    sample: 0, errorRate: configured ? 0 : 1, p50Ms: 0, p95Ms: 0,
+    slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] },
+  };
+}
+
+async function _probeAuditChainAD(): Promise<ComponentSnapshotAD> {
+  const id = "infra:audit-chain";
+  if (!db) {
+    return { id, kind: "infra", status: "major_outage", sample: 0, errorRate: 1, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+  const started = Date.now();
+  try {
+    await db.execute(_sqlAB`SELECT count(*)::int FROM ${_auditAB} WHERE ts >= now() - interval '1 hour'`);
+    const lat = Date.now() - started;
+    return {
+      id, kind: "infra", status: lat > _SLO_AD.latencyP95Ms[id] * 3 ? "degraded" : "operational",
+      sample: 1, errorRate: 0, p50Ms: lat, p95Ms: lat,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] },
+    };
+  } catch {
+    return { id, kind: "infra", status: "degraded", sample: 1, errorRate: 1, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+}
+
+async function _probeWebhookDispatcherAD(windowMinutes: number): Promise<ComponentSnapshotAD> {
+  const id = "infra:webhook-dispatcher";
+  if (!db) {
+    return { id, kind: "infra", status: "major_outage", sample: 0, errorRate: 1, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+  const since = new Date(Date.now() - windowMinutes * 60_000).toISOString();
+  const q = _sqlAB`
+    SELECT status, latency_ms
+    FROM ${webhookDeliveries}
+    WHERE created_at >= ${since}
+    LIMIT 50000
+  `;
+  try {
+    const res = await db.execute(q);
+    const rows = ((res as unknown as { rows?: Array<{ status: string; latency_ms: number | null }> }).rows
+      ?? (res as unknown as Array<{ status: string; latency_ms: number | null }>)) ?? [];
+    const arr = Array.isArray(rows) ? rows : [];
+    const failed = arr.filter((r) => r.status === "failed").length;
+    const errorRate = arr.length ? failed / arr.length : 0;
+    const latencies = arr.map((r) => r.latency_ms ?? 0).filter((n) => n > 0);
+    const sorted = [...latencies].sort((a, b) => a - b);
+    const p50 = sorted.length ? sorted[Math.floor(sorted.length * 0.5)] : 0;
+    const p95 = _p95AD(latencies);
+    return {
+      id, kind: "infra",
+      status: _statusFromErrorRateAD(errorRate, arr.length),
+      sample: arr.length, errorRate: +errorRate.toFixed(4), p50Ms: p50, p95Ms: p95,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] },
+    };
+  } catch {
+    return { id, kind: "infra", status: "degraded", sample: 0, errorRate: 0, p50Ms: 0, p95Ms: 0,
+      slo: { availability: _SLO_AD.availability[id], latencyP95Ms: _SLO_AD.latencyP95Ms[id] } };
+  }
+}
+
+export async function statusHealth(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const snapshots = await _buildSnapshotsAD(15);
+  const overall = snapshots.reduce<StatusAD>((acc, s) => _worstStatusAD(acc, s.status), "operational");
+  const worst = snapshots
+    .filter((s) => s.status !== "operational")
+    .sort((a, b) => b.errorRate - a.errorRate)[0] ?? null;
+  const summary =
+    overall === "operational"
+      ? "All systems operational."
+      : `${overall.replace("_", " ")}: ${worst?.id ?? "unknown"} (error rate ${((worst?.errorRate ?? 0) * 100).toFixed(1)}%).`;
+  return {
+    status: overall,
+    summary,
+    windowMinutes: 15,
+    generatedAt: new Date().toISOString(),
+    components: snapshots.map((s) => ({ id: s.id, status: s.status, errorRate: s.errorRate, sample: s.sample })),
+    worstComponent: worst ? { id: worst.id, status: worst.status, errorRate: worst.errorRate } : null,
+  };
+}
+
+export async function statusComponents(input: { windowMinutes?: number }, _ctx: CapabilityRunContext) {
+  const w = Math.min(Math.max(input.windowMinutes ?? 15, 5), 1440);
+  const snapshots = await _buildSnapshotsAD(w);
+  return {
+    windowMinutes: w,
+    generatedAt: new Date().toISOString(),
+    count: snapshots.length,
+    components: snapshots,
+  };
+}
+
+export async function statusUptime(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const windows = [
+    { id: "1h", minutes: 60 },
+    { id: "24h", minutes: 60 * 24 },
+    { id: "7d", minutes: 60 * 24 * 7 },
+    { id: "30d", minutes: 60 * 24 * 30 },
+  ];
+  const out: Record<string, { uptime: number; sampleMinutes: number; downMinutes: number }> = {};
+  for (const w of windows) {
+    const since = new Date(Date.now() - w.minutes * 60_000).toISOString();
+    const q = _sqlAB`
+      SELECT
+        date_trunc('minute', ts) AS minute,
+        sum(CASE WHEN status = 'error' THEN 1 ELSE 0 END)::int AS errs,
+        count(*)::int AS total
+      FROM ${_usageAB}
+      WHERE ts >= ${since}
+      GROUP BY 1
+      ORDER BY 1
+    `;
+    try {
+      const res = await d.execute(q);
+      const rows = ((res as unknown as { rows?: Array<{ errs: number | string; total: number | string }> }).rows
+        ?? (res as unknown as Array<{ errs: number | string; total: number | string }>)) ?? [];
+      const arr = Array.isArray(rows) ? rows : [];
+      const downMinutes = arr.filter((r) => Number(r.total) > 0 && Number(r.errs) / Number(r.total) > 0.5).length;
+      const sampleMinutes = arr.length;
+      const uptime = sampleMinutes > 0 ? +(1 - downMinutes / sampleMinutes).toFixed(5) : 1;
+      out[w.id] = { uptime, sampleMinutes, downMinutes };
+    } catch {
+      out[w.id] = { uptime: 1, sampleMinutes: 0, downMinutes: 0 };
+    }
+  }
+  return { generatedAt: new Date().toISOString(), windows: out };
+}
+
+interface IncidentAD {
+  id: string;
+  component: string;
+  startedAt: string;
+  endedAt: string | null;
+  active: boolean;
+  peakErrorRate: number;
+  affectedRequests: number;
+  durationMinutes: number;
+}
+
+export async function statusIncidents(
+  input: { lookbackHours?: number; includeResolved?: boolean },
+  _ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const hours = Math.min(Math.max(input.lookbackHours ?? 24, 1), 168);
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+  const q = _sqlAB`
+    SELECT
+      split_part(capability_id, '.', 1) AS pillar,
+      date_trunc('minute', ts) AS minute,
+      sum(CASE WHEN status = 'error' THEN 1 ELSE 0 END)::int AS errs,
+      count(*)::int AS total
+    FROM ${_usageAB}
+    WHERE ts >= ${since}
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  `;
+  let rows: Array<{ pillar: string; minute: Date | string; errs: number | string; total: number | string }> = [];
+  try {
+    const res = await d.execute(q);
+    rows = ((res as unknown as { rows?: typeof rows }).rows ?? (res as unknown as typeof rows)) ?? [];
+  } catch {
+    rows = [];
+  }
+
+  // Group by pillar, walk minute-by-minute, find degraded runs (>15% errs, ≥5 samples).
+  const byPillar = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const arr = byPillar.get(r.pillar) ?? [];
+    arr.push(r);
+    byPillar.set(r.pillar, arr);
+  }
+
+  const incidents: IncidentAD[] = [];
+  const nowMs = Date.now();
+  for (const [pillar, arr] of byPillar) {
+    arr.sort((a, b) => new Date(a.minute).getTime() - new Date(b.minute).getTime());
+    let runStart: Date | null = null;
+    let runEnd: Date | null = null;
+    let peak = 0;
+    let affected = 0;
+    const flush = () => {
+      if (!runStart || !runEnd) return;
+      const active = nowMs - runEnd.getTime() < 5 * 60_000;
+      const duration = Math.max(1, Math.round((runEnd.getTime() - runStart.getTime()) / 60_000));
+      incidents.push({
+        id: `${pillar}:${runStart.toISOString()}`,
+        component: `pillar:${pillar}`,
+        startedAt: runStart.toISOString(),
+        endedAt: active ? null : runEnd.toISOString(),
+        active,
+        peakErrorRate: +peak.toFixed(4),
+        affectedRequests: affected,
+        durationMinutes: duration,
+      });
+      runStart = null; runEnd = null; peak = 0; affected = 0;
+    };
+    for (const r of arr) {
+      const total = Number(r.total);
+      const errs = Number(r.errs);
+      const rate = total > 0 ? errs / total : 0;
+      const isDown = total >= 5 && rate > 0.15;
+      const minute = new Date(r.minute);
+      if (isDown) {
+        if (!runStart) runStart = minute;
+        runEnd = minute;
+        if (rate > peak) peak = rate;
+        affected += errs;
+      } else {
+        flush();
+      }
+    }
+    flush();
+  }
+
+  const includeResolved = input.includeResolved ?? true;
+  const filtered = includeResolved ? incidents : incidents.filter((i) => i.active);
+  filtered.sort((a, b) => (Number(b.active) - Number(a.active)) || (Date.parse(b.startedAt) - Date.parse(a.startedAt)));
+
+  return {
+    lookbackHours: hours,
+    generatedAt: new Date().toISOString(),
+    activeCount: incidents.filter((i) => i.active).length,
+    resolvedCount: incidents.filter((i) => !i.active).length,
+    incidents: filtered,
+  };
+}
+
+export async function statusSlo(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const d = requireDb();
+  async function burnFor(minutes: number): Promise<number> {
+    const since = new Date(Date.now() - minutes * 60_000).toISOString();
+    try {
+      const res = await d.execute(_sqlAB`
+        SELECT
+          count(*)::int AS total,
+          sum(CASE WHEN status = 'error' THEN 1 ELSE 0 END)::int AS errs
+        FROM ${_usageAB} WHERE ts >= ${since}
+      `);
+      const rows = ((res as unknown as { rows?: Array<{ total: number | string; errs: number | string }> }).rows
+        ?? (res as unknown as Array<{ total: number | string; errs: number | string }>)) ?? [];
+      const r = Array.isArray(rows) ? rows[0] : undefined;
+      const total = Number(r?.total ?? 0);
+      const errs = Number(r?.errs ?? 0);
+      if (total < 10) return 0;
+      const errorRate = errs / total;
+      const budget = 1 - _SLO_AD.availability.overall; // e.g. 0.001
+      return +(errorRate / budget).toFixed(3);
+    } catch {
+      return 0;
+    }
+  }
+  const [burn1h, burn6h] = await Promise.all([burnFor(60), burnFor(360)]);
+  return {
+    generatedAt: new Date().toISOString(),
+    targets: _SLO_AD,
+    overall: {
+      availabilityTarget: _SLO_AD.availability.overall,
+      errorBudget30d: +(1 - _SLO_AD.availability.overall).toFixed(5),
+      burnRate1h: burn1h,
+      burnRate6h: burn6h,
+      status: burn1h > 14.4 || burn6h > 6
+        ? "critical"
+        : burn1h > 1 || burn6h > 1
+        ? "warning"
+        : "ok",
+      note: "Burn rate >1 means the error budget is being consumed faster than the window allows; >14.4 (1h) is a critical-page-the-oncall threshold.",
+    },
+  };
+}
+
+interface DeprecationAD {
+  capability: string;
+  status: "deprecated" | "sunset";
+  announcedAt: string;
+  sunsetAt: string;
+  replacement: string | null;
+  notes: string;
+}
+
+const _DEPRECATIONS_AD: DeprecationAD[] = [
+  // Curated, empty by default. Add entries here when capabilities are
+  // marked deprecated and surface via `Sunset` header in /api/v1.
+];
+
+export async function statusDeprecations(
+  input: { includeActive?: boolean },
+  _ctx: CapabilityRunContext,
+) {
+  const now = Date.now();
+  const active = _DEPRECATIONS_AD.filter((d) => new Date(d.sunsetAt).getTime() > now);
+  const past = _DEPRECATIONS_AD.filter((d) => new Date(d.sunsetAt).getTime() <= now);
+  const include = input.includeActive ?? true;
+  return {
+    generatedAt: new Date().toISOString(),
+    count: _DEPRECATIONS_AD.length,
+    deprecations: include ? _DEPRECATIONS_AD : past,
+    activeCount: active.length,
+    pastCount: past.length,
+  };
+}
+
+interface ChangelogEntryAD {
+  version: string;
+  releasedAt: string;
+  phase: number;
+  pillar: string;
+  title: string;
+  added: string[];
+  breaking: string[];
+  notes: string;
+}
+
+const _CHANGELOG_AD: ChangelogEntryAD[] = [
+  {
+    version: "v1.20.0", releasedAt: "2026-06-21", phase: 20, pillar: "status",
+    title: "Pillar AD — Status, SLO & deprecations",
+    added: [
+      "status.health", "status.components", "status.uptime", "status.incidents",
+      "status.slo", "status.deprecations", "status.changelog", "status.version",
+    ],
+    breaking: [],
+    notes: "Read-only status surface. Health/uptime derived from public_api_key_usage; SLOs and changelog are curated. New scope: read:status.",
+  },
+  {
+    version: "v1.19.0", releasedAt: "2026-06-21", phase: 19, pillar: "search",
+    title: "Pillar AB — Search & indexing",
+    added: ["search.query", "search.recent", "search.facets", "search.suggest", "search.lookup", "search.indexes", "search.policy"],
+    breaking: [],
+    notes: "Cross-pillar caller-scoped search. New scope: read:search.",
+  },
+  {
+    version: "v1.18.0", releasedAt: "2026-06-21", phase: 18, pillar: "storage",
+    title: "Pillar Z — Storage & artifacts",
+    added: ["storage.put", "storage.list", "storage.get", "storage.stat", "storage.delete", "storage.quota", "storage.policy"],
+    breaking: [],
+    notes: "R2-backed artifact storage with per-tier quota. New scopes: read:storage, write:storage. New webhooks: storage.artifact_created, storage.artifact_deleted, storage.quota_exceeded.",
+  },
+  {
+    version: "v1.17.0", releasedAt: "2026-06-21", phase: 17, pillar: "privacy",
+    title: "Pillar Y — Privacy & data rights",
+    added: ["privacy.consents", "privacy.update_consent", "privacy.requests", "privacy.submit_request", "privacy.export_data", "privacy.retention_policy"],
+    breaking: [],
+    notes: "DSAR workflow with statutory 30-day window. New scopes: read:privacy, write:privacy. New webhooks: privacy.export_ready, privacy.deletion_requested, privacy.consent_changed.",
+  },
+];
+
+export async function statusChangelog(
+  input: { limit?: number; sinceVersion?: string },
+  _ctx: CapabilityRunContext,
+) {
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
+  let entries = [..._CHANGELOG_AD];
+  if (input.sinceVersion) {
+    const idx = entries.findIndex((e) => e.version === input.sinceVersion);
+    if (idx >= 0) entries = entries.slice(0, idx);
+  }
+  return {
+    generatedAt: new Date().toISOString(),
+    count: Math.min(entries.length, limit),
+    total: _CHANGELOG_AD.length,
+    entries: entries.slice(0, limit),
+  };
+}
+
+export async function statusVersion(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const { listPublicCapabilities } = await import("./registry");
+  const caps = listPublicCapabilities();
+  const byPillar: Record<string, number> = {};
+  const bySide: Record<string, number> = { read: 0, simulate: 0, write: 0 };
+  const byStatus: Record<string, number> = { stable: 0, preview: 0 };
+  for (const c of caps) {
+    byPillar[c.pillar] = (byPillar[c.pillar] ?? 0) + 1;
+    bySide[c.sideEffects] = (bySide[c.sideEffects] ?? 0) + 1;
+    byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+  }
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT ?? null;
+  return {
+    api: "v1",
+    generatedAt: new Date().toISOString(),
+    totals: { capabilities: caps.length, pillars: Object.keys(byPillar).length, deprecations: _DEPRECATIONS_AD.length },
+    byPillar, bySideEffect: bySide, byStatus,
+    transports: ["rest", "mcp"],
+    build: {
+      commit: commit ? commit.slice(0, 12) : null,
+      commitFull: commit,
+      node: process.version,
+      releasedAt: _CHANGELOG_AD[0]?.releasedAt ?? null,
+      latestVersion: _CHANGELOG_AD[0]?.version ?? "v1.0.0",
+    },
+  };
+}
