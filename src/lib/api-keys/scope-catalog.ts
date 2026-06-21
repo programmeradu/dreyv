@@ -7,9 +7,11 @@
  * "Default") plus a grouped picker. A unit-style sanity check at the bottom
  * ensures we never drift from the server's ALL_SCOPES list.
  */
-// NOTE: client-safe — no server-only deps (drizzle/db/node:crypto). The drift
-// check against the server's ALL_SCOPES lives in `scope-catalog.server.ts`.
-export type ApiScope = string;
+// Client-safe: only a TYPE import from the server module (fully erased at
+// build time, so it does not pull drizzle/node:crypto into client bundles).
+import type { ApiScope } from "@/lib/api-keys/public-keys";
+export type { ApiScope };
+
 
 export type ScopeGroup = "data" | "write" | "publish" | "payments";
 
