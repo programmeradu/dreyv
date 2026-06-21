@@ -10339,3 +10339,428 @@ export async function marketplacePolicy(_input: Record<string, never>, ctx: Capa
     ],
   };
 }
+
+// ─── Pillar AN — SLA & Status pages (Phase 30) ───────────────────────
+import { randomBytes as _rbAN } from "node:crypto";
+import { and as _andAN, desc as _descAN, eq as _eqAN, gte as _gteAN, isNull as _isNullAN, sql as _sqlAN } from "drizzle-orm";
+import {
+  publicApiStatusPages as _pagesAN,
+  publicApiStatusIncidents as _incAN,
+  publicApiStatusIncidentUpdates as _incUpAN,
+  publicApiStatusMaintenance as _mntAN,
+  publicApiStatusSubscribers as _subsAN,
+  publicApiSlaTargets as _tgtAN,
+  publicApiSlaCredits as _credAN,
+  users as _usersAN,
+} from "@/db/schema";
+
+const _SLUG_AN = /^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])?$/;
+const _INCIDENT_STATUSES_AN = ["investigating", "identified", "monitoring", "resolved"] as const;
+const _SEVERITIES_AN = ["minor", "major", "critical"] as const;
+const _IMPACTS_AN = ["none", "degraded", "partial_outage", "major_outage"] as const;
+const _MAINT_STATUSES_AN = ["scheduled", "in_progress", "completed", "cancelled"] as const;
+const _CHANNELS_AN = ["email", "webhook"] as const;
+const _PERIOD_RE_AN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const _TIER_SLA_LIMITS_AN: Record<string, { maxPages: number; maxIncidentsPerMonth: number; maxSubscribersPerPage: number; allowCustomBranding: boolean }> = {
+  free: { maxPages: 1, maxIncidentsPerMonth: 25, maxSubscribersPerPage: 50, allowCustomBranding: false },
+  mini: { maxPages: 5, maxIncidentsPerMonth: 250, maxSubscribersPerPage: 5_000, allowCustomBranding: true },
+  max:  { maxPages: 50, maxIncidentsPerMonth: 5_000, maxSubscribersPerPage: 100_000, allowCustomBranding: true },
+};
+
+const _DEFAULT_SLA_AN: Record<string, { uptime: number; latencyP95Ms: number }> = {
+  free: { uptime: 0.990, latencyP95Ms: 1500 },
+  mini: { uptime: 0.995, latencyP95Ms: 1000 },
+  max:  { uptime: 0.999, latencyP95Ms: 600 },
+};
+
+async function _getTierAN(ctx: CapabilityRunContext): Promise<"free" | "mini" | "max"> {
+  if (!db) return "free";
+  const row = await db.select({ tier: _usersAN.tier }).from(_usersAN).where(_eqAN(_usersAN.id, ctx.userId)).limit(1);
+  const t = (row[0]?.tier as string | undefined) ?? "free";
+  return (t === "mini" || t === "max") ? t : "free";
+}
+
+function _slaCreditPctAN(actualUptime: number, targetUptime: number): number {
+  if (actualUptime >= targetUptime) return 0;
+  const gap = targetUptime - actualUptime;
+  // Tiered refund schedule: 10% / 25% / 50% / 100%
+  if (gap >= 0.05) return 1.00;
+  if (gap >= 0.02) return 0.50;
+  if (gap >= 0.005) return 0.25;
+  return 0.10;
+}
+
+function _dispatchAN(event: string, userId: string, payload: Record<string, unknown>): void {
+  // Best-effort fire-and-forget; matches other pillars.
+  void import("@/lib/webhooks/dispatcher")
+    .then((m) => m.dispatchWebhookEvent?.({ event: event as Parameters<typeof m.dispatchWebhookEvent>[0]["event"], userId, payload }))
+    .catch(() => {});
+}
+
+// ── Status pages ─────────────────────────────────────────────────────
+export async function slaPagesCreate(input: { slug: string; title: string; description?: string; branding?: Record<string, unknown>; components?: unknown[]; isPublic?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_SLUG_AN.test(input.slug)) throw new Error("invalid_slug");
+  const tier = await _getTierAN(ctx);
+  const limits = _TIER_SLA_LIMITS_AN[tier];
+  const existing = await db.select({ n: _sqlAN<number>`count(*)::int` }).from(_pagesAN).where(_eqAN(_pagesAN.userId, ctx.userId));
+  if ((existing[0]?.n ?? 0) >= limits.maxPages) throw new Error("page_quota_exceeded");
+  const branding = limits.allowCustomBranding ? (input.branding ?? {}) : {};
+  const [row] = await db.insert(_pagesAN).values({
+    userId: ctx.userId,
+    slug: input.slug,
+    title: input.title,
+    description: input.description ?? null,
+    branding,
+    components: input.components ?? [],
+    isPublic: input.isPublic ?? false,
+  }).returning();
+  return { page: row };
+}
+
+export async function slaPagesUpdate(input: { id: string; title?: string; description?: string | null; branding?: Record<string, unknown>; components?: unknown[]; isPublic?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.title !== undefined) patch.title = input.title;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.branding !== undefined) {
+    const tier = await _getTierAN(ctx);
+    if (!_TIER_SLA_LIMITS_AN[tier].allowCustomBranding) throw new Error("branding_requires_mini_tier");
+    patch.branding = input.branding;
+  }
+  if (input.components !== undefined) patch.components = input.components;
+  if (input.isPublic !== undefined) patch.isPublic = input.isPublic;
+  const [row] = await db.update(_pagesAN).set(patch)
+    .where(_andAN(_eqAN(_pagesAN.id, input.id), _eqAN(_pagesAN.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new Error("not_found");
+  return { page: row };
+}
+
+export async function slaPagesPublish(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [row] = await db.update(_pagesAN).set({ isPublic: true, publishedAt: new Date(), updatedAt: new Date() })
+    .where(_andAN(_eqAN(_pagesAN.id, input.id), _eqAN(_pagesAN.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new Error("not_found");
+  return { page: row };
+}
+
+export async function slaPagesUnpublish(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [row] = await db.update(_pagesAN).set({ isPublic: false, updatedAt: new Date() })
+    .where(_andAN(_eqAN(_pagesAN.id, input.id), _eqAN(_pagesAN.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new Error("not_found");
+  return { page: row };
+}
+
+export async function slaPagesGet(input: { id?: string; slug?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!input.id && !input.slug) throw new Error("id_or_slug_required");
+  const where = input.id
+    ? _andAN(_eqAN(_pagesAN.id, input.id), _eqAN(_pagesAN.userId, ctx.userId))
+    : _andAN(_eqAN(_pagesAN.slug, input.slug!), _eqAN(_pagesAN.userId, ctx.userId));
+  const [row] = await db.select().from(_pagesAN).where(where).limit(1);
+  if (!row) throw new Error("not_found");
+  return { page: row };
+}
+
+export async function slaPagesList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const rows = await db.select().from(_pagesAN).where(_eqAN(_pagesAN.userId, ctx.userId)).orderBy(_descAN(_pagesAN.createdAt));
+  return { pages: rows };
+}
+
+export async function slaPagesDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const out = await db.delete(_pagesAN)
+    .where(_andAN(_eqAN(_pagesAN.id, input.id), _eqAN(_pagesAN.userId, ctx.userId)))
+    .returning({ id: _pagesAN.id });
+  if (out.length === 0) throw new Error("not_found");
+  return { ok: true, id: input.id };
+}
+
+// ── Incidents ────────────────────────────────────────────────────────
+async function _assertOwnsPageAN(pageId: string, userId: string): Promise<void> {
+  if (!db) throw new Error("db_unavailable");
+  const [p] = await db.select({ id: _pagesAN.id }).from(_pagesAN)
+    .where(_andAN(_eqAN(_pagesAN.id, pageId), _eqAN(_pagesAN.userId, userId))).limit(1);
+  if (!p) throw new Error("page_not_found");
+}
+
+export async function slaIncidentsOpen(input: { pageId: string; title: string; severity?: typeof _SEVERITIES_AN[number]; impact?: typeof _IMPACTS_AN[number]; componentIds?: string[]; body?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  await _assertOwnsPageAN(input.pageId, ctx.userId);
+  // monthly quota
+  const tier = await _getTierAN(ctx);
+  const monthAgo = new Date(Date.now() - 30 * 86_400_000);
+  const count = await db.select({ n: _sqlAN<number>`count(*)::int` }).from(_incAN)
+    .where(_andAN(_eqAN(_incAN.userId, ctx.userId), _gteAN(_incAN.startedAt, monthAgo)));
+  if ((count[0]?.n ?? 0) >= _TIER_SLA_LIMITS_AN[tier].maxIncidentsPerMonth) throw new Error("incident_quota_exceeded");
+  const [row] = await db.insert(_incAN).values({
+    pageId: input.pageId,
+    userId: ctx.userId,
+    title: input.title,
+    status: "investigating",
+    severity: input.severity ?? "minor",
+    impact: input.impact ?? "degraded",
+    componentIds: input.componentIds ?? [],
+  }).returning();
+  if (input.body) {
+    await db.insert(_incUpAN).values({ incidentId: row.id, userId: ctx.userId, status: "investigating", body: input.body });
+  }
+  _dispatchAN("status.incident_opened", ctx.userId, { incidentId: row.id, pageId: row.pageId, title: row.title, severity: row.severity, impact: row.impact });
+  return { incident: row };
+}
+
+export async function slaIncidentsUpdate(input: { id: string; status: typeof _INCIDENT_STATUSES_AN[number]; body: string; impact?: typeof _IMPACTS_AN[number] }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_INCIDENT_STATUSES_AN.includes(input.status)) throw new Error("invalid_status");
+  const [inc] = await db.select().from(_incAN)
+    .where(_andAN(_eqAN(_incAN.id, input.id), _eqAN(_incAN.userId, ctx.userId))).limit(1);
+  if (!inc) throw new Error("not_found");
+  const patch: Record<string, unknown> = { status: input.status, updatedAt: new Date() };
+  if (input.impact) patch.impact = input.impact;
+  if (input.status === "resolved" && !inc.resolvedAt) patch.resolvedAt = new Date();
+  const [updated] = await db.update(_incAN).set(patch).where(_eqAN(_incAN.id, input.id)).returning();
+  await db.insert(_incUpAN).values({ incidentId: input.id, userId: ctx.userId, status: input.status, body: input.body });
+  const event = input.status === "resolved" ? "status.incident_resolved" : "status.incident_updated";
+  _dispatchAN(event, ctx.userId, { incidentId: input.id, pageId: inc.pageId, status: input.status });
+  return { incident: updated };
+}
+
+export async function slaIncidentsList(input: { pageId?: string; status?: typeof _INCIDENT_STATUSES_AN[number]; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAN(_incAN.userId, ctx.userId)];
+  if (input.pageId) conds.push(_eqAN(_incAN.pageId, input.pageId));
+  if (input.status) conds.push(_eqAN(_incAN.status, input.status));
+  const rows = await db.select().from(_incAN).where(_andAN(...conds))
+    .orderBy(_descAN(_incAN.startedAt)).limit(limit).offset(offset);
+  return { incidents: rows, limit, offset };
+}
+
+export async function slaIncidentsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [inc] = await db.select().from(_incAN)
+    .where(_andAN(_eqAN(_incAN.id, input.id), _eqAN(_incAN.userId, ctx.userId))).limit(1);
+  if (!inc) throw new Error("not_found");
+  const updates = await db.select().from(_incUpAN)
+    .where(_eqAN(_incUpAN.incidentId, input.id)).orderBy(_descAN(_incUpAN.postedAt));
+  return { incident: inc, updates };
+}
+
+// ── Maintenance ──────────────────────────────────────────────────────
+export async function slaMaintenanceSchedule(input: { pageId: string; title: string; body?: string; componentIds?: string[]; scheduledStart: string; scheduledEnd: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  await _assertOwnsPageAN(input.pageId, ctx.userId);
+  const start = new Date(input.scheduledStart);
+  const end = new Date(input.scheduledEnd);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) throw new Error("invalid_dates");
+  if (end <= start) throw new Error("end_before_start");
+  const [row] = await db.insert(_mntAN).values({
+    pageId: input.pageId,
+    userId: ctx.userId,
+    title: input.title,
+    body: input.body ?? null,
+    componentIds: input.componentIds ?? [],
+    scheduledStart: start,
+    scheduledEnd: end,
+    status: "scheduled",
+  }).returning();
+  _dispatchAN("status.maintenance_scheduled", ctx.userId, { maintenanceId: row.id, pageId: row.pageId, scheduledStart: row.scheduledStart, scheduledEnd: row.scheduledEnd });
+  return { maintenance: row };
+}
+
+export async function slaMaintenanceUpdate(input: { id: string; status?: typeof _MAINT_STATUSES_AN[number]; title?: string; body?: string; scheduledStart?: string; scheduledEnd?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.status) {
+    if (!_MAINT_STATUSES_AN.includes(input.status)) throw new Error("invalid_status");
+    patch.status = input.status;
+  }
+  if (input.title) patch.title = input.title;
+  if (input.body !== undefined) patch.body = input.body;
+  if (input.scheduledStart) patch.scheduledStart = new Date(input.scheduledStart);
+  if (input.scheduledEnd) patch.scheduledEnd = new Date(input.scheduledEnd);
+  const [row] = await db.update(_mntAN).set(patch)
+    .where(_andAN(_eqAN(_mntAN.id, input.id), _eqAN(_mntAN.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new Error("not_found");
+  if (input.status === "in_progress") _dispatchAN("status.maintenance_started", ctx.userId, { maintenanceId: row.id, pageId: row.pageId });
+  if (input.status === "completed") _dispatchAN("status.maintenance_completed", ctx.userId, { maintenanceId: row.id, pageId: row.pageId });
+  return { maintenance: row };
+}
+
+export async function slaMaintenanceList(input: { pageId?: string; status?: typeof _MAINT_STATUSES_AN[number]; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAN(_mntAN.userId, ctx.userId)];
+  if (input.pageId) conds.push(_eqAN(_mntAN.pageId, input.pageId));
+  if (input.status) conds.push(_eqAN(_mntAN.status, input.status));
+  const rows = await db.select().from(_mntAN).where(_andAN(...conds))
+    .orderBy(_descAN(_mntAN.scheduledStart)).limit(limit).offset(offset);
+  return { maintenance: rows, limit, offset };
+}
+
+export async function slaMaintenanceCancel(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [row] = await db.update(_mntAN).set({ status: "cancelled", updatedAt: new Date() })
+    .where(_andAN(_eqAN(_mntAN.id, input.id), _eqAN(_mntAN.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new Error("not_found");
+  return { maintenance: row };
+}
+
+// ── Subscribers ──────────────────────────────────────────────────────
+export async function slaSubscribersAdd(input: { pageId: string; channel: typeof _CHANNELS_AN[number]; target: string; componentIds?: string[]; autoConfirm?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_CHANNELS_AN.includes(input.channel)) throw new Error("invalid_channel");
+  await _assertOwnsPageAN(input.pageId, ctx.userId);
+  const tier = await _getTierAN(ctx);
+  const max = _TIER_SLA_LIMITS_AN[tier].maxSubscribersPerPage;
+  const count = await db.select({ n: _sqlAN<number>`count(*)::int` }).from(_subsAN)
+    .where(_andAN(_eqAN(_subsAN.pageId, input.pageId), _isNullAN(_subsAN.unsubscribedAt)));
+  if ((count[0]?.n ?? 0) >= max) throw new Error("subscriber_quota_exceeded");
+  if (input.channel === "email") {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.target)) throw new Error("invalid_email");
+  } else {
+    if (!/^https?:\/\//i.test(input.target)) throw new Error("invalid_webhook_url");
+  }
+  const token = _rbAN(24).toString("base64url");
+  const [row] = await db.insert(_subsAN).values({
+    pageId: input.pageId,
+    channel: input.channel,
+    target: input.target,
+    componentIds: input.componentIds ?? [],
+    confirmToken: token,
+    confirmedAt: input.autoConfirm ? new Date() : null,
+  }).returning();
+  _dispatchAN("status.subscriber_added", ctx.userId, { subscriberId: row.id, pageId: row.pageId, channel: row.channel });
+  return { subscriber: row, confirmToken: token };
+}
+
+export async function slaSubscribersConfirm(input: { id: string; token: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [sub] = await db.select().from(_subsAN).where(_eqAN(_subsAN.id, input.id)).limit(1);
+  if (!sub) throw new Error("not_found");
+  if (sub.confirmToken !== input.token) throw new Error("invalid_token");
+  const [row] = await db.update(_subsAN).set({ confirmedAt: new Date() }).where(_eqAN(_subsAN.id, input.id)).returning();
+  _dispatchAN("status.subscriber_confirmed", ctx.userId, { subscriberId: input.id, pageId: row.pageId });
+  return { subscriber: row };
+}
+
+export async function slaSubscribersList(input: { pageId: string; includeUnsubscribed?: boolean; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  await _assertOwnsPageAN(input.pageId, ctx.userId);
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 1000);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAN(_subsAN.pageId, input.pageId)];
+  if (!input.includeUnsubscribed) conds.push(_isNullAN(_subsAN.unsubscribedAt));
+  const rows = await db.select().from(_subsAN).where(_andAN(...conds))
+    .orderBy(_descAN(_subsAN.createdAt)).limit(limit).offset(offset);
+  return { subscribers: rows, limit, offset };
+}
+
+export async function slaSubscribersRemove(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [sub] = await db.select().from(_subsAN).where(_eqAN(_subsAN.id, input.id)).limit(1);
+  if (!sub) throw new Error("not_found");
+  await _assertOwnsPageAN(sub.pageId, ctx.userId);
+  const [row] = await db.update(_subsAN).set({ unsubscribedAt: new Date() }).where(_eqAN(_subsAN.id, input.id)).returning();
+  return { subscriber: row };
+}
+
+// ── SLA targets & credits ────────────────────────────────────────────
+export async function slaTargetsList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const tier = await _getTierAN(ctx);
+  const rows = await db.select().from(_tgtAN);
+  const filtered = rows.filter((r) => r.userId === null || r.userId === ctx.userId || r.tier === tier);
+  const defaultTarget = _DEFAULT_SLA_AN[tier];
+  return { targets: filtered, tier, defaults: defaultTarget };
+}
+
+export async function slaCreditsCompute(input: { periodMonth: string; observedUptime?: number; observedLatencyP95Ms?: number; componentKey?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_PERIOD_RE_AN.test(input.periodMonth)) throw new Error("invalid_period");
+  const tier = await _getTierAN(ctx);
+  const target = _DEFAULT_SLA_AN[tier];
+  const observedUptime = typeof input.observedUptime === "number" ? input.observedUptime : 1;
+  const pct = _slaCreditPctAN(observedUptime, target.uptime);
+  const [row] = await db.insert(_credAN).values({
+    userId: ctx.userId,
+    periodMonth: input.periodMonth,
+    target: { tier, uptime: target.uptime, latencyP95Ms: target.latencyP95Ms },
+    observed: { uptime: observedUptime, latencyP95Ms: input.observedLatencyP95Ms ?? null, componentKey: input.componentKey ?? "global" },
+    creditPct: pct.toFixed(4),
+    status: pct > 0 ? "pending" : "denied",
+    note: pct > 0 ? `Uptime ${(observedUptime * 100).toFixed(3)}% below target ${(target.uptime * 100).toFixed(3)}%` : "SLA met",
+  }).onConflictDoUpdate({
+    target: [_credAN.userId, _credAN.periodMonth],
+    set: {
+      target: { tier, uptime: target.uptime, latencyP95Ms: target.latencyP95Ms },
+      observed: { uptime: observedUptime, latencyP95Ms: input.observedLatencyP95Ms ?? null, componentKey: input.componentKey ?? "global" },
+      creditPct: pct.toFixed(4),
+      status: pct > 0 ? "pending" : "denied",
+      note: pct > 0 ? `Uptime ${(observedUptime * 100).toFixed(3)}% below target ${(target.uptime * 100).toFixed(3)}%` : "SLA met",
+      updatedAt: new Date(),
+    },
+  }).returning();
+  if (pct > 0) _dispatchAN("sla.credit_issued", ctx.userId, { periodMonth: input.periodMonth, creditPct: pct, tier });
+  return { credit: row };
+}
+
+export async function slaCreditsList(input: { limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 24, 1), 120);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const rows = await db.select().from(_credAN).where(_eqAN(_credAN.userId, ctx.userId))
+    .orderBy(_descAN(_credAN.createdAt)).limit(limit).offset(offset);
+  return { credits: rows, limit, offset };
+}
+
+export async function slaPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _getTierAN(ctx);
+  return {
+    tier,
+    limits: _TIER_SLA_LIMITS_AN[tier],
+    allTierLimits: _TIER_SLA_LIMITS_AN,
+    defaultTargets: _DEFAULT_SLA_AN,
+    incidentStatuses: _INCIDENT_STATUSES_AN,
+    severities: _SEVERITIES_AN,
+    impacts: _IMPACTS_AN,
+    maintenanceStatuses: _MAINT_STATUSES_AN,
+    subscriberChannels: _CHANNELS_AN,
+    creditSchedule: [
+      { gapPp: "<0.5",      creditPct: 0.10 },
+      { gapPp: "0.5–<2.0",  creditPct: 0.25 },
+      { gapPp: "2.0–<5.0",  creditPct: 0.50 },
+      { gapPp: ">=5.0",     creditPct: 1.00 },
+    ],
+    slugRegex: _SLUG_AN.source,
+    periodRegex: _PERIOD_RE_AN.source,
+    webhookEvents: [
+      "status.incident_opened",
+      "status.incident_updated",
+      "status.incident_resolved",
+      "status.maintenance_scheduled",
+      "status.maintenance_started",
+      "status.maintenance_completed",
+      "status.subscriber_added",
+      "status.subscriber_confirmed",
+      "sla.credit_issued",
+    ],
+    notes: [
+      "Status pages have globally-unique slugs. Public pages are readable without auth at /status/{slug}.",
+      "Incidents auto-stamp resolvedAt when status transitions to 'resolved'.",
+      "Subscribers must confirm via token before receiving updates unless autoConfirm=true (page-owner add).",
+      "SLA credits are computed per (user, periodMonth) and are best-effort estimates; finance review marks them approved/paid.",
+      "Custom branding (logo, colors) requires the Mini tier or higher.",
+    ],
+  };
+}
