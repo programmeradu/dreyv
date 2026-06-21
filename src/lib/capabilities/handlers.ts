@@ -8201,45 +8201,13 @@ function _normalizeRoleAJ(r: string): _TeamRoleAJ {
 }
 
 // ─── teams.list ──────────────────────────────────────────────────────
-export async function teamsList(
-  input: { includeRemoved?: boolean; limit?: number },
-  ctx: CapabilityRunContext,
-) {
-  const d = requireDb();
-  const limit = Math.min(input.limit ?? 100, 500);
-  // Teams I created OR teams I'm an active member of.
-  const memberships = await d
-    .select({ teamId: _teamMembersAJ.teamId, role: _teamMembersAJ.role, status: _teamMembersAJ.status })
-    .from(_teamMembersAJ)
-    .where(eq(_teamMembersAJ.userId, ctx.userId));
-  const memberTeamIds = memberships
-    .filter((m) => input.includeRemoved || m.status === "active")
-    .map((m) => m.teamId);
-  const ownedRows = await d.select().from(_teamsAJ).where(eq(_teamsAJ.createdBy, ctx.userId)).limit(limit);
-  const memberRows = memberTeamIds.length
-    ? await d.select().from(_teamsAJ).where(inArray(_teamsAJ.id, memberTeamIds)).limit(limit)
-    : [];
-  const byId = new Map<string, typeof _teamsAJ.$inferSelect>();
-  for (const t of [...ownedRows, ...memberRows]) byId.set(t.id, t);
-  const out = Array.from(byId.values())
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, limit);
-  return {
-    count: out.length,
-    teams: out.map((t) => {
-      const m = memberships.find((x) => x.teamId === t.id);
-      return {
-        id: t.id,
-        name: t.name,
-        vaultAddress: t.vaultAddress,
-        createdBy: t.createdBy,
-        createdAt: t.createdAt,
-        myRole: (m?.role as _TeamRoleAJ | undefined) ?? (t.createdBy === ctx.userId ? "owner" : null),
-        myStatus: m?.status ?? (t.createdBy === ctx.userId ? "active" : null),
-      };
-    }),
-  };
-}
+// (teams.list is provided by the legacy handler earlier in this file —
+// the Phase 26 layer below extends it with get/create/update/delete/
+// invites_list/invites_revoke/audit/policy. members_* are also covered
+// by the legacy teams.members / teams.invite / teams.update_role /
+// teams.remove_member capabilities.)
+
+
 
 // ─── teams.get ───────────────────────────────────────────────────────
 export async function teamsGet(input: { id: string }, ctx: CapabilityRunContext) {
