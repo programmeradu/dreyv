@@ -100,10 +100,18 @@ export default async function MiniAppDetailPage({
             <p className="mt-3 text-base text-slate-600 leading-relaxed max-w-2xl">
               {app.description}
             </p>
-            <div className="mt-5 flex items-center gap-3">
-              <button className={marketingPrimaryCtaSm}>
-                {price === 0 ? "Install free" : `Install for ${price} USDC`}
-              </button>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <InstallButton
+                app={{
+                  id: app.id,
+                  name: app.name,
+                  description: app.description,
+                  category: app.category,
+                  version: app.version,
+                  priceUsdc: price,
+                  creatorWallet: app.creatorWallet,
+                }}
+              />
               {app.arweaveTxId && (
                 <a
                   href={`https://arweave.net/${app.arweaveTxId}`}
