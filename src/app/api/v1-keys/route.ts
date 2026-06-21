@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { publicApiKeys } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { getAuthenticatedUser } from "@/lib/auth-utils";
+import { getAuthUser } from "@/lib/auth-utils";
 import {
   mintPublicKey,
   ALL_SCOPES,
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser(req);
+  const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ keys: [] });
 
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser(req);
+  const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let body: { label?: string; env?: ApiKeyEnv; scopes?: ApiScope[]; rateLimitRpm?: number } = {};

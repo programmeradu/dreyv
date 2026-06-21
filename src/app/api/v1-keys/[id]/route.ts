@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { publicApiKeys } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { getAuthenticatedUser } from "@/lib/auth-utils";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const user = await getAuthenticatedUser(req);
+  const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
   const { id } = await ctx.params;
