@@ -9743,3 +9743,599 @@ export async function reportsPolicy(_input: Record<string, never>, ctx: Capabili
     ],
   };
 }
+
+// ─── Pillar AM — Marketplace & Catalog (Phase 29) ─────────────────────
+import { createHash as _chAM } from "node:crypto";
+import { sql as _sqlAM, gte as _gteAM, ilike as _ilikeAM, or as _orAM, asc as _ascAM } from "drizzle-orm";
+import {
+  publicApiPublishers as _pubAM,
+  publicApiListings as _lstAM,
+  publicApiListingVersions as _vrsAM,
+  publicApiListingInstalls as _insAM,
+  publicApiListingReviews as _revAM,
+} from "@/db/schema";
+
+const _CATEGORIES_AM = [
+  "general", "defi", "treasury", "trading", "research", "analytics",
+  "automation", "data", "governance", "security", "ai", "developer",
+] as const;
+const _KINDS_AM = ["capability", "template", "agent", "dataset", "workflow"] as const;
+const _PRICING_AM = ["free", "one_time", "subscription", "usage"] as const;
+const _STATUSES_AM = ["draft", "pending", "published", "suspended", "archived"] as const;
+const _VISIBILITY_AM = ["public", "unlisted", "private"] as const;
+
+const _TIER_MARKET_LIMITS_AM: Record<string, {
+  maxListings: number;
+  maxVersionsPerListing: number;
+  maxInstalls: number;
+  maxReviewsPerDay: number;
+  payoutsAllowed: boolean;
+  paidListingsAllowed: boolean;
+}> = {
+  free: { maxListings: 3,   maxVersionsPerListing: 10,  maxInstalls: 25,   maxReviewsPerDay: 5,   payoutsAllowed: false, paidListingsAllowed: false },
+  mini: { maxListings: 25,  maxVersionsPerListing: 100, maxInstalls: 500,  maxReviewsPerDay: 50,  payoutsAllowed: true,  paidListingsAllowed: true  },
+  max:  { maxListings: 500, maxVersionsPerListing: 1000,maxInstalls: 10000,maxReviewsPerDay: 500, payoutsAllowed: true,  paidListingsAllowed: true  },
+};
+
+const _SEMVER_AM = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const _SLUG_AM = /^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])?$/;
+
+function _manifestHashAM(manifest: unknown): string {
+  return _chAM("sha256").update(JSON.stringify(manifest ?? {}), "utf8").digest("hex");
+}
+
+async function _loadPublisherForUserAM(userId: string) {
+  const d = requireDb();
+  const [row] = await d.select().from(_pubAM).where(eq(_pubAM.userId, userId)).limit(1);
+  return row ?? null;
+}
+
+async function _requirePublisherAM(userId: string) {
+  const row = await _loadPublisherForUserAM(userId);
+  if (!row) throw new CapabilityError("Publisher profile required — call marketplace.publishers_upsert first", 412, null);
+  return row;
+}
+
+async function _recomputeRatingAM(listingId: string) {
+  const d = requireDb();
+  const [agg] = await d
+    .select({
+      avg: _sqlAM<string>`coalesce(round(avg(${_revAM.rating})::numeric, 2)::text, '0')`,
+      count: _sqlAM<number>`count(*)::int`,
+    })
+    .from(_revAM)
+    .where(and(eq(_revAM.listingId, listingId), _sqlAM`${_revAM.hiddenAt} is null`));
+  await d
+    .update(_lstAM)
+    .set({ ratingAvg: agg?.avg ?? "0", ratingCount: agg?.count ?? 0, updatedAt: new Date() })
+    .where(eq(_lstAM.id, listingId));
+}
+
+export async function marketplacePublishersUpsert(
+  input: {
+    slug: string; displayName: string;
+    website?: string; supportEmail?: string; description?: string; logoUrl?: string;
+    metadata?: Record<string, unknown>;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!_SLUG_AM.test(input.slug)) throw new CapabilityError("slug must be 2-64 chars, lowercase letters/digits/hyphens", 400, null);
+  if (input.displayName.length < 2 || input.displayName.length > 80) throw new CapabilityError("displayName must be 2-80 chars", 400, null);
+  if (input.supportEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.supportEmail)) throw new CapabilityError("supportEmail is not a valid email", 400, null);
+  if (input.website && !/^https?:\/\//i.test(input.website)) throw new CapabilityError("website must start with http(s)://", 400, null);
+  const existing = await _loadPublisherForUserAM(ctx.userId);
+  const slugTaken = await d
+    .select({ id: _pubAM.id })
+    .from(_pubAM)
+    .where(and(eq(_pubAM.slug, input.slug), existing ? _sqlAM`${_pubAM.id} <> ${existing.id}` : _sqlAM`true`))
+    .limit(1);
+  if (slugTaken.length) throw new CapabilityError(`Publisher slug '${input.slug}' is already taken`, 409, null);
+  if (existing) {
+    await d.update(_pubAM).set({
+      slug: input.slug,
+      displayName: input.displayName,
+      website: input.website ?? null,
+      supportEmail: input.supportEmail ?? null,
+      description: input.description ?? null,
+      logoUrl: input.logoUrl ?? null,
+      metadata: input.metadata ?? {},
+      updatedAt: new Date(),
+    }).where(eq(_pubAM.id, existing.id));
+    const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.publishers_upsert", target: existing.id, meta: { slug: input.slug, mode: "update" } });
+    return { ok: true, id: existing.id, mode: "update" as const, audit };
+  }
+  const [row] = await d.insert(_pubAM).values({
+    userId: ctx.userId,
+    slug: input.slug,
+    displayName: input.displayName,
+    website: input.website ?? null,
+    supportEmail: input.supportEmail ?? null,
+    description: input.description ?? null,
+    logoUrl: input.logoUrl ?? null,
+    metadata: input.metadata ?? {},
+  }).returning();
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.publishers_upsert", target: row.id, meta: { slug: input.slug, mode: "create" } });
+  return { ok: true, id: row.id, mode: "create" as const, audit };
+}
+
+export async function marketplacePublishersGet(input: { slug?: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const row = input.slug
+    ? (await d.select().from(_pubAM).where(eq(_pubAM.slug, input.slug)).limit(1))[0]
+    : await _loadPublisherForUserAM(ctx.userId);
+  if (!row) throw new CapabilityError("Publisher not found", 404, null);
+  const isOwner = row.userId === ctx.userId;
+  return {
+    id: row.id, slug: row.slug, displayName: row.displayName, website: row.website,
+    supportEmail: isOwner ? row.supportEmail : null,
+    description: row.description, logoUrl: row.logoUrl,
+    verified: row.verified, verificationAt: row.verificationAt,
+    isOwner, createdAt: row.createdAt,
+  };
+}
+
+export async function marketplacePublishersApplyVerification(
+  input: { evidenceUrl?: string; notes?: string },
+  ctx: CapabilityRunContext,
+) {
+  const pub = await _requirePublisherAM(ctx.userId);
+  if (pub.verified) return { ok: true, alreadyVerified: true, id: pub.id };
+  if (input.evidenceUrl && !/^https?:\/\//i.test(input.evidenceUrl)) throw new CapabilityError("evidenceUrl must start with http(s)://", 400, null);
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.publishers_apply_verification",
+    target: pub.id, meta: { evidenceUrl: input.evidenceUrl ?? null, notes: input.notes ?? null },
+  });
+  return { ok: true, id: pub.id, status: "submitted" as const, reviewSlaHours: 72, audit };
+}
+
+export async function marketplaceListingsCreate(
+  input: {
+    slug: string; title: string; summary: string;
+    longDescription?: string; category?: string; kind?: string;
+    pricingModel?: string; priceMinor?: number; currency?: string;
+    visibility?: string; tags?: string[]; manifest?: Record<string, unknown>;
+    version?: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_MARKET_LIMITS_AM[tier];
+  const pub = await _requirePublisherAM(ctx.userId);
+  if (!_SLUG_AM.test(input.slug)) throw new CapabilityError("slug must be 2-64 chars (lowercase, digits, hyphens)", 400, null);
+  if (input.title.length < 3 || input.title.length > 120) throw new CapabilityError("title must be 3-120 chars", 400, null);
+  if (input.summary.length < 10 || input.summary.length > 280) throw new CapabilityError("summary must be 10-280 chars", 400, null);
+  const category = input.category ?? "general";
+  if (!_CATEGORIES_AM.includes(category as typeof _CATEGORIES_AM[number])) throw new CapabilityError(`category must be one of ${_CATEGORIES_AM.join(", ")}`, 400, null);
+  const kind = input.kind ?? "capability";
+  if (!_KINDS_AM.includes(kind as typeof _KINDS_AM[number])) throw new CapabilityError(`kind must be one of ${_KINDS_AM.join(", ")}`, 400, null);
+  const pricingModel = input.pricingModel ?? "free";
+  if (!_PRICING_AM.includes(pricingModel as typeof _PRICING_AM[number])) throw new CapabilityError(`pricingModel must be one of ${_PRICING_AM.join(", ")}`, 400, null);
+  const priceMinor = Math.max(0, Math.floor(input.priceMinor ?? 0));
+  if (pricingModel !== "free" && priceMinor <= 0) throw new CapabilityError("priceMinor must be > 0 for paid listings", 400, null);
+  if (pricingModel !== "free" && !limits.paidListingsAllowed) throw new CapabilityError(`Tier '${tier}' cannot publish paid listings — upgrade required`, 402, { tier, requires: "mini" });
+  const currency = (input.currency ?? "USD").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) throw new CapabilityError("currency must be a 3-letter ISO code", 400, null);
+  const visibility = input.visibility ?? "public";
+  if (!_VISIBILITY_AM.includes(visibility as typeof _VISIBILITY_AM[number])) throw new CapabilityError(`visibility must be one of ${_VISIBILITY_AM.join(", ")}`, 400, null);
+  const version = input.version ?? "0.1.0";
+  if (!_SEMVER_AM.test(version)) throw new CapabilityError("version must be semver (e.g. 0.1.0)", 400, null);
+  const tags = (input.tags ?? []).slice(0, 12).map((t) => String(t).slice(0, 32));
+
+  const [{ count }] = await d
+    .select({ count: _sqlAM<number>`count(*)::int` })
+    .from(_lstAM)
+    .where(and(eq(_lstAM.userId, ctx.userId), _sqlAM`${_lstAM.status} <> 'archived'`));
+  if ((count ?? 0) >= limits.maxListings) throw new CapabilityError(`Tier '${tier}' allows at most ${limits.maxListings} listings`, 402, { tier, current: count, max: limits.maxListings });
+
+  const dup = await d.select({ id: _lstAM.id }).from(_lstAM)
+    .where(and(eq(_lstAM.publisherId, pub.id), eq(_lstAM.slug, input.slug))).limit(1);
+  if (dup.length) throw new CapabilityError(`Listing slug '${input.slug}' already exists for this publisher`, 409, null);
+
+  const manifest = input.manifest ?? {};
+  const [row] = await d.insert(_lstAM).values({
+    publisherId: pub.id, userId: ctx.userId, slug: input.slug, title: input.title,
+    summary: input.summary, longDescription: input.longDescription ?? null,
+    category, kind, pricingModel, priceMinor, currency, status: "draft", visibility,
+    tags, manifest, currentVersion: version,
+  }).returning();
+  await d.insert(_vrsAM).values({
+    listingId: row.id, userId: ctx.userId, version, changelog: "Initial draft",
+    manifest, manifestHash: _manifestHashAM(manifest),
+  });
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_create", target: row.id, meta: { slug: input.slug, kind, pricingModel, priceMinor } });
+  return { ok: true, id: row.id, slug: row.slug, status: row.status, version, audit };
+}
+
+export async function marketplaceListingsUpdate(
+  input: {
+    id: string;
+    title?: string; summary?: string; longDescription?: string;
+    category?: string; tags?: string[];
+    pricingModel?: string; priceMinor?: number; currency?: string;
+    visibility?: string; manifest?: Record<string, unknown>;
+    bumpVersion?: string; changelog?: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_MARKET_LIMITS_AM[tier];
+  const [row] = await d.select().from(_lstAM).where(and(eq(_lstAM.id, input.id), eq(_lstAM.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Listing not found", 404, null);
+
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.title !== undefined) { if (input.title.length < 3 || input.title.length > 120) throw new CapabilityError("title must be 3-120 chars", 400, null); patch.title = input.title; }
+  if (input.summary !== undefined) { if (input.summary.length < 10 || input.summary.length > 280) throw new CapabilityError("summary must be 10-280 chars", 400, null); patch.summary = input.summary; }
+  if (input.longDescription !== undefined) patch.longDescription = input.longDescription;
+  if (input.category !== undefined) { if (!_CATEGORIES_AM.includes(input.category as typeof _CATEGORIES_AM[number])) throw new CapabilityError("invalid category", 400, null); patch.category = input.category; }
+  if (input.tags !== undefined) patch.tags = input.tags.slice(0, 12).map((t) => String(t).slice(0, 32));
+  if (input.pricingModel !== undefined) {
+    if (!_PRICING_AM.includes(input.pricingModel as typeof _PRICING_AM[number])) throw new CapabilityError("invalid pricingModel", 400, null);
+    if (input.pricingModel !== "free" && !limits.paidListingsAllowed) throw new CapabilityError(`Tier '${tier}' cannot publish paid listings`, 402, { tier });
+    patch.pricingModel = input.pricingModel;
+  }
+  if (input.priceMinor !== undefined) patch.priceMinor = Math.max(0, Math.floor(input.priceMinor));
+  if (input.currency !== undefined) { const cur = input.currency.toUpperCase(); if (!/^[A-Z]{3}$/.test(cur)) throw new CapabilityError("currency must be ISO 3-letter", 400, null); patch.currency = cur; }
+  if (input.visibility !== undefined) { if (!_VISIBILITY_AM.includes(input.visibility as typeof _VISIBILITY_AM[number])) throw new CapabilityError("invalid visibility", 400, null); patch.visibility = input.visibility; }
+
+  let newVersionRow: { id: string; version: string } | null = null;
+  if (input.bumpVersion !== undefined) {
+    if (!_SEMVER_AM.test(input.bumpVersion)) throw new CapabilityError("bumpVersion must be semver", 400, null);
+    const existing = await d.select({ id: _vrsAM.id }).from(_vrsAM).where(and(eq(_vrsAM.listingId, row.id), eq(_vrsAM.version, input.bumpVersion))).limit(1);
+    if (existing.length) throw new CapabilityError(`Version ${input.bumpVersion} already exists`, 409, null);
+    const [{ count }] = await d.select({ count: _sqlAM<number>`count(*)::int` }).from(_vrsAM).where(eq(_vrsAM.listingId, row.id));
+    if ((count ?? 0) >= limits.maxVersionsPerListing) throw new CapabilityError(`Tier '${tier}' allows at most ${limits.maxVersionsPerListing} versions per listing`, 402, { tier });
+    const manifest = input.manifest ?? (row.manifest as Record<string, unknown>);
+    const [v] = await d.insert(_vrsAM).values({
+      listingId: row.id, userId: ctx.userId, version: input.bumpVersion,
+      changelog: input.changelog ?? null, manifest, manifestHash: _manifestHashAM(manifest),
+    }).returning({ id: _vrsAM.id, version: _vrsAM.version });
+    patch.manifest = manifest;
+    patch.currentVersion = input.bumpVersion;
+    newVersionRow = { id: v.id, version: v.version };
+  } else if (input.manifest !== undefined) {
+    if (row.status !== "draft") throw new CapabilityError("Cannot mutate manifest on a non-draft listing without bumpVersion", 409, { status: row.status });
+    patch.manifest = input.manifest;
+  }
+
+  await d.update(_lstAM).set(patch).where(eq(_lstAM.id, row.id));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_update", target: row.id, meta: { keys: Object.keys(patch), bumpVersion: input.bumpVersion ?? null } });
+  return { ok: true, id: row.id, version: patch.currentVersion ?? row.currentVersion, newVersion: newVersionRow, audit };
+}
+
+export async function marketplaceListingsSubmit(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d.select().from(_lstAM).where(and(eq(_lstAM.id, input.id), eq(_lstAM.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Listing not found", 404, null);
+  if (row.status !== "draft" && row.status !== "suspended") throw new CapabilityError(`Cannot submit from status '${row.status}'`, 409, null);
+  await d.update(_lstAM).set({ status: "pending", updatedAt: new Date() }).where(eq(_lstAM.id, row.id));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_submit", target: row.id, meta: { from: row.status } });
+  return { ok: true, id: row.id, status: "pending" as const, audit };
+}
+
+export async function marketplaceListingsPublish(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d.select().from(_lstAM).where(and(eq(_lstAM.id, input.id), eq(_lstAM.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Listing not found", 404, null);
+  if (row.status === "published") return { ok: true, id: row.id, alreadyPublished: true };
+  if (row.status !== "pending" && row.status !== "draft") throw new CapabilityError(`Cannot publish from status '${row.status}'`, 409, null);
+  const manifest = (row.manifest as Record<string, unknown>) ?? {};
+  if (row.kind === "capability") {
+    const bindings = Array.isArray((manifest as { bindings?: unknown[] }).bindings) ? (manifest as { bindings: unknown[] }).bindings : [];
+    if (bindings.length === 0) throw new CapabilityError("capability listings must define `manifest.bindings` (at least one capability)", 400, null);
+  }
+  await d.update(_lstAM).set({ status: "published", publishedAt: new Date(), unpublishedAt: null, updatedAt: new Date() }).where(eq(_lstAM.id, row.id));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_publish", target: row.id, meta: { from: row.status, version: row.currentVersion } });
+  void emitWebhookEvent({ userId: ctx.userId, event: "marketplace.listing_published", data: { listingId: row.id, slug: row.slug, version: row.currentVersion, pricingModel: row.pricingModel } }).catch(() => undefined);
+  return { ok: true, id: row.id, status: "published" as const, audit };
+}
+
+export async function marketplaceListingsUnpublish(input: { id: string; reason?: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d.select().from(_lstAM).where(and(eq(_lstAM.id, input.id), eq(_lstAM.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Listing not found", 404, null);
+  if (row.status !== "published") return { ok: true, id: row.id, status: row.status, noop: true };
+  await d.update(_lstAM).set({ status: "draft", unpublishedAt: new Date(), updatedAt: new Date() }).where(eq(_lstAM.id, row.id));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_unpublish", target: row.id, meta: { reason: input.reason ?? null } });
+  void emitWebhookEvent({ userId: ctx.userId, event: "marketplace.listing_unpublished", data: { listingId: row.id, slug: row.slug, reason: input.reason ?? null } }).catch(() => undefined);
+  return { ok: true, id: row.id, status: "draft" as const, audit };
+}
+
+export async function marketplaceListingsGet(
+  input: { id?: string; publisherSlug?: string; listingSlug?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  let listing: typeof _lstAM.$inferSelect | undefined;
+  if (input.id) {
+    [listing] = await d.select().from(_lstAM).where(eq(_lstAM.id, input.id)).limit(1);
+  } else if (input.publisherSlug && input.listingSlug) {
+    const [pub] = await d.select().from(_pubAM).where(eq(_pubAM.slug, input.publisherSlug)).limit(1);
+    if (pub) [listing] = await d.select().from(_lstAM).where(and(eq(_lstAM.publisherId, pub.id), eq(_lstAM.slug, input.listingSlug))).limit(1);
+  } else {
+    throw new CapabilityError("Provide either `id` or (`publisherSlug` and `listingSlug`)", 400, null);
+  }
+  if (!listing) throw new CapabilityError("Listing not found", 404, null);
+  const isOwner = listing.userId === ctx.userId;
+  const accessible = isOwner || (listing.status === "published" && (listing.visibility === "public" || listing.visibility === "unlisted"));
+  if (!accessible) throw new CapabilityError("Listing not accessible", 404, null);
+  const [pub] = await d.select({ id: _pubAM.id, slug: _pubAM.slug, displayName: _pubAM.displayName, verified: _pubAM.verified })
+    .from(_pubAM).where(eq(_pubAM.id, listing.publisherId)).limit(1);
+  const [install] = await d.select().from(_insAM)
+    .where(and(eq(_insAM.userId, ctx.userId), eq(_insAM.listingId, listing.id))).limit(1);
+  return {
+    listing: {
+      id: listing.id, slug: listing.slug, title: listing.title, summary: listing.summary,
+      longDescription: listing.longDescription, category: listing.category, kind: listing.kind,
+      pricingModel: listing.pricingModel, priceMinor: listing.priceMinor, currency: listing.currency,
+      status: listing.status, visibility: listing.visibility, tags: listing.tags,
+      manifest: isOwner ? listing.manifest : { bindings: (listing.manifest as { bindings?: unknown })?.bindings ?? null },
+      currentVersion: listing.currentVersion, installCount: listing.installCount,
+      ratingAvg: listing.ratingAvg, ratingCount: listing.ratingCount,
+      publishedAt: listing.publishedAt, createdAt: listing.createdAt,
+    },
+    publisher: pub ?? null,
+    install: install ? { id: install.id, status: install.status, versionId: install.versionId, installedAt: install.installedAt } : null,
+    isOwner,
+  };
+}
+
+export async function marketplaceListingsSearch(
+  input: {
+    q?: string; category?: string; kind?: string; pricingModel?: string;
+    tag?: string; publisherSlug?: string;
+    includeUnpublished?: boolean;
+    sort?: "recent" | "popular" | "rating" | "alpha";
+    limit?: number; offset?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds: ReturnType<typeof eq>[] = [];
+  if (input.includeUnpublished) {
+    conds.push(eq(_lstAM.userId, ctx.userId));
+  } else {
+    conds.push(eq(_lstAM.status, "published"));
+    conds.push(_sqlAM`${_lstAM.visibility} <> 'private'` as unknown as ReturnType<typeof eq>);
+  }
+  if (input.category) conds.push(eq(_lstAM.category, input.category));
+  if (input.kind) conds.push(eq(_lstAM.kind, input.kind));
+  if (input.pricingModel) conds.push(eq(_lstAM.pricingModel, input.pricingModel));
+  if (input.q) {
+    const q = `%${input.q.trim().slice(0, 80)}%`;
+    conds.push(_orAM(_ilikeAM(_lstAM.title, q), _ilikeAM(_lstAM.summary, q)) as unknown as ReturnType<typeof eq>);
+  }
+  if (input.tag) conds.push(_sqlAM`${_lstAM.tags} @> ${JSON.stringify([input.tag])}::jsonb` as unknown as ReturnType<typeof eq>);
+  if (input.publisherSlug) {
+    const [pub] = await d.select({ id: _pubAM.id }).from(_pubAM).where(eq(_pubAM.slug, input.publisherSlug)).limit(1);
+    if (!pub) return { count: 0, total: 0, listings: [] };
+    conds.push(eq(_lstAM.publisherId, pub.id));
+  }
+  const limit = Math.max(1, Math.min(input.limit ?? 25, 100));
+  const offset = Math.max(0, input.offset ?? 0);
+  const orderBy = input.sort === "popular" ? desc(_lstAM.installCount)
+    : input.sort === "rating" ? desc(_lstAM.ratingAvg)
+    : input.sort === "alpha" ? _ascAM(_lstAM.title)
+    : desc(_lstAM.publishedAt);
+  const where = and(...conds);
+  const rows = await d.select({
+      id: _lstAM.id, slug: _lstAM.slug, title: _lstAM.title, summary: _lstAM.summary,
+      category: _lstAM.category, kind: _lstAM.kind, pricingModel: _lstAM.pricingModel,
+      priceMinor: _lstAM.priceMinor, currency: _lstAM.currency, tags: _lstAM.tags,
+      currentVersion: _lstAM.currentVersion, installCount: _lstAM.installCount,
+      ratingAvg: _lstAM.ratingAvg, ratingCount: _lstAM.ratingCount,
+      status: _lstAM.status, visibility: _lstAM.visibility,
+      publisherId: _lstAM.publisherId, publishedAt: _lstAM.publishedAt,
+    })
+    .from(_lstAM).where(where).orderBy(orderBy).limit(limit).offset(offset);
+  const [{ total }] = await d.select({ total: _sqlAM<number>`count(*)::int` }).from(_lstAM).where(where);
+  return { count: rows.length, total: total ?? 0, limit, offset, listings: rows };
+}
+
+export async function marketplaceListingsVersionsList(input: { listingId: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [listing] = await d.select().from(_lstAM).where(eq(_lstAM.id, input.listingId)).limit(1);
+  if (!listing) throw new CapabilityError("Listing not found", 404, null);
+  const isOwner = listing.userId === ctx.userId;
+  if (!isOwner && !(listing.status === "published" && listing.visibility !== "private")) throw new CapabilityError("Listing not accessible", 404, null);
+  const rows = await d.select({
+      id: _vrsAM.id, version: _vrsAM.version, changelog: _vrsAM.changelog,
+      manifestHash: _vrsAM.manifestHash, yankedAt: _vrsAM.yankedAt, yankReason: _vrsAM.yankReason,
+      createdAt: _vrsAM.createdAt,
+    }).from(_vrsAM).where(eq(_vrsAM.listingId, input.listingId)).orderBy(desc(_vrsAM.createdAt));
+  return { count: rows.length, currentVersion: listing.currentVersion, versions: rows };
+}
+
+export async function marketplaceListingsInstall(
+  input: { listingId: string; config?: Record<string, unknown>; acceptPaid?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_MARKET_LIMITS_AM[tier];
+  const [listing] = await d.select().from(_lstAM).where(eq(_lstAM.id, input.listingId)).limit(1);
+  if (!listing) throw new CapabilityError("Listing not found", 404, null);
+  if (listing.status !== "published") throw new CapabilityError(`Listing is not published (status=${listing.status})`, 409, null);
+  if (listing.visibility === "private" && listing.userId !== ctx.userId) throw new CapabilityError("Listing not accessible", 404, null);
+  if (listing.pricingModel !== "free" && !input.acceptPaid) {
+    throw new CapabilityError("Paid listing — pass acceptPaid:true to acknowledge price and billing terms", 402, {
+      pricingModel: listing.pricingModel, priceMinor: listing.priceMinor, currency: listing.currency,
+    });
+  }
+  const [{ count }] = await d.select({ count: _sqlAM<number>`count(*)::int` })
+    .from(_insAM).where(and(eq(_insAM.userId, ctx.userId), eq(_insAM.status, "active")));
+  if ((count ?? 0) >= limits.maxInstalls) throw new CapabilityError(`Tier '${tier}' allows at most ${limits.maxInstalls} active installs`, 402, { tier, current: count, max: limits.maxInstalls });
+  const [version] = await d.select({ id: _vrsAM.id }).from(_vrsAM)
+    .where(and(eq(_vrsAM.listingId, listing.id), eq(_vrsAM.version, listing.currentVersion))).limit(1);
+  const [existing] = await d.select().from(_insAM)
+    .where(and(eq(_insAM.userId, ctx.userId), eq(_insAM.listingId, listing.id))).limit(1);
+  let install: typeof _insAM.$inferSelect;
+  let mode: "create" | "reactivate";
+  if (existing) {
+    if (existing.status === "active") return { ok: true, id: existing.id, alreadyInstalled: true };
+    [install] = await d.update(_insAM).set({
+      status: "active", versionId: version?.id ?? null,
+      pricingModel: listing.pricingModel, priceMinor: listing.priceMinor, currency: listing.currency,
+      config: input.config ?? {}, installedAt: new Date(), uninstalledAt: null, updatedAt: new Date(),
+    }).where(eq(_insAM.id, existing.id)).returning();
+    mode = "reactivate";
+  } else {
+    [install] = await d.insert(_insAM).values({
+      listingId: listing.id, versionId: version?.id ?? null, userId: ctx.userId, keyId: ctx.keyId,
+      status: "active", pricingModel: listing.pricingModel, priceMinor: listing.priceMinor,
+      currency: listing.currency, config: input.config ?? {},
+    }).returning();
+    mode = "create";
+  }
+  await d.update(_lstAM).set({ installCount: _sqlAM`${_lstAM.installCount} + 1`, updatedAt: new Date() }).where(eq(_lstAM.id, listing.id));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_install", target: listing.id, meta: { installId: install.id, mode, version: listing.currentVersion } });
+  void emitWebhookEvent({ userId: ctx.userId, event: "marketplace.listing_installed", data: { listingId: listing.id, installId: install.id, version: listing.currentVersion, pricingModel: listing.pricingModel, mode } }).catch(() => undefined);
+  if (listing.userId !== ctx.userId) {
+    void emitWebhookEvent({ userId: listing.userId, event: "marketplace.listing_installed", data: { listingId: listing.id, installerUserId: ctx.userId, version: listing.currentVersion, pricingModel: listing.pricingModel } }).catch(() => undefined);
+  }
+  return { ok: true, id: install.id, mode, listingId: listing.id, version: listing.currentVersion, audit };
+}
+
+export async function marketplaceListingsUninstall(input: { listingId: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [existing] = await d.select().from(_insAM)
+    .where(and(eq(_insAM.userId, ctx.userId), eq(_insAM.listingId, input.listingId))).limit(1);
+  if (!existing) throw new CapabilityError("Install not found", 404, null);
+  if (existing.status !== "active") return { ok: true, id: existing.id, alreadyUninstalled: true };
+  await d.update(_insAM).set({ status: "uninstalled", uninstalledAt: new Date(), updatedAt: new Date() }).where(eq(_insAM.id, existing.id));
+  await d.update(_lstAM).set({ installCount: _sqlAM`greatest(${_lstAM.installCount} - 1, 0)`, updatedAt: new Date() }).where(eq(_lstAM.id, input.listingId));
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.listings_uninstall", target: input.listingId, meta: { installId: existing.id } });
+  void emitWebhookEvent({ userId: ctx.userId, event: "marketplace.listing_uninstalled", data: { listingId: input.listingId, installId: existing.id } }).catch(() => undefined);
+  return { ok: true, id: existing.id, audit };
+}
+
+export async function marketplaceInstallsList(
+  input: { status?: "active" | "uninstalled" | "suspended"; limit?: number; offset?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_insAM.userId, ctx.userId)];
+  if (input.status) conds.push(eq(_insAM.status, input.status));
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 200));
+  const offset = Math.max(0, input.offset ?? 0);
+  const rows = await d.select({
+      id: _insAM.id, listingId: _insAM.listingId, status: _insAM.status,
+      pricingModel: _insAM.pricingModel, priceMinor: _insAM.priceMinor, currency: _insAM.currency,
+      installedAt: _insAM.installedAt, uninstalledAt: _insAM.uninstalledAt,
+      title: _lstAM.title, slug: _lstAM.slug, kind: _lstAM.kind, currentVersion: _lstAM.currentVersion,
+    })
+    .from(_insAM).leftJoin(_lstAM, eq(_lstAM.id, _insAM.listingId))
+    .where(and(...conds)).orderBy(desc(_insAM.installedAt)).limit(limit).offset(offset);
+  const [{ total }] = await d.select({ total: _sqlAM<number>`count(*)::int` }).from(_insAM).where(and(...conds));
+  return { count: rows.length, total: total ?? 0, limit, offset, installs: rows };
+}
+
+export async function marketplaceReviewsUpsert(
+  input: { listingId: string; rating: number; title?: string; body?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_MARKET_LIMITS_AM[tier];
+  if (input.rating < 1 || input.rating > 5 || !Number.isInteger(input.rating)) throw new CapabilityError("rating must be an integer 1-5", 400, null);
+  if (input.title && input.title.length > 120) throw new CapabilityError("title max 120 chars", 400, null);
+  if (input.body && input.body.length > 2000) throw new CapabilityError("body max 2000 chars", 400, null);
+  const [listing] = await d.select().from(_lstAM).where(eq(_lstAM.id, input.listingId)).limit(1);
+  if (!listing) throw new CapabilityError("Listing not found", 404, null);
+  if (listing.userId === ctx.userId) throw new CapabilityError("Cannot review your own listing", 409, null);
+  if (listing.status !== "published") throw new CapabilityError("Cannot review unpublished listing", 409, null);
+  const [install] = await d.select({ id: _insAM.id }).from(_insAM)
+    .where(and(eq(_insAM.userId, ctx.userId), eq(_insAM.listingId, listing.id))).limit(1);
+  if (!install) throw new CapabilityError("Install required before reviewing (verified-purchase only)", 412, null);
+  const dayAgo = new Date(Date.now() - 86_400_000);
+  const [{ todayCount }] = await d.select({ todayCount: _sqlAM<number>`count(*)::int` })
+    .from(_revAM).where(and(eq(_revAM.userId, ctx.userId), _gteAM(_revAM.createdAt, dayAgo)));
+  const [existing] = await d.select().from(_revAM)
+    .where(and(eq(_revAM.userId, ctx.userId), eq(_revAM.listingId, listing.id))).limit(1);
+  if (!existing && (todayCount ?? 0) >= limits.maxReviewsPerDay) throw new CapabilityError(`Tier '${tier}' allows at most ${limits.maxReviewsPerDay} new reviews per 24h`, 429, { tier });
+  let mode: "create" | "update";
+  let reviewId: string;
+  if (existing) {
+    await d.update(_revAM).set({ rating: input.rating, title: input.title ?? null, body: input.body ?? null }).where(eq(_revAM.id, existing.id));
+    reviewId = existing.id;
+    mode = "update";
+  } else {
+    const [row] = await d.insert(_revAM).values({
+      listingId: listing.id, userId: ctx.userId, rating: input.rating,
+      title: input.title ?? null, body: input.body ?? null,
+    }).returning({ id: _revAM.id });
+    reviewId = row.id;
+    mode = "create";
+  }
+  await _recomputeRatingAM(listing.id);
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.reviews_upsert", target: reviewId, meta: { listingId: listing.id, rating: input.rating, mode } });
+  if (mode === "create") {
+    void emitWebhookEvent({ userId: listing.userId, event: "marketplace.review_posted", data: { listingId: listing.id, reviewId, rating: input.rating, reviewerUserId: ctx.userId } }).catch(() => undefined);
+  }
+  return { ok: true, id: reviewId, mode, audit };
+}
+
+export async function marketplaceReviewsList(
+  input: { listingId: string; limit?: number; offset?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [listing] = await d.select({ id: _lstAM.id, status: _lstAM.status, visibility: _lstAM.visibility, userId: _lstAM.userId })
+    .from(_lstAM).where(eq(_lstAM.id, input.listingId)).limit(1);
+  if (!listing) throw new CapabilityError("Listing not found", 404, null);
+  const isOwner = listing.userId === ctx.userId;
+  if (!isOwner && !(listing.status === "published" && listing.visibility !== "private")) throw new CapabilityError("Listing not accessible", 404, null);
+  const limit = Math.max(1, Math.min(input.limit ?? 25, 100));
+  const offset = Math.max(0, input.offset ?? 0);
+  const rows = await d.select({
+      id: _revAM.id, userId: _revAM.userId, rating: _revAM.rating,
+      title: _revAM.title, body: _revAM.body, createdAt: _revAM.createdAt,
+    })
+    .from(_revAM).where(and(eq(_revAM.listingId, input.listingId), _sqlAM`${_revAM.hiddenAt} is null`))
+    .orderBy(desc(_revAM.createdAt)).limit(limit).offset(offset);
+  const [{ total }] = await d.select({ total: _sqlAM<number>`count(*)::int` })
+    .from(_revAM).where(and(eq(_revAM.listingId, input.listingId), _sqlAM`${_revAM.hiddenAt} is null`));
+  return { count: rows.length, total: total ?? 0, limit, offset, reviews: rows };
+}
+
+export async function marketplaceReviewsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d.select().from(_revAM).where(and(eq(_revAM.id, input.id), eq(_revAM.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Review not found", 404, null);
+  await d.delete(_revAM).where(eq(_revAM.id, row.id));
+  await _recomputeRatingAM(row.listingId);
+  const audit = await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "marketplace.reviews_delete", target: input.id, meta: { listingId: row.listingId } });
+  return { ok: true, id: input.id, audit };
+}
+
+export async function marketplacePolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_MARKET_LIMITS_AM[tier],
+    perTier: _TIER_MARKET_LIMITS_AM,
+    categories: _CATEGORIES_AM,
+    kinds: _KINDS_AM,
+    pricingModels: _PRICING_AM,
+    statuses: _STATUSES_AM,
+    visibilities: _VISIBILITY_AM,
+    webhookEvents: [
+      "marketplace.listing_published",
+      "marketplace.listing_unpublished",
+      "marketplace.listing_installed",
+      "marketplace.listing_uninstalled",
+      "marketplace.review_posted",
+    ],
+    semverRegex: _SEMVER_AM.source,
+    slugRegex: _SLUG_AM.source,
+    notes: [
+      "Listings transition draft → pending → published → suspended → archived. Owners can publish self-serve; capability manifests must declare `manifest.bindings`.",
+      "Manifest mutations on published listings require `bumpVersion`; drafts can mutate freely.",
+      "Reviews are verified-purchase only (install required); owners cannot review their own listings; one review per (user, listing).",
+      "Install count is best-effort and may undercount during high concurrency.",
+      "Paid listings require tier mini+. Marketplace gating is enforced server-side; client UI is informational.",
+    ],
+  };
+}
