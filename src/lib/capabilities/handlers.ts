@@ -5369,3 +5369,486 @@ export async function statusVersion(_input: Record<string, never>, _ctx: Capabil
     },
   };
 }
+
+// ─── Pillar AE — Jobs & Scheduling (Phase 21) ────────────────────────
+import {
+  publicApiJobs as _jobsAE,
+  publicApiJobRuns as _jobRunsAE,
+} from "@/db/schema";
+import { sql as _sqlAE } from "drizzle-orm";
+
+const _MIN_INTERVAL_AE = 60;          // 60s floor between recurring runs
+const _MAX_INTERVAL_AE = 60 * 60 * 24 * 30; // 30 days ceiling
+const _MAX_INPUT_BYTES_AE = 32 * 1024;
+const _MAX_RESULT_CAPTURE_AE = 16 * 1024;
+
+const _TIER_JOB_LIMITS_AE: Record<string, { jobs: number; minIntervalSeconds: number }> = {
+  free:  { jobs: 5,   minIntervalSeconds: 60 * 15 },  // 15 min floor
+  mini:  { jobs: 50,  minIntervalSeconds: 60 * 5  },  // 5 min
+  max:   { jobs: 500, minIntervalSeconds: 60      },  // 1 min
+};
+
+async function _userTierAE(userId: string): Promise<"free" | "mini" | "max"> {
+  const d = requireDb();
+  const { users } = await import("@/db/schema");
+  const [u] = await d.select({ tier: users.tier }).from(users).where(eq(users.id, userId)).limit(1);
+  const t = (u?.tier ?? "free") as string;
+  return (t === "mini" || t === "max") ? t : "free";
+}
+
+function _truncateForCaptureAE(value: unknown): unknown {
+  try {
+    const s = JSON.stringify(value);
+    if (s.length <= _MAX_RESULT_CAPTURE_AE) return value;
+    return { _truncated: true, preview: s.slice(0, _MAX_RESULT_CAPTURE_AE) };
+  } catch {
+    return { _unserializable: true };
+  }
+}
+
+async function _loadJobAE(id: string, userId: string) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_jobsAE)
+    .where(and(eq(_jobsAE.id, id), eq(_jobsAE.userId, userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Job ${id} not found`, 404, null);
+  return row;
+}
+
+export async function jobsSchedule(
+  input: {
+    label: string;
+    capabilityId: string;
+    payload?: Record<string, unknown>;
+    kind?: "recurring" | "one_shot";
+    intervalSeconds?: number;
+    runAt?: string;
+    maxRetries?: number;
+    metadata?: Record<string, unknown>;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { getCapabilityById } = await import("./registry");
+  const cap = getCapabilityById(input.capabilityId);
+  if (!cap) throw new CapabilityError(`Unknown capability '${input.capabilityId}'`, 400, null);
+  if (cap.id.startsWith("jobs.")) {
+    throw new CapabilityError("Cannot schedule a jobs.* capability (would loop)", 400, null);
+  }
+
+  // Payload size guard
+  const payload = input.payload ?? {};
+  const payloadBytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
+  if (payloadBytes > _MAX_INPUT_BYTES_AE) {
+    throw new CapabilityError(
+      `Job payload exceeds ${_MAX_INPUT_BYTES_AE} bytes (got ${payloadBytes})`,
+      413,
+      null,
+    );
+  }
+
+  // Validate payload against the capability's own schema (catches bad jobs at schedule time)
+  const parsed = cap.inputSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new CapabilityError(
+      `Job payload invalid for '${cap.id}': ${parsed.error.message}`,
+      400,
+      parsed.error.flatten(),
+    );
+  }
+
+  const kind: "recurring" | "one_shot" = input.kind ?? "recurring";
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_JOB_LIMITS_AE[tier];
+
+  // Quota: count active+paused jobs (cancelled/completed don't count)
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_jobsAE)
+    .where(
+      and(
+        eq(_jobsAE.userId, ctx.userId),
+        _sqlAE`${_jobsAE.status} IN ('active','paused')`,
+      ),
+    );
+  if (n >= limits.jobs) {
+    throw new CapabilityError(
+      `Job quota reached for tier '${tier}' (${n}/${limits.jobs}). Upgrade or cancel jobs.`,
+      402,
+      { tier, used: n, limit: limits.jobs },
+    );
+  }
+
+  let nextRunAt: Date;
+  let intervalSeconds: number | null = null;
+  if (kind === "recurring") {
+    const iv = Math.floor(input.intervalSeconds ?? limits.minIntervalSeconds);
+    if (iv < limits.minIntervalSeconds) {
+      throw new CapabilityError(
+        `Interval ${iv}s below tier '${tier}' minimum of ${limits.minIntervalSeconds}s`,
+        400,
+        { tier, minIntervalSeconds: limits.minIntervalSeconds },
+      );
+    }
+    if (iv > _MAX_INTERVAL_AE) {
+      throw new CapabilityError(`Interval exceeds 30-day ceiling`, 400, null);
+    }
+    intervalSeconds = iv;
+    nextRunAt = new Date(Date.now() + iv * 1000);
+  } else {
+    if (!input.runAt) throw new CapabilityError("one_shot job requires runAt (ISO timestamp)", 400, null);
+    const t = new Date(input.runAt);
+    if (isNaN(t.getTime())) throw new CapabilityError("runAt is not a valid ISO timestamp", 400, null);
+    if (t.getTime() < Date.now() - 5000) {
+      throw new CapabilityError("runAt must be in the future", 400, null);
+    }
+    nextRunAt = t;
+  }
+
+  const label = input.label.trim().slice(0, 120) || `Job: ${cap.id}`;
+  const maxRetries = Math.max(0, Math.min(input.maxRetries ?? 3, 10));
+
+  const [row] = await d
+    .insert(_jobsAE)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      label,
+      capabilityId: cap.id,
+      input: payload,
+      kind,
+      intervalSeconds,
+      nextRunAt,
+      maxRetries,
+      metadata: input.metadata ?? {},
+    })
+    .returning();
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "jobs.schedule",
+    target: row.id,
+    meta: { capabilityId: cap.id, kind, intervalSeconds, nextRunAt: nextRunAt.toISOString() },
+  });
+
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "job.scheduled",
+    data: { jobId: row.id, capabilityId: cap.id, kind, nextRunAt: nextRunAt.toISOString() },
+  }).catch(() => undefined);
+
+  return {
+    id: row.id,
+    label: row.label,
+    capabilityId: row.capabilityId,
+    kind: row.kind,
+    intervalSeconds: row.intervalSeconds,
+    nextRunAt: row.nextRunAt,
+    status: row.status,
+    maxRetries: row.maxRetries,
+    createdAt: row.createdAt,
+    tier,
+    quota: { used: n + 1, limit: limits.jobs },
+  };
+}
+
+export async function jobsList(
+  input: { status?: "active" | "paused" | "cancelled" | "completed"; capabilityId?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_jobsAE.userId, ctx.userId)];
+  if (input.status) conds.push(eq(_jobsAE.status, input.status));
+  if (input.capabilityId) conds.push(eq(_jobsAE.capabilityId, input.capabilityId));
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const rows = await d
+    .select()
+    .from(_jobsAE)
+    .where(and(...conds))
+    .orderBy(desc(_jobsAE.createdAt))
+    .limit(limit);
+  return { count: rows.length, jobs: rows };
+}
+
+export async function jobsGet(
+  input: { id: string; includeRuns?: boolean; runLimit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const job = await _loadJobAE(input.id, ctx.userId);
+  let runs: unknown[] = [];
+  if (input.includeRuns) {
+    const lim = Math.min(Math.max(input.runLimit ?? 20, 1), 200);
+    runs = await d
+      .select()
+      .from(_jobRunsAE)
+      .where(eq(_jobRunsAE.jobId, job.id))
+      .orderBy(desc(_jobRunsAE.createdAt))
+      .limit(lim);
+  }
+  return { job, runs };
+}
+
+export async function jobsCancel(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const job = await _loadJobAE(input.id, ctx.userId);
+  if (job.status === "cancelled" || job.status === "completed") {
+    return { id: job.id, status: job.status, alreadyTerminal: true };
+  }
+  const [updated] = await d
+    .update(_jobsAE)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(_jobsAE.id, job.id))
+    .returning();
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "jobs.cancel",
+    target: job.id,
+    meta: { previousStatus: job.status },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "job.cancelled",
+    data: { jobId: job.id, capabilityId: job.capabilityId, previousStatus: job.status },
+  }).catch(() => undefined);
+  return { id: updated.id, status: updated.status, alreadyTerminal: false };
+}
+
+export async function jobsRunNow(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const job = await _loadJobAE(input.id, ctx.userId);
+  if (job.status === "cancelled" || job.status === "completed") {
+    throw new CapabilityError(`Cannot run job in terminal status '${job.status}'`, 409, null);
+  }
+  const { getCapabilityById } = await import("./registry");
+  const cap = getCapabilityById(job.capabilityId);
+  if (!cap) throw new CapabilityError(`Capability '${job.capabilityId}' no longer registered`, 410, null);
+
+  const [run] = await d
+    .insert(_jobRunsAE)
+    .values({
+      jobId: job.id,
+      userId: ctx.userId,
+      status: "running",
+      attempt: 1,
+      startedAt: new Date(),
+      triggeredBy: "manual",
+    })
+    .returning();
+
+  const t0 = Date.now();
+  let status: "ok" | "failed" = "ok";
+  let result: unknown = null;
+  let errorCode: string | null = null;
+  let errorMessage: string | null = null;
+  try {
+    const parsed = cap.inputSchema.safeParse(job.input ?? {});
+    if (!parsed.success) {
+      throw new CapabilityError(`Stored payload invalid: ${parsed.error.message}`, 400, parsed.error.flatten());
+    }
+    result = await cap.handler(parsed.data as never, {
+      ...ctx,
+      capabilityId: cap.id,
+    } as CapabilityRunContext);
+  } catch (err) {
+    status = "failed";
+    if (err instanceof CapabilityError) {
+      errorCode = `http_${err.status}`;
+      errorMessage = err.message;
+    } else {
+      errorCode = "exception";
+      errorMessage = err instanceof Error ? err.message : String(err);
+    }
+  }
+  const duration = Date.now() - t0;
+
+  await d
+    .update(_jobRunsAE)
+    .set({
+      status,
+      finishedAt: new Date(),
+      durationMs: duration,
+      result: status === "ok" ? (_truncateForCaptureAE(result) as object) : null,
+      errorCode,
+      errorMessage,
+    })
+    .where(eq(_jobRunsAE.id, run.id));
+
+  await d
+    .update(_jobsAE)
+    .set({
+      lastRunAt: new Date(),
+      lastStatus: status,
+      runCount: (job.runCount ?? 0) + 1,
+      failCount: (job.failCount ?? 0) + (status === "failed" ? 1 : 0),
+      updatedAt: new Date(),
+    })
+    .where(eq(_jobsAE.id, job.id));
+
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: status === "ok" ? "job.completed" : "job.failed",
+    data: { jobId: job.id, runId: run.id, capabilityId: job.capabilityId, durationMs: duration, errorCode },
+  }).catch(() => undefined);
+
+  return {
+    runId: run.id,
+    jobId: job.id,
+    status,
+    durationMs: duration,
+    triggeredBy: "manual" as const,
+    errorCode,
+    errorMessage,
+    result: status === "ok" ? _truncateForCaptureAE(result) : null,
+  };
+}
+
+export async function jobsRuns(
+  input: { jobId?: string; status?: "queued" | "running" | "ok" | "failed" | "cancelled"; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_jobRunsAE.userId, ctx.userId)];
+  if (input.jobId) conds.push(eq(_jobRunsAE.jobId, input.jobId));
+  if (input.status) conds.push(eq(_jobRunsAE.status, input.status));
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 500);
+  const rows = await d
+    .select()
+    .from(_jobRunsAE)
+    .where(and(...conds))
+    .orderBy(desc(_jobRunsAE.createdAt))
+    .limit(limit);
+  return { count: rows.length, runs: rows };
+}
+
+export async function jobsRetry(
+  input: { runId: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [orig] = await d
+    .select()
+    .from(_jobRunsAE)
+    .where(and(eq(_jobRunsAE.id, input.runId), eq(_jobRunsAE.userId, ctx.userId)))
+    .limit(1);
+  if (!orig) throw new CapabilityError(`Run ${input.runId} not found`, 404, null);
+  if (orig.status !== "failed") {
+    throw new CapabilityError(`Only failed runs can be retried (run is '${orig.status}')`, 409, null);
+  }
+  const job = await _loadJobAE(orig.jobId, ctx.userId);
+  if (job.status === "cancelled") {
+    throw new CapabilityError("Job is cancelled", 409, null);
+  }
+  if ((orig.attempt ?? 1) >= (job.maxRetries ?? 3) + 1) {
+    throw new CapabilityError(
+      `Max retries reached (${orig.attempt}/${(job.maxRetries ?? 3) + 1})`,
+      409,
+      null,
+    );
+  }
+  const { getCapabilityById } = await import("./registry");
+  const cap = getCapabilityById(job.capabilityId);
+  if (!cap) throw new CapabilityError(`Capability '${job.capabilityId}' no longer registered`, 410, null);
+
+  const [run] = await d
+    .insert(_jobRunsAE)
+    .values({
+      jobId: job.id,
+      userId: ctx.userId,
+      status: "running",
+      attempt: (orig.attempt ?? 1) + 1,
+      startedAt: new Date(),
+      triggeredBy: "retry",
+    })
+    .returning();
+
+  const t0 = Date.now();
+  let status: "ok" | "failed" = "ok";
+  let result: unknown = null;
+  let errorCode: string | null = null;
+  let errorMessage: string | null = null;
+  try {
+    const parsed = cap.inputSchema.safeParse(job.input ?? {});
+    if (!parsed.success) throw new CapabilityError(parsed.error.message, 400, null);
+    result = await cap.handler(parsed.data as never, { ...ctx, capabilityId: cap.id } as CapabilityRunContext);
+  } catch (err) {
+    status = "failed";
+    if (err instanceof CapabilityError) { errorCode = `http_${err.status}`; errorMessage = err.message; }
+    else { errorCode = "exception"; errorMessage = err instanceof Error ? err.message : String(err); }
+  }
+  const duration = Date.now() - t0;
+
+  await d
+    .update(_jobRunsAE)
+    .set({
+      status,
+      finishedAt: new Date(),
+      durationMs: duration,
+      result: status === "ok" ? (_truncateForCaptureAE(result) as object) : null,
+      errorCode,
+      errorMessage,
+    })
+    .where(eq(_jobRunsAE.id, run.id));
+
+  await d
+    .update(_jobsAE)
+    .set({
+      lastRunAt: new Date(),
+      lastStatus: status,
+      runCount: (job.runCount ?? 0) + 1,
+      failCount: (job.failCount ?? 0) + (status === "failed" ? 1 : 0),
+      updatedAt: new Date(),
+    })
+    .where(eq(_jobsAE.id, job.id));
+
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: status === "ok" ? "job.completed" : "job.failed",
+    data: { jobId: job.id, runId: run.id, capabilityId: job.capabilityId, attempt: run.attempt, durationMs: duration, errorCode },
+  }).catch(() => undefined);
+
+  return {
+    runId: run.id,
+    jobId: job.id,
+    attempt: run.attempt,
+    status,
+    durationMs: duration,
+    errorCode,
+    errorMessage,
+    result: status === "ok" ? _truncateForCaptureAE(result) : null,
+  };
+}
+
+export async function jobsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_JOB_LIMITS_AE[tier],
+    perTier: _TIER_JOB_LIMITS_AE,
+    intervalCeilingSeconds: _MAX_INTERVAL_AE,
+    payloadMaxBytes: _MAX_INPUT_BYTES_AE,
+    resultCaptureMaxBytes: _MAX_RESULT_CAPTURE_AE,
+    maxRetries: 10,
+    triggers: ["schedule", "manual", "retry"],
+    statuses: {
+      job: ["active", "paused", "cancelled", "completed"],
+      run: ["queued", "running", "ok", "failed", "cancelled"],
+    },
+    notes: [
+      "jobs.* capabilities cannot themselves be scheduled (loop guard).",
+      "Recurring jobs reschedule by adding intervalSeconds to the previous nextRunAt.",
+      "Manual runs (jobs.run_now) do not affect nextRunAt for recurring jobs.",
+      "Payloads are re-validated against the capability schema at every run.",
+    ],
+  };
+}
