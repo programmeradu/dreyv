@@ -390,6 +390,8 @@ function SnapshotBody({
     onGenerate: () => Promise<void>;
 }) {
     const m = summary as { totalUsd?: number; stableShare?: number; topSymbol?: string; topShare?: number; hhi?: number; holdings?: number };
+    const mints = snap.holdings.slice(0, 25).map((h) => h.mint);
+    const meta = useTokenMeta(mints);
 
     const stats = [
         { label: "Total value", value: fmtUsd(m.totalUsd ?? 0) },
@@ -434,11 +436,26 @@ function SnapshotBody({
                                 {snap.holdings.slice(0, 25).map((h) => {
                                     const total = m.totalUsd ?? snap.totalUsd;
                                     const share = total > 0 && h.usd ? h.usd / total : 0;
+                                    const tm = meta[h.mint] ?? { icon: null, name: null, symbol: null };
+                                    const displaySymbol = h.symbol || tm.symbol || "(unknown)";
+                                    const displayName = tm.name && tm.name !== displaySymbol ? tm.name : null;
                                     return (
                                         <tr key={h.mint} className="border-b border-violet-100 last:border-b-0">
                                             <td className="px-6 py-3.5">
-                                                <div className="font-semibold text-zinc-900">{h.symbol || "(unknown)"}</div>
-                                                <div className="text-[11px] font-mono text-zinc-400" title={h.mint}>{truncateMiddle(h.mint, 6, 6)}</div>
+                                                <div className="flex items-center gap-3">
+                                                    <TokenAvatar
+                                                        symbol={displaySymbol}
+                                                        mint={h.mint}
+                                                        logo={tm.icon ?? undefined}
+                                                        size={32}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold text-zinc-900 truncate">{displaySymbol}</div>
+                                                        <div className="text-[11px] text-zinc-500 truncate" title={h.mint}>
+                                                            {displayName ?? truncateMiddle(h.mint, 6, 6)}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-3.5 text-right text-zinc-700">{h.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                                             <td className="px-6 py-3.5 text-right text-zinc-700">{h.priceUsd != null ? fmtUsd(h.priceUsd) : "—"}</td>
