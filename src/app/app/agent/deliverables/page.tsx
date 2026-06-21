@@ -238,7 +238,7 @@ export default function DeliverablesPage() {
                                             </td>
                                             <td className="px-5 py-4">
                                                 <KindChip kind={r.kind} />
-                                                <div className="text-[11px] text-zinc-500 mt-1.5 font-mono">{r.sku}</div>
+                                                <div className="text-[11px] text-zinc-400 mt-1.5" title={r.sku}>${Number(r.amountUsd ?? 0).toFixed(2)} · USDC</div>
                                             </td>
                                             <td className="px-5 py-4">
                                                 {r.targetWallet ? (
