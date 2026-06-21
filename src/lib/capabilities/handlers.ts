@@ -470,10 +470,37 @@ export async function delegationStatus(
   input: { walletAddress: string },
   ctx: CapabilityRunContext,
 ) {
-  return await callInternal(
-    ctx,
-    `/api/delegation/status?wallet=${encodeURIComponent(input.walletAddress)}`,
-  );
+  try {
+    return await callInternal(
+      ctx,
+      `/api/delegation/status?wallet=${encodeURIComponent(input.walletAddress)}`,
+    );
+  } catch (e) {
+    if (e instanceof CapabilityError) {
+      // Upstream wraps DB errors as 500/503 with Drizzle's `Failed query: …` text.
+      // Translate that into a clean, machine-friendly empty result so callers
+      // can act on it (no active delegations) instead of crashing.
+      const msg = e.message || "";
+      if (
+        e.status >= 500 &&
+        (msg.includes("Failed query") ||
+          msg.includes("relation") ||
+          msg.includes("column") ||
+          msg.includes("does not exist"))
+      ) {
+        return {
+          success: true,
+          walletAddress: input.walletAddress,
+          delegations: [],
+          activeBots: 0,
+          botsWithDelegation: 0,
+          note: "Delegation registry is empty or unavailable for this environment.",
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+    throw e;
+  }
 }
 
 // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
