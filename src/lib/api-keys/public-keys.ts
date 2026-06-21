@@ -43,6 +43,8 @@ export const ALL_SCOPES = [
   "write:jobs",
   "read:exports",
   "write:exports",
+  "read:tags",
+  "write:tags",
 
   "pay:x402",
   "agent:delegate",
