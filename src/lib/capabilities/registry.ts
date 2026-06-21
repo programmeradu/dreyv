@@ -864,6 +864,110 @@ export const CAPABILITIES: PublicCapability[] = [
     }),
     handler: (i, c) => caps.receiptsVerify(i, c),
   },
+
+  // ─── Pillar M — Agent Economy mutators (Phase 7) ────────────────────
+  // Drive checkout / pay / deliverables / wallet through a single dk_ key.
+  // Internally calls the dak_-protected x402 routes with a CRON_SECRET-
+  // backed trust header. Settles real USDC on Solana mainnet — no stubs.
+  // Gated under pay:x402 (existing scope) BUT mapped also to read:portfolio
+  // so current keys can drive it without re-mint.
+  {
+    id: "economy.skus_extended",
+    mcpName: "dreyv_economy_skus_extended",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "List all purchasable SKUs",
+    description: "Full SKU catalog with name, description, USD price, and fulfilment hint. Use the SKU id with economy.checkout / economy.pay.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economySkusExtended(i, c),
+  },
+  {
+    id: "economy.checkout",
+    mcpName: "dreyv_economy_checkout",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Quote an x402 checkout",
+    description:
+      "Returns the 402-style quote for a SKU: USDC-on-Solana settlement details plus any card rails (Stripe / Paystack) available. The caller chooses a rail; this endpoint never debits the agent wallet on its own — use economy.pay for autonomous settlement.",
+    inputSchema: z.object({
+      sku: z.string().min(1).max(200),
+      rail: z.enum(["solana", "stripe", "paystack"]).optional(),
+      chain: z.literal("solana").optional(),
+      asset: z.enum(["usdc", "usdt"]).optional(),
+    }),
+    handler: (i, c) => caps.economyCheckout(i, c),
+  },
+  {
+    id: "economy.pay",
+    mcpName: "dreyv_economy_pay",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Autonomously settle + fulfil a SKU",
+    description:
+      "End-to-end: mints invoice, settles USDC from your hosted agent wallet, records the deliverable, emails the API-key owner. Returns the receipt token PLUS a permanent deliverable id. Returns 402 with funding instructions when underfunded, 409 when treasury wallet is ambiguous.",
+    inputSchema: z.object({
+      sku: z.string().min(1).max(200),
+      target_wallet: z.string().min(32).max(44).optional(),
+    }),
+    handler: (i, c) => caps.economyPay(i, c),
+  },
+  {
+    id: "economy.deliverables.list",
+    mcpName: "dreyv_economy_deliverables_list",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "List my deliverables",
+    description: "All deliverables produced by economy.pay for this account, most recent first. Filter by kind.",
+    inputSchema: z.object({
+      kind: z.enum(["snapshot", "report", "subscription"]).optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }),
+    handler: (i, c) => caps.economyDeliverablesList(i, c),
+  },
+  {
+    id: "economy.deliverables.get",
+    mcpName: "dreyv_economy_deliverables_get",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Get one deliverable (full payload)",
+    description: "Returns the full deliverable row including payload + PDF URL + email delivery status.",
+    inputSchema: z.object({ id: z.string().uuid() }),
+    handler: (i, c) => caps.economyDeliverablesGet(i, c),
+  },
+  {
+    id: "economy.wallet.address",
+    mcpName: "dreyv_economy_wallet_address",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Get (or provision) hosted agent wallet address",
+    description: "Returns the Solana address of the API-key owner's hosted agent wallet, provisioning one on first call. Includes USDC mint + a Solana Pay URI for funding the SOL float.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyWalletAddress(i, c),
+  },
+  {
+    id: "economy.wallet.balance",
+    mcpName: "dreyv_economy_wallet_balance",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Live agent wallet balance",
+    description: "Live USDC + SOL balance from Solana RPC. 502 if RPC unreachable — no fallback.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyWalletBalance(i, c),
+  },
 ];
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));

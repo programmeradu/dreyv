@@ -19,7 +19,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { agentPayments, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
+import { resolveAgentKeyOrInternal } from "@/lib/agent/api-keys";
 import { getSku } from "@/lib/agent/skus";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
 import {
@@ -43,8 +43,7 @@ const Body = z.object({
 export async function POST(req: NextRequest) {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-    const bearer = extractBearer(req);
-    const key = await resolveAgentKey(bearer);
+    const key = await resolveAgentKeyOrInternal(req);
     if (!key) {
         return NextResponse.json(
             { error: "unauthorized", message: "Provide Authorization: Bearer dak_… (create at /app/settings/agent-keys)." },

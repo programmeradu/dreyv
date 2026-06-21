@@ -27,7 +27,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { agentApiKeys, agentPayments, cryptoInvoices, users } from "@/db/schema";
-import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
+import { resolveAgentKeyOrInternal } from "@/lib/agent/api-keys";
 import { getSku } from "@/lib/agent/skus";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
 import {
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-    const key = await resolveAgentKey(extractBearer(req));
+    const key = await resolveAgentKeyOrInternal(req);
     if (!key) {
         return NextResponse.json(
             { error: "unauthorized", message: "Provide Authorization: Bearer dak_…" },
