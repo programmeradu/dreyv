@@ -90,35 +90,10 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({ identifier: z.string().min(1) }),
     handler: (i, c) => caps.identityProfile(i, c),
   },
-  {
-    id: "identity.agent_lookup",
-    mcpName: "dreyv_identity_agent_lookup",
-    pillar: "identity",
-    scope: "agent:delegate",
-    sideEffects: "read",
-    status: "preview",
-    title: "ERC-8004 agent identity lookup (preview)",
-    description: "Looks up an agent passport. Phase 1 returns Dreyv-registered agents; on-chain ERC-8004 resolution lands in Phase 3.",
-    inputSchema: z.object({ agentId: z.string().min(1) }),
-    handler: (i) => caps.agentLookup(i),
-  },
-  {
-    id: "identity.delegate_session",
-    mcpName: "dreyv_identity_delegate_session",
-    pillar: "identity",
-    scope: "agent:delegate",
-    sideEffects: "simulate",
-    status: "preview",
-    title: "Issue a scoped session key (preview)",
-    description: "Returns a session-key proposal an agent can sign and use within scope/TTL/spend caps. EIP-7702 binding lands in Phase 3.",
-    inputSchema: z.object({
-      agentAddress: Address,
-      scopes: z.array(z.string()).min(1),
-      ttlSeconds: z.number().int().min(60).max(86_400).default(3600),
-      spendCapUsd: z.number().nonnegative().default(0),
-    }),
-    handler: (i) => caps.delegateSession(i),
-  },
+  // NOTE: identity.agent_lookup and identity.delegate_session were removed —
+  // they had no real upstream (ERC-8004 and EIP-7702 land in Phase 3).
+  // Per the no-fallbacks rule: a capability ships only when it returns real data.
+
 
   // ─── Pillar B — Portfolio & Treasury ──────────────────────────────────
   {
