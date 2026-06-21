@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -2192,6 +2192,131 @@ export const CAPABILITIES: PublicCapability[] = [
     description: "Returns the public API version (`v1`), current capability registry count by pillar/side-effect/status, deprecation count, supported transports, and the build commit (when available via `VERCEL_GIT_COMMIT_SHA`). Useful for SDK compat checks and `If-Match`-style negotiation.",
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.statusVersion(i, c),
+  },
+
+  // ─── Pillar AE — Jobs & Scheduling (Phase 21) ────────────────────────
+  {
+    id: "jobs.schedule",
+    mcpName: "dreyv_jobs_schedule",
+    pillar: "jobs",
+    scope: "write:jobs",
+    sideEffects: "write",
+    status: "stable",
+    title: "Schedule a recurring or one-shot capability run",
+    description: "Persists a job that invokes another registered capability on a schedule. `kind:'recurring'` requires `intervalSeconds` (>= tier floor: free 15m / mini 5m / max 1m); `kind:'one_shot'` requires `runAt` (ISO). The payload is validated against the target capability's input schema at schedule time and again at every run. Per-tier active-job quota enforced (free 5 / mini 50 / max 500). Cannot schedule `jobs.*` capabilities (loop guard).",
+    inputSchema: z.object({
+      label: z.string().min(1).max(120),
+      capabilityId: z.string().min(1).max(120),
+      payload: z.record(z.unknown()).optional(),
+      kind: z.enum(["recurring", "one_shot"]).optional(),
+      intervalSeconds: z.number().int().min(60).max(60 * 60 * 24 * 30).optional(),
+      runAt: z.string().min(1).max(64).optional(),
+      maxRetries: z.number().int().min(0).max(10).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    }).strict(),
+    handler: (i, c) => caps.jobsSchedule(i, c),
+  },
+  {
+    id: "jobs.list",
+    mcpName: "dreyv_jobs_list",
+    pillar: "jobs",
+    scope: "read:jobs",
+    sideEffects: "read",
+    status: "stable",
+    title: "List scheduled jobs (optionally filtered)",
+    description: "Returns up to `limit` (default 100, max 500) of the caller's jobs, newest first. Optional filters: `status` (`active` | `paused` | `cancelled` | `completed`) and `capabilityId` (exact match).",
+    inputSchema: z.object({
+      status: z.enum(["active", "paused", "cancelled", "completed"]).optional(),
+      capabilityId: z.string().max(120).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).strict(),
+    handler: (i, c) => caps.jobsList(i, c),
+  },
+  {
+    id: "jobs.get",
+    mcpName: "dreyv_jobs_get",
+    pillar: "jobs",
+    scope: "read:jobs",
+    sideEffects: "read",
+    status: "stable",
+    title: "Fetch a single job and (optionally) its recent runs",
+    description: "Returns the full job row plus, when `includeRuns:true`, the most recent run history (up to `runLimit`, default 20, max 200). Strictly scoped to the caller's userId.",
+    inputSchema: z.object({
+      id: z.string().uuid(),
+      includeRuns: z.boolean().optional(),
+      runLimit: z.number().int().min(1).max(200).optional(),
+    }).strict(),
+    handler: (i, c) => caps.jobsGet(i, c),
+  },
+  {
+    id: "jobs.cancel",
+    mcpName: "dreyv_jobs_cancel",
+    pillar: "jobs",
+    scope: "write:jobs",
+    sideEffects: "write",
+    status: "stable",
+    title: "Cancel a scheduled job",
+    description: "Marks the job `cancelled`. Idempotent: a job already in a terminal state (`cancelled` | `completed`) is returned with `alreadyTerminal:true` instead of erroring. Emits the `job.cancelled` webhook and writes a hash-chained audit row.",
+    inputSchema: z.object({
+      id: z.string().uuid(),
+    }).strict(),
+    handler: (i, c) => caps.jobsCancel(i, c),
+  },
+  {
+    id: "jobs.run_now",
+    mcpName: "dreyv_jobs_run_now",
+    pillar: "jobs",
+    scope: "write:jobs",
+    sideEffects: "write",
+    status: "stable",
+    title: "Execute a job immediately (out-of-band of its schedule)",
+    description: "Synchronously invokes the job's capability with its stored payload and records a `triggered_by:'manual'` run row. Does NOT advance the recurring schedule's `nextRunAt`. Returns the run id, status, duration, and truncated result (<=16 KiB) or error. Emits `job.completed` or `job.failed`.",
+    inputSchema: z.object({
+      id: z.string().uuid(),
+    }).strict(),
+    handler: (i, c) => caps.jobsRunNow(i, c),
+  },
+  {
+    id: "jobs.runs",
+    mcpName: "dreyv_jobs_runs",
+    pillar: "jobs",
+    scope: "read:jobs",
+    sideEffects: "read",
+    status: "stable",
+    title: "List job runs across one or all jobs",
+    description: "Returns up to `limit` (default 50, max 500) run rows newest first. Optional filters: `jobId` to scope to a single job, and `status` (`queued` | `running` | `ok` | `failed` | `cancelled`).",
+    inputSchema: z.object({
+      jobId: z.string().uuid().optional(),
+      status: z.enum(["queued", "running", "ok", "failed", "cancelled"]).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).strict(),
+    handler: (i, c) => caps.jobsRuns(i, c),
+  },
+  {
+    id: "jobs.retry",
+    mcpName: "dreyv_jobs_retry",
+    pillar: "jobs",
+    scope: "write:jobs",
+    sideEffects: "write",
+    status: "stable",
+    title: "Retry a failed run",
+    description: "Re-executes the same payload as a new attempt (attempt = original + 1) up to the job's `maxRetries`+1 cap. Only runs with `status:'failed'` are eligible. Records a `triggered_by:'retry'` row and emits the same completion/failure webhooks as a scheduled run.",
+    inputSchema: z.object({
+      runId: z.string().uuid(),
+    }).strict(),
+    handler: (i, c) => caps.jobsRetry(i, c),
+  },
+  {
+    id: "jobs.policy",
+    mcpName: "dreyv_jobs_policy",
+    pillar: "jobs",
+    scope: "read:jobs",
+    sideEffects: "read",
+    status: "stable",
+    title: "Scheduler limits, intervals, and trigger taxonomy",
+    description: "Returns the caller's tier, its per-tier job quota and minimum interval, the 30-day interval ceiling, payload (32 KiB) and result-capture (16 KiB) byte limits, the retry ceiling, the valid trigger sources, and the canonical job/run status enums. Stable and cache-safe.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.jobsPolicy(i, c),
   },
 ];
 
