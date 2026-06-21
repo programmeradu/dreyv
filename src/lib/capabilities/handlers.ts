@@ -3405,3 +3405,353 @@ export async function billingCreateInvoice(
 // Silences unused-import lints.
 export const __pillarXTouch = { _publicApiKeysX };
 
+// ════════════════════════════════════════════════════════════════════════
+// ─── Pillar Y — Privacy & Data Rights / DSAR (Phase 17) ──────────────────
+// ════════════════════════════════════════════════════════════════════════
+// GDPR / CCPA-style data-subject rights surfaced as first-class API.
+// Two tables back this pillar: privacy_requests (DSAR ledger) and
+// privacy_consents (per-topic opt-in record). Every mutation appends to
+// the hash-chained public_api_audit_log and best-effort fires a webhook.
+
+import { createHash as _chY } from "node:crypto";
+import {
+  privacyRequests as _privReqY,
+  privacyConsents as _privConsY,
+  users as _usersY,
+  publicApiKeys as _pubKeysY,
+  publicApiKeyUsage as _pubUsageY,
+  publicApiAuditLog as _pubAuditY,
+  publicApiWebhooks as _pubHooksY,
+  teamMembers as _teamMembersY,
+  cryptoInvoices as _cryptoInvY,
+} from "@/db/schema";
+
+const _PRIVACY_TOPICS = ["telemetry", "marketing", "ai_training", "third_party_sharing", "session_replay"] as const;
+type PrivacyTopicY = (typeof _PRIVACY_TOPICS)[number];
+
+const _PRIVACY_KINDS = ["export", "delete", "rectify", "restrict"] as const;
+type PrivacyKindY = (typeof _PRIVACY_KINDS)[number];
+
+const _RETENTION_POLICY_Y = {
+  controller: "StaUniverse Ltd (trading as Dreyv)",
+  contact: "privacy@dreyv.com",
+  jurisdiction: "Ghana / EU (GDPR adequacy via SCCs)",
+  statutoryResponseDays: 30,
+  lawfulBases: ["contract", "legitimate_interest", "consent"],
+  tables: [
+    { table: "users", retention: "lifetime_of_account + 30 days", basis: "contract" },
+    { table: "public_api_keys", retention: "until_revoked + 90 days", basis: "contract" },
+    { table: "public_api_key_usage", retention: "395 days", basis: "legitimate_interest" },
+    { table: "public_api_audit_log", retention: "7 years", basis: "legal_obligation" },
+    { table: "webhook_deliveries", retention: "90 days", basis: "legitimate_interest" },
+    { table: "notifications", retention: "365 days", basis: "contract" },
+    { table: "crypto_invoices", retention: "7 years", basis: "legal_obligation" },
+    { table: "privacy_requests", retention: "7 years", basis: "legal_obligation" },
+  ],
+} as const;
+
+export async function privacyConsents(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select()
+    .from(_privConsY)
+    .where(eq(_privConsY.userId, ctx.userId));
+  const byTopic = new Map(rows.map((r) => [r.topic, r]));
+  const merged = _PRIVACY_TOPICS.map((topic) => {
+    const r = byTopic.get(topic);
+    return {
+      topic,
+      granted: r?.granted ?? false,
+      source: r?.source ?? null,
+      updatedAt: r?.updatedAt ?? null,
+    };
+  });
+  return { consents: merged };
+}
+
+export async function privacyUpdateConsent(
+  input: { topic: PrivacyTopicY; granted: boolean; source?: "api" | "ui" | "import" },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const source = input.source ?? "api";
+  const [existing] = await d
+    .select()
+    .from(_privConsY)
+    .where(and(eq(_privConsY.userId, ctx.userId), eq(_privConsY.topic, input.topic)))
+    .limit(1);
+
+  let row;
+  if (existing) {
+    [row] = await d
+      .update(_privConsY)
+      .set({ granted: input.granted, source, updatedAt: new Date() })
+      .where(eq(_privConsY.id, existing.id))
+      .returning();
+  } else {
+    [row] = await d
+      .insert(_privConsY)
+      .values({ userId: ctx.userId, topic: input.topic, granted: input.granted, source })
+      .returning();
+  }
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "privacy.consent_changed",
+    target: input.topic,
+    meta: { granted: input.granted, source, previous: existing?.granted ?? null },
+  });
+
+  const deliveryErrors: string[] = [];
+  try {
+    await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "privacy.consent_changed",
+      data: { topic: input.topic, granted: input.granted, source, updatedAt: row.updatedAt },
+    });
+  } catch (e) {
+    deliveryErrors.push(e instanceof Error ? e.message : String(e));
+  }
+
+  return { consent: row, auditHash: audit.hash, deliveryErrors };
+}
+
+export async function privacyRequests(
+  input: { status?: string; kind?: PrivacyKindY; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_privReqY.userId, ctx.userId)];
+  if (input.status) conds.push(eq(_privReqY.status, input.status));
+  if (input.kind) conds.push(eq(_privReqY.kind, input.kind));
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const rows = await d
+    .select()
+    .from(_privReqY)
+    .where(and(...conds))
+    .orderBy(desc(_privReqY.requestedAt))
+    .limit(limit);
+  return { count: rows.length, requests: rows };
+}
+
+export async function privacySubmitRequest(
+  input: { kind: PrivacyKindY; reason?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const dueBy = new Date(Date.now() + 30 * 24 * 3_600_000);
+  const [row] = await d
+    .insert(_privReqY)
+    .values({
+      userId: ctx.userId,
+      kind: input.kind,
+      status: "pending",
+      reason: input.reason ?? null,
+      dueBy,
+      meta: { submittedVia: "api", keyId: ctx.keyId },
+    })
+    .returning();
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "privacy.request_submitted",
+    target: row.id,
+    meta: { kind: input.kind, dueBy: dueBy.toISOString() },
+  });
+
+  const deliveryErrors: string[] = [];
+  if (input.kind === "delete") {
+    try {
+      await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "privacy.deletion_requested",
+        data: { requestId: row.id, dueBy: row.dueBy, reason: row.reason },
+      });
+    } catch (e) {
+      deliveryErrors.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return {
+    request: row,
+    statutoryResponseDays: _RETENTION_POLICY_Y.statutoryResponseDays,
+    auditHash: audit.hash,
+    deliveryErrors,
+  };
+}
+
+export async function privacyExportData(
+  input: { includeUsage?: boolean; includeAudit?: boolean; requestId?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const includeUsage = input.includeUsage ?? true;
+  const includeAudit = input.includeAudit ?? true;
+
+  const [account] = await d
+    .select({
+      id: _usersY.id,
+      email: _usersY.email,
+      walletAddress: _usersY.walletAddress,
+      tier: _usersY.tier,
+      createdAt: _usersY.createdAt,
+    })
+    .from(_usersY)
+    .where(eq(_usersY.id, ctx.userId))
+    .limit(1);
+
+  const keys = await d
+    .select({
+      id: _pubKeysY.id,
+      label: _pubKeysY.label,
+      env: _pubKeysY.env,
+      keyPrefix: _pubKeysY.keyPrefix,
+      scopes: _pubKeysY.scopes,
+      rateLimitRpm: _pubKeysY.rateLimitRpm,
+      revokedAt: _pubKeysY.revokedAt,
+      killSwitchAt: _pubKeysY.killSwitchAt,
+      ipAllowlist: _pubKeysY.ipAllowlist,
+      originAllowlist: _pubKeysY.originAllowlist,
+      capabilityAllowlist: _pubKeysY.capabilityAllowlist,
+      lastUsedAt: _pubKeysY.lastUsedAt,
+      createdAt: _pubKeysY.createdAt,
+    })
+    .from(_pubKeysY)
+    .where(eq(_pubKeysY.userId, ctx.userId));
+
+  const webhooks = await d
+    .select({
+      id: _pubHooksY.id,
+      label: _pubHooksY.label,
+      targetUrl: _pubHooksY.targetUrl,
+      events: _pubHooksY.events,
+      active: _pubHooksY.active,
+      lastDeliveryAt: _pubHooksY.lastDeliveryAt,
+      lastStatus: _pubHooksY.lastStatus,
+      failureStreak: _pubHooksY.failureStreak,
+      createdAt: _pubHooksY.createdAt,
+    })
+    .from(_pubHooksY)
+    .where(eq(_pubHooksY.userId, ctx.userId));
+
+  const teamMemberships = await d
+    .select({
+      teamId: _teamMembersY.teamId,
+      role: _teamMembersY.role,
+      status: _teamMembersY.status,
+      invitedAt: _teamMembersY.invitedAt,
+      acceptedAt: _teamMembersY.acceptedAt,
+    })
+    .from(_teamMembersY)
+    .where(eq(_teamMembersY.userId, ctx.userId));
+
+  const invoices = await d
+    .select()
+    .from(_cryptoInvY)
+    .where(eq(_cryptoInvY.userId, ctx.userId))
+    .orderBy(desc(_cryptoInvY.createdAt))
+    .limit(500);
+
+  const consentsResp = await privacyConsents({}, ctx);
+  const requestsResp = await privacyRequests({ limit: 200 }, ctx);
+
+  const usage = includeUsage
+    ? await d
+        .select()
+        .from(_pubUsageY)
+        .where(eq(_pubUsageY.userId, ctx.userId))
+        .orderBy(desc(_pubUsageY.ts))
+        .limit(10_000)
+    : [];
+
+  const auditEntries = includeAudit
+    ? await d
+        .select()
+        .from(_pubAuditY)
+        .where(eq(_pubAuditY.userId, ctx.userId))
+        .orderBy(desc(_pubAuditY.ts))
+        .limit(10_000)
+    : [];
+
+  const document = {
+    schemaVersion: "dreyv.privacy.export/1",
+    generatedAt: new Date().toISOString(),
+    subject: { userId: ctx.userId, keyId: ctx.keyId },
+    account: account ?? null,
+    keys,
+    webhooks,
+    teamMemberships,
+    invoices,
+    consents: (consentsResp as { consents: unknown }).consents,
+    privacyRequests: (requestsResp as { requests: unknown }).requests,
+    usage,
+    auditLog: auditEntries,
+  };
+
+  const json = JSON.stringify(document, null, 2);
+  const sha = _chY("sha256").update(json, "utf8").digest("hex");
+  const base64 = Buffer.from(json, "utf8").toString("base64");
+
+  // If a matching pending export request was passed, mark it fulfilled.
+  let fulfilledRequestId: string | null = null;
+  if (input.requestId) {
+    const [req] = await d
+      .select()
+      .from(_privReqY)
+      .where(and(eq(_privReqY.id, input.requestId), eq(_privReqY.userId, ctx.userId)))
+      .limit(1);
+    if (!req) throw new CapabilityError(`Unknown privacy request ${input.requestId}`, 404, null);
+    if (req.kind !== "export") {
+      throw new CapabilityError(`Request ${input.requestId} is kind=${req.kind}, not 'export'`, 400, null);
+    }
+    if (req.status === "fulfilled") {
+      throw new CapabilityError(`Request ${input.requestId} already fulfilled`, 409, null);
+    }
+    await d
+      .update(_privReqY)
+      .set({ status: "fulfilled", fulfilledAt: new Date(), artifactSha: sha })
+      .where(eq(_privReqY.id, input.requestId));
+    fulfilledRequestId = input.requestId;
+  }
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "privacy.export_generated",
+    target: fulfilledRequestId,
+    meta: { sha256: sha, bytes: json.length, includeUsage, includeAudit },
+  });
+
+  const deliveryErrors: string[] = [];
+  try {
+    await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "privacy.export_ready",
+      data: { sha256: sha, bytes: json.length, fulfilledRequestId, generatedAt: document.generatedAt },
+    });
+  } catch (e) {
+    deliveryErrors.push(e instanceof Error ? e.message : String(e));
+  }
+
+  return {
+    sha256: sha,
+    bytes: json.length,
+    encoding: "base64",
+    contentType: "application/json",
+    artifact: base64,
+    fulfilledRequestId,
+    auditHash: audit.hash,
+    deliveryErrors,
+  };
+}
+
+export async function privacyRetentionPolicy(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return _RETENTION_POLICY_Y;
+}
+
+// Silences unused-import lints.
+export const __pillarYTouch = { _privReqY, _privConsY };
+
+

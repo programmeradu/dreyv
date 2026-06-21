@@ -2084,6 +2084,36 @@ export const webhookDeliveries = pgTable('webhook_deliveries', {
   statusIdx: index('webhook_deliveries_status_idx').on(t.status),
 }));
 
+// ─── Phase 17 — Privacy & Data Rights (Pillar Y) ─────────────────────
+export const privacyRequests = pgTable('privacy_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').notNull(),                            // export | delete | rectify | restrict
+  status: text('status').notNull().default('pending'),     // pending | in_progress | fulfilled | rejected | cancelled
+  reason: text('reason'),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+  dueBy: timestamp('due_by', { withTimezone: true }).notNull(),
+  fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
+  artifactSha: text('artifact_sha'),
+  meta: jsonb('meta').notNull().default('{}'),
+}, (t) => ({
+  userIdx: index('privacy_requests_user_idx').on(t.userId, t.requestedAt),
+  statusIdx: index('privacy_requests_status_idx').on(t.status, t.dueBy),
+}));
+
+export const privacyConsents = pgTable('privacy_consents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  topic: text('topic').notNull(),                          // telemetry | marketing | ai_training | third_party_sharing | session_replay
+  granted: boolean('granted').notNull(),
+  source: text('source').notNull().default('api'),         // api | ui | import
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('privacy_consents_user_idx').on(t.userId),
+  userTopicUniq: uniqueIndex('privacy_consents_user_topic_uniq').on(t.userId, t.topic),
+}));
+
+
 
 
 
