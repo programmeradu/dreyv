@@ -29,18 +29,44 @@ import { toast } from "@/lib/toast-notifications";
 import { formatDistanceToNow } from "date-fns";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
-const ALL_SCOPES = [
-  { id: "read:portfolio", label: "Portfolio (read)", desc: "Holdings, PnL, DeFi positions." },
-  { id: "read:treasury", label: "Treasury (read)", desc: "Health, runway, multisig pending." },
-  { id: "read:market", label: "Market (read)", desc: "Prices, OHLCV, forensics, yields, discovery." },
-  { id: "read:forensics", label: "Forensics (read)", desc: "Sanctions, mixer exposure, counterparty graphs." },
-  { id: "write:simulate", label: "Simulate (write)", desc: "Pre-flight tx simulation, intent quoting." },
-  { id: "write:intent", label: "Intent (write)", desc: "Submit MEV-protected intents and swaps." },
-  { id: "pay:x402", label: "x402 payments", desc: "Charge and settle x402 invoices." },
-  { id: "agent:delegate", label: "Agent delegation", desc: "Scoped session keys (ERC-8004 / EIP-7702 preview)." },
-] as const;
-type ScopeId = (typeof ALL_SCOPES)[number]["id"];
-const DEFAULT_SCOPES: ScopeId[] = ["read:portfolio", "read:treasury", "read:market"];
+import {
+  SCOPE_CATALOG,
+  SCOPE_GROUP_LABEL,
+  DEFAULT_SCOPE_IDS,
+  ALL_SCOPE_IDS,
+  READ_ONLY_SCOPE_IDS,
+  WRITE_SCOPE_IDS,
+  type ScopeGroup,
+} from "@/lib/api-keys/scope-catalog";
+import type { ApiScope } from "@/lib/api-keys/public-keys";
+
+type ScopeId = ApiScope;
+const DEFAULT_SCOPES: ScopeId[] = DEFAULT_SCOPE_IDS;
+
+// Group scopes once for the picker.
+const SCOPES_BY_GROUP: Record<ScopeGroup, typeof SCOPE_CATALOG> = SCOPE_CATALOG.reduce(
+  (acc, s) => {
+    (acc[s.group] ||= [] as unknown as typeof SCOPE_CATALOG).push(s);
+    return acc;
+  },
+  { data: [], write: [], publish: [], payments: [] } as Record<ScopeGroup, typeof SCOPE_CATALOG>,
+);
+
+type ScopePreset = "all" | "read" | "write" | "default" | "none";
+const PRESETS: { id: ScopePreset; label: string; ids: ScopeId[]; hint: string }[] = [
+  { id: "all", label: "All scopes", ids: ALL_SCOPE_IDS, hint: `Grant every capability (${ALL_SCOPE_IDS.length})` },
+  { id: "read", label: "Read-only", ids: READ_ONLY_SCOPE_IDS, hint: `Every read:* scope (${READ_ONLY_SCOPE_IDS.length})` },
+  { id: "write", label: "Write", ids: WRITE_SCOPE_IDS, hint: `Every write:* scope (${WRITE_SCOPE_IDS.length})` },
+  { id: "default", label: "Default", ids: DEFAULT_SCOPE_IDS, hint: "Portfolio + Treasury + Market" },
+  { id: "none", label: "Clear", ids: [], hint: "Deselect all scopes" },
+];
+
+function arraysEqualAsSet<T>(a: T[], b: T[]) {
+  if (a.length !== b.length) return false;
+  const s = new Set(a);
+  for (const x of b) if (!s.has(x)) return false;
+  return true;
+}
 
 interface ApiKeyRow {
   id: string;
