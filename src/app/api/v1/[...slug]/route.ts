@@ -1,0 +1,172 @@
+/**
+ * REST dispatcher: GET/POST /api/v1/<capability/path>
+ *
+ *   Authorization: Bearer dk_live_…
+ *
+ * Validates bearer → enforces scope → enforces rate limit → runs capability →
+ * records usage. All 15 Phase-1 capabilities are reachable as:
+ *
+ *   GET  /api/v1/portfolio/holdings?address=…&chain=solana
+ *   POST /api/v1/identity/delegate_session  { body }
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import {
+  findCapabilityByRestPath,
+  type PublicCapability,
+} from "@/lib/capabilities/registry";
+import {
+  extractBearer,
+  resolvePublicKey,
+  hasScope,
+  checkRateLimit,
+  recordUsage,
+} from "@/lib/api-keys/public-keys";
+import { CapabilityError } from "@/lib/capabilities/handlers";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+async function handle(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
+  const t0 = Date.now();
+  const { slug } = await context.params;
+  const cap = findCapabilityByRestPath(slug ?? []);
+  if (!cap) {
+    return NextResponse.json(
+      { error: "capability_not_found", path: (slug ?? []).join("/") },
+      { status: 404 },
+    );
+  }
+
+  const bearer = extractBearer(req);
+  const key = await resolvePublicKey(bearer);
+  if (!key) {
+    return NextResponse.json(
+      {
+        error: "unauthorized",
+        message:
+          "Missing or invalid Dreyv API key. Pass `Authorization: Bearer dk_live_…` (mint one at /app/settings/api).",
+      },
+      { status: 401 },
+    );
+  }
+
+  if (!hasScope(key, cap.scope)) {
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "denied",
+      latencyMs: Date.now() - t0,
+      errorCode: "missing_scope",
+    });
+    return NextResponse.json(
+      { error: "missing_scope", required: cap.scope, granted: key.scopes },
+      { status: 403 },
+    );
+  }
+
+  const rl = checkRateLimit(key);
+  if (!rl.ok) {
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "rate_limited",
+      latencyMs: Date.now() - t0,
+      errorCode: "rate_limited",
+    });
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterMs: rl.retryAfterMs, limitRpm: key.rateLimitRpm },
+      { status: 429, headers: { "Retry-After": Math.ceil(rl.retryAfterMs / 1000).toString() } },
+    );
+  }
+
+  // Parse input from query (GET) or body (POST).
+  let raw: Record<string, unknown> = {};
+  if (req.method === "GET") {
+    raw = Object.fromEntries(new URL(req.url).searchParams.entries());
+  } else {
+    try {
+      raw = await req.json();
+    } catch {
+      raw = {};
+    }
+  }
+  // Coerce numeric query params best-effort for GET.
+  if (req.method === "GET") {
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v === "string" && v !== "" && !Number.isNaN(Number(v))) {
+        const n = Number(v);
+        if (Number.isFinite(n) && /^-?\d+(\.\d+)?$/.test(v)) raw[k] = n;
+      }
+    }
+  }
+
+  const parsed = (cap as PublicCapability).inputSchema.safeParse(raw);
+  if (!parsed.success) {
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "error",
+      latencyMs: Date.now() - t0,
+      errorCode: "invalid_input",
+    });
+    return NextResponse.json(
+      { error: "invalid_input", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const origin = new URL(req.url).origin;
+  try {
+    const result = await cap.handler(parsed.data, {
+      userId: key.userId,
+      keyId: key.id,
+      origin,
+      transport: "rest",
+    });
+    const latencyMs = Date.now() - t0;
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "ok",
+      latencyMs,
+      costCredits: cap.cost ?? 0,
+    });
+    return NextResponse.json(
+      { ok: true, capability: cap.id, latencyMs, data: result },
+      { headers: { "x-dreyv-capability": cap.id, "x-dreyv-rate-remaining": String(rl.remaining) } },
+    );
+  } catch (err) {
+    const latencyMs = Date.now() - t0;
+    const status = err instanceof CapabilityError ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Internal error";
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "error",
+      latencyMs,
+      errorCode: String(status),
+    });
+    return NextResponse.json(
+      { error: "capability_failed", message, capability: cap.id },
+      { status: status >= 400 && status < 600 ? status : 502 },
+    );
+  }
+}
+
+export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string[] }> }) {
+  return handle(req, ctx);
+}
+export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: string[] }> }) {
+  return handle(req, ctx);
+}
