@@ -40,9 +40,10 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   teams: "Teams & workspaces",
   billing: "Billing, plans & credits",
   privacy: "Privacy & data rights",
+  storage: "Storage & artifacts",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "audit", "teams", "billing", "privacy"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "audit", "teams", "billing", "privacy", "storage"];
 
 export default function DevelopersApiPage() {
   const caps = listPublicCapabilities();
