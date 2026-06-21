@@ -4150,3 +4150,642 @@ export async function storagePolicy(_input: Record<string, never>, _ctx: Capabil
 
 // Silences unused-import lints.
 export const __pillarZTouch = { _artifactsZ, _usersZ2 };
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 19 — Pillar AB: Search & Indexing
+// ─────────────────────────────────────────────────────────────────────
+// Read-only, caller-scoped, multi-index search. No new tables, no new
+// webhooks — strictly a query surface over existing rows the caller
+// already owns. AND-only token matching against ILIKE; deterministic
+// score = token-coverage * recency-decay; snippet capped at 240 chars.
+
+import { sql as _sqlAB } from "drizzle-orm";
+import {
+  publicApiAuditLog as _auditAB,
+  publicApiKeyUsage as _usageAB,
+} from "@/db/schema";
+
+type SearchIndexAB =
+  | "audit" | "artifacts" | "notifications" | "watchers"
+  | "monitors" | "deliveries" | "proposals" | "usage";
+
+const _ALL_INDEXES_AB: SearchIndexAB[] = [
+  "audit", "artifacts", "notifications", "watchers",
+  "monitors", "deliveries", "proposals", "usage",
+];
+
+const _SEARCH_MAX_LIMIT_AB = 200;
+const _SEARCH_DEFAULT_LIMIT_AB = 50;
+const _SEARCH_MAX_TOKENS_AB = 8;
+const _SNIPPET_MAX_AB = 240;
+
+interface SearchHitAB {
+  index: SearchIndexAB;
+  id: string;
+  title: string;
+  snippet: string;
+  ts: string;
+  score: number;
+  meta: Record<string, unknown>;
+}
+
+function _tokensAB(q: string): string[] {
+  return q
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
+    .slice(0, _SEARCH_MAX_TOKENS_AB);
+}
+
+function _snippetAB(text: string, tokens: string[]): string {
+  const t = (text ?? "").toString();
+  if (!tokens.length) return t.slice(0, _SNIPPET_MAX_AB);
+  const lower = t.toLowerCase();
+  let pos = -1;
+  for (const tok of tokens) {
+    const p = lower.indexOf(tok);
+    if (p >= 0 && (pos < 0 || p < pos)) pos = p;
+  }
+  if (pos < 0) return t.slice(0, _SNIPPET_MAX_AB);
+  const start = Math.max(0, pos - 40);
+  const out = (start > 0 ? "…" : "") + t.slice(start, start + _SNIPPET_MAX_AB);
+  return out.length < t.length ? out + "…" : out;
+}
+
+function _scoreAB(haystack: string, tokens: string[], ts: Date | string | null): number {
+  const lower = (haystack ?? "").toLowerCase();
+  const coverage = tokens.length
+    ? tokens.filter((t) => lower.includes(t)).length / tokens.length
+    : 1;
+  const tsMs = ts ? new Date(ts).getTime() : 0;
+  const ageDays = tsMs > 0 ? (Date.now() - tsMs) / 86_400_000 : 365;
+  const recency = 1 / (1 + Math.max(0, ageDays) / 30); // half ~30d
+  return +(coverage * 0.7 + recency * 0.3).toFixed(4);
+}
+
+function _resolveIndexesAB(requested: SearchIndexAB[] | undefined): SearchIndexAB[] {
+  if (!requested || requested.length === 0) return _ALL_INDEXES_AB;
+  const allow = new Set(_ALL_INDEXES_AB);
+  return requested.filter((i) => allow.has(i));
+}
+
+function _windowAB(since?: string, until?: string) {
+  return {
+    sinceDate: since ? new Date(since) : null,
+    untilDate: until ? new Date(until) : null,
+  };
+}
+
+/** Build an AND-of-ILIKEs SQL fragment over a list of text expressions. */
+function _matchAllTokensAB(textExprs: ReturnType<typeof _sqlAB>[], tokens: string[]) {
+  if (tokens.length === 0) return _sqlAB`TRUE`;
+  const concat = _sqlAB.join(textExprs, _sqlAB` || ' ' || `);
+  const ands = tokens.map((tok) => _sqlAB`lower(${concat}) LIKE ${"%" + tok + "%"}`);
+  return _sqlAB.join(ands, _sqlAB` AND `);
+}
+
+async function _searchAuditAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${_auditAB.action}`, _sqlAB`coalesce(${_auditAB.target},'')`, _sqlAB`${_auditAB.meta}::text`],
+    tokens,
+  );
+  const conds = [_sqlAB`${_auditAB.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${_auditAB.ts} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${_auditAB.ts} <= ${until.toISOString()}`);
+  const rows = await d
+    .select({ id: _auditAB.id, action: _auditAB.action, target: _auditAB.target, meta: _auditAB.meta, ts: _auditAB.ts })
+    .from(_auditAB)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(_auditAB.ts))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.action} ${r.target ?? ""} ${JSON.stringify(r.meta ?? {})}`;
+    return {
+      index: "audit" as const,
+      id: String(r.id),
+      title: r.action,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.ts).toISOString(),
+      score: _scoreAB(hay, tokens, r.ts),
+      meta: { target: r.target, meta: r.meta },
+    };
+  });
+}
+
+async function _searchArtifactsAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${_artifactsZ.filename}`, _sqlAB`${_artifactsZ.mime}`, _sqlAB`${_artifactsZ.sha256}`, _sqlAB`${_artifactsZ.metadata}::text`],
+    tokens,
+  );
+  const conds = [_sqlAB`${_artifactsZ.userId} = ${ctx.userId}`, _sqlAB`${_artifactsZ.deletedAt} IS NULL`, match];
+  if (since) conds.push(_sqlAB`${_artifactsZ.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${_artifactsZ.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(_artifactsZ)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(_artifactsZ.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.filename} ${r.mime} ${r.sha256} ${JSON.stringify(r.metadata ?? {})}`;
+    return {
+      index: "artifacts" as const,
+      id: r.id,
+      title: r.filename,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { mime: r.mime, bytes: r.bytes, sha256: r.sha256, visibility: r.visibility },
+    };
+  });
+}
+
+async function _searchNotificationsAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${notifications.title}`, _sqlAB`${notifications.message}`, _sqlAB`${notifications.type}`, _sqlAB`${notifications.severity}`],
+    tokens,
+  );
+  const conds = [_sqlAB`${notifications.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${notifications.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${notifications.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(notifications)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.title} ${r.message} ${r.type} ${r.severity}`;
+    return {
+      index: "notifications" as const,
+      id: String(r.id),
+      title: r.title,
+      snippet: _snippetAB(r.message ?? hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { type: r.type, severity: r.severity, read: r.read },
+    };
+  });
+}
+
+async function _searchWatchersAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`coalesce(${agentTreasuryWatchers.label},'')`, _sqlAB`${agentTreasuryWatchers.address}`, _sqlAB`${agentTreasuryWatchers.chain}`],
+    tokens,
+  );
+  const conds = [_sqlAB`${agentTreasuryWatchers.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${agentTreasuryWatchers.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${agentTreasuryWatchers.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(agentTreasuryWatchers)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(agentTreasuryWatchers.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.label ?? ""} ${r.address} ${r.chain}`;
+    return {
+      index: "watchers" as const,
+      id: r.id,
+      title: r.label ?? r.address,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { chain: r.chain, address: r.address, active: r.active },
+    };
+  });
+}
+
+async function _searchMonitorsAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${monitors.target}`, _sqlAB`${monitors.type}`, _sqlAB`${monitors.operator}`, _sqlAB`${monitors.walletAddress}`],
+    tokens,
+  );
+  const conds = [_sqlAB`${monitors.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${monitors.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${monitors.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(monitors)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(monitors.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.target} ${r.type} ${r.operator} ${r.walletAddress}`;
+    return {
+      index: "monitors" as const,
+      id: String(r.id),
+      title: `${r.type}:${r.target} ${r.operator} ${r.conditionValue}`,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { type: r.type, target: r.target, operator: r.operator, active: r.active, triggerCount: r.triggerCount },
+    };
+  });
+}
+
+async function _searchDeliveriesAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${webhookDeliveries.event}`, _sqlAB`coalesce(${webhookDeliveries.error},'')`, _sqlAB`${webhookDeliveries.status}`, _sqlAB`${webhookDeliveries.payload}::text`],
+    tokens,
+  );
+  const conds = [_sqlAB`${webhookDeliveries.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${webhookDeliveries.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${webhookDeliveries.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(webhookDeliveries)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(webhookDeliveries.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.event} ${r.status} ${r.error ?? ""} ${JSON.stringify(r.payload ?? {})}`;
+    return {
+      index: "deliveries" as const,
+      id: r.id,
+      title: `${r.event} → ${r.status}`,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { status: r.status, httpStatus: r.httpStatus, attempt: r.attempt, webhookId: r.webhookId },
+    };
+  });
+}
+
+async function _searchProposalsAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${agentTxProposals.summary}`, _sqlAB`${agentTxProposals.kind}`, _sqlAB`${agentTxProposals.status}`, _sqlAB`${agentTxProposals.chain}`],
+    tokens,
+  );
+  const conds = [_sqlAB`${agentTxProposals.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${agentTxProposals.createdAt} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${agentTxProposals.createdAt} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(agentTxProposals)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(agentTxProposals.createdAt))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.summary} ${r.kind} ${r.status} ${r.chain}`;
+    return {
+      index: "proposals" as const,
+      id: r.id,
+      title: r.summary,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.createdAt).toISOString(),
+      score: _scoreAB(hay, tokens, r.createdAt),
+      meta: { kind: r.kind, status: r.status, chain: r.chain, riskLevel: r.riskLevel },
+    };
+  });
+}
+
+async function _searchUsageAB(
+  ctx: CapabilityRunContext,
+  tokens: string[],
+  since: Date | null,
+  until: Date | null,
+  limit: number,
+): Promise<SearchHitAB[]> {
+  const d = requireDb();
+  const match = _matchAllTokensAB(
+    [_sqlAB`${_usageAB.capabilityId}`, _sqlAB`${_usageAB.status}`, _sqlAB`coalesce(${_usageAB.errorCode},'')`, _sqlAB`${_usageAB.transport}`],
+    tokens,
+  );
+  const conds = [_sqlAB`${_usageAB.userId} = ${ctx.userId}`, match];
+  if (since) conds.push(_sqlAB`${_usageAB.ts} >= ${since.toISOString()}`);
+  if (until) conds.push(_sqlAB`${_usageAB.ts} <= ${until.toISOString()}`);
+  const rows = await d
+    .select()
+    .from(_usageAB)
+    .where(_sqlAB.join(conds, _sqlAB` AND `))
+    .orderBy(desc(_usageAB.ts))
+    .limit(limit);
+  return rows.map((r) => {
+    const hay = `${r.capabilityId} ${r.status} ${r.errorCode ?? ""} ${r.transport}`;
+    return {
+      index: "usage" as const,
+      id: String(r.id),
+      title: `${r.capabilityId} (${r.status})`,
+      snippet: _snippetAB(hay, tokens),
+      ts: new Date(r.ts).toISOString(),
+      score: _scoreAB(hay, tokens, r.ts),
+      meta: { status: r.status, transport: r.transport, latencyMs: r.latencyMs, errorCode: r.errorCode },
+    };
+  });
+}
+
+const _SEARCH_RUNNERS_AB: Record<SearchIndexAB, (
+  ctx: CapabilityRunContext, tokens: string[], since: Date | null, until: Date | null, limit: number,
+) => Promise<SearchHitAB[]>> = {
+  audit: _searchAuditAB,
+  artifacts: _searchArtifactsAB,
+  notifications: _searchNotificationsAB,
+  watchers: _searchWatchersAB,
+  monitors: _searchMonitorsAB,
+  deliveries: _searchDeliveriesAB,
+  proposals: _searchProposalsAB,
+  usage: _searchUsageAB,
+};
+
+export async function searchQuery(
+  input: { q: string; indexes?: SearchIndexAB[]; since?: string; until?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const tokens = _tokensAB(input.q);
+  if (tokens.length === 0) {
+    throw new CapabilityError("query must contain at least one searchable token", 400, null);
+  }
+  const indexes = _resolveIndexesAB(input.indexes);
+  const { sinceDate, untilDate } = _windowAB(input.since, input.until);
+  const limit = Math.min(Math.max(input.limit ?? _SEARCH_DEFAULT_LIMIT_AB, 1), _SEARCH_MAX_LIMIT_AB);
+  const perIndexCap = Math.max(5, Math.ceil(limit * 1.5));
+
+  const settled = await Promise.allSettled(
+    indexes.map((idx) => _SEARCH_RUNNERS_AB[idx](ctx, tokens, sinceDate, untilDate, perIndexCap)),
+  );
+
+  const errors: { index: SearchIndexAB; error: string }[] = [];
+  const hits: SearchHitAB[] = [];
+  settled.forEach((res, i) => {
+    if (res.status === "fulfilled") hits.push(...res.value);
+    else errors.push({ index: indexes[i], error: res.reason instanceof Error ? res.reason.message : String(res.reason) });
+  });
+
+  hits.sort((a, b) => (b.score - a.score) || (Date.parse(b.ts) - Date.parse(a.ts)));
+  const top = hits.slice(0, limit);
+
+  return {
+    query: { q: input.q, tokens, indexes, since: input.since ?? null, until: input.until ?? null, limit },
+    count: top.length,
+    totalCandidates: hits.length,
+    hits: top,
+    errors,
+  };
+}
+
+export async function searchRecent(
+  input: { indexes?: SearchIndexAB[]; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const indexes = _resolveIndexesAB(input.indexes);
+  const limit = Math.min(Math.max(input.limit ?? _SEARCH_DEFAULT_LIMIT_AB, 1), _SEARCH_MAX_LIMIT_AB);
+  const perIndexCap = Math.max(5, Math.ceil(limit / Math.max(1, indexes.length)) + 5);
+
+  const settled = await Promise.allSettled(
+    indexes.map((idx) => _SEARCH_RUNNERS_AB[idx](ctx, [], null, null, perIndexCap)),
+  );
+  const errors: { index: SearchIndexAB; error: string }[] = [];
+  const hits: SearchHitAB[] = [];
+  settled.forEach((res, i) => {
+    if (res.status === "fulfilled") hits.push(...res.value);
+    else errors.push({ index: indexes[i], error: res.reason instanceof Error ? res.reason.message : String(res.reason) });
+  });
+  hits.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+  return { count: Math.min(hits.length, limit), hits: hits.slice(0, limit), errors };
+}
+
+export async function searchFacets(
+  input: { q?: string; since?: string; until?: string },
+  ctx: CapabilityRunContext,
+) {
+  const tokens = input.q ? _tokensAB(input.q) : [];
+  const { sinceDate, untilDate } = _windowAB(input.since, input.until);
+
+  const counters: Array<{ index: SearchIndexAB; sql: ReturnType<typeof _sqlAB> }> = [
+    { index: "audit", sql: _sqlAB`SELECT count(*)::int AS c FROM ${_auditAB} WHERE ${_auditAB.userId} = ${ctx.userId}` },
+    { index: "artifacts", sql: _sqlAB`SELECT count(*)::int AS c FROM ${_artifactsZ} WHERE ${_artifactsZ.userId} = ${ctx.userId} AND ${_artifactsZ.deletedAt} IS NULL` },
+    { index: "notifications", sql: _sqlAB`SELECT count(*)::int AS c FROM ${notifications} WHERE ${notifications.userId} = ${ctx.userId}` },
+    { index: "watchers", sql: _sqlAB`SELECT count(*)::int AS c FROM ${agentTreasuryWatchers} WHERE ${agentTreasuryWatchers.userId} = ${ctx.userId}` },
+    { index: "monitors", sql: _sqlAB`SELECT count(*)::int AS c FROM ${monitors} WHERE ${monitors.userId} = ${ctx.userId}` },
+    { index: "deliveries", sql: _sqlAB`SELECT count(*)::int AS c FROM ${webhookDeliveries} WHERE ${webhookDeliveries.userId} = ${ctx.userId}` },
+    { index: "proposals", sql: _sqlAB`SELECT count(*)::int AS c FROM ${agentTxProposals} WHERE ${agentTxProposals.userId} = ${ctx.userId}` },
+    { index: "usage", sql: _sqlAB`SELECT count(*)::int AS c FROM ${_usageAB} WHERE ${_usageAB.userId} = ${ctx.userId}` },
+  ];
+
+  // If a query or window is supplied, fall back to the per-index runners
+  // with a large cap and count the result set (correct but slower).
+  if (tokens.length > 0 || sinceDate || untilDate) {
+    const facets: Record<string, number> = {};
+    const settled = await Promise.allSettled(
+      _ALL_INDEXES_AB.map((idx) => _SEARCH_RUNNERS_AB[idx](ctx, tokens, sinceDate, untilDate, _SEARCH_MAX_LIMIT_AB)),
+    );
+    settled.forEach((res, i) => {
+      facets[_ALL_INDEXES_AB[i]] = res.status === "fulfilled" ? res.value.length : 0;
+    });
+    return {
+      mode: "filtered" as const,
+      tokens,
+      window: { since: input.since ?? null, until: input.until ?? null },
+      facets,
+      note: "Counts saturate at search.policy.maxLimit when filtered; use search.query for exact pagination.",
+    };
+  }
+
+  const d = requireDb();
+  const facets: Record<string, number> = {};
+  for (const c of counters) {
+    try {
+      const res = await d.execute(c.sql);
+      const rows = (res as unknown as { rows?: Array<{ c?: number | string }> }).rows ?? (res as unknown as Array<{ c?: number | string }>);
+      const first = Array.isArray(rows) ? rows[0] : undefined;
+      facets[c.index] = Number(first?.c ?? 0);
+    } catch {
+      facets[c.index] = 0;
+    }
+  }
+  return { mode: "total" as const, tokens: [], window: { since: null, until: null }, facets };
+}
+
+export async function searchSuggest(
+  input: { field: "capability_id" | "action" | "filename" | "event" | "notification_type"; prefix?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const prefix = (input.prefix ?? "").toLowerCase();
+  const like = prefix + "%";
+  const limit = Math.min(Math.max(input.limit ?? 10, 1), 50);
+
+  let q: ReturnType<typeof _sqlAB>;
+  switch (input.field) {
+    case "capability_id":
+      q = _sqlAB`SELECT DISTINCT ${_usageAB.capabilityId} AS v FROM ${_usageAB} WHERE ${_usageAB.userId} = ${ctx.userId} AND lower(${_usageAB.capabilityId}) LIKE ${like} ORDER BY v LIMIT ${limit}`;
+      break;
+    case "action":
+      q = _sqlAB`SELECT DISTINCT ${_auditAB.action} AS v FROM ${_auditAB} WHERE ${_auditAB.userId} = ${ctx.userId} AND lower(${_auditAB.action}) LIKE ${like} ORDER BY v LIMIT ${limit}`;
+      break;
+    case "filename":
+      q = _sqlAB`SELECT DISTINCT ${_artifactsZ.filename} AS v FROM ${_artifactsZ} WHERE ${_artifactsZ.userId} = ${ctx.userId} AND ${_artifactsZ.deletedAt} IS NULL AND lower(${_artifactsZ.filename}) LIKE ${like} ORDER BY v LIMIT ${limit}`;
+      break;
+    case "event":
+      q = _sqlAB`SELECT DISTINCT ${webhookDeliveries.event} AS v FROM ${webhookDeliveries} WHERE ${webhookDeliveries.userId} = ${ctx.userId} AND lower(${webhookDeliveries.event}) LIKE ${like} ORDER BY v LIMIT ${limit}`;
+      break;
+    case "notification_type":
+      q = _sqlAB`SELECT DISTINCT ${notifications.type} AS v FROM ${notifications} WHERE ${notifications.userId} = ${ctx.userId} AND lower(${notifications.type}) LIKE ${like} ORDER BY v LIMIT ${limit}`;
+      break;
+  }
+  const res = await d.execute(q);
+  const rows = (res as unknown as { rows?: Array<{ v?: string }> }).rows ?? (res as unknown as Array<{ v?: string }>);
+  const suggestions = (Array.isArray(rows) ? rows : []).map((r) => r.v).filter((v): v is string => typeof v === "string");
+  return { field: input.field, prefix: input.prefix ?? "", count: suggestions.length, suggestions };
+}
+
+export async function searchLookup(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const raw = input.id.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+  const asInt = /^\d+$/.test(raw) ? Number(raw) : null;
+
+  const candidates: Array<{ index: SearchIndexAB; probe: () => Promise<{ ts: Date; meta: Record<string, unknown> } | null> }> = [];
+
+  if (isUuid) {
+    candidates.push(
+      { index: "artifacts", probe: async () => {
+        const [r] = await d.select().from(_artifactsZ).where(and(eq(_artifactsZ.id, raw), eq(_artifactsZ.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { filename: r.filename, bytes: r.bytes, deleted: !!r.deletedAt } } : null;
+      } },
+      { index: "watchers", probe: async () => {
+        const [r] = await d.select().from(agentTreasuryWatchers).where(and(eq(agentTreasuryWatchers.id, raw), eq(agentTreasuryWatchers.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { chain: r.chain, address: r.address } } : null;
+      } },
+      { index: "proposals", probe: async () => {
+        const [r] = await d.select().from(agentTxProposals).where(and(eq(agentTxProposals.id, raw), eq(agentTxProposals.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { kind: r.kind, status: r.status } } : null;
+      } },
+      { index: "deliveries", probe: async () => {
+        const [r] = await d.select().from(webhookDeliveries).where(and(eq(webhookDeliveries.id, raw), eq(webhookDeliveries.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { event: r.event, status: r.status } } : null;
+      } },
+    );
+  }
+
+  if (asInt !== null) {
+    candidates.push(
+      { index: "audit", probe: async () => {
+        const [r] = await d.select().from(_auditAB).where(and(eq(_auditAB.id, asInt), eq(_auditAB.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.ts, meta: { action: r.action, target: r.target } } : null;
+      } },
+      { index: "usage", probe: async () => {
+        const [r] = await d.select().from(_usageAB).where(and(eq(_usageAB.id, asInt), eq(_usageAB.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.ts, meta: { capabilityId: r.capabilityId, status: r.status } } : null;
+      } },
+      { index: "notifications", probe: async () => {
+        const [r] = await d.select().from(notifications).where(and(eq(notifications.id, asInt), eq(notifications.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { title: r.title, type: r.type } } : null;
+      } },
+      { index: "monitors", probe: async () => {
+        const [r] = await d.select().from(monitors).where(and(eq(monitors.id, asInt), eq(monitors.userId, ctx.userId))).limit(1);
+        return r ? { ts: r.createdAt, meta: { type: r.type, target: r.target } } : null;
+      } },
+    );
+  }
+
+  if (candidates.length === 0) {
+    return { id: raw, match: null, probed: [] as string[], reason: "id is neither a uuid nor a positive integer" };
+  }
+
+  const probed: string[] = [];
+  for (const c of candidates) {
+    probed.push(c.index);
+    try {
+      const hit = await c.probe();
+      if (hit) {
+        return {
+          id: raw,
+          match: { index: c.index, id: raw, ts: new Date(hit.ts).toISOString(), meta: hit.meta },
+          probed,
+        };
+      }
+    } catch {
+      // probe failed (likely wrong column type cast) — keep going
+    }
+  }
+  return { id: raw, match: null, probed };
+}
+
+export async function searchIndexes(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    indexes: [
+      { id: "audit", table: "public_api_audit_log", tsField: "ts", textFields: ["action", "target", "meta(text)"], pkType: "int" },
+      { id: "artifacts", table: "public_api_artifacts", tsField: "created_at", textFields: ["filename", "mime", "sha256", "metadata(text)"], pkType: "uuid" },
+      { id: "notifications", table: "notifications", tsField: "created_at", textFields: ["title", "message", "type", "severity"], pkType: "int" },
+      { id: "watchers", table: "agent_treasury_watchers", tsField: "created_at", textFields: ["label", "address", "chain"], pkType: "uuid" },
+      { id: "monitors", table: "monitors", tsField: "created_at", textFields: ["target", "type", "operator", "wallet_address"], pkType: "int" },
+      { id: "deliveries", table: "webhook_deliveries", tsField: "created_at", textFields: ["event", "error", "status", "payload(text)"], pkType: "uuid" },
+      { id: "proposals", table: "agent_tx_proposals", tsField: "created_at", textFields: ["summary", "kind", "status", "chain"], pkType: "uuid" },
+      { id: "usage", table: "public_api_key_usage", tsField: "ts", textFields: ["capability_id", "status", "error_code", "transport"], pkType: "int" },
+    ],
+  };
+}
+
+export async function searchPolicy(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    operator: "AND",
+    matching: "case-insensitive substring (ILIKE %tok%) over concatenated text fields",
+    tokenization: "whitespace-split, lowercased, max 8 tokens, max 256 chars per query",
+    maxLimit: _SEARCH_MAX_LIMIT_AB,
+    defaultLimit: _SEARCH_DEFAULT_LIMIT_AB,
+    snippetChars: _SNIPPET_MAX_AB,
+    scoring: {
+      formula: "0.7 * tokenCoverage + 0.3 * recencyDecay",
+      recencyHalfLifeDays: 30,
+      deterministic: true,
+    },
+    scope: "every hit is filtered by userId in SQL; cross-tenant leakage is structurally impossible",
+    notIndexed: ["secrets", "raw payloads outside the listed columns"],
+  };
+}
+

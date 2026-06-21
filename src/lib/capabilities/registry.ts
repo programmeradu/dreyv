@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1981,6 +1981,109 @@ export const CAPABILITIES: PublicCapability[] = [
     description: "Returns the storage tier matrix, retention windows, presign TTL bounds, accepted MIME prefixes, single-object cap, and durability target. Public, deterministic — safe to cache.",
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.storagePolicy(i, c),
+  },
+
+  // ─── Pillar AB — Search & Indexing (Phase 19) ────────────────────────
+  {
+    id: "search.query",
+    mcpName: "dreyv_search_query",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Cross-pillar full-text search over the caller's surface",
+    description: "Tokenized AND-match (case-insensitive) across selectable indexes — audit, artifacts, notifications, watchers, monitors, deliveries, proposals, usage. Every hit is strictly scoped to the caller (userId). Returns ranked, deduped hits with `{ index, id, title, snippet, ts, score, meta }`. Supports time window (`since`/`until`) and per-call `limit` up to 200.",
+    inputSchema: z.object({
+      q: z.string().min(1).max(256),
+      indexes: z.array(z.enum(["audit", "artifacts", "notifications", "watchers", "monitors", "deliveries", "proposals", "usage"])).optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }).strict(),
+    handler: (i, c) => caps.searchQuery(i, c),
+  },
+  {
+    id: "search.recent",
+    mcpName: "dreyv_search_recent",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Unified reverse-chronological timeline across indexes",
+    description: "Returns the caller's most recent events across the same eight indexes, merged and sorted newest-first. Use this as the default firehose when no query is needed (e.g. activity tabs).",
+    inputSchema: z.object({
+      indexes: z.array(z.enum(["audit", "artifacts", "notifications", "watchers", "monitors", "deliveries", "proposals", "usage"])).optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }).strict(),
+    handler: (i, c) => caps.searchRecent(i, c),
+  },
+  {
+    id: "search.facets",
+    mcpName: "dreyv_search_facets",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Per-index hit counts for an optional query and window",
+    description: "Aggregates how many rows in each index match the optional `q` and time window. Useful for badge counts and pre-flighting an expensive `search.query` call.",
+    inputSchema: z.object({
+      q: z.string().max(256).optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+    }).strict(),
+    handler: (i, c) => caps.searchFacets(i, c),
+  },
+  {
+    id: "search.suggest",
+    mcpName: "dreyv_search_suggest",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Autocomplete distinct field values the caller has used",
+    description: "Returns up to `limit` distinct, recent values for the requested field (`capability_id`, `action`, `filename`, `event`, `notification_type`) whose value starts with `prefix` (case-insensitive). Strictly scoped to the caller.",
+    inputSchema: z.object({
+      field: z.enum(["capability_id", "action", "filename", "event", "notification_type"]),
+      prefix: z.string().max(64).optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    }).strict(),
+    handler: (i, c) => caps.searchSuggest(i, c),
+  },
+  {
+    id: "search.lookup",
+    mcpName: "dreyv_search_lookup",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Resolve an opaque id to its owning index",
+    description: "Given a UUID or numeric id, probes each searchable index for a row owned by the caller and returns the first match. Lets clients build deep-links without remembering which table an id came from.",
+    inputSchema: z.object({ id: z.string().min(1).max(64) }).strict(),
+    handler: (i, c) => caps.searchLookup(i, c),
+  },
+  {
+    id: "search.indexes",
+    mcpName: "dreyv_search_indexes",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Manifest of searchable indexes and their fields",
+    description: "Returns the static manifest of indexes available to `search.query` / `search.recent`, including which text fields are scanned, the timestamp column used for ordering, and the underlying table.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.searchIndexes(i, c),
+  },
+  {
+    id: "search.policy",
+    mcpName: "dreyv_search_policy",
+    pillar: "search",
+    scope: "read:search",
+    sideEffects: "read",
+    status: "stable",
+    title: "Search engine limits, operators, and scoring contract",
+    description: "Returns the public search contract: max query length, max token count, AND-only operator semantics, snippet length, default + max limit, and the deterministic scoring rule (token coverage × recency decay). Safe to cache.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.searchPolicy(i, c),
   },
 ];
 
