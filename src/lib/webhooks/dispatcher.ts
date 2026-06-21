@@ -57,6 +57,9 @@ export type WebhookEventName =
   | "inbox.digest_ready"
   | "inbox.notification_archived"
   | "inbox.notification_snoozed"
+  | "report.generated"
+  | "report.shared"
+  | "report.share_revoked"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
