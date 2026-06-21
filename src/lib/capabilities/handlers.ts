@@ -5852,3 +5852,503 @@ export async function jobsPolicy(_input: Record<string, never>, ctx: CapabilityR
     ],
   };
 }
+
+// ─── Pillar AF — Exports & Reports (Phase 22) ────────────────────────
+import { publicApiExports as _exportsAF } from "@/db/schema";
+import { createHash as _hashAF } from "node:crypto";
+import { gte as _gteAF, lte as _lteAF } from "drizzle-orm";
+
+type _ExportSource =
+  | "audit"
+  | "usage"
+  | "deliveries"
+  | "notifications"
+  | "watchers"
+  | "monitors"
+  | "proposals"
+  | "jobs"
+  | "runs"
+  | "artifacts";
+
+type _ExportFormat = "csv" | "jsonl";
+
+const _MAX_BODY_BYTES_AF = 4 * 1024 * 1024; // 4 MiB inline cap
+const _DEFAULT_TTL_DAYS_AF = 14;
+
+const _TIER_EXPORT_LIMITS_AF: Record<
+  string,
+  { activeExports: number; maxRows: number; ttlDays: number }
+> = {
+  free: { activeExports: 5,   maxRows: 5_000,   ttlDays: 7 },
+  mini: { activeExports: 50,  maxRows: 50_000,  ttlDays: 30 },
+  max:  { activeExports: 500, maxRows: 500_000, ttlDays: 90 },
+};
+
+const _EXPORT_SOURCES_AF: ReadonlyArray<{
+  source: _ExportSource;
+  scope: string;
+  columns: string[];
+  description: string;
+}> = [
+  { source: "audit",         scope: "read:audit",         columns: ["id", "ts", "action", "target", "prevHash", "hash", "meta"], description: "Hash-chained mutation audit log." },
+  { source: "usage",         scope: "read:audit",         columns: ["id", "ts", "capabilityId", "transport", "status", "latencyMs", "costCredits", "errorCode"], description: "Per-call metering rows." },
+  { source: "deliveries",    scope: "read:notifications", columns: ["id", "createdAt", "webhookId", "event", "attempt", "status", "httpStatus", "latencyMs", "error"], description: "Webhook delivery attempts." },
+  { source: "notifications", scope: "read:notifications", columns: ["id", "createdAt", "title", "body", "severity", "channel", "readAt"], description: "User-facing notification feed." },
+  { source: "watchers",      scope: "read:portfolio",     columns: ["id", "createdAt", "label", "target", "active"], description: "Treasury watchers." },
+  { source: "monitors",      scope: "read:portfolio",     columns: ["id", "createdAt", "label", "condition", "active"], description: "Programmatic monitors." },
+  { source: "proposals",     scope: "read:portfolio",     columns: ["id", "createdAt", "label", "status", "chain"], description: "Multisig / treasury proposals." },
+  { source: "jobs",          scope: "read:jobs",          columns: ["id", "createdAt", "label", "capabilityId", "kind", "status", "nextRunAt", "runCount", "failCount"], description: "Scheduled jobs." },
+  { source: "runs",          scope: "read:jobs",          columns: ["id", "createdAt", "jobId", "status", "attempt", "durationMs", "triggeredBy", "errorCode"], description: "Job run history." },
+  { source: "artifacts",     scope: "read:storage",       columns: ["id", "createdAt", "filename", "mime", "bytes", "sha256", "visibility"], description: "Uploaded storage artifacts (metadata only)." },
+];
+
+function _csvCellAF(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  let s: string;
+  if (v instanceof Date) s = v.toISOString();
+  else if (typeof v === "object") s = JSON.stringify(v);
+  else s = String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function _serializeRowsAF(
+  rows: Array<Record<string, unknown>>,
+  columns: string[],
+  format: _ExportFormat,
+): { body: Buffer; truncated: boolean; rowCount: number } {
+  let truncated = false;
+  if (format === "csv") {
+    const lines: string[] = [];
+    lines.push(columns.map(_csvCellAF).join(","));
+    let bytes = Buffer.byteLength(lines[0]) + 1;
+    let i = 0;
+    for (; i < rows.length; i++) {
+      const line = columns.map((c) => _csvCellAF((rows[i] as Record<string, unknown>)[c])).join(",");
+      const lineBytes = Buffer.byteLength(line) + 1;
+      if (bytes + lineBytes > _MAX_BODY_BYTES_AF) { truncated = true; break; }
+      lines.push(line);
+      bytes += lineBytes;
+    }
+    return { body: Buffer.from(lines.join("\n") + "\n", "utf8"), truncated, rowCount: i };
+  }
+  // jsonl
+  const out: string[] = [];
+  let bytes = 0;
+  let i = 0;
+  for (; i < rows.length; i++) {
+    const projected: Record<string, unknown> = {};
+    for (const c of columns) projected[c] = (rows[i] as Record<string, unknown>)[c] ?? null;
+    const line = JSON.stringify(projected);
+    const lineBytes = Buffer.byteLength(line) + 1;
+    if (bytes + lineBytes > _MAX_BODY_BYTES_AF) { truncated = true; break; }
+    out.push(line);
+    bytes += lineBytes;
+  }
+  return { body: Buffer.from(out.join("\n") + "\n", "utf8"), truncated, rowCount: i };
+}
+
+async function _fetchSourceRowsAF(
+  source: _ExportSource,
+  ctx: CapabilityRunContext,
+  filters: { since?: Date; until?: Date; status?: string; capabilityId?: string },
+  rowCap: number,
+): Promise<Array<Record<string, unknown>>> {
+  const d = requireDb();
+  const schema = await import("@/db/schema");
+  const since = filters.since;
+  const until = filters.until;
+  const within = <T>(col: T, conds: unknown[]) => {
+    if (since) conds.push(_gteAF(col as never, since));
+    if (until) conds.push(_lteAF(col as never, until));
+  };
+  switch (source) {
+    case "audit": {
+      const t = schema.publicApiAuditLog;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.ts, conds);
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.ts)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "usage": {
+      const t = schema.publicApiKeyUsage;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.ts, conds);
+      if (filters.status) conds.push(eq(t.status, filters.status));
+      if (filters.capabilityId) conds.push(eq(t.capabilityId, filters.capabilityId));
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.ts)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "deliveries": {
+      const t = schema.webhookDeliveries;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      if (filters.status) conds.push(eq(t.status, filters.status));
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "notifications": {
+      const t = schema.notifications;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "watchers": {
+      const t = schema.agentTreasuryWatchers;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "monitors": {
+      const t = schema.monitors;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "proposals": {
+      const t = schema.agentTxProposals;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      if (filters.status) conds.push(eq(t.status, filters.status));
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "jobs": {
+      const t = _jobsAE;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      if (filters.status) conds.push(eq(t.status, filters.status));
+      if (filters.capabilityId) conds.push(eq(t.capabilityId, filters.capabilityId));
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "runs": {
+      const t = _jobRunsAE;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      if (filters.status) conds.push(eq(t.status, filters.status));
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    case "artifacts": {
+      const t = schema.publicApiArtifacts;
+      const conds: unknown[] = [eq(t.userId, ctx.userId)];
+      within(t.createdAt, conds);
+      const rows = await d.select().from(t).where(and(...(conds as never[]))).orderBy(desc(t.createdAt)).limit(rowCap);
+      return rows as Array<Record<string, unknown>>;
+    }
+    default:
+      throw new CapabilityError(`Unknown export source '${source}'`, 400, null);
+  }
+}
+
+function _parseIsoAF(v: string | undefined, field: string): Date | undefined {
+  if (!v) return undefined;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) throw new CapabilityError(`${field} is not a valid ISO timestamp`, 400, null);
+  return d;
+}
+
+export async function exportsSources(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    formats: ["csv", "jsonl"] as const,
+    sources: _EXPORT_SOURCES_AF,
+  };
+}
+
+export async function exportsCreate(
+  input: {
+    label: string;
+    source: _ExportSource;
+    format?: _ExportFormat;
+    since?: string;
+    until?: string;
+    status?: string;
+    capabilityId?: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const sourceMeta = _EXPORT_SOURCES_AF.find((s) => s.source === input.source);
+  if (!sourceMeta) throw new CapabilityError(`Unknown export source '${input.source}'`, 400, null);
+  const format: _ExportFormat = input.format ?? "csv";
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_EXPORT_LIMITS_AF[tier];
+
+  // Active-export quota (non-purged rows).
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_exportsAF)
+    .where(and(eq(_exportsAF.userId, ctx.userId), _sqlAE`${_exportsAF.status} <> 'purged'`));
+  if (n >= limits.activeExports) {
+    throw new CapabilityError(
+      `Export quota reached for tier '${tier}' (${n}/${limits.activeExports}). Purge old exports first.`,
+      429,
+      null,
+    );
+  }
+
+  const since = _parseIsoAF(input.since, "since");
+  const until = _parseIsoAF(input.until, "until");
+  if (since && until && since.getTime() > until.getTime()) {
+    throw new CapabilityError("`since` must be before `until`", 400, null);
+  }
+
+  const label = input.label.trim().slice(0, 120) || `Export: ${input.source}`;
+  const expiresAt = new Date(Date.now() + limits.ttlDays * 24 * 60 * 60 * 1000);
+  const filters = {
+    since: since?.toISOString() ?? null,
+    until: until?.toISOString() ?? null,
+    status: input.status ?? null,
+    capabilityId: input.capabilityId ?? null,
+  };
+
+  // Insert a pending row up front so concurrent quota checks see it.
+  const [row] = await d
+    .insert(_exportsAF)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      label,
+      source: input.source,
+      format,
+      filters,
+      status: "pending",
+      expiresAt,
+    })
+    .returning();
+
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "export.created",
+    data: { exportId: row.id, source: input.source, format, label },
+  }).catch(() => undefined);
+
+  try {
+    const rows = await _fetchSourceRowsAF(
+      input.source,
+      ctx,
+      { since, until, status: input.status, capabilityId: input.capabilityId },
+      limits.maxRows,
+    );
+    const { body, truncated, rowCount } = _serializeRowsAF(rows, sourceMeta.columns, format);
+    const sha = _hashAF("sha256").update(body).digest("hex");
+
+    await d
+      .update(_exportsAF)
+      .set({
+        rowCount,
+        byteSize: body.length,
+        sha256: sha,
+        truncated: truncated || rows.length >= limits.maxRows,
+        body,
+        status: "completed",
+      })
+      .where(eq(_exportsAF.id, row.id));
+
+    await _appendAudit({
+      keyId: ctx.keyId,
+      userId: ctx.userId,
+      action: "exports.create",
+      target: row.id,
+      meta: { source: input.source, format, rowCount, byteSize: body.length, truncated },
+    });
+
+    void emitWebhookEvent({
+      userId: ctx.userId,
+      event: "export.completed",
+      data: { exportId: row.id, source: input.source, format, rowCount, byteSize: body.length, sha256: sha, truncated },
+    }).catch(() => undefined);
+
+    return {
+      id: row.id,
+      label,
+      source: input.source,
+      format,
+      status: "completed" as const,
+      rowCount,
+      byteSize: body.length,
+      sha256: sha,
+      truncated: truncated || rows.length >= limits.maxRows,
+      expiresAt: expiresAt.toISOString(),
+      createdAt: row.createdAt,
+      tier,
+      quota: { used: n + 1, limit: limits.activeExports, maxRows: limits.maxRows },
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorCode = err instanceof CapabilityError ? `http_${err.status}` : "exception";
+    await d
+      .update(_exportsAF)
+      .set({ status: "failed", errorCode, errorMessage })
+      .where(eq(_exportsAF.id, row.id));
+    void emitWebhookEvent({
+      userId: ctx.userId,
+      event: "export.failed",
+      data: { exportId: row.id, source: input.source, errorCode, errorMessage },
+    }).catch(() => undefined);
+    throw err;
+  }
+}
+
+export async function exportsList(
+  input: { source?: _ExportSource; status?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds: unknown[] = [eq(_exportsAF.userId, ctx.userId)];
+  if (input.source) conds.push(eq(_exportsAF.source, input.source));
+  if (input.status) conds.push(eq(_exportsAF.status, input.status));
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const rows = await d
+    .select({
+      id: _exportsAF.id,
+      label: _exportsAF.label,
+      source: _exportsAF.source,
+      format: _exportsAF.format,
+      status: _exportsAF.status,
+      rowCount: _exportsAF.rowCount,
+      byteSize: _exportsAF.byteSize,
+      sha256: _exportsAF.sha256,
+      truncated: _exportsAF.truncated,
+      filters: _exportsAF.filters,
+      errorCode: _exportsAF.errorCode,
+      errorMessage: _exportsAF.errorMessage,
+      expiresAt: _exportsAF.expiresAt,
+      createdAt: _exportsAF.createdAt,
+      purgedAt: _exportsAF.purgedAt,
+    })
+    .from(_exportsAF)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(_exportsAF.createdAt))
+    .limit(limit);
+  return { count: rows.length, exports: rows };
+}
+
+async function _loadExportAF(id: string, userId: string) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_exportsAF)
+    .where(and(eq(_exportsAF.id, id), eq(_exportsAF.userId, userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Export ${id} not found`, 404, null);
+  return row;
+}
+
+export async function exportsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const row = await _loadExportAF(input.id, ctx.userId);
+  // Don't return the body here — exports.download owns that surface.
+  return {
+    id: row.id,
+    label: row.label,
+    source: row.source,
+    format: row.format,
+    status: row.status,
+    rowCount: row.rowCount,
+    byteSize: row.byteSize,
+    sha256: row.sha256,
+    truncated: row.truncated,
+    filters: row.filters,
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    purgedAt: row.purgedAt,
+  };
+}
+
+export async function exportsDownload(input: { id: string }, ctx: CapabilityRunContext) {
+  const row = await _loadExportAF(input.id, ctx.userId);
+  if (row.status !== "completed") {
+    throw new CapabilityError(`Export is '${row.status}', not 'completed'`, 409, null);
+  }
+  if (!row.body) {
+    throw new CapabilityError("Export body has been purged", 410, null);
+  }
+  if (row.expiresAt && row.expiresAt.getTime() < Date.now()) {
+    throw new CapabilityError("Export has expired", 410, null);
+  }
+  const contentType = row.format === "csv" ? "text/csv" : "application/x-ndjson";
+  const filenameSafe = String(row.label).replace(/[^a-z0-9._-]+/gi, "_").slice(0, 80) || "export";
+  const filename = `${filenameSafe}-${row.id.slice(0, 8)}.${row.format === "csv" ? "csv" : "jsonl"}`;
+  const buf = Buffer.isBuffer(row.body) ? row.body : Buffer.from(row.body as unknown as Uint8Array);
+  return {
+    id: row.id,
+    contentType,
+    filename,
+    encoding: "base64" as const,
+    byteSize: buf.length,
+    sha256: row.sha256,
+    body: buf.toString("base64"),
+  };
+}
+
+export async function exportsPurge(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const row = await _loadExportAF(input.id, ctx.userId);
+  if (row.status === "purged") {
+    return { id: row.id, status: "purged" as const, alreadyPurged: true };
+  }
+  await d
+    .update(_exportsAF)
+    .set({ status: "purged", body: null, purgedAt: new Date() })
+    .where(eq(_exportsAF.id, row.id));
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "exports.purge",
+    target: row.id,
+    meta: { source: row.source, byteSize: row.byteSize, rowCount: row.rowCount },
+  });
+  return { id: row.id, status: "purged" as const, alreadyPurged: false };
+}
+
+export async function exportsStats(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select({
+      source: _exportsAF.source,
+      status: _exportsAF.status,
+      count: _sqlAE<number>`count(*)::int`,
+      totalBytes: _sqlAE<number>`coalesce(sum(${_exportsAF.byteSize}), 0)::int`,
+      totalRows: _sqlAE<number>`coalesce(sum(${_exportsAF.rowCount}), 0)::int`,
+    })
+    .from(_exportsAF)
+    .where(eq(_exportsAF.userId, ctx.userId))
+    .groupBy(_exportsAF.source, _exportsAF.status);
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_EXPORT_LIMITS_AF[tier];
+  const [{ active }] = await d
+    .select({ active: _sqlAE<number>`count(*)::int` })
+    .from(_exportsAF)
+    .where(and(eq(_exportsAF.userId, ctx.userId), _sqlAE`${_exportsAF.status} <> 'purged'`));
+  return {
+    tier,
+    quota: { used: active, limit: limits.activeExports, maxRows: limits.maxRows, ttlDays: limits.ttlDays },
+    bySourceStatus: rows,
+  };
+}
+
+export async function exportsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_EXPORT_LIMITS_AF[tier],
+    perTier: _TIER_EXPORT_LIMITS_AF,
+    bodyMaxBytes: _MAX_BODY_BYTES_AF,
+    defaultTtlDays: _DEFAULT_TTL_DAYS_AF,
+    formats: ["csv", "jsonl"] as const,
+    sources: _EXPORT_SOURCES_AF.map((s) => s.source),
+    statuses: ["pending", "completed", "failed", "purged"] as const,
+    notes: [
+      "Exports are generated synchronously and stored inline as bytea.",
+      "Body cap is 4 MiB per export; oversized results set `truncated:true`.",
+      "Purged exports keep metadata but drop the body; the row counts against quota until removed by retention.",
+      "Filters narrow the source query: `since`/`until` (ISO), plus per-source `status` / `capabilityId`.",
+    ],
+  };
+}
