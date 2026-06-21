@@ -11,6 +11,9 @@
  */
 
 import type { CapabilityRunContext } from "./registry";
+import { db } from "@/db";
+import { agentTreasuryWatchers, monitors, notifications } from "@/db/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
