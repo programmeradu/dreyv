@@ -3039,36 +3039,6 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.teamsPolicy(i, c),
   },
-
-
-
-
-
-const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));
-const byMcpName = new Map(CAPABILITIES.map((c) => [c.mcpName, c]));
-
-export function getCapabilityById(id: string): PublicCapability | undefined {
-  return byId.get(id);
-}
-
-export function getCapabilityByMcpName(name: string): PublicCapability | undefined {
-  return byMcpName.get(name);
-}
-
-export function listPublicCapabilities(): PublicCapability[] {
-  return CAPABILITIES;
-}
-
-/** REST path slug, e.g. "portfolio.holdings" → "portfolio/holdings". */
-export function restPathFor(cap: PublicCapability): string {
-  return cap.id.replace(/\./g, "/");
-}
-
-export function findCapabilityByRestPath(slug: string[]): PublicCapability | undefined {
-  const id = slug.join(".");
-  return byId.get(id);
-}
-
   // ─── Pillar AK — Billing, Usage & Quotas (Phase 27) ──────────────────
   // Extends the legacy billing pillar with usage timeseries, per-capability
   // and credits ledger views, projected forecast vs plan, invoice get +
@@ -3250,3 +3220,28 @@ export function findCapabilityByRestPath(slug: string[]): PublicCapability | und
     handler: (i, c) => caps.billingPolicy(i, c),
   },
 ];
+
+const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));
+const byMcpName = new Map(CAPABILITIES.map((c) => [c.mcpName, c]));
+
+export function getCapabilityById(id: string): PublicCapability | undefined {
+  return byId.get(id);
+}
+
+export function getCapabilityByMcpName(name: string): PublicCapability | undefined {
+  return byMcpName.get(name);
+}
+
+export function listPublicCapabilities(): PublicCapability[] {
+  return CAPABILITIES;
+}
+
+/** REST path slug, e.g. "portfolio.holdings" → "portfolio/holdings". */
+export function restPathFor(cap: PublicCapability): string {
+  return cap.id.replace(/\./g, "/");
+}
+
+export function findCapabilityByRestPath(slug: string[]): PublicCapability | undefined {
+  const id = slug.join(".");
+  return byId.get(id);
+}
