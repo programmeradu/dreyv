@@ -11,6 +11,9 @@
  */
 
 import type { CapabilityRunContext } from "./registry";
+import { db } from "@/db";
+import { agentTreasuryWatchers, monitors, notifications } from "@/db/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
@@ -504,3 +507,149 @@ export async function economySkus(
     skus,
   };
 }
+
+// ─── Pillar J — Watchers, Monitors, Notifications (Phase 4) ──────────
+// All ops are DB-backed and strictly scoped to ctx.userId. No fallbacks:
+// if the DB is unavailable we surface a real 503 CapabilityError.
+
+function requireDb() {
+  if (!db) throw new CapabilityError("Database unavailable", 503, null);
+  return db;
+}
+
+const CHAIN_VALUES = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
+
+// ── Watchers ─────────────────────────────────────────────────────────
+export async function watchersList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select()
+    .from(agentTreasuryWatchers)
+    .where(eq(agentTreasuryWatchers.userId, ctx.userId))
+    .orderBy(desc(agentTreasuryWatchers.createdAt))
+    .limit(200);
+  return { watchers: rows };
+}
+
+export async function watchersCreate(
+  input: { chain: (typeof CHAIN_VALUES)[number]; address: string; label?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .insert(agentTreasuryWatchers)
+    .values({
+      userId: ctx.userId,
+      chain: input.chain,
+      address: input.address,
+      label: input.label ?? null,
+      active: true,
+    })
+    .returning();
+  return { watcher: row };
+}
+
+export async function watchersDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .update(agentTreasuryWatchers)
+    .set({ active: false })
+    .where(
+      and(eq(agentTreasuryWatchers.id, input.id), eq(agentTreasuryWatchers.userId, ctx.userId)),
+    )
+    .returning({ id: agentTreasuryWatchers.id });
+  if (!row) throw new CapabilityError(`Watcher ${input.id} not found for this key owner`, 404, null);
+  return { deleted: true, id: row.id };
+}
+
+// ── Monitors ─────────────────────────────────────────────────────────
+export async function monitorsList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select()
+    .from(monitors)
+    .where(eq(monitors.userId, ctx.userId))
+    .orderBy(desc(monitors.createdAt))
+    .limit(200);
+  return { monitors: rows };
+}
+
+export async function monitorsCreate(
+  input: {
+    walletAddress: string;
+    type: "price" | "balance" | "apy" | "risk";
+    target: string;
+    operator: "above" | "below" | "equals" | "changes";
+    conditionValue: number;
+    active?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .insert(monitors)
+    .values({
+      userId: ctx.userId,
+      walletAddress: input.walletAddress,
+      type: input.type,
+      target: input.target,
+      operator: input.operator,
+      conditionValue: String(input.conditionValue),
+      active: input.active ?? true,
+    })
+    .returning();
+  return { monitor: row };
+}
+
+export async function monitorsDelete(input: { id: number }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .update(monitors)
+    .set({ active: false })
+    .where(and(eq(monitors.id, input.id), eq(monitors.userId, ctx.userId)))
+    .returning({ id: monitors.id });
+  if (!row) throw new CapabilityError(`Monitor ${input.id} not found for this key owner`, 404, null);
+  return { deleted: true, id: row.id };
+}
+
+// ── Notifications ────────────────────────────────────────────────────
+export async function notificationsList(
+  input: { unreadOnly?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 30, 1), 100);
+  const conds = [eq(notifications.userId, ctx.userId)];
+  if (input.unreadOnly) conds.push(eq(notifications.read, false));
+  const items = await d
+    .select()
+    .from(notifications)
+    .where(and(...conds))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+  const unread = await d
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(and(eq(notifications.userId, ctx.userId), eq(notifications.read, false)));
+  return { notifications: items, unreadCount: unread.length };
+}
+
+export async function notificationsMarkRead(
+  input: { ids?: number[]; all?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!input.all && (!input.ids || input.ids.length === 0)) {
+    throw new CapabilityError("Provide either `all: true` or `ids: number[]`", 400, null);
+  }
+  const cond = input.all
+    ? eq(notifications.userId, ctx.userId)
+    : and(eq(notifications.userId, ctx.userId), inArray(notifications.id, input.ids ?? []));
+  const updated = await d
+    .update(notifications)
+    .set({ read: true, readAt: new Date() })
+    .where(cond)
+    .returning({ id: notifications.id });
+  return { updated: updated.length, ids: updated.map((r) => r.id) };
+}
+

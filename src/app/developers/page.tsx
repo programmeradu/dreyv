@@ -4,7 +4,7 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Code2, Plug, Bot, Coins, Bell, Webhook } from "lucide-react";
 import devCrystal from "@/assets/dev-crystal.png";
 import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 
@@ -107,6 +107,120 @@ export default function DevelopersPage() {
             </div>
           </div>
         </section>
+
+        {/* Surfaces — the actual product entrypoints */}
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Surfaces</h2>
+              <p className="mt-2 text-sm md:text-base text-slate-600 max-w-2xl">
+                Four ways to ship — pick the transport that fits the agent you’re building. Every surface speaks the same capability registry.
+              </p>
+            </div>
+            <span className="hidden md:inline-flex h-1.5 w-12 rounded-full bg-violet-600" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {[
+              {
+                href: "/developers/api",
+                icon: Code2,
+                title: "REST API",
+                tag: "/api/v1/*",
+                desc: "29 capabilities across identity, portfolio, market, execution, forensics, tax, foresight, agentic, and x402 economy. Bearer dk_live_… keys, per-key rate limits, strict no-fallback contracts.",
+                cta: "Explore endpoints",
+              },
+              {
+                href: "/developers/mcp",
+                icon: Plug,
+                title: "MCP Server",
+                tag: "/api/mcp",
+                desc: "Native Model Context Protocol server. Every REST capability auto-published as an MCP tool — drop into Claude Desktop, Cursor, or any MCP-aware agent in one URL.",
+                cta: "Connect MCP",
+              },
+              {
+                href: "/developers/agents",
+                icon: Bot,
+                title: "Agent Payments (x402)",
+                tag: "Bearer dak_…",
+                desc: "Autonomous agents purchase Dreyv SKUs over HTTP 402. USDC on Solana settlement, single-call /api/x402/pay with permanent deliverables, plus Stripe + Paystack card rails.",
+                cta: "Open agent docs",
+              },
+              {
+                href: "/.well-known/x402",
+                icon: Coins,
+                title: "Discovery manifests",
+                tag: "/.well-known/*",
+                desc: "Machine-readable surface for crawlers and autonomous agents — x402, ACP, UCP, ai-plugin, OpenAPI, security.txt, llms.txt. Built for the agentic web.",
+                cta: "View manifests",
+                external: true,
+              },
+            ].map(({ href, icon: Icon, title, tag, desc, cta, external }) => (
+              <Link
+                key={href}
+                href={href}
+                {...(external ? { target: "_blank", rel: "noopener" } : {})}
+                className="group relative rounded-3xl border border-violet-200/70 bg-white/85 backdrop-blur p-7 hover:border-violet-400 hover:shadow-[0_24px_60px_-24px_rgba(124,58,237,0.25)] transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white">
+                    <Icon className="h-5 w-5" strokeWidth={2.25} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-semibold text-slate-900 group-hover:text-violet-700">{title}</h3>
+                      <code className="font-mono text-[11px] text-violet-700 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded">
+                        {tag}
+                      </code>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">{desc}</p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+                      {cta}
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Secondary row — watchers + webhooks coming in Phase 4 */}
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+            {[
+              {
+                icon: Bell,
+                title: "Watchers & Monitors",
+                desc: "Subscribe wallets and metrics. Dreyv sweepers run on Inngest + Cloudflare cron and route deltas to your inbox or webhook.",
+                tag: "watchers.* · monitors.*",
+              },
+              {
+                icon: Webhook,
+                title: "Notifications & Webhooks",
+                desc: "Pull notifications via REST/MCP or receive signed POSTs at your endpoint when a monitor trips or a proposal needs approval.",
+                tag: "notifications.* · webhooks.*",
+              },
+            ].map(({ icon: Icon, title, desc, tag }) => (
+              <Link
+                key={title}
+                href="/developers/api"
+                className="group rounded-3xl border border-slate-200 bg-white/85 backdrop-blur p-6 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-slate-900 group-hover:text-violet-700">{title}</h3>
+                    <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{desc}</p>
+                    <code className="mt-3 inline-block font-mono text-[11px] text-violet-700/80 break-all">{tag}</code>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+
 
         {/* Quickstart */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
