@@ -1666,11 +1666,31 @@ export async function knowledgeReadUrl(
   _ctx: CapabilityRunContext,
 ) {
   const { markdown } = await import("@/lib/cloudflare/cf-browser");
-  let md: string;
+  let raw: unknown;
   try {
-    md = await markdown({ url: input.url });
-  } catch (e: any) {
-    throw new CapabilityError(`URL fetch failed: ${e?.message ?? "unknown"}`, 502, null);
+    raw = await markdown({ url: input.url });
+  } catch (e) {
+    throw new CapabilityError(`URL fetch failed: ${(e as Error)?.message ?? "unknown"}`, 502, null);
+  }
+  // cfFetch returns JSON `{success, result}` for the markdown endpoint, but
+  // older variants returned a raw string. Normalize to string here so the
+  // downstream `.slice` call cannot blow up on an object.
+  let md: string;
+  if (typeof raw === "string") {
+    md = raw;
+  } else if (raw && typeof raw === "object") {
+    const obj = raw as { result?: unknown; markdown?: unknown; text?: unknown; success?: boolean; errors?: unknown };
+    if (obj.success === false) {
+      throw new CapabilityError(
+        `URL fetch failed: ${JSON.stringify(obj.errors ?? obj).slice(0, 200)}`,
+        502,
+        null,
+      );
+    }
+    const candidate = obj.result ?? obj.markdown ?? obj.text ?? "";
+    md = typeof candidate === "string" ? candidate : JSON.stringify(candidate);
+  } else {
+    md = "";
   }
   if (!md) throw new CapabilityError("Empty response from URL", 404, null);
   const cap = Math.min(Math.max(input.max_chars ?? 8000, 500), 30000);
