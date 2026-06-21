@@ -44,6 +44,9 @@ export type WebhookEventName =
   | "job.completed"
   | "job.failed"
   | "job.cancelled"
+  | "export.created"
+  | "export.completed"
+  | "export.failed"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
