@@ -10947,8 +10947,8 @@ function _diffSchemaAO(a: _JsonSchemaAO | undefined, b: _JsonSchemaAO | undefine
 
   // enum
   if (Array.isArray(A.enum) || Array.isArray(B.enum)) {
-    const aSet = new Set((A.enum ?? []).map((x) => JSON.stringify(x)));
-    const bSet = new Set((B.enum ?? []).map((x) => JSON.stringify(x)));
+    const aSet = new Set((Array.isArray(A.enum) ? A.enum : []).map((x: unknown) => JSON.stringify(x)));
+    const bSet = new Set((Array.isArray(B.enum) ? B.enum : []).map((x: unknown) => JSON.stringify(x)));
     for (const v of aSet) if (!bSet.has(v)) changes.push({ path: `${path}.enum`, kind: "enum_value_removed", from: v, breaking: true });
     for (const v of bSet) if (!aSet.has(v)) changes.push({ path: `${path}.enum`, kind: "enum_value_added", to: v, breaking: false });
   }
