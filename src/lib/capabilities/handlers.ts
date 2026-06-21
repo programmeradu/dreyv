@@ -2916,3 +2916,258 @@ export async function auditPolicyHistory(
 
 // Silences unused-import lints if the broader codebase tree-shakes.
 export const __pillarVTouch = { _sqlV, lte };
+
+// ════════════════════════════════════════════════════════════════════════
+// ─── Pillar W — Teams & Workspaces (Phase 15) ────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Membership, invitations, role changes, and activity log. Every call is
+// scoped to ctx.userId — the caller must be a team member, and writes
+// additionally require the owner|admin role. All writes append to
+// team_activity_log and emit best-effort team.* webhooks.
+
+import { randomBytes as _rbW } from "node:crypto";
+import { teams as _teamsW, teamMembers as _teamMembersW, teamInvitations as _teamInvitationsW, teamActivityLog as _teamActivityW, users as _usersW } from "@/db/schema";
+
+const TEAM_ROLE_VALUES = ["owner", "admin", "signer", "viewer"] as const;
+type TeamRoleW = (typeof TEAM_ROLE_VALUES)[number];
+
+async function _requireTeamMembership(
+  teamId: string,
+  userId: string,
+  minRole?: TeamRoleW,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_teamMembersW)
+    .where(and(eq(_teamMembersW.teamId, teamId), eq(_teamMembersW.userId, userId), eq(_teamMembersW.status, "active")))
+    .limit(1);
+  if (!row) throw new CapabilityError(`You are not an active member of team ${teamId}`, 403, null);
+  if (minRole) {
+    const rank = { viewer: 0, signer: 1, admin: 2, owner: 3 } as const;
+    const have = rank[(row.role as TeamRoleW) ?? "viewer"];
+    const need = rank[minRole];
+    if (have < need) {
+      throw new CapabilityError(`Requires role >= ${minRole}; you are ${row.role}`, 403, null);
+    }
+  }
+  return row;
+}
+
+async function _logTeamActivity(
+  teamId: string,
+  userId: string,
+  action: string,
+  description: string,
+  metadata: Record<string, unknown>,
+) {
+  const d = requireDb();
+  await d.insert(_teamActivityW).values({
+    teamId,
+    userId,
+    action,
+    targetType: "member",
+    description,
+    metadata,
+  });
+}
+
+export async function teamsList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select({
+      teamId: _teamsW.id,
+      name: _teamsW.name,
+      vaultAddress: _teamsW.vaultAddress,
+      createdAt: _teamsW.createdAt,
+      role: _teamMembersW.role,
+      status: _teamMembersW.status,
+      joinedAt: _teamMembersW.acceptedAt,
+    })
+    .from(_teamMembersW)
+    .innerJoin(_teamsW, eq(_teamMembersW.teamId, _teamsW.id))
+    .where(and(eq(_teamMembersW.userId, ctx.userId), eq(_teamMembersW.status, "active")));
+  return { teams: rows };
+}
+
+export async function teamsMembers(input: { teamId: string }, ctx: CapabilityRunContext) {
+  await _requireTeamMembership(input.teamId, ctx.userId);
+  const d = requireDb();
+  const rows = await d
+    .select({
+      memberId: _teamMembersW.id,
+      userId: _teamMembersW.userId,
+      walletAddress: _teamMembersW.walletAddress,
+      role: _teamMembersW.role,
+      status: _teamMembersW.status,
+      invitedAt: _teamMembersW.invitedAt,
+      acceptedAt: _teamMembersW.acceptedAt,
+    })
+    .from(_teamMembersW)
+    .where(eq(_teamMembersW.teamId, input.teamId))
+    .orderBy(desc(_teamMembersW.invitedAt));
+  return { teamId: input.teamId, members: rows };
+}
+
+export async function teamsInvite(
+  input: { teamId: string; role: TeamRoleW; email?: string; walletAddress?: string; ttlHours?: number },
+  ctx: CapabilityRunContext,
+) {
+  if (!input.email && !input.walletAddress) {
+    throw new CapabilityError("Provide email or walletAddress", 400, null);
+  }
+  if (input.role === "owner") {
+    throw new CapabilityError("Cannot invite as owner — transfer ownership separately", 400, null);
+  }
+  await _requireTeamMembership(input.teamId, ctx.userId, "admin");
+  const d = requireDb();
+  const token = _rbW(24).toString("base64url");
+  const ttlH = Math.max(1, Math.min(input.ttlHours ?? 168, 24 * 30));
+  const expiresAt = new Date(Date.now() + ttlH * 3_600_000);
+  const [row] = await d
+    .insert(_teamInvitationsW)
+    .values({
+      teamId: input.teamId,
+      invitedBy: ctx.userId,
+      email: input.email ?? null,
+      walletAddress: input.walletAddress ?? null,
+      role: input.role,
+      token,
+      expiresAt,
+    })
+    .returning();
+  await _logTeamActivity(input.teamId, ctx.userId, "member_invited",
+    `Invited ${input.email ?? input.walletAddress} as ${input.role}`,
+    { invitationId: row.id, role: input.role, email: input.email, walletAddress: input.walletAddress });
+  let deliveries: unknown[] = [];
+  try {
+    deliveries = await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "team.member_invited",
+      data: {
+        teamId: input.teamId,
+        invitationId: row.id,
+        role: input.role,
+        email: input.email ?? null,
+        walletAddress: input.walletAddress ?? null,
+        expiresAt: row.expiresAt,
+      },
+    });
+  } catch (e) {
+    deliveries = [{ error: e instanceof Error ? e.message : String(e) }];
+  }
+  return {
+    invitation: {
+      id: row.id,
+      teamId: row.teamId,
+      role: row.role,
+      email: row.email,
+      walletAddress: row.walletAddress,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt,
+      acceptUrl: `${ctx.origin}/accept-team-invite/${token}`,
+    },
+    deliveries,
+  };
+}
+
+export async function teamsUpdateRole(
+  input: { teamId: string; memberId: number; role: TeamRoleW },
+  ctx: CapabilityRunContext,
+) {
+  if (input.role === "owner") {
+    throw new CapabilityError("Use the ownership-transfer flow to assign 'owner'", 400, null);
+  }
+  await _requireTeamMembership(input.teamId, ctx.userId, "admin");
+  const d = requireDb();
+  const [target] = await d
+    .select()
+    .from(_teamMembersW)
+    .where(and(eq(_teamMembersW.id, input.memberId), eq(_teamMembersW.teamId, input.teamId)))
+    .limit(1);
+  if (!target) throw new CapabilityError(`Member ${input.memberId} not found in team`, 404, null);
+  if (target.role === "owner") {
+    throw new CapabilityError("Cannot change the team owner's role via this endpoint", 403, null);
+  }
+  const oldRole = target.role;
+  const [row] = await d
+    .update(_teamMembersW)
+    .set({ role: input.role })
+    .where(eq(_teamMembersW.id, input.memberId))
+    .returning();
+  await _logTeamActivity(input.teamId, ctx.userId, "role_changed",
+    `Changed role from ${oldRole} to ${input.role}`,
+    { memberId: input.memberId, targetUserId: target.userId, oldRole, newRole: input.role });
+  let deliveries: unknown[] = [];
+  try {
+    deliveries = await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "team.member_role_changed",
+      data: { teamId: input.teamId, memberId: input.memberId, userId: target.userId, oldRole, newRole: input.role },
+    });
+  } catch (e) {
+    deliveries = [{ error: e instanceof Error ? e.message : String(e) }];
+  }
+  return { member: row, deliveries };
+}
+
+export async function teamsRemoveMember(
+  input: { teamId: string; memberId: number },
+  ctx: CapabilityRunContext,
+) {
+  await _requireTeamMembership(input.teamId, ctx.userId, "admin");
+  const d = requireDb();
+  const [target] = await d
+    .select()
+    .from(_teamMembersW)
+    .where(and(eq(_teamMembersW.id, input.memberId), eq(_teamMembersW.teamId, input.teamId)))
+    .limit(1);
+  if (!target) throw new CapabilityError(`Member ${input.memberId} not found in team`, 404, null);
+  if (target.role === "owner") {
+    throw new CapabilityError("Cannot remove the team owner", 403, null);
+  }
+  if (target.userId === ctx.userId) {
+    throw new CapabilityError("Use a separate self-leave flow rather than removing yourself", 400, null);
+  }
+  const [row] = await d
+    .update(_teamMembersW)
+    .set({ status: "removed" })
+    .where(eq(_teamMembersW.id, input.memberId))
+    .returning();
+  await _logTeamActivity(input.teamId, ctx.userId, "member_removed",
+    `Removed member ${target.walletAddress}`,
+    { memberId: input.memberId, targetUserId: target.userId, role: target.role });
+  let deliveries: unknown[] = [];
+  try {
+    deliveries = await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "team.member_removed",
+      data: { teamId: input.teamId, memberId: input.memberId, userId: target.userId, role: target.role },
+    });
+  } catch (e) {
+    deliveries = [{ error: e instanceof Error ? e.message : String(e) }];
+  }
+  return { member: row, deliveries };
+}
+
+export async function teamsActivity(
+  input: { teamId: string; action?: string; limit?: number; sinceIso?: string },
+  ctx: CapabilityRunContext,
+) {
+  await _requireTeamMembership(input.teamId, ctx.userId);
+  const d = requireDb();
+  const conds = [eq(_teamActivityW.teamId, input.teamId)];
+  if (input.action) conds.push(eq(_teamActivityW.action, input.action));
+  if (input.sinceIso) conds.push(gte(_teamActivityW.createdAt, new Date(input.sinceIso)));
+  const limit = Math.min(input.limit ?? 50, 500);
+  const rows = await d
+    .select()
+    .from(_teamActivityW)
+    .where(and(...conds))
+    .orderBy(desc(_teamActivityW.createdAt))
+    .limit(limit);
+  return { teamId: input.teamId, count: rows.length, entries: rows };
+}
+
+// Silences unused-import lints.
+export const __pillarWTouch = { _usersW };
