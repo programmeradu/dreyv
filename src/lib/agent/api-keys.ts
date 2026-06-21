@@ -115,3 +115,33 @@ export function extractBearer(req: Request): string | null {
     const m = /^Bearer\s+(.+)$/i.exec(h.trim());
     return m ? m[1].trim() : null;
 }
+
+/**
+ * Resolve a dak_ bearer OR a trusted internal call.
+ *
+ * Internal callers (the public capability surface, /api/v1/economy/*) prove
+ * trust with `x-dreyv-internal: <CRON_SECRET>` + `x-dreyv-user-id: <uuid>`.
+ * When matched we synthesize a ResolvedAgentKey scoped to that user with
+ * no spend cap — the upstream public-API key already enforced its own
+ * scope/rate-limit before reaching this route.
+ *
+ * Falls back to the regular dak_ resolution path.
+ */
+export async function resolveAgentKeyOrInternal(req: Request): Promise<ResolvedAgentKey | null> {
+    const trust = req.headers.get("x-dreyv-internal");
+    const cronSecret = process.env.CRON_SECRET;
+    if (trust && cronSecret && trust === cronSecret) {
+        const userId = req.headers.get("x-dreyv-user-id");
+        if (userId) {
+            return {
+                id: `internal:${req.headers.get("x-dreyv-key-id") ?? "public-api"}`,
+                userId,
+                label: "internal (public API)",
+                scopes: ["x402.pay", "x402.checkout"],
+                spendLimitUsd: null,
+                spentUsd: 0,
+            };
+        }
+    }
+    return resolveAgentKey(extractBearer(req));
+}
