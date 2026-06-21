@@ -10764,3 +10764,600 @@ export async function slaPolicy(_input: Record<string, never>, ctx: CapabilityRu
     ],
   };
 }
+
+// ─── Pillar AO — Data Contracts & Schema Registry (Phase 31) ──────────
+import { createHash as _shaAO } from "node:crypto";
+import { and as _andAO, desc as _descAO, eq as _eqAO, sql as _sqlAO } from "drizzle-orm";
+import {
+  publicApiSchemas as _schAO,
+  publicApiSchemaVersions as _verAO,
+  publicApiContracts as _conAO,
+  publicApiContractViolations as _vioAO,
+  users as _usersAO,
+} from "@/db/schema";
+
+const _SEMVER_AO = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/;
+const _NAME_AO = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/i;
+const _SUBJECT_TYPES_AO = ["event", "capability", "endpoint", "custom"] as const;
+const _MODES_AO = ["validate", "warn", "enforce"] as const;
+const _COMPAT_AO = ["backward", "forward", "full", "none", "unknown"] as const;
+
+const _TIER_CONTRACT_LIMITS_AO: Record<string, {
+  maxSchemas: number;
+  maxVersionsPerSchema: number;
+  maxContracts: number;
+  maxViolationsRetained: number;
+  maxSchemaBytes: number;
+}> = {
+  free: { maxSchemas: 5,   maxVersionsPerSchema: 10,  maxContracts: 5,   maxViolationsRetained: 500,    maxSchemaBytes: 32_768 },
+  mini: { maxSchemas: 100, maxVersionsPerSchema: 200, maxContracts: 200, maxViolationsRetained: 50_000, maxSchemaBytes: 131_072 },
+  max:  { maxSchemas: 2000, maxVersionsPerSchema: 2000, maxContracts: 5000, maxViolationsRetained: 1_000_000, maxSchemaBytes: 524_288 },
+};
+
+async function _getTierAO(ctx: CapabilityRunContext): Promise<"free" | "mini" | "max"> {
+  if (!db) return "free";
+  const row = await db.select({ tier: _usersAO.tier }).from(_usersAO).where(_eqAO(_usersAO.id, ctx.userId)).limit(1);
+  const t = (row[0]?.tier as string | undefined) ?? "free";
+  return (t === "mini" || t === "max") ? t : "free";
+}
+
+function _hashSchemaAO(json: unknown): string {
+  // Stable hash: canonical JSON (sorted keys) → sha256
+  const canon = (v: unknown): unknown => {
+    if (v === null || typeof v !== "object") return v;
+    if (Array.isArray(v)) return v.map(canon);
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+      out[k] = canon((v as Record<string, unknown>)[k]);
+    }
+    return out;
+  };
+  return _shaAO("sha256").update(JSON.stringify(canon(json))).digest("hex");
+}
+
+function _parseSemverAO(v: string): { major: number; minor: number; patch: number } | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
+}
+
+function _cmpSemverAO(a: string, b: string): number {
+  const A = _parseSemverAO(a)!;
+  const B = _parseSemverAO(b)!;
+  if (A.major !== B.major) return A.major - B.major;
+  if (A.minor !== B.minor) return A.minor - B.minor;
+  return A.patch - B.patch;
+}
+
+// ── Minimal JSON-Schema (draft-07 subset) validator ──────────────────
+type _JsonSchemaAO = Record<string, unknown>;
+interface _ValidationErrAO { path: string; keyword: string; message: string; }
+
+function _typeOfAO(v: unknown): string {
+  if (v === null) return "null";
+  if (Array.isArray(v)) return "array";
+  return typeof v;
+}
+
+function _validateAO(value: unknown, schema: _JsonSchemaAO, path = "$"): _ValidationErrAO[] {
+  const errs: _ValidationErrAO[] = [];
+  if (!schema || typeof schema !== "object") return errs;
+
+  // const
+  if ("const" in schema && JSON.stringify(value) !== JSON.stringify(schema.const)) {
+    errs.push({ path, keyword: "const", message: `expected const ${JSON.stringify(schema.const)}` });
+  }
+  // enum
+  if (Array.isArray(schema.enum) && !schema.enum.some((e) => JSON.stringify(e) === JSON.stringify(value))) {
+    errs.push({ path, keyword: "enum", message: `not in enum` });
+  }
+  // type
+  if (schema.type) {
+    const allowed = Array.isArray(schema.type) ? schema.type : [schema.type];
+    const t = _typeOfAO(value);
+    const ok = allowed.some((x) => (x === "integer" ? t === "number" && Number.isInteger(value as number) : x === t));
+    if (!ok) errs.push({ path, keyword: "type", message: `expected ${allowed.join("|")} got ${t}` });
+  }
+  // anyOf / oneOf / allOf
+  if (Array.isArray(schema.anyOf)) {
+    const passes = schema.anyOf.filter((s) => _validateAO(value, s as _JsonSchemaAO, path).length === 0);
+    if (passes.length === 0) errs.push({ path, keyword: "anyOf", message: "matched no anyOf branch" });
+  }
+  if (Array.isArray(schema.oneOf)) {
+    const passes = schema.oneOf.filter((s) => _validateAO(value, s as _JsonSchemaAO, path).length === 0);
+    if (passes.length !== 1) errs.push({ path, keyword: "oneOf", message: `matched ${passes.length} oneOf branches, expected exactly 1` });
+  }
+  if (Array.isArray(schema.allOf)) {
+    for (let i = 0; i < schema.allOf.length; i++) {
+      errs.push(..._validateAO(value, schema.allOf[i] as _JsonSchemaAO, path));
+    }
+  }
+
+  const t = _typeOfAO(value);
+  if (t === "string" && typeof value === "string") {
+    if (typeof schema.minLength === "number" && value.length < schema.minLength) errs.push({ path, keyword: "minLength", message: `length ${value.length} < ${schema.minLength}` });
+    if (typeof schema.maxLength === "number" && value.length > schema.maxLength) errs.push({ path, keyword: "maxLength", message: `length ${value.length} > ${schema.maxLength}` });
+    if (typeof schema.pattern === "string") {
+      try { if (!new RegExp(schema.pattern).test(value)) errs.push({ path, keyword: "pattern", message: `does not match ${schema.pattern}` }); }
+      catch { errs.push({ path, keyword: "pattern", message: `invalid regex ${schema.pattern}` }); }
+    }
+  }
+  if (t === "number" && typeof value === "number") {
+    if (typeof schema.minimum === "number" && value < schema.minimum) errs.push({ path, keyword: "minimum", message: `< ${schema.minimum}` });
+    if (typeof schema.maximum === "number" && value > schema.maximum) errs.push({ path, keyword: "maximum", message: `> ${schema.maximum}` });
+    if (typeof schema.exclusiveMinimum === "number" && value <= schema.exclusiveMinimum) errs.push({ path, keyword: "exclusiveMinimum", message: `<= ${schema.exclusiveMinimum}` });
+    if (typeof schema.exclusiveMaximum === "number" && value >= schema.exclusiveMaximum) errs.push({ path, keyword: "exclusiveMaximum", message: `>= ${schema.exclusiveMaximum}` });
+    if (typeof schema.multipleOf === "number" && schema.multipleOf > 0 && Math.abs((value / schema.multipleOf) - Math.round(value / schema.multipleOf)) > 1e-9) {
+      errs.push({ path, keyword: "multipleOf", message: `not multiple of ${schema.multipleOf}` });
+    }
+  }
+  if (t === "array" && Array.isArray(value)) {
+    if (typeof schema.minItems === "number" && value.length < schema.minItems) errs.push({ path, keyword: "minItems", message: `${value.length} < ${schema.minItems}` });
+    if (typeof schema.maxItems === "number" && value.length > schema.maxItems) errs.push({ path, keyword: "maxItems", message: `${value.length} > ${schema.maxItems}` });
+    if (schema.uniqueItems === true) {
+      const seen = new Set<string>();
+      for (const it of value) { const k = JSON.stringify(it); if (seen.has(k)) { errs.push({ path, keyword: "uniqueItems", message: "duplicate item" }); break; } seen.add(k); }
+    }
+    if (schema.items && typeof schema.items === "object" && !Array.isArray(schema.items)) {
+      for (let i = 0; i < value.length; i++) errs.push(..._validateAO(value[i], schema.items as _JsonSchemaAO, `${path}[${i}]`));
+    }
+  }
+  if (t === "object" && value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (Array.isArray(schema.required)) {
+      for (const k of schema.required as string[]) if (!(k in obj)) errs.push({ path: `${path}.${k}`, keyword: "required", message: "missing required property" });
+    }
+    if (schema.properties && typeof schema.properties === "object") {
+      for (const [k, sub] of Object.entries(schema.properties as Record<string, unknown>)) {
+        if (k in obj) errs.push(..._validateAO(obj[k], sub as _JsonSchemaAO, `${path}.${k}`));
+      }
+    }
+    if (schema.additionalProperties === false && schema.properties) {
+      const declared = new Set(Object.keys(schema.properties as Record<string, unknown>));
+      for (const k of Object.keys(obj)) if (!declared.has(k)) errs.push({ path: `${path}.${k}`, keyword: "additionalProperties", message: "property not allowed" });
+    } else if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+      const declared = new Set(Object.keys((schema.properties ?? {}) as Record<string, unknown>));
+      for (const [k, v] of Object.entries(obj)) if (!declared.has(k)) errs.push(..._validateAO(v, schema.additionalProperties as _JsonSchemaAO, `${path}.${k}`));
+    }
+    if (typeof schema.minProperties === "number" && Object.keys(obj).length < schema.minProperties) errs.push({ path, keyword: "minProperties", message: `< ${schema.minProperties}` });
+    if (typeof schema.maxProperties === "number" && Object.keys(obj).length > schema.maxProperties) errs.push({ path, keyword: "maxProperties", message: `> ${schema.maxProperties}` });
+  }
+  return errs;
+}
+
+// ── Schema diff / compatibility ──────────────────────────────────────
+interface _SchemaChangeAO { path: string; kind: string; from?: unknown; to?: unknown; breaking: boolean; }
+
+function _diffSchemaAO(a: _JsonSchemaAO | undefined, b: _JsonSchemaAO | undefined, path = "$"): _SchemaChangeAO[] {
+  const changes: _SchemaChangeAO[] = [];
+  if (!a && !b) return changes;
+  if (!a && b) { changes.push({ path, kind: "added", to: b, breaking: false }); return changes; }
+  if (a && !b) { changes.push({ path, kind: "removed", from: a, breaking: true }); return changes; }
+  const A = a as _JsonSchemaAO; const B = b as _JsonSchemaAO;
+
+  // type change
+  if (JSON.stringify(A.type) !== JSON.stringify(B.type)) {
+    changes.push({ path: `${path}.type`, kind: "type_changed", from: A.type, to: B.type, breaking: true });
+  }
+  // required: added required keys are breaking; removed are non-breaking
+  const aReq = new Set<string>(Array.isArray(A.required) ? (A.required as string[]) : []);
+  const bReq = new Set<string>(Array.isArray(B.required) ? (B.required as string[]) : []);
+  for (const k of bReq) if (!aReq.has(k)) changes.push({ path: `${path}.required[${k}]`, kind: "required_added", to: k, breaking: true });
+  for (const k of aReq) if (!bReq.has(k)) changes.push({ path: `${path}.required[${k}]`, kind: "required_removed", from: k, breaking: false });
+
+  // enum
+  if (Array.isArray(A.enum) || Array.isArray(B.enum)) {
+    const aSet = new Set((A.enum ?? []).map((x) => JSON.stringify(x)));
+    const bSet = new Set((B.enum ?? []).map((x) => JSON.stringify(x)));
+    for (const v of aSet) if (!bSet.has(v)) changes.push({ path: `${path}.enum`, kind: "enum_value_removed", from: v, breaking: true });
+    for (const v of bSet) if (!aSet.has(v)) changes.push({ path: `${path}.enum`, kind: "enum_value_added", to: v, breaking: false });
+  }
+
+  // numeric tighten/loosen
+  const numericTighten = (k: keyof _JsonSchemaAO, op: "min" | "max"): void => {
+    const av = A[k]; const bv = B[k];
+    if (typeof av === "number" || typeof bv === "number") {
+      if (av !== bv) {
+        const tightened = op === "min"
+          ? (typeof bv === "number" && (typeof av !== "number" || (bv as number) > (av as number)))
+          : (typeof bv === "number" && (typeof av !== "number" || (bv as number) < (av as number)));
+        changes.push({ path: `${path}.${String(k)}`, kind: tightened ? "constraint_tightened" : "constraint_loosened", from: av, to: bv, breaking: tightened });
+      }
+    }
+  };
+  numericTighten("minimum", "min");
+  numericTighten("maximum", "max");
+  numericTighten("minLength", "min");
+  numericTighten("maxLength", "max");
+  numericTighten("minItems", "min");
+  numericTighten("maxItems", "max");
+
+  // pattern change is breaking
+  if (A.pattern !== B.pattern) changes.push({ path: `${path}.pattern`, kind: "pattern_changed", from: A.pattern, to: B.pattern, breaking: true });
+
+  // additionalProperties tightened (true→false or schema→false) is breaking
+  if (A.additionalProperties !== B.additionalProperties) {
+    const tightened = (A.additionalProperties === true || typeof A.additionalProperties === "object") && B.additionalProperties === false;
+    changes.push({ path: `${path}.additionalProperties`, kind: "additional_properties_changed", from: A.additionalProperties, to: B.additionalProperties, breaking: tightened });
+  }
+
+  // properties
+  const aProps = (A.properties ?? {}) as Record<string, _JsonSchemaAO>;
+  const bProps = (B.properties ?? {}) as Record<string, _JsonSchemaAO>;
+  const all = new Set<string>([...Object.keys(aProps), ...Object.keys(bProps)]);
+  for (const k of all) changes.push(..._diffSchemaAO(aProps[k], bProps[k], `${path}.${k}`));
+
+  // items
+  if (A.items || B.items) {
+    if (typeof A.items === "object" && typeof B.items === "object" && !Array.isArray(A.items) && !Array.isArray(B.items)) {
+      changes.push(..._diffSchemaAO(A.items as _JsonSchemaAO, B.items as _JsonSchemaAO, `${path}.items`));
+    } else if (JSON.stringify(A.items) !== JSON.stringify(B.items)) {
+      changes.push({ path: `${path}.items`, kind: "items_changed", from: A.items, to: B.items, breaking: true });
+    }
+  }
+
+  return changes;
+}
+
+function _compatibilityAO(breaking: _SchemaChangeAO[]): typeof _COMPAT_AO[number] {
+  // Simple heuristic: no breaking changes → backward-compatible (consumers using old schema can read new payloads).
+  return breaking.length === 0 ? "backward" : "none";
+}
+
+function _excerptPayloadAO(payload: unknown, maxBytes = 2048): unknown {
+  try {
+    const s = JSON.stringify(payload);
+    if (s.length <= maxBytes) return payload;
+    return { _truncated: true, _originalBytes: s.length, preview: s.slice(0, maxBytes) };
+  } catch { return { _unserializable: true }; }
+}
+
+function _dispatchAO(event: string, userId: string, data: Record<string, unknown>): void {
+  void import("@/lib/webhooks/dispatcher")
+    .then((m) => m.emitWebhookEvent({ event: event as Parameters<typeof m.emitWebhookEvent>[0]["event"], userId, data }))
+    .catch(() => {});
+}
+
+async function _resolveSchemaForRefAO(ctx: CapabilityRunContext, opts: { schemaId?: string; namespace?: string; name?: string }): Promise<{ id: string; namespace: string; name: string } | null> {
+  if (!db) return null;
+  if (opts.schemaId) {
+    const [r] = await db.select().from(_schAO).where(_andAO(_eqAO(_schAO.id, opts.schemaId), _eqAO(_schAO.userId, ctx.userId))).limit(1);
+    return r ? { id: r.id, namespace: r.namespace, name: r.name } : null;
+  }
+  if (opts.name) {
+    const [r] = await db.select().from(_schAO).where(_andAO(
+      _eqAO(_schAO.userId, ctx.userId),
+      _eqAO(_schAO.namespace, opts.namespace ?? "default"),
+      _eqAO(_schAO.name, opts.name),
+    )).limit(1);
+    return r ? { id: r.id, namespace: r.namespace, name: r.name } : null;
+  }
+  return null;
+}
+
+// ── Schemas ──────────────────────────────────────────────────────────
+export async function schemasRegister(input: { name: string; namespace?: string; description?: string; version: string; jsonSchema: Record<string, unknown>; changelog?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_NAME_AO.test(input.name)) throw new Error("invalid_name");
+  if (input.namespace && !_NAME_AO.test(input.namespace)) throw new Error("invalid_namespace");
+  if (!_SEMVER_AO.test(input.version)) throw new Error("invalid_semver");
+  const tier = await _getTierAO(ctx);
+  const limits = _TIER_CONTRACT_LIMITS_AO[tier];
+  const bytes = JSON.stringify(input.jsonSchema).length;
+  if (bytes > limits.maxSchemaBytes) throw new Error("schema_too_large");
+
+  const ns = input.namespace ?? "default";
+  // Find or create schema row
+  const existing = await db.select().from(_schAO).where(_andAO(
+    _eqAO(_schAO.userId, ctx.userId), _eqAO(_schAO.namespace, ns), _eqAO(_schAO.name, input.name),
+  )).limit(1);
+
+  let schemaRow = existing[0];
+  if (!schemaRow) {
+    const count = await db.select({ n: _sqlAO<number>`count(*)::int` }).from(_schAO).where(_eqAO(_schAO.userId, ctx.userId));
+    if ((count[0]?.n ?? 0) >= limits.maxSchemas) throw new Error("schema_quota_exceeded");
+    const [created] = await db.insert(_schAO).values({
+      userId: ctx.userId, namespace: ns, name: input.name, description: input.description ?? null,
+    }).returning();
+    schemaRow = created;
+    _dispatchAO("schema.registered", ctx.userId, { schemaId: schemaRow.id, namespace: ns, name: input.name });
+  }
+
+  // version count
+  const vc = await db.select({ n: _sqlAO<number>`count(*)::int` }).from(_verAO).where(_eqAO(_verAO.schemaId, schemaRow.id));
+  if ((vc[0]?.n ?? 0) >= limits.maxVersionsPerSchema) throw new Error("version_quota_exceeded");
+
+  // Diff vs previous latest, if any
+  let compat: typeof _COMPAT_AO[number] = "unknown";
+  let breaking: _SchemaChangeAO[] = [];
+  if (schemaRow.latestVersion) {
+    if (_cmpSemverAO(input.version, schemaRow.latestVersion) <= 0) throw new Error("version_must_be_greater_than_latest");
+    const [prev] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, schemaRow.id), _eqAO(_verAO.version, schemaRow.latestVersion))).limit(1);
+    if (prev) {
+      const all = _diffSchemaAO(prev.jsonSchema as _JsonSchemaAO, input.jsonSchema);
+      breaking = all.filter((c) => c.breaking);
+      compat = _compatibilityAO(breaking);
+    }
+  }
+
+  const hash = _hashSchemaAO(input.jsonSchema);
+  const [ver] = await db.insert(_verAO).values({
+    schemaId: schemaRow.id,
+    userId: ctx.userId,
+    version: input.version,
+    jsonSchema: input.jsonSchema,
+    schemaHash: hash,
+    changelog: input.changelog ?? null,
+    compatibility: compat,
+    breakingChanges: breaking,
+  }).returning();
+
+  await db.update(_schAO).set({ latestVersion: input.version, updatedAt: new Date() }).where(_eqAO(_schAO.id, schemaRow.id));
+  _dispatchAO("schema.version_published", ctx.userId, { schemaId: schemaRow.id, version: input.version, compatibility: compat, breakingChangeCount: breaking.length });
+  return { schema: { ...schemaRow, latestVersion: input.version }, version: ver };
+}
+
+export async function schemasList(input: { namespace?: string; includeDeprecated?: boolean; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAO(_schAO.userId, ctx.userId)];
+  if (input.namespace) conds.push(_eqAO(_schAO.namespace, input.namespace));
+  const rows = await db.select().from(_schAO).where(_andAO(...conds))
+    .orderBy(_descAO(_schAO.updatedAt)).limit(limit).offset(offset);
+  const filtered = input.includeDeprecated ? rows : rows.filter((r) => !r.deprecatedAt);
+  return { schemas: filtered, limit, offset };
+}
+
+export async function schemasGet(input: { id?: string; namespace?: string; name?: string; version?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const [s] = await db.select().from(_schAO).where(_eqAO(_schAO.id, ref.id)).limit(1);
+  const targetVersion = input.version ?? s.latestVersion;
+  if (!targetVersion) return { schema: s, version: null };
+  const [v] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, s.id), _eqAO(_verAO.version, targetVersion))).limit(1);
+  if (!v) throw new Error("version_not_found");
+  return { schema: s, version: v };
+}
+
+export async function schemasVersionsList(input: { id?: string; namespace?: string; name?: string; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const rows = await db.select().from(_verAO).where(_eqAO(_verAO.schemaId, ref.id))
+    .orderBy(_descAO(_verAO.createdAt)).limit(limit).offset(offset);
+  return { schemaId: ref.id, versions: rows, limit, offset };
+}
+
+export async function schemasDeprecate(input: { id: string; reason?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [row] = await db.update(_schAO).set({ deprecatedAt: new Date(), description: input.reason ?? undefined, updatedAt: new Date() })
+    .where(_andAO(_eqAO(_schAO.id, input.id), _eqAO(_schAO.userId, ctx.userId))).returning();
+  if (!row) throw new Error("not_found");
+  _dispatchAO("schema.deprecated", ctx.userId, { schemaId: row.id, namespace: row.namespace, name: row.name });
+  return { schema: row };
+}
+
+export async function schemasYankVersion(input: { id?: string; namespace?: string; name?: string; version: string; reason?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const [row] = await db.update(_verAO).set({ yankedAt: new Date(), yankReason: input.reason ?? null })
+    .where(_andAO(_eqAO(_verAO.schemaId, ref.id), _eqAO(_verAO.version, input.version), _eqAO(_verAO.userId, ctx.userId))).returning();
+  if (!row) throw new Error("version_not_found");
+  return { version: row };
+}
+
+export async function schemasValidate(input: { id?: string; namespace?: string; name?: string; version?: string; payload: unknown }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const [s] = await db.select().from(_schAO).where(_eqAO(_schAO.id, ref.id)).limit(1);
+  const targetVersion = input.version ?? s.latestVersion;
+  if (!targetVersion) throw new Error("no_version_available");
+  const [v] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, s.id), _eqAO(_verAO.version, targetVersion))).limit(1);
+  if (!v) throw new Error("version_not_found");
+  const errors = _validateAO(input.payload, v.jsonSchema as _JsonSchemaAO);
+  return { valid: errors.length === 0, errors, schemaId: s.id, version: targetVersion };
+}
+
+export async function schemasDiff(input: { id?: string; namespace?: string; name?: string; fromVersion: string; toVersion: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const [a] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, ref.id), _eqAO(_verAO.version, input.fromVersion))).limit(1);
+  const [b] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, ref.id), _eqAO(_verAO.version, input.toVersion))).limit(1);
+  if (!a || !b) throw new Error("version_not_found");
+  const changes = _diffSchemaAO(a.jsonSchema as _JsonSchemaAO, b.jsonSchema as _JsonSchemaAO);
+  const breaking = changes.filter((c) => c.breaking);
+  return { fromVersion: input.fromVersion, toVersion: input.toVersion, changes, breakingChanges: breaking, compatibility: _compatibilityAO(breaking) };
+}
+
+export async function schemasCompatibilityCheck(input: { id?: string; namespace?: string; name?: string; candidateSchema: Record<string, unknown>; againstVersion?: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.id, namespace: input.namespace, name: input.name });
+  if (!ref) throw new Error("not_found");
+  const [s] = await db.select().from(_schAO).where(_eqAO(_schAO.id, ref.id)).limit(1);
+  const target = input.againstVersion ?? s.latestVersion;
+  if (!target) throw new Error("no_baseline_version");
+  const [baseline] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, ref.id), _eqAO(_verAO.version, target))).limit(1);
+  if (!baseline) throw new Error("version_not_found");
+  const changes = _diffSchemaAO(baseline.jsonSchema as _JsonSchemaAO, input.candidateSchema);
+  const breaking = changes.filter((c) => c.breaking);
+  return { baselineVersion: target, changes, breakingChanges: breaking, compatibility: _compatibilityAO(breaking), candidateHash: _hashSchemaAO(input.candidateSchema) };
+}
+
+// ── Contracts ────────────────────────────────────────────────────────
+export async function contractsCreate(input: { name: string; description?: string; subjectType: typeof _SUBJECT_TYPES_AO[number]; subject: string; schemaId?: string; schemaNamespace?: string; schemaName?: string; schemaVersion?: string; mode?: typeof _MODES_AO[number]; active?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  if (!_NAME_AO.test(input.name)) throw new Error("invalid_name");
+  if (!_SUBJECT_TYPES_AO.includes(input.subjectType)) throw new Error("invalid_subject_type");
+  if (input.mode && !_MODES_AO.includes(input.mode)) throw new Error("invalid_mode");
+  const tier = await _getTierAO(ctx);
+  const limits = _TIER_CONTRACT_LIMITS_AO[tier];
+  const count = await db.select({ n: _sqlAO<number>`count(*)::int` }).from(_conAO).where(_eqAO(_conAO.userId, ctx.userId));
+  if ((count[0]?.n ?? 0) >= limits.maxContracts) throw new Error("contract_quota_exceeded");
+
+  const ref = await _resolveSchemaForRefAO(ctx, { schemaId: input.schemaId, namespace: input.schemaNamespace, name: input.schemaName });
+  if (!ref) throw new Error("schema_not_found");
+  const [sch] = await db.select().from(_schAO).where(_eqAO(_schAO.id, ref.id)).limit(1);
+  const version = input.schemaVersion ?? sch.latestVersion;
+  if (!version) throw new Error("schema_has_no_version");
+  // confirm version exists
+  const [ver] = await db.select({ id: _verAO.id }).from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, sch.id), _eqAO(_verAO.version, version))).limit(1);
+  if (!ver) throw new Error("schema_version_not_found");
+
+  const [row] = await db.insert(_conAO).values({
+    userId: ctx.userId,
+    name: input.name,
+    description: input.description ?? null,
+    subjectType: input.subjectType,
+    subject: input.subject,
+    schemaId: sch.id,
+    schemaVersion: version,
+    mode: input.mode ?? "validate",
+    active: input.active ?? true,
+  }).returning();
+  _dispatchAO("contract.created", ctx.userId, { contractId: row.id, name: row.name, subjectType: row.subjectType, subject: row.subject });
+  return { contract: row };
+}
+
+export async function contractsUpdate(input: { id: string; description?: string | null; schemaVersion?: string; mode?: typeof _MODES_AO[number]; active?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [existing] = await db.select().from(_conAO).where(_andAO(_eqAO(_conAO.id, input.id), _eqAO(_conAO.userId, ctx.userId))).limit(1);
+  if (!existing) throw new Error("not_found");
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.mode) { if (!_MODES_AO.includes(input.mode)) throw new Error("invalid_mode"); patch.mode = input.mode; }
+  if (input.active !== undefined) patch.active = input.active;
+  if (input.schemaVersion) {
+    const [ver] = await db.select({ id: _verAO.id }).from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, existing.schemaId), _eqAO(_verAO.version, input.schemaVersion))).limit(1);
+    if (!ver) throw new Error("schema_version_not_found");
+    patch.schemaVersion = input.schemaVersion;
+  }
+  const [row] = await db.update(_conAO).set(patch).where(_eqAO(_conAO.id, input.id)).returning();
+  _dispatchAO("contract.updated", ctx.userId, { contractId: row.id, changes: Object.keys(patch).filter((k) => k !== "updatedAt") });
+  return { contract: row };
+}
+
+export async function contractsList(input: { subjectType?: typeof _SUBJECT_TYPES_AO[number]; subject?: string; activeOnly?: boolean; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAO(_conAO.userId, ctx.userId)];
+  if (input.subjectType) conds.push(_eqAO(_conAO.subjectType, input.subjectType));
+  if (input.subject) conds.push(_eqAO(_conAO.subject, input.subject));
+  if (input.activeOnly) conds.push(_eqAO(_conAO.active, true));
+  const rows = await db.select().from(_conAO).where(_andAO(...conds))
+    .orderBy(_descAO(_conAO.updatedAt)).limit(limit).offset(offset);
+  return { contracts: rows, limit, offset };
+}
+
+export async function contractsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const [row] = await db.select().from(_conAO).where(_andAO(_eqAO(_conAO.id, input.id), _eqAO(_conAO.userId, ctx.userId))).limit(1);
+  if (!row) throw new Error("not_found");
+  return { contract: row };
+}
+
+export async function contractsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const out = await db.delete(_conAO).where(_andAO(_eqAO(_conAO.id, input.id), _eqAO(_conAO.userId, ctx.userId))).returning({ id: _conAO.id });
+  if (out.length === 0) throw new Error("not_found");
+  _dispatchAO("contract.deleted", ctx.userId, { contractId: input.id });
+  return { ok: true, id: input.id };
+}
+
+export async function contractsValidate(input: { id?: string; name?: string; subjectType?: typeof _SUBJECT_TYPES_AO[number]; subject?: string; payload: unknown; recordViolation?: boolean }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  // Resolve contract
+  let contract: typeof _conAO.$inferSelect | undefined;
+  if (input.id) {
+    const [r] = await db.select().from(_conAO).where(_andAO(_eqAO(_conAO.id, input.id), _eqAO(_conAO.userId, ctx.userId))).limit(1);
+    contract = r;
+  } else if (input.name) {
+    const [r] = await db.select().from(_conAO).where(_andAO(_eqAO(_conAO.userId, ctx.userId), _eqAO(_conAO.name, input.name))).limit(1);
+    contract = r;
+  } else if (input.subjectType && input.subject) {
+    const [r] = await db.select().from(_conAO).where(_andAO(
+      _eqAO(_conAO.userId, ctx.userId), _eqAO(_conAO.subjectType, input.subjectType), _eqAO(_conAO.subject, input.subject), _eqAO(_conAO.active, true),
+    )).limit(1);
+    contract = r;
+  }
+  if (!contract) throw new Error("contract_not_found");
+
+  const [v] = await db.select().from(_verAO).where(_andAO(_eqAO(_verAO.schemaId, contract.schemaId), _eqAO(_verAO.version, contract.schemaVersion))).limit(1);
+  if (!v) throw new Error("schema_version_missing");
+  const errors = _validateAO(input.payload, v.jsonSchema as _JsonSchemaAO);
+  const valid = errors.length === 0;
+  let violationId: string | null = null;
+
+  if (!valid && (input.recordViolation ?? contract.mode !== "validate")) {
+    const [vio] = await db.insert(_vioAO).values({
+      contractId: contract.id,
+      userId: ctx.userId,
+      subject: contract.subject,
+      payloadExcerpt: _excerptPayloadAO(input.payload) as Record<string, unknown>,
+      errors,
+      severity: contract.mode === "enforce" ? "error" : "warn",
+    }).returning({ id: _vioAO.id });
+    violationId = vio.id;
+    _dispatchAO("contract.violation", ctx.userId, { contractId: contract.id, violationId, errorCount: errors.length, mode: contract.mode });
+  }
+
+  return {
+    valid, errors, mode: contract.mode,
+    enforced: !valid && contract.mode === "enforce",
+    contractId: contract.id, schemaId: contract.schemaId, schemaVersion: contract.schemaVersion,
+    violationId,
+  };
+}
+
+export async function contractsViolationsList(input: { contractId?: string; limit?: number; offset?: number }, ctx: CapabilityRunContext) {
+  if (!db) throw new Error("db_unavailable");
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const offset = Math.max(input.offset ?? 0, 0);
+  const conds = [_eqAO(_vioAO.userId, ctx.userId)];
+  if (input.contractId) conds.push(_eqAO(_vioAO.contractId, input.contractId));
+  const rows = await db.select().from(_vioAO).where(_andAO(...conds))
+    .orderBy(_descAO(_vioAO.createdAt)).limit(limit).offset(offset);
+  return { violations: rows, limit, offset };
+}
+
+export async function contractsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _getTierAO(ctx);
+  return {
+    tier,
+    limits: _TIER_CONTRACT_LIMITS_AO[tier],
+    allTierLimits: _TIER_CONTRACT_LIMITS_AO,
+    subjectTypes: _SUBJECT_TYPES_AO,
+    modes: _MODES_AO,
+    compatibilityLevels: _COMPAT_AO,
+    semverRegex: _SEMVER_AO.source,
+    nameRegex: _NAME_AO.source,
+    supportedKeywords: [
+      "type (string|number|integer|boolean|null|array|object)",
+      "const", "enum", "required", "properties", "additionalProperties (bool|schema)",
+      "items (schema)", "minItems", "maxItems", "uniqueItems",
+      "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+      "minLength", "maxLength", "pattern",
+      "minProperties", "maxProperties",
+      "anyOf", "oneOf", "allOf",
+    ],
+    diffSemantics: {
+      breaking: ["type_changed", "required_added", "enum_value_removed", "constraint_tightened", "pattern_changed", "additional_properties_changed (true→false)", "items_changed (non-object)", "removed (path)"],
+      nonBreaking: ["added (path)", "required_removed", "enum_value_added", "constraint_loosened"],
+    },
+    webhookEvents: ["schema.registered", "schema.version_published", "schema.deprecated", "contract.created", "contract.updated", "contract.deleted", "contract.violation"],
+    notes: [
+      "Schemas are scoped to (namespace, name) per user. Versions are immutable; bump by registering a new semver.",
+      "Compatibility 'backward' = consumers using the OLD schema can read NEW payloads (no breaking changes).",
+      "Contract modes: 'validate' returns valid/invalid only; 'warn' records a 'warn' violation; 'enforce' records 'error' and signals enforced=true.",
+      "Validator implements a draft-07 subset — no $ref resolution. Inline definitions only.",
+      "Violation log is retained up to the per-tier cap; older rows are deleted by maintenance jobs.",
+    ],
+  };
+}
