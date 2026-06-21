@@ -271,3 +271,165 @@ export async function defiYields(
   return { count: filtered.length, pools: filtered };
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// PHASE 2 — Execution, Risk, Tax, Forensics, Foresight, Market signals
+// All handlers are thin adapters over real, already-shipped internal routes.
+// No fallbacks: if upstream fails, the real error propagates.
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Pillar D — Swap / Bridge / Gas ──────────────────────────────────
+export async function swapQuoteSolana(
+  input: {
+    inputMint: string;
+    outputMint: string;
+    amount: string;
+    slippageBps?: number;
+    onlyDirectRoutes?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const inMint = resolveSolanaToken(input.inputMint);
+  const outMint = resolveSolanaToken(input.outputMint);
+  const qs = new URLSearchParams({
+    inputMint: inMint,
+    outputMint: outMint,
+    amount: String(input.amount),
+  });
+  if (input.slippageBps != null) qs.set("slippageBps", String(input.slippageBps));
+  if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
+  return await callInternal(ctx, `/api/jupiter/quote?${qs.toString()}`);
+}
+
+export async function swapBuildSolana(
+  input: { quoteResponse: unknown; userPublicKey: string; wrapAndUnwrapSol?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/jupiter/swap`, {
+    method: "POST",
+    body: JSON.stringify({
+      quoteResponse: input.quoteResponse,
+      userPublicKey: input.userPublicKey,
+      wrapAndUnwrapSol: input.wrapAndUnwrapSol ?? true,
+    }),
+  });
+}
+
+export async function swapQuoteEvm(
+  input: { sellToken: string; buyToken: string; sellAmount: string; chainId: number },
+  ctx: CapabilityRunContext,
+) {
+  const qs = new URLSearchParams({
+    sellToken: input.sellToken,
+    buyToken: input.buyToken,
+    sellAmount: String(input.sellAmount),
+    chainId: String(input.chainId),
+  });
+  return await callInternal(ctx, `/api/swap/quote?${qs.toString()}`);
+}
+
+export async function bridgeQuote(
+  input: { fromChain: string; toChain: string; fromToken: string; toToken?: string; fromAmount: string },
+  ctx: CapabilityRunContext,
+) {
+  const qs = new URLSearchParams({
+    fromChain: input.fromChain,
+    toChain: input.toChain,
+    fromToken: input.fromToken,
+    fromAmount: String(input.fromAmount),
+  });
+  if (input.toToken) qs.set("toToken", input.toToken);
+  return await callInternal(ctx, `/api/bridge/quote?${qs.toString()}`);
+}
+
+export async function gasEstimate(
+  input: { chain: string; blocks?: number },
+  ctx: CapabilityRunContext,
+) {
+  const qs = new URLSearchParams({ chain: input.chain });
+  if (input.blocks != null) qs.set("blocks", String(input.blocks));
+  return await callInternal(ctx, `/api/gas/estimate?${qs.toString()}`);
+}
+
+// ─── Pillar E — Risk & Forensics ─────────────────────────────────────
+export async function riskWallet(
+  input: { address: string },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/public/risk/${input.address}`);
+}
+
+export async function riskEdgeInsights(
+  input: { address: string },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/public/edge-insights/${input.address}`);
+}
+
+export async function walletNarrative(
+  input: { address: string },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/public/narrative/${input.address}`);
+}
+
+// ─── Pillar F — Tax & Accounting ─────────────────────────────────────
+export async function taxAnalyze(
+  input: {
+    holdings: unknown[];
+    rebalanceTrades?: unknown[];
+    userTransactionHistory?: unknown[];
+  },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/solana/tax-analysis`, {
+    method: "POST",
+    body: JSON.stringify({
+      holdings: input.holdings,
+      rebalanceTrades: input.rebalanceTrades ?? [],
+      userTransactionHistory: input.userTransactionHistory ?? [],
+    }),
+  });
+}
+
+// ─── Pillar G — Foresight (Dreyv signature) ──────────────────────────
+export async function foresightSimulate(
+  input: {
+    portfolio: unknown[];
+    variables: unknown[];
+    timeframeMonths: number;
+    granularity?: "weekly" | "monthly";
+    paths?: number;
+    seed?: number;
+    priors?: { driftPctPerDay?: number; volPctPerDay?: number };
+  },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/foresight/simulate`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+// ─── Pillar C — Market signals (Atlas) ───────────────────────────────
+export async function marketTrending(
+  input: { chain: string; limit: number },
+  ctx: CapabilityRunContext,
+) {
+  if (input.chain === "solana") {
+    return await callInternal(ctx, `/api/jupiter/trending?limit=${input.limit}`);
+  }
+  return await callInternal(ctx, `/api/moralis/trending?limit=${input.limit}`);
+}
+
+export async function marketPriceHistory(
+  input: { token: string; daysAgo: number },
+  ctx: CapabilityRunContext,
+) {
+  const t = input.token.trim();
+  const isMint = t.length >= 32;
+  const qs = new URLSearchParams({ daysAgo: String(input.daysAgo) });
+  if (isMint) qs.set("mint", t);
+  else qs.set("symbol", t.toUpperCase());
+  return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
+}

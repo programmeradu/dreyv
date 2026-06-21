@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "agentic" | "economy";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -228,6 +228,218 @@ export const CAPABILITIES: PublicCapability[] = [
   // NOTE: market.discovery was removed — /api/atlas/trending is not built yet.
   // Per the no-fallbacks rule: it ships when there is a real trending feed.
 
+  // ─── Pillar C — Market signals (Atlas) ───────────────────────────────
+  {
+    id: "market.trending",
+    mcpName: "dreyv_market_trending",
+    pillar: "market",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Trending tokens",
+    description:
+      "Real-time trending tokens. Solana = Jupiter trending; EVM = Moralis trending. Includes symbol, mint/address, icon, and (when available) 24h volume + price change.",
+    inputSchema: z.object({
+      chain: Chain,
+      limit: z.number().int().min(1).max(20).default(8),
+    }),
+    handler: (i, c) => caps.marketTrending(i, c),
+  },
+  {
+    id: "market.price_history",
+    mcpName: "dreyv_market_price_history",
+    pillar: "market",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Historical token price",
+    description:
+      "Historical USD price for a Solana token (symbol or mint), N days ago. Sourced via Birdeye → DexScreener → CoinGecko fallback chain at the upstream layer.",
+    inputSchema: z.object({
+      token: z.string().min(1).describe("Symbol (SOL, BONK) or Solana mint"),
+      daysAgo: z.number().int().min(1).max(365).default(30),
+    }),
+    handler: (i, c) => caps.marketPriceHistory(i, c),
+  },
+
+  // ─── Pillar D — Execution: Swap / Bridge / Gas ───────────────────────
+  {
+    id: "swap.quote_solana",
+    mcpName: "dreyv_swap_quote_solana",
+    pillar: "execution",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Jupiter swap quote (Solana)",
+    description:
+      "Best-route swap quote on Solana via Jupiter. Accepts symbols (SOL, USDC) or raw mints. Returns price, route plan, price impact, fees.",
+    inputSchema: z.object({
+      inputMint: z.string().min(1),
+      outputMint: z.string().min(1),
+      amount: z.union([z.string(), z.number()]).transform((v) => String(v)).describe("Atomic units of inputMint"),
+      slippageBps: z.number().int().min(0).max(10_000).optional(),
+      onlyDirectRoutes: z.boolean().optional(),
+    }),
+    handler: (i, c) => caps.swapQuoteSolana(i, c),
+  },
+  {
+    id: "swap.build_solana",
+    mcpName: "dreyv_swap_build_solana",
+    pillar: "execution",
+    scope: "write:simulate",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "Build unsigned Jupiter swap transaction (Solana)",
+    description:
+      "Takes a Jupiter `quoteResponse` plus the user's public key and returns the serialized unsigned swap transaction. The caller signs and submits — Dreyv never holds keys.",
+    inputSchema: z.object({
+      quoteResponse: z.unknown(),
+      userPublicKey: z.string().min(32).max(64),
+      wrapAndUnwrapSol: z.boolean().optional(),
+    }),
+    handler: (i, c) => caps.swapBuildSolana(i, c),
+  },
+  {
+    id: "swap.quote_evm",
+    mcpName: "dreyv_swap_quote_evm",
+    pillar: "execution",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "EVM swap quote (0x v2 Allowance Holder)",
+    description:
+      "Best-execution swap quote on EVM chains (Ethereum, Base, Arbitrum, Optimism, Polygon) via 0x v2. Symbols resolved per-chain; addresses pass through.",
+    inputSchema: z.object({
+      sellToken: z.string().min(1),
+      buyToken: z.string().min(1),
+      sellAmount: z.union([z.string(), z.number()]).transform((v) => String(v)).describe("Atomic units of sellToken"),
+      chainId: z.number().int().describe("1=ETH, 8453=Base, 42161=Arbitrum, 10=Optimism, 137=Polygon"),
+    }),
+    handler: (i, c) => caps.swapQuoteEvm(i, c),
+  },
+  {
+    id: "bridge.quote",
+    mcpName: "dreyv_bridge_quote",
+    pillar: "execution",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Cross-chain bridge quote (Rango)",
+    description:
+      "Cross-chain swap/bridge quote between EVM chains. Symbols accepted (ETH, USDC, etc.). Returns route, ETA, fees, output amount.",
+    inputSchema: z.object({
+      fromChain: z.enum(["ethereum", "arbitrum", "base", "polygon", "bsc"]),
+      toChain: z.enum(["ethereum", "arbitrum", "base", "polygon", "bsc"]),
+      fromToken: z.string().min(1),
+      toToken: z.string().min(1).optional(),
+      fromAmount: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    }),
+    handler: (i, c) => caps.bridgeQuote(i, c),
+  },
+  {
+    id: "gas.estimate",
+    mcpName: "dreyv_gas_estimate",
+    pillar: "execution",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "EVM gas estimate (EIP-1559 fee history)",
+    description:
+      "Live EIP-1559 base fee + priority fee percentiles for an EVM chain, computed from recent block fee history.",
+    inputSchema: z.object({
+      chain: z.enum(["ethereum", "arbitrum", "base", "polygon", "optimism"]),
+      blocks: z.number().int().min(4).max(50).optional(),
+    }),
+    handler: (i, c) => caps.gasEstimate(i, c),
+  },
+
+  // ─── Pillar E — Risk & Forensics ─────────────────────────────────────
+  {
+    id: "risk.wallet",
+    mcpName: "dreyv_risk_wallet",
+    pillar: "forensics",
+    scope: "read:forensics",
+    sideEffects: "read",
+    status: "stable",
+    title: "Wallet risk profile (Solana)",
+    description:
+      "Composite wallet-level risk signals: dust exposure, sanctioned-counterparty hits, concentration, dormant/active state, scam-token holdings.",
+    inputSchema: z.object({ address: Address }),
+    handler: (i, c) => caps.riskWallet(i, c),
+  },
+  {
+    id: "risk.edge_insights",
+    mcpName: "dreyv_risk_edge_insights",
+    pillar: "forensics",
+    scope: "read:forensics",
+    sideEffects: "read",
+    status: "stable",
+    title: "Dreyv Edge Insights",
+    description:
+      "Differentiator forensics for a wallet: fee waste, idle capital, dust reclaim, lost opportunities, DCA patterns, counterparty mix, next-best-move with $ impact.",
+    inputSchema: z.object({ address: Address }),
+    handler: (i, c) => caps.riskEdgeInsights(i, c),
+  },
+  {
+    id: "wallet.narrative",
+    mcpName: "dreyv_wallet_narrative",
+    pillar: "forensics",
+    scope: "read:forensics",
+    sideEffects: "read",
+    status: "stable",
+    title: "AI narrative summary of a wallet",
+    description:
+      "Human-readable narrative explaining what a wallet is doing — composition, recent behavior, risk posture, suggested next step. Streamed at upstream; aggregated here.",
+    inputSchema: z.object({ address: Address }),
+    handler: (i, c) => caps.walletNarrative(i, c),
+  },
+
+  // ─── Pillar F — Tax & Accounting ─────────────────────────────────────
+  {
+    id: "tax.analyze",
+    mcpName: "dreyv_tax_analyze",
+    pillar: "tax",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Tax-aware portfolio analysis",
+    description:
+      "Capital gains (short/long), wash-sale risk detection, tax-loss harvesting opportunities, and projected tax impact of rebalance trades. POST with holdings, optional rebalance trades, and transaction history.",
+    inputSchema: z.object({
+      holdings: z.array(z.unknown()).min(1),
+      rebalanceTrades: z.array(z.unknown()).optional(),
+      userTransactionHistory: z.array(z.unknown()).optional(),
+    }),
+    handler: (i, c) => caps.taxAnalyze(i, c),
+  },
+
+  // ─── Pillar G — Foresight (Dreyv signature) ──────────────────────────
+  {
+    id: "foresight.simulate",
+    mcpName: "dreyv_foresight_simulate",
+    pillar: "foresight",
+    scope: "write:simulate",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "Monte Carlo treasury foresight",
+    description:
+      "Runs N stochastic projection paths (Box-Muller noise) over a portfolio + what-if variables, returns P10/P50/P90 bands, depletion probability, median depletion month, and risk flags. Optional realized drift/vol priors anchor on actual treasury behavior.",
+    inputSchema: z.object({
+      portfolio: z.array(z.unknown()).min(1),
+      variables: z.array(z.unknown()),
+      timeframeMonths: z.number().int().min(1).max(120),
+      granularity: z.enum(["weekly", "monthly"]).optional(),
+      paths: z.number().int().min(10).max(2000).optional(),
+      seed: z.number().int().optional(),
+      priors: z
+        .object({
+          driftPctPerDay: z.number().optional(),
+          volPctPerDay: z.number().optional(),
+        })
+        .optional(),
+    }),
+    handler: (i, c) => caps.foresightSimulate(i, c),
+  },
 ];
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));

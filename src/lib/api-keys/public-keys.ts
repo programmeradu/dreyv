@@ -25,6 +25,7 @@ export const ALL_SCOPES = [
   "read:forensics",
   "write:simulate",
   "write:intent",
+  "write:trade",
   "pay:x402",
   "agent:delegate",
 ] as const;
