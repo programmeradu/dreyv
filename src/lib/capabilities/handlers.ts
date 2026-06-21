@@ -444,7 +444,30 @@ export async function marketPriceHistory(
   const qs = new URLSearchParams({ daysAgo: String(input.daysAgo) });
   if (isMint) qs.set("mint", t);
   else qs.set("symbol", t.toUpperCase());
-  return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
+  try {
+    return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
+  } catch (e) {
+    if (e instanceof CapabilityError) {
+      // Historical price providers occasionally lack coverage for thin tokens
+      // or older windows. Surface a structured empty result with a hint instead
+      // of a 502 so callers can branch on `priceUsd === null`.
+      const msg = (e.message || "").toLowerCase();
+      if (
+        msg.includes("could not fetch historical price") ||
+        msg.includes("no provider") ||
+        msg.includes("not found")
+      ) {
+        return {
+          token: t,
+          daysAgo: input.daysAgo,
+          priceUsd: null,
+          available: false,
+          note: "No historical-price provider returned data for this token/window. Try a major asset (SOL, USDC, WBTC) or a smaller `daysAgo` value.",
+        };
+      }
+    }
+    throw e;
+  }
 }
 
 // ─── Pillar H — Agentic delegation (Phase 3) ─────────────────────────
@@ -470,10 +493,37 @@ export async function delegationStatus(
   input: { walletAddress: string },
   ctx: CapabilityRunContext,
 ) {
-  return await callInternal(
-    ctx,
-    `/api/delegation/status?wallet=${encodeURIComponent(input.walletAddress)}`,
-  );
+  try {
+    return await callInternal(
+      ctx,
+      `/api/delegation/status?wallet=${encodeURIComponent(input.walletAddress)}`,
+    );
+  } catch (e) {
+    if (e instanceof CapabilityError) {
+      // Upstream wraps DB errors as 500/503 with Drizzle's `Failed query: …` text.
+      // Translate that into a clean, machine-friendly empty result so callers
+      // can act on it (no active delegations) instead of crashing.
+      const msg = e.message || "";
+      if (
+        e.status >= 500 &&
+        (msg.includes("Failed query") ||
+          msg.includes("relation") ||
+          msg.includes("column") ||
+          msg.includes("does not exist"))
+      ) {
+        return {
+          success: true,
+          walletAddress: input.walletAddress,
+          delegations: [],
+          activeBots: 0,
+          botsWithDelegation: 0,
+          note: "Delegation registry is empty or unavailable for this environment.",
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+    throw e;
+  }
 }
 
 // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
@@ -1114,20 +1164,43 @@ export async function receiptsVerify(
   if ((input.chain ?? "solana") !== "solana") {
     throw new CapabilityError("Only chain='solana' is supported in Phase 6", 400, null);
   }
-  if (!input.signature || input.signature.length < 32) {
-    throw new CapabilityError("signature is required (base58)", 400, null);
+  const sig = (input.signature ?? "").trim();
+  // Solana signatures are 64 bytes ⇒ base58 length 86–88.
+  // Reject anything that is obviously not a base58 signature before hitting
+  // the RPC node (which otherwise returns the unfriendly "Invalid param: WrongSize").
+  if (!sig) {
+    throw new CapabilityError("signature is required (base58 Solana transaction signature, ~88 chars)", 400, null);
   }
-  const status = await fetchSignatureStatus(input.signature);
+  if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(sig)) {
+    throw new CapabilityError("signature must be base58 (Solana transaction signature)", 400, null);
+  }
+  if (sig.length < 64 || sig.length > 96) {
+    throw new CapabilityError(
+      `signature length ${sig.length} is not a valid Solana transaction signature (expected 64–96 base58 chars)`,
+      400,
+      null,
+    );
+  }
+  let status: SigStatus | null = null;
+  try {
+    status = await fetchSignatureStatus(sig);
+  } catch (e) {
+    throw new CapabilityError(
+      `RPC failed while verifying signature: ${(e as Error)?.message ?? "unknown"}`,
+      502,
+      null,
+    );
+  }
   if (!status) {
     return {
-      signature: input.signature,
+      signature: sig,
       found: false,
       verifiedAt: new Date().toISOString(),
       note: "Signature not visible to this RPC node within transaction history window.",
     };
   }
   return {
-    signature: input.signature,
+    signature: sig,
     found: true,
     slot: status.slot,
     confirmationStatus: status.confirmationStatus,
@@ -1380,7 +1453,169 @@ export async function economyWalletBalance(_input: Record<string, never>, ctx: C
 }
 
 // ─── Pillar N — Reasoning & Knowledge ─────────────────────────────────
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// LOVABLE_API_KEY is NEVER on Vercel (per project policy). All Lovable AI calls
+// go through the Supabase edge function `lovable-ai-proxy` which holds the key
+// in the Lovable Cloud workspace. Gemini API is used as a backup provider when
+// the proxy is unreachable or returns an error.
+
+const LOVABLE_AI_DIRECT_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+
+function resolveLovableProxyUrl(): string | null {
+  const direct = process.env.LOVABLE_AI_PROXY_URL?.trim();
+  if (direct) return direct;
+  const sbUrl = (
+    process.env.LOVABLE_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    ""
+  ).trim();
+  if (sbUrl) return `${sbUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+
+function resolveLovableProxyAuth(): string | null {
+  return (
+    process.env.LOVABLE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    null
+  )?.trim() || null;
+}
+
+async function tryProxy(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const url = resolveLovableProxyUrl();
+  const auth = resolveLovableProxyAuth();
+  if (!url || !auth) return { ok: false, reason: "proxy_unconfigured" };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth}`,
+        apikey: auth,
+      },
+      body: JSON.stringify({
+        model: opts.model || "google/gemini-3-flash-preview",
+        stream: false,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.3,
+        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
+    if (!res.ok) return { ok: false, status: res.status, reason: `proxy_http_${res.status}` };
+    const data = await res.json();
+    const txt = data?.choices?.[0]?.message?.content ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `proxy_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
+
+async function tryDirect(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return { ok: false, reason: "no_direct_key" };
+  try {
+    const res = await fetch(LOVABLE_AI_DIRECT_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: opts.model || "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.3,
+        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
+    if (!res.ok) return { ok: false, status: res.status, reason: `direct_http_${res.status}` };
+    const data = await res.json();
+    const txt = data?.choices?.[0]?.message?.content ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `direct_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
+
+async function tryGemini(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { ok: false, reason: "no_gemini_key" };
+  // Map Lovable-style model name to a Gemini model id.
+  const raw = opts.model || "google/gemini-3-flash-preview";
+  const id = raw.startsWith("google/") ? raw.slice("google/".length) : raw;
+  // Conservative mapping — only flip preview/-3 to a known live id.
+  const geminiModel =
+    id.includes("gemini-3") ? "gemini-2.5-flash" :
+    id.includes("flash-lite") ? "gemini-2.5-flash-lite" :
+    id.includes("pro") ? "gemini-2.5-pro" :
+    "gemini-2.5-flash";
+  try {
+    const res = await fetch(
+      `${GEMINI_API_URL}/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: opts.system }] },
+          contents: [{ role: "user", parts: [{ text: opts.user }] }],
+          generationConfig: {
+            temperature: opts.temperature ?? 0.3,
+            maxOutputTokens: opts.maxTokens ?? 800,
+            ...(opts.jsonMode ? { responseMimeType: "application/json" } : {}),
+          },
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { ok: false, status: res.status, reason: `gemini_http_${res.status}:${t.slice(0, 80)}` };
+    }
+    const data = await res.json();
+    const txt = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p?.text ?? "").join("") ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `gemini_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
 
 async function callLovableAI(opts: {
   system: string;
@@ -1390,27 +1625,20 @@ async function callLovableAI(opts: {
   temperature?: number;
   jsonMode?: boolean;
 }): Promise<string> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new CapabilityError("LOVABLE_API_KEY not configured", 503, null);
-  const res = await fetch(LOVABLE_AI_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model || "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
-      max_tokens: opts.maxTokens ?? 800,
-      temperature: opts.temperature ?? 0.3,
-      ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
-    }),
-  });
-  if (res.status === 429) throw new CapabilityError("Lovable AI rate-limited", 429, null);
-  if (res.status === 402) throw new CapabilityError("Lovable AI credits exhausted", 402, null);
-  if (!res.ok) throw new CapabilityError(`Lovable AI failed: ${res.status}`, 502, null);
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const attempts: string[] = [];
+  for (const fn of [tryProxy, tryDirect, tryGemini]) {
+    const r = await fn(opts);
+    if (r.ok) return r.text;
+    attempts.push(r.reason);
+    // Don't fall through on quota signals — surface them immediately.
+    if (r.status === 429) throw new CapabilityError("AI rate-limited — retry shortly", 429, { attempts });
+    if (r.status === 402) throw new CapabilityError("AI credits exhausted", 402, { attempts });
+  }
+  throw new CapabilityError(
+    "AI provider unavailable — proxy, direct gateway and Gemini fallback all failed",
+    503,
+    { attempts },
+  );
 }
 
 export async function reasoningAsk(
@@ -1511,11 +1739,31 @@ export async function knowledgeReadUrl(
   _ctx: CapabilityRunContext,
 ) {
   const { markdown } = await import("@/lib/cloudflare/cf-browser");
-  let md: string;
+  let raw: unknown;
   try {
-    md = await markdown({ url: input.url });
-  } catch (e: any) {
-    throw new CapabilityError(`URL fetch failed: ${e?.message ?? "unknown"}`, 502, null);
+    raw = await markdown({ url: input.url });
+  } catch (e) {
+    throw new CapabilityError(`URL fetch failed: ${(e as Error)?.message ?? "unknown"}`, 502, null);
+  }
+  // cfFetch returns JSON `{success, result}` for the markdown endpoint, but
+  // older variants returned a raw string. Normalize to string here so the
+  // downstream `.slice` call cannot blow up on an object.
+  let md: string;
+  if (typeof raw === "string") {
+    md = raw;
+  } else if (raw && typeof raw === "object") {
+    const obj = raw as { result?: unknown; markdown?: unknown; text?: unknown; success?: boolean; errors?: unknown };
+    if (obj.success === false) {
+      throw new CapabilityError(
+        `URL fetch failed: ${JSON.stringify(obj.errors ?? obj).slice(0, 200)}`,
+        502,
+        null,
+      );
+    }
+    const candidate = obj.result ?? obj.markdown ?? obj.text ?? "";
+    md = typeof candidate === "string" ? candidate : JSON.stringify(candidate);
+  } else {
+    md = "";
   }
   if (!md) throw new CapabilityError("Empty response from URL", 404, null);
   const cap = Math.min(Math.max(input.max_chars ?? 8000, 500), 30000);

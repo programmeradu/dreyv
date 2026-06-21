@@ -43,8 +43,17 @@ export interface CapabilityRunContext {
   transport: "rest" | "mcp";
 }
 
-const Address = z.string().min(2).max(128);
-const Chain = z.enum(["solana", "ethereum", "base", "arbitrum", "optimism", "polygon"]).default("solana");
+const Address = z
+  .string()
+  .min(2)
+  .max(128)
+  .describe(
+    "Wallet address. Solana base58 32–44 chars (e.g. 'So11111111111111111111111111111111111111112') or EVM 0x-hex 42 chars (e.g. '0x0000000000000000000000000000000000000000').",
+  );
+const Chain = z
+  .enum(["solana", "ethereum", "base", "arbitrum", "optimism", "polygon"])
+  .default("solana")
+  .describe("Chain identifier. Defaults to 'solana' when omitted.");
 
 export const CAPABILITIES: PublicCapability[] = [
   // ─── Pillar A — Identity & Resolution ─────────────────────────────────
