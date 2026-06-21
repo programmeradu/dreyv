@@ -140,6 +140,7 @@ async function handle(req: NextRequest): Promise<Response> {
               keyId: key.id,
               origin,
               key,
+              httpRequest: req as unknown as Request,
             },
           }
         : undefined,
