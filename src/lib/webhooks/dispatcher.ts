@@ -40,6 +40,10 @@ export type WebhookEventName =
   | "storage.artifact_created"
   | "storage.artifact_deleted"
   | "storage.quota_exceeded"
+  | "job.scheduled"
+  | "job.completed"
+  | "job.failed"
+  | "job.cancelled"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -62,6 +66,10 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "storage.artifact_created",
   "storage.artifact_deleted",
   "storage.quota_exceeded",
+  "job.scheduled",
+  "job.completed",
+  "job.failed",
+  "job.cancelled",
   "test.ping",
 ];
 

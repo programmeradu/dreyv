@@ -2133,6 +2133,53 @@ export const publicApiArtifacts = pgTable('public_api_artifacts', {
   shaIdx: index('public_api_artifacts_sha_idx').on(t.userId, t.sha256),
 }));
 
+// ─── Phase 21 — Jobs & Scheduling (Pillar AE) ────────────────────────
+export const publicApiJobs = pgTable('public_api_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  label: text('label').notNull(),
+  capabilityId: text('capability_id').notNull(),
+  input: jsonb('input').notNull().default('{}'),
+  kind: text('kind').notNull().default('recurring'),         // recurring | one_shot
+  intervalSeconds: integer('interval_seconds'),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull(),
+  maxRetries: integer('max_retries').notNull().default(3),
+  status: text('status').notNull().default('active'),        // active | paused | cancelled | completed
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastStatus: text('last_status'),
+  runCount: integer('run_count').notNull().default(0),
+  failCount: integer('fail_count').notNull().default(0),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('public_api_jobs_user_idx').on(t.userId, t.createdAt),
+  keyIdx: index('public_api_jobs_key_idx').on(t.keyId, t.createdAt),
+  dueIdx: index('public_api_jobs_due_idx').on(t.status, t.nextRunAt),
+}));
+
+export const publicApiJobRuns = pgTable('public_api_job_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: uuid('job_id').references(() => publicApiJobs.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: text('status').notNull().default('queued'),        // queued | running | ok | failed | cancelled
+  attempt: integer('attempt').notNull().default(1),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  durationMs: integer('duration_ms'),
+  result: jsonb('result'),
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  triggeredBy: text('triggered_by').notNull().default('schedule'), // schedule | manual | retry
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  jobIdx: index('public_api_job_runs_job_idx').on(t.jobId, t.createdAt),
+  userIdx: index('public_api_job_runs_user_idx').on(t.userId, t.createdAt),
+  statusIdx: index('public_api_job_runs_status_idx').on(t.status, t.createdAt),
+}));
+
+
 
 
 
