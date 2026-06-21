@@ -76,12 +76,24 @@ export function checkPolicy(
   req: Request,
 ): PolicyResult {
   if (key.killSwitchAt) {
-    return {
-      ok: false,
-      code: "kill_switch",
-      message: "API key kill-switch is engaged. Disable it via safety.kill_switch before continuing.",
-      detail: { since: key.killSwitchAt.toISOString?.() ?? String(key.killSwitchAt) },
-    };
+    // Always allow the owner to inspect policy and release the kill switch
+    // itself — otherwise the key is permanently bricked. Read-only key/usage
+    // introspection is also safe.
+    const KILL_SWITCH_BYPASS = new Set<string>([
+      "safety.kill_switch",
+      "safety.policy",
+      "developer.key_info",
+      "developer.usage",
+      "developer.capabilities",
+    ]);
+    if (!KILL_SWITCH_BYPASS.has(capabilityId)) {
+      return {
+        ok: false,
+        code: "kill_switch",
+        message: "API key kill-switch is engaged. Disable it via safety.kill_switch before continuing.",
+        detail: { since: key.killSwitchAt.toISOString?.() ?? String(key.killSwitchAt) },
+      };
+    }
   }
   if (key.capabilityAllowlist.length > 0 && !key.capabilityAllowlist.includes(capabilityId)) {
     return {
