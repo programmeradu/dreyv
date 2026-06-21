@@ -86,13 +86,13 @@ function schemaAdapter(schema: unknown): Record<string, unknown> {
 
 /** Compact summary line shown to LLMs in addition to the description. */
 function describe(cap: PublicCapability): string {
-  const sideEffect =
-    cap.sideEffects === "none"
+  const sideEffectLabel =
+    cap.sideEffects === "read"
       ? "read-only"
-      : cap.sideEffects === "external"
-      ? "external write"
-      : "internal write";
-  return `${cap.description} (pillar: ${cap.pillar}, scope: ${cap.scope}, ${sideEffect}${cap.cost ? `, cost: ${cap.cost} credits` : ""})`;
+      : cap.sideEffects === "simulate"
+      ? "simulation (no on-chain write)"
+      : "writes state";
+  return `${cap.description} (pillar: ${cap.pillar}, scope: ${cap.scope}, ${sideEffectLabel}${cap.cost ? `, cost: ${cap.cost} credits` : ""})`;
 }
 
 function buildServer(): McpServer {
