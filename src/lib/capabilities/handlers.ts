@@ -12,7 +12,7 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentTreasuryWatchers, agentTxProposals, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
+import { agentApiKeys, agentDeliverables, agentPayments, agentTreasuryWatchers, agentTxProposals, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   ALL_WEBHOOK_EVENTS,
@@ -21,6 +21,9 @@ import {
   type WebhookEventName,
 } from "@/lib/webhooks/dispatcher";
 import { buildPlanForAction } from "@/lib/agents/brains/executor-plans";
+import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
+import { tokenFor } from "@/lib/billing/crypto-config";
+import { AGENT_SKUS, listSkus } from "@/lib/agent/skus";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
