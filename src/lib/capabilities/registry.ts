@@ -225,21 +225,9 @@ export const CAPABILITIES: PublicCapability[] = [
     }),
     handler: (i, c) => caps.defiYields(i, c),
   },
-  {
-    id: "market.discovery",
-    mcpName: "dreyv_market_discovery",
-    pillar: "market",
-    scope: "read:market",
-    sideEffects: "read",
-    status: "stable",
-    title: "New listings & trending tokens",
-    description: "Recently surfaced tokens with liquidity, age, and a Dreyv ranking signal.",
-    inputSchema: z.object({
-      chain: Chain.default("solana"),
-      limit: z.number().int().min(1).max(50).default(20),
-    }),
-    handler: (i, c) => caps.marketDiscovery(i, c),
-  },
+  // NOTE: market.discovery was removed — /api/atlas/trending is not built yet.
+  // Per the no-fallbacks rule: it ships when there is a real trending feed.
+
 ];
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));
