@@ -150,7 +150,22 @@ function buildServer(): McpServer {
           );
         }
 
-        // 2. Rate limit (per-key, sliding window already in checkRateLimit)
+        // 2. Policy (kill switch, capability allowlist, origin, IP)
+        const policy = checkPolicy(extra.key, cap.id, extra.httpRequest);
+        if (!policy.ok) {
+          await recordUsage({
+            keyId: extra.keyId,
+            userId: extra.userId,
+            capabilityId: cap.id,
+            transport: "mcp",
+            status: "denied",
+            latencyMs: Date.now() - t0,
+            errorCode: policy.code,
+          });
+          throw new RpcError(JSON_RPC.FORBIDDEN, policy.message, policy.detail);
+        }
+
+        // 3. Rate limit (per-key, sliding window already in checkRateLimit)
         const rl = checkRateLimit(extra.key);
         if (!rl.ok) {
           await recordUsage({
