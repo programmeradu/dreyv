@@ -26,11 +26,13 @@ export const ALL_SCOPES = [
   "read:notifications",
   "read:audit",
   "read:teams",
+  "read:billing",
   "write:simulate",
   "write:intent",
   "write:trade",
   "write:watchers",
   "write:teams",
+  "write:billing",
   "pay:x402",
   "agent:delegate",
 ] as const;

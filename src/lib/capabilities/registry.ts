@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1705,6 +1705,93 @@ export const CAPABILITIES: PublicCapability[] = [
       limit: z.number().int().min(1).max(500).optional(),
     }).strict(),
     handler: (i, c) => caps.teamsActivity(i, c),
+  },
+
+  // ─── Pillar X — Billing, Plans & Credits (Phase 16) ──────────────────
+  {
+    id: "billing.plan",
+    mcpName: "dreyv_billing_plan",
+    pillar: "billing",
+    scope: "read:billing",
+    sideEffects: "read",
+    status: "stable",
+    title: "Current subscription plan & limits",
+    description: "Returns the caller's tier (free | mini | max), expiry, lifetime/founding-member flags, and the plan's API limits (calls/credits per month, RPM, USD price).",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.billingPlan(i, c),
+  },
+  {
+    id: "billing.usage",
+    mcpName: "dreyv_billing_usage",
+    pillar: "billing",
+    scope: "read:billing",
+    sideEffects: "read",
+    status: "stable",
+    title: "This month's API usage vs plan limits",
+    description: "Aggregates `public_api_key_usage` for the current UTC month across all of the caller's keys. Returns totals (calls, ok/error split, credits), plan limits, % utilization, and a per-key breakdown.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.billingUsage(i, c),
+  },
+  {
+    id: "billing.invoices",
+    mcpName: "dreyv_billing_invoices",
+    pillar: "billing",
+    scope: "read:billing",
+    sideEffects: "read",
+    status: "stable",
+    title: "List crypto subscription invoices",
+    description: "Paginated list of the caller's crypto invoices (pending | confirmed | expired | failed). Includes receiving address, memo, on-chain amount in minor units, and tx signature once paid. Card-rail invoices (Stripe/Paystack) are not surfaced here.",
+    inputSchema: z.object({
+      status: z.enum(["pending", "confirmed", "expired", "failed"]).optional(),
+      sinceIso: z.string().datetime().optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }).strict(),
+    handler: (i, c) => caps.billingInvoices(i, c),
+  },
+  {
+    id: "billing.payment_options",
+    mcpName: "dreyv_billing_payment_options",
+    pillar: "billing",
+    scope: "read:billing",
+    sideEffects: "read",
+    status: "stable",
+    title: "Enabled payment rails and tier prices",
+    description: "Lists card rails configured server-side (booleans only — no keys), enabled crypto chain/asset combinations, and tier prices (card retail + crypto-discounted).",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.billingPaymentOptions(i, c),
+  },
+  {
+    id: "billing.estimate_upgrade",
+    mcpName: "dreyv_billing_estimate_upgrade",
+    pillar: "billing",
+    scope: "read:billing",
+    sideEffects: "read",
+    status: "stable",
+    title: "Quote a crypto-rail upgrade",
+    description: "Returns the on-chain amount required to upgrade to the chosen tier on the chosen chain+asset, with live SOL pricing for native settlements. Does NOT create an invoice.",
+    inputSchema: z.object({
+      tier: z.enum(["mini", "max"]),
+      chain: z.enum(["solana", "base", "arbitrum", "polygon", "bsc"]),
+      asset: z.enum(["usdc", "usdt", "sol"]),
+    }).strict(),
+    handler: (i, c) => caps.billingEstimateUpgrade(i, c),
+  },
+  {
+    id: "billing.create_invoice",
+    mcpName: "dreyv_billing_create_invoice",
+    pillar: "billing",
+    scope: "write:billing",
+    sideEffects: "write",
+    status: "stable",
+    title: "Mint a pending crypto invoice for a tier upgrade",
+    description: "Creates a `pending` row in `crypto_invoices` and returns a Solana Pay URL (when chain=solana). Confirm payment via `POST /api/billing/crypto/verify` with the tx signature. Fires `billing.invoice_created` webhook.",
+    inputSchema: z.object({
+      tier: z.enum(["mini", "max"]),
+      chain: z.enum(["solana", "base", "arbitrum", "polygon", "bsc"]),
+      asset: z.enum(["usdc", "usdt", "sol"]),
+      message: z.string().min(1).max(200).optional(),
+    }).strict(),
+    handler: (i, c) => caps.billingCreateInvoice(i, c),
   },
 ];
 
