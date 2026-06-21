@@ -1569,3 +1569,64 @@ export async function knowledgeStore(
   return { id: stored.id, createdAt: stored.createdAt, title: stored.title };
 }
 
+
+// ─── Pillar P — Governance & Multisig (Squads v4) ────────────────────
+const SOLANA_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function assertSolanaAddress(addr: string, field: string) {
+  if (!SOLANA_ADDR_RE.test(addr)) throw new CapabilityError(`${field} is not a valid Solana address`, 400, null);
+}
+
+export async function governanceProposalsLive(
+  input: { vault: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.vault, "vault");
+  const data = await callInternal<unknown>(ctx, `/api/squads/proposals?vault=${encodeURIComponent(input.vault)}`);
+  const arr = Array.isArray(data) ? data : [];
+  const limit = Math.min(input.limit ?? 50, 200);
+  return { vault: input.vault, count: arr.length, proposals: arr.slice(0, limit) };
+}
+
+export async function governanceProposalsCached(
+  input: { vault: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.vault, "vault");
+  const data = await callInternal<unknown>(ctx, `/api/squads/proposals/sync?vault=${encodeURIComponent(input.vault)}`);
+  const list = (data && typeof data === "object" && "proposals" in data ? (data as { proposals: unknown }).proposals : data) as unknown;
+  const arr = Array.isArray(list) ? list : [];
+  const limit = Math.min(input.limit ?? 50, 200);
+  return { vault: input.vault, count: arr.length, proposals: arr.slice(0, limit), source: "mirror" };
+}
+
+export async function governanceSync(
+  input: { vaultAddress: string },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.vaultAddress, "vaultAddress");
+  return callInternal(ctx, "/api/squads/proposals/sync", {
+    method: "POST",
+    body: JSON.stringify({ vaultAddress: input.vaultAddress }),
+  });
+}
+
+export async function governanceVoteTx(
+  input: {
+    multisig: string;
+    transactionIndex: number;
+    action: "Approve" | "Reject" | "Cancel" | "Execute";
+    member: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.multisig, "multisig");
+  assertSolanaAddress(input.member, "member");
+  if (!Number.isInteger(input.transactionIndex) || input.transactionIndex < 1) {
+    throw new CapabilityError("transactionIndex must be a positive integer", 400, null);
+  }
+  return callInternal(ctx, "/api/squads/proposals/vote", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
