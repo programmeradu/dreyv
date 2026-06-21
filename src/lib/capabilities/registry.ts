@@ -754,6 +754,116 @@ export const CAPABILITIES: PublicCapability[] = [
     }),
     handler: (i, c) => caps.webhooksTest(i, c),
   },
+
+  // ─── Pillar L — Signed Intents & Execution Receipts (Phase 6) ───────
+  // Compile an intent into a wallet-signable plan, submit the signature,
+  // verify on-chain. Server NEVER signs; Solana RPC is required (no fallback).
+  // Gated under read:portfolio so existing dk_live_… keys work; all rows
+  // strictly scoped to ctx.userId.
+  {
+    id: "intents.compile",
+    mcpName: "dreyv_intents_compile",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Compile a signable intent",
+    description:
+      "Builds an ExecutorPlan (Jupiter swap / Marinade stake / Kamino+MarginFi yield / SPL transfer / rebalance) and persists it as a queued intent. The caller signs locally and submits the signature via intents.submit. Returns the unsigned plan + warnings + estimated fee.",
+    inputSchema: z.object({
+      op: z.enum(["swap", "stake", "unstake", "deposit_yield", "withdraw", "rebalance", "transfer"]),
+      params: z.record(z.string(), z.unknown()).default({}),
+      chain: z.literal("solana").default("solana"),
+      routing: z.enum(["wallet", "multisig"]).optional(),
+      multisigVault: z.string().optional(),
+      ttlMinutes: z.number().int().min(1).max(1440).optional(),
+      riskLevel: z.enum(["low", "medium", "high"]).optional(),
+    }),
+    handler: (i, c) => caps.intentsCompile(i, c),
+  },
+  {
+    id: "intents.submit",
+    mcpName: "dreyv_intents_submit",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Record a broadcast signature for an intent",
+    description:
+      "After your wallet signs and broadcasts the plan, POST the resulting base58 transaction signature here. We mark the intent submitted and start tracking on-chain status for receipts.get.",
+    inputSchema: z.object({
+      id: z.string().uuid(),
+      signature: z.string().min(32).max(128),
+    }),
+    handler: (i, c) => caps.intentsSubmit(i, c),
+  },
+  {
+    id: "intents.status",
+    mcpName: "dreyv_intents_status",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Get current state of one intent",
+    description: "Returns the persisted intent row (status, signature, timestamps, plan) without an on-chain lookup.",
+    inputSchema: z.object({ id: z.string().uuid() }),
+    handler: (i, c) => caps.intentsStatus(i, c),
+  },
+  {
+    id: "intents.list",
+    mcpName: "dreyv_intents_list",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "List your intents",
+    description: "Lists intents owned by the API-key holder. Filter by status.",
+    inputSchema: z.object({
+      status: z.enum(["queued", "approved", "submitted", "confirmed", "failed", "rejected", "expired"]).optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+    }),
+    handler: (i, c) => caps.intentsList(i, c),
+  },
+  {
+    id: "intents.cancel",
+    mcpName: "dreyv_intents_cancel",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Cancel a queued intent",
+    description: "Marks the intent rejected. Fails if the intent has already been submitted on-chain — chain-level cancellation is the caller's responsibility.",
+    inputSchema: z.object({ id: z.string().uuid() }),
+    handler: (i, c) => caps.intentsCancel(i, c),
+  },
+  {
+    id: "receipts.get",
+    mcpName: "dreyv_receipts_get",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Get execution receipt for an intent",
+    description:
+      "Returns the intent row PLUS a live Solana RPC lookup of the broadcast signature. Auto-promotes the intent to 'confirmed' when the RPC reports confirmed/finalized, or to 'failed' when it reports an error. 503 if RPC is unreachable — no fallback.",
+    inputSchema: z.object({ id: z.string().uuid() }),
+    handler: (i, c) => caps.receiptsGet(i, c),
+  },
+  {
+    id: "receipts.verify",
+    mcpName: "dreyv_receipts_verify",
+    pillar: "execution",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Verify any Solana signature on-chain",
+    description: "Calls getSignatureStatuses on the configured Solana RPC. Returns slot, confirmationStatus, confirmations, and err. No persistence required.",
+    inputSchema: z.object({
+      signature: z.string().min(32).max(128),
+      chain: z.literal("solana").default("solana"),
+    }),
+    handler: (i, c) => caps.receiptsVerify(i, c),
+  },
 ];
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));

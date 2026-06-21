@@ -12,7 +12,7 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentTreasuryWatchers, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
+import { agentTreasuryWatchers, agentTxProposals, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   ALL_WEBHOOK_EVENTS,
@@ -20,6 +20,7 @@ import {
   generateSigningSecret,
   type WebhookEventName,
 } from "@/lib/webhooks/dispatcher";
+import { buildPlanForAction } from "@/lib/agents/brains/executor-plans";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
@@ -851,4 +852,328 @@ export async function webhooksTest(
   return { sent: true, results };
 }
 
+
+// ─── Pillar L — Signed Intents & Execution Receipts (Phase 6) ────────
+// Caller compiles an intent → we persist an unsigned ExecutorPlan as a
+// queued tx proposal. Caller signs locally with their wallet/multisig,
+// broadcasts to the chain, then submits the signature back so we record
+// it. Receipts verify on-chain status via the real Solana RPC — NO
+// fallbacks: if RPC is unreachable we surface 503.
+
+const INTENT_OPS = [
+  "swap",
+  "stake",
+  "unstake",
+  "deposit_yield",
+  "withdraw",
+  "rebalance",
+  "transfer",
+] as const;
+export type IntentOp = (typeof INTENT_OPS)[number];
+
+function redactIntent(row: typeof agentTxProposals.$inferSelect) {
+  // unsignedTx + instructions can be large + sensitive (route params);
+  // include them — caller needs them to sign — but document the shape.
+  return {
+    id: row.id,
+    userId: row.userId,
+    chain: row.chain,
+    kind: row.kind,
+    summary: row.summary,
+    status: row.status,
+    routing: row.routing,
+    multisigVault: row.multisigVault,
+    riskLevel: row.riskLevel,
+    estimatedFeeSol: row.estimatedFeeSol,
+    unsignedTx: row.unsignedTx,
+    instructions: row.instructions,
+    signature: row.signature,
+    errorMessage: row.errorMessage,
+    meta: row.meta,
+    expiresAt: row.expiresAt,
+    approvedAt: row.approvedAt,
+    submittedAt: row.submittedAt,
+    confirmedAt: row.confirmedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export async function intentsCompile(
+  input: {
+    op: IntentOp;
+    params: Record<string, unknown>;
+    chain?: "solana";
+    routing?: "wallet" | "multisig";
+    multisigVault?: string | null;
+    ttlMinutes?: number;
+    riskLevel?: "low" | "medium" | "high";
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const plan = buildPlanForAction(input.op, input.params ?? {});
+  if (!plan) {
+    throw new CapabilityError(
+      `No executor plan builder for op="${input.op}". Supported: ${INTENT_OPS.join(", ")}`,
+      400,
+      null,
+    );
+  }
+  const routing = input.routing ?? (input.multisigVault ? "multisig" : "wallet");
+  if (routing === "multisig" && !input.multisigVault) {
+    throw new CapabilityError("multisigVault is required when routing='multisig'", 400, null);
+  }
+  const ttlMin = Math.min(Math.max(input.ttlMinutes ?? 30, 1), 24 * 60);
+  const expiresAt = new Date(Date.now() + ttlMin * 60_000);
+
+  const [row] = await d
+    .insert(agentTxProposals)
+    .values({
+      userId: ctx.userId,
+      proposalId: null,
+      chain: input.chain ?? "solana",
+      kind: input.op,
+      summary: plan.summary,
+      unsignedTx: null,
+      instructions: [
+        { op: input.op, params: input.params ?? {}, plan, source: "intents.compile", keyId: ctx.keyId },
+      ] as unknown as object,
+      estimatedFeeSol: plan.op === "rebalance" ? "0.0002" : plan.op === "swap" ? "0.00005" : "0.00003",
+      riskLevel: input.riskLevel ?? (plan.op === "rebalance" ? "high" : "medium"),
+      routing,
+      multisigVault: input.multisigVault ?? null,
+      status: "queued",
+      meta: { compiledVia: "public-api", keyId: ctx.keyId } as unknown as object,
+      expiresAt,
+    })
+    .returning();
+
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "proposal.created",
+    data: { id: row.id, kind: row.kind, summary: row.summary, routing, expiresAt },
+  });
+
+  return {
+    intent: redactIntent(row),
+    plan,
+    notice:
+      "Sign the returned plan locally with the wallet you control. When broadcast on-chain, POST the signature back via intents.submit. Dreyv NEVER signs server-side.",
+  };
+}
+
+export async function intentsSubmit(
+  input: { id: string; signature: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!input.signature || input.signature.length < 32) {
+    throw new CapabilityError("signature is required (base58 Solana tx signature)", 400, null);
+  }
+  const [existing] = await d
+    .select()
+    .from(agentTxProposals)
+    .where(and(eq(agentTxProposals.id, input.id), eq(agentTxProposals.userId, ctx.userId)))
+    .limit(1);
+  if (!existing) throw new CapabilityError(`Intent ${input.id} not found`, 404, null);
+  if (existing.status === "rejected" || existing.status === "expired") {
+    throw new CapabilityError(`Intent is ${existing.status} — cannot submit`, 409, null);
+  }
+  const now = new Date();
+  const [updated] = await d
+    .update(agentTxProposals)
+    .set({
+      status: "submitted",
+      signature: input.signature,
+      submittedAt: now,
+      approvedAt: existing.approvedAt ?? now,
+      updatedAt: now,
+    })
+    .where(eq(agentTxProposals.id, input.id))
+    .returning();
+  return { intent: redactIntent(updated) };
+}
+
+export async function intentsStatus(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(agentTxProposals)
+    .where(and(eq(agentTxProposals.id, input.id), eq(agentTxProposals.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Intent ${input.id} not found`, 404, null);
+  return { intent: redactIntent(row) };
+}
+
+export async function intentsList(
+  input: {
+    status?: "queued" | "approved" | "submitted" | "confirmed" | "failed" | "rejected" | "expired";
+    limit?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 30, 1), 200);
+  const conds = [eq(agentTxProposals.userId, ctx.userId)];
+  if (input.status) conds.push(eq(agentTxProposals.status, input.status));
+  const rows = await d
+    .select()
+    .from(agentTxProposals)
+    .where(and(...conds))
+    .orderBy(desc(agentTxProposals.createdAt))
+    .limit(limit);
+  return { intents: rows.map(redactIntent) };
+}
+
+export async function intentsCancel(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [existing] = await d
+    .select()
+    .from(agentTxProposals)
+    .where(and(eq(agentTxProposals.id, input.id), eq(agentTxProposals.userId, ctx.userId)))
+    .limit(1);
+  if (!existing) throw new CapabilityError(`Intent ${input.id} not found`, 404, null);
+  if (existing.status === "submitted" || existing.status === "confirmed") {
+    throw new CapabilityError(
+      `Intent already ${existing.status} on-chain — cannot cancel server-side`,
+      409,
+      null,
+    );
+  }
+  const [row] = await d
+    .update(agentTxProposals)
+    .set({ status: "rejected", updatedAt: new Date() })
+    .where(eq(agentTxProposals.id, input.id))
+    .returning();
+  return { intent: redactIntent(row) };
+}
+
+// ── Receipts: real Solana RPC signature lookup. No stubs. ────────────
+function solanaRpcUrl(): string {
+  const url =
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+    (process.env.HELIUS_API_KEY
+      ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+      : "");
+  if (!url) {
+    throw new CapabilityError(
+      "Solana RPC unavailable — NEXT_PUBLIC_SOLANA_RPC_URL / HELIUS_API_KEY not configured",
+      503,
+      null,
+    );
+  }
+  return url;
+}
+
+async function rpcCall<T = unknown>(method: string, params: unknown[]): Promise<T> {
+  const url = solanaRpcUrl();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    throw new CapabilityError(`Solana RPC unreachable: ${e?.message ?? "network"}`, 503, null);
+  }
+  if (!res.ok) {
+    throw new CapabilityError(`Solana RPC HTTP ${res.status}`, 502, null);
+  }
+  const body = (await res.json()) as { result?: T; error?: { message: string; code: number } };
+  if (body.error) {
+    throw new CapabilityError(`Solana RPC error: ${body.error.message}`, 502, body.error);
+  }
+  return body.result as T;
+}
+
+interface SigStatus {
+  slot: number;
+  confirmations: number | null;
+  err: unknown | null;
+  confirmationStatus: "processed" | "confirmed" | "finalized" | null;
+}
+
+async function fetchSignatureStatus(signature: string): Promise<SigStatus | null> {
+  const result = await rpcCall<{ value: (SigStatus | null)[] }>(
+    "getSignatureStatuses",
+    [[signature], { searchTransactionHistory: true }],
+  );
+  return result?.value?.[0] ?? null;
+}
+
+export async function receiptsVerify(
+  input: { signature: string; chain?: "solana" },
+  _ctx: CapabilityRunContext,
+) {
+  if ((input.chain ?? "solana") !== "solana") {
+    throw new CapabilityError("Only chain='solana' is supported in Phase 6", 400, null);
+  }
+  if (!input.signature || input.signature.length < 32) {
+    throw new CapabilityError("signature is required (base58)", 400, null);
+  }
+  const status = await fetchSignatureStatus(input.signature);
+  if (!status) {
+    return {
+      signature: input.signature,
+      found: false,
+      verifiedAt: new Date().toISOString(),
+      note: "Signature not visible to this RPC node within transaction history window.",
+    };
+  }
+  return {
+    signature: input.signature,
+    found: true,
+    slot: status.slot,
+    confirmationStatus: status.confirmationStatus,
+    confirmations: status.confirmations,
+    err: status.err,
+    finalized: status.confirmationStatus === "finalized",
+    verifiedAt: new Date().toISOString(),
+  };
+}
+
+export async function receiptsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(agentTxProposals)
+    .where(and(eq(agentTxProposals.id, input.id), eq(agentTxProposals.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Intent ${input.id} not found`, 404, null);
+  const intent = redactIntent(row);
+  if (!row.signature) {
+    return { intent, onChain: null, note: "No signature submitted yet. Call intents.submit first." };
+  }
+  let onChain: Awaited<ReturnType<typeof receiptsVerify>> | null = null;
+  let confirmedNow = false;
+  try {
+    onChain = await receiptsVerify({ signature: row.signature, chain: "solana" }, ctx);
+    if (
+      onChain.found &&
+      (onChain.confirmationStatus === "confirmed" || onChain.confirmationStatus === "finalized") &&
+      !onChain.err &&
+      row.status !== "confirmed"
+    ) {
+      const now = new Date();
+      await d
+        .update(agentTxProposals)
+        .set({ status: "confirmed", confirmedAt: now, updatedAt: now })
+        .where(eq(agentTxProposals.id, row.id));
+      confirmedNow = true;
+    } else if (onChain.found && onChain.err && row.status !== "failed") {
+      const now = new Date();
+      await d
+        .update(agentTxProposals)
+        .set({ status: "failed", errorMessage: JSON.stringify(onChain.err).slice(0, 500), updatedAt: now })
+        .where(eq(agentTxProposals.id, row.id));
+    }
+  } catch (e) {
+    if (e instanceof CapabilityError) throw e;
+    throw new CapabilityError("Receipt verification failed", 502, { message: (e as Error).message });
+  }
+  return { intent: { ...intent, status: confirmedNow ? "confirmed" : intent.status }, onChain };
+}
 
