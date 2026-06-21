@@ -34,6 +34,9 @@ export type WebhookEventName =
   | "billing.invoice_created"
   | "billing.invoice_paid"
   | "billing.tier_changed"
+  | "privacy.export_ready"
+  | "privacy.deletion_requested"
+  | "privacy.consent_changed"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -50,6 +53,9 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "billing.invoice_created",
   "billing.invoice_paid",
   "billing.tier_changed",
+  "privacy.export_ready",
+  "privacy.deletion_requested",
+  "privacy.consent_changed",
   "test.ping",
 ];
 
