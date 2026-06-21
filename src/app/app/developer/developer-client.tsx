@@ -3,17 +3,32 @@
 /**
  * /app/developer — unified developer onboarding hub.
  *
- * Reuses ApiKeysView (which already covers minting / scope picker / install
- * snippets) and adds:
+ * Reuses ApiKeysView (mint / scope picker / install snippets) and adds:
  *   - Webhook manager (create / rotate / test-fire / deliveries)
  *   - Manifest panel (OpenAPI, MCP manifest, .well-known/mcp.json, llms.txt)
+ *
+ * Dreyv premium light shell:
+ *   - white bg + ambient violet-400/300 glows
+ *   - manrope, solid violet accents (no fuchsia / gradients)
+ *   - flat rounded-3xl cards, violet-100/200 borders
+ *   - own scroll container (parent <main> uses md:overflow-hidden)
  */
 import React, { useState } from "react";
 import Link from "next/link";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { WebhooksPanel } from "./webhooks-panel";
 import { DreyvStar } from "@/components/studio/DreyvStar";
-import { KeyRound, Webhook, FileText, ArrowUpRight, Copy, CheckCircle2 } from "lucide-react";
+import {
+  KeyRound,
+  Webhook,
+  FileText,
+  ArrowUpRight,
+  Copy,
+  CheckCircle2,
+  Terminal,
+  ShieldCheck,
+  Gauge,
+} from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 
 type Tab = "keys" | "webhooks" | "manifests";
@@ -46,43 +61,96 @@ const MANIFESTS = [
   },
 ];
 
+const QUICK_FACTS: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: string }[] = [
+  { icon: Terminal, label: "Capabilities", value: "323 tools" },
+  { icon: Gauge, label: "Rate limit", value: "120 req / min" },
+  { icon: ShieldCheck, label: "Auth", value: "Bearer + HMAC" },
+];
+
 export function DeveloperHubClient() {
   const [tab, setTab] = useState<Tab>("keys");
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10 font-manrope">
-      <header className="mb-8">
-        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-slate-400">
-          <DreyvStar size={12} className="text-violet-500" /> Developer hub
-        </div>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-          Build on the Dreyv API + MCP
-        </h1>
-        <p className="mt-1 text-sm text-slate-600 max-w-2xl">
-          One Bearer key powers REST <code className="text-violet-700">/api/v1</code> and MCP{" "}
-          <code className="text-violet-700">/api/mcp</code>. Sign webhooks with HMAC-SHA256. Publish manifests for any agent runtime.
-        </p>
-      </header>
-
-      <div className="mb-6 flex gap-2 border-b border-violet-100">
-        <TabButton active={tab === "keys"} onClick={() => setTab("keys")} icon={<KeyRound size={12} />}>
-          API keys & MCP
-        </TabButton>
-        <TabButton active={tab === "webhooks"} onClick={() => setTab("webhooks")} icon={<Webhook size={12} />}>
-          Webhooks
-        </TabButton>
-        <TabButton active={tab === "manifests"} onClick={() => setTab("manifests")} icon={<FileText size={12} />}>
-          Manifests
-        </TabButton>
+    <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
+      {/* Ambient violet glow — matches /pricing aesthetic */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] overflow-hidden">
+        <div className="absolute left-1/2 top-[-180px] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/25 blur-[120px]" />
+        <div className="absolute left-[8%] top-[40px] h-[260px] w-[260px] rounded-full bg-violet-300/30 blur-[90px]" />
+        <div className="absolute right-[6%] top-[80px] h-[220px] w-[220px] rounded-full bg-violet-300/25 blur-[90px]" />
       </div>
 
-      {tab === "keys" ? (
-        <ApiKeysView />
-      ) : tab === "webhooks" ? (
-        <WebhooksPanel />
-      ) : (
-        <ManifestPanel />
-      )}
+      <div className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-8 lg:px-10">
+        {/* Header */}
+        <header className="mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700 backdrop-blur">
+            <DreyvStar size={11} className="text-violet-600" />
+            Developer hub
+          </div>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            Build on the Dreyv API + MCP
+          </h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-600">
+            One Bearer key powers REST{" "}
+            <code className="rounded-md bg-violet-50 px-1.5 py-0.5 font-mono text-[13px] text-violet-700">
+              /api/v1
+            </code>{" "}
+            and MCP{" "}
+            <code className="rounded-md bg-violet-50 px-1.5 py-0.5 font-mono text-[13px] text-violet-700">
+              /api/mcp
+            </code>
+            . Sign webhooks with HMAC-SHA256. Publish manifests for any agent runtime.
+          </p>
+
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {QUICK_FACTS.map((f) => (
+              <div
+                key={f.label}
+                className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white/90 px-4 py-3 backdrop-blur"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+                  <f.icon size={16} />
+                </span>
+                <div className="leading-tight">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {f.label}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">{f.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </header>
+
+        {/* Tabs */}
+        <div className="mb-6 flex flex-wrap gap-1 rounded-2xl border border-violet-100 bg-white/80 p-1 backdrop-blur">
+          <TabButton active={tab === "keys"} onClick={() => setTab("keys")} icon={<KeyRound size={13} />}>
+            API keys &amp; MCP
+          </TabButton>
+          <TabButton active={tab === "webhooks"} onClick={() => setTab("webhooks")} icon={<Webhook size={13} />}>
+            Webhooks
+          </TabButton>
+          <TabButton active={tab === "manifests"} onClick={() => setTab("manifests")} icon={<FileText size={13} />}>
+            Manifests
+          </TabButton>
+        </div>
+
+        {/* Panel */}
+        <section className="rounded-3xl border border-violet-100 bg-white/95 p-5 backdrop-blur sm:p-7">
+          {tab === "keys" ? <ApiKeysView /> : tab === "webhooks" ? <WebhooksPanel /> : <ManifestPanel />}
+        </section>
+
+        <footer className="mt-10 mb-6 text-center text-[12px] text-slate-500">
+          Need help? Read the{" "}
+          <Link href="/developers" className="font-semibold text-violet-700 hover:underline">
+            developer docs
+          </Link>{" "}
+          or explore the{" "}
+          <Link href="/developers/mcp" className="font-semibold text-violet-700 hover:underline">
+            MCP guide
+          </Link>
+          .
+        </footer>
+      </div>
     </div>
   );
 }
@@ -101,8 +169,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-        active ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"
+      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors sm:flex-none ${
+        active
+          ? "bg-violet-600 text-white"
+          : "text-slate-600 hover:bg-violet-50 hover:text-slate-900"
       }`}
     >
       {icon}
@@ -125,26 +195,35 @@ function ManifestPanel() {
   return (
     <div className="grid gap-3">
       {MANIFESTS.map((m) => (
-        <div key={m.path} className="rounded-3xl border border-violet-200 bg-white p-5 flex flex-wrap items-start gap-4">
-          <div className="flex-1 min-w-[220px]">
-            <div className="flex items-center gap-2">
+        <div
+          key={m.path}
+          className="flex flex-col gap-4 rounded-2xl border border-violet-100 bg-white p-5 sm:flex-row sm:items-start"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-base font-semibold text-slate-900">{m.label}</span>
-              <span className="font-mono text-[11px] text-violet-700">{m.path}</span>
+              <span className="break-all rounded-md bg-violet-50 px-1.5 py-0.5 font-mono text-[11px] text-violet-700">
+                {m.path}
+              </span>
             </div>
-            <p className="mt-1 text-sm text-slate-600">{m.desc}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{m.desc}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => copy(m.path)}
-              className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border border-violet-200 text-slate-700 hover:bg-violet-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-violet-50"
             >
-              {copied === m.path ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Copy size={12} />}
+              {copied === m.path ? (
+                <CheckCircle2 size={12} className="text-emerald-600" />
+              ) : (
+                <Copy size={12} />
+              )}
               Copy URL
             </button>
             <Link
               href={m.path}
               target="_blank"
-              className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border border-violet-200 text-violet-700 hover:bg-violet-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
             >
               Open <ArrowUpRight size={12} />
             </Link>
@@ -152,12 +231,30 @@ function ManifestPanel() {
         </div>
       ))}
 
-      <div className="rounded-3xl border border-violet-100 bg-violet-50/40 p-5 text-xs text-slate-600">
-        <p className="font-semibold text-slate-900 mb-1">Quick MCP install</p>
-        <p>
-          Add to <code className="text-violet-700">~/.cursor/mcp.json</code> or Claude Desktop config — the streaming HTTP transport
-          works with any MCP-compatible client. Auth via the Bearer token from your API key.
+      <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-5">
+        <div className="mb-2 flex items-center gap-2">
+          <DreyvStar size={11} className="text-violet-600" />
+          <p className="text-sm font-semibold text-slate-900">Quick MCP install</p>
+        </div>
+        <p className="text-xs leading-relaxed text-slate-600">
+          Add to{" "}
+          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-violet-700">
+            ~/.cursor/mcp.json
+          </code>{" "}
+          or Claude Desktop config — the streaming HTTP transport works with any MCP-compatible
+          client. Auth via the Bearer token from your API key.
         </p>
+        <pre className="mt-3 overflow-x-auto rounded-xl border border-violet-100 bg-white p-3 text-[11px] leading-relaxed text-slate-800">
+{`{
+  "mcpServers": {
+    "dreyv": {
+      "transport": "http",
+      "url": "https://dreyv.com/api/mcp",
+      "headers": { "Authorization": "Bearer dk_live_..." }
+    }
+  }
+}`}
+        </pre>
       </div>
     </div>
   );
