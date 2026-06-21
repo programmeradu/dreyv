@@ -2119,12 +2119,20 @@ export async function devRotateKey(input: { confirm?: boolean }, ctx: Capability
 }
 
 export async function devRevokeKey(
-  input: { keyId?: string },
+  input: { keyId?: string; confirm?: boolean },
   ctx: CapabilityRunContext,
 ) {
   const d = requireDb();
   const { publicApiKeys } = await import("@/db/schema");
   const target = input.keyId ?? ctx.keyId;
+  const isSelf = target === ctx.keyId;
+  if (isSelf && input?.confirm !== true) {
+    throw new CapabilityError(
+      "Revoking the calling key will lock you out of this session. Pass confirm=true to revoke self, or pass a specific keyId. This guard exists to prevent an LLM from accidentally bricking the caller's own key.",
+      400,
+      { requires: { confirm: true }, selfRevoke: true },
+    );
+  }
   const [row] = await d
     .select({ id: publicApiKeys.id, userId: publicApiKeys.userId, revokedAt: publicApiKeys.revokedAt })
     .from(publicApiKeys)
