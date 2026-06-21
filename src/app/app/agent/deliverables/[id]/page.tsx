@@ -7,7 +7,7 @@
  * persisted snapshot/report payload (no re-fetch from chain) plus the
  * tx + email metadata.
  */
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
@@ -23,6 +23,52 @@ import {
 } from "lucide-react";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TokenAvatar } from "@/components/TokenAvatar";
+
+// Client-side token logo + name lookup via Jupiter's public token API.
+// Cached per-mount in a Map so re-renders never refetch.
+type JupTokenMeta = { icon: string | null; name: string | null; symbol: string | null };
+const logoMemo = new Map<string, JupTokenMeta>();
+
+function useTokenMeta(mints: string[]): Record<string, JupTokenMeta> {
+    const [, force] = useState(0);
+    const key = mints.join(",");
+    useEffect(() => {
+        let cancelled = false;
+        const missing = mints.filter((m) => m && !logoMemo.has(m));
+        if (missing.length === 0) return;
+        (async () => {
+            await Promise.all(
+                missing.map(async (mint) => {
+                    try {
+                        const r = await fetch(
+                            `https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(mint)}`,
+                            { cache: "force-cache" },
+                        );
+                        if (!r.ok) throw new Error(String(r.status));
+                        const arr = (await r.json()) as Array<{ id: string; icon?: string; name?: string; symbol?: string }>;
+                        const hit = arr.find((t) => t.id === mint) ?? arr[0];
+                        logoMemo.set(mint, {
+                            icon: hit?.icon ?? null,
+                            name: hit?.name ?? null,
+                            symbol: hit?.symbol ?? null,
+                        });
+                    } catch {
+                        logoMemo.set(mint, { icon: null, name: null, symbol: null });
+                    }
+                }),
+            );
+            if (!cancelled) force((n) => n + 1);
+        })();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
+    const out: Record<string, JupTokenMeta> = {};
+    for (const m of mints) out[m] = logoMemo.get(m) ?? { icon: null, name: null, symbol: null };
+    return out;
+}
 
 interface Holding {
     symbol: string;
