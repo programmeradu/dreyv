@@ -440,6 +440,78 @@ export const CAPABILITIES: PublicCapability[] = [
     }),
     handler: (i, c) => caps.foresightSimulate(i, c),
   },
+
+  // ─── Pillar H — Agentic Delegation (Phase 3) ─────────────────────────
+  {
+    id: "agentic.delegation_request_solana",
+    mcpName: "dreyv_agentic_delegation_request_solana",
+    pillar: "agentic",
+    scope: "read:portfolio",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "Request Solana SPL token delegation (unsigned tx)",
+    description:
+      "Builds an unsigned SPL Token `Approve` instruction that, once signed by the user, lets a Dreyv delegate wallet pull up to `amount` of a token for `expiryDays`. Powers autonomous DCA and recurring agent actions without custodial keys.",
+    inputSchema: z.object({
+      walletAddress: Address,
+      tokenMint: z.string().min(32).max(64),
+      amount: z.number().positive(),
+      expiryDays: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(180)]),
+    }),
+    handler: (i, c) => caps.delegationRequestSolana(i, c),
+  },
+  {
+    id: "agentic.delegation_status",
+    mcpName: "dreyv_agentic_delegation_status",
+    pillar: "agentic",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Active delegations for a wallet",
+    description:
+      "Returns active SPL token delegations for a Solana wallet, grouped by token, with remaining amount and earliest expiry.",
+    inputSchema: z.object({ walletAddress: Address }),
+    handler: (i, c) => caps.delegationStatus(i, c),
+  },
+
+  // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
+  {
+    id: "economy.x402_catalog",
+    mcpName: "dreyv_economy_x402_catalog",
+    pillar: "economy",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "x402 capability advertisement",
+    description: "Returns Dreyv's /.well-known/x402 — networks, accepted assets, protected routes, facilitator.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyX402Catalog(i, c),
+  },
+  {
+    id: "economy.acp_catalog",
+    mcpName: "dreyv_economy_acp_catalog",
+    pillar: "economy",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Agentic Commerce Protocol discovery",
+    description: "Returns Dreyv's /.well-known/acp.json — the ACP service catalog (marketplace, subscriptions, payments).",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyAcpCatalog(i, c),
+  },
+  {
+    id: "economy.skus",
+    mcpName: "dreyv_economy_skus",
+    pillar: "economy",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "x402 SKU catalog",
+    description:
+      "Lists every Dreyv SKU an autonomous agent can purchase over x402 (price USD, fulfilment hint) plus the endpoints and auth required.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economySkus(i, c),
+  },
 ];
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));
