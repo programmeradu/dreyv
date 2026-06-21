@@ -74,6 +74,13 @@ export type WebhookEventName =
   | "status.subscriber_added"
   | "status.subscriber_confirmed"
   | "sla.credit_issued"
+  | "schema.registered"
+  | "schema.version_published"
+  | "schema.deprecated"
+  | "contract.created"
+  | "contract.updated"
+  | "contract.deleted"
+  | "contract.violation"
   | "test.ping";
 
 
