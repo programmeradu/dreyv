@@ -1258,8 +1258,17 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "write",
     status: "stable",
     title: "Engage or release the per-key kill switch",
-    description: "Instantly disables (state='on') or re-enables (state='off') every capability for this key. The change applies on the next request — no propagation delay. Audit-logged.",
-    inputSchema: z.object({ state: z.enum(["on", "off"]) }),
+    description:
+      "Instantly disables (state='on') or re-enables (state='off') every capability for this key. " +
+      "Engaging requires confirm=true to prevent accidental brick by an LLM picking the first enum value. " +
+      "While engaged, only safety.kill_switch, safety.policy, and developer.* introspection remain callable so the owner can always recover. Audit-logged.",
+    inputSchema: z.object({
+      state: z.enum(["on", "off"]).describe("'on' to engage (block all other tools), 'off' to release."),
+      confirm: z
+        .boolean()
+        .optional()
+        .describe("Required to be true when state='on'. Ignored when state='off'."),
+    }),
     handler: (i, c) => caps.safetyKillSwitch(i, c),
   },
   {
