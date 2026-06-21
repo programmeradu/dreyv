@@ -19,7 +19,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { agentPayments, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
+import { resolveAgentKeyOrInternal } from "@/lib/agent/api-keys";
 import { getSku } from "@/lib/agent/skus";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
 import {
