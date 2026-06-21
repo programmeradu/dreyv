@@ -2195,7 +2195,7 @@ export const publicApiExports = pgTable('public_api_exports', {
   status: text('status').notNull().default('pending'),   // pending | completed | failed | purged
   errorCode: text('error_code'),
   errorMessage: text('error_message'),
-  body: customType<{ data: Buffer; default: false }>({ dataType() { return 'bytea'; } })('body'),
+  body: bytea('body'),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   purgedAt: timestamp('purged_at', { withTimezone: true }),
