@@ -45,8 +45,10 @@ interface AuthExtra {
   userId: string;
   keyId: string;
   origin: string;
-  /** The full resolved key, kept for scope/rate-limit checks. */
+  /** The full resolved key, kept for scope/policy/rate-limit checks. */
   key: ResolvedPublicKey;
+  /** The original HTTP Request, needed by checkPolicy for IP/Origin/Referer. */
+  httpRequest: Request;
 }
 
 function extraFrom(authInfo: unknown): AuthExtra | null {
@@ -59,7 +61,8 @@ function extraFrom(authInfo: unknown): AuthExtra | null {
     typeof x.keyId === "string" &&
     typeof x.origin === "string" &&
     x.key &&
-    typeof x.key === "object"
+    typeof x.key === "object" &&
+    x.httpRequest instanceof Request
   ) {
     return x as unknown as AuthExtra;
   }
