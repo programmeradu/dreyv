@@ -1180,3 +1180,201 @@ export async function receiptsGet(input: { id: string }, ctx: CapabilityRunConte
   return { intent: { ...intent, status: confirmedNow ? "confirmed" : intent.status }, onChain };
 }
 
+
+// ─── Pillar M — Agent Economy mutators (Phase 7) ─────────────────────
+// Wraps the dak_-protected x402 routes with internal trust so dk_-keyed
+// callers can drive the same battle-tested flow. NO fallbacks: when the
+// upstream returns 402 / 409 / 502 we surface it verbatim — calling agents
+// need the funding-instructions / wallet-ambiguity payload to act on it.
+
+function requireCronSecret(): string {
+  const s = process.env.CRON_SECRET;
+  if (!s) {
+    throw new CapabilityError(
+      "Internal trust unavailable — CRON_SECRET not configured",
+      503,
+      null,
+    );
+  }
+  return s;
+}
+
+async function callX402<T = unknown>(
+  ctx: CapabilityRunContext,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; data: T }> {
+  const cronSecret = requireCronSecret();
+  const url = `${ctx.origin}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-dreyv-internal": cronSecret,
+        "x-dreyv-user-id": ctx.userId,
+        "x-dreyv-key-id": ctx.keyId,
+      },
+      body: JSON.stringify(body ?? {}),
+      cache: "no-store",
+    });
+  } catch (e: any) {
+    throw new CapabilityError(`Upstream x402 unreachable: ${e?.message ?? "network"}`, 503, null);
+  }
+  const text = await res.text();
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: text };
+  }
+  // 402 (quote / underfunded) and 409 (wallet ambiguity) are EXPECTED
+  // operational responses — the agent caller needs the payload to act
+  // on them. Surface them as data, not as errors.
+  if (res.ok || res.status === 402 || res.status === 409) {
+    return { status: res.status, data: data as T };
+  }
+  const message =
+    (data && typeof data === "object" && "error" in data && typeof (data as { error: unknown }).error === "string"
+      ? (data as { error: string }).error
+      : null) ?? `Upstream ${res.status}`;
+  throw new CapabilityError(message, res.status, data);
+}
+
+export async function economySkusExtended(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    skus: listSkus(),
+    note: "Settle USDC on Solana. Tier SKUs upgrade the API-key owner (tier=mini|max) for 30 days.",
+  };
+}
+
+export async function economyCheckout(
+  input: {
+    sku: string;
+    rail?: "solana" | "stripe" | "paystack";
+    chain?: "solana";
+    asset?: "usdc" | "usdt";
+  },
+  ctx: CapabilityRunContext,
+) {
+  if (!AGENT_SKUS[input.sku]) {
+    throw new CapabilityError(`Unknown SKU: ${input.sku}`, 404, { availableSkus: Object.keys(AGENT_SKUS) });
+  }
+  const { status, data } = await callX402(ctx, "/api/x402/checkout", input);
+  return { httpStatus: status, ...((data as object | null) ?? {}) };
+}
+
+export async function economyPay(
+  input: { sku: string; target_wallet?: string },
+  ctx: CapabilityRunContext,
+) {
+  if (!AGENT_SKUS[input.sku]) {
+    throw new CapabilityError(`Unknown SKU: ${input.sku}`, 404, { availableSkus: Object.keys(AGENT_SKUS) });
+  }
+  const { status, data } = await callX402(ctx, "/api/x402/pay", input);
+  return { httpStatus: status, ...((data as object | null) ?? {}) };
+}
+
+export async function economyDeliverablesList(
+  input: { kind?: "snapshot" | "report" | "subscription"; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const conds = [eq(agentDeliverables.userId, ctx.userId)];
+  if (input.kind) conds.push(eq(agentDeliverables.kind, input.kind));
+  const rows = await d
+    .select({
+      id: agentDeliverables.id,
+      kind: agentDeliverables.kind,
+      sku: agentDeliverables.sku,
+      targetWallet: agentDeliverables.targetWallet,
+      status: agentDeliverables.status,
+      summary: agentDeliverables.summary,
+      pdfUrl: agentDeliverables.pdfUrl,
+      emailTo: agentDeliverables.emailTo,
+      emailSentAt: agentDeliverables.emailSentAt,
+      emailError: agentDeliverables.emailError,
+      error: agentDeliverables.error,
+      createdAt: agentDeliverables.createdAt,
+      readyAt: agentDeliverables.readyAt,
+      expiresAt: agentDeliverables.expiresAt,
+      agentKeyLabel: agentApiKeys.label,
+      amountUsd: agentPayments.amountUsd,
+      txSignature: agentPayments.txSignature,
+    })
+    .from(agentDeliverables)
+    .leftJoin(agentApiKeys, eq(agentDeliverables.apiKeyId, agentApiKeys.id))
+    .leftJoin(agentPayments, eq(agentDeliverables.paymentId, agentPayments.id))
+    .where(and(...conds))
+    .orderBy(desc(agentDeliverables.createdAt))
+    .limit(limit);
+  return { deliverables: rows };
+}
+
+export async function economyDeliverablesGet(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(agentDeliverables)
+    .where(and(eq(agentDeliverables.id, input.id), eq(agentDeliverables.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError(`Deliverable ${input.id} not found`, 404, null);
+  return { deliverable: row };
+}
+
+export async function economyWalletAddress(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  let wallet: { publicKey: string; createdAt: Date };
+  try {
+    wallet = await getOrCreateAgentWallet(ctx.userId);
+  } catch (e: any) {
+    throw new CapabilityError(`Wallet provision failed: ${e?.message ?? "unknown"}`, 500, null);
+  }
+  const usdc = tokenFor("solana", "usdc");
+  return {
+    address: wallet.publicKey,
+    createdAt: wallet.createdAt,
+    chain: "solana",
+    usdcMint: usdc?.contract ?? null,
+    note: "Fund this address with USDC (SPL) + ~0.01 SOL for tx fees. Then call economy.pay to settle SKUs autonomously.",
+    solanaPayUri: `solana:${wallet.publicKey}?amount=0.01&label=Dreyv%20Agent%20Wallet&message=SOL%20float%20for%20tx%20fees`,
+  };
+}
+
+export async function economyWalletBalance(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const usdc = tokenFor("solana", "usdc");
+  if (!usdc?.contract) {
+    throw new CapabilityError("USDC mint not configured", 503, null);
+  }
+  let wallet: { publicKey: string };
+  try {
+    wallet = await getOrCreateAgentWallet(ctx.userId);
+  } catch (e: any) {
+    throw new CapabilityError(`Wallet provision failed: ${e?.message ?? "unknown"}`, 500, null);
+  }
+  let balances;
+  try {
+    balances = await getWalletBalances({ publicKey: wallet.publicKey, mintAddress: usdc.contract });
+  } catch (e: any) {
+    throw new CapabilityError(`Solana RPC unreachable: ${e?.message ?? "rpc_failed"}`, 502, null);
+  }
+  const usdcMinor = balances.tokenMinor;
+  const base = BigInt(10) ** BigInt(usdc.decimals);
+  const whole = usdcMinor / base;
+  const frac = usdcMinor % base;
+  const fracStr = frac === BigInt(0) ? "" : `.${frac.toString().padStart(usdc.decimals, "0").replace(/0+$/, "")}`;
+  return {
+    address: wallet.publicKey,
+    chain: "solana",
+    usdc: `${whole.toString()}${fracStr}`,
+    usdcMinor: usdcMinor.toString(),
+    usdcMint: usdc.contract,
+    tokenAccountExists: balances.tokenAccountExists,
+    solLamports: balances.solLamports.toString(),
+    sol: (Number(balances.solLamports) / 1e9).toFixed(9),
+  };
+}
