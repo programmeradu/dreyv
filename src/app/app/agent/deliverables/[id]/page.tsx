@@ -213,7 +213,7 @@ export default function DeliverableViewPage({
     const snap = d.payload?.snapshot;
 
     return (
-        <main className="relative min-h-screen bg-white text-zinc-900 deliverable-page">
+        <main className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-zinc-900 deliverable-page">
             <style jsx global>{`
                 .deliverable-page,
                 .deliverable-page * { scrollbar-width: thin; scrollbar-color: rgb(196 181 253) transparent; }
