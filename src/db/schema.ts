@@ -2239,11 +2239,40 @@ export const publicApiTagLinks = pgTable('public_api_tag_links', {
 }));
 
 
+// ─── Phase 24 — Feature Flags & Experiments (Pillar AH) ──────────────
+export const publicApiFlags = pgTable('public_api_flags', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  key: text('key').notNull(),
+  display: text('display').notNull(),
+  description: text('description'),
+  type: text('type').notNull(),                          // boolean | string | number | json
+  defaultValue: jsonb('default_value').notNull(),
+  rules: jsonb('rules').notNull().default('[]'),
+  enabled: boolean('enabled').notNull().default(true),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userKeyUq: uniqueIndex('public_api_flags_user_key_uq').on(t.userId, t.key),
+  userIdx: index('public_api_flags_user_idx').on(t.userId, t.createdAt),
+  enabledIdx: index('public_api_flags_enabled_idx').on(t.userId, t.enabled),
+}));
 
-
-
-
-
-
-
+export const publicApiFlagEvaluations = pgTable('public_api_flag_evaluations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  flagId: uuid('flag_id').references(() => publicApiFlags.id, { onDelete: 'cascade' }).notNull(),
+  key: text('key').notNull(),
+  matchedRule: integer('matched_rule'),
+  value: jsonb('value').notNull(),
+  contextHash: text('context_hash').notNull(),
+  context: jsonb('context').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userTsIdx: index('public_api_flag_evals_user_ts_idx').on(t.userId, t.createdAt),
+  flagTsIdx: index('public_api_flag_evals_flag_ts_idx').on(t.flagId, t.createdAt),
+  hashIdx: index('public_api_flag_evals_hash_idx').on(t.flagId, t.contextHash),
+}));
 
