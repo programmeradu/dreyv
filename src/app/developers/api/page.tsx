@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { listPublicCapabilities, type Pillar } from "@/lib/capabilities/registry";
+// Phase 28 — Pillar AL ("insights") added to PILLAR_LABEL / PILLAR_ORDER below.
 import { ArrowUpRight, KeyRound } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
@@ -48,9 +49,10 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   tags: "Tags, labels & annotations",
   flags: "Feature flags & experiments",
   inbox: "Inbox & digests",
+  insights: "Workspace insights & reports",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
 
 export default function DevelopersApiPage() {
   const caps = listPublicCapabilities();

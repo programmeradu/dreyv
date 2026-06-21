@@ -2365,5 +2365,64 @@ export const publicApiBillingAlerts = pgTable('public_api_billing_alerts', {
 }));
 
 
+// ─── Phase 28 — Workspace Insights & Reporting (Pillar AL) ───────────
+// Saved-report definitions, immutable snapshots, and tokenised public
+// share links. Read-side `insights.*` capabilities run on the existing
+// usage/audit/team-audit tables — these three are only the persistence
+// layer for the reusable report surface.
+export const publicApiReports = pgTable('public_api_reports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  sections: jsonb('sections').notNull().default('[]'),
+  filters: jsonb('filters').notNull().default('{}'),
+  scheduleSeconds: integer('schedule_seconds').notNull().default(0),
+  enabled: boolean('enabled').notNull().default(true),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastSnapshotId: uuid('last_snapshot_id'),
+  runCount: integer('run_count').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('public_api_reports_user_name_uq').on(t.userId, t.name),
+  userIdx: index('public_api_reports_user_idx').on(t.userId, t.createdAt),
+}));
 
+export const publicApiReportSnapshots = pgTable('public_api_report_snapshots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  reportId: uuid('report_id').references(() => publicApiReports.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'set null' }),
+  trigger: text('trigger').notNull().default('manual'),  // manual | scheduled | webhook
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+  windowEnd: timestamp('window_end', { withTimezone: true }).notNull(),
+  summary: jsonb('summary').notNull().default('{}'),
+  payload: jsonb('payload').notNull().default('{}'),
+  sizeBytes: integer('size_bytes').notNull().default(0),
+  generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  reportIdx: index('public_api_report_snapshots_report_idx').on(t.reportId, t.generatedAt),
+  userIdx: index('public_api_report_snapshots_user_idx').on(t.userId, t.generatedAt),
+}));
+
+export const publicApiReportShares = pgTable('public_api_report_shares', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  snapshotId: uuid('snapshot_id').references(() => publicApiReportSnapshots.id, { onDelete: 'cascade' }).notNull(),
+  reportId: uuid('report_id').references(() => publicApiReports.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'set null' }),
+  token: text('token').notNull(),
+  passwordHash: text('password_hash'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  viewCount: integer('view_count').notNull().default(0),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  tokenUq: uniqueIndex('public_api_report_shares_token_uq').on(t.token),
+  userIdx: index('public_api_report_shares_user_idx').on(t.userId, t.createdAt),
+  snapshotIdx: index('public_api_report_shares_snapshot_idx').on(t.snapshotId),
+}));
 
