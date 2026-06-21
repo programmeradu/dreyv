@@ -1842,9 +1842,16 @@ export async function safetyPolicy(_input: Record<string, never>, ctx: Capabilit
 }
 
 export async function safetyKillSwitch(
-  input: { state: "on" | "off" },
+  input: { state: "on" | "off"; confirm?: boolean },
   ctx: CapabilityRunContext,
 ) {
+  if (input.state === "on" && input.confirm !== true) {
+    throw new CapabilityError(
+      "Engaging the kill switch requires confirm=true. This safeguard prevents an LLM from accidentally bricking your key by picking the first enum value. Re-call with { state: 'on', confirm: true }.",
+      400,
+      { requires: { confirm: true } },
+    );
+  }
   const d = requireDb();
   const { publicApiKeys } = await import("@/db/schema");
   const value = input.state === "on" ? new Date() : null;
