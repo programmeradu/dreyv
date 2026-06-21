@@ -9,9 +9,9 @@ import { miniApps } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
-import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { ArrowLeft, Shield, Download, Star, ExternalLink } from "lucide-react";
+import { InstallButton } from "./install-button";
 
 export const revalidate = 60;
 
