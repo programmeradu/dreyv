@@ -7405,3 +7405,696 @@ export async function flagsPolicy(_input: Record<string, never>, ctx: Capability
     ],
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Pillar AI — Inbox & Digests (Phase 25)
+// ─────────────────────────────────────────────────────────────────────
+import {
+  publicApiInboxState as _inboxStateAI,
+  publicApiInboxDigests as _inboxDigestsAI,
+} from "@/db/schema";
+
+const _TIER_INBOX_LIMITS_AI: Record<
+  string,
+  { digests: number; minScheduleSeconds: number; bulkSendMax: number }
+> = {
+  free: { digests: 3,  minScheduleSeconds: 60 * 60 * 6, bulkSendMax: 20 },   // 6h floor
+  mini: { digests: 25, minScheduleSeconds: 60 * 30,     bulkSendMax: 100 },  // 30m
+  max:  { digests: 250, minScheduleSeconds: 60 * 5,     bulkSendMax: 500 },  // 5m
+};
+
+const _MAX_THREAD_KEY_AI = 200;
+const _NOTIF_TYPES_AI = ["alert", "dca", "agent", "marketplace", "system", "team", "digest"] as const;
+const _NOTIF_SEVERITIES_AI = ["info", "success", "warning", "error"] as const;
+
+async function _loadInboxStateAI(notificationId: number, userId: string) {
+  const d = requireDb();
+  const [s] = await d
+    .select()
+    .from(_inboxStateAI)
+    .where(and(eq(_inboxStateAI.notificationId, notificationId), eq(_inboxStateAI.userId, userId)))
+    .limit(1);
+  return s ?? null;
+}
+
+async function _assertNotificationsOwnedAI(ids: number[], userId: string): Promise<number[]> {
+  if (!ids.length) return [];
+  const d = requireDb();
+  const owned = await d
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), inArray(notifications.id, ids)));
+  return owned.map((r) => r.id);
+}
+
+async function _upsertInboxStateAI(
+  notificationId: number,
+  userId: string,
+  patch: {
+    threadKey?: string | null;
+    archived?: boolean;
+    snoozedUntil?: Date | null;
+    pinned?: boolean;
+  },
+) {
+  const d = requireDb();
+  const existing = await _loadInboxStateAI(notificationId, userId);
+  const now = new Date();
+  if (!existing) {
+    const [row] = await d
+      .insert(_inboxStateAI)
+      .values({
+        userId,
+        notificationId,
+        threadKey: patch.threadKey ?? null,
+        archived: patch.archived ?? false,
+        archivedAt: patch.archived ? now : null,
+        snoozedUntil: patch.snoozedUntil ?? null,
+        pinned: patch.pinned ?? false,
+        pinnedAt: patch.pinned ? now : null,
+      })
+      .returning();
+    return row;
+  }
+  const set: Record<string, unknown> = { updatedAt: now };
+  if (patch.threadKey !== undefined) set.threadKey = patch.threadKey;
+  if (patch.archived !== undefined) {
+    set.archived = patch.archived;
+    set.archivedAt = patch.archived ? now : null;
+  }
+  if (patch.snoozedUntil !== undefined) set.snoozedUntil = patch.snoozedUntil;
+  if (patch.pinned !== undefined) {
+    set.pinned = patch.pinned;
+    set.pinnedAt = patch.pinned ? now : null;
+  }
+  const [row] = await d
+    .update(_inboxStateAI)
+    .set(set)
+    .where(eq(_inboxStateAI.id, existing.id))
+    .returning();
+  return row;
+}
+
+export async function inboxSearch(
+  input: {
+    query?: string;
+    types?: string[];
+    severities?: string[];
+    unreadOnly?: boolean;
+    includeArchived?: boolean;
+    pinnedOnly?: boolean;
+    threadKey?: string;
+    since?: string;
+    until?: string;
+    limit?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 500);
+  const conds: unknown[] = [_sqlAE`${notifications.userId} = ${ctx.userId}`];
+  if (input.query) {
+    const q = `%${input.query.trim().toLowerCase().replace(/[%_]/g, "\\$&")}%`;
+    conds.push(_sqlAE`(${notifications.title} ILIKE ${q} OR ${notifications.message} ILIKE ${q})`);
+  }
+  if (input.types?.length) conds.push(_sqlAE`${notifications.type} = ANY(${input.types})`);
+  if (input.severities?.length) conds.push(_sqlAE`${notifications.severity} = ANY(${input.severities})`);
+  if (input.unreadOnly) conds.push(_sqlAE`${notifications.read} = false`);
+  if (input.since) conds.push(_sqlAE`${notifications.createdAt} >= ${new Date(input.since).toISOString()}`);
+  if (input.until) conds.push(_sqlAE`${notifications.createdAt} <= ${new Date(input.until).toISOString()}`);
+  if (!input.includeArchived) {
+    conds.push(_sqlAE`NOT EXISTS (SELECT 1 FROM ${_inboxStateAI} s WHERE s.notification_id = ${notifications.id} AND s.archived = true)`);
+  }
+  if (input.pinnedOnly) {
+    conds.push(_sqlAE`EXISTS (SELECT 1 FROM ${_inboxStateAI} s WHERE s.notification_id = ${notifications.id} AND s.pinned = true)`);
+  }
+  if (input.threadKey) {
+    conds.push(_sqlAE`EXISTS (SELECT 1 FROM ${_inboxStateAI} s WHERE s.notification_id = ${notifications.id} AND s.thread_key = ${input.threadKey})`);
+  }
+
+  const rows = await d
+    .select()
+    .from(notifications)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+
+  const ids = rows.map((r) => r.id);
+  const states = ids.length
+    ? await d.select().from(_inboxStateAI).where(and(eq(_inboxStateAI.userId, ctx.userId), inArray(_inboxStateAI.notificationId, ids)))
+    : [];
+  const byId = new Map(states.map((s) => [s.notificationId, s]));
+  return {
+    count: rows.length,
+    notifications: rows.map((r) => ({ ...r, state: byId.get(r.id) ?? null })),
+  };
+}
+
+export async function inboxArchive(
+  input: { ids: number[]; restore?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  if (!input.ids?.length) throw new CapabilityError("`ids` must be a non-empty array", 400, null);
+  if (input.ids.length > 500) throw new CapabilityError("Cannot archive more than 500 ids at once", 400, null);
+  const owned = await _assertNotificationsOwnedAI(input.ids, ctx.userId);
+  const results: unknown[] = [];
+  for (const id of owned) {
+    const row = await _upsertInboxStateAI(id, ctx.userId, { archived: !input.restore });
+    results.push(row);
+  }
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: input.restore ? "inbox.restore" : "inbox.archive",
+    target: null,
+    meta: { count: owned.length, ids: owned },
+  });
+  if (!input.restore && owned.length) {
+    try {
+      await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "inbox.notification_archived",
+        data: { ids: owned, archivedAt: new Date().toISOString() },
+      });
+    } catch { /* webhook failures are non-fatal */ }
+  }
+  return { updated: results.length, ids: owned, states: results };
+}
+
+export async function inboxSnooze(
+  input: { ids: number[]; until?: string; clear?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  if (!input.ids?.length) throw new CapabilityError("`ids` must be a non-empty array", 400, null);
+  if (input.ids.length > 500) throw new CapabilityError("Cannot snooze more than 500 ids at once", 400, null);
+  let snoozedUntil: Date | null = null;
+  if (!input.clear) {
+    if (!input.until) throw new CapabilityError("`until` is required unless `clear:true`", 400, null);
+    snoozedUntil = new Date(input.until);
+    if (Number.isNaN(snoozedUntil.getTime())) throw new CapabilityError("`until` is not a valid ISO timestamp", 400, null);
+    if (snoozedUntil.getTime() <= Date.now()) throw new CapabilityError("`until` must be in the future", 400, null);
+  }
+  const owned = await _assertNotificationsOwnedAI(input.ids, ctx.userId);
+  const results: unknown[] = [];
+  for (const id of owned) {
+    const row = await _upsertInboxStateAI(id, ctx.userId, { snoozedUntil });
+    results.push(row);
+  }
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: input.clear ? "inbox.snooze_clear" : "inbox.snooze",
+    target: null,
+    meta: { count: owned.length, ids: owned, until: snoozedUntil?.toISOString() ?? null },
+  });
+  if (!input.clear && owned.length) {
+    try {
+      await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "inbox.notification_snoozed",
+        data: { ids: owned, until: snoozedUntil?.toISOString() ?? null },
+      });
+    } catch { /* webhook failures are non-fatal */ }
+  }
+  return { updated: results.length, ids: owned, states: results };
+}
+
+export async function inboxPin(
+  input: { ids: number[]; unpin?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  if (!input.ids?.length) throw new CapabilityError("`ids` must be a non-empty array", 400, null);
+  if (input.ids.length > 200) throw new CapabilityError("Cannot pin more than 200 ids at once", 400, null);
+  const owned = await _assertNotificationsOwnedAI(input.ids, ctx.userId);
+  const results: unknown[] = [];
+  for (const id of owned) {
+    const row = await _upsertInboxStateAI(id, ctx.userId, { pinned: !input.unpin });
+    results.push(row);
+  }
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: input.unpin ? "inbox.unpin" : "inbox.pin",
+    target: null,
+    meta: { count: owned.length, ids: owned },
+  });
+  return { updated: results.length, ids: owned, states: results };
+}
+
+export async function inboxThreadSet(
+  input: { ids: number[]; threadKey: string | null },
+  ctx: CapabilityRunContext,
+) {
+  if (!input.ids?.length) throw new CapabilityError("`ids` must be a non-empty array", 400, null);
+  if (input.ids.length > 500) throw new CapabilityError("Cannot rethread more than 500 ids at once", 400, null);
+  let threadKey: string | null = null;
+  if (input.threadKey !== null && input.threadKey !== undefined) {
+    threadKey = String(input.threadKey).trim();
+    if (!threadKey) throw new CapabilityError("threadKey cannot be empty (pass null to clear)", 400, null);
+    if (threadKey.length > _MAX_THREAD_KEY_AI) {
+      throw new CapabilityError(`threadKey exceeds ${_MAX_THREAD_KEY_AI} chars`, 400, null);
+    }
+  }
+  const owned = await _assertNotificationsOwnedAI(input.ids, ctx.userId);
+  const results: unknown[] = [];
+  for (const id of owned) {
+    const row = await _upsertInboxStateAI(id, ctx.userId, { threadKey });
+    results.push(row);
+  }
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "inbox.thread_set",
+    target: threadKey,
+    meta: { count: owned.length, ids: owned, threadKey },
+  });
+  return { updated: results.length, ids: owned, threadKey, states: results };
+}
+
+export async function inboxThreads(
+  input: { limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const rows = await d
+    .select({
+      threadKey: _inboxStateAI.threadKey,
+      count: _sqlAE<number>`count(*)::int`,
+      lastUpdated: _sqlAE<Date>`max(${_inboxStateAI.updatedAt})`,
+    })
+    .from(_inboxStateAI)
+    .where(and(eq(_inboxStateAI.userId, ctx.userId), _sqlAE`${_inboxStateAI.threadKey} IS NOT NULL`))
+    .groupBy(_inboxStateAI.threadKey)
+    .orderBy(_sqlAE`max(${_inboxStateAI.updatedAt}) DESC`)
+    .limit(limit);
+  return { count: rows.length, threads: rows };
+}
+
+export async function inboxBulkSend(
+  input: {
+    items: Array<{
+      title: string;
+      message: string;
+      type?: string;
+      severity?: "info" | "success" | "warning" | "error";
+      threadKey?: string;
+      actionUrl?: string;
+      actionLabel?: string;
+      metadata?: Record<string, unknown>;
+    }>;
+  },
+  ctx: CapabilityRunContext,
+) {
+  if (!Array.isArray(input.items) || input.items.length === 0) {
+    throw new CapabilityError("`items` must be a non-empty array", 400, null);
+  }
+  const tier = await _userTierAE(ctx.userId);
+  const cap = _TIER_INBOX_LIMITS_AI[tier].bulkSendMax;
+  if (input.items.length > cap) {
+    throw new CapabilityError(`Bulk send capped at ${cap} items for tier '${tier}' (got ${input.items.length})`, 429, null);
+  }
+  const d = requireDb();
+  const values = input.items.map((item) => {
+    if (!item.title || !item.message) throw new CapabilityError("Each item requires `title` and `message`", 400, null);
+    return {
+      userId: ctx.userId,
+      type: (item.type ?? "system").slice(0, 40),
+      title: item.title.slice(0, 200),
+      message: item.message.slice(0, 4000),
+      severity: item.severity ?? "info",
+      actionUrl: item.actionUrl ?? null,
+      actionLabel: item.actionLabel ?? null,
+      metadata: item.metadata ?? null,
+    };
+  });
+  const inserted = await d.insert(notifications).values(values).returning();
+
+  // Optional thread assignment for each insertion that carries a threadKey
+  for (let i = 0; i < inserted.length; i++) {
+    const tk = input.items[i].threadKey;
+    if (tk) {
+      const trimmed = String(tk).trim().slice(0, _MAX_THREAD_KEY_AI);
+      if (trimmed) {
+        await _upsertInboxStateAI(inserted[i].id, ctx.userId, { threadKey: trimmed });
+      }
+    }
+  }
+
+  // Fan-out one webhook event per row (best-effort)
+  const deliveries: unknown[] = [];
+  for (const row of inserted) {
+    try {
+      const r = await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "notification.created",
+        data: {
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          message: row.message,
+          severity: row.severity,
+          actionUrl: row.actionUrl,
+          createdAt: row.createdAt,
+        },
+      });
+      deliveries.push({ id: row.id, deliveries: r });
+    } catch (e) {
+      deliveries.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "inbox.bulk_send",
+    target: null,
+    meta: { count: inserted.length },
+  });
+
+  return { inserted: inserted.length, notifications: inserted, webhookDeliveries: deliveries };
+}
+
+function _validateDigestFiltersAI(filters: unknown): {
+  types?: string[];
+  severities?: string[];
+  since?: string;
+  threadKey?: string;
+} {
+  if (filters === undefined || filters === null) return {};
+  if (typeof filters !== "object" || Array.isArray(filters)) {
+    throw new CapabilityError("`filters` must be an object", 400, null);
+  }
+  const f = filters as Record<string, unknown>;
+  const out: { types?: string[]; severities?: string[]; since?: string; threadKey?: string } = {};
+  if (f.types !== undefined) {
+    if (!Array.isArray(f.types)) throw new CapabilityError("filters.types must be an array", 400, null);
+    out.types = (f.types as unknown[]).map((t) => {
+      if (typeof t !== "string") throw new CapabilityError("filters.types entries must be strings", 400, null);
+      return t.slice(0, 40);
+    });
+  }
+  if (f.severities !== undefined) {
+    if (!Array.isArray(f.severities)) throw new CapabilityError("filters.severities must be an array", 400, null);
+    out.severities = (f.severities as unknown[]).map((s) => {
+      if (typeof s !== "string" || !(_NOTIF_SEVERITIES_AI as readonly string[]).includes(s)) {
+        throw new CapabilityError(`Unknown severity '${String(s)}'. Allowed: ${_NOTIF_SEVERITIES_AI.join(", ")}`, 400, null);
+      }
+      return s;
+    });
+  }
+  if (f.since !== undefined) {
+    if (typeof f.since !== "string") throw new CapabilityError("filters.since must be an ISO string", 400, null);
+    const d = new Date(f.since);
+    if (Number.isNaN(d.getTime())) throw new CapabilityError("filters.since is not a valid ISO timestamp", 400, null);
+    out.since = d.toISOString();
+  }
+  if (f.threadKey !== undefined) {
+    if (typeof f.threadKey !== "string") throw new CapabilityError("filters.threadKey must be a string", 400, null);
+    out.threadKey = f.threadKey.slice(0, _MAX_THREAD_KEY_AI);
+  }
+  return out;
+}
+
+export async function inboxDigestsUpsert(
+  input: {
+    id?: string;
+    name: string;
+    filters?: unknown;
+    channel?: "inbox" | "preview";
+    scheduleSeconds?: number;
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const name = (input.name ?? "").trim().slice(0, 120);
+  if (!name) throw new CapabilityError("`name` is required", 400, null);
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_INBOX_LIMITS_AI[tier];
+  const filters = _validateDigestFiltersAI(input.filters);
+  const channel = input.channel ?? "inbox";
+  if (!["inbox", "preview"].includes(channel)) {
+    throw new CapabilityError("`channel` must be 'inbox' or 'preview'", 400, null);
+  }
+  const scheduleSeconds = Math.max(input.scheduleSeconds ?? 86400, limits.minScheduleSeconds);
+  if (input.scheduleSeconds !== undefined && input.scheduleSeconds < limits.minScheduleSeconds) {
+    throw new CapabilityError(
+      `scheduleSeconds floor for tier '${tier}' is ${limits.minScheduleSeconds}s`,
+      400,
+      null,
+    );
+  }
+
+  if (input.id) {
+    const [existing] = await d
+      .select()
+      .from(_inboxDigestsAI)
+      .where(and(eq(_inboxDigestsAI.id, input.id), eq(_inboxDigestsAI.userId, ctx.userId)))
+      .limit(1);
+    if (!existing) throw new CapabilityError(`Digest '${input.id}' not found`, 404, null);
+    const [row] = await d
+      .update(_inboxDigestsAI)
+      .set({
+        name,
+        filters: filters as never,
+        channel,
+        scheduleSeconds,
+        enabled: input.enabled ?? existing.enabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(_inboxDigestsAI.id, existing.id))
+      .returning();
+    await _appendAudit({
+      keyId: ctx.keyId,
+      userId: ctx.userId,
+      action: "inbox.digest_update",
+      target: row.id,
+      meta: { name, channel, scheduleSeconds },
+    });
+    return row;
+  }
+
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_inboxDigestsAI)
+    .where(eq(_inboxDigestsAI.userId, ctx.userId));
+  if (n >= limits.digests) {
+    throw new CapabilityError(
+      `Digest quota reached for tier '${tier}' (${n}/${limits.digests})`,
+      429,
+      null,
+    );
+  }
+  const [dup] = await d
+    .select({ id: _inboxDigestsAI.id })
+    .from(_inboxDigestsAI)
+    .where(and(eq(_inboxDigestsAI.userId, ctx.userId), eq(_inboxDigestsAI.name, name)))
+    .limit(1);
+  if (dup) throw new CapabilityError(`Digest named '${name}' already exists (id=${dup.id})`, 409, { existingId: dup.id });
+
+  const [row] = await d
+    .insert(_inboxDigestsAI)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      name,
+      filters: filters as never,
+      channel,
+      scheduleSeconds,
+      enabled: input.enabled ?? true,
+    })
+    .returning();
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "inbox.digest_create",
+    target: row.id,
+    meta: { name, channel, scheduleSeconds },
+  });
+  return row;
+}
+
+export async function inboxDigestsList(
+  input: { includeDisabled?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const conds: unknown[] = [eq(_inboxDigestsAI.userId, ctx.userId)];
+  if (!input.includeDisabled) conds.push(eq(_inboxDigestsAI.enabled, true));
+  const rows = await d
+    .select()
+    .from(_inboxDigestsAI)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(_inboxDigestsAI.createdAt))
+    .limit(limit);
+  return { count: rows.length, digests: rows };
+}
+
+export async function inboxDigestsDelete(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [existing] = await d
+    .select()
+    .from(_inboxDigestsAI)
+    .where(and(eq(_inboxDigestsAI.id, input.id), eq(_inboxDigestsAI.userId, ctx.userId)))
+    .limit(1);
+  if (!existing) throw new CapabilityError(`Digest '${input.id}' not found`, 404, null);
+  await d.delete(_inboxDigestsAI).where(eq(_inboxDigestsAI.id, existing.id));
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "inbox.digest_delete",
+    target: existing.id,
+    meta: { name: existing.name },
+  });
+  return { deleted: true, id: existing.id, name: existing.name };
+}
+
+export async function inboxDigestsRun(
+  input: { id: string; dryRun?: boolean; force?: boolean; previewLimit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [digest] = await d
+    .select()
+    .from(_inboxDigestsAI)
+    .where(and(eq(_inboxDigestsAI.id, input.id), eq(_inboxDigestsAI.userId, ctx.userId)))
+    .limit(1);
+  if (!digest) throw new CapabilityError(`Digest '${input.id}' not found`, 404, null);
+  if (!digest.enabled && !input.force) {
+    throw new CapabilityError("Digest is disabled. Pass `force:true` to run anyway.", 409, null);
+  }
+
+  const previewLimit = Math.min(Math.max(input.previewLimit ?? 50, 1), 200);
+  const filters = (digest.filters ?? {}) as {
+    types?: string[];
+    severities?: string[];
+    since?: string;
+    threadKey?: string;
+  };
+
+  // Window: rows since max(filters.since, lastRunAt, now-24h-default)
+  const windowStart = (() => {
+    const candidates: number[] = [];
+    if (filters.since) candidates.push(new Date(filters.since).getTime());
+    if (digest.lastRunAt) candidates.push(new Date(digest.lastRunAt).getTime());
+    if (candidates.length === 0) {
+      candidates.push(Date.now() - digest.scheduleSeconds * 1000);
+    }
+    return new Date(Math.max(...candidates));
+  })();
+
+  const conds: unknown[] = [
+    _sqlAE`${notifications.userId} = ${ctx.userId}`,
+    _sqlAE`${notifications.createdAt} >= ${windowStart.toISOString()}`,
+  ];
+  if (filters.types?.length) conds.push(_sqlAE`${notifications.type} = ANY(${filters.types})`);
+  if (filters.severities?.length) conds.push(_sqlAE`${notifications.severity} = ANY(${filters.severities})`);
+  if (filters.threadKey) {
+    conds.push(_sqlAE`EXISTS (SELECT 1 FROM ${_inboxStateAI} s WHERE s.notification_id = ${notifications.id} AND s.thread_key = ${filters.threadKey})`);
+  }
+  const matched = await d
+    .select()
+    .from(notifications)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(notifications.createdAt))
+    .limit(previewLimit);
+
+  const matchCount = matched.length;
+  const breakdown = matched.reduce<Record<string, number>>((acc, m) => {
+    acc[m.severity] = (acc[m.severity] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  let summaryNotification: unknown = null;
+  if (!input.dryRun && digest.channel === "inbox" && matchCount > 0) {
+    const headline = `${digest.name}: ${matchCount} new ${matchCount === 1 ? "item" : "items"}`;
+    const lines = matched.slice(0, 5).map((m) => `• [${m.severity}] ${m.title}`).join("\n");
+    const [row] = await d
+      .insert(notifications)
+      .values({
+        userId: ctx.userId,
+        type: "digest",
+        title: headline.slice(0, 200),
+        message: (lines + (matchCount > 5 ? `\n…and ${matchCount - 5} more` : "")).slice(0, 4000),
+        severity: "info",
+        metadata: {
+          digestId: digest.id,
+          digestName: digest.name,
+          matchCount,
+          breakdown,
+          windowStart: windowStart.toISOString(),
+          memberIds: matched.map((m) => m.id),
+        },
+      })
+      .returning();
+    summaryNotification = row;
+  }
+
+  if (!input.dryRun) {
+    await d
+      .update(_inboxDigestsAI)
+      .set({ lastRunAt: new Date(), lastMatchCount: matchCount, updatedAt: new Date() })
+      .where(eq(_inboxDigestsAI.id, digest.id));
+    try {
+      await emitWebhookEvent({
+        userId: ctx.userId,
+        event: "inbox.digest_ready",
+        data: {
+          digestId: digest.id,
+          name: digest.name,
+          matchCount,
+          breakdown,
+          windowStart: windowStart.toISOString(),
+        },
+      });
+    } catch { /* non-fatal */ }
+  }
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: input.dryRun ? "inbox.digest_dryrun" : "inbox.digest_run",
+    target: digest.id,
+    meta: { name: digest.name, matchCount, channel: digest.channel },
+  });
+
+  return {
+    digestId: digest.id,
+    name: digest.name,
+    channel: digest.channel,
+    windowStart: windowStart.toISOString(),
+    matchCount,
+    breakdown,
+    members: matched,
+    summaryNotification,
+    dryRun: !!input.dryRun,
+  };
+}
+
+export async function inboxPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_INBOX_LIMITS_AI[tier],
+    perTier: _TIER_INBOX_LIMITS_AI,
+    knownTypes: _NOTIF_TYPES_AI,
+    severities: _NOTIF_SEVERITIES_AI,
+    fieldLimits: {
+      titleMaxChars: 200,
+      messageMaxChars: 4000,
+      threadKeyMaxChars: _MAX_THREAD_KEY_AI,
+    },
+    notes: [
+      "Inbox state (archive / snooze / pin / thread) is an overlay table — the legacy `notifications` row is never mutated.",
+      "`inbox.search` excludes archived rows by default; pass `includeArchived:true` to include them.",
+      "Digest `channel` is 'inbox' (writes a summary notification + fires `inbox.digest_ready`) or 'preview' (returns matches only).",
+      "Digest evaluation window starts at max(filters.since, lastRunAt, now-scheduleSeconds) so re-runs do not double-count items.",
+    ],
+  };
+}
+
