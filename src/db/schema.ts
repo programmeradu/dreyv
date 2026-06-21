@@ -2336,5 +2336,34 @@ export const publicApiTeamAudit = pgTable('public_api_team_audit', {
   actionIdx: index('public_api_team_audit_action_idx').on(t.teamId, t.action, t.ts),
 }));
 
+// ─── Phase 27 — Billing, Usage & Quotas (Pillar AK) ──────────────────
+// User-defined usage threshold alarms. Each alert is evaluated by
+// `billing.alerts_evaluate` (and by the existing usage probes) against
+// the current window; when crossed it writes one inbox notification +
+// fires `billing.quota_threshold`, then debounces via `last_triggered_at`
+// until the window rolls.
+export const publicApiBillingAlerts = pgTable('public_api_billing_alerts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  metric: text('metric').notNull().default('calls'),         // calls | credits
+  scope: text('scope').notNull().default('monthly'),         // monthly | daily
+  thresholdPct: integer('threshold_pct'),
+  thresholdAbs: numeric('threshold_abs', { precision: 14, scale: 4 }),
+  channel: text('channel').notNull().default('inbox'),       // inbox | webhook
+  enabled: boolean('enabled').notNull().default(true),
+  lastTriggeredAt: timestamp('last_triggered_at', { withTimezone: true }),
+  lastValue: numeric('last_value', { precision: 14, scale: 4 }).notNull().default('0'),
+  fireCount: integer('fire_count').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('public_api_billing_alerts_user_name_uq').on(t.userId, t.name),
+  userIdx: index('public_api_billing_alerts_user_idx').on(t.userId, t.createdAt),
+  enabledIdx: index('public_api_billing_alerts_enabled_idx').on(t.userId, t.enabled),
+}));
+
+
 
 
