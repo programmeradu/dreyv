@@ -3382,14 +3382,18 @@ export async function billingCreateInvoice(
 
   const deliveryErrors: string[] = [];
   try {
-    await emitWebhookEvent(ctx.userId, "billing.invoice_created", {
-      invoiceId: invoice.id,
-      tier: invoice.tier,
-      chain: invoice.chain,
-      asset: invoice.asset,
-      amountUsd: invoice.amountUsd,
-      memo: invoice.memo,
-      expiresAt: invoice.expiresAt,
+    await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "billing.invoice_created",
+      data: {
+        invoiceId: invoice.id,
+        tier: invoice.tier,
+        chain: invoice.chain,
+        asset: invoice.asset,
+        amountUsd: invoice.amountUsd,
+        memo: invoice.memo,
+        expiresAt: invoice.expiresAt,
+      },
     });
   } catch (e) {
     deliveryErrors.push(e instanceof Error ? e.message : String(e));
