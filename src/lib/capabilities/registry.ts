@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -2084,6 +2084,114 @@ export const CAPABILITIES: PublicCapability[] = [
     description: "Returns the public search contract: max query length, max token count, AND-only operator semantics, snippet length, default + max limit, and the deterministic scoring rule (token coverage × recency decay). Safe to cache.",
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.searchPolicy(i, c),
+  },
+
+  // ─── Pillar AD — Status, SLO & Deprecations (Phase 20) ───────────────
+  {
+    id: "status.health",
+    mcpName: "dreyv_status_health",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Overall + per-component health summary",
+    description: "Computes an aggregate health status (`operational` | `degraded` | `partial_outage` | `major_outage`) from rolling error rates and latency p95 over the last 15 minutes of `public_api_key_usage`, segmented by pillar and infra component (db, r2, webhooks, rate-limiter). Includes the worst-offending component and a human-readable summary line.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.statusHealth(i, c),
+  },
+  {
+    id: "status.components",
+    mcpName: "dreyv_status_components",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Registered components and their live status",
+    description: "Returns every component Dreyv monitors (each pillar + infra: postgres, r2-storage, webhook-dispatcher, rate-limiter, audit-chain) with current status, p50/p95 latency, error rate, sample size, and the SLO they're measured against. Sample window is configurable (default 15m, max 24h).",
+    inputSchema: z.object({
+      windowMinutes: z.number().int().min(5).max(1440).optional(),
+    }).strict(),
+    handler: (i, c) => caps.statusComponents(i, c),
+  },
+  {
+    id: "status.uptime",
+    mcpName: "dreyv_status_uptime",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Rolling uptime % over 1h / 24h / 7d / 30d windows",
+    description: "Derives uptime from `public_api_key_usage` outcomes (`ok` / `rate_limited` count as up; `error` counts as down) bucketed into minute buckets. A minute is `down` if >50% of calls in that minute errored. Returns the up-minute ratio across each window. Aggregate across all callers — Dreyv-wide signal, not per-key.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.statusUptime(i, c),
+  },
+  {
+    id: "status.incidents",
+    mcpName: "dreyv_status_incidents",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Active and recently-resolved incidents",
+    description: "Detects incidents by scanning the last `lookbackHours` (default 24, max 168) of usage rows for contiguous runs of degraded minutes per component. Returns active incidents (still degraded in the last 5m) and recently-resolved ones with start/end timestamps, impacted component, peak error rate, and affected request count.",
+    inputSchema: z.object({
+      lookbackHours: z.number().int().min(1).max(168).optional(),
+      includeResolved: z.boolean().optional(),
+    }).strict(),
+    handler: (i, c) => caps.statusIncidents(i, c),
+  },
+  {
+    id: "status.slo",
+    mcpName: "dreyv_status_slo",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Per-component SLO targets and live burn rate",
+    description: "Returns the canonical Dreyv SLOs (availability + latency-p95 targets per component) alongside the live 1h and 6h error budget burn rates. A burn rate >1 in either window signals the budget is being consumed faster than the period allows.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.statusSlo(i, c),
+  },
+  {
+    id: "status.deprecations",
+    mcpName: "dreyv_status_deprecations",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Capability deprecation feed with sunset dates",
+    description: "Returns the curated list of deprecated capabilities and fields with announced-at, sunset-at, replacement capability id, and migration notes. Drives the `Sunset` HTTP header and SDK warning toggles. Stable, deterministic — safe to cache.",
+    inputSchema: z.object({
+      includeActive: z.boolean().optional(),
+    }).strict(),
+    handler: (i, c) => caps.statusDeprecations(i, c),
+  },
+  {
+    id: "status.changelog",
+    mcpName: "dreyv_status_changelog",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Public API changelog (reverse chronological)",
+    description: "Returns the curated public changelog: every phase release, capabilities added, breaking changes (always called out), security fixes, schema migrations. One canonical feed driving `/developers/api` and the `What's new` banner.",
+    inputSchema: z.object({
+      limit: z.number().int().min(1).max(100).optional(),
+      sinceVersion: z.string().max(32).optional(),
+    }).strict(),
+    handler: (i, c) => caps.statusChangelog(i, c),
+  },
+  {
+    id: "status.version",
+    mcpName: "dreyv_status_version",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "API version, capability counts, and build identity",
+    description: "Returns the public API version (`v1`), current capability registry count by pillar/side-effect/status, deprecation count, supported transports, and the build commit (when available via `VERCEL_GIT_COMMIT_SHA`). Useful for SDK compat checks and `If-Match`-style negotiation.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.statusVersion(i, c),
   },
 ];
 
