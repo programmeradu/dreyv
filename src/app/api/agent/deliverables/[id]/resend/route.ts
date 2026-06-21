@@ -59,10 +59,21 @@ export async function POST(
         }
     }
 
-    const result = await resendDeliverableEmail(id, user.id);
-    if (!result.success) {
-        const status = result.error === "not_found" ? 404 : result.error === "rate_limited" ? 429 : 502;
-        return NextResponse.json({ error: result.error }, { status });
+    try {
+        const result = await resendDeliverableEmail(id, user.id);
+        if (!result.success) {
+            const status =
+                result.error === "not_found" ? 404 :
+                result.error === "rate_limited" ? 429 :
+                result.error === "no_email_on_account" ? 400 :
+                result.error === "not_ready" ? 409 :
+                502;
+            return NextResponse.json({ error: result.error ?? "send_failed" }, { status });
+        }
+        return NextResponse.json({ success: true });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[deliverables/${id}/resend] unhandled error:`, message);
+        return NextResponse.json({ error: "server_error", message }, { status: 500 });
     }
-    return NextResponse.json({ success: true });
 }
