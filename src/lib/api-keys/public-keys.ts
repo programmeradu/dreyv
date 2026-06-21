@@ -23,8 +23,6 @@ export const ALL_SCOPES = [
   "read:treasury",
   "read:market",
   "read:forensics",
-  "read:risk",
-  "read:tax",
   "write:simulate",
   "write:intent",
   "write:trade",
