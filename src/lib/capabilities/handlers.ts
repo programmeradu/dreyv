@@ -8971,3 +8971,775 @@ export async function billingPolicy(_input: Record<string, never>, ctx: Capabili
     ],
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Pillar AL — Workspace Insights & Reporting (Phase 28)
+// Read-side rollups on top of public_api_key_usage + public_api_audit_log
+// + public_api_team_audit, plus a reusable saved-report layer with
+// immutable snapshots and tokenised public share links.
+// ─────────────────────────────────────────────────────────────────────
+import {
+  publicApiReports as _reportsAL,
+  publicApiReportSnapshots as _snapshotsAL,
+  publicApiReportShares as _sharesAL,
+  publicApiKeyUsage as _usageAL,
+  publicApiAuditLog as _auditAL,
+  publicApiTeamAudit as _teamAuditAL,
+  teamMembers as _teamMembersAL,
+  teams as _teamsAL,
+} from "@/db/schema";
+import { sql as _sqlAL, gte as _gteAL, lte as _lteAL } from "drizzle-orm";
+import { randomBytes as _rbAL, createHash as _shaAL } from "node:crypto";
+
+const _MAX_WINDOW_DAYS_AL = 365;
+const _MIN_WINDOW_DAYS_AL = 1;
+const _MAX_SECTIONS_AL = 16;
+const _MAX_PAYLOAD_BYTES_AL = 256 * 1024;
+
+const _SECTION_TYPES_AL = [
+  "overview",
+  "activity",
+  "top_capabilities",
+  "errors",
+  "audit_summary",
+  "teams_overview",
+  "billing_snapshot",
+] as const;
+type SectionTypeAL = (typeof _SECTION_TYPES_AL)[number];
+
+const _TIER_REPORT_LIMITS_AL: Record<string, {
+  maxReports: number;
+  maxSnapshotsPerReport: number;
+  maxShares: number;
+  shareMaxDays: number;
+  minScheduleSeconds: number;
+  maxWindowDays: number;
+}> = {
+  free: { maxReports: 3,   maxSnapshotsPerReport: 10,  maxShares: 5,   shareMaxDays: 7,   minScheduleSeconds: 86400,  maxWindowDays: 30  },
+  mini: { maxReports: 50,  maxSnapshotsPerReport: 90,  maxShares: 100, shareMaxDays: 90,  minScheduleSeconds: 3600,   maxWindowDays: 180 },
+  max:  { maxReports: 500, maxSnapshotsPerReport: 365, maxShares: 5000,shareMaxDays: 365, minScheduleSeconds: 900,    maxWindowDays: 365 },
+};
+
+async function _userTierAL(userId: string): Promise<"free" | "mini" | "max"> {
+  return _userTierAE(userId);
+}
+
+function _clampWindowAL(days: number | undefined, tier: string): { start: Date; end: Date; days: number } {
+  const limits = _TIER_REPORT_LIMITS_AL[tier] ?? _TIER_REPORT_LIMITS_AL.free;
+  const n = Math.max(_MIN_WINDOW_DAYS_AL, Math.min(days ?? 30, Math.min(limits.maxWindowDays, _MAX_WINDOW_DAYS_AL)));
+  const end = new Date();
+  const start = new Date(end.getTime() - n * 86_400_000);
+  return { start, end, days: n };
+}
+
+// ── Section runners ────────────────────────────────────────────────
+async function _runOverviewAL(ctx: CapabilityRunContext, start: Date, end: Date, keyOnly: boolean) {
+  const d = requireDb();
+  const conds = [eq(_usageAL.userId, ctx.userId), _gteAL(_usageAL.ts, start), _lteAL(_usageAL.ts, end)];
+  if (keyOnly) conds.push(eq(_usageAL.keyId, ctx.keyId));
+  const [row] = await d
+    .select({
+      calls: _sqlAL<number>`count(*)::int`,
+      errors: _sqlAL<number>`count(*) filter (where ${_usageAL.status} <> 'ok')::int`,
+      denied: _sqlAL<number>`count(*) filter (where ${_usageAL.status} = 'denied')::int`,
+      rateLimited: _sqlAL<number>`count(*) filter (where ${_usageAL.status} = 'rate_limited')::int`,
+      credits: _sqlAL<string>`coalesce(sum(${_usageAL.costCredits})::text, '0')`,
+      avgLatency: _sqlAL<number>`coalesce(avg(${_usageAL.latencyMs})::int, 0)`,
+      p95: _sqlAL<number>`coalesce(percentile_cont(0.95) within group (order by ${_usageAL.latencyMs})::int, 0)`,
+      distinctCaps: _sqlAL<number>`count(distinct ${_usageAL.capabilityId})::int`,
+    })
+    .from(_usageAL)
+    .where(and(...conds));
+  return {
+    calls: row?.calls ?? 0,
+    errors: row?.errors ?? 0,
+    errorRate: row?.calls ? Math.round(((row.errors ?? 0) / row.calls) * 10000) / 100 : 0,
+    denied: row?.denied ?? 0,
+    rateLimited: row?.rateLimited ?? 0,
+    credits: row?.credits ?? "0",
+    avgLatencyMs: row?.avgLatency ?? 0,
+    p95LatencyMs: row?.p95 ?? 0,
+    distinctCapabilities: row?.distinctCaps ?? 0,
+  };
+}
+
+async function _runActivityAL(ctx: CapabilityRunContext, start: Date, end: Date, granularity: "day" | "hour", keyOnly: boolean) {
+  const d = requireDb();
+  const bucket = granularity === "hour"
+    ? _sqlAL<Date>`date_trunc('hour', ${_usageAL.ts})`
+    : _sqlAL<Date>`date_trunc('day', ${_usageAL.ts})`;
+  const conds = [eq(_usageAL.userId, ctx.userId), _gteAL(_usageAL.ts, start), _lteAL(_usageAL.ts, end)];
+  if (keyOnly) conds.push(eq(_usageAL.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      bucket,
+      calls: _sqlAL<number>`count(*)::int`,
+      errors: _sqlAL<number>`count(*) filter (where ${_usageAL.status} <> 'ok')::int`,
+      credits: _sqlAL<string>`coalesce(sum(${_usageAL.costCredits})::text, '0')`,
+      avgLatency: _sqlAL<number>`coalesce(avg(${_usageAL.latencyMs})::int, 0)`,
+    })
+    .from(_usageAL)
+    .where(and(...conds))
+    .groupBy(bucket)
+    .orderBy(bucket);
+  return { granularity, buckets: rows };
+}
+
+async function _runTopCapsAL(ctx: CapabilityRunContext, start: Date, end: Date, limit: number, keyOnly: boolean) {
+  const d = requireDb();
+  const conds = [eq(_usageAL.userId, ctx.userId), _gteAL(_usageAL.ts, start), _lteAL(_usageAL.ts, end)];
+  if (keyOnly) conds.push(eq(_usageAL.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      capabilityId: _usageAL.capabilityId,
+      calls: _sqlAL<number>`count(*)::int`,
+      errors: _sqlAL<number>`count(*) filter (where ${_usageAL.status} <> 'ok')::int`,
+      credits: _sqlAL<string>`coalesce(sum(${_usageAL.costCredits})::text, '0')`,
+      avgLatencyMs: _sqlAL<number>`coalesce(avg(${_usageAL.latencyMs})::int, 0)`,
+      p95LatencyMs: _sqlAL<number>`coalesce(percentile_cont(0.95) within group (order by ${_usageAL.latencyMs})::int, 0)`,
+    })
+    .from(_usageAL)
+    .where(and(...conds))
+    .groupBy(_usageAL.capabilityId)
+    .orderBy(_sqlAL`count(*) desc`)
+    .limit(Math.max(1, Math.min(limit, 100)));
+  return { items: rows };
+}
+
+async function _runErrorsAL(ctx: CapabilityRunContext, start: Date, end: Date, limit: number, keyOnly: boolean) {
+  const d = requireDb();
+  const conds = [
+    eq(_usageAL.userId, ctx.userId),
+    _gteAL(_usageAL.ts, start),
+    _lteAL(_usageAL.ts, end),
+    _sqlAL`${_usageAL.status} <> 'ok'`,
+  ];
+  if (keyOnly) conds.push(eq(_usageAL.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      capabilityId: _usageAL.capabilityId,
+      errorCode: _usageAL.errorCode,
+      status: _usageAL.status,
+      n: _sqlAL<number>`count(*)::int`,
+      lastSeen: _sqlAL<Date>`max(${_usageAL.ts})`,
+    })
+    .from(_usageAL)
+    .where(and(...conds))
+    .groupBy(_usageAL.capabilityId, _usageAL.errorCode, _usageAL.status)
+    .orderBy(_sqlAL`count(*) desc`)
+    .limit(Math.max(1, Math.min(limit, 100)));
+  return { items: rows };
+}
+
+async function _runAuditSummaryAL(ctx: CapabilityRunContext, start: Date, end: Date) {
+  const d = requireDb();
+  const rows = await d
+    .select({
+      action: _auditAL.action,
+      n: _sqlAL<number>`count(*)::int`,
+      lastSeen: _sqlAL<Date>`max(${_auditAL.ts})`,
+    })
+    .from(_auditAL)
+    .where(and(eq(_auditAL.userId, ctx.userId), _gteAL(_auditAL.ts, start), _lteAL(_auditAL.ts, end)))
+    .groupBy(_auditAL.action)
+    .orderBy(_sqlAL`count(*) desc`)
+    .limit(50);
+  const [{ total }] = await d
+    .select({ total: _sqlAL<number>`count(*)::int` })
+    .from(_auditAL)
+    .where(and(eq(_auditAL.userId, ctx.userId), _gteAL(_auditAL.ts, start), _lteAL(_auditAL.ts, end)));
+  return { total: total ?? 0, byAction: rows };
+}
+
+async function _runTeamsOverviewAL(ctx: CapabilityRunContext, start: Date, end: Date) {
+  const d = requireDb();
+  // Teams where caller is a member (active).
+  const mine = await d
+    .select({
+      teamId: _teamsAL.id,
+      name: _teamsAL.name,
+      role: _teamMembersAL.role,
+    })
+    .from(_teamMembersAL)
+    .innerJoin(_teamsAL, eq(_teamsAL.id, _teamMembersAL.teamId))
+    .where(and(eq(_teamMembersAL.userId, ctx.userId), eq(_teamMembersAL.status, "active")));
+  if (mine.length === 0) return { teams: [] };
+  const out: Array<{ teamId: string; name: string; role: string; auditCount: number; lastActivity: Date | null }> = [];
+  for (const t of mine) {
+    const [row] = await d
+      .select({
+        n: _sqlAL<number>`count(*)::int`,
+        last: _sqlAL<Date>`max(${_teamAuditAL.ts})`,
+      })
+      .from(_teamAuditAL)
+      .where(and(eq(_teamAuditAL.teamId, t.teamId), _gteAL(_teamAuditAL.ts, start), _lteAL(_teamAuditAL.ts, end)));
+    out.push({
+      teamId: t.teamId,
+      name: t.name,
+      role: t.role,
+      auditCount: row?.n ?? 0,
+      lastActivity: row?.last ?? null,
+    });
+  }
+  return { teams: out };
+}
+
+async function _runBillingSnapshotAL(ctx: CapabilityRunContext, start: Date, end: Date) {
+  const tier = await _userTierAL(ctx.userId);
+  const limits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+  const ov = await _runOverviewAL(ctx, start, end, false);
+  const callsPct = limits.callsPerMonth > 0 ? (ov.calls / limits.callsPerMonth) * 100 : 0;
+  const creditsNum = Number(ov.credits) || 0;
+  const creditsPct = limits.creditsPerMonth > 0 ? (creditsNum / limits.creditsPerMonth) * 100 : 0;
+  return {
+    tier,
+    limits,
+    usage: { calls: ov.calls, credits: ov.credits, errors: ov.errors },
+    pct: {
+      calls: Math.round(callsPct * 10) / 10,
+      credits: Math.round(creditsPct * 10) / 10,
+    },
+  };
+}
+
+async function _runSectionAL(ctx: CapabilityRunContext, section: { type: string; params?: Record<string, unknown> }, start: Date, end: Date) {
+  const params = section.params ?? {};
+  const keyOnly = params.keyOnly === true;
+  switch (section.type) {
+    case "overview":         return _runOverviewAL(ctx, start, end, keyOnly);
+    case "activity":         return _runActivityAL(ctx, start, end, (params.granularity as "day" | "hour") ?? "day", keyOnly);
+    case "top_capabilities": return _runTopCapsAL(ctx, start, end, Number(params.limit) || 10, keyOnly);
+    case "errors":           return _runErrorsAL(ctx, start, end, Number(params.limit) || 10, keyOnly);
+    case "audit_summary":    return _runAuditSummaryAL(ctx, start, end);
+    case "teams_overview":   return _runTeamsOverviewAL(ctx, start, end);
+    case "billing_snapshot": return _runBillingSnapshotAL(ctx, start, end);
+    default:                 throw new CapabilityError(`Unknown section type '${section.type}'`, 400, null);
+  }
+}
+
+// ─── insights.overview ─────────────────────────────────────────────
+export async function insightsOverview(
+  input: { windowDays?: number; keyOnly?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const overview = await _runOverviewAL(ctx, start, end, !!input.keyOnly);
+  return { window: { start, end, days }, overview };
+}
+
+// ─── insights.activity ─────────────────────────────────────────────
+export async function insightsActivity(
+  input: { windowDays?: number; granularity?: "day" | "hour"; keyOnly?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const data = await _runActivityAL(ctx, start, end, input.granularity ?? "day", !!input.keyOnly);
+  return { window: { start, end, days }, ...data };
+}
+
+// ─── insights.top_capabilities ─────────────────────────────────────
+export async function insightsTopCapabilities(
+  input: { windowDays?: number; limit?: number; keyOnly?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const data = await _runTopCapsAL(ctx, start, end, input.limit ?? 10, !!input.keyOnly);
+  return { window: { start, end, days }, ...data };
+}
+
+// ─── insights.errors ───────────────────────────────────────────────
+export async function insightsErrors(
+  input: { windowDays?: number; limit?: number; keyOnly?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const data = await _runErrorsAL(ctx, start, end, input.limit ?? 10, !!input.keyOnly);
+  return { window: { start, end, days }, ...data };
+}
+
+// ─── insights.audit_summary ────────────────────────────────────────
+export async function insightsAuditSummary(
+  input: { windowDays?: number },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const data = await _runAuditSummaryAL(ctx, start, end);
+  return { window: { start, end, days }, ...data };
+}
+
+// ─── insights.teams_overview ───────────────────────────────────────
+export async function insightsTeamsOverview(
+  input: { windowDays?: number },
+  ctx: CapabilityRunContext,
+) {
+  const tier = await _userTierAL(ctx.userId);
+  const { start, end, days } = _clampWindowAL(input.windowDays, tier);
+  const data = await _runTeamsOverviewAL(ctx, start, end);
+  return { window: { start, end, days }, ...data };
+}
+
+// ─── reports.create ────────────────────────────────────────────────
+export async function reportsCreate(
+  input: {
+    name: string;
+    description?: string;
+    sections: Array<{ type: SectionTypeAL; params?: Record<string, unknown> }>;
+    filters?: { windowDays?: number; keyOnly?: boolean };
+    scheduleSeconds?: number;
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAL(ctx.userId);
+  const limits = _TIER_REPORT_LIMITS_AL[tier];
+
+  if (!input.sections || input.sections.length === 0) {
+    throw new CapabilityError("At least one section is required", 400, null);
+  }
+  if (input.sections.length > _MAX_SECTIONS_AL) {
+    throw new CapabilityError(`Too many sections (max ${_MAX_SECTIONS_AL})`, 400, null);
+  }
+  for (const s of input.sections) {
+    if (!_SECTION_TYPES_AL.includes(s.type as SectionTypeAL)) {
+      throw new CapabilityError(`Unknown section type '${s.type}'`, 400, { allowed: _SECTION_TYPES_AL });
+    }
+  }
+  const schedule = input.scheduleSeconds ?? 0;
+  if (schedule > 0 && schedule < limits.minScheduleSeconds) {
+    throw new CapabilityError(
+      `Schedule too frequent for tier '${tier}' (min ${limits.minScheduleSeconds}s)`,
+      400,
+      { minScheduleSeconds: limits.minScheduleSeconds },
+    );
+  }
+
+  const [{ n }] = await d
+    .select({ n: _sqlAL<number>`count(*)::int` })
+    .from(_reportsAL)
+    .where(eq(_reportsAL.userId, ctx.userId));
+  if (n >= limits.maxReports) {
+    throw new CapabilityError(
+      `Report quota reached for tier '${tier}' (${n}/${limits.maxReports})`,
+      402,
+      { tier, current: n, limit: limits.maxReports },
+    );
+  }
+
+  const [row] = await d
+    .insert(_reportsAL)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      name: input.name,
+      description: input.description ?? null,
+      sections: input.sections as never,
+      filters: (input.filters ?? {}) as never,
+      scheduleSeconds: schedule,
+      enabled: input.enabled ?? true,
+    } as never)
+    .returning();
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.create", target: row.id,
+    meta: { name: input.name, sections: input.sections.length, schedule },
+  });
+  return { report: row, audit };
+}
+
+// ─── reports.list ──────────────────────────────────────────────────
+export async function reportsList(
+  input: { enabledOnly?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_reportsAL.userId, ctx.userId)];
+  if (input.enabledOnly) conds.push(eq(_reportsAL.enabled, true));
+  const rows = await d
+    .select()
+    .from(_reportsAL)
+    .where(and(...conds))
+    .orderBy(desc(_reportsAL.createdAt))
+    .limit(Math.max(1, Math.min(input.limit ?? 100, 500)));
+  return { count: rows.length, reports: rows };
+}
+
+// ─── reports.get ───────────────────────────────────────────────────
+export async function reportsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_reportsAL)
+    .where(and(eq(_reportsAL.id, input.id), eq(_reportsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Report not found", 404, null);
+  return { report: row };
+}
+
+// ─── reports.update ────────────────────────────────────────────────
+export async function reportsUpdate(
+  input: {
+    id: string;
+    name?: string;
+    description?: string;
+    sections?: Array<{ type: SectionTypeAL; params?: Record<string, unknown> }>;
+    filters?: { windowDays?: number; keyOnly?: boolean };
+    scheduleSeconds?: number;
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAL(ctx.userId);
+  const limits = _TIER_REPORT_LIMITS_AL[tier];
+  const [existing] = await d
+    .select()
+    .from(_reportsAL)
+    .where(and(eq(_reportsAL.id, input.id), eq(_reportsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!existing) throw new CapabilityError("Report not found", 404, null);
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.sections !== undefined) {
+    if (input.sections.length === 0 || input.sections.length > _MAX_SECTIONS_AL) {
+      throw new CapabilityError(`Sections must be 1..${_MAX_SECTIONS_AL}`, 400, null);
+    }
+    for (const s of input.sections) {
+      if (!_SECTION_TYPES_AL.includes(s.type as SectionTypeAL)) {
+        throw new CapabilityError(`Unknown section type '${s.type}'`, 400, { allowed: _SECTION_TYPES_AL });
+      }
+    }
+    patch.sections = input.sections;
+  }
+  if (input.filters !== undefined) patch.filters = input.filters;
+  if (input.scheduleSeconds !== undefined) {
+    if (input.scheduleSeconds > 0 && input.scheduleSeconds < limits.minScheduleSeconds) {
+      throw new CapabilityError(
+        `Schedule too frequent for tier '${tier}' (min ${limits.minScheduleSeconds}s)`,
+        400, { minScheduleSeconds: limits.minScheduleSeconds },
+      );
+    }
+    patch.scheduleSeconds = input.scheduleSeconds;
+  }
+  if (input.enabled !== undefined) patch.enabled = input.enabled;
+
+  const [row] = await d
+    .update(_reportsAL)
+    .set(patch as never)
+    .where(eq(_reportsAL.id, input.id))
+    .returning();
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.update", target: input.id,
+    meta: { fields: Object.keys(patch).filter((k) => k !== "updatedAt") },
+  });
+  return { report: row, audit };
+}
+
+// ─── reports.delete ────────────────────────────────────────────────
+export async function reportsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select({ id: _reportsAL.id, name: _reportsAL.name })
+    .from(_reportsAL)
+    .where(and(eq(_reportsAL.id, input.id), eq(_reportsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Report not found", 404, null);
+  await d.delete(_reportsAL).where(eq(_reportsAL.id, input.id));
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.delete", target: input.id, meta: { name: row.name },
+  });
+  return { ok: true, id: input.id, audit };
+}
+
+// ─── reports.run ───────────────────────────────────────────────────
+export async function reportsRun(
+  input: { id: string; trigger?: "manual" | "scheduled" | "webhook"; dryRun?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAL(ctx.userId);
+  const limits = _TIER_REPORT_LIMITS_AL[tier];
+  const [report] = await d
+    .select()
+    .from(_reportsAL)
+    .where(and(eq(_reportsAL.id, input.id), eq(_reportsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!report) throw new CapabilityError("Report not found", 404, null);
+
+  const filters = (report.filters ?? {}) as { windowDays?: number; keyOnly?: boolean };
+  const { start, end, days } = _clampWindowAL(filters.windowDays, tier);
+  const sections = (report.sections ?? []) as Array<{ type: SectionTypeAL; params?: Record<string, unknown> }>;
+
+  const sectionResults: Array<{ type: string; params: Record<string, unknown>; data: unknown; error?: string }> = [];
+  for (const s of sections) {
+    const params = { ...(s.params ?? {}), keyOnly: filters.keyOnly ?? s.params?.keyOnly };
+    try {
+      const data = await _runSectionAL(ctx, { type: s.type, params }, start, end);
+      sectionResults.push({ type: s.type, params, data });
+    } catch (e) {
+      sectionResults.push({ type: s.type, params, data: null, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  const summary = {
+    sections: sections.length,
+    succeeded: sectionResults.filter((r) => !r.error).length,
+    failed: sectionResults.filter((r) => !!r.error).length,
+    windowDays: days,
+  };
+
+  if (input.dryRun) {
+    return { dryRun: true, report: { id: report.id, name: report.name }, window: { start, end, days }, summary, sections: sectionResults };
+  }
+
+  // Enforce snapshot retention: drop oldest beyond cap.
+  const existing = await d
+    .select({ id: _snapshotsAL.id, generatedAt: _snapshotsAL.generatedAt })
+    .from(_snapshotsAL)
+    .where(eq(_snapshotsAL.reportId, report.id))
+    .orderBy(desc(_snapshotsAL.generatedAt));
+  if (existing.length >= limits.maxSnapshotsPerReport) {
+    const toDrop = existing.slice(limits.maxSnapshotsPerReport - 1).map((r) => r.id);
+    if (toDrop.length > 0) {
+      await d.delete(_snapshotsAL).where(inArray(_snapshotsAL.id, toDrop));
+    }
+  }
+
+  const payload = { sections: sectionResults };
+  const payloadStr = JSON.stringify(payload);
+  const sizeBytes = Buffer.byteLength(payloadStr, "utf8");
+  if (sizeBytes > _MAX_PAYLOAD_BYTES_AL) {
+    throw new CapabilityError(
+      `Snapshot payload exceeds ${_MAX_PAYLOAD_BYTES_AL} bytes (${sizeBytes}). Trim sections or reduce window.`,
+      413, { sizeBytes, max: _MAX_PAYLOAD_BYTES_AL },
+    );
+  }
+
+  const [snap] = await d
+    .insert(_snapshotsAL)
+    .values({
+      reportId: report.id,
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      trigger: input.trigger ?? "manual",
+      windowStart: start,
+      windowEnd: end,
+      summary: summary as never,
+      payload: payload as never,
+      sizeBytes,
+    } as never)
+    .returning();
+
+  await d
+    .update(_reportsAL)
+    .set({
+      lastRunAt: new Date(),
+      lastSnapshotId: snap.id,
+      runCount: (report.runCount ?? 0) + 1,
+      updatedAt: new Date(),
+    } as never)
+    .where(eq(_reportsAL.id, report.id));
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.run", target: report.id,
+    meta: { snapshotId: snap.id, trigger: input.trigger ?? "manual", summary },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "report.generated",
+    data: { reportId: report.id, snapshotId: snap.id, trigger: input.trigger ?? "manual", summary },
+  }).catch(() => undefined);
+
+  return { snapshot: snap, summary, audit };
+}
+
+// ─── reports.snapshots_list ────────────────────────────────────────
+export async function reportsSnapshotsList(
+  input: { reportId: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const rows = await d
+    .select({
+      id: _snapshotsAL.id,
+      reportId: _snapshotsAL.reportId,
+      trigger: _snapshotsAL.trigger,
+      windowStart: _snapshotsAL.windowStart,
+      windowEnd: _snapshotsAL.windowEnd,
+      summary: _snapshotsAL.summary,
+      sizeBytes: _snapshotsAL.sizeBytes,
+      generatedAt: _snapshotsAL.generatedAt,
+    })
+    .from(_snapshotsAL)
+    .where(and(eq(_snapshotsAL.reportId, input.reportId), eq(_snapshotsAL.userId, ctx.userId)))
+    .orderBy(desc(_snapshotsAL.generatedAt))
+    .limit(Math.max(1, Math.min(input.limit ?? 50, 500)));
+  return { count: rows.length, snapshots: rows };
+}
+
+// ─── reports.snapshot_get ──────────────────────────────────────────
+export async function reportsSnapshotGet(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_snapshotsAL)
+    .where(and(eq(_snapshotsAL.id, input.id), eq(_snapshotsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Snapshot not found", 404, null);
+  return { snapshot: row };
+}
+
+// ─── reports.share ─────────────────────────────────────────────────
+export async function reportsShare(
+  input: { snapshotId: string; ttlHours?: number; password?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAL(ctx.userId);
+  const limits = _TIER_REPORT_LIMITS_AL[tier];
+  const [snap] = await d
+    .select()
+    .from(_snapshotsAL)
+    .where(and(eq(_snapshotsAL.id, input.snapshotId), eq(_snapshotsAL.userId, ctx.userId)))
+    .limit(1);
+  if (!snap) throw new CapabilityError("Snapshot not found", 404, null);
+
+  const [{ n }] = await d
+    .select({ n: _sqlAL<number>`count(*) filter (where revoked_at is null and expires_at > now())::int` })
+    .from(_sharesAL)
+    .where(eq(_sharesAL.userId, ctx.userId));
+  if (n >= limits.maxShares) {
+    throw new CapabilityError(
+      `Active share quota reached for tier '${tier}' (${n}/${limits.maxShares})`,
+      402, { tier, current: n, limit: limits.maxShares },
+    );
+  }
+
+  const maxHours = limits.shareMaxDays * 24;
+  const ttlHours = Math.max(1, Math.min(input.ttlHours ?? 24 * 7, maxHours));
+  const expiresAt = new Date(Date.now() + ttlHours * 3_600_000);
+  const token = _rbAL(32).toString("base64url");
+  const passwordHash = input.password ? _shaAL("sha256").update(input.password).digest("hex") : null;
+
+  const [row] = await d
+    .insert(_sharesAL)
+    .values({
+      snapshotId: snap.id,
+      reportId: snap.reportId,
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      token,
+      passwordHash,
+      expiresAt,
+    } as never)
+    .returning();
+
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.share", target: row.id,
+    meta: { snapshotId: snap.id, reportId: snap.reportId, expiresAt, hasPassword: !!input.password },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "report.shared",
+    data: { shareId: row.id, snapshotId: snap.id, reportId: snap.reportId, expiresAt },
+  }).catch(() => undefined);
+
+  return {
+    share: {
+      id: row.id,
+      token,            // returned ONCE; treat like an API key
+      snapshotId: snap.id,
+      reportId: snap.reportId,
+      expiresAt,
+      passwordProtected: !!input.password,
+      url: `${ctx.origin}/r/${token}`,
+    },
+    audit,
+  };
+}
+
+// ─── reports.shares_list ───────────────────────────────────────────
+export async function reportsSharesList(
+  input: { reportId?: string; activeOnly?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_sharesAL.userId, ctx.userId)];
+  if (input.reportId) conds.push(eq(_sharesAL.reportId, input.reportId));
+  if (input.activeOnly) conds.push(_sqlAL`${_sharesAL.revokedAt} is null and ${_sharesAL.expiresAt} > now()`);
+  const rows = await d
+    .select({
+      id: _sharesAL.id,
+      snapshotId: _sharesAL.snapshotId,
+      reportId: _sharesAL.reportId,
+      expiresAt: _sharesAL.expiresAt,
+      viewCount: _sharesAL.viewCount,
+      lastViewedAt: _sharesAL.lastViewedAt,
+      revokedAt: _sharesAL.revokedAt,
+      createdAt: _sharesAL.createdAt,
+    })
+    .from(_sharesAL)
+    .where(and(...conds))
+    .orderBy(desc(_sharesAL.createdAt))
+    .limit(Math.max(1, Math.min(input.limit ?? 100, 500)));
+  return { count: rows.length, shares: rows };
+}
+
+// ─── reports.share_revoke ──────────────────────────────────────────
+export async function reportsShareRevoke(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_sharesAL)
+    .where(and(eq(_sharesAL.id, input.id), eq(_sharesAL.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Share not found", 404, null);
+  if (row.revokedAt) return { ok: true, alreadyRevoked: true, id: input.id };
+  await d.update(_sharesAL).set({ revokedAt: new Date() }).where(eq(_sharesAL.id, input.id));
+  const audit = await _appendAudit({
+    keyId: ctx.keyId, userId: ctx.userId,
+    action: "reports.share_revoke", target: input.id,
+    meta: { snapshotId: row.snapshotId, reportId: row.reportId },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "report.share_revoked",
+    data: { shareId: input.id, snapshotId: row.snapshotId, reportId: row.reportId },
+  }).catch(() => undefined);
+  return { ok: true, id: input.id, audit };
+}
+
+// ─── reports.policy ────────────────────────────────────────────────
+export async function reportsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAL(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_REPORT_LIMITS_AL[tier],
+    perTier: _TIER_REPORT_LIMITS_AL,
+    sectionTypes: _SECTION_TYPES_AL,
+    payloadMaxBytes: _MAX_PAYLOAD_BYTES_AL,
+    maxSections: _MAX_SECTIONS_AL,
+    windowRange: { minDays: _MIN_WINDOW_DAYS_AL, maxDays: _MAX_WINDOW_DAYS_AL },
+    webhookEvents: ["report.generated", "report.shared", "report.share_revoked"],
+    shareUrlTemplate: "/r/{token}",
+    notes: [
+      "Each section runs independently; failures don't abort the snapshot (errors are captured per section).",
+      "`reports.run` enforces per-report snapshot retention by dropping the oldest beyond the tier cap.",
+      "Share tokens are returned ONCE — store immediately. Revoked or expired shares stop resolving server-side.",
+      "Snapshots are immutable; re-run the report to capture a new window.",
+    ],
+  };
+}
