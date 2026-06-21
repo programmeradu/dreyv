@@ -41,6 +41,9 @@ export const ALL_SCOPES = [
   "read:status",
   "read:jobs",
   "write:jobs",
+  "read:exports",
+  "write:exports",
+
   "pay:x402",
   "agent:delegate",
 ] as const;

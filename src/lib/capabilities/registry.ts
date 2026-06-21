@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs" | "exports";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -2318,7 +2318,118 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.jobsPolicy(i, c),
   },
+
+  // ─── Pillar AF — Exports & Reports (Phase 22) ─────────────────────
+  {
+    id: "exports.sources",
+    mcpName: "dreyv_exports_sources",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "List supported export sources, formats, and columns",
+    description: "Returns the catalog of every data source you can export (audit, usage, deliveries, notifications, watchers, monitors, proposals, jobs, runs, artifacts), the columns each source projects, the read-scope each source effectively requires, and the supported serialization formats (`csv` | `jsonl`). Stable and cache-safe.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.exportsSources(i, c),
+  },
+  {
+    id: "exports.create",
+    mcpName: "dreyv_exports_create",
+    pillar: "exports",
+    scope: "write:exports",
+    sideEffects: "write",
+    status: "stable",
+    title: "Generate a CSV/JSONL export of one of your data sources",
+    description: "Synchronously serializes the caller's rows for the given `source` (filtered by `since` / `until` ISO timestamps and optional `status` / `capabilityId`) into `csv` or `jsonl`. Body stored inline (cap 4 MiB) with sha-256, row count, and `truncated` flag. Per-tier active-export quota enforced (free 5 / mini 50 / max 500) and per-tier row cap (free 5k / mini 50k / max 500k). Emits `export.created` then `export.completed` (or `export.failed`) and writes a hash-chained audit row.",
+    inputSchema: z.object({
+      label: z.string().min(1).max(120),
+      source: z.enum(["audit", "usage", "deliveries", "notifications", "watchers", "monitors", "proposals", "jobs", "runs", "artifacts"]),
+      format: z.enum(["csv", "jsonl"]).optional(),
+      since: z.string().min(1).max(64).optional(),
+      until: z.string().min(1).max(64).optional(),
+      status: z.string().max(64).optional(),
+      capabilityId: z.string().max(120).optional(),
+    }).strict(),
+    handler: (i, c) => caps.exportsCreate(i, c),
+  },
+  {
+    id: "exports.list",
+    mcpName: "dreyv_exports_list",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "List your generated exports (metadata only)",
+    description: "Returns up to `limit` (default 100, max 500) of the caller's exports, newest first. Body is NOT included. Filter by `source` or `status` (`pending` | `completed` | `failed` | `purged`).",
+    inputSchema: z.object({
+      source: z.enum(["audit", "usage", "deliveries", "notifications", "watchers", "monitors", "proposals", "jobs", "runs", "artifacts"]).optional(),
+      status: z.enum(["pending", "completed", "failed", "purged"]).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).strict(),
+    handler: (i, c) => caps.exportsList(i, c),
+  },
+  {
+    id: "exports.get",
+    mcpName: "dreyv_exports_get",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "Fetch a single export's metadata",
+    description: "Returns the full metadata row (label, source, format, status, rowCount, byteSize, sha256, truncated, filters, expiresAt, createdAt, purgedAt) for one export. The body itself is fetched via `exports.download`. Strictly scoped to the caller's userId.",
+    inputSchema: z.object({ id: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.exportsGet(i, c),
+  },
+  {
+    id: "exports.download",
+    mcpName: "dreyv_exports_download",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "Download an export body (base64-encoded)",
+    description: "Returns the stored body as base64 along with `contentType` (`text/csv` or `application/x-ndjson`), a safe `filename`, the `sha256`, and `byteSize`. Only `status:'completed'` exports are downloadable; purged (410) and expired (410) exports surface explicit errors. Re-downloads do not advance any quota.",
+    inputSchema: z.object({ id: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.exportsDownload(i, c),
+  },
+  {
+    id: "exports.purge",
+    mcpName: "dreyv_exports_purge",
+    pillar: "exports",
+    scope: "write:exports",
+    sideEffects: "write",
+    status: "stable",
+    title: "Purge an export's body while retaining its metadata",
+    description: "Sets `status:'purged'`, drops the inline body, and stamps `purgedAt`. Metadata (row count, byte size, sha-256, filters) is preserved for auditability. Idempotent — already-purged rows return `alreadyPurged:true`. Writes a hash-chained audit row.",
+    inputSchema: z.object({ id: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.exportsPurge(i, c),
+  },
+  {
+    id: "exports.stats",
+    mcpName: "dreyv_exports_stats",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "Aggregate counts and bytes per source/status",
+    description: "Returns per (source, status) totals — count, totalBytes, totalRows — across every export you've ever generated, plus your current tier, active-export quota usage, max-row cap, and TTL.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.exportsStats(i, c),
+  },
+  {
+    id: "exports.policy",
+    mcpName: "dreyv_exports_policy",
+    pillar: "exports",
+    scope: "read:exports",
+    sideEffects: "read",
+    status: "stable",
+    title: "Export engine limits, formats, and retention",
+    description: "Returns the caller's tier and its quotas (active exports, max rows, TTL days), the 4 MiB body cap, default TTL, supported formats and sources, and the canonical status enum. Stable and cache-safe.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.exportsPolicy(i, c),
+  },
 ];
+
 
 const byId = new Map(CAPABILITIES.map((c) => [c.id, c]));
 const byMcpName = new Map(CAPABILITIES.map((c) => [c.mcpName, c]));

@@ -2179,6 +2179,34 @@ export const publicApiJobRuns = pgTable('public_api_job_runs', {
   statusIdx: index('public_api_job_runs_status_idx').on(t.status, t.createdAt),
 }));
 
+// ─── Phase 22 — Exports & Reports (Pillar AF) ────────────────────────
+export const publicApiExports = pgTable('public_api_exports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  label: text('label').notNull(),
+  source: text('source').notNull(),
+  format: text('format').notNull().default('csv'),       // csv | jsonl
+  filters: jsonb('filters').notNull().default('{}'),
+  rowCount: integer('row_count').notNull().default(0),
+  byteSize: integer('byte_size').notNull().default(0),
+  sha256: text('sha256').notNull().default(''),
+  truncated: boolean('truncated').notNull().default(false),
+  status: text('status').notNull().default('pending'),   // pending | completed | failed | purged
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  body: bytea('body'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  purgedAt: timestamp('purged_at', { withTimezone: true }),
+}, (t) => ({
+  userIdx: index('public_api_exports_user_idx').on(t.userId, t.createdAt),
+  keyIdx: index('public_api_exports_key_idx').on(t.keyId, t.createdAt),
+  sourceIdx: index('public_api_exports_source_idx').on(t.userId, t.source, t.createdAt),
+  statusIdx: index('public_api_exports_status_idx').on(t.status, t.expiresAt),
+}));
+
+
 
 
 
