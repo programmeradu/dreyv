@@ -60,7 +60,13 @@ export type WebhookEventName =
   | "report.generated"
   | "report.shared"
   | "report.share_revoked"
+  | "marketplace.listing_published"
+  | "marketplace.listing_unpublished"
+  | "marketplace.listing_installed"
+  | "marketplace.listing_uninstalled"
+  | "marketplace.review_posted"
   | "test.ping";
+
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "watcher.delta",
@@ -99,8 +105,17 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "inbox.digest_ready",
   "inbox.notification_archived",
   "inbox.notification_snoozed",
+  "report.generated",
+  "report.shared",
+  "report.share_revoked",
+  "marketplace.listing_published",
+  "marketplace.listing_unpublished",
+  "marketplace.listing_installed",
+  "marketplace.listing_uninstalled",
+  "marketplace.review_posted",
   "test.ping",
 ];
+
 
 const MAX_BODY_BYTES = 256 * 1024;          // 256 KiB request body cap
 const MAX_RESP_CAPTURE_BYTES = 4096;        // capture first 4 KiB of response
