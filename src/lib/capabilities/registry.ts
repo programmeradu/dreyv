@@ -100,7 +100,7 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "ERC-8004 agent identity lookup (preview)",
     description: "Looks up an agent passport. Phase 1 returns Dreyv-registered agents; on-chain ERC-8004 resolution lands in Phase 3.",
     inputSchema: z.object({ agentId: z.string().min(1) }),
-    handler: (i, c) => caps.agentLookup(i, c),
+    handler: (i) => caps.agentLookup(i),
   },
   {
     id: "identity.delegate_session",
@@ -117,7 +117,7 @@ export const CAPABILITIES: PublicCapability[] = [
       ttlSeconds: z.number().int().min(60).max(86_400).default(3600),
       spendCapUsd: z.number().nonnegative().default(0),
     }),
-    handler: (i, c) => caps.delegateSession(i, c),
+    handler: (i) => caps.delegateSession(i),
   },
 
   // ─── Pillar B — Portfolio & Treasury ──────────────────────────────────
