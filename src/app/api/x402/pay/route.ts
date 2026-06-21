@@ -27,7 +27,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { agentApiKeys, agentPayments, cryptoInvoices, users } from "@/db/schema";
-import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
+import { resolveAgentKeyOrInternal } from "@/lib/agent/api-keys";
 import { getSku } from "@/lib/agent/skus";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
 import {
