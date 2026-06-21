@@ -10391,10 +10391,10 @@ function _slaCreditPctAN(actualUptime: number, targetUptime: number): number {
   return 0.10;
 }
 
-function _dispatchAN(event: string, userId: string, payload: Record<string, unknown>): void {
+function _dispatchAN(event: string, userId: string, data: Record<string, unknown>): void {
   // Best-effort fire-and-forget; matches other pillars.
   void import("@/lib/webhooks/dispatcher")
-    .then((m) => m.dispatchWebhookEvent?.({ event: event as Parameters<typeof m.dispatchWebhookEvent>[0]["event"], userId, payload }))
+    .then((m) => m.emitWebhookEvent({ event: event as Parameters<typeof m.emitWebhookEvent>[0]["event"], userId, data }))
     .catch(() => {});
 }
 
