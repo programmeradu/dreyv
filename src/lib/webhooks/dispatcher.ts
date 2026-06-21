@@ -47,6 +47,9 @@ export type WebhookEventName =
   | "export.created"
   | "export.completed"
   | "export.failed"
+  | "inbox.digest_ready"
+  | "inbox.notification_archived"
+  | "inbox.notification_snoozed"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -76,6 +79,9 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "export.created",
   "export.completed",
   "export.failed",
+  "inbox.digest_ready",
+  "inbox.notification_archived",
+  "inbox.notification_snoozed",
   "test.ping",
 ];
 

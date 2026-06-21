@@ -2276,3 +2276,41 @@ export const publicApiFlagEvaluations = pgTable('public_api_flag_evaluations', {
   hashIdx: index('public_api_flag_evals_hash_idx').on(t.flagId, t.contextHash),
 }));
 
+// ─── Phase 25 — Inbox & Digests (Pillar AI) ──────────────────────────
+export const publicApiInboxState = pgTable('public_api_inbox_state', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  notificationId: integer('notification_id').references(() => notifications.id, { onDelete: 'cascade' }).notNull(),
+  threadKey: text('thread_key'),
+  archived: boolean('archived').notNull().default(false),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  snoozedUntil: timestamp('snoozed_until', { withTimezone: true }),
+  pinned: boolean('pinned').notNull().default(false),
+  pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  notifUq: uniqueIndex('public_api_inbox_state_notif_uq').on(t.notificationId),
+  userIdx: index('public_api_inbox_state_user_idx').on(t.userId, t.updatedAt),
+  threadIdx: index('public_api_inbox_state_thread_idx').on(t.userId, t.threadKey),
+}));
+
+export const publicApiInboxDigests = pgTable('public_api_inbox_digests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  filters: jsonb('filters').notNull().default('{}'),
+  channel: text('channel').notNull().default('inbox'),     // inbox | preview
+  scheduleSeconds: integer('schedule_seconds').notNull().default(86400),
+  enabled: boolean('enabled').notNull().default(true),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  lastMatchCount: integer('last_match_count').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('public_api_inbox_digests_user_name_uq').on(t.userId, t.name),
+  userIdx: index('public_api_inbox_digests_user_idx').on(t.userId, t.createdAt),
+}));
+
+
