@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-    const key = await resolveAgentKey(extractBearer(req));
+    const key = await resolveAgentKeyOrInternal(req);
     if (!key) {
         return NextResponse.json(
             { error: "unauthorized", message: "Provide Authorization: Bearer dak_…" },
