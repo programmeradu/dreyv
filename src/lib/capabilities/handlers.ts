@@ -6790,3 +6790,618 @@ export async function tagsPolicy(_input: Record<string, never>, ctx: CapabilityR
     ],
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Pillar AH — Feature Flags & Experiments (Phase 24)
+// ─────────────────────────────────────────────────────────────────────
+import {
+  publicApiFlags as _flagsAH,
+  publicApiFlagEvaluations as _flagEvalsAH,
+} from "@/db/schema";
+import { createHash as _createHashAH } from "node:crypto";
+
+const _FLAG_TYPES_AH = ["boolean", "string", "number", "json"] as const;
+type _FlagType = (typeof _FLAG_TYPES_AH)[number];
+
+const _FLAG_OPERATORS_AH = [
+  "eq", "neq", "in", "nin",
+  "gt", "gte", "lt", "lte",
+  "contains", "startsWith", "endsWith",
+  "regex", "exists", "percent",
+] as const;
+type _FlagOp = (typeof _FLAG_OPERATORS_AH)[number];
+
+const _TIER_FLAG_LIMITS_AH: Record<
+  string,
+  { flags: number; rulesPerFlag: number; evalLogPerDay: number }
+> = {
+  free: { flags: 10,  rulesPerFlag: 8,  evalLogPerDay: 1_000 },
+  mini: { flags: 100, rulesPerFlag: 32, evalLogPerDay: 50_000 },
+  max:  { flags: 1_000, rulesPerFlag: 128, evalLogPerDay: 1_000_000 },
+};
+
+const _MAX_FLAG_KEY_AH = 96;
+const _MAX_FLAG_DISPLAY_AH = 96;
+const _MAX_FLAG_DESC_AH = 280;
+const _MAX_FLAG_RULES_AH = 128;
+const _MAX_CONTEXT_BYTES_AH = 2048;
+const _UUID_RE_AH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function _normalizeFlagKeyAH(raw: string): string {
+  const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
+  if (!key) throw new CapabilityError("Flag key cannot be empty", 400, null);
+  if (!/^[a-z0-9][a-z0-9._:-]{0,95}$/.test(key)) {
+    throw new CapabilityError(
+      "Flag key must match /^[a-z0-9][a-z0-9._:-]{0,95}$/ (lowercase, may include . _ : -)",
+      400,
+      null,
+    );
+  }
+  return key;
+}
+
+function _assertFlagTypeAH(t: string): _FlagType {
+  if (!(_FLAG_TYPES_AH as readonly string[]).includes(t)) {
+    throw new CapabilityError(
+      `Unknown flag type '${t}'. Allowed: ${_FLAG_TYPES_AH.join(", ")}`,
+      400,
+      null,
+    );
+  }
+  return t as _FlagType;
+}
+
+function _coerceFlagValueAH(type: _FlagType, value: unknown): unknown {
+  if (value === null || value === undefined) {
+    throw new CapabilityError(`Value required for type '${type}'`, 400, null);
+  }
+  switch (type) {
+    case "boolean":
+      if (typeof value !== "boolean") throw new CapabilityError("Expected boolean value", 400, null);
+      return value;
+    case "string":
+      if (typeof value !== "string") throw new CapabilityError("Expected string value", 400, null);
+      if (value.length > 4096) throw new CapabilityError("String value exceeds 4096 chars", 400, null);
+      return value;
+    case "number":
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new CapabilityError("Expected finite number value", 400, null);
+      }
+      return value;
+    case "json": {
+      const s = JSON.stringify(value);
+      if (s.length > 16 * 1024) throw new CapabilityError("JSON value exceeds 16KiB", 400, null);
+      return value;
+    }
+  }
+}
+
+type _FlagRuleAH = {
+  when: Record<string, { op: _FlagOp; value?: unknown }>;
+  value: unknown;
+  note?: string;
+};
+
+function _validateRulesAH(rules: unknown, type: _FlagType): _FlagRuleAH[] {
+  if (!Array.isArray(rules)) throw new CapabilityError("rules must be an array", 400, null);
+  if (rules.length > _MAX_FLAG_RULES_AH) {
+    throw new CapabilityError(`Too many rules (max ${_MAX_FLAG_RULES_AH})`, 400, null);
+  }
+  const out: _FlagRuleAH[] = [];
+  rules.forEach((raw, i) => {
+    if (!raw || typeof raw !== "object") {
+      throw new CapabilityError(`rules[${i}] must be an object`, 400, null);
+    }
+    const r = raw as Record<string, unknown>;
+    if (!r.when || typeof r.when !== "object" || Array.isArray(r.when)) {
+      throw new CapabilityError(`rules[${i}].when must be an object`, 400, null);
+    }
+    const when: Record<string, { op: _FlagOp; value?: unknown }> = {};
+    for (const [k, v] of Object.entries(r.when as Record<string, unknown>)) {
+      if (!v || typeof v !== "object") {
+        throw new CapabilityError(`rules[${i}].when[${k}] must be { op, value? }`, 400, null);
+      }
+      const w = v as { op?: unknown; value?: unknown };
+      if (typeof w.op !== "string" || !(_FLAG_OPERATORS_AH as readonly string[]).includes(w.op)) {
+        throw new CapabilityError(
+          `rules[${i}].when[${k}].op invalid. Allowed: ${_FLAG_OPERATORS_AH.join(", ")}`,
+          400,
+          null,
+        );
+      }
+      when[k] = { op: w.op as _FlagOp, value: w.value };
+    }
+    if (!("value" in r)) {
+      throw new CapabilityError(`rules[${i}].value is required`, 400, null);
+    }
+    const value = _coerceFlagValueAH(type, r.value);
+    const note = typeof r.note === "string" ? r.note.slice(0, 280) : undefined;
+    out.push({ when, value, note });
+  });
+  return out;
+}
+
+function _percentBucketAH(seed: string, salt: string): number {
+  const h = _createHashAH("sha256").update(`${salt}:${seed}`).digest();
+  // First 4 bytes → uint32 → 0..99
+  const n = h.readUInt32BE(0);
+  return n % 100;
+}
+
+function _matchOperatorAH(op: _FlagOp, actual: unknown, expected: unknown, salt: string): boolean {
+  switch (op) {
+    case "exists":
+      return actual !== undefined && actual !== null;
+    case "eq":
+      return actual === expected;
+    case "neq":
+      return actual !== expected;
+    case "in":
+      return Array.isArray(expected) && expected.includes(actual as never);
+    case "nin":
+      return Array.isArray(expected) && !expected.includes(actual as never);
+    case "gt":
+      return typeof actual === "number" && typeof expected === "number" && actual > expected;
+    case "gte":
+      return typeof actual === "number" && typeof expected === "number" && actual >= expected;
+    case "lt":
+      return typeof actual === "number" && typeof expected === "number" && actual < expected;
+    case "lte":
+      return typeof actual === "number" && typeof expected === "number" && actual <= expected;
+    case "contains":
+      return typeof actual === "string" && typeof expected === "string" && actual.includes(expected);
+    case "startsWith":
+      return typeof actual === "string" && typeof expected === "string" && actual.startsWith(expected);
+    case "endsWith":
+      return typeof actual === "string" && typeof expected === "string" && actual.endsWith(expected);
+    case "regex": {
+      if (typeof actual !== "string" || typeof expected !== "string") return false;
+      try { return new RegExp(expected).test(actual); } catch { return false; }
+    }
+    case "percent": {
+      // expected: number 0..100. actual: any stable seed (typically userId).
+      if (typeof expected !== "number" || expected < 0 || expected > 100) return false;
+      const seed = typeof actual === "string" ? actual : JSON.stringify(actual ?? "");
+      return _percentBucketAH(seed, salt) < expected;
+    }
+  }
+}
+
+function _evaluateFlagAH(
+  flag: typeof _flagsAH.$inferSelect,
+  context: Record<string, unknown>,
+): { value: unknown; matchedRule: number | null; reason: string } {
+  if (!flag.enabled || flag.archivedAt) {
+    return { value: flag.defaultValue, matchedRule: null, reason: flag.archivedAt ? "archived" : "disabled" };
+  }
+  const rules = (flag.rules as unknown as _FlagRuleAH[]) ?? [];
+  for (let i = 0; i < rules.length; i++) {
+    const r = rules[i];
+    const conds = Object.entries(r.when);
+    if (conds.length === 0) continue;
+    const allMatch = conds.every(([attr, { op, value }]) =>
+      _matchOperatorAH(op, context[attr], value, `${flag.key}:${i}`),
+    );
+    if (allMatch) return { value: r.value, matchedRule: i, reason: "rule_match" };
+  }
+  return { value: flag.defaultValue, matchedRule: null, reason: "default" };
+}
+
+function _canonicalContextAH(ctx: Record<string, unknown>): { hash: string; redacted: Record<string, unknown> } {
+  const keys = Object.keys(ctx).sort();
+  const canonical: Record<string, unknown> = {};
+  for (const k of keys) canonical[k] = ctx[k];
+  let serialized = JSON.stringify(canonical);
+  if (serialized.length > _MAX_CONTEXT_BYTES_AH) {
+    // Drop largest fields until under the cap.
+    const sized = keys
+      .map((k) => ({ k, n: JSON.stringify(ctx[k]).length }))
+      .sort((a, b) => b.n - a.n);
+    for (const { k } of sized) {
+      delete canonical[k];
+      canonical["__truncated__"] = true;
+      serialized = JSON.stringify(canonical);
+      if (serialized.length <= _MAX_CONTEXT_BYTES_AH) break;
+    }
+  }
+  const hash = _createHashAH("sha256").update(serialized).digest("hex");
+  return { hash, redacted: canonical };
+}
+
+async function _loadFlagAH(idOrKey: string, userId: string) {
+  const d = requireDb();
+  const isUuid = _UUID_RE_AH.test(idOrKey);
+  const [row] = isUuid
+    ? await d.select().from(_flagsAH).where(and(eq(_flagsAH.id, idOrKey), eq(_flagsAH.userId, userId))).limit(1)
+    : await d.select().from(_flagsAH).where(and(eq(_flagsAH.key, idOrKey.trim().toLowerCase()), eq(_flagsAH.userId, userId))).limit(1);
+  if (!row) throw new CapabilityError(`Flag '${idOrKey}' not found`, 404, null);
+  return row;
+}
+
+export async function flagsCreate(
+  input: {
+    key: string;
+    display?: string;
+    description?: string;
+    type: string;
+    defaultValue: unknown;
+    rules?: unknown;
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const key = _normalizeFlagKeyAH(input.key);
+  const type = _assertFlagTypeAH(input.type);
+  const display = (input.display ?? key).trim().slice(0, _MAX_FLAG_DISPLAY_AH) || key;
+  const description = input.description?.slice(0, _MAX_FLAG_DESC_AH) ?? null;
+  const defaultValue = _coerceFlagValueAH(type, input.defaultValue);
+  const rules = _validateRulesAH(input.rules ?? [], type);
+
+  const tier = await _userTierAE(ctx.userId);
+  const limits = _TIER_FLAG_LIMITS_AH[tier];
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_flagsAH)
+    .where(eq(_flagsAH.userId, ctx.userId));
+  if (n >= limits.flags) {
+    throw new CapabilityError(
+      `Flag quota reached for tier '${tier}' (${n}/${limits.flags})`,
+      429,
+      null,
+    );
+  }
+  if (rules.length > limits.rulesPerFlag) {
+    throw new CapabilityError(
+      `Per-flag rule cap exceeded (${rules.length}/${limits.rulesPerFlag}) for tier '${tier}'`,
+      429,
+      null,
+    );
+  }
+
+  const [existing] = await d
+    .select()
+    .from(_flagsAH)
+    .where(and(eq(_flagsAH.userId, ctx.userId), eq(_flagsAH.key, key)))
+    .limit(1);
+  if (existing) {
+    throw new CapabilityError(
+      `Flag '${key}' already exists (id=${existing.id}). Use flags.update to modify.`,
+      409,
+      { existingId: existing.id },
+    );
+  }
+
+  const [row] = await d
+    .insert(_flagsAH)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      key,
+      display,
+      description,
+      type,
+      defaultValue: defaultValue as never,
+      rules: rules as never,
+      enabled: input.enabled ?? true,
+    })
+    .returning();
+
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "flags.create",
+    target: row.id,
+    meta: { key, type, rules: rules.length },
+  });
+
+  return row;
+}
+
+export async function flagsList(
+  input: { query?: string; includeArchived?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 200, 1), 1000);
+  const conds: unknown[] = [eq(_flagsAH.userId, ctx.userId)];
+  if (!input.includeArchived) {
+    conds.push(_sqlAE`${_flagsAH.archivedAt} IS NULL`);
+  }
+  if (input.query) {
+    const q = `%${input.query.trim().toLowerCase().replace(/[%_]/g, "\\$&")}%`;
+    conds.push(_sqlAE`${_flagsAH.key} ILIKE ${q}`);
+  }
+  const rows = await d
+    .select()
+    .from(_flagsAH)
+    .where(and(...(conds as never[])))
+    .orderBy(desc(_flagsAH.createdAt))
+    .limit(limit);
+  return {
+    count: rows.length,
+    flags: rows.map((r) => ({
+      ...r,
+      ruleCount: Array.isArray(r.rules) ? (r.rules as unknown[]).length : 0,
+    })),
+  };
+}
+
+export async function flagsGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const row = await _loadFlagAH(input.id, ctx.userId);
+  return row;
+}
+
+export async function flagsUpdate(
+  input: {
+    id: string;
+    display?: string;
+    description?: string;
+    defaultValue?: unknown;
+    rules?: unknown;
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const flag = await _loadFlagAH(input.id, ctx.userId);
+  const type = flag.type as _FlagType;
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  const touched: string[] = [];
+  if (input.display !== undefined) {
+    const display = input.display.trim().slice(0, _MAX_FLAG_DISPLAY_AH);
+    if (!display) throw new CapabilityError("display cannot be empty", 400, null);
+    patch.display = display;
+    touched.push("display");
+  }
+  if (input.description !== undefined) {
+    patch.description = input.description.slice(0, _MAX_FLAG_DESC_AH);
+    touched.push("description");
+  }
+  if (input.defaultValue !== undefined) {
+    patch.defaultValue = _coerceFlagValueAH(type, input.defaultValue);
+    touched.push("defaultValue");
+  }
+  if (input.rules !== undefined) {
+    const rules = _validateRulesAH(input.rules, type);
+    const tier = await _userTierAE(ctx.userId);
+    const limit = _TIER_FLAG_LIMITS_AH[tier].rulesPerFlag;
+    if (rules.length > limit) {
+      throw new CapabilityError(
+        `Per-flag rule cap exceeded (${rules.length}/${limit}) for tier '${tier}'`,
+        429,
+        null,
+      );
+    }
+    patch.rules = rules;
+    touched.push("rules");
+  }
+  if (input.enabled !== undefined) {
+    patch.enabled = input.enabled;
+    touched.push("enabled");
+  }
+  const [row] = await d
+    .update(_flagsAH)
+    .set(patch)
+    .where(eq(_flagsAH.id, flag.id))
+    .returning();
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "flags.update",
+    target: flag.id,
+    meta: { key: flag.key, fields: touched },
+  });
+  return row;
+}
+
+export async function flagsArchive(
+  input: { id: string; restore?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const flag = await _loadFlagAH(input.id, ctx.userId);
+  const restore = input.restore === true;
+  const [row] = await d
+    .update(_flagsAH)
+    .set({
+      archivedAt: restore ? null : new Date(),
+      enabled: restore ? flag.enabled : false,
+      updatedAt: new Date(),
+    })
+    .where(eq(_flagsAH.id, flag.id))
+    .returning();
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: restore ? "flags.restore" : "flags.archive",
+    target: flag.id,
+    meta: { key: flag.key },
+  });
+  return row;
+}
+
+export async function flagsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const flag = await _loadFlagAH(input.id, ctx.userId);
+  const [{ n }] = await d
+    .select({ n: _sqlAE<number>`count(*)::int` })
+    .from(_flagEvalsAH)
+    .where(eq(_flagEvalsAH.flagId, flag.id));
+  await d.delete(_flagsAH).where(eq(_flagsAH.id, flag.id));
+  await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "flags.delete",
+    target: flag.id,
+    meta: { key: flag.key, removedEvaluations: n },
+  });
+  return { id: flag.id, key: flag.key, deleted: true, removedEvaluations: n };
+}
+
+async function _logEvaluationAH(args: {
+  userId: string;
+  flagId: string;
+  key: string;
+  matchedRule: number | null;
+  value: unknown;
+  context: Record<string, unknown>;
+}): Promise<void> {
+  const d = requireDb();
+  const { hash, redacted } = _canonicalContextAH(args.context);
+  try {
+    await d.insert(_flagEvalsAH).values({
+      userId: args.userId,
+      flagId: args.flagId,
+      key: args.key,
+      matchedRule: args.matchedRule,
+      value: args.value as never,
+      contextHash: hash,
+      context: redacted as never,
+    });
+  } catch {
+    // evaluation logging is best-effort
+  }
+}
+
+export async function flagsEvaluate(
+  input: { key: string; context?: Record<string, unknown>; log?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const flag = await _loadFlagAH(input.key, ctx.userId);
+  const context = input.context ?? {};
+  const { value, matchedRule, reason } = _evaluateFlagAH(flag, context);
+  if (input.log !== false) {
+    await _logEvaluationAH({
+      userId: ctx.userId,
+      flagId: flag.id,
+      key: flag.key,
+      matchedRule,
+      value,
+      context,
+    });
+  }
+  return {
+    key: flag.key,
+    type: flag.type,
+    value,
+    matchedRule,
+    reason,
+    enabled: flag.enabled,
+    archived: flag.archivedAt !== null,
+  };
+}
+
+export async function flagsBulkEvaluate(
+  input: { keys: string[]; context?: Record<string, unknown>; log?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!Array.isArray(input.keys) || input.keys.length === 0) {
+    throw new CapabilityError("keys must be a non-empty array", 400, null);
+  }
+  if (input.keys.length > 100) {
+    throw new CapabilityError("Bulk evaluate caps at 100 keys per call", 400, null);
+  }
+  const normalized = Array.from(new Set(input.keys.map((k) => k.trim().toLowerCase()).filter(Boolean)));
+  const rows = await d
+    .select()
+    .from(_flagsAH)
+    .where(and(eq(_flagsAH.userId, ctx.userId), inArray(_flagsAH.key, normalized)));
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+  const context = input.context ?? {};
+  const results: Record<string, unknown> = {};
+  for (const k of normalized) {
+    const flag = byKey.get(k);
+    if (!flag) {
+      results[k] = { found: false };
+      continue;
+    }
+    const { value, matchedRule, reason } = _evaluateFlagAH(flag, context);
+    results[k] = {
+      found: true,
+      type: flag.type,
+      value,
+      matchedRule,
+      reason,
+      enabled: flag.enabled,
+      archived: flag.archivedAt !== null,
+    };
+    if (input.log !== false) {
+      await _logEvaluationAH({
+        userId: ctx.userId,
+        flagId: flag.id,
+        key: flag.key,
+        matchedRule,
+        value,
+        context,
+      });
+    }
+  }
+  return {
+    requested: normalized.length,
+    matched: rows.length,
+    missing: normalized.filter((k) => !byKey.has(k)),
+    results,
+  };
+}
+
+export async function flagsHistory(
+  input: { id: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const flag = await _loadFlagAH(input.id, ctx.userId);
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const rows = await d
+    .select({
+      id: _flagEvalsAH.id,
+      matchedRule: _flagEvalsAH.matchedRule,
+      value: _flagEvalsAH.value,
+      contextHash: _flagEvalsAH.contextHash,
+      context: _flagEvalsAH.context,
+      createdAt: _flagEvalsAH.createdAt,
+    })
+    .from(_flagEvalsAH)
+    .where(and(eq(_flagEvalsAH.userId, ctx.userId), eq(_flagEvalsAH.flagId, flag.id)))
+    .orderBy(desc(_flagEvalsAH.createdAt))
+    .limit(limit);
+
+  // Aggregate matched-rule distribution.
+  const dist: Record<string, number> = {};
+  for (const r of rows) {
+    const k = r.matchedRule === null ? "default" : `rule_${r.matchedRule}`;
+    dist[k] = (dist[k] ?? 0) + 1;
+  }
+  return {
+    flag: { id: flag.id, key: flag.key, type: flag.type },
+    count: rows.length,
+    distribution: dist,
+    evaluations: rows,
+  };
+}
+
+export async function flagsPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAE(ctx.userId);
+  return {
+    tier,
+    limits: _TIER_FLAG_LIMITS_AH[tier],
+    perTier: _TIER_FLAG_LIMITS_AH,
+    types: _FLAG_TYPES_AH,
+    operators: _FLAG_OPERATORS_AH,
+    fieldLimits: {
+      keyMaxChars: _MAX_FLAG_KEY_AH,
+      displayMaxChars: _MAX_FLAG_DISPLAY_AH,
+      descriptionMaxChars: _MAX_FLAG_DESC_AH,
+      maxRulesPerFlag: _MAX_FLAG_RULES_AH,
+      maxContextBytes: _MAX_CONTEXT_BYTES_AH,
+    },
+    notes: [
+      "Flag `key` is the lowercased lookup slug and is immutable; `display` is the relabel surface.",
+      "Rules are evaluated in array order; the first rule whose `when` map fully matches the context wins.",
+      "`percent` operator uses sha256(`${flagKey}:${ruleIndex}` + actual) for stable per-rule bucketing.",
+      "Context is canonicalized (sorted keys), sha256-hashed, and redacted to <=2KiB before logging.",
+      "Archived flags are evaluated as disabled and always return the default value.",
+    ],
+  };
+}
