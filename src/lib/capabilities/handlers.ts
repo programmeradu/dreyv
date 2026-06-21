@@ -1380,7 +1380,169 @@ export async function economyWalletBalance(_input: Record<string, never>, ctx: C
 }
 
 // ─── Pillar N — Reasoning & Knowledge ─────────────────────────────────
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// LOVABLE_API_KEY is NEVER on Vercel (per project policy). All Lovable AI calls
+// go through the Supabase edge function `lovable-ai-proxy` which holds the key
+// in the Lovable Cloud workspace. Gemini API is used as a backup provider when
+// the proxy is unreachable or returns an error.
+
+const LOVABLE_AI_DIRECT_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+
+function resolveLovableProxyUrl(): string | null {
+  const direct = process.env.LOVABLE_AI_PROXY_URL?.trim();
+  if (direct) return direct;
+  const sbUrl = (
+    process.env.LOVABLE_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    ""
+  ).trim();
+  if (sbUrl) return `${sbUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
+  return null;
+}
+
+function resolveLovableProxyAuth(): string | null {
+  return (
+    process.env.LOVABLE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    null
+  )?.trim() || null;
+}
+
+async function tryProxy(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const url = resolveLovableProxyUrl();
+  const auth = resolveLovableProxyAuth();
+  if (!url || !auth) return { ok: false, reason: "proxy_unconfigured" };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth}`,
+        apikey: auth,
+      },
+      body: JSON.stringify({
+        model: opts.model || "google/gemini-3-flash-preview",
+        stream: false,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.3,
+        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
+    if (!res.ok) return { ok: false, status: res.status, reason: `proxy_http_${res.status}` };
+    const data = await res.json();
+    const txt = data?.choices?.[0]?.message?.content ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `proxy_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
+
+async function tryDirect(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return { ok: false, reason: "no_direct_key" };
+  try {
+    const res = await fetch(LOVABLE_AI_DIRECT_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: opts.model || "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.3,
+        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
+    if (!res.ok) return { ok: false, status: res.status, reason: `direct_http_${res.status}` };
+    const data = await res.json();
+    const txt = data?.choices?.[0]?.message?.content ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `direct_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
+
+async function tryGemini(opts: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  jsonMode?: boolean;
+}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { ok: false, reason: "no_gemini_key" };
+  // Map Lovable-style model name to a Gemini model id.
+  const raw = opts.model || "google/gemini-3-flash-preview";
+  const id = raw.startsWith("google/") ? raw.slice("google/".length) : raw;
+  // Conservative mapping — only flip preview/-3 to a known live id.
+  const geminiModel =
+    id.includes("gemini-3") ? "gemini-2.5-flash" :
+    id.includes("flash-lite") ? "gemini-2.5-flash-lite" :
+    id.includes("pro") ? "gemini-2.5-pro" :
+    "gemini-2.5-flash";
+  try {
+    const res = await fetch(
+      `${GEMINI_API_URL}/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: opts.system }] },
+          contents: [{ role: "user", parts: [{ text: opts.user }] }],
+          generationConfig: {
+            temperature: opts.temperature ?? 0.3,
+            maxOutputTokens: opts.maxTokens ?? 800,
+            ...(opts.jsonMode ? { responseMimeType: "application/json" } : {}),
+          },
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { ok: false, status: res.status, reason: `gemini_http_${res.status}:${t.slice(0, 80)}` };
+    }
+    const data = await res.json();
+    const txt = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p?.text ?? "").join("") ?? "";
+    if (!txt) return { ok: false, reason: "empty_response" };
+    return { ok: true, text: String(txt) };
+  } catch (e) {
+    return { ok: false, reason: `gemini_error:${(e as Error).message?.slice(0, 80)}` };
+  }
+}
 
 async function callLovableAI(opts: {
   system: string;
@@ -1390,27 +1552,20 @@ async function callLovableAI(opts: {
   temperature?: number;
   jsonMode?: boolean;
 }): Promise<string> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new CapabilityError("LOVABLE_API_KEY not configured", 503, null);
-  const res = await fetch(LOVABLE_AI_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model || "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
-      max_tokens: opts.maxTokens ?? 800,
-      temperature: opts.temperature ?? 0.3,
-      ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
-    }),
-  });
-  if (res.status === 429) throw new CapabilityError("Lovable AI rate-limited", 429, null);
-  if (res.status === 402) throw new CapabilityError("Lovable AI credits exhausted", 402, null);
-  if (!res.ok) throw new CapabilityError(`Lovable AI failed: ${res.status}`, 502, null);
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const attempts: string[] = [];
+  for (const fn of [tryProxy, tryDirect, tryGemini]) {
+    const r = await fn(opts);
+    if (r.ok) return r.text;
+    attempts.push(r.reason);
+    // Don't fall through on quota signals — surface them immediately.
+    if (r.status === 429) throw new CapabilityError("AI rate-limited — retry shortly", 429, { attempts });
+    if (r.status === 402) throw new CapabilityError("AI credits exhausted", 402, { attempts });
+  }
+  throw new CapabilityError(
+    "AI provider unavailable — proxy, direct gateway and Gemini fallback all failed",
+    503,
+    { attempts },
+  );
 }
 
 export async function reasoningAsk(
