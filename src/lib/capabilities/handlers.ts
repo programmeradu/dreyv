@@ -12,7 +12,7 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentApiKeys, agentDeliverables, agentPayments, agentTreasuryWatchers, agentTxProposals, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
+import { agentApiKeys, agentDeliverables, agentPayments, agentTreasuryWatchers, agentTxProposals, monitors, notifications, notificationPreferences, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   ALL_WEBHOOK_EVENTS,
@@ -2342,4 +2342,215 @@ export async function reportingExport(
     base64,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// ─── Pillar U — Notifications & Alerts (Phase 13) ────────────────────
+// Builds on existing monitors/notifications handlers. Adds update/test-fire
+// for monitors, full inbox send/delete, and notification-channel preferences.
+// Every write fires the appropriate webhook event when the user has a
+// subscription configured (best-effort; emit failures never break the call).
+
+export async function monitorsUpdate(
+  input: {
+    id: number;
+    operator?: "above" | "below" | "equals" | "changes";
+    conditionValue?: number;
+    active?: boolean;
+    target?: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.operator !== undefined) patch.operator = input.operator;
+  if (input.conditionValue !== undefined) patch.conditionValue = String(input.conditionValue);
+  if (input.active !== undefined) patch.active = input.active;
+  if (input.target !== undefined) patch.target = input.target;
+  if (Object.keys(patch).length === 1) {
+    throw new CapabilityError("Provide at least one field to update", 400, null);
+  }
+  const [row] = await d
+    .update(monitors)
+    .set(patch)
+    .where(and(eq(monitors.id, input.id), eq(monitors.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new CapabilityError(`Monitor ${input.id} not found for this key owner`, 404, null);
+  return { monitor: row };
+}
+
+export async function monitorsTestFire(input: { id: number }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [m] = await d
+    .select()
+    .from(monitors)
+    .where(and(eq(monitors.id, input.id), eq(monitors.userId, ctx.userId)))
+    .limit(1);
+  if (!m) throw new CapabilityError(`Monitor ${input.id} not found for this key owner`, 404, null);
+  const payload = {
+    monitorId: m.id,
+    walletAddress: m.walletAddress,
+    type: m.type,
+    target: m.target,
+    operator: m.operator,
+    conditionValue: m.conditionValue,
+    test: true,
+    firedAt: new Date().toISOString(),
+  };
+  let deliveries: unknown[] = [];
+  try {
+    deliveries = await emitWebhookEvent({ userId: ctx.userId, event: "monitor.tripped", data: payload });
+  } catch (e) {
+    deliveries = [{ error: e instanceof Error ? e.message : String(e) }];
+  }
+  return { event: "monitor.tripped", payload, deliveries };
+}
+
+export async function notificationsSend(
+  input: {
+    title: string;
+    message: string;
+    type?: string;
+    severity?: "info" | "success" | "warning" | "error";
+    actionUrl?: string;
+    actionLabel?: string;
+    metadata?: Record<string, unknown>;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [row] = await d
+    .insert(notifications)
+    .values({
+      userId: ctx.userId,
+      type: input.type ?? "system",
+      title: input.title.slice(0, 200),
+      message: input.message.slice(0, 4000),
+      severity: input.severity ?? "info",
+      actionUrl: input.actionUrl ?? null,
+      actionLabel: input.actionLabel ?? null,
+      metadata: input.metadata ?? null,
+    })
+    .returning();
+  let deliveries: unknown[] = [];
+  try {
+    deliveries = await emitWebhookEvent({
+      userId: ctx.userId,
+      event: "notification.created",
+      data: {
+        id: row.id,
+        type: row.type,
+        title: row.title,
+        message: row.message,
+        severity: row.severity,
+        actionUrl: row.actionUrl,
+        createdAt: row.createdAt,
+      },
+    });
+  } catch (e) {
+    deliveries = [{ error: e instanceof Error ? e.message : String(e) }];
+  }
+  return { notification: row, webhookDeliveries: deliveries };
+}
+
+export async function notificationsDelete(
+  input: { ids: number[] },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (!input.ids?.length) throw new CapabilityError("`ids` must be a non-empty array", 400, null);
+  const deleted = await d
+    .delete(notifications)
+    .where(and(eq(notifications.userId, ctx.userId), inArray(notifications.id, input.ids)))
+    .returning({ id: notifications.id });
+  return { deleted: deleted.length, ids: deleted.map((r) => r.id) };
+}
+
+export async function channelsPreferences(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, ctx.userId))
+    .limit(1);
+  if (!row) {
+    return {
+      preferences: {
+        emailEnabled: true,
+        teamInvites: true,
+        roleChanges: true,
+        txApprovals: true,
+        systemAlerts: true,
+        tierExpiry: true,
+        telegramEnabled: false,
+        telegramConfigured: false,
+        slackEnabled: false,
+        slackConfigured: false,
+      },
+      initialized: false,
+    };
+  }
+  // Redact secrets — never expose bot token or slack webhook URL via API.
+  return {
+    preferences: {
+      emailEnabled: row.emailEnabled,
+      teamInvites: row.teamInvites,
+      roleChanges: row.roleChanges,
+      txApprovals: row.txApprovals,
+      systemAlerts: row.systemAlerts,
+      tierExpiry: row.tierExpiry,
+      telegramEnabled: row.telegramEnabled,
+      telegramConfigured: Boolean(row.telegramBotToken && row.telegramChatId),
+      slackEnabled: row.slackEnabled,
+      slackConfigured: Boolean(row.slackWebhookUrl),
+      updatedAt: row.updatedAt,
+    },
+    initialized: true,
+  };
+}
+
+export async function channelsPreferencesUpdate(
+  input: {
+    emailEnabled?: boolean;
+    teamInvites?: boolean;
+    roleChanges?: boolean;
+    txApprovals?: boolean;
+    systemAlerts?: boolean;
+    tierExpiry?: boolean;
+    telegramEnabled?: boolean;
+    slackEnabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  for (const k of [
+    "emailEnabled",
+    "teamInvites",
+    "roleChanges",
+    "txApprovals",
+    "systemAlerts",
+    "tierExpiry",
+    "telegramEnabled",
+    "slackEnabled",
+  ] as const) {
+    if (typeof input[k] === "boolean") patch[k] = input[k];
+  }
+  if (Object.keys(patch).length === 1) {
+    throw new CapabilityError("Provide at least one preference toggle", 400, null);
+  }
+  // Upsert
+  const [existing] = await d
+    .select({ id: notificationPreferences.id })
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, ctx.userId))
+    .limit(1);
+  if (existing) {
+    await d
+      .update(notificationPreferences)
+      .set(patch)
+      .where(eq(notificationPreferences.userId, ctx.userId));
+  } else {
+    await d.insert(notificationPreferences).values({ userId: ctx.userId, ...patch });
+  }
+  return channelsPreferences({} as Record<string, never>, ctx);
 }
