@@ -1349,7 +1349,7 @@ export const CAPABILITIES: PublicCapability[] = [
     id: "compliance.screen_address",
     mcpName: "dreyv_compliance_screen_address",
     pillar: "compliance",
-    scope: "read:risk",
+    scope: "read:forensics",
     sideEffects: "read",
     status: "stable",
     title: "Sanctions / pattern screen for a single address",
