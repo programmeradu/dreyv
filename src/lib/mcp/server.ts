@@ -107,10 +107,10 @@ function buildServer(): McpServer {
       description: describe(cap),
       inputSchema: cap.inputSchema as unknown as Parameters<typeof server.tool>[1]["inputSchema"],
       annotations: {
-        readOnlyHint: cap.sideEffects === "none",
-        destructiveHint: cap.sideEffects === "external" && cap.scope.startsWith("write:"),
-        idempotentHint: cap.sideEffects === "none",
-        openWorldHint: cap.sideEffects === "external",
+        readOnlyHint: cap.sideEffects === "read",
+        destructiveHint: cap.sideEffects === "write" && cap.scope.startsWith("write:"),
+        idempotentHint: cap.sideEffects === "read" || cap.sideEffects === "simulate",
+        openWorldHint: cap.sideEffects === "write",
       },
       _meta: {
         capabilityId: cap.id,
