@@ -4,7 +4,7 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Code2, Plug, Bot, Coins, Bell, Webhook } from "lucide-react";
 import devCrystal from "@/assets/dev-crystal.png";
 import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 
