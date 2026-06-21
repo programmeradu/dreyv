@@ -28,6 +28,9 @@ export type WebhookEventName =
   | "x402.paid"
   | "delegation.expiring"
   | "notification.created"
+  | "team.member_invited"
+  | "team.member_role_changed"
+  | "team.member_removed"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -38,6 +41,9 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "x402.paid",
   "delegation.expiring",
   "notification.created",
+  "team.member_invited",
+  "team.member_role_changed",
+  "team.member_removed",
   "test.ping",
 ];
 

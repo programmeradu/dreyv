@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1614,6 +1614,97 @@ export const CAPABILITIES: PublicCapability[] = [
       limit: z.number().int().min(1).max(500).optional(),
     }).strict(),
     handler: (i, c) => caps.auditPolicyHistory(i, c),
+  },
+  // ─── Pillar W — Teams & Workspaces (Phase 15) ───────────────────────
+  {
+    id: "teams.list",
+    mcpName: "dreyv_teams_list",
+    pillar: "teams",
+    scope: "read:teams",
+    sideEffects: "read",
+    status: "stable",
+    title: "List teams the caller belongs to",
+    description: "Returns every team where the calling user is an `active` member, with role, vault address, and join timestamp. Pending invites do not appear here — accept them in the Dreyv app first.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.teamsList(i, c),
+  },
+  {
+    id: "teams.members",
+    mcpName: "dreyv_teams_members",
+    pillar: "teams",
+    scope: "read:teams",
+    sideEffects: "read",
+    status: "stable",
+    title: "List members of a team",
+    description: "Returns all members of a team (active, pending, removed) with wallet address, role, and invite/accept timestamps. Caller must be an active member.",
+    inputSchema: z.object({ teamId: z.string().uuid() }).strict(),
+    handler: (i, c) => caps.teamsMembers(i, c),
+  },
+  {
+    id: "teams.invite",
+    mcpName: "dreyv_teams_invite",
+    pillar: "teams",
+    scope: "write:teams",
+    sideEffects: "write",
+    status: "stable",
+    title: "Invite a member to a team",
+    description: "Creates a single-use invitation (email or wallet) with the chosen role (admin | signer | viewer — owner is reserved for the ownership-transfer flow). Default TTL 168h, max 720h. Logs `member_invited` and fires the `team.member_invited` webhook. Returns the invite row plus an `acceptUrl`.",
+    inputSchema: z.object({
+      teamId: z.string().uuid(),
+      role: z.enum(["admin", "signer", "viewer"]),
+      email: z.string().email().optional(),
+      walletAddress: z.string().min(4).max(128).optional(),
+      ttlHours: z.number().int().min(1).max(720).optional(),
+    }).strict(),
+    handler: (i, c) => caps.teamsInvite(i, c),
+  },
+  {
+    id: "teams.update_role",
+    mcpName: "dreyv_teams_update_role",
+    pillar: "teams",
+    scope: "write:teams",
+    sideEffects: "write",
+    status: "stable",
+    title: "Change a member's role",
+    description: "Updates a non-owner member's role. Caller must be `admin` or `owner`. Owner role cannot be assigned here — use the ownership-transfer flow. Logs `role_changed` and fires `team.member_role_changed`.",
+    inputSchema: z.object({
+      teamId: z.string().uuid(),
+      memberId: z.number().int().positive(),
+      role: z.enum(["admin", "signer", "viewer"]),
+    }).strict(),
+    handler: (i, c) => caps.teamsUpdateRole(i, c),
+  },
+  {
+    id: "teams.remove_member",
+    mcpName: "dreyv_teams_remove_member",
+    pillar: "teams",
+    scope: "write:teams",
+    sideEffects: "write",
+    status: "stable",
+    title: "Remove a member from a team",
+    description: "Sets the member status to `removed`. Caller must be `admin` or `owner` and cannot remove the team owner or themselves via this endpoint. Logs `member_removed` and fires `team.member_removed`.",
+    inputSchema: z.object({
+      teamId: z.string().uuid(),
+      memberId: z.number().int().positive(),
+    }).strict(),
+    handler: (i, c) => caps.teamsRemoveMember(i, c),
+  },
+  {
+    id: "teams.activity",
+    mcpName: "dreyv_teams_activity",
+    pillar: "teams",
+    scope: "read:teams",
+    sideEffects: "read",
+    status: "stable",
+    title: "Recent team activity log",
+    description: "Returns recent entries from `team_activity_log` (proposal_created, member_invited, role_changed, member_removed, settings_changed, …) filterable by `action` and `sinceIso`. Caller must be an active team member.",
+    inputSchema: z.object({
+      teamId: z.string().uuid(),
+      action: z.string().optional(),
+      sinceIso: z.string().datetime().optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).strict(),
+    handler: (i, c) => caps.teamsActivity(i, c),
   },
 ];
 
