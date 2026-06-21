@@ -2554,3 +2554,365 @@ export async function channelsPreferencesUpdate(
   }
   return channelsPreferences({} as Record<string, never>, ctx);
 }
+
+// ─── Pillar V — Observability & Audit Trail (Phase 14) ─────────────────
+// Read-only introspection of the public API surface for this key/user.
+// Covers request history, aggregate usage, error explorer, CSV/JSON export,
+// HS256 receipt verification, and tamper-evident replay of the policy
+// hash-chain (publicApiAuditLog). All capabilities use scope `read:audit`.
+
+import { gte, lte, sql as _sqlV } from "drizzle-orm";
+
+function _clampInt(n: unknown, def: number, min: number, max: number): number {
+  const v = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(v)) return def;
+  return Math.max(min, Math.min(max, Math.floor(v)));
+}
+
+function _sinceDate(sinceIso: string | undefined, defaultMinutes: number): Date {
+  if (sinceIso) {
+    const d = new Date(sinceIso);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date(Date.now() - defaultMinutes * 60_000);
+}
+
+function _percentile(sorted: number[], p: number): number | null {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx];
+}
+
+export async function auditRequests(
+  input: {
+    sinceIso?: string;
+    capabilityId?: string;
+    status?: "ok" | "error" | "denied" | "rate_limited";
+    keyOnly?: boolean;
+    limit?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiKeyUsage } = await import("@/db/schema");
+  const limit = _clampInt(input.limit, 100, 1, 500);
+  const since = _sinceDate(input.sinceIso, 60 * 24); // default 24h
+  const filters = [
+    eq(publicApiKeyUsage.userId, ctx.userId),
+    gte(publicApiKeyUsage.ts, since),
+  ];
+  if (input.keyOnly) filters.push(eq(publicApiKeyUsage.keyId, ctx.keyId));
+  if (input.capabilityId) filters.push(eq(publicApiKeyUsage.capabilityId, input.capabilityId));
+  if (input.status) filters.push(eq(publicApiKeyUsage.status, input.status));
+  const rows = await d
+    .select({
+      id: publicApiKeyUsage.id,
+      keyId: publicApiKeyUsage.keyId,
+      capabilityId: publicApiKeyUsage.capabilityId,
+      transport: publicApiKeyUsage.transport,
+      status: publicApiKeyUsage.status,
+      latencyMs: publicApiKeyUsage.latencyMs,
+      costCredits: publicApiKeyUsage.costCredits,
+      errorCode: publicApiKeyUsage.errorCode,
+      ts: publicApiKeyUsage.ts,
+    })
+    .from(publicApiKeyUsage)
+    .where(and(...filters))
+    .orderBy(desc(publicApiKeyUsage.ts))
+    .limit(limit);
+  return {
+    sinceIso: since.toISOString(),
+    count: rows.length,
+    limit,
+    rows,
+  };
+}
+
+export async function auditUsageSummary(
+  input: { sinceIso?: string; keyOnly?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiKeyUsage } = await import("@/db/schema");
+  const since = _sinceDate(input.sinceIso, 60 * 24 * 7); // default 7d
+  const filters = [
+    eq(publicApiKeyUsage.userId, ctx.userId),
+    gte(publicApiKeyUsage.ts, since),
+  ];
+  if (input.keyOnly) filters.push(eq(publicApiKeyUsage.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      capabilityId: publicApiKeyUsage.capabilityId,
+      status: publicApiKeyUsage.status,
+      latencyMs: publicApiKeyUsage.latencyMs,
+      costCredits: publicApiKeyUsage.costCredits,
+    })
+    .from(publicApiKeyUsage)
+    .where(and(...filters))
+    .limit(50_000);
+  const byCap = new Map<string, { total: number; ok: number; error: number; denied: number; rate_limited: number; lat: number[]; creditsCents: number }>();
+  for (const r of rows) {
+    const bucket = byCap.get(r.capabilityId) ?? { total: 0, ok: 0, error: 0, denied: 0, rate_limited: 0, lat: [], creditsCents: 0 };
+    bucket.total += 1;
+    if (r.status === "ok") bucket.ok += 1;
+    else if (r.status === "error") bucket.error += 1;
+    else if (r.status === "denied") bucket.denied += 1;
+    else if (r.status === "rate_limited") bucket.rate_limited += 1;
+    if (typeof r.latencyMs === "number") bucket.lat.push(r.latencyMs);
+    const credits = Number(r.costCredits ?? "0");
+    if (Number.isFinite(credits)) bucket.creditsCents += Math.round(credits * 10_000);
+    byCap.set(r.capabilityId, bucket);
+  }
+  const breakdown = Array.from(byCap.entries())
+    .map(([capabilityId, b]) => {
+      const sorted = [...b.lat].sort((a, x) => a - x);
+      return {
+        capabilityId,
+        total: b.total,
+        ok: b.ok,
+        error: b.error,
+        denied: b.denied,
+        rateLimited: b.rate_limited,
+        successRate: b.total ? Number((b.ok / b.total).toFixed(4)) : 0,
+        latencyMs: {
+          count: sorted.length,
+          p50: _percentile(sorted, 50),
+          p95: _percentile(sorted, 95),
+          p99: _percentile(sorted, 99),
+          max: sorted.length ? sorted[sorted.length - 1] : null,
+        },
+        creditsSpent: Number((b.creditsCents / 10_000).toFixed(4)),
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  const totals = breakdown.reduce(
+    (acc, r) => ({
+      total: acc.total + r.total,
+      ok: acc.ok + r.ok,
+      error: acc.error + r.error,
+      denied: acc.denied + r.denied,
+      rateLimited: acc.rateLimited + r.rateLimited,
+      creditsSpent: acc.creditsSpent + r.creditsSpent,
+    }),
+    { total: 0, ok: 0, error: 0, denied: 0, rateLimited: 0, creditsSpent: 0 },
+  );
+  return {
+    sinceIso: since.toISOString(),
+    windowSeconds: Math.round((Date.now() - since.getTime()) / 1000),
+    totals: { ...totals, creditsSpent: Number(totals.creditsSpent.toFixed(4)) },
+    breakdown,
+  };
+}
+
+export async function auditErrors(
+  input: { sinceIso?: string; keyOnly?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiKeyUsage } = await import("@/db/schema");
+  const since = _sinceDate(input.sinceIso, 60 * 24); // default 24h
+  const limit = _clampInt(input.limit, 25, 1, 100);
+  const filters = [
+    eq(publicApiKeyUsage.userId, ctx.userId),
+    gte(publicApiKeyUsage.ts, since),
+    inArray(publicApiKeyUsage.status, ["error", "denied", "rate_limited"]),
+  ];
+  if (input.keyOnly) filters.push(eq(publicApiKeyUsage.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      capabilityId: publicApiKeyUsage.capabilityId,
+      status: publicApiKeyUsage.status,
+      errorCode: publicApiKeyUsage.errorCode,
+      ts: publicApiKeyUsage.ts,
+    })
+    .from(publicApiKeyUsage)
+    .where(and(...filters))
+    .orderBy(desc(publicApiKeyUsage.ts))
+    .limit(10_000);
+  const groups = new Map<string, { capabilityId: string; status: string; errorCode: string | null; count: number; firstTs: Date; lastTs: Date }>();
+  for (const r of rows) {
+    const key = `${r.capabilityId}::${r.status}::${r.errorCode ?? ""}`;
+    const g = groups.get(key);
+    if (g) {
+      g.count += 1;
+      if (r.ts < g.firstTs) g.firstTs = r.ts;
+      if (r.ts > g.lastTs) g.lastTs = r.ts;
+    } else {
+      groups.set(key, {
+        capabilityId: r.capabilityId,
+        status: r.status,
+        errorCode: r.errorCode,
+        count: 1,
+        firstTs: r.ts,
+        lastTs: r.ts,
+      });
+    }
+  }
+  const sorted = Array.from(groups.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+  return {
+    sinceIso: since.toISOString(),
+    totalFailures: rows.length,
+    distinct: groups.size,
+    groups: sorted.map((g) => ({
+      capabilityId: g.capabilityId,
+      status: g.status,
+      errorCode: g.errorCode,
+      count: g.count,
+      firstTs: g.firstTs,
+      lastTs: g.lastTs,
+    })),
+  };
+}
+
+export async function auditExport(
+  input: {
+    sinceIso?: string;
+    format: "csv" | "json";
+    keyOnly?: boolean;
+    limit?: number;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiKeyUsage } = await import("@/db/schema");
+  const since = _sinceDate(input.sinceIso, 60 * 24 * 7); // default 7d
+  const limit = _clampInt(input.limit, 5000, 1, 50_000);
+  const filters = [
+    eq(publicApiKeyUsage.userId, ctx.userId),
+    gte(publicApiKeyUsage.ts, since),
+  ];
+  if (input.keyOnly) filters.push(eq(publicApiKeyUsage.keyId, ctx.keyId));
+  const rows = await d
+    .select({
+      id: publicApiKeyUsage.id,
+      keyId: publicApiKeyUsage.keyId,
+      capabilityId: publicApiKeyUsage.capabilityId,
+      transport: publicApiKeyUsage.transport,
+      status: publicApiKeyUsage.status,
+      latencyMs: publicApiKeyUsage.latencyMs,
+      costCredits: publicApiKeyUsage.costCredits,
+      errorCode: publicApiKeyUsage.errorCode,
+      ts: publicApiKeyUsage.ts,
+    })
+    .from(publicApiKeyUsage)
+    .where(and(...filters))
+    .orderBy(desc(publicApiKeyUsage.ts))
+    .limit(limit);
+  if (!rows.length) throw new CapabilityError("No usage rows in the requested window", 404, null);
+  const normalized = rows.map((r) => ({
+    ...r,
+    ts: r.ts instanceof Date ? r.ts.toISOString() : r.ts,
+  }));
+  const body =
+    input.format === "csv"
+      ? _toCsv(normalized as Array<Record<string, unknown>>)
+      : JSON.stringify(normalized, null, 2);
+  const sha256 = _ch12("sha256").update(body).digest("hex");
+  return {
+    format: input.format,
+    sinceIso: since.toISOString(),
+    rowCount: rows.length,
+    bytes: body.length,
+    sha256,
+    contentType: input.format === "csv" ? "text/csv" : "application/json",
+    base64: Buffer.from(body, "utf8").toString("base64"),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export async function auditVerifyReceipt(
+  input: { jwt: string; expectedAudience?: string },
+  ctx: CapabilityRunContext,
+) {
+  const secretRaw = process.env.JWT_SECRET;
+  if (!secretRaw) throw new CapabilityError("JWT_SECRET not configured", 503, null);
+  if (!input.jwt || typeof input.jwt !== "string") {
+    throw new CapabilityError("jwt is required", 400, null);
+  }
+  const { jwtVerify } = await import("jose");
+  const secret = new TextEncoder().encode(secretRaw);
+  try {
+    const { payload, protectedHeader } = await jwtVerify(input.jwt, secret, {
+      issuer: "https://dreyv.com",
+      ...(input.expectedAudience ? { audience: input.expectedAudience } : {}),
+    });
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      valid: true,
+      header: protectedHeader,
+      payload,
+      audience: payload.aud ?? null,
+      issuedAt: payload.iat ? new Date((payload.iat as number) * 1000).toISOString() : null,
+      expiresAt: payload.exp ? new Date((payload.exp as number) * 1000).toISOString() : null,
+      expired: typeof payload.exp === "number" ? payload.exp < now : false,
+      verifiedAt: new Date().toISOString(),
+      verifierKeyId: ctx.keyId,
+    };
+  } catch (e) {
+    return {
+      valid: false,
+      reason: e instanceof Error ? e.message : String(e),
+      verifiedAt: new Date().toISOString(),
+    };
+  }
+}
+
+export async function auditPolicyHistory(
+  input: { keyOnly?: boolean; sinceIso?: string; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiAuditLog } = await import("@/db/schema");
+  const since = _sinceDate(input.sinceIso, 60 * 24 * 30); // default 30d
+  const limit = _clampInt(input.limit, 100, 1, 500);
+  const filters = [
+    eq(publicApiAuditLog.userId, ctx.userId),
+    gte(publicApiAuditLog.ts, since),
+  ];
+  if (input.keyOnly) filters.push(eq(publicApiAuditLog.keyId, ctx.keyId));
+  const rowsDesc = await d
+    .select()
+    .from(publicApiAuditLog)
+    .where(and(...filters))
+    .orderBy(desc(publicApiAuditLog.ts))
+    .limit(limit);
+  // Verify hash-chain by re-walking chronologically.
+  const chrono = [...rowsDesc].reverse();
+  let prev = chrono.length ? chrono[0].prevHash : "";
+  let valid = true;
+  const breaks: Array<{ id: number; expected: string; got: string }> = [];
+  for (const row of chrono) {
+    if (row.prevHash !== prev) {
+      valid = false;
+      breaks.push({ id: row.id, expected: prev, got: row.prevHash });
+    }
+    const canonical = JSON.stringify({
+      keyId: row.keyId,
+      userId: row.userId,
+      action: row.action,
+      target: row.target ?? null,
+      meta: row.meta ?? {},
+      prevHash: row.prevHash,
+      ts: row.ts instanceof Date ? row.ts.toISOString() : row.ts,
+    });
+    const recomputed = _ch12("sha256").update(canonical).digest("hex");
+    if (recomputed !== row.hash) {
+      valid = false;
+      breaks.push({ id: row.id, expected: recomputed, got: row.hash });
+    }
+    prev = row.hash;
+  }
+  return {
+    sinceIso: since.toISOString(),
+    count: rowsDesc.length,
+    chainValid: valid,
+    chainBreaks: breaks,
+    headHash: chrono.length ? chrono[chrono.length - 1].hash : null,
+    entries: rowsDesc,
+  };
+}
+
+// Silences unused-import lints if the broader codebase tree-shakes.
+export const __pillarVTouch = { _sqlV, lte };

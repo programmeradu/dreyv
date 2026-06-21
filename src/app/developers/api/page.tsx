@@ -36,9 +36,10 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   safety: "Safety & policy",
   compliance: "Compliance & reporting",
   notifications: "Notifications & alerts",
+  audit: "Observability & audit trail",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "audit"];
 
 export default function DevelopersApiPage() {
   const caps = listPublicCapabilities();
