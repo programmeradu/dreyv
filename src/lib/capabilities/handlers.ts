@@ -62,12 +62,23 @@ export async function identityResolve(
   input: { identifier: string },
   ctx: CapabilityRunContext,
 ) {
-  // Try the public resolver first; falls back to a passthrough.
+  const id = input.identifier.trim();
+  // ENS shortcut for .eth
+  if (/\.eth$/i.test(id)) {
+    const ens = await callInternal<{ data?: { address?: string; name?: string; avatar?: string } }>(
+      ctx,
+      `/api/ens/resolve?name=${encodeURIComponent(id)}`,
+    ).catch(() => null);
+    const addr = ens?.data?.address;
+    if (addr) {
+      return { resolved: true, identifier: id, address: addr, namespace: "ens", name: ens.data?.name ?? id, avatar: ens.data?.avatar ?? null };
+    }
+  }
   const data = await callInternal<Record<string, unknown>>(
     ctx,
-    `/api/public/resolve?identifier=${encodeURIComponent(input.identifier)}`,
+    `/api/public/resolve/${encodeURIComponent(id)}`,
   ).catch((err: CapabilityError) => {
-    if (err.status === 404) return { resolved: false, identifier: input.identifier };
+    if (err.status === 404) return { resolved: false, identifier: id };
     throw err;
   });
   return data;
@@ -78,11 +89,10 @@ export async function walletMeta(
   ctx: CapabilityRunContext,
 ) {
   if (input.chain !== "solana") {
-    // EVM read of activity (best-effort)
     const evm = await callInternal(ctx, `/api/evm/holdings?address=${input.address}&chain=${input.chain}`).catch(() => null);
     return { address: input.address, chain: input.chain, holdings: evm, classification: "eoa", source: "evm.holdings" };
   }
-  const activity = await callInternal(ctx, `/api/public/activity?address=${input.address}&limit=1`).catch(() => null);
+  const activity = await callInternal(ctx, `/api/public/activity/${input.address}?limit=1`).catch(() => null);
   return { address: input.address, chain: input.chain, activity, classification: "eoa", source: "public.activity" };
 }
 
@@ -92,7 +102,7 @@ export async function identityProfile(
 ) {
   const resolved = await identityResolve({ identifier: input.identifier }, ctx) as Record<string, unknown>;
   const address = (resolved.address as string | undefined) ?? input.identifier;
-  const counterparties = await callInternal(ctx, `/api/public/counterparties?address=${address}&limit=10`).catch(() => null);
+  const counterparties = await callInternal(ctx, `/api/public/counterparties/${address}?limit=10`).catch(() => null);
   return { identity: resolved, counterparties };
 }
 
