@@ -2708,3 +2708,232 @@ export const publicApiContractViolations = pgTable('public_api_contract_violatio
   contractIdx: index('public_api_contract_violations_contract_idx').on(t.contractId, t.createdAt),
   userIdx: index('public_api_contract_violations_user_idx').on(t.userId, t.createdAt),
 }));
+
+// ─── Phases 32-39 — Pillars AP..AX ────────────────────────────────────
+
+export const obsTraces = pgTable('obs_traces', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  traceId: text('trace_id').notNull(),
+  service: text('service').notNull(),
+  rootName: text('root_name'),
+  startNs: numeric('start_ns').notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  status: text('status').notNull().default('ok'),
+  spanCount: integer('span_count').notNull().default(0),
+  attributes: jsonb('attributes').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userTraceUq: uniqueIndex('obs_traces_user_trace_uq').on(t.userId, t.traceId),
+  userIdx: index('obs_traces_user_idx').on(t.userId, t.createdAt),
+}));
+
+export const obsSpans = pgTable('obs_spans', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  traceId: text('trace_id').notNull(),
+  spanId: text('span_id').notNull(),
+  parentSpanId: text('parent_span_id'),
+  name: text('name').notNull(),
+  kind: text('kind').notNull().default('internal'),
+  service: text('service'),
+  startNs: numeric('start_ns').notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  status: text('status').notNull().default('ok'),
+  attributes: jsonb('attributes').notNull().default('{}'),
+  events: jsonb('events').notNull().default('[]'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userSpanUq: uniqueIndex('obs_spans_user_span_uq').on(t.userId, t.traceId, t.spanId),
+  traceIdx: index('obs_spans_trace_idx').on(t.userId, t.traceId),
+}));
+
+export const obsMetrics = pgTable('obs_metrics', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  kind: text('kind').notNull().default('gauge'),
+  value: numeric('value').notNull(),
+  unit: text('unit'),
+  labels: jsonb('labels').notNull().default('{}'),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameIdx: index('obs_metrics_user_name_idx').on(t.userId, t.name, t.ts),
+}));
+
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  seq: numeric('seq').notNull(),
+  actor: text('actor').notNull(),
+  action: text('action').notNull(),
+  resource: text('resource'),
+  payload: jsonb('payload').notNull().default('{}'),
+  prevHash: text('prev_hash').notNull(),
+  hash: text('hash').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userSeqUq: uniqueIndex('audit_log_user_seq_uq').on(t.userId, t.seq),
+  userTimeIdx: index('audit_log_user_time_idx').on(t.userId, t.occurredAt),
+}));
+
+export const rateLimitPolicies = pgTable('rate_limit_policies', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  scope: text('scope').notNull().default('key'),
+  matchTarget: text('match_target').notNull().default('*'),
+  windowSec: integer('window_sec').notNull().default(60),
+  limitCount: integer('limit_count').notNull().default(60),
+  burst: integer('burst').notNull().default(0),
+  action: text('action').notNull().default('throttle'),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('rate_limit_policies_user_name_uq').on(t.userId, t.name),
+}));
+
+export const rateLimitUsage = pgTable('rate_limit_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  policyId: uuid('policy_id').references(() => rateLimitPolicies.id, { onDelete: 'cascade' }),
+  bucketKey: text('bucket_key').notNull(),
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+  count: integer('count').notNull().default(0),
+  rejected: integer('rejected').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uq: uniqueIndex('rate_limit_usage_uq').on(t.userId, t.policyId, t.bucketKey, t.windowStart),
+}));
+
+export const regionPolicies = pgTable('region_policies', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  defaultRegion: text('default_region').notNull().default('us-east-1'),
+  allowedRegions: jsonb('allowed_regions').notNull().default('["us-east-1","eu-west-1","ap-southeast-1"]'),
+  strict: boolean('strict').notNull().default(false),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const regionPins = pgTable('region_pins', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  resourceType: text('resource_type').notNull(),
+  resourceId: text('resource_id').notNull(),
+  region: text('region').notNull(),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  resourceUq: uniqueIndex('region_pins_resource_uq').on(t.userId, t.resourceType, t.resourceId),
+}));
+
+export const digestChannels = pgTable('digest_channels', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').notNull(),
+  label: text('label').notNull(),
+  target: text('target').notNull(),
+  secretRef: text('secret_ref'),
+  enabled: boolean('enabled').notNull().default(true),
+  quietStart: text('quiet_start'),
+  quietEnd: text('quiet_end'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const digestSchedules = pgTable('digest_schedules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  channelIds: jsonb('channel_ids').notNull().default('[]'),
+  cron: text('cron').notNull(),
+  source: text('source').notNull().default('inbox'),
+  filter: jsonb('filter').notNull().default('{}'),
+  enabled: boolean('enabled').notNull().default(true),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('digest_schedules_user_name_uq').on(t.userId, t.name),
+}));
+
+export const searchDocs = pgTable('search_docs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  tags: jsonb('tags').notNull().default('[]'),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  entityUq: uniqueIndex('search_docs_entity_uq').on(t.userId, t.entityType, t.entityId),
+}));
+
+export const searchSaved = pgTable('search_saved', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  query: text('query').notNull(),
+  filters: jsonb('filters').notNull().default('{}'),
+  pinned: boolean('pinned').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('search_saved_user_name_uq').on(t.userId, t.name),
+}));
+
+export const workflows = pgTable('workflows', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  trigger: jsonb('trigger').notNull().default('{"kind":"manual"}'),
+  nodes: jsonb('nodes').notNull().default('[]'),
+  enabled: boolean('enabled').notNull().default(true),
+  version: integer('version').notNull().default(1),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('workflows_user_name_uq').on(t.userId, t.name),
+}));
+
+export const workflowRuns = pgTable('workflow_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid('workflow_id').references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  trigger: jsonb('trigger').notNull().default('{}'),
+  status: text('status').notNull().default('queued'),
+  input: jsonb('input').notNull().default('{}'),
+  output: jsonb('output'),
+  nodeLog: jsonb('node_log').notNull().default('[]'),
+  error: text('error'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  workflowIdx: index('workflow_runs_workflow_idx').on(t.workflowId, t.createdAt),
+}));
+
+export const entitlementOverrides = pgTable('entitlement_overrides', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  feature: text('feature').notNull(),
+  value: jsonb('value').notNull(),
+  reason: text('reason'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userFeatureUq: uniqueIndex('entitlement_overrides_user_feature_uq').on(t.userId, t.feature),
+}));
