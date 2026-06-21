@@ -204,12 +204,26 @@ export default function DeliverableViewPage({
     const KindIcon = d.kind === "snapshot" ? Camera : d.kind === "report" ? FileText : Crown;
     const kindName =
         d.kind === "snapshot" ? "Treasury Snapshot" : d.kind === "report" ? "Treasury AI Report" : "Subscription";
+    const kindBlurb =
+        d.kind === "snapshot"
+            ? "Point-in-time holdings"
+            : d.kind === "report"
+                ? "Analyst-grade narrative"
+                : "Recurring access";
     const snap = d.payload?.snapshot;
 
     return (
-        <main className="relative min-h-screen overflow-hidden bg-white text-zinc-900">
-            <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
-            <div aria-hidden className="pointer-events-none absolute top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
+        <main className="relative min-h-screen bg-white text-zinc-900 deliverable-page">
+            <style jsx global>{`
+                .deliverable-page,
+                .deliverable-page * { scrollbar-width: thin; scrollbar-color: rgb(196 181 253) transparent; }
+                .deliverable-page *::-webkit-scrollbar { width: 6px; height: 6px; }
+                .deliverable-page *::-webkit-scrollbar-track { background: transparent; }
+                .deliverable-page *::-webkit-scrollbar-thumb { background: rgb(221 214 254); border-radius: 999px; }
+                .deliverable-page *::-webkit-scrollbar-thumb:hover { background: rgb(167 139 250); }
+            `}</style>
+            <div aria-hidden className="pointer-events-none fixed -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
+            <div aria-hidden className="pointer-events-none fixed top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
 
             <div className="relative mx-auto w-full max-w-5xl px-6 pt-12 pb-24 sm:pt-16">
                 <Link href="/app/agent/deliverables" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-violet-700">
@@ -252,23 +266,27 @@ export default function DeliverableViewPage({
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <KindIcon className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">SKU</div>
-                                    <div className="font-mono text-zinc-900 text-[13px] break-all">{d.sku}</div>
+                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Service</div>
+                                    <div className="text-zinc-900" title={d.sku}>{kindName} · <span className="text-zinc-500">{kindBlurb}</span></div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <DreyvStar className="text-violet-600 mt-0.5 flex-shrink-0" size={16} />
                                 <div className="min-w-0">
                                     <div className="text-[11px] uppercase tracking-wide text-zinc-500">Agent key</div>
-                                    <div className="text-zinc-900">{d.agentKeyLabel || "—"}{d.agentKeyPrefix ? ` · ${d.agentKeyPrefix}…` : ""}</div>
+                                    <div className="text-zinc-900 truncate">{d.agentKeyLabel || "—"}{d.agentKeyPrefix ? ` · ${d.agentKeyPrefix}…` : ""}</div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-2 rounded-2xl border border-violet-100 bg-white p-3">
                                 <Mail className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Email</div>
+                                    <div className="text-[11px] uppercase tracking-wide text-zinc-500">Delivered to</div>
                                     <div className="text-zinc-900 truncate">
-                                        {d.emailTo ? d.emailTo : <span className="text-zinc-400">no email on account</span>}
+                                        {d.emailTo ? d.emailTo : (
+                                            <Link href="/app/settings" className="text-violet-700 hover:underline">
+                                                Add email in settings →
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             </div>
