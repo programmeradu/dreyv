@@ -12,8 +12,14 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentTreasuryWatchers, monitors, notifications } from "@/db/schema";
+import { agentTreasuryWatchers, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+  ALL_WEBHOOK_EVENTS,
+  emitWebhookEvent,
+  generateSigningSecret,
+  type WebhookEventName,
+} from "@/lib/webhooks/dispatcher";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
@@ -652,4 +658,197 @@ export async function notificationsMarkRead(
     .returning({ id: notifications.id });
   return { updated: updated.length, ids: updated.map((r) => r.id) };
 }
+
+// ─── Pillar K — Outbound Webhooks (Phase 5) ──────────────────────────
+// `signing_secret` is returned ONLY on create + rotate. After that it's
+// write-only; subsequent reads omit it. All ops scoped to ctx.userId.
+
+function redactWebhook<T extends { signingSecret?: string | null }>(row: T) {
+  const { signingSecret: _omit, ...rest } = row as T & { signingSecret?: string | null };
+  void _omit;
+  return rest;
+}
+
+function validateHttpsUrl(raw: string): URL {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new CapabilityError("targetUrl must be a valid URL", 400, null);
+  }
+  if (u.protocol !== "https:") {
+    throw new CapabilityError("targetUrl must use https://", 400, null);
+  }
+  // Block obvious SSRF surfaces.
+  const host = u.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "0.0.0.0" ||
+    host === "127.0.0.1" ||
+    host.startsWith("169.254.") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  ) {
+    throw new CapabilityError("targetUrl host is not allowed", 400, null);
+  }
+  return u;
+}
+
+function validateEvents(events: string[]): string {
+  if (!events || events.length === 0) {
+    throw new CapabilityError("events must be a non-empty array (use ['*'] for all)", 400, null);
+  }
+  const allowed = new Set<string>([...ALL_WEBHOOK_EVENTS, "*"]);
+  const bad = events.filter((e) => !allowed.has(e));
+  if (bad.length) {
+    throw new CapabilityError(`Unknown event(s): ${bad.join(", ")}`, 400, { allowed: [...allowed] });
+  }
+  return events.join(",");
+}
+
+export async function webhooksList(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const rows = await d
+    .select()
+    .from(publicApiWebhooks)
+    .where(eq(publicApiWebhooks.userId, ctx.userId))
+    .orderBy(desc(publicApiWebhooks.createdAt));
+  return { webhooks: rows.map(redactWebhook), supportedEvents: ALL_WEBHOOK_EVENTS };
+}
+
+export async function webhooksCreate(
+  input: { label: string; targetUrl: string; events: string[] },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  validateHttpsUrl(input.targetUrl);
+  const eventsCsv = validateEvents(input.events);
+  const signingSecret = generateSigningSecret();
+
+  const [row] = await d
+    .insert(publicApiWebhooks)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      label: input.label.trim(),
+      targetUrl: input.targetUrl,
+      signingSecret,
+      events: eventsCsv,
+      active: true,
+    })
+    .returning();
+
+  return {
+    webhook: redactWebhook(row),
+    signingSecret,
+    notice:
+      "Store this signingSecret now — it is shown only once. Verify deliveries with HMAC-SHA256 of `${t}.${rawBody}` against the v1 field of x-dreyv-signature.",
+  };
+}
+
+export async function webhooksRotateSecret(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const signingSecret = generateSigningSecret();
+  const [row] = await d
+    .update(publicApiWebhooks)
+    .set({ signingSecret, updatedAt: new Date() })
+    .where(and(eq(publicApiWebhooks.id, input.id), eq(publicApiWebhooks.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new CapabilityError(`Webhook ${input.id} not found`, 404, null);
+  return { webhook: redactWebhook(row), signingSecret };
+}
+
+export async function webhooksUpdate(
+  input: { id: string; label?: string; targetUrl?: string; events?: string[]; active?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const patch: Partial<typeof publicApiWebhooks.$inferInsert> = { updatedAt: new Date() };
+  if (input.label !== undefined) patch.label = input.label.trim();
+  if (input.targetUrl !== undefined) {
+    validateHttpsUrl(input.targetUrl);
+    patch.targetUrl = input.targetUrl;
+  }
+  if (input.events !== undefined) patch.events = validateEvents(input.events);
+  if (input.active !== undefined) patch.active = input.active;
+
+  const [row] = await d
+    .update(publicApiWebhooks)
+    .set(patch)
+    .where(and(eq(publicApiWebhooks.id, input.id), eq(publicApiWebhooks.userId, ctx.userId)))
+    .returning();
+  if (!row) throw new CapabilityError(`Webhook ${input.id} not found`, 404, null);
+  return { webhook: redactWebhook(row) };
+}
+
+export async function webhooksDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .delete(publicApiWebhooks)
+    .where(and(eq(publicApiWebhooks.id, input.id), eq(publicApiWebhooks.userId, ctx.userId)))
+    .returning({ id: publicApiWebhooks.id });
+  if (!row) throw new CapabilityError(`Webhook ${input.id} not found`, 404, null);
+  return { deleted: true, id: row.id };
+}
+
+export async function webhooksDeliveries(
+  input: { webhookId?: string; status?: "ok" | "failed" | "pending"; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+  const conds = [eq(webhookDeliveries.userId, ctx.userId)];
+  if (input.webhookId) conds.push(eq(webhookDeliveries.webhookId, input.webhookId));
+  if (input.status) conds.push(eq(webhookDeliveries.status, input.status));
+  const rows = await d
+    .select()
+    .from(webhookDeliveries)
+    .where(and(...conds))
+    .orderBy(desc(webhookDeliveries.createdAt))
+    .limit(limit);
+  return { deliveries: rows };
+}
+
+export async function webhooksReplay(input: { deliveryId: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [original] = await d
+    .select()
+    .from(webhookDeliveries)
+    .where(and(eq(webhookDeliveries.id, input.deliveryId), eq(webhookDeliveries.userId, ctx.userId)))
+    .limit(1);
+  if (!original) throw new CapabilityError(`Delivery ${input.deliveryId} not found`, 404, null);
+
+  const payload =
+    typeof original.payload === "object" && original.payload && "data" in (original.payload as Record<string, unknown>)
+      ? ((original.payload as { data: Record<string, unknown> }).data ?? {})
+      : ((original.payload as Record<string, unknown>) ?? {});
+  const results = await emitWebhookEvent({
+    userId: ctx.userId,
+    event: original.event as WebhookEventName,
+    data: { ...payload, _replay_of: original.id },
+  });
+  return { replayed: true, originalEvent: original.event, results };
+}
+
+export async function webhooksTest(
+  input: { id: string; event?: WebhookEventName },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const [hook] = await d
+    .select()
+    .from(publicApiWebhooks)
+    .where(and(eq(publicApiWebhooks.id, input.id), eq(publicApiWebhooks.userId, ctx.userId)))
+    .limit(1);
+  if (!hook) throw new CapabilityError(`Webhook ${input.id} not found`, 404, null);
+  const results = await emitWebhookEvent({
+    userId: ctx.userId,
+    event: input.event ?? "test.ping",
+    data: { hello: "from dreyv", webhookId: hook.id, ts: new Date().toISOString() },
+  });
+  return { sent: true, results };
+}
+
 

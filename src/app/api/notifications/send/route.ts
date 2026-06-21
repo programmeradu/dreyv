@@ -37,6 +37,29 @@ export async function POST(request: NextRequest) {
       metadata: body.metadata,
     }).returning({ id: notifications.id });
 
+    // 1b) Fan out to subscribed Phase-5 webhooks (fire-and-forget; the
+    // dispatcher records its own delivery log and never throws upstream).
+    void import("@/lib/webhooks/dispatcher").then(({ emitWebhookEvent }) =>
+      emitWebhookEvent({
+        userId: targetUserId,
+        event: "notification.created",
+        data: {
+          id: notif?.id,
+          type: body.type || "system",
+          title: body.title,
+          message: body.message,
+          severity: body.severity || "info",
+          actionUrl: body.actionUrl,
+          actionLabel: body.actionLabel,
+          relatedEntityType: body.relatedEntityType,
+          relatedEntityId: body.relatedEntityId,
+          metadata: body.metadata,
+        },
+      }).catch((err) => console.error("[notifications.send] webhook fanout failed:", err)),
+    );
+
+
+
     // 2) Load the user's channel preferences + email in one shot.
     const [prefs] = await db
       .select()
