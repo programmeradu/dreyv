@@ -2064,7 +2064,14 @@ export async function safetyAttest(
 }
 
 // ─── Developer — key lifecycle (Phase 11) ────────────────────────────
-export async function devRotateKey(_input: Record<string, never>, ctx: CapabilityRunContext) {
+export async function devRotateKey(input: { confirm?: boolean }, ctx: CapabilityRunContext) {
+  if (input?.confirm !== true) {
+    throw new CapabilityError(
+      "Rotating a key revokes the current one. Pass confirm=true to proceed. This guard exists to prevent an LLM from accidentally rotating the caller's own key by picking default arguments.",
+      400,
+      { requires: { confirm: true } },
+    );
+  }
   const d = requireDb();
   const { publicApiKeys } = await import("@/db/schema");
   const [old] = await d
