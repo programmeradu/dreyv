@@ -29,18 +29,44 @@ import { toast } from "@/lib/toast-notifications";
 import { formatDistanceToNow } from "date-fns";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
-const ALL_SCOPES = [
-  { id: "read:portfolio", label: "Portfolio (read)", desc: "Holdings, PnL, DeFi positions." },
-  { id: "read:treasury", label: "Treasury (read)", desc: "Health, runway, multisig pending." },
-  { id: "read:market", label: "Market (read)", desc: "Prices, OHLCV, forensics, yields, discovery." },
-  { id: "read:forensics", label: "Forensics (read)", desc: "Sanctions, mixer exposure, counterparty graphs." },
-  { id: "write:simulate", label: "Simulate (write)", desc: "Pre-flight tx simulation, intent quoting." },
-  { id: "write:intent", label: "Intent (write)", desc: "Submit MEV-protected intents and swaps." },
-  { id: "pay:x402", label: "x402 payments", desc: "Charge and settle x402 invoices." },
-  { id: "agent:delegate", label: "Agent delegation", desc: "Scoped session keys (ERC-8004 / EIP-7702 preview)." },
-] as const;
-type ScopeId = (typeof ALL_SCOPES)[number]["id"];
-const DEFAULT_SCOPES: ScopeId[] = ["read:portfolio", "read:treasury", "read:market"];
+import {
+  SCOPE_CATALOG,
+  SCOPE_GROUP_LABEL,
+  DEFAULT_SCOPE_IDS,
+  ALL_SCOPE_IDS,
+  READ_ONLY_SCOPE_IDS,
+  WRITE_SCOPE_IDS,
+  type ScopeGroup,
+} from "@/lib/api-keys/scope-catalog";
+import type { ApiScope } from "@/lib/api-keys/public-keys";
+
+type ScopeId = ApiScope;
+const DEFAULT_SCOPES: ScopeId[] = DEFAULT_SCOPE_IDS;
+
+// Group scopes once for the picker.
+const SCOPES_BY_GROUP: Record<ScopeGroup, typeof SCOPE_CATALOG> = SCOPE_CATALOG.reduce(
+  (acc, s) => {
+    (acc[s.group] ||= [] as unknown as typeof SCOPE_CATALOG).push(s);
+    return acc;
+  },
+  { data: [], write: [], publish: [], payments: [] } as Record<ScopeGroup, typeof SCOPE_CATALOG>,
+);
+
+type ScopePreset = "all" | "read" | "write" | "default" | "none";
+const PRESETS: { id: ScopePreset; label: string; ids: ScopeId[]; hint: string }[] = [
+  { id: "all", label: "All scopes", ids: ALL_SCOPE_IDS, hint: `Grant every capability (${ALL_SCOPE_IDS.length})` },
+  { id: "read", label: "Read-only", ids: READ_ONLY_SCOPE_IDS, hint: `Every read:* scope (${READ_ONLY_SCOPE_IDS.length})` },
+  { id: "write", label: "Write", ids: WRITE_SCOPE_IDS, hint: `Every write:* scope (${WRITE_SCOPE_IDS.length})` },
+  { id: "default", label: "Default", ids: DEFAULT_SCOPE_IDS, hint: "Portfolio + Treasury + Market" },
+  { id: "none", label: "Clear", ids: [], hint: "Deselect all scopes" },
+];
+
+function arraysEqualAsSet<T>(a: T[], b: T[]) {
+  if (a.length !== b.length) return false;
+  const s = new Set(a);
+  for (const x of b) if (!s.has(x)) return false;
+  return true;
+}
 
 interface ApiKeyRow {
   id: string;
@@ -246,38 +272,129 @@ const { ok, data } = await res.json();`,
             </div>
 
             <div className="mt-5">
-              <label className="text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-700">Scopes</label>
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {ALL_SCOPES.map((s) => {
-                  const active = newKeyScopes.includes(s.id);
+              <div className="flex items-end justify-between gap-3 flex-wrap">
+                <div>
+                  <label className="text-[10px] tracking-[0.2em] uppercase font-semibold text-violet-700">Scopes</label>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Grant the minimum your agent actually needs. You can re-mint any time.
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {newKeyScopes.length} of {ALL_SCOPE_IDS.length} selected
+                </span>
+              </div>
+
+              {/* Preset chips */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {PRESETS.map((p) => {
+                  const active = arraysEqualAsSet(newKeyScopes, p.ids);
                   return (
                     <button
-                      key={s.id}
+                      key={p.id}
                       type="button"
-                      onClick={() => toggleScope(s.id)}
-                      className={`text-left rounded-xl border p-3 transition ${
+                      onClick={() => setNewKeyScopes(p.ids)}
+                      title={p.hint}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
                         active
-                          ? "border-violet-400 bg-white"
-                          : "border-violet-100 bg-white/60 hover:border-violet-300"
+                          ? "border-violet-600 bg-violet-600 text-white"
+                          : "border-violet-200 bg-white text-slate-700 hover:border-violet-400 hover:text-violet-700"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12px] font-semibold text-slate-900">{s.label}</span>
-                        <span
-                          className={`h-4 w-4 rounded-md border flex items-center justify-center ${
-                            active ? "bg-violet-600 border-violet-600 text-white" : "border-violet-200 bg-white"
-                          }`}
-                        >
-                          {active && <CheckCircle2 size={11} />}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-500 leading-snug">{s.desc}</p>
-                      <code className="mt-1 block text-[10px] font-mono text-violet-700/80">{s.id}</code>
+                      {p.label}
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono ${
+                          active ? "bg-white/20 text-white" : "bg-violet-50 text-violet-700"
+                        }`}
+                      >
+                        {p.ids.length}
+                      </span>
                     </button>
                   );
                 })}
               </div>
+
+              {/* Grouped picker */}
+              <div className="mt-4 space-y-4">
+                {(Object.keys(SCOPES_BY_GROUP) as ScopeGroup[]).map((group) => {
+                  const items = SCOPES_BY_GROUP[group];
+                  if (!items.length) return null;
+                  const groupIds = items.map((s) => s.id);
+                  const selectedInGroup = groupIds.filter((id) => newKeyScopes.includes(id)).length;
+                  const allSelected = selectedInGroup === groupIds.length;
+                  const someSelected = selectedInGroup > 0 && !allSelected;
+
+                  const toggleGroup = () =>
+                    setNewKeyScopes((prev) => {
+                      const set = new Set(prev);
+                      if (allSelected) {
+                        groupIds.forEach((id) => set.delete(id));
+                      } else {
+                        groupIds.forEach((id) => set.add(id));
+                      }
+                      return Array.from(set);
+                    });
+
+                  return (
+                    <div key={group} className="rounded-2xl border border-violet-100 bg-white/70 p-3 sm:p-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] tracking-[0.18em] uppercase font-semibold text-slate-700 truncate">
+                            {SCOPE_GROUP_LABEL[group]}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {selectedInGroup}/{groupIds.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={toggleGroup}
+                          className="text-[11px] font-semibold text-violet-700 hover:text-violet-900 transition shrink-0"
+                        >
+                          {allSelected ? "Deselect all" : someSelected ? "Select rest" : "Select all"}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {items.map((s) => {
+                          const active = newKeyScopes.includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => toggleScope(s.id)}
+                              className={`text-left rounded-xl border p-3 transition ${
+                                active
+                                  ? "border-violet-400 bg-white"
+                                  : "border-violet-100 bg-white/60 hover:border-violet-300"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-[12px] font-semibold text-slate-900 leading-snug">
+                                  {s.label}
+                                </span>
+                                <span
+                                  className={`mt-0.5 h-4 w-4 shrink-0 rounded-md border flex items-center justify-center ${
+                                    active
+                                      ? "bg-violet-600 border-violet-600 text-white"
+                                      : "border-violet-200 bg-white"
+                                  }`}
+                                >
+                                  {active && <CheckCircle2 size={11} />}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] text-slate-500 leading-snug">{s.desc}</p>
+                              <code className="mt-1 block break-all text-[10px] font-mono text-violet-700/80">
+                                {s.id}
+                              </code>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+
 
             <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
               <p className="text-[11px] text-slate-500">
