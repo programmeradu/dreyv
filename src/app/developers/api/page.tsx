@@ -28,9 +28,11 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   foresight: "Foresight & simulation",
   agentic: "Agentic & insights",
   economy: "Economy & x402",
+  reasoning: "Reasoning & LLM",
+  knowledge: "Knowledge & memory",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge"];
 
 export default function DevelopersApiPage() {
   const caps = listPublicCapabilities();
