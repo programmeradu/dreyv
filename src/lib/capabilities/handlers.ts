@@ -12,7 +12,7 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentTreasuryWatchers, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
+import { agentTreasuryWatchers, agentTxProposals, monitors, notifications, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   ALL_WEBHOOK_EVENTS,
@@ -20,6 +20,7 @@ import {
   generateSigningSecret,
   type WebhookEventName,
 } from "@/lib/webhooks/dispatcher";
+import { buildPlanForAction } from "@/lib/agents/brains/executor-plans";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
