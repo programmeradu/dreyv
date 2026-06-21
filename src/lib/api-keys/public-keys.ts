@@ -147,7 +147,7 @@ export async function resolvePublicKey(
     label: row.label,
     env: (row.env as ApiKeyEnv) ?? "live",
     keyPrefix: row.keyPrefix,
-    scopes: row.scopes.split(",").map((s) => s.trim()).filter(Boolean) as ApiScope[],
+    scopes: (row.scopes as string).split(",").map((s: string) => s.trim()).filter(Boolean) as ApiScope[],
     rateLimitRpm: row.rateLimitRpm ?? 120,
   };
 }

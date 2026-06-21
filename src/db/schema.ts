@@ -1982,4 +1982,43 @@ export const agentDeliverables = pgTable('agent_deliverables', {
   paymentUniq: uniqueIndex('agent_deliverables_payment_uniq').on(t.paymentId),
 }));
 
+// ─── Public Dreyv API keys (dk_live_… / dk_test_…) ────────────────────
+// Authenticates REST (/api/v1/*) + MCP (/api/mcp). Distinct from
+// agent_api_keys (dak_…), which are payment-only.
+export const publicApiKeys = pgTable('public_api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  label: text('label').notNull(),
+  env: text('env').notNull().default('live'),          // live | test
+  keyPrefix: text('key_prefix').notNull(),
+  keyHash: text('key_hash').notNull(),
+  scopes: text('scopes').notNull().default('read:portfolio,read:treasury,read:market'),
+  rateLimitRpm: integer('rate_limit_rpm').notNull().default(120),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  hashUniq: uniqueIndex('public_api_keys_hash_uniq').on(t.keyHash),
+  userIdx: index('public_api_keys_user_idx').on(t.userId),
+  envIdx: index('public_api_keys_env_idx').on(t.env),
+}));
+
+export const publicApiKeyUsage = pgTable('public_api_key_usage', {
+  id: serial('id').primaryKey(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  capabilityId: text('capability_id').notNull(),
+  transport: text('transport').notNull().default('rest'),  // rest | mcp
+  status: text('status').notNull().default('ok'),          // ok | error | denied | rate_limited
+  latencyMs: integer('latency_ms'),
+  costCredits: numeric('cost_credits', { precision: 10, scale: 4 }).notNull().default('0'),
+  errorCode: text('error_code'),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  keyTsIdx: index('public_api_key_usage_key_ts_idx').on(t.keyId, t.ts),
+  userTsIdx: index('public_api_key_usage_user_ts_idx').on(t.userId, t.ts),
+  capTsIdx: index('public_api_key_usage_cap_ts_idx').on(t.capabilityId, t.ts),
+}));
+
+
 
