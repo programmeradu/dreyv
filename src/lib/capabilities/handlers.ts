@@ -3766,7 +3766,7 @@ export const __pillarYTouch = { _privReqY, _privConsY };
 // Per-tier quota enforced in-process; quota breaches emit a webhook AND
 // refuse the write (no silent truncation).
 
-import { createHash as _chZ, sql as _sqlZ } from "node:crypto";
+import { createHash as _chZ } from "node:crypto";
 import { sql as _drizzleSqlZ } from "drizzle-orm";
 import {
   publicApiArtifacts as _artifactsZ,
