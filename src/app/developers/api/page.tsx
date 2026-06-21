@@ -53,9 +53,16 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   marketplace: "Marketplace & catalog",
   sla: "SLA & status pages",
   contracts: "Data contracts & schema registry",
+  observability: "Observability — traces, spans & metrics",
+  limits: "Rate limits & quotas",
+  residency: "Data residency & region pinning",
+  digests: "Digests & multi-channel fan-out",
+  workflows: "Workflows & DAG automations",
+  entitlements: "Entitlements & plan enforcement",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "sla", "contracts", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "sla", "contracts", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags", "observability", "limits", "residency", "digests", "workflows", "entitlements"];
+
 
 
 export default function DevelopersApiPage() {
