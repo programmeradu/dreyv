@@ -23,6 +23,7 @@ import {
   recordUsage,
   type ResolvedPublicKey,
 } from "@/lib/api-keys/public-keys";
+import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
 
 const SERVER_INFO = {
