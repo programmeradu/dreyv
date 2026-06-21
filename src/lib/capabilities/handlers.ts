@@ -63,25 +63,28 @@ export async function identityResolve(
   ctx: CapabilityRunContext,
 ) {
   const id = input.identifier.trim();
-  // ENS shortcut for .eth
   if (/\.eth$/i.test(id)) {
     const ens = await callInternal<{ data?: { address?: string; name?: string; avatar?: string } }>(
       ctx,
       `/api/ens/resolve?name=${encodeURIComponent(id)}`,
-    ).catch(() => null);
+    );
     const addr = ens?.data?.address;
-    if (addr) {
-      return { resolved: true, identifier: id, address: addr, namespace: "ens", name: ens.data?.name ?? id, avatar: ens.data?.avatar ?? null };
+    if (!addr) {
+      throw new CapabilityError(`ENS name '${id}' did not resolve to an address`, 404, ens);
     }
+    return {
+      resolved: true,
+      identifier: id,
+      address: addr,
+      namespace: "ens",
+      name: ens.data?.name ?? id,
+      avatar: ens.data?.avatar ?? null,
+    };
   }
-  const data = await callInternal<Record<string, unknown>>(
+  return await callInternal<Record<string, unknown>>(
     ctx,
     `/api/public/resolve/${encodeURIComponent(id)}`,
-  ).catch((err: CapabilityError) => {
-    if (err.status === 404) return { resolved: false, identifier: id };
-    throw err;
-  });
-  return data;
+  );
 }
 
 export async function walletMeta(
@@ -89,10 +92,10 @@ export async function walletMeta(
   ctx: CapabilityRunContext,
 ) {
   if (input.chain !== "solana") {
-    const evm = await callInternal(ctx, `/api/evm/holdings?address=${input.address}&chain=${input.chain}`).catch(() => null);
+    const evm = await callInternal(ctx, `/api/evm/holdings?address=${input.address}&chain=${input.chain}`);
     return { address: input.address, chain: input.chain, holdings: evm, classification: "eoa", source: "evm.holdings" };
   }
-  const activity = await callInternal(ctx, `/api/public/activity/${input.address}?limit=1`).catch(() => null);
+  const activity = await callInternal(ctx, `/api/public/activity/${input.address}?limit=1`);
   return { address: input.address, chain: input.chain, activity, classification: "eoa", source: "public.activity" };
 }
 
@@ -102,35 +105,8 @@ export async function identityProfile(
 ) {
   const resolved = await identityResolve({ identifier: input.identifier }, ctx) as Record<string, unknown>;
   const address = (resolved.address as string | undefined) ?? input.identifier;
-  const counterparties = await callInternal(ctx, `/api/public/counterparties/${address}?limit=10`).catch(() => null);
+  const counterparties = await callInternal(ctx, `/api/public/counterparties/${address}?limit=10`);
   return { identity: resolved, counterparties };
-}
-
-export async function agentLookup(input: { agentId: string }) {
-  return {
-    status: "preview",
-    agentId: input.agentId,
-    note: "ERC-8004 on-chain lookup ships in Phase 3. Dreyv-registered agents will be served here.",
-  };
-}
-
-export async function delegateSession(input: {
-  agentAddress: string;
-  scopes: string[];
-  ttlSeconds: number;
-  spendCapUsd: number;
-}) {
-  return {
-    status: "preview",
-    proposal: {
-      agentAddress: input.agentAddress,
-      scopes: input.scopes,
-      ttlSeconds: input.ttlSeconds,
-      spendCapUsd: input.spendCapUsd,
-      expiresAt: new Date(Date.now() + input.ttlSeconds * 1000).toISOString(),
-    },
-    note: "EIP-7702 binding ships in Phase 3. Simulation surface is live so agents can negotiate the shape now.",
-  };
 }
 
 // ─── Pillar B — Portfolio & Treasury ─────────────────────────────────
@@ -155,7 +131,10 @@ export async function defiPositions(
   input: { address: string; chain: string },
   ctx: CapabilityRunContext,
 ) {
-  const holdings = (await portfolioHoldings(input, ctx)) as { tokens?: Array<Record<string, unknown>>; holdings?: Array<Record<string, unknown>> };
+  const holdings = (await portfolioHoldings(input, ctx)) as {
+    tokens?: Array<Record<string, unknown>>;
+    holdings?: Array<Record<string, unknown>>;
+  };
   const tokens = Array.isArray(holdings.tokens)
     ? holdings.tokens
     : Array.isArray(holdings.holdings)
@@ -208,11 +187,7 @@ export async function multisigPending(
   input: { multisigAddress: string },
   ctx: CapabilityRunContext,
 ) {
-  return await callInternal(ctx, `/api/squads/proposals?multisig=${input.multisigAddress}&status=active`).catch(() => ({
-    multisigAddress: input.multisigAddress,
-    proposals: [],
-    note: "No active proposals or multisig not indexed yet.",
-  }));
+  return await callInternal(ctx, `/api/squads/proposals?multisig=${input.multisigAddress}&status=active`);
 }
 
 // ─── Pillar C — Market & Discovery ───────────────────────────────────
@@ -236,8 +211,16 @@ const SOLANA_SYMBOL_TO_MINT: Record<string, string> = {
 
 function resolveSolanaToken(token: string): string {
   const t = token.trim();
-  if (t.length >= 32) return t; // looks like a mint
-  return SOLANA_SYMBOL_TO_MINT[t.toUpperCase()] ?? t;
+  if (t.length >= 32) return t;
+  const mapped = SOLANA_SYMBOL_TO_MINT[t.toUpperCase()];
+  if (!mapped) {
+    throw new CapabilityError(
+      `Unknown Solana symbol '${token}'. Pass a mint address or one of: ${Object.keys(SOLANA_SYMBOL_TO_MINT).join(", ")}`,
+      400,
+      { token },
+    );
+  }
+  return mapped;
 }
 
 export async function marketPrice(
@@ -248,7 +231,6 @@ export async function marketPrice(
     const mint = resolveSolanaToken(input.token);
     return await callInternal(ctx, `/api/public/token/${encodeURIComponent(mint)}`);
   }
-  // EVM: pass through to token-metadata helper
   return await callInternal(ctx, `/api/token-metadata?symbol=${encodeURIComponent(input.token)}&chain=${input.chain}`);
 }
 
@@ -260,13 +242,7 @@ export async function marketOhlcv(
   return await callInternal(
     ctx,
     `/api/public/performance/${encodeURIComponent(tokenKey)}?interval=${input.interval}&limit=${input.limit}`,
-  ).catch(() => ({
-    token: tokenKey,
-    chain: input.chain,
-    interval: input.interval,
-    candles: [],
-    note: "OHLCV feed warming up for this token.",
-  }));
+  );
 }
 
 export async function tokenForensics(
@@ -295,11 +271,3 @@ export async function defiYields(
   return { count: filtered.length, pools: filtered };
 }
 
-export async function marketDiscovery(
-  input: { chain: string; limit: number },
-  ctx: CapabilityRunContext,
-) {
-  return await callInternal(ctx, `/api/atlas/trending?chain=${input.chain}&limit=${input.limit}`).catch(async () => {
-    return { chain: input.chain, items: [], note: "Trending feed warming up — try again in a minute." };
-  });
-}
