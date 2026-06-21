@@ -1114,20 +1114,43 @@ export async function receiptsVerify(
   if ((input.chain ?? "solana") !== "solana") {
     throw new CapabilityError("Only chain='solana' is supported in Phase 6", 400, null);
   }
-  if (!input.signature || input.signature.length < 32) {
-    throw new CapabilityError("signature is required (base58)", 400, null);
+  const sig = (input.signature ?? "").trim();
+  // Solana signatures are 64 bytes ⇒ base58 length 86–88.
+  // Reject anything that is obviously not a base58 signature before hitting
+  // the RPC node (which otherwise returns the unfriendly "Invalid param: WrongSize").
+  if (!sig) {
+    throw new CapabilityError("signature is required (base58 Solana transaction signature, ~88 chars)", 400, null);
   }
-  const status = await fetchSignatureStatus(input.signature);
+  if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(sig)) {
+    throw new CapabilityError("signature must be base58 (Solana transaction signature)", 400, null);
+  }
+  if (sig.length < 64 || sig.length > 96) {
+    throw new CapabilityError(
+      `signature length ${sig.length} is not a valid Solana transaction signature (expected 64–96 base58 chars)`,
+      400,
+      null,
+    );
+  }
+  let status: SigStatus | null = null;
+  try {
+    status = await fetchSignatureStatus(sig);
+  } catch (e) {
+    throw new CapabilityError(
+      `RPC failed while verifying signature: ${(e as Error)?.message ?? "unknown"}`,
+      502,
+      null,
+    );
+  }
   if (!status) {
     return {
-      signature: input.signature,
+      signature: sig,
       found: false,
       verifiedAt: new Date().toISOString(),
       note: "Signature not visible to this RPC node within transaction history window.",
     };
   }
   return {
-    signature: input.signature,
+    signature: sig,
     found: true,
     slot: status.slot,
     confirmationStatus: status.confirmationStatus,
