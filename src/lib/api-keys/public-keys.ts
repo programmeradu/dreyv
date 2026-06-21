@@ -61,8 +61,26 @@ export const ALL_SCOPES = [
   "write:contracts",
   "publish:contracts",
 
+  // Phase 32–39 — pillars AP..AX
+  "read:obs",
+  "write:obs",
+  "write:audit",
+  "read:limits",
+  "write:limits",
+  "read:residency",
+  "write:residency",
+  "read:digests",
+  "write:digests",
+  "write:search",
+  "read:workflows",
+  "write:workflows",
+  "read:entitlements",
+  "write:entitlements",
+
   "pay:x402",
   "agent:delegate",
+
+
 
 ] as const;
 export type ApiScope = (typeof ALL_SCOPES)[number];

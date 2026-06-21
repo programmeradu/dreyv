@@ -11361,3 +11361,6 @@ export async function contractsPolicy(_input: Record<string, never>, ctx: Capabi
     ],
   };
 }
+
+// ─── Phases 32–39 — re-export Pillar AP..AX handlers ──────────────────
+export * from "./handlers-phase32";

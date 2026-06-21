@@ -53,9 +53,16 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   marketplace: "Marketplace & catalog",
   sla: "SLA & status pages",
   contracts: "Data contracts & schema registry",
+  observability: "Observability — traces, spans & metrics",
+  limits: "Rate limits & quotas",
+  residency: "Data residency & region pinning",
+  digests: "Digests & multi-channel fan-out",
+  workflows: "Workflows & DAG automations",
+  entitlements: "Entitlements & plan enforcement",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "sla", "contracts", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "sla", "contracts", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags", "observability", "limits", "residency", "digests", "workflows", "entitlements"];
+
 
 
 export default function DevelopersApiPage() {
@@ -179,11 +186,15 @@ export default function DevelopersApiPage() {
           <section className="mt-16 rounded-3xl border border-violet-100 bg-white p-6">
             <h3 className="text-[16px] font-semibold text-slate-900">Roadmap</h3>
             <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">
-              Phase 1 ships the 15 capabilities above (identity, portfolio, market). Phase 2 adds execution & forensics
-              (simulate, intent, bridge, swap, MEV-protected submit, sanctions, mixer exposure, counterparty graph, wash
-              trade detection, composite risk). Phase 3 adds agentic foresight, narrative generation, watchers, x402
-              payments, EAS attestations, the agent marketplace, and per-call metering.
+              Phases 1–31 shipped pillars A through AO (identity, portfolio, market, execution, forensics, agentic,
+              storage, jobs, exports, tags, flags, inbox, teams, billing, insights, marketplace, SLA, contracts).
+              Phases 32–39 add pillars AP–AX: observability with OTel-style traces and metrics, a hash-chained
+              audit log with SOC2/GDPR evidence bundles, configurable rate-limit policies, data residency and
+              region pinning, multi-channel digests (Slack/Telegram/email/webhook) with quiet hours,
+              cross-entity full-text search with saved queries, a workflow DAG engine with topologically
+              ordered runs, and plan-aware entitlements with per-user overrides.
             </p>
+
           </section>
         </main>
 
