@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1235,6 +1235,113 @@ export const CAPABILITIES: PublicCapability[] = [
       scope: z.string().optional(),
     }),
     handler: (i, c) => caps.devCapabilitiesList(i, c),
+  },
+
+  // ─── Pillar S — Safety & Policy (Phase 11) ──────────────────────────
+  {
+    id: "safety.policy",
+    mcpName: "dreyv_safety_policy",
+    pillar: "safety",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Inspect this key's policy (kill switch, allowlists, scopes, rate-limit)",
+    description: "Returns the active policy snapshot for the calling key: kill-switch state, capability/origin/IP allowlists, scopes, rate-limit, and revocation status.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.safetyPolicy(i, c),
+  },
+  {
+    id: "safety.kill_switch",
+    mcpName: "dreyv_safety_kill_switch",
+    pillar: "safety",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Engage or release the per-key kill switch",
+    description: "Instantly disables (state='on') or re-enables (state='off') every capability for this key. The change applies on the next request — no propagation delay. Audit-logged.",
+    inputSchema: z.object({ state: z.enum(["on", "off"]) }),
+    handler: (i, c) => caps.safetyKillSwitch(i, c),
+  },
+  {
+    id: "safety.allowlist_set",
+    mcpName: "dreyv_safety_allowlist_set",
+    pillar: "safety",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Set the IP, origin, or capability allowlist for this key",
+    description: "Replaces (not appends) the named allowlist. Pass [] to clear and reopen that dimension. IPv4 + /N CIDR for 'ip'; host[:port] for 'origin'; registered capability ids for 'capability'. Max 64 entries.",
+    inputSchema: z.object({
+      kind: z.enum(["ip", "origin", "capability"]),
+      values: z.array(z.string().min(1).max(256)).max(64),
+    }),
+    handler: (i, c) => caps.safetyAllowlistSet(i, c),
+  },
+  {
+    id: "safety.audit_log",
+    mcpName: "dreyv_safety_audit_log",
+    pillar: "safety",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Tamper-evident audit log for this key",
+    description: "Returns the hash-chained audit entries (most recent first) for kill-switch flips, allowlist changes, attestations, rotations, and revocations. Includes chain validity flag.",
+    inputSchema: z.object({ limit: z.number().int().min(1).max(500).optional() }),
+    handler: (i, c) => caps.safetyAuditLog(i, c),
+  },
+  {
+    id: "safety.rate_status",
+    mcpName: "dreyv_safety_rate_status",
+    pillar: "safety",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Current rate-limit window usage",
+    description: "Reports configured RPM, usage in the last 60s (from the metering table), and remaining capacity for this key.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.safetyRateStatus(i, c),
+  },
+  {
+    id: "safety.attest",
+    mcpName: "dreyv_safety_attest",
+    pillar: "safety",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Mint a signed JWT attestation for downstream verifiers",
+    description: "Produces a short-lived HS256 JWT that downstream services (or another agent) can verify against the Dreyv shared secret. Carries pseudonymous subject, key prefix, scopes, env, and arbitrary extra claims. TTL 30–3600s.",
+    inputSchema: z.object({
+      audience: z.string().min(1).max(200),
+      ttlSec: z.number().int().min(30).max(3600).optional(),
+      claims: z.record(z.unknown()).optional(),
+    }),
+    handler: (i, c) => caps.safetyAttest(i, c),
+  },
+
+  // ─── Developer — key lifecycle (Phase 11) ───────────────────────────
+  {
+    id: "developer.rotate_key",
+    mcpName: "dreyv_developer_rotate_key",
+    pillar: "developer",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Rotate the calling key — mint a new secret, revoke the old",
+    description: "Atomically mints a new key with the same scopes/label/rate-limit, then revokes the current key. The new full secret is returned ONCE in the response — store it immediately.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.devRotateKey(i, c),
+  },
+  {
+    id: "developer.revoke_key",
+    mcpName: "dreyv_developer_revoke_key",
+    pillar: "developer",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Revoke a key by id (defaults to the calling key)",
+    description: "Hard-revokes a key owned by the same user. After revocation, the key returns 401 on every transport. Idempotent.",
+    inputSchema: z.object({ keyId: z.string().uuid().optional() }),
+    handler: (i, c) => caps.devRevokeKey(i, c),
   },
 ];
 
