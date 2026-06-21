@@ -13,9 +13,9 @@
 
 import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   listPublicCapabilities,
-  getCapabilityByMcpName,
 } from "@/lib/capabilities/registry";
 import {
   extractBearer,
@@ -25,7 +25,7 @@ import {
   recordUsage,
   type ResolvedPublicKey,
 } from "@/lib/api-keys/public-keys";
-import { z } from "zod";
+import type { z } from "zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export const dynamic = "force-dynamic";
 const server = new McpServer({
   name: "dreyv-mcp",
   version: "1.0.0",
-  schemaAdapter: (schema) => z.toJSONSchema(schema as z.ZodTypeAny),
+  schemaAdapter: (schema) => zodToJsonSchema(schema as z.ZodTypeAny) as Record<string, unknown>,
 });
 
 // Register every capability as an MCP tool. The handler closure validates
@@ -43,7 +43,8 @@ for (const cap of listPublicCapabilities()) {
     description: `${cap.title} — ${cap.description}`,
     inputSchema: cap.inputSchema,
     handler: async (input: unknown, extra: unknown) => {
-      const key = (extra as { context?: { key?: ResolvedPublicKey } } | undefined)?.context?.key;
+      const auth = (extra as { authInfo?: { extra?: { key?: ResolvedPublicKey; origin?: string } } } | undefined)?.authInfo;
+      const key = auth?.extra?.key;
       if (!key) {
         return {
           isError: true,
@@ -69,7 +70,7 @@ for (const cap of listPublicCapabilities()) {
       }
       const t0 = Date.now();
       try {
-        const origin = (extra as { context?: { origin?: string } } | undefined)?.context?.origin ?? "";
+        const origin = auth?.extra?.origin ?? "";
         const data = await cap.handler(input as never, {
           userId: key.userId,
           keyId: key.id,
@@ -116,9 +117,13 @@ app.all("/", async (c) => {
     );
   }
   const origin = new URL(c.req.url).origin;
-  // Pass the resolved key + origin into the per-tool handler via mcp-lite's
-  // request context.
-  return await httpHandler(c.req.raw, { context: { key, origin } });
+  return await httpHandler(c.req.raw, {
+    authInfo: {
+      token: bearer ?? "",
+      scopes: key.scopes,
+      extra: { key, origin } as Record<string, unknown>,
+    },
+  });
 });
 
 export const GET = (req: Request) => app.fetch(req);
