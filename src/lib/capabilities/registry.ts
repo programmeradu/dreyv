@@ -1336,8 +1336,10 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "write",
     status: "stable",
     title: "Rotate the calling key — mint a new secret, revoke the old",
-    description: "Atomically mints a new key with the same scopes/label/rate-limit, then revokes the current key. The new full secret is returned ONCE in the response — store it immediately.",
-    inputSchema: z.object({}).strict(),
+    description: "Atomically mints a new key with the same scopes/label/rate-limit, then revokes the current key. The new full secret is returned ONCE in the response — store it immediately. Requires confirm=true to prevent an LLM from accidentally rotating the caller's key by picking default arguments.",
+    inputSchema: z.object({
+      confirm: z.literal(true).describe("Must be true. Rotating revokes the current key — this guard prevents an LLM from bricking the session by calling with default args."),
+    }).strict(),
     handler: (i, c) => caps.devRotateKey(i, c),
   },
   {
@@ -1348,8 +1350,11 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "write",
     status: "stable",
     title: "Revoke a key by id (defaults to the calling key)",
-    description: "Hard-revokes a key owned by the same user. After revocation, the key returns 401 on every transport. Idempotent.",
-    inputSchema: z.object({ keyId: z.string().uuid().optional() }),
+    description: "Hard-revokes a key owned by the same user. After revocation, the key returns 401 on every transport. Idempotent. Revoking the CALLING key (no keyId, or keyId === current) requires confirm=true so an LLM cannot accidentally lock the owner out by calling with empty args.",
+    inputSchema: z.object({
+      keyId: z.string().uuid().optional().describe("UUID of the key to revoke. Omit to target the calling key (requires confirm=true)."),
+      confirm: z.boolean().optional().describe("Required to be true when revoking the calling key. Ignored when revoking a different keyId."),
+    }),
     handler: (i, c) => caps.devRevokeKey(i, c),
   },
 

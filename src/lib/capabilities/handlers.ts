@@ -2064,7 +2064,14 @@ export async function safetyAttest(
 }
 
 // ─── Developer — key lifecycle (Phase 11) ────────────────────────────
-export async function devRotateKey(_input: Record<string, never>, ctx: CapabilityRunContext) {
+export async function devRotateKey(input: { confirm?: boolean }, ctx: CapabilityRunContext) {
+  if (input?.confirm !== true) {
+    throw new CapabilityError(
+      "Rotating a key revokes the current one. Pass confirm=true to proceed. This guard exists to prevent an LLM from accidentally rotating the caller's own key by picking default arguments.",
+      400,
+      { requires: { confirm: true } },
+    );
+  }
   const d = requireDb();
   const { publicApiKeys } = await import("@/db/schema");
   const [old] = await d
@@ -2112,12 +2119,20 @@ export async function devRotateKey(_input: Record<string, never>, ctx: Capabilit
 }
 
 export async function devRevokeKey(
-  input: { keyId?: string },
+  input: { keyId?: string; confirm?: boolean },
   ctx: CapabilityRunContext,
 ) {
   const d = requireDb();
   const { publicApiKeys } = await import("@/db/schema");
   const target = input.keyId ?? ctx.keyId;
+  const isSelf = target === ctx.keyId;
+  if (isSelf && input?.confirm !== true) {
+    throw new CapabilityError(
+      "Revoking the calling key will lock you out of this session. Pass confirm=true to revoke self, or pass a specific keyId. This guard exists to prevent an LLM from accidentally bricking the caller's own key.",
+      400,
+      { requires: { confirm: true }, selfRevoke: true },
+    );
+  }
   const [row] = await d
     .select({ id: publicApiKeys.id, userId: publicApiKeys.userId, revokedAt: publicApiKeys.revokedAt })
     .from(publicApiKeys)
