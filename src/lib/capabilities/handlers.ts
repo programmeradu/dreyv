@@ -3171,3 +3171,233 @@ export async function teamsActivity(
 
 // Silences unused-import lints.
 export const __pillarWTouch = { _usersW };
+
+// ════════════════════════════════════════════════════════════════════════
+// ─── Pillar X — Billing, Plans & Credits (Phase 16) ──────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Read + write surface so external apps and agents can introspect their
+// Dreyv subscription, meter their public-API usage against the plan, list
+// invoices, quote upgrades, and mint a crypto-rail invoice — all scoped
+// strictly to ctx.userId. Card rails (Stripe / Paystack) remain hosted-
+// checkout flows on the dashboard; this pillar handles the crypto rail end-
+// to-end and surfaces card-rail availability as booleans.
+
+import { users as _usersX, cryptoInvoices as _cryptoInvoicesX, publicApiKeys as _publicApiKeysX, publicApiKeyUsage as _publicApiKeyUsageX } from "@/db/schema";
+import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
+import { computeAmountMinor, usdPriceFor, type CryptoTier as _CryptoTierX } from "@/lib/billing/crypto-pricing";
+import { ENABLED_CHAINS as _ENABLED_CHAINS_X, ENABLED_ASSETS as _ENABLED_ASSETS_X, isEnabled as _isEnabledX, type CryptoChain as _CryptoChainX, type CryptoAsset as _CryptoAssetX } from "@/lib/billing/crypto-config";
+
+const _TIER_LIMITS_X: Record<string, { callsPerMonth: number; creditsPerMonth: number; rateLimitRpm: number; usdMonthly: number }> = {
+  free: { callsPerMonth: 10_000, creditsPerMonth: 0, rateLimitRpm: 60, usdMonthly: 0 },
+  mini: { callsPerMonth: 250_000, creditsPerMonth: 5_000, rateLimitRpm: 600, usdMonthly: 49 },
+  max: { callsPerMonth: 5_000_000, creditsPerMonth: 100_000, rateLimitRpm: 6_000, usdMonthly: 199 },
+};
+
+function _monthWindow(): { start: Date; end: Date } {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return { start, end };
+}
+
+export async function billingPlan(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [u] = await d.select().from(_usersX).where(eq(_usersX.id, ctx.userId)).limit(1);
+  if (!u) throw new CapabilityError("User not found", 404, null);
+  const tier = (u.tier ?? "free").toLowerCase();
+  const limits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+  const now = Date.now();
+  const expiresAt = u.tierExpiresAt ? new Date(u.tierExpiresAt).toISOString() : null;
+  const daysRemaining = u.tierExpiresAt
+    ? Math.max(0, Math.ceil((new Date(u.tierExpiresAt).getTime() - now) / 86_400_000))
+    : null;
+  return {
+    tier,
+    expiresAt,
+    daysRemaining,
+    isLifetime: !u.tierExpiresAt && tier !== "free",
+    isFoundingMember: !!u.isFoundingMember,
+    foundingNumber: u.foundingNumber ?? null,
+    limits,
+  };
+}
+
+export async function billingUsage(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const { start, end } = _monthWindow();
+  const rows = await d
+    .select({
+      keyId: _publicApiKeyUsageX.keyId,
+      status: _publicApiKeyUsageX.status,
+      credits: _publicApiKeyUsageX.costCredits,
+    })
+    .from(_publicApiKeyUsageX)
+    .where(and(
+      eq(_publicApiKeyUsageX.userId, ctx.userId),
+      gte(_publicApiKeyUsageX.ts, start),
+      lte(_publicApiKeyUsageX.ts, end),
+    ));
+
+  const byKey = new Map<string, { calls: number; ok: number; errors: number; credits: number }>();
+  let totalCalls = 0;
+  let totalCredits = 0;
+  let totalOk = 0;
+  let totalErrors = 0;
+  for (const r of rows) {
+    totalCalls++;
+    const c = Number(r.credits ?? 0);
+    totalCredits += Number.isFinite(c) ? c : 0;
+    const ok = r.status === "ok";
+    if (ok) totalOk++; else totalErrors++;
+    const slot = byKey.get(r.keyId) ?? { calls: 0, ok: 0, errors: 0, credits: 0 };
+    slot.calls++;
+    if (ok) slot.ok++; else slot.errors++;
+    slot.credits += Number.isFinite(c) ? c : 0;
+    byKey.set(r.keyId, slot);
+  }
+
+  const [u] = await d.select({ tier: _usersX.tier }).from(_usersX).where(eq(_usersX.id, ctx.userId)).limit(1);
+  const tier = (u?.tier ?? "free").toLowerCase();
+  const limits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+
+  return {
+    period: { start: start.toISOString(), end: end.toISOString() },
+    tier,
+    totals: {
+      calls: totalCalls,
+      ok: totalOk,
+      errors: totalErrors,
+      credits: Math.round(totalCredits * 1e4) / 1e4,
+    },
+    limits,
+    utilization: {
+      callsPct: limits.callsPerMonth > 0 ? Math.min(100, (totalCalls / limits.callsPerMonth) * 100) : 0,
+      creditsPct: limits.creditsPerMonth > 0 ? Math.min(100, (totalCredits / limits.creditsPerMonth) * 100) : 0,
+    },
+    byKey: Array.from(byKey.entries()).map(([keyId, v]) => ({
+      keyId,
+      calls: v.calls,
+      ok: v.ok,
+      errors: v.errors,
+      credits: Math.round(v.credits * 1e4) / 1e4,
+    })),
+  };
+}
+
+export async function billingInvoices(
+  input: { status?: "pending" | "confirmed" | "expired" | "failed"; limit?: number; sinceIso?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const conds = [eq(_cryptoInvoicesX.userId, ctx.userId)];
+  if (input.status) conds.push(eq(_cryptoInvoicesX.status, input.status));
+  if (input.sinceIso) conds.push(gte(_cryptoInvoicesX.createdAt, new Date(input.sinceIso)));
+  const limit = Math.min(input.limit ?? 50, 200);
+  const rows = await d
+    .select({
+      id: _cryptoInvoicesX.id,
+      tier: _cryptoInvoicesX.tier,
+      chain: _cryptoInvoicesX.chain,
+      asset: _cryptoInvoicesX.asset,
+      amountMinor: _cryptoInvoicesX.amountMinor,
+      amountUsd: _cryptoInvoicesX.amountUsd,
+      decimals: _cryptoInvoicesX.decimals,
+      receivingAddress: _cryptoInvoicesX.receivingAddress,
+      memo: _cryptoInvoicesX.memo,
+      status: _cryptoInvoicesX.status,
+      txSignature: _cryptoInvoicesX.txSignature,
+      expiresAt: _cryptoInvoicesX.expiresAt,
+      createdAt: _cryptoInvoicesX.createdAt,
+      confirmedAt: _cryptoInvoicesX.confirmedAt,
+    })
+    .from(_cryptoInvoicesX)
+    .where(and(...conds))
+    .orderBy(desc(_cryptoInvoicesX.createdAt))
+    .limit(limit);
+  return { count: rows.length, invoices: rows };
+}
+
+export async function billingPaymentOptions(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const cardRails = {
+    stripe: !!process.env.STRIPE_SECRET_KEY,
+    paystack: !!process.env.PAYSTACK_SECRET_KEY,
+  };
+  const crypto = _ENABLED_CHAINS_X.map((chain) => ({
+    chain,
+    assets: (_ENABLED_ASSETS_X[chain] ?? []) as _CryptoAssetX[],
+  }));
+  return {
+    cardRails,
+    crypto,
+    tiers: [
+      { tier: "free", usdMonthly: 0 },
+      { tier: "mini", usdMonthly: usdPriceFor("mini" as _CryptoTierX), cardUsdMonthly: 49 },
+      { tier: "max", usdMonthly: usdPriceFor("max" as _CryptoTierX), cardUsdMonthly: 199 },
+    ],
+    note: "Card prices are full retail (Stripe / Paystack). Crypto prices include a 10% discount and settle on-chain via /api/billing/crypto/verify.",
+  };
+}
+
+export async function billingEstimateUpgrade(
+  input: { tier: "mini" | "max"; chain: _CryptoChainX; asset: _CryptoAssetX },
+  _ctx: CapabilityRunContext,
+) {
+  if (!_isEnabledX(input.chain, input.asset)) {
+    throw new CapabilityError(`Asset not enabled: ${input.chain}/${input.asset}`, 400, null);
+  }
+  const pricing = await computeAmountMinor(input.tier, input.chain, input.asset);
+  return {
+    tier: input.tier,
+    chain: input.chain,
+    asset: input.asset,
+    amountUsd: pricing.amountUsd,
+    amountDisplay: pricing.amountDisplay,
+    amountMinor: pricing.amountMinor.toString(),
+    decimals: pricing.decimals,
+    cardUsdMonthly: input.tier === "mini" ? 49 : 199,
+    cryptoDiscountPct: 10,
+  };
+}
+
+export async function billingCreateInvoice(
+  input: { tier: "mini" | "max"; chain: _CryptoChainX; asset: _CryptoAssetX; message?: string },
+  ctx: CapabilityRunContext,
+) {
+  if (!_isEnabledX(input.chain, input.asset)) {
+    throw new CapabilityError(`Asset not enabled: ${input.chain}/${input.asset}`, 400, null);
+  }
+  let invoice;
+  try {
+    invoice = await mintCryptoInvoice({
+      userId: ctx.userId,
+      tier: input.tier,
+      chain: input.chain,
+      asset: input.asset,
+      message: input.message,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to mint invoice";
+    throw new CapabilityError(msg, 500, null);
+  }
+
+  const deliveryErrors: string[] = [];
+  try {
+    await emitWebhookEvent(ctx.userId, "billing.invoice_created", {
+      invoiceId: invoice.id,
+      tier: invoice.tier,
+      chain: invoice.chain,
+      asset: invoice.asset,
+      amountUsd: invoice.amountUsd,
+      memo: invoice.memo,
+      expiresAt: invoice.expiresAt,
+    });
+  } catch (e) {
+    deliveryErrors.push(e instanceof Error ? e.message : String(e));
+  }
+
+  return { invoice, verifyHint: `POST /api/billing/crypto/verify with { invoiceId: "${invoice.id}", txSignature }`, deliveryErrors };
+}
+
+// Silences unused-import lints.
+export const __pillarXTouch = { _publicApiKeysX };
+
