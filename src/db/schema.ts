@@ -2020,5 +2020,50 @@ export const publicApiKeyUsage = pgTable('public_api_key_usage', {
   capTsIdx: index('public_api_key_usage_cap_ts_idx').on(t.capabilityId, t.ts),
 }));
 
+// ─── Phase 5 — Outbound Webhooks & delivery log ──────────────────────
+export const publicApiWebhooks = pgTable('public_api_webhooks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  label: text('label').notNull(),
+  targetUrl: text('target_url').notNull(),
+  signingSecret: text('signing_secret').notNull(),
+  events: text('events').notNull(),               // CSV or '*'
+  active: boolean('active').notNull().default(true),
+  lastDeliveryAt: timestamp('last_delivery_at', { withTimezone: true }),
+  lastStatus: text('last_status'),                // ok | failed | retrying
+  failureStreak: integer('failure_streak').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('public_api_webhooks_user_idx').on(t.userId),
+  keyIdx: index('public_api_webhooks_key_idx').on(t.keyId),
+  activeIdx: index('public_api_webhooks_active_idx').on(t.active),
+}));
+
+export const webhookDeliveries = pgTable('webhook_deliveries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  webhookId: uuid('webhook_id').references(() => publicApiWebhooks.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  event: text('event').notNull(),
+  payload: jsonb('payload').notNull(),
+  attempt: integer('attempt').notNull().default(1),
+  status: text('status').notNull().default('pending'), // pending | ok | failed
+  httpStatus: integer('http_status'),
+  responseBody: text('response_body'),
+  error: text('error'),
+  latencyMs: integer('latency_ms'),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  hookTsIdx: index('webhook_deliveries_hook_ts_idx').on(t.webhookId, t.createdAt),
+  userTsIdx: index('webhook_deliveries_user_ts_idx').on(t.userId, t.createdAt),
+  eventTsIdx: index('webhook_deliveries_event_ts_idx').on(t.event, t.createdAt),
+  statusIdx: index('webhook_deliveries_status_idx').on(t.status),
+}));
+
+
+
 
 
