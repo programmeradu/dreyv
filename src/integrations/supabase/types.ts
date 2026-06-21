@@ -14,7 +14,311 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      public_api_sla_credits: {
+        Row: {
+          created_at: string
+          credit_pct: number
+          id: string
+          note: string | null
+          observed: Json
+          period_month: string
+          status: string
+          target: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit_pct?: number
+          id?: string
+          note?: string | null
+          observed?: Json
+          period_month: string
+          status?: string
+          target?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credit_pct?: number
+          id?: string
+          note?: string | null
+          observed?: Json
+          period_month?: string
+          status?: string
+          target?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      public_api_sla_targets: {
+        Row: {
+          component_key: string
+          created_at: string
+          id: string
+          latency_p95_ms: number
+          tier: string | null
+          updated_at: string
+          uptime_target: number
+          user_id: string | null
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          component_key: string
+          created_at?: string
+          id?: string
+          latency_p95_ms: number
+          tier?: string | null
+          updated_at?: string
+          uptime_target: number
+          user_id?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          component_key?: string
+          created_at?: string
+          id?: string
+          latency_p95_ms?: number
+          tier?: string | null
+          updated_at?: string
+          uptime_target?: number
+          user_id?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
+      public_api_status_incident_updates: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          incident_id: string
+          posted_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          incident_id: string
+          posted_at?: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          incident_id?: string
+          posted_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_status_incident_updates_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_status_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_status_incidents: {
+        Row: {
+          component_ids: Json
+          created_at: string
+          id: string
+          impact: string
+          page_id: string
+          resolved_at: string | null
+          severity: string
+          started_at: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          component_ids?: Json
+          created_at?: string
+          id?: string
+          impact?: string
+          page_id: string
+          resolved_at?: string | null
+          severity?: string
+          started_at?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          component_ids?: Json
+          created_at?: string
+          id?: string
+          impact?: string
+          page_id?: string
+          resolved_at?: string | null
+          severity?: string
+          started_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_status_incidents_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_status_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_status_maintenance: {
+        Row: {
+          body: string | null
+          component_ids: Json
+          created_at: string
+          id: string
+          page_id: string
+          scheduled_end: string
+          scheduled_start: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          component_ids?: Json
+          created_at?: string
+          id?: string
+          page_id: string
+          scheduled_end: string
+          scheduled_start: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          component_ids?: Json
+          created_at?: string
+          id?: string
+          page_id?: string
+          scheduled_end?: string
+          scheduled_start?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_status_maintenance_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_status_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_status_pages: {
+        Row: {
+          branding: Json
+          components: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean
+          published_at: string | null
+          slug: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branding?: Json
+          components?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          published_at?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branding?: Json
+          components?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          published_at?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      public_api_status_subscribers: {
+        Row: {
+          channel: string
+          component_ids: Json
+          confirm_token: string
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          page_id: string
+          target: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          channel: string
+          component_ids?: Json
+          confirm_token: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          page_id: string
+          target: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          channel?: string
+          component_ids?: Json
+          confirm_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          page_id?: string
+          target?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_status_subscribers_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_status_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

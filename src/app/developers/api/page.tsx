@@ -51,9 +51,10 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   inbox: "Inbox & digests",
   insights: "Workspace insights & reports",
   marketplace: "Marketplace & catalog",
+  sla: "SLA & status pages",
 };
 
-const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
+const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "inbox", "audit", "teams", "billing", "insights", "marketplace", "sla", "privacy", "storage", "search", "status", "jobs", "exports", "tags", "flags"];
 
 
 export default function DevelopersApiPage() {

@@ -65,6 +65,15 @@ export type WebhookEventName =
   | "marketplace.listing_installed"
   | "marketplace.listing_uninstalled"
   | "marketplace.review_posted"
+  | "status.incident_opened"
+  | "status.incident_updated"
+  | "status.incident_resolved"
+  | "status.maintenance_scheduled"
+  | "status.maintenance_started"
+  | "status.maintenance_completed"
+  | "status.subscriber_added"
+  | "status.subscriber_confirmed"
+  | "sla.credit_issued"
   | "test.ping";
 
 
@@ -113,6 +122,15 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "marketplace.listing_installed",
   "marketplace.listing_uninstalled",
   "marketplace.review_posted",
+  "status.incident_opened",
+  "status.incident_updated",
+  "status.incident_resolved",
+  "status.maintenance_scheduled",
+  "status.maintenance_started",
+  "status.maintenance_completed",
+  "status.subscriber_added",
+  "status.subscriber_confirmed",
+  "sla.credit_issued",
   "test.ping",
 ];
 

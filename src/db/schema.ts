@@ -2534,3 +2534,111 @@ export const publicApiListingReviews = pgTable('public_api_listing_reviews', {
 }));
 
 
+
+// ─── Pillar AN — SLA & Status pages (Phase 30) ───────────────────────
+export const publicApiStatusPages = pgTable('public_api_status_pages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  branding: jsonb('branding').notNull().default('{}'),
+  components: jsonb('components').notNull().default('[]'),
+  isPublic: boolean('is_public').notNull().default(false),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  slugUq: uniqueIndex('public_api_status_pages_slug_uq').on(t.slug),
+  userIdx: index('public_api_status_pages_user_idx').on(t.userId),
+}));
+
+export const publicApiStatusIncidents = pgTable('public_api_status_incidents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pageId: uuid('page_id').references(() => publicApiStatusPages.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  title: text('title').notNull(),
+  status: text('status').notNull().default('investigating'),
+  severity: text('severity').notNull().default('minor'),
+  impact: text('impact').notNull().default('none'),
+  componentIds: jsonb('component_ids').notNull().default('[]'),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pageIdx: index('public_api_status_incidents_page_idx').on(t.pageId, t.startedAt),
+}));
+
+export const publicApiStatusIncidentUpdates = pgTable('public_api_status_incident_updates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  incidentId: uuid('incident_id').references(() => publicApiStatusIncidents.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: text('status').notNull(),
+  body: text('body').notNull(),
+  postedAt: timestamp('posted_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  incidentIdx: index('public_api_status_incident_updates_incident_idx').on(t.incidentId, t.postedAt),
+}));
+
+export const publicApiStatusMaintenance = pgTable('public_api_status_maintenance', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pageId: uuid('page_id').references(() => publicApiStatusPages.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  title: text('title').notNull(),
+  body: text('body'),
+  componentIds: jsonb('component_ids').notNull().default('[]'),
+  scheduledStart: timestamp('scheduled_start', { withTimezone: true }).notNull(),
+  scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
+  status: text('status').notNull().default('scheduled'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pageIdx: index('public_api_status_maintenance_page_idx').on(t.pageId, t.scheduledStart),
+}));
+
+export const publicApiStatusSubscribers = pgTable('public_api_status_subscribers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pageId: uuid('page_id').references(() => publicApiStatusPages.id, { onDelete: 'cascade' }).notNull(),
+  channel: text('channel').notNull(),
+  target: text('target').notNull(),
+  componentIds: jsonb('component_ids').notNull().default('[]'),
+  confirmToken: text('confirm_token').notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uq: uniqueIndex('public_api_status_subscribers_uq').on(t.pageId, t.channel, t.target),
+}));
+
+export const publicApiSlaTargets = pgTable('public_api_sla_targets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  tier: text('tier'),
+  componentKey: text('component_key').notNull(),
+  uptimeTarget: numeric('uptime_target', { precision: 6, scale: 4 }).notNull(),
+  latencyP95Ms: integer('latency_p95_ms').notNull(),
+  validFrom: timestamp('valid_from', { withTimezone: true }).defaultNow().notNull(),
+  validTo: timestamp('valid_to', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('public_api_sla_targets_user_idx').on(t.userId, t.componentKey),
+  tierIdx: index('public_api_sla_targets_tier_idx').on(t.tier, t.componentKey),
+}));
+
+export const publicApiSlaCredits = pgTable('public_api_sla_credits', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  periodMonth: text('period_month').notNull(),
+  target: jsonb('target').notNull().default('{}'),
+  observed: jsonb('observed').notNull().default('{}'),
+  creditPct: numeric('credit_pct', { precision: 6, scale: 4 }).notNull().default('0'),
+  status: text('status').notNull().default('pending'),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userPeriodUq: uniqueIndex('public_api_sla_credits_user_period_uq').on(t.userId, t.periodMonth),
+}));
