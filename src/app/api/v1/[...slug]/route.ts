@@ -22,6 +22,7 @@ import {
   checkRateLimit,
   recordUsage,
 } from "@/lib/api-keys/public-keys";
+import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,23 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
     });
     return NextResponse.json(
       { error: "missing_scope", required: cap.scope, granted: key.scopes },
+      { status: 403 },
+    );
+  }
+
+  const policy = checkPolicy(key, cap.id, req);
+  if (!policy.ok) {
+    await recordUsage({
+      keyId: key.id,
+      userId: key.userId,
+      capabilityId: cap.id,
+      transport: "rest",
+      status: "denied",
+      latencyMs: Date.now() - t0,
+      errorCode: policy.code,
+    });
+    return NextResponse.json(
+      { error: policy.code, message: policy.message, ...(policy.detail ?? {}) },
       { status: 403 },
     );
   }

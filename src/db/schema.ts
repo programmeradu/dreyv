@@ -1996,11 +1996,32 @@ export const publicApiKeys = pgTable('public_api_keys', {
   rateLimitRpm: integer('rate_limit_rpm').notNull().default(120),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  // Phase 11 — Safety & Policy
+  killSwitchAt: timestamp('kill_switch_at', { withTimezone: true }),
+  ipAllowlist: text('ip_allowlist').notNull().default(''),               // csv of IPs / CIDR
+  originAllowlist: text('origin_allowlist').notNull().default(''),       // csv of hostnames
+  capabilityAllowlist: text('capability_allowlist').notNull().default(''), // csv of capability ids
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   hashUniq: uniqueIndex('public_api_keys_hash_uniq').on(t.keyHash),
   userIdx: index('public_api_keys_user_idx').on(t.userId),
   envIdx: index('public_api_keys_env_idx').on(t.env),
+}));
+
+// Phase 11 — Tamper-evident audit log (hash chain) for key policy changes.
+export const publicApiAuditLog = pgTable('public_api_audit_log', {
+  id: serial('id').primaryKey(),
+  keyId: uuid('key_id').references(() => publicApiKeys.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  action: text('action').notNull(),
+  target: text('target'),
+  meta: jsonb('meta').notNull().default('{}'),
+  prevHash: text('prev_hash').notNull().default(''),
+  hash: text('hash').notNull(),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  keyTsIdx: index('public_api_audit_log_key_ts_idx').on(t.keyId, t.ts),
+  userTsIdx: index('public_api_audit_log_user_ts_idx').on(t.userId, t.ts),
 }));
 
 export const publicApiKeyUsage = pgTable('public_api_key_usage', {
