@@ -8744,7 +8744,7 @@ export async function billingCancelInvoice(input: { id: string }, ctx: Capabilit
     userId: ctx.userId,
     action: "billing.invoice_cancelled",
     target: input.id,
-    meta: { tier: row.tier, amount: row.expectedAmountMinor },
+    meta: { tier: row.tier, amount: row.amountMinor },
   });
   void emitWebhookEvent({
     userId: ctx.userId,
