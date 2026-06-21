@@ -433,3 +433,74 @@ export async function marketPriceHistory(
   else qs.set("symbol", t.toUpperCase());
   return await callInternal(ctx, `/api/jupiter/historical-price?${qs.toString()}`);
 }
+
+// ─── Pillar H — Agentic delegation (Phase 3) ─────────────────────────
+// Solana SPL Token `Approve` delegation: returns an unsigned approve
+// instruction + recent blockhash. The caller signs and submits — Dreyv
+// never holds keys. Real upstream: /api/delegation/request.
+export async function delegationRequestSolana(
+  input: {
+    walletAddress: string;
+    tokenMint: string;
+    amount: number;
+    expiryDays: 30 | 60 | 90 | 180;
+  },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/api/delegation/request`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function delegationStatus(
+  input: { walletAddress: string },
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(
+    ctx,
+    `/api/delegation/status?wallet=${encodeURIComponent(input.walletAddress)}`,
+  );
+}
+
+// ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
+// Read-only discovery surface so any agent can introspect what Dreyv
+// sells over x402 + Agentic Commerce Protocol, without first minting an
+// agent payment key. Mutating x402 endpoints (/api/x402/checkout, /pay)
+// require a separate dak_… agent payment key per design and are NOT
+// proxied through dk_live_… public keys.
+export async function economyX402Catalog(
+  _input: Record<string, never>,
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/.well-known/x402`);
+}
+
+export async function economyAcpCatalog(
+  _input: Record<string, never>,
+  ctx: CapabilityRunContext,
+) {
+  return await callInternal(ctx, `/.well-known/acp.json`);
+}
+
+export async function economySkus(
+  _input: Record<string, never>,
+  _ctx: CapabilityRunContext,
+) {
+  const { listSkus } = await import("@/lib/agent/skus");
+  const skus = listSkus();
+  return {
+    settlement: { rail: "solana", asset: "USDC", facilitator: "dreyv-native" },
+    auth: {
+      header: "Authorization: Bearer dak_…",
+      mint_url: "/app/settings/agent-keys",
+      note: "Public dk_live_ keys CANNOT execute x402 purchases. Mint a dak_ agent payment key.",
+    },
+    endpoints: {
+      checkout: "/api/x402/checkout",
+      pay: "/api/x402/pay",
+      fulfil: "/api/x402/fulfil",
+    },
+    skus,
+  };
+}
