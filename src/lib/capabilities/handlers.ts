@@ -8444,3 +8444,530 @@ export async function teamsPolicy(_input: Record<string, never>, ctx: Capability
     ],
   };
 }
+// ─────────────────────────────────────────────────────────────────────
+// Pillar AK — Billing, Usage & Quotas (Phase 27)
+// Adds usage timeseries, per-capability / per-key breakdowns, forecasts,
+// invoice details + cancellation, and user-defined usage threshold
+// alerts on top of the legacy Pillar X billing surface.
+// ─────────────────────────────────────────────────────────────────────
+import {
+  publicApiBillingAlerts as _alertsAK,
+  notifications as _notifAK,
+} from "@/db/schema";
+import { sql as _sqlAK } from "drizzle-orm";
+
+const _MAX_HISTORY_DAYS_AK = 90;
+const _MIN_HISTORY_DAYS_AK = 1;
+const _ALERT_CHANNELS_AK = ["inbox", "webhook"] as const;
+const _ALERT_METRICS_AK = ["calls", "credits"] as const;
+const _ALERT_SCOPES_AK = ["monthly", "daily"] as const;
+
+const _TIER_ALERT_LIMITS_AK: Record<string, { maxAlerts: number }> = {
+  free: { maxAlerts: 3 },
+  mini: { maxAlerts: 25 },
+  max:  { maxAlerts: 250 },
+};
+
+function _dayWindowAK(): { start: Date; end: Date } {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start.getTime() + 86_400_000);
+  return { start, end };
+}
+
+function _windowForScopeAK(scope: "monthly" | "daily") {
+  return scope === "daily" ? _dayWindowAK() : _monthWindow();
+}
+
+async function _userTierAK(userId: string): Promise<string> {
+  const d = requireDb();
+  const [u] = await d.select({ tier: _usersX.tier }).from(_usersX).where(eq(_usersX.id, userId)).limit(1);
+  return (u?.tier ?? "free").toLowerCase();
+}
+
+// ─── billing.usage_history ──────────────────────────────────────────
+export async function billingUsageHistory(
+  input: { days?: number; granularity?: "day" | "hour" },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const days = Math.max(_MIN_HISTORY_DAYS_AK, Math.min(input.days ?? 30, _MAX_HISTORY_DAYS_AK));
+  const gran = input.granularity ?? "day";
+  const since = new Date(Date.now() - days * 86_400_000);
+  const rows = await d
+    .select({
+      bucket: _sqlAK<Date>`date_trunc(${gran}, ${_publicApiKeyUsageX.ts})`.as("bucket"),
+      status: _publicApiKeyUsageX.status,
+      credits: _publicApiKeyUsageX.costCredits,
+    })
+    .from(_publicApiKeyUsageX)
+    .where(and(
+      eq(_publicApiKeyUsageX.userId, ctx.userId),
+      gte(_publicApiKeyUsageX.ts, since),
+    ));
+  const series = new Map<string, { calls: number; ok: number; errors: number; denied: number; rateLimited: number; credits: number }>();
+  for (const r of rows) {
+    const k = (r.bucket instanceof Date ? r.bucket : new Date(r.bucket as unknown as string)).toISOString();
+    const slot = series.get(k) ?? { calls: 0, ok: 0, errors: 0, denied: 0, rateLimited: 0, credits: 0 };
+    slot.calls++;
+    const c = Number(r.credits ?? 0);
+    if (Number.isFinite(c)) slot.credits += c;
+    if (r.status === "ok") slot.ok++;
+    else if (r.status === "denied") slot.denied++;
+    else if (r.status === "rate_limited") slot.rateLimited++;
+    else slot.errors++;
+    series.set(k, slot);
+  }
+  const points = Array.from(series.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([ts, v]) => ({ ts, ...v, credits: Math.round(v.credits * 1e4) / 1e4 }));
+  return {
+    period: { since: since.toISOString(), now: new Date().toISOString(), days, granularity: gran },
+    pointCount: points.length,
+    points,
+  };
+}
+
+// ─── billing.usage_by_capability ─────────────────────────────────────
+export async function billingUsageByCapability(
+  input: { scope?: "monthly" | "daily"; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { start, end } = _windowForScopeAK(input.scope ?? "monthly");
+  const rows = await d
+    .select({
+      capabilityId: _publicApiKeyUsageX.capabilityId,
+      status: _publicApiKeyUsageX.status,
+      credits: _publicApiKeyUsageX.costCredits,
+      latency: _publicApiKeyUsageX.latencyMs,
+    })
+    .from(_publicApiKeyUsageX)
+    .where(and(
+      eq(_publicApiKeyUsageX.userId, ctx.userId),
+      gte(_publicApiKeyUsageX.ts, start),
+      lte(_publicApiKeyUsageX.ts, end),
+    ));
+  const limit = Math.min(input.limit ?? 100, 500);
+  const agg = new Map<string, { calls: number; ok: number; errors: number; credits: number; latencyTotal: number; latencyN: number }>();
+  for (const r of rows) {
+    const slot = agg.get(r.capabilityId) ?? { calls: 0, ok: 0, errors: 0, credits: 0, latencyTotal: 0, latencyN: 0 };
+    slot.calls++;
+    if (r.status === "ok") slot.ok++; else slot.errors++;
+    const c = Number(r.credits ?? 0);
+    if (Number.isFinite(c)) slot.credits += c;
+    if (r.latency != null && Number.isFinite(r.latency)) {
+      slot.latencyTotal += r.latency;
+      slot.latencyN++;
+    }
+    agg.set(r.capabilityId, slot);
+  }
+  const out = Array.from(agg.entries())
+    .map(([capabilityId, v]) => ({
+      capabilityId,
+      calls: v.calls,
+      ok: v.ok,
+      errors: v.errors,
+      credits: Math.round(v.credits * 1e4) / 1e4,
+      avgLatencyMs: v.latencyN ? Math.round(v.latencyTotal / v.latencyN) : null,
+    }))
+    .sort((a, b) => b.calls - a.calls)
+    .slice(0, limit);
+  return {
+    period: { start: start.toISOString(), end: end.toISOString(), scope: input.scope ?? "monthly" },
+    count: out.length,
+    capabilities: out,
+  };
+}
+
+// ─── billing.quota_check ────────────────────────────────────────────
+export async function billingQuotaCheck(
+  input: { plannedCalls?: number; plannedCredits?: number; scope?: "monthly" | "daily" },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const scope = input.scope ?? "monthly";
+  const { start, end } = _windowForScopeAK(scope);
+  const tier = await _userTierAK(ctx.userId);
+  const limits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+  // Daily scope only makes sense if we synthesise a soft daily ceiling = monthly/30.
+  const callCeiling = scope === "daily" ? Math.ceil(limits.callsPerMonth / 30) : limits.callsPerMonth;
+  const creditCeiling = scope === "daily" ? Math.ceil(limits.creditsPerMonth / 30) : limits.creditsPerMonth;
+  const rows = await d
+    .select({ status: _publicApiKeyUsageX.status, credits: _publicApiKeyUsageX.costCredits })
+    .from(_publicApiKeyUsageX)
+    .where(and(
+      eq(_publicApiKeyUsageX.userId, ctx.userId),
+      gte(_publicApiKeyUsageX.ts, start),
+      lte(_publicApiKeyUsageX.ts, end),
+    ));
+  let usedCalls = 0;
+  let usedCredits = 0;
+  for (const r of rows) {
+    usedCalls++;
+    const c = Number(r.credits ?? 0);
+    if (Number.isFinite(c)) usedCredits += c;
+  }
+  const planCalls = (input.plannedCalls ?? 0);
+  const planCredits = (input.plannedCredits ?? 0);
+  const projectedCalls = usedCalls + planCalls;
+  const projectedCredits = usedCredits + planCredits;
+  return {
+    period: { start: start.toISOString(), end: end.toISOString(), scope },
+    tier,
+    ceilings: { calls: callCeiling, credits: creditCeiling },
+    used: { calls: usedCalls, credits: Math.round(usedCredits * 1e4) / 1e4 },
+    planned: { calls: planCalls, credits: planCredits },
+    projected: { calls: projectedCalls, credits: Math.round(projectedCredits * 1e4) / 1e4 },
+    headroom: {
+      calls: Math.max(0, callCeiling - projectedCalls),
+      credits: Math.max(0, Math.round((creditCeiling - projectedCredits) * 1e4) / 1e4),
+    },
+    callsPct: callCeiling > 0 ? Math.round((projectedCalls / callCeiling) * 1000) / 10 : 0,
+    creditsPct: creditCeiling > 0 ? Math.round((projectedCredits / creditCeiling) * 1000) / 10 : 0,
+    wouldExceed: {
+      calls: callCeiling > 0 && projectedCalls > callCeiling,
+      credits: creditCeiling > 0 && projectedCredits > creditCeiling,
+    },
+  };
+}
+
+// ─── billing.forecast ────────────────────────────────────────────────
+export async function billingForecast(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const { start, end } = _monthWindow();
+  const now = new Date();
+  const elapsedMs = Math.max(1, now.getTime() - start.getTime());
+  const windowMs = end.getTime() - start.getTime();
+  const rows = await d
+    .select({ status: _publicApiKeyUsageX.status, credits: _publicApiKeyUsageX.costCredits })
+    .from(_publicApiKeyUsageX)
+    .where(and(
+      eq(_publicApiKeyUsageX.userId, ctx.userId),
+      gte(_publicApiKeyUsageX.ts, start),
+    ));
+  let calls = 0;
+  let credits = 0;
+  for (const r of rows) {
+    calls++;
+    const c = Number(r.credits ?? 0);
+    if (Number.isFinite(c)) credits += c;
+  }
+  const rate = elapsedMs / windowMs;
+  const projectedCalls = rate > 0 ? Math.round(calls / rate) : calls;
+  const projectedCredits = rate > 0 ? Math.round((credits / rate) * 1e4) / 1e4 : Math.round(credits * 1e4) / 1e4;
+  const tier = await _userTierAK(ctx.userId);
+  const limits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+  const verdict =
+    (limits.callsPerMonth > 0 && projectedCalls > limits.callsPerMonth) ||
+    (limits.creditsPerMonth > 0 && projectedCredits > limits.creditsPerMonth)
+      ? "over_quota"
+      : "within_quota";
+  return {
+    period: { start: start.toISOString(), end: end.toISOString(), elapsedPct: Math.round(rate * 1000) / 10 },
+    actual: { calls, credits: Math.round(credits * 1e4) / 1e4 },
+    projected: { calls: projectedCalls, credits: projectedCredits },
+    tier,
+    limits,
+    verdict,
+  };
+}
+
+// ─── billing.credits_ledger ─────────────────────────────────────────
+export async function billingCreditsLedger(
+  input: { since?: string; until?: string; minCost?: number; limit?: number; capabilityId?: string },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(input.limit ?? 200, 1000);
+  const conds = [
+    eq(_publicApiKeyUsageX.userId, ctx.userId),
+    _sqlAK`${_publicApiKeyUsageX.costCredits}::numeric > ${input.minCost ?? 0}`,
+  ];
+  if (input.since) conds.push(gte(_publicApiKeyUsageX.ts, new Date(input.since)));
+  if (input.until) conds.push(lte(_publicApiKeyUsageX.ts, new Date(input.until)));
+  if (input.capabilityId) conds.push(eq(_publicApiKeyUsageX.capabilityId, input.capabilityId));
+  const rows = await d
+    .select()
+    .from(_publicApiKeyUsageX)
+    .where(and(...conds))
+    .orderBy(desc(_publicApiKeyUsageX.ts))
+    .limit(limit);
+  const total = rows.reduce((s, r) => s + Number(r.costCredits ?? 0), 0);
+  return {
+    count: rows.length,
+    totalCredits: Math.round(total * 1e4) / 1e4,
+    entries: rows.map((r) => ({
+      id: r.id,
+      ts: r.ts,
+      capabilityId: r.capabilityId,
+      keyId: r.keyId,
+      transport: r.transport,
+      status: r.status,
+      credits: Number(r.costCredits ?? 0),
+      latencyMs: r.latencyMs,
+    })),
+  };
+}
+
+// ─── billing.invoice_get ────────────────────────────────────────────
+export async function billingInvoiceGet(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_cryptoInvoicesX)
+    .where(and(eq(_cryptoInvoicesX.id, input.id), eq(_cryptoInvoicesX.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Invoice not found", 404, null);
+  return { invoice: row };
+}
+
+// ─── billing.cancel_invoice ─────────────────────────────────────────
+export async function billingCancelInvoice(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d
+    .select()
+    .from(_cryptoInvoicesX)
+    .where(and(eq(_cryptoInvoicesX.id, input.id), eq(_cryptoInvoicesX.userId, ctx.userId)))
+    .limit(1);
+  if (!row) throw new CapabilityError("Invoice not found", 404, null);
+  if (row.status !== "pending") {
+    throw new CapabilityError(`Cannot cancel invoice in status ${row.status}`, 409, { status: row.status });
+  }
+  const [updated] = await d
+    .update(_cryptoInvoicesX)
+    .set({ status: "expired" })
+    .where(eq(_cryptoInvoicesX.id, input.id))
+    .returning();
+  const audit = await _appendAudit({
+    keyId: ctx.keyId,
+    userId: ctx.userId,
+    action: "billing.invoice_cancelled",
+    target: input.id,
+    meta: { tier: row.tier, amount: row.expectedAmountMinor },
+  });
+  void emitWebhookEvent({
+    userId: ctx.userId,
+    event: "billing.invoice_cancelled",
+    data: { invoiceId: input.id, tier: row.tier },
+  }).catch(() => undefined);
+  return { invoice: updated, audit };
+}
+
+// ─── billing.alerts_upsert ──────────────────────────────────────────
+export async function billingAlertsUpsert(
+  input: {
+    id?: string;
+    name: string;
+    metric?: "calls" | "credits";
+    scope?: "monthly" | "daily";
+    thresholdPct?: number;
+    thresholdAbs?: number;
+    channel?: "inbox" | "webhook";
+    enabled?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  if (input.thresholdPct == null && input.thresholdAbs == null) {
+    throw new CapabilityError("Provide thresholdPct or thresholdAbs", 400, null);
+  }
+  if (input.thresholdPct != null && (input.thresholdPct < 1 || input.thresholdPct > 100)) {
+    throw new CapabilityError("thresholdPct must be 1..100", 400, null);
+  }
+  if (input.thresholdAbs != null && input.thresholdAbs < 0) {
+    throw new CapabilityError("thresholdAbs must be >= 0", 400, null);
+  }
+  if (input.id) {
+    const [existing] = await d
+      .select()
+      .from(_alertsAK)
+      .where(and(eq(_alertsAK.id, input.id), eq(_alertsAK.userId, ctx.userId)))
+      .limit(1);
+    if (!existing) throw new CapabilityError("Alert not found", 404, null);
+    const patch: Record<string, unknown> = { updatedAt: new Date(), name: input.name };
+    if (input.metric) patch.metric = input.metric;
+    if (input.scope) patch.scope = input.scope;
+    if (input.thresholdPct !== undefined) patch.thresholdPct = input.thresholdPct ?? null;
+    if (input.thresholdAbs !== undefined) patch.thresholdAbs = input.thresholdAbs?.toString() ?? null;
+    if (input.channel) patch.channel = input.channel;
+    if (input.enabled !== undefined) patch.enabled = input.enabled;
+    const [row] = await d.update(_alertsAK).set(patch).where(eq(_alertsAK.id, input.id)).returning();
+    await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "billing.alert_updated", target: row.id, meta: patch });
+    return { alert: row, created: false };
+  }
+  const tier = await _userTierAK(ctx.userId);
+  const cap = _TIER_ALERT_LIMITS_AK[tier]?.maxAlerts ?? _TIER_ALERT_LIMITS_AK.free.maxAlerts;
+  const existing = await d.select({ id: _alertsAK.id }).from(_alertsAK).where(eq(_alertsAK.userId, ctx.userId));
+  if (existing.length >= cap) {
+    throw new CapabilityError(`Alert cap reached for tier ${tier} (${cap})`, 402, { tier, limit: cap });
+  }
+  const [row] = await d
+    .insert(_alertsAK)
+    .values({
+      userId: ctx.userId,
+      keyId: ctx.keyId,
+      name: input.name.trim(),
+      metric: input.metric ?? "calls",
+      scope: input.scope ?? "monthly",
+      thresholdPct: input.thresholdPct ?? null,
+      thresholdAbs: input.thresholdAbs?.toString() ?? null,
+      channel: input.channel ?? "inbox",
+      enabled: input.enabled ?? true,
+    })
+    .returning();
+  await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "billing.alert_created", target: row.id, meta: { name: row.name } });
+  return { alert: row, created: true };
+}
+
+// ─── billing.alerts_list ────────────────────────────────────────────
+export async function billingAlertsList(
+  input: { includeDisabled?: boolean; limit?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const limit = Math.min(input.limit ?? 100, 500);
+  const rows = await d
+    .select()
+    .from(_alertsAK)
+    .where(eq(_alertsAK.userId, ctx.userId))
+    .orderBy(desc(_alertsAK.createdAt))
+    .limit(limit);
+  const filtered = input.includeDisabled ? rows : rows.filter((r) => r.enabled);
+  return { count: filtered.length, alerts: filtered };
+}
+
+// ─── billing.alerts_delete ──────────────────────────────────────────
+export async function billingAlertsDelete(input: { id: string }, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const [row] = await d.select().from(_alertsAK).where(and(eq(_alertsAK.id, input.id), eq(_alertsAK.userId, ctx.userId))).limit(1);
+  if (!row) throw new CapabilityError("Alert not found", 404, null);
+  await d.delete(_alertsAK).where(eq(_alertsAK.id, input.id));
+  await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "billing.alert_deleted", target: input.id, meta: { name: row.name } });
+  return { ok: true, id: input.id };
+}
+
+// ─── billing.alerts_evaluate ────────────────────────────────────────
+// Evaluates every enabled alert for the caller against the current window.
+// Triggered alerts (a) write one inbox notification per trigger, (b) fire
+// `billing.quota_threshold` or `billing.quota_exceeded` (>=100%) webhook,
+// and (c) debounce via last_triggered_at until the next window.
+export async function billingAlertsEvaluate(
+  input: { dryRun?: boolean; force?: boolean },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const tier = await _userTierAK(ctx.userId);
+  const monthlyLimits = _TIER_LIMITS_X[tier] ?? _TIER_LIMITS_X.free;
+  const alerts = await d
+    .select()
+    .from(_alertsAK)
+    .where(and(eq(_alertsAK.userId, ctx.userId), eq(_alertsAK.enabled, true)));
+  // Pre-aggregate both windows once.
+  const buckets: Record<"monthly" | "daily", { calls: number; credits: number; window: { start: Date; end: Date } }> = {
+    monthly: { calls: 0, credits: 0, window: _monthWindow() },
+    daily: { calls: 0, credits: 0, window: _dayWindowAK() },
+  };
+  for (const scope of ["monthly", "daily"] as const) {
+    const { start, end } = buckets[scope].window;
+    const rows = await d
+      .select({ credits: _publicApiKeyUsageX.costCredits })
+      .from(_publicApiKeyUsageX)
+      .where(and(
+        eq(_publicApiKeyUsageX.userId, ctx.userId),
+        gte(_publicApiKeyUsageX.ts, start),
+        lte(_publicApiKeyUsageX.ts, end),
+      ));
+    buckets[scope].calls = rows.length;
+    buckets[scope].credits = rows.reduce((s, r) => s + Number(r.credits ?? 0), 0);
+  }
+  const evaluated: Array<{ id: string; name: string; triggered: boolean; value: number; threshold: number; pct: number; reason: string; debounced: boolean }> = [];
+  for (const a of alerts) {
+    const scope = (a.scope as "monthly" | "daily");
+    const metric = (a.metric as "calls" | "credits");
+    const b = buckets[scope];
+    const value = metric === "calls" ? b.calls : Math.round(b.credits * 1e4) / 1e4;
+    const ceiling = scope === "daily"
+      ? Math.ceil((metric === "calls" ? monthlyLimits.callsPerMonth : monthlyLimits.creditsPerMonth) / 30)
+      : (metric === "calls" ? monthlyLimits.callsPerMonth : monthlyLimits.creditsPerMonth);
+    let threshold = 0;
+    let pct = 0;
+    if (a.thresholdAbs != null) {
+      threshold = Number(a.thresholdAbs);
+      pct = ceiling > 0 ? (value / ceiling) * 100 : 0;
+    } else if (a.thresholdPct != null) {
+      threshold = ceiling * (a.thresholdPct / 100);
+      pct = ceiling > 0 ? (value / ceiling) * 100 : 0;
+    }
+    const crossed = value >= threshold && threshold > 0;
+    const debouncedUntil = a.lastTriggeredAt ? new Date(a.lastTriggeredAt).getTime() >= b.window.start.getTime() : false;
+    const triggered = crossed && (input.force || !debouncedUntil);
+    evaluated.push({
+      id: a.id, name: a.name, triggered, value, threshold, pct: Math.round(pct * 10) / 10,
+      reason: triggered ? `${metric}=${value} >= ${threshold} (${a.thresholdPct ?? "abs"}${a.thresholdPct != null ? "%" : ""})` : (crossed ? "debounced" : "below"),
+      debounced: crossed && debouncedUntil && !input.force,
+    });
+    if (!triggered || input.dryRun) continue;
+    // (a) inbox notification
+    await d.insert(_notifAK).values({
+      userId: ctx.userId,
+      title: `Usage alert: ${a.name}`,
+      message: `${metric} usage hit ${value} (threshold ${threshold}, ${Math.round(pct)}% of ${scope} ceiling).`,
+      type: "billing",
+      severity: pct >= 100 ? "error" : "warning",
+      metadata: { alertId: a.id, metric, scope, value, threshold, pct, ceiling },
+    } as never).catch(() => undefined);
+    // (b) webhook
+    const event: WebhookEventName = pct >= 100 ? "billing.quota_exceeded" : "billing.quota_threshold";
+    void emitWebhookEvent({
+      userId: ctx.userId,
+      event,
+      data: { alertId: a.id, name: a.name, metric, scope, value, threshold, pct, ceiling },
+    }).catch(() => undefined);
+    // (c) debounce
+    await d.update(_alertsAK).set({
+      lastTriggeredAt: new Date(),
+      lastValue: value.toString(),
+      fireCount: (a.fireCount ?? 0) + 1,
+      updatedAt: new Date(),
+    }).where(eq(_alertsAK.id, a.id));
+    await _appendAudit({ keyId: ctx.keyId, userId: ctx.userId, action: "billing.alert_triggered", target: a.id, meta: { metric, scope, value, threshold, pct } });
+  }
+  return {
+    tier,
+    dryRun: !!input.dryRun,
+    counts: { evaluated: alerts.length, triggered: evaluated.filter((e) => e.triggered).length },
+    results: evaluated,
+  };
+}
+
+// ─── billing.policy ─────────────────────────────────────────────────
+export async function billingPolicy(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const tier = await _userTierAK(ctx.userId);
+  return {
+    tier,
+    tierLimits: _TIER_LIMITS_X,
+    alertLimits: _TIER_ALERT_LIMITS_AK,
+    alertOptions: {
+      metrics: _ALERT_METRICS_AK,
+      scopes: _ALERT_SCOPES_AK,
+      channels: _ALERT_CHANNELS_AK,
+      thresholdPctRange: [1, 100],
+    },
+    webhookEvents: [
+      "billing.invoice_created",
+      "billing.invoice_paid",
+      "billing.invoice_cancelled",
+      "billing.tier_changed",
+      "billing.quota_threshold",
+      "billing.quota_exceeded",
+    ],
+    historyLimits: { minDays: _MIN_HISTORY_DAYS_AK, maxDays: _MAX_HISTORY_DAYS_AK, granularities: ["day", "hour"] },
+    notes: [
+      "Daily ceilings are synthesised as ceil(monthlyLimit / 30) — they're a soft pacing guide, not a hard wall.",
+      "`alerts_evaluate` is idempotent within a window via `last_triggered_at`. Pass `force:true` to re-trigger in dev.",
+      "`forecast` uses linear extrapolation (used / elapsedFraction). Early-month forecasts have high variance.",
+      "`cancel_invoice` only works on `pending` rows; confirmed invoices are permanent and refunded out of band.",
+    ],
+  };
+}
