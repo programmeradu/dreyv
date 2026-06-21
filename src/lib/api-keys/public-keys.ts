@@ -24,6 +24,7 @@ export const ALL_SCOPES = [
   "read:market",
   "read:forensics",
   "read:notifications",
+  "write:notifications",
   "read:audit",
   "read:teams",
   "read:billing",
