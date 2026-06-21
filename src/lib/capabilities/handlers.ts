@@ -4756,7 +4756,7 @@ export async function searchLookup(
   return { id: raw, match: null, probed };
 }
 
-export function searchIndexes(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+export async function searchIndexes(_input: Record<string, never>, _ctx: CapabilityRunContext) {
   return {
     indexes: [
       { id: "audit", table: "public_api_audit_log", tsField: "ts", textFields: ["action", "target", "meta(text)"], pkType: "int" },
@@ -4771,7 +4771,7 @@ export function searchIndexes(_input: Record<string, never>, _ctx: CapabilityRun
   };
 }
 
-export function searchPolicy(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+export async function searchPolicy(_input: Record<string, never>, _ctx: CapabilityRunContext) {
   return {
     operator: "AND",
     matching: "case-insensitive substring (ILIKE %tok%) over concatenated text fields",
