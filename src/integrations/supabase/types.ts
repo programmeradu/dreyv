@@ -14,6 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
+      public_api_contract_violations: {
+        Row: {
+          contract_id: string
+          created_at: string
+          errors: Json
+          id: string
+          payload_excerpt: Json
+          severity: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          payload_excerpt?: Json
+          severity?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          payload_excerpt?: Json
+          severity?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_contract_violations_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_contracts: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          mode: string
+          name: string
+          schema_id: string
+          schema_version: string
+          subject: string
+          subject_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          mode?: string
+          name: string
+          schema_id: string
+          schema_version: string
+          subject: string
+          subject_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          mode?: string
+          name?: string
+          schema_id?: string
+          schema_version?: string
+          subject?: string
+          subject_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_contracts_schema_id_fkey"
+            columns: ["schema_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_schemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_schema_versions: {
+        Row: {
+          breaking_changes: Json
+          changelog: string | null
+          compatibility: string
+          created_at: string
+          id: string
+          json_schema: Json
+          schema_hash: string
+          schema_id: string
+          user_id: string
+          version: string
+          yank_reason: string | null
+          yanked_at: string | null
+        }
+        Insert: {
+          breaking_changes?: Json
+          changelog?: string | null
+          compatibility?: string
+          created_at?: string
+          id?: string
+          json_schema: Json
+          schema_hash: string
+          schema_id: string
+          user_id: string
+          version: string
+          yank_reason?: string | null
+          yanked_at?: string | null
+        }
+        Update: {
+          breaking_changes?: Json
+          changelog?: string | null
+          compatibility?: string
+          created_at?: string
+          id?: string
+          json_schema?: Json
+          schema_hash?: string
+          schema_id?: string
+          user_id?: string
+          version?: string
+          yank_reason?: string | null
+          yanked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_api_schema_versions_schema_id_fkey"
+            columns: ["schema_id"]
+            isOneToOne: false
+            referencedRelation: "public_api_schemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_api_schemas: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          description: string | null
+          id: string
+          latest_version: string | null
+          name: string
+          namespace: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          description?: string | null
+          id?: string
+          latest_version?: string | null
+          name: string
+          namespace?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          description?: string | null
+          id?: string
+          latest_version?: string | null
+          name?: string
+          namespace?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       public_api_sla_credits: {
         Row: {
           created_at: string

@@ -2642,3 +2642,69 @@ export const publicApiSlaCredits = pgTable('public_api_sla_credits', {
 }, (t) => ({
   userPeriodUq: uniqueIndex('public_api_sla_credits_user_period_uq').on(t.userId, t.periodMonth),
 }));
+
+// ─── Pillar AO — Data Contracts & Schema Registry (Phase 31) ──────────
+export const publicApiSchemas = pgTable('public_api_schemas', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  namespace: text('namespace').notNull().default('default'),
+  name: text('name').notNull(),
+  description: text('description'),
+  latestVersion: text('latest_version'),
+  deprecatedAt: timestamp('deprecated_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNsNameUq: uniqueIndex('public_api_schemas_user_ns_name_uq').on(t.userId, t.namespace, t.name),
+  userIdx: index('public_api_schemas_user_idx').on(t.userId),
+}));
+
+export const publicApiSchemaVersions = pgTable('public_api_schema_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  schemaId: uuid('schema_id').references(() => publicApiSchemas.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  version: text('version').notNull(),
+  jsonSchema: jsonb('json_schema').notNull(),
+  schemaHash: text('schema_hash').notNull(),
+  changelog: text('changelog'),
+  compatibility: text('compatibility').notNull().default('unknown'),
+  breakingChanges: jsonb('breaking_changes').notNull().default('[]'),
+  yankedAt: timestamp('yanked_at', { withTimezone: true }),
+  yankReason: text('yank_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  schemaVersionUq: uniqueIndex('public_api_schema_versions_schema_version_uq').on(t.schemaId, t.version),
+  schemaIdx: index('public_api_schema_versions_schema_idx').on(t.schemaId, t.createdAt),
+}));
+
+export const publicApiContracts = pgTable('public_api_contracts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  subjectType: text('subject_type').notNull(),
+  subject: text('subject').notNull(),
+  schemaId: uuid('schema_id').references(() => publicApiSchemas.id, { onDelete: 'restrict' }).notNull(),
+  schemaVersion: text('schema_version').notNull(),
+  mode: text('mode').notNull().default('validate'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userNameUq: uniqueIndex('public_api_contracts_user_name_uq').on(t.userId, t.name),
+  subjectIdx: index('public_api_contracts_subject_idx').on(t.userId, t.subjectType, t.subject),
+}));
+
+export const publicApiContractViolations = pgTable('public_api_contract_violations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  contractId: uuid('contract_id').references(() => publicApiContracts.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  subject: text('subject').notNull(),
+  payloadExcerpt: jsonb('payload_excerpt').notNull().default('{}'),
+  errors: jsonb('errors').notNull().default('[]'),
+  severity: text('severity').notNull().default('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  contractIdx: index('public_api_contract_violations_contract_idx').on(t.contractId, t.createdAt),
+  userIdx: index('public_api_contract_violations_user_idx').on(t.userId, t.createdAt),
+}));

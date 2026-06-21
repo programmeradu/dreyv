@@ -57,6 +57,9 @@ export const ALL_SCOPES = [
   "read:sla",
   "write:sla",
   "publish:sla",
+  "read:contracts",
+  "write:contracts",
+  "publish:contracts",
 
   "pay:x402",
   "agent:delegate",
