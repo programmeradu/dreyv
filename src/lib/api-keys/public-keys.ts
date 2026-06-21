@@ -58,6 +58,10 @@ export interface ResolvedPublicKey {
   keyPrefix: string;
   scopes: ApiScope[];
   rateLimitRpm: number;
+  killSwitchAt: Date | null;
+  ipAllowlist: string[];
+  originAllowlist: string[];
+  capabilityAllowlist: string[];
 }
 
 function hashKey(raw: string): string {
@@ -152,7 +156,16 @@ export async function resolvePublicKey(
     keyPrefix: row.keyPrefix,
     scopes: (row.scopes as string).split(",").map((s: string) => s.trim()).filter(Boolean) as ApiScope[],
     rateLimitRpm: row.rateLimitRpm ?? 120,
+    killSwitchAt: (row as { killSwitchAt?: Date | null }).killSwitchAt ?? null,
+    ipAllowlist: csv((row as { ipAllowlist?: string }).ipAllowlist),
+    originAllowlist: csv((row as { originAllowlist?: string }).originAllowlist),
+    capabilityAllowlist: csv((row as { capabilityAllowlist?: string }).capabilityAllowlist),
   };
+}
+
+function csv(v: string | undefined | null): string[] {
+  if (!v) return [];
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 export function hasScope(key: ResolvedPublicKey, scope: ApiScope): boolean {
