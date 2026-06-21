@@ -141,9 +141,9 @@ export default function DeliverablesPage() {
     }, [rows]);
 
     return (
-        <main className="relative min-h-screen overflow-hidden bg-white text-zinc-900">
-            <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
-            <div aria-hidden className="pointer-events-none absolute top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
+        <main className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-zinc-900">
+            <div aria-hidden className="pointer-events-none fixed -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-violet-400/20 blur-[140px]" />
+            <div aria-hidden className="pointer-events-none fixed top-[40%] -right-32 h-[380px] w-[380px] rounded-full bg-violet-300/25 blur-[120px]" />
 
             <div className="relative mx-auto w-full max-w-6xl px-6 pt-12 pb-24 sm:pt-16">
                 <header className="grid grid-cols-1 items-start gap-8 md:grid-cols-[1fr_auto]">
