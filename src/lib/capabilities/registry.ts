@@ -1068,7 +1068,7 @@ export const CAPABILITIES: PublicCapability[] = [
     id: "knowledge.store",
     mcpName: "dreyv_knowledge_store",
     pillar: "knowledge",
-    scope: "write:portfolio",
+    scope: "write:intent",
     sideEffects: "write",
     status: "stable",
     title: "Persist a knowledge entry for later recall",
