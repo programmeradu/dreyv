@@ -2915,22 +2915,12 @@ export const CAPABILITIES: PublicCapability[] = [
   // with a hash-chained per-team audit overlay. Every mutation emits a
   // `team.*` webhook event and appends to BOTH the per-team audit AND
   // the global key audit log. Role gates: owner > admin > signer > viewer.
+  // Note: `teams.list`, `teams.members`, `teams.invite`, `teams.update_role`,
+  // `teams.remove_member` are registered in the legacy block above. Phase 26
+  // adds get / create / update / delete / invites_list / invites_revoke /
+  // audit / policy on top.
   {
-    id: "teams.list",
-    mcpName: "dreyv_teams_list",
-    pillar: "teams",
-    scope: "read:teams",
-    sideEffects: "read",
-    status: "stable",
-    title: "List teams I own or belong to",
-    description: "Returns every team where the caller is either the creator or has an active (non-removed unless `includeRemoved:true`) membership. Each row carries `myRole` and `myStatus`. Default limit 100, max 500.",
-    inputSchema: z.object({
-      includeRemoved: z.boolean().optional(),
-      limit: z.number().int().min(1).max(500).optional(),
-    }).strict(),
-    handler: (i, c) => caps.teamsList(i, c),
-  },
-  {
+
     id: "teams.get",
     mcpName: "dreyv_teams_get",
     pillar: "teams",
