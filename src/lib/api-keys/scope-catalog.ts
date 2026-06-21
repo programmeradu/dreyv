@@ -7,7 +7,11 @@
  * "Default") plus a grouped picker. A unit-style sanity check at the bottom
  * ensures we never drift from the server's ALL_SCOPES list.
  */
-import { ALL_SCOPES as SERVER_ALL_SCOPES, type ApiScope } from "@/lib/api-keys/public-keys";
+// Client-safe: only a TYPE import from the server module (fully erased at
+// build time, so it does not pull drizzle/node:crypto into client bundles).
+import type { ApiScope } from "@/lib/api-keys/public-keys";
+export type { ApiScope };
+
 
 export type ScopeGroup = "data" | "write" | "publish" | "payments";
 
@@ -112,13 +116,6 @@ export const WRITE_SCOPE_IDS: ApiScope[] = SCOPE_CATALOG
   .filter((s) => s.id.startsWith("write:"))
   .map((s) => s.id);
 
-// ── Sanity: every server scope must appear in the catalog ──────────────
-{
-  const catalogIds = new Set<string>(ALL_SCOPE_IDS);
-  const missing = SERVER_ALL_SCOPES.filter((s) => !catalogIds.has(s));
-  if (missing.length > 0 && typeof window === "undefined") {
-    // Build-time / SSR warning so drift surfaces in logs.
-    // eslint-disable-next-line no-console
-    console.warn("[scope-catalog] missing UI metadata for server scopes:", missing);
-  }
-}
+// Drift check against server's ALL_SCOPES lives in scope-catalog.server.ts
+// (server-only, to keep this module client-bundle-safe).
+
