@@ -38,6 +38,7 @@ export const ALL_SCOPES = [
   "read:storage",
   "write:storage",
   "read:search",
+  "read:status",
   "pay:x402",
   "agent:delegate",
 ] as const;
