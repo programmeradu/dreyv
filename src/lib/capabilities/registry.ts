@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1141,6 +1141,100 @@ export const CAPABILITIES: PublicCapability[] = [
       member: Address,
     }),
     handler: (i, c) => caps.governanceVoteTx(i, c),
+  },
+  // ─── Pillar Q — DeFi primitives (Phase 10) ──────────────────────────
+  {
+    id: "defi.swap_quote",
+    mcpName: "dreyv_defi_swap_quote",
+    pillar: "defi",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Jupiter route quote",
+    description: "Full Jupiter v1 route quote with route plan, price impact, and slippage. Pass the returned quoteResponse into defi.swap_tx to build the unsigned tx.",
+    inputSchema: z.object({
+      inputMint: Address,
+      outputMint: Address,
+      amount: z.string().regex(/^\d+$/).describe("Amount in input token's minor units (lamports / atoms)"),
+      slippageBps: z.number().int().min(1).max(10000).optional(),
+      onlyDirectRoutes: z.boolean().optional(),
+    }),
+    handler: (i, c) => caps.defiSwapQuote(i, c),
+  },
+  {
+    id: "defi.swap_tx",
+    mcpName: "dreyv_defi_swap_tx",
+    pillar: "defi",
+    scope: "write:intent",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "Build an unsigned Jupiter swap tx",
+    description: "Given a quoteResponse from defi.swap_quote, returns a base64 serialized swap tx for the user to sign. Never holds keys.",
+    inputSchema: z.object({
+      quoteResponse: z.record(z.string(), z.unknown()),
+      userPublicKey: Address,
+      wrapAndUnwrapSol: z.boolean().optional(),
+      asLegacyTransaction: z.boolean().optional(),
+    }),
+    handler: (i, c) => caps.defiSwapTx(i, c),
+  },
+  {
+    id: "defi.stake_sol_tx",
+    mcpName: "dreyv_defi_stake_sol_tx",
+    pillar: "defi",
+    scope: "write:intent",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "Build an unsigned Marinade SOL→mSOL stake tx",
+    description: "Returns a base64 serialized legacy Solana tx that deposits SOL to Marinade for mSOL. Caller signs with the named userPublicKey.",
+    inputSchema: z.object({
+      userPublicKey: Address,
+      amountLamports: z.number().int().positive().describe("Lamports to stake (1 SOL = 1_000_000_000)"),
+    }),
+    handler: (i, c) => caps.defiStakeSolTx(i, c),
+  },
+
+  // ─── Pillar R — Developer & Metering (Phase 10) ─────────────────────
+  {
+    id: "developer.key_info",
+    mcpName: "dreyv_developer_key_info",
+    pillar: "developer",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Inspect the calling API key",
+    description: "Returns label, env, prefix, scopes, rate-limit, and last-used timestamp for the key making the call. Key secret is never returned.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.devKeyInfo(i, c),
+  },
+  {
+    id: "developer.usage",
+    mcpName: "dreyv_developer_usage",
+    pillar: "developer",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Usage summary for the calling key",
+    description: "Aggregates capability calls, errors, latency, and credit spend over the last N hours (max 720) grouped by capability + status + transport.",
+    inputSchema: z.object({
+      window_hours: z.number().int().min(1).max(720).optional(),
+    }),
+    handler: (i, c) => caps.devUsageSummary(i, c),
+  },
+  {
+    id: "developer.capabilities",
+    mcpName: "dreyv_developer_capabilities",
+    pillar: "developer",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Discover all capabilities (self-describing surface)",
+    description: "Returns the full registry — id, mcpName, pillar, scope, sideEffects, title, description. Optionally filter by pillar or scope. Use this to bootstrap an agent's tool list dynamically.",
+    inputSchema: z.object({
+      pillar: z.string().optional(),
+      scope: z.string().optional(),
+    }),
+    handler: (i, c) => caps.devCapabilitiesList(i, c),
   },
 ];
 

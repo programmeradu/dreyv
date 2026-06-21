@@ -1630,3 +1630,144 @@ export async function governanceVoteTx(
     body: JSON.stringify(input),
   });
 }
+
+// ─── Pillar Q — DeFi primitives (Phase 10) ───────────────────────────
+export async function defiSwapQuote(
+  input: {
+    inputMint: string;
+    outputMint: string;
+    amount: string;
+    slippageBps?: number;
+    onlyDirectRoutes?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const qs = new URLSearchParams({
+    inputMint: input.inputMint,
+    outputMint: input.outputMint,
+    amount: input.amount,
+  });
+  if (typeof input.slippageBps === "number") qs.set("slippageBps", String(input.slippageBps));
+  if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
+  const data = await callInternal<Record<string, unknown>>(ctx, `/api/jupiter/quote?${qs}`);
+  return { quote: data };
+}
+
+export async function defiSwapTx(
+  input: {
+    quoteResponse: Record<string, unknown>;
+    userPublicKey: string;
+    wrapAndUnwrapSol?: boolean;
+    asLegacyTransaction?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  const data = await callInternal<Record<string, unknown>>(ctx, "/api/jupiter/swap", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return data;
+}
+
+export async function defiStakeSolTx(
+  input: { userPublicKey: string; amountLamports: number },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  if (!Number.isFinite(input.amountLamports) || input.amountLamports <= 0) {
+    throw new CapabilityError("amountLamports must be a positive number", 400, null);
+  }
+  const data = await callInternal<Record<string, unknown>>(ctx, "/api/marinade/stake", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return data;
+}
+
+// ─── Pillar R — Developer & Metering (Phase 10) ──────────────────────
+export async function devKeyInfo(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const d = requireDb();
+  const { publicApiKeys } = await import("@/db/schema");
+  const [row] = await d
+    .select({
+      id: publicApiKeys.id,
+      label: publicApiKeys.label,
+      env: publicApiKeys.env,
+      keyPrefix: publicApiKeys.keyPrefix,
+      scopes: publicApiKeys.scopes,
+      rateLimitRpm: publicApiKeys.rateLimitRpm,
+      lastUsedAt: publicApiKeys.lastUsedAt,
+      createdAt: publicApiKeys.createdAt,
+    })
+    .from(publicApiKeys)
+    .where(eq(publicApiKeys.id, ctx.keyId))
+    .limit(1);
+  if (!row) throw new CapabilityError("Key not found", 404, null);
+  return {
+    ...row,
+    scopes: row.scopes.split(",").map((s) => s.trim()).filter(Boolean),
+  };
+}
+
+export async function devUsageSummary(
+  input: { window_hours?: number },
+  ctx: CapabilityRunContext,
+) {
+  const d = requireDb();
+  const { publicApiKeyUsage } = await import("@/db/schema");
+  const { gte, sql } = await import("drizzle-orm");
+  const hours = Math.min(Math.max(input.window_hours ?? 24, 1), 24 * 30);
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const rows = await d
+    .select({
+      capabilityId: publicApiKeyUsage.capabilityId,
+      status: publicApiKeyUsage.status,
+      transport: publicApiKeyUsage.transport,
+      count: sql<number>`count(*)::int`,
+      avgLatencyMs: sql<number>`coalesce(avg(${publicApiKeyUsage.latencyMs})::int, 0)`,
+      totalCredits: sql<string>`coalesce(sum(${publicApiKeyUsage.costCredits})::text, '0')`,
+    })
+    .from(publicApiKeyUsage)
+    .where(and(eq(publicApiKeyUsage.keyId, ctx.keyId), gte(publicApiKeyUsage.ts, since)))
+    .groupBy(publicApiKeyUsage.capabilityId, publicApiKeyUsage.status, publicApiKeyUsage.transport);
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.calls += Number(r.count) || 0;
+      acc.errors += r.status !== "ok" ? Number(r.count) || 0 : 0;
+      acc.credits += parseFloat(r.totalCredits) || 0;
+      return acc;
+    },
+    { calls: 0, errors: 0, credits: 0 },
+  );
+  return {
+    windowHours: hours,
+    since: since.toISOString(),
+    totals,
+    byCapability: rows,
+  };
+}
+
+export async function devCapabilitiesList(
+  input: { pillar?: string; scope?: string },
+  _ctx: CapabilityRunContext,
+) {
+  const { listPublicCapabilities } = await import("./registry");
+  const all = listPublicCapabilities();
+  const filtered = all.filter(
+    (c) => (input.pillar ? c.pillar === input.pillar : true) && (input.scope ? c.scope === input.scope : true),
+  );
+  return {
+    count: filtered.length,
+    capabilities: filtered.map((c) => ({
+      id: c.id,
+      mcpName: c.mcpName,
+      pillar: c.pillar,
+      scope: c.scope,
+      sideEffects: c.sideEffects,
+      status: c.status,
+      title: c.title,
+      description: c.description,
+    })),
+  };
+}
