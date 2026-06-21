@@ -2975,69 +2975,10 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({ id: z.string().uuid() }).strict(),
     handler: (i, c) => caps.teamsDelete(i, c),
   },
-  {
-    id: "teams.members_list",
-    mcpName: "dreyv_teams_members_list",
-    pillar: "teams",
-    scope: "read:teams",
-    sideEffects: "read",
-    status: "stable",
-    title: "List members of a team",
-    description: "Returns the full member roster (id, userId, walletAddress, role, status, invitedAt, acceptedAt). Removed members are hidden unless `includeRemoved:true`.",
-    inputSchema: z.object({
-      teamId: z.string().uuid(),
-      includeRemoved: z.boolean().optional(),
-    }).strict(),
-    handler: (i, c) => caps.teamsMembersList(i, c),
-  },
-  {
-    id: "teams.members_invite",
-    mcpName: "dreyv_teams_members_invite",
-    pillar: "teams",
-    scope: "write:teams",
-    sideEffects: "write",
-    status: "stable",
-    title: "Issue a team invite (email or wallet, role-scoped)",
-    description: "Requires role admin or owner. Provide `email` or `walletAddress` (at least one). `role` must be one of viewer / signer / admin (owner is reserved). Returns the invite row INCLUDING the one-time `token`; `teams.invites_list` never echoes the token again. Tier caps on `maxMembersPerTeam` and `maxPendingInvitesPerTeam`. TTL: free 7d / mini 14d / max 30d. Fires `team.member_invited`.",
-    inputSchema: z.object({
-      teamId: z.string().uuid(),
-      email: z.string().email().optional(),
-      walletAddress: z.string().min(2).max(128).optional(),
-      role: z.enum(["viewer", "signer", "admin"]),
-    }).strict(),
-    handler: (i, c) => caps.teamsMembersInvite(i, c),
-  },
-  {
-    id: "teams.members_role_set",
-    mcpName: "dreyv_teams_members_role_set",
-    pillar: "teams",
-    scope: "write:teams",
-    sideEffects: "write",
-    status: "stable",
-    title: "Change a member's role",
-    description: "Requires role admin or owner. Cannot demote an `owner` — transfer ownership through a separate flow first. Fires `team.member_role_changed` with `{ from, to }`.",
-    inputSchema: z.object({
-      teamId: z.string().uuid(),
-      memberId: z.number().int().positive(),
-      role: z.enum(["viewer", "signer", "admin", "owner"]),
-    }).strict(),
-    handler: (i, c) => caps.teamsMembersRoleSet(i, c),
-  },
-  {
-    id: "teams.members_remove",
-    mcpName: "dreyv_teams_members_remove",
-    pillar: "teams",
-    scope: "write:teams",
-    sideEffects: "write",
-    status: "stable",
-    title: "Remove a member from a team (soft)",
-    description: "Requires role admin or owner. Soft-sets `status='removed'` on the membership row. The owner cannot be removed this way — delete the team or transfer ownership first. Fires `team.member_removed`.",
-    inputSchema: z.object({
-      teamId: z.string().uuid(),
-      memberId: z.number().int().positive(),
-    }).strict(),
-    handler: (i, c) => caps.teamsMembersRemove(i, c),
-  },
+  // (members_list / members_invite / members_role_set / members_remove are
+  // served by the legacy teams.members / teams.invite / teams.update_role /
+  // teams.remove_member capabilities registered above.)
+
   {
     id: "teams.invites_list",
     mcpName: "dreyv_teams_invites_list",
