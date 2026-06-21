@@ -2130,3 +2130,216 @@ export async function devRevokeKey(
   });
   return { keyId: target, revokedAt: now.toISOString(), audit };
 }
+
+// ─── Pillar T — Compliance & Reporting (Phase 12) ────────────────────
+import { createHash as _ch12 } from "node:crypto";
+
+const _SOL_ADDR_T = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const _EVM_ADDR_T = /^0x[a-fA-F0-9]{40}$/;
+const _ZERO_ADDR_T = new Set([
+  "0x0000000000000000000000000000000000000000",
+  "11111111111111111111111111111111",
+]);
+
+function _validateAddr(addr: string, chain: string): { ok: true } | { ok: false; reason: string } {
+  if (!addr || typeof addr !== "string") return { ok: false, reason: "address required" };
+  if (chain === "solana") {
+    if (!_SOL_ADDR_T.test(addr)) return { ok: false, reason: "invalid solana address" };
+  } else {
+    if (!_EVM_ADDR_T.test(addr)) return { ok: false, reason: "invalid evm address" };
+  }
+  return { ok: true };
+}
+
+function _sdnList(): string[] {
+  const raw = (process.env.DREYV_OFAC_SDN_ADDRESSES ?? "").trim();
+  if (!raw) return [];
+  return raw.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+}
+
+export async function complianceScreenAddress(
+  input: { address: string; chain: string },
+  _ctx: CapabilityRunContext,
+) {
+  const v = _validateAddr(input.address, input.chain);
+  if (!v.ok) throw new CapabilityError(v.reason, 400, null);
+  const addr = input.chain === "solana" ? input.address : input.address.toLowerCase();
+  const hits: Array<{ source: string; reason: string }> = [];
+
+  if (_ZERO_ADDR_T.has(addr)) hits.push({ source: "pattern", reason: "zero address" });
+
+  const sdn = _sdnList();
+  const sdnNorm = new Set(sdn.map((a) => (input.chain === "solana" ? a : a.toLowerCase())));
+  if (sdnNorm.has(addr)) hits.push({ source: "ofac_sdn_env", reason: "address on configured sanctions list" });
+
+  const sdnVersion = sdn.length
+    ? _ch12("sha256").update(sdn.join(",")).digest("hex").slice(0, 16)
+    : null;
+
+  return {
+    address: input.address,
+    chain: input.chain,
+    ok: hits.length === 0,
+    hits,
+    sources: {
+      ofac_sdn_env: { configured: sdn.length > 0, entries: sdn.length, version: sdnVersion },
+      pattern: { configured: true },
+    },
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+export async function complianceTravelRule(
+  input: {
+    originator: { name: string; address: string; vaspId?: string; country?: string };
+    beneficiary: { name: string; address: string; vaspId?: string; country?: string };
+    amount: string;
+    asset: string;
+    chain: string;
+    purpose?: string;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const o = _validateAddr(input.originator.address, input.chain);
+  if (!o.ok) throw new CapabilityError(`originator: ${o.reason}`, 400, null);
+  const b = _validateAddr(input.beneficiary.address, input.chain);
+  if (!b.ok) throw new CapabilityError(`beneficiary: ${b.reason}`, 400, null);
+  if (!/^\d+(\.\d+)?$/.test(input.amount)) throw new CapabilityError("amount must be a positive decimal string", 400, null);
+
+  // IVMS101-lite envelope. Pure deterministic transform — caller signs/transmits.
+  const envelope = {
+    version: "ivms101-lite/0.1",
+    payloadType: "TravelRule",
+    transferId: _ch12("sha256")
+      .update(`${ctx.keyId}:${input.originator.address}:${input.beneficiary.address}:${input.amount}:${Date.now()}`)
+      .digest("hex")
+      .slice(0, 24),
+    originator: {
+      naturalPerson: { fullName: input.originator.name },
+      walletAddress: input.originator.address,
+      vaspId: input.originator.vaspId ?? null,
+      country: input.originator.country ?? null,
+    },
+    beneficiary: {
+      naturalPerson: { fullName: input.beneficiary.name },
+      walletAddress: input.beneficiary.address,
+      vaspId: input.beneficiary.vaspId ?? null,
+      country: input.beneficiary.country ?? null,
+    },
+    transaction: {
+      asset: input.asset,
+      chain: input.chain,
+      amount: input.amount,
+      purpose: input.purpose ?? null,
+    },
+    issuedAt: new Date().toISOString(),
+  };
+  const canonical = JSON.stringify(envelope);
+  const digest = _ch12("sha256").update(canonical).digest("hex");
+  return { envelope, digest, canonicalBytes: canonical.length };
+}
+
+export async function complianceProofOfReserves(
+  input: { address: string; chain: string },
+  ctx: CapabilityRunContext,
+) {
+  const v = _validateAddr(input.address, input.chain);
+  if (!v.ok) throw new CapabilityError(v.reason, 400, null);
+  const secretRaw = process.env.JWT_SECRET;
+  if (!secretRaw) throw new CapabilityError("JWT_SECRET not configured", 503, null);
+
+  const holdings = await portfolioHoldings(input, ctx);
+  const snapshot = {
+    address: input.address,
+    chain: input.chain,
+    holdings,
+    snapshotAt: new Date().toISOString(),
+  };
+  const canonical = JSON.stringify(snapshot);
+  const commitment = _ch12("sha256").update(canonical).digest("hex");
+
+  const { SignJWT } = await import("jose");
+  const secret = new TextEncoder().encode(secretRaw);
+  const now = Math.floor(Date.now() / 1000);
+  const ttl = 3600;
+  const sub = _ch12("sha256").update(`${ctx.userId}:dreyv-por`).digest("hex").slice(0, 24);
+  const jwt = await new SignJWT({
+    iss: "https://dreyv.com",
+    sub,
+    aud: "dreyv.proof_of_reserves",
+    iat: now,
+    nbf: now,
+    exp: now + ttl,
+    address: input.address,
+    chain: input.chain,
+    commitment,
+    snapshotAt: snapshot.snapshotAt,
+  })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .sign(secret);
+
+  return {
+    snapshot,
+    commitment,
+    commitmentAlg: "sha256",
+    attestation: { jwt, alg: "HS256", expiresAt: new Date((now + ttl) * 1000).toISOString() },
+  };
+}
+
+function _toCsv(rows: Array<Record<string, unknown>>): string {
+  if (!rows.length) return "";
+  const headers = Array.from(
+    rows.reduce<Set<string>>((s, r) => {
+      for (const k of Object.keys(r)) s.add(k);
+      return s;
+    }, new Set()),
+  );
+  const escape = (v: unknown) => {
+    if (v === null || v === undefined) return "";
+    const s = typeof v === "string" ? v : JSON.stringify(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+}
+
+export async function reportingExport(
+  input: { kind: "holdings" | "pnl"; format: "csv" | "json"; address: string; chain: string; method?: string },
+  ctx: CapabilityRunContext,
+) {
+  const v = _validateAddr(input.address, input.chain);
+  if (!v.ok) throw new CapabilityError(v.reason, 400, null);
+
+  let rows: Array<Record<string, unknown>> = [];
+  if (input.kind === "holdings") {
+    const data = (await portfolioHoldings(input, ctx)) as {
+      tokens?: Array<Record<string, unknown>>;
+      holdings?: Array<Record<string, unknown>>;
+    };
+    rows = Array.isArray(data.tokens) ? data.tokens : Array.isArray(data.holdings) ? data.holdings : [];
+  } else {
+    const pnl = (await portfolioPnl({ address: input.address, method: input.method ?? "fifo" }, ctx)) as {
+      lots?: Array<Record<string, unknown>>;
+      rows?: Array<Record<string, unknown>>;
+    };
+    rows = Array.isArray(pnl.lots) ? pnl.lots : Array.isArray(pnl.rows) ? pnl.rows : [];
+  }
+
+  if (!rows.length) throw new CapabilityError("Upstream returned no rows for export", 404, null);
+
+  const body = input.format === "csv" ? _toCsv(rows) : JSON.stringify(rows, null, 2);
+  const sha256 = _ch12("sha256").update(body).digest("hex");
+  const contentType = input.format === "csv" ? "text/csv" : "application/json";
+  const base64 = Buffer.from(body, "utf8").toString("base64");
+  return {
+    kind: input.kind,
+    format: input.format,
+    address: input.address,
+    chain: input.chain,
+    rowCount: rows.length,
+    contentType,
+    sha256,
+    bytes: body.length,
+    base64,
+    generatedAt: new Date().toISOString(),
+  };
+}

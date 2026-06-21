@@ -16,7 +16,7 @@ import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
 
 export type SideEffect = "read" | "simulate" | "write";
-export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety";
+export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance";
 export type Status = "stable" | "preview";
 
 export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -1342,6 +1342,79 @@ export const CAPABILITIES: PublicCapability[] = [
     description: "Hard-revokes a key owned by the same user. After revocation, the key returns 401 on every transport. Idempotent.",
     inputSchema: z.object({ keyId: z.string().uuid().optional() }),
     handler: (i, c) => caps.devRevokeKey(i, c),
+  },
+
+  // ─── Pillar T — Compliance & Reporting (Phase 12) ────────────────────
+  {
+    id: "compliance.screen_address",
+    mcpName: "dreyv_compliance_screen_address",
+    pillar: "compliance",
+    scope: "read:forensics",
+    sideEffects: "read",
+    status: "stable",
+    title: "Sanctions / pattern screen for a single address",
+    description: "Checks an address against the configured OFAC SDN-style denylist (DREYV_OFAC_SDN_ADDRESSES) and obvious zero/burn patterns. Returns ok=true with no hits, or ok=false with the hit reasons and source. List version is a SHA-256 prefix so callers can detect changes.",
+    inputSchema: z.object({ address: Address, chain: Chain }),
+    handler: (i, c) => caps.complianceScreenAddress(i, c),
+  },
+  {
+    id: "compliance.travel_rule",
+    mcpName: "dreyv_compliance_travel_rule",
+    pillar: "compliance",
+    scope: "agent:delegate",
+    sideEffects: "simulate",
+    status: "preview",
+    title: "Build an IVMS101-lite Travel Rule envelope",
+    description: "Deterministic transform: takes originator + beneficiary + transfer details and returns a canonical IVMS101-lite envelope plus its SHA-256 digest. Caller transmits to the counterparty VASP. No data is persisted by Dreyv.",
+    inputSchema: z.object({
+      originator: z.object({
+        name: z.string().min(1).max(200),
+        address: Address,
+        vaspId: z.string().max(200).optional(),
+        country: z.string().length(2).optional(),
+      }),
+      beneficiary: z.object({
+        name: z.string().min(1).max(200),
+        address: Address,
+        vaspId: z.string().max(200).optional(),
+        country: z.string().length(2).optional(),
+      }),
+      amount: z.string().regex(/^\d+(\.\d+)?$/),
+      asset: z.string().min(1).max(32),
+      chain: Chain,
+      purpose: z.string().max(500).optional(),
+    }),
+    handler: (i, c) => caps.complianceTravelRule(i, c),
+  },
+  {
+    id: "compliance.proof_of_reserves",
+    mcpName: "dreyv_compliance_proof_of_reserves",
+    pillar: "compliance",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Signed proof-of-reserves snapshot for an address",
+    description: "Fetches live holdings for the address, computes a SHA-256 commitment over the canonical snapshot JSON, and mints an HS256 JWT (1h TTL) carrying the commitment so downstream verifiers can attest the figure was produced by Dreyv at a specific time.",
+    inputSchema: z.object({ address: Address, chain: Chain }),
+    handler: (i, c) => caps.complianceProofOfReserves(i, c),
+  },
+  {
+    id: "reporting.export",
+    mcpName: "dreyv_reporting_export",
+    pillar: "compliance",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Export holdings or PnL as CSV or JSON (inline, signed by hash)",
+    description: "Pulls live holdings or PnL lots for the address, serializes to CSV or JSON, returns the base64-encoded body, byte length, content-type, and SHA-256 — sufficient for the agent to write the file and verify integrity without a second round-trip.",
+    inputSchema: z.object({
+      kind: z.enum(["holdings", "pnl"]),
+      format: z.enum(["csv", "json"]),
+      address: Address,
+      chain: Chain,
+      method: z.enum(["fifo", "lifo", "hifo"]).optional(),
+    }),
+    handler: (i, c) => caps.reportingExport(i, c),
   },
 ];
 
