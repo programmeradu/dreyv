@@ -31,6 +31,9 @@ export type WebhookEventName =
   | "team.member_invited"
   | "team.member_role_changed"
   | "team.member_removed"
+  | "billing.invoice_created"
+  | "billing.invoice_paid"
+  | "billing.tier_changed"
   | "test.ping";
 
 export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
@@ -44,6 +47,9 @@ export const ALL_WEBHOOK_EVENTS: WebhookEventName[] = [
   "team.member_invited",
   "team.member_role_changed",
   "team.member_removed",
+  "billing.invoice_created",
+  "billing.invoice_paid",
+  "billing.tier_changed",
   "test.ping",
 ];
 
