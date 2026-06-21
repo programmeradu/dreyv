@@ -46,6 +46,7 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   jobs: "Jobs & scheduling",
   exports: "Exports & reports",
   tags: "Tags, labels & annotations",
+  flags: "Feature flags & experiments",
 };
 
 const PILLAR_ORDER: Pillar[] = ["identity", "portfolio", "market", "execution", "forensics", "tax", "foresight", "agentic", "economy", "reasoning", "knowledge", "governance", "defi", "developer", "safety", "compliance", "notifications", "audit", "teams", "billing", "privacy", "storage", "search", "status", "jobs", "exports", "tags"];
