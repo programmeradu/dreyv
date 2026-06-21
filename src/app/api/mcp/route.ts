@@ -1,131 +1,170 @@
 /**
- * Dreyv MCP server — Streamable HTTP transport.
+ * /api/mcp — Streamable HTTP MCP transport.
  *
- *   Endpoint: POST/GET/DELETE https://dreyv.com/api/mcp
- *   Auth:     Authorization: Bearer dk_live_…  (or dk_test_…)
+ * Same Bearer key as /api/v1/*. Each MCP tools/call runs through the same
+ * scope/rate-limit/usage pipeline as the REST dispatcher.
  *
- * Built on `mcp-lite` + Hono. Tools are generated 1:1 from the public
- * capability registry, so REST and MCP never drift.
+ * Spec: https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
  *
- * MCP transport requires Accept: application/json, text/event-stream — that's
- * handled by the StreamableHttpTransport itself.
+ * Required headers on POST (per MCP Streamable HTTP):
+ *   Content-Type: application/json
+ *   Accept: application/json, text/event-stream
+ *
+ * Unauthenticated GETs (no Bearer) still return 401; the standard MCP
+ * `initialize` handshake is allowed without a key so clients can discover
+ * server capabilities, but every tools/call requires auth.
  */
 
-import { Hono } from "hono";
-import { McpServer, StreamableHttpTransport } from "mcp-lite";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import {
-  listPublicCapabilities,
-} from "@/lib/capabilities/registry";
+import { NextRequest, NextResponse } from "next/server";
 import {
   extractBearer,
   resolvePublicKey,
-  hasScope,
-  checkRateLimit,
-  recordUsage,
-  type ResolvedPublicKey,
 } from "@/lib/api-keys/public-keys";
-import type { z } from "zod";
+import { getMcpHandler } from "@/lib/mcp/server";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+// MCP messages can be up to a few MB once tools/list is included.
+export const maxDuration = 60;
 
-const server = new McpServer({
-  name: "dreyv-mcp",
-  version: "1.0.0",
-  schemaAdapter: (schema) => zodToJsonSchema(schema as z.ZodTypeAny) as Record<string, unknown>,
-});
+const CORS_HEADERS: HeadersInit = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Authorization, Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-Id",
+  "Access-Control-Expose-Headers": "Mcp-Session-Id, Mcp-Protocol-Version",
+  "Access-Control-Max-Age": "86400",
+};
 
-// Register every capability as an MCP tool. The handler closure validates
-// the bearer (passed by the route as a Hono context var) before running.
-for (const cap of listPublicCapabilities()) {
-  server.tool(cap.mcpName, {
-    description: `${cap.title} — ${cap.description}`,
-    inputSchema: cap.inputSchema,
-    handler: async (input: unknown, extra: unknown) => {
-      const auth = (extra as { authInfo?: { extra?: { key?: ResolvedPublicKey; origin?: string } } } | undefined)?.authInfo;
-      const key = auth?.extra?.key;
-      if (!key) {
-        return {
-          isError: true,
-          content: [{ type: "text", text: "unauthorized: missing dk_live_/dk_test_ bearer" }],
-        };
-      }
-      if (!hasScope(key, cap.scope)) {
-        return {
-          isError: true,
-          content: [{ type: "text", text: `missing_scope: ${cap.scope}` }],
-        };
-      }
-      const rl = checkRateLimit(key);
-      if (!rl.ok) {
-        await recordUsage({
-          keyId: key.id, userId: key.userId, capabilityId: cap.id,
-          transport: "mcp", status: "rate_limited", latencyMs: 0, errorCode: "rate_limited",
-        });
-        return {
-          isError: true,
-          content: [{ type: "text", text: `rate_limited: retry in ${Math.ceil(rl.retryAfterMs / 1000)}s` }],
-        };
-      }
-      const t0 = Date.now();
-      try {
-        const origin = auth?.extra?.origin ?? "";
-        const data = await cap.handler(input as never, {
-          userId: key.userId,
-          keyId: key.id,
-          origin,
-          transport: "mcp",
-        });
-        await recordUsage({
-          keyId: key.id, userId: key.userId, capabilityId: cap.id,
-          transport: "mcp", status: "ok", latencyMs: Date.now() - t0, costCredits: cap.cost ?? 0,
-        });
-        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-      } catch (err) {
-        await recordUsage({
-          keyId: key.id, userId: key.userId, capabilityId: cap.id,
-          transport: "mcp", status: "error", latencyMs: Date.now() - t0,
-          errorCode: err instanceof Error ? err.message.slice(0, 120) : "error",
-        });
-        return {
-          isError: true,
-          content: [{ type: "text", text: err instanceof Error ? err.message : "Capability failed" }],
-        };
-      }
+function withCors(res: Response): Response {
+  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+    res.headers.set(k, v as string);
+  }
+  return res;
+}
+
+function unauthorized(message: string): Response {
+  // Per MCP spec, return JSON-RPC error envelope so MCP clients surface it
+  // sensibly. Plain HTTP 401 also includes WWW-Authenticate per RFC 6750.
+  const body = {
+    jsonrpc: "2.0",
+    error: {
+      code: -32001,
+      message,
+      data: {
+        docs: "https://dreyv.com/developers/mcp",
+        keyMintUrl: "https://dreyv.com/app/settings/api",
+      },
+    },
+    id: null,
+  };
+  return new Response(JSON.stringify(body), {
+    status: 401,
+    headers: {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": 'Bearer realm="dreyv", error="invalid_token"',
+      ...CORS_HEADERS,
     },
   });
 }
 
-const transport = new StreamableHttpTransport();
-const httpHandler = transport.bind(server);
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
 
-// Hono app exposing the MCP endpoint with bearer auth + context injection.
-const app = new Hono().basePath("/api/mcp");
+async function handle(req: NextRequest): Promise<Response> {
+  const bearer = extractBearer(req);
+  const key = bearer ? await resolvePublicKey(bearer) : null;
 
-app.all("/", async (c) => {
-  const bearer = extractBearer(c.req.raw);
-  const key = await resolvePublicKey(bearer);
-  if (!key) {
-    return c.json(
-      {
-        jsonrpc: "2.0",
-        error: { code: -32001, message: "unauthorized: provide Authorization: Bearer dk_live_…" },
-        id: null,
-      },
-      401,
+  // Allow unauthenticated initialize/notification handshake so MCP clients can
+  // negotiate protocol version + capabilities. We only require auth at the
+  // tool-call layer (enforced inside each registered tool handler).
+  const handler = getMcpHandler();
+  const origin = new URL(req.url).origin;
+
+  // Inspect the JSON-RPC method for POST bodies. If it's a privileged call
+  // without a key, reject up front with 401.
+  if (req.method === "POST") {
+    let body: unknown = null;
+    try {
+      // Need to clone — mcp-lite consumes the body.
+      const text = await req.text();
+      body = text ? JSON.parse(text) : null;
+      // Reconstruct a request with the parsed text intact.
+      req = new NextRequest(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: text,
+      }) as NextRequest;
+    } catch {
+      return withCors(
+        NextResponse.json(
+          { jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null },
+          { status: 400 },
+        ),
+      );
+    }
+
+    const messages: Array<{ method?: unknown }> = Array.isArray(body)
+      ? (body as Array<{ method?: unknown }>)
+      : body && typeof body === "object"
+      ? [body as { method?: unknown }]
+      : [];
+
+    const PUBLIC_METHODS = new Set([
+      "initialize",
+      "notifications/initialized",
+      "ping",
+    ]);
+    const needsAuth = messages.some(
+      (m) => typeof m.method === "string" && !PUBLIC_METHODS.has(m.method),
+    );
+
+    if (needsAuth && !key) {
+      return unauthorized(
+        bearer
+          ? "Invalid or revoked Dreyv API key."
+          : "Missing Dreyv API key. Send `Authorization: Bearer dk_live_…`.",
+      );
+    }
+  }
+
+  try {
+    const response = await handler(req as unknown as Request, {
+      authInfo: key
+        ? {
+            token: bearer ?? "",
+            scopes: key.scopes,
+            extra: {
+              userId: key.userId,
+              keyId: key.id,
+              origin,
+              key,
+              httpRequest: req as unknown as Request,
+            },
+          }
+        : undefined,
+    });
+    return withCors(response);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "internal_error";
+    return withCors(
+      NextResponse.json(
+        { jsonrpc: "2.0", error: { code: -32603, message }, id: null },
+        { status: 500 },
+      ),
     );
   }
-  const origin = new URL(c.req.url).origin;
-  return await httpHandler(c.req.raw, {
-    authInfo: {
-      token: bearer ?? "",
-      scopes: key.scopes,
-      extra: { key, origin } as Record<string, unknown>,
-    },
-  });
-});
+}
 
-export const GET = (req: Request) => app.fetch(req);
-export const POST = (req: Request) => app.fetch(req);
-export const DELETE = (req: Request) => app.fetch(req);
+export async function POST(req: NextRequest) {
+  return handle(req);
+}
+
+export async function GET(req: NextRequest) {
+  return handle(req);
+}
+
+export async function DELETE(req: NextRequest) {
+  return handle(req);
+}
