@@ -2572,11 +2572,14 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "List entities for a tag, or tags for an entity",
     description: "Two modes. (1) `tag` only → returns up to `limit` entities attached to that tag (`mode:'by_tag'`). (2) `entityType` + `entityId` → returns every tag attached to that entity (`mode:'by_entity'`), with the tag row joined inline. Default limit 200, max 1000.",
     inputSchema: z.object({
-      tag: z.string().min(1).max(128).optional(),
-      entityType: z.string().min(1).max(32).optional(),
-      entityId: z.string().min(1).max(256).optional(),
+      tag: z.string().min(1).max(128).optional().describe("Tag name. Use ALONE to list entities attached to this tag."),
+      entityType: z.string().min(1).max(32).optional().describe("Entity type, e.g. 'wallet','vault','agent'. Must be paired with entityId."),
+      entityId: z.string().min(1).max(256).optional().describe("Entity id. Must be paired with entityType."),
       limit: z.number().int().min(1).max(1000).optional(),
-    }).strict(),
+    }).strict().refine(
+      (v) => !!v.tag || (!!v.entityType && !!v.entityId),
+      { message: "Supply `tag` to list entities, OR both `entityType` + `entityId` to list tags." },
+    ),
     handler: (i, c) => caps.tagsEntities(i, c),
   },
   {
