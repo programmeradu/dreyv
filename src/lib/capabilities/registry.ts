@@ -5260,6 +5260,22 @@ export const CAPABILITIES: PublicCapability[] = [
     handler: (i, c) => caps.intentsHandoffQr(i, c),
   },
   {
+    id: "intents.handoff_status",
+    mcpName: "dreyv_intents_handoff_status",
+    pillar: "execution",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Check whether the user has signed a staged handoff (and on-chain confirmation)",
+    description:
+      "[READ] Native MCP replacement for raw `GET /api/mcp/handoff/{id}` polling. Given a `handoffId` returned by dreyv_intents_deeplinks / dreyv_intents_handoff_qr / dreyv_defi_swap / any other UNSIGNED-TX tool, returns `{ status: 'pending'|'signed'|'rejected'|'expired'|'not_found', signature, onChain: { confirmationStatus, slot, err }, explorerUrl, secondsRemaining }`. When `status === 'signed'`, by default also fetches the Solana RPC signature status so the agent can report 'confirmed' / 'finalized' without a second tool. Poll every 2–5s after presenting a QR / deeplink. Stop polling on any terminal status.",
+    inputSchema: z.object({
+      handoffId: z.string().min(8).describe("The handoffId returned when the tx was staged."),
+      confirm: z.boolean().optional().describe("If true (default), also call Solana RPC getSignatureStatuses for the resulting signature."),
+    }).strict(),
+    handler: (i, c) => caps.intentsHandoffStatus(i, c),
+  },
+  {
     id: "session_signer.create",
     mcpName: "dreyv_session_signer_create",
     pillar: "execution",
