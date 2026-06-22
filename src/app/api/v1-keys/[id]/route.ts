@@ -1,5 +1,8 @@
 /**
- * DELETE /api/v1-keys/:id — revoke a public API key.
+ * DELETE /api/v1-keys/:id — hard-delete a public API key.
+ *
+ * Revoke == delete. Hashes are gone so the key can never authenticate again,
+ * and the ledger UI stays minimal (no stale "revoked" rows).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -21,8 +24,7 @@ export async function DELETE(
   const { id } = await ctx.params;
 
   const result = await db
-    .update(publicApiKeys)
-    .set({ revokedAt: new Date() })
+    .delete(publicApiKeys)
     .where(and(eq(publicApiKeys.id, id), eq(publicApiKeys.userId, user.id)))
     .returning({ id: publicApiKeys.id });
 
