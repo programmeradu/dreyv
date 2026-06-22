@@ -31,6 +31,37 @@ Semver, where the surface area is the MCP tool registry + REST shape:
 
 ---
 
+## 1.3.0 — 2026-06-22 (minor)
+
+**One-shot swap tool + uniform deeplinks on every `UNSIGNED-TX` response.**
+Removes the multi-call `quote → tx → handoff` dance that was tripping up
+agents (and burning an hour on what should be a 30-second call).
+
+### Added
+- `dreyv_defi_swap` — **single** call that bundles
+  `dreyv_defi_swap_quote` + `dreyv_defi_swap_tx` + `dreyv_intents_deeplinks`.
+  Inputs: `{ inputMint, outputMint, amount, userPublicKey, slippageBps? }`.
+  Returns `{ quote, swapTransaction, dreyvPreflight, dreyvDeeplinks: { qrSvgDataUri, mobileHandoffUrl, phantomUniversal, solflareUniversal, backpackUniversal, handoffId } }`.
+  The agent renders the QR or opens the deeplink — no second tool call, no
+  passing around the (large, nested) Jupiter `quoteResponse` JSON.
+- `dreyvDeeplinks` now attached to `dreyv_governance_vote_tx` too, so
+  **every** `[UNSIGNED-TX]` tool ships a one-tap signing package uniformly.
+
+### Changed
+- MCP `initialize.instructions` now leads with: **ASK THE USER for their
+  Solana wallet address** before any `UNSIGNED-TX` call, and reuse it for
+  the rest of the session. Stops the "which wallet?" guessing loop.
+- `dreyv_meta_intents_howto` Solana swap playbook now features the one-shot
+  flow as the default; the two-step `quote → tx` flow is documented as a
+  fallback for custom routing.
+
+### Notes
+Fully additive — no breaking changes. `dreyv_defi_swap_quote` and
+`dreyv_defi_swap_tx` remain available for custom flows. Clients pick up the
+new tool on the next `tools/list` call.
+
+---
+
 ## 1.2.0 — 2026-06-22 (minor)
 
 **Non-custodial execution UX — one-tap mobile signing + opt-in autonomous session signer.**
