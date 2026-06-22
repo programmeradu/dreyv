@@ -213,6 +213,27 @@ const { ok, data } = await res.json();`,
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      {/* Developer hub pointer — the full webhooks / usage / docs surface lives at /app/developer */}
+      <a
+        href="/app/developer"
+        className="group flex items-center justify-between gap-4 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-white px-5 py-4 hover:border-violet-400 transition"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="h-9 w-9 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-[0_10px_24px_-10px_rgba(124,58,237,0.6)] shrink-0">
+            <Code2 size={15} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-slate-900">Open the Developer hub</div>
+            <div className="text-[11.5px] text-slate-500 truncate">
+              Keys, webhooks, usage, MCP install, OpenAPI & SDK references — all in one place.
+            </div>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 shrink-0 group-hover:translate-x-0.5 transition-transform">
+          Open hub <ArrowUpRight size={13} />
+        </span>
+      </a>
+
       {/* Hero */}
       <section className="relative rounded-3xl border border-violet-100 bg-white p-7 sm:p-8 overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-violet-300/20 blur-3xl" />
