@@ -1955,8 +1955,99 @@ export async function defiSwapTx(
     method: "POST",
     body: JSON.stringify(input),
   });
-  return data;
+
+  // ── Pre-flight enrichment: surface the data agents need BEFORE asking the
+  // user to sign — destination-ATA creation cost + SOL balance vs total cost.
+  // Best-effort: any RPC failure leaves the upstream payload untouched.
+  const preflight = await buildSwapPreflight({
+    userPublicKey: input.userPublicKey,
+    quoteResponse: input.quoteResponse,
+    swapResult: data,
+  }).catch((err) => ({
+    available: false,
+    reason: `preflight_unavailable: ${err instanceof Error ? err.message : "rpc_error"}`,
+  }));
+
+  return { ...data, dreyvPreflight: preflight };
 }
+
+/**
+ * Heuristic preflight: looks at the destination mint from the Jupiter
+ * quoteResponse, computes the user's ATA, and checks whether it already exists
+ * (=> cheap signed-only swap) or needs to be created (=> +0.00203928 SOL rent
+ * + ATA-create CU). Also reads SOL balance and reports shortfall if any.
+ */
+async function buildSwapPreflight(args: {
+  userPublicKey: string;
+  quoteResponse: Record<string, unknown>;
+  swapResult: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const outputMint = typeof args.quoteResponse?.outputMint === "string"
+    ? (args.quoteResponse.outputMint as string)
+    : null;
+  const inputMint = typeof args.quoteResponse?.inputMint === "string"
+    ? (args.quoteResponse.inputMint as string)
+    : null;
+  if (!outputMint) return { available: false, reason: "no_output_mint_in_quote" };
+
+  const { Connection, PublicKey } = await import("@solana/web3.js");
+  const { getAssociatedTokenAddress } = await import("@solana/spl-token");
+  const conn = new Connection(solanaRpcUrl(), "confirmed");
+  const owner = new PublicKey(args.userPublicKey);
+
+  const outMintPk = new PublicKey(outputMint);
+  const destAta = await getAssociatedTokenAddress(outMintPk, owner);
+  const destInfo = await conn.getAccountInfo(destAta, "confirmed");
+  const requiresAtaCreation = !destInfo;
+  // SPL token-account fixed rent (165 bytes) — matches the well-known constant.
+  const ataRentLamports = requiresAtaCreation
+    ? await conn.getMinimumBalanceForRentExemption(165)
+    : 0;
+
+  const solLamports = await conn.getBalance(owner, "confirmed");
+  const prioritizationFee = Number(args.swapResult?.prioritizationFeeLamports ?? 0) || 0;
+  // Conservative base fee: 1 signature × 5000 lamports + a small ATA-create
+  // CU pad when applicable. Jupiter's `prioritizationFeeLamports` already
+  // captures the priority budget; we add the signature lamports here.
+  const baseFeeLamports = 5000;
+  const ataCreateCuPad = requiresAtaCreation ? 25_000 : 0; // ≈ 25k microlamports → tiny
+  // Input-side SOL the user is spending only matters when inputMint is wSOL.
+  const SOL_MINT = "So11111111111111111111111111111111111111112";
+  const inAmountLamports = inputMint === SOL_MINT && typeof args.quoteResponse?.inAmount === "string"
+    ? Number(args.quoteResponse.inAmount) || 0
+    : 0;
+  const requiredLamports = baseFeeLamports + prioritizationFee + ataCreateCuPad + ataRentLamports + inAmountLamports;
+  const shortfallLamports = Math.max(0, requiredLamports - solLamports);
+
+  return {
+    available: true,
+    destinationAta: destAta.toBase58(),
+    requiresAtaCreation: requiresAtaCreation,
+    ataRentLamports: ataRentLamports,
+    ataRentSol: ataRentLamports / 1e9,
+    sol: {
+      currentLamports: solLamports,
+      currentSol: solLamports / 1e9,
+      requiredLamports: requiredLamports,
+      requiredSol: requiredLamports / 1e9,
+      shortfallLamports: shortfallLamports,
+      shortfallSol: shortfallLamports / 1e9,
+      sufficient: shortfallLamports === 0,
+      breakdown: {
+        baseFeeLamports,
+        prioritizationFeeLamports: prioritizationFee,
+        ataCreateCuPadMicroLamports: ataCreateCuPad,
+        ataRentLamports,
+        inAmountLamportsIfSolInput: inAmountLamports,
+      },
+    },
+    topUpAddress: shortfallLamports > 0 ? args.userPublicKey : null,
+    notice: requiresAtaCreation
+      ? `Destination token account does not exist — signing this tx will also create it (one-time +${(ataRentLamports / 1e9).toFixed(8)} SOL rent, refundable on close).`
+      : "Destination token account already exists. No ATA rent will be charged.",
+  };
+}
+
 
 export async function defiStakeSolTx(
   input: { userPublicKey: string; amountLamports: number },
