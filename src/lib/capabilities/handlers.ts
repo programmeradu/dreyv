@@ -118,8 +118,17 @@ export async function identityProfile(
 ) {
   const resolved = await identityResolve({ identifier: input.identifier }, ctx) as Record<string, unknown>;
   const address = (resolved.address as string | undefined) ?? input.identifier;
+  const namespace = String(resolved.namespace ?? "").toLowerCase();
+  const isEvm = namespace === "ens" || namespace === "evm" || /^0x[0-9a-fA-F]{40}$/.test(address);
+  if (isEvm) {
+    // EVM identity — counterparties endpoint is Solana-only, return EVM holdings instead
+    const holdings = await callInternal(ctx, `/api/evm/holdings?address=${address}&chain=ethereum`).catch(
+      (err) => ({ error: err instanceof Error ? err.message : String(err) }),
+    );
+    return { identity: resolved, chain: "ethereum", holdings, counterparties: null };
+  }
   const counterparties = await callInternal(ctx, `/api/public/counterparties/${address}?limit=10`);
-  return { identity: resolved, counterparties };
+  return { identity: resolved, chain: "solana", counterparties };
 }
 
 // ─── Pillar B — Portfolio & Treasury ─────────────────────────────────
