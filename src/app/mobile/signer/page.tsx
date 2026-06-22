@@ -318,16 +318,17 @@ export default function MobileSignerPage() {
     return <Screen tone="loading" title="Loading transaction…" body="One moment while we fetch the request." />;
   if (data.status === "signed")
     return (
-      <Screen
-        tone="success"
-        title="Transaction signed"
-        body={data.signature ?? ""}
+      <SuccessScreen
         signature={data.signature}
         network={data.network}
+        label={data.label}
+        signer={data.userPublicKey}
+        meta={data.meta}
       />
     );
   if (data.status === "rejected")
     return <Screen tone="error" title="Transaction rejected" body="You declined this transaction." />;
+
 
   const expiresInSec = Math.max(0, Math.floor((data.expiresAt - now) / 1000));
   const expiresHuman = expiresInSec > 60 ? `${Math.floor(expiresInSec / 60)}m ${expiresInSec % 60}s` : `${expiresInSec}s`;
@@ -338,7 +339,7 @@ export default function MobileSignerPage() {
       {/* Header */}
       <header className="px-6 sm:px-10 h-16 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2.5">
-          <Image src="/dreyv-mark.svg" alt="Dreyv" width={28} height={28} priority />
+          <Image src="/dreyv-mark.png" alt="Dreyv" width={28} height={28} priority />
           <span className="font-semibold tracking-tight text-[15px]">dreyv</span>
         </div>
         <div className="flex items-center gap-3">
@@ -672,6 +673,146 @@ function Screen({
     </div>
   );
 }
+
+function SuccessScreen({
+  signature,
+  network,
+  label,
+  signer,
+  meta,
+}: {
+  signature: string | null;
+  network: HandoffPayload["network"];
+  label: string;
+  signer: string;
+  meta: Record<string, unknown> | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const explorer = signature
+    ? `https://solscan.io/tx/${signature}${network === "solana-devnet" ? "?cluster=devnet" : ""}`
+    : null;
+
+  async function copySig() {
+    if (!signature) return;
+    try {
+      await navigator.clipboard.writeText(signature);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {}
+  }
+
+  const metaEntries = meta ? Object.entries(meta).slice(0, 4) : [];
+
+  return (
+    <div className="min-h-screen bg-[#FAFAFB] text-[#0B0C10] flex flex-col antialiased selection:bg-violet-200">
+      <header className="px-6 sm:px-10 h-16 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-2.5">
+          <Image src="/dreyv-mark.png" alt="Dreyv" width={28} height={28} priority />
+          <span className="font-semibold tracking-tight text-[15px]">dreyv</span>
+        </div>
+        <span
+          className={`text-[10px] font-semibold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full ${
+            network === "solana-devnet"
+              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+              : "bg-violet-50 text-violet-700 ring-1 ring-violet-200"
+          }`}
+        >
+          {network === "solana-devnet" ? "Devnet" : "Mainnet"}
+        </span>
+      </header>
+
+      <main className="flex-1 w-full max-w-[560px] mx-auto px-5 sm:px-8 py-12 sm:py-20">
+        {/* Hero check with ambient ring */}
+        <div className="relative flex items-center justify-center mb-8">
+          <div className="absolute w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl" />
+          <div className="absolute w-28 h-28 rounded-full bg-emerald-400/15 animate-ping" style={{ animationDuration: "2.4s" }} />
+          <div className="relative w-20 h-20 rounded-full bg-white ring-1 ring-emerald-200 shadow-[0_10px_30px_-12px_rgba(16,185,129,0.45)] flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center">
+              <Check size={28} strokeWidth={3} className="text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center mb-9">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700 mb-3">
+            <ShieldCheck size={13} /> Confirmed on-chain
+          </div>
+          <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight leading-[1.1] mb-2">
+            Transaction signed
+          </h1>
+          <p className="text-[14.5px] text-neutral-500 max-w-sm mx-auto">
+            {prettyLabel(label)} — sent from your wallet and accepted by the network.
+          </p>
+        </div>
+
+        {/* Receipt card */}
+        <div className="rounded-3xl bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(11,12,16,0.04),0_20px_60px_-20px_rgba(11,12,16,0.15)] overflow-hidden">
+          <div className="px-5 sm:px-6 py-4 border-b border-black/[0.05] flex items-center justify-between">
+            <span className="text-[11px] uppercase tracking-[0.12em] font-semibold text-neutral-500">Signature</span>
+            <button
+              onClick={copySig}
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-neutral-500 hover:text-violet-600 transition"
+            >
+              {copied ? (
+                <>
+                  <Check size={13} className="text-emerald-600" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy size={13} /> Copy
+                </>
+              )}
+            </button>
+          </div>
+          <div className="px-5 sm:px-6 py-4">
+            <p className="font-mono text-[12.5px] leading-relaxed break-all text-[#0B0C10]">
+              {signature ?? "—"}
+            </p>
+          </div>
+
+          <div className="border-t border-black/[0.05] divide-y divide-black/[0.05]">
+            <DetailRow label="Signer" value={short(signer)} mono copyValue={signer} />
+            {metaEntries.map(([k, v]) => (
+              <DetailRow
+                key={k}
+                label={humanKey(k)}
+                value={renderMetaValue(v)}
+                mono={looksLikePubkey(v)}
+                copyValue={typeof v === "string" ? v : undefined}
+              />
+            ))}
+            <DetailRow label="Network" value={network === "solana-devnet" ? "Solana Devnet" : "Solana Mainnet"} last />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-7 flex flex-col sm:flex-row gap-2.5">
+          {explorer && (
+            <a
+              href={explorer}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 px-5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[14px] font-semibold transition shadow-[0_10px_30px_-12px_rgba(124,58,237,0.6)]"
+            >
+              View on Solscan <ArrowUpRight size={15} />
+            </a>
+          )}
+          <button
+            onClick={() => window.close()}
+            className="flex-1 inline-flex items-center justify-center h-12 px-5 rounded-full bg-white ring-1 ring-black/[0.08] hover:ring-violet-300 hover:bg-violet-50/40 text-[#0B0C10] text-[14px] font-semibold transition"
+          >
+            Done
+          </button>
+        </div>
+
+        <p className="mt-6 text-center text-[12px] text-neutral-400">
+          You can return to your agent — the result has been delivered.
+        </p>
+      </main>
+    </div>
+  );
+}
+
 
 /* ---------- helpers ---------- */
 
