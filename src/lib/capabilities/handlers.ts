@@ -2114,7 +2114,14 @@ export async function defiStakeSolTx(
     method: "POST",
     body: JSON.stringify(input),
   });
-  return data;
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.userPublicKey,
+    label: `Stake ${(input.amountLamports / 1e9).toFixed(4)} SOL → mSOL`,
+    keyId: ctx.keyId,
+    meta: { amountLamports: input.amountLamports },
+  }).catch(() => null);
+  return { ...data, dreyvDeeplinks: deeplinks };
 }
 
 // ─── Pillar R — Developer & Metering (Phase 10) ──────────────────────
