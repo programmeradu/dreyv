@@ -917,7 +917,7 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "Returns the 402-style quote for a SKU: USDC-on-Solana settlement details plus any card rails (Stripe / Paystack) available. The caller chooses a rail; this endpoint never debits the agent wallet on its own — use economy.pay for autonomous settlement.",
     inputSchema: z.object({
-      sku: z.string().min(1).max(200),
+      sku: z.enum(SKU_VALUES).describe("Catalog SKU id, e.g. 'dreyv.treasury.snapshot'. Use economy.skus.list to discover."),
       rail: z.enum(["solana", "stripe", "paystack"]).optional(),
       chain: z.literal("solana").optional(),
       asset: z.enum(["usdc", "usdt"]).optional(),
