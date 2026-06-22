@@ -12025,7 +12025,7 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
         steps: [
           { action: "Produce a tx", detail: "Any UNSIGNED-TX tool (dreyv_defi_swap_tx, dreyv_defi_stake_sol_tx, dreyv_intents_compile) now returns `dreyvDeeplinks` with phantomUniversal / solflareUniversal / backpackUniversal universal links + qrSvgDataUri + mobileHandoffUrl." },
           { tool: "dreyv_intents_handoff_qr", input: "{ txBase64, userPublicKey, label?, ttlSec? }", output: "Stage ANY base64 tx for desktop→phone handoff. Render `qrSvgDataUri` in chat — user scans with Phantom/Solflare/Backpack mobile, signs, broadcasts; the wallet redirects back to /mobile/signer with ?signature=<sig>." },
-          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature } to confirm completion." },
+          { tool: "dreyv_intents_handoff_status", input: "{ handoffId, confirm?: true }", output: "Poll every 2–5s until status='signed' (or rejected/expired). Returns signature, onChain.confirmationStatus, explorerUrl." },
         ],
       },
       {
