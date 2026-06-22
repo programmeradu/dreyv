@@ -62,10 +62,28 @@ interface TokenHolding {
  */
 export async function POST(req: Request) {
   try {
-    const { holdings, rebalanceTrades, userTransactionHistory } = await req.json();
+    const body = await req.json();
+    const rawHoldings = body?.holdings;
+    const rebalanceTrades = Array.isArray(body?.rebalanceTrades) ? body.rebalanceTrades : [];
+    const userTransactionHistory = Array.isArray(body?.userTransactionHistory) ? body.userTransactionHistory : [];
 
-    if (!Array.isArray(holdings)) {
+    if (!Array.isArray(rawHoldings)) {
       return NextResponse.json({ error: "Invalid holdings array" }, { status: 400 });
+    }
+
+    // Drop null / non-object entries so malformed agent input doesn't crash the loop.
+    const holdings: TokenHolding[] = rawHoldings.filter(
+      (h): h is TokenHolding => h !== null && typeof h === "object" && !Array.isArray(h),
+    );
+
+    if (holdings.length === 0) {
+      return NextResponse.json({
+        capitalGains: { shortTerm: 0, longTerm: 0, total: 0 },
+        washSaleRisks: [],
+        taxLossHarvestingOpportunities: [],
+        rebalanceTaxImpact: { estimatedTaxLiability: 0, taxableEvents: 0 },
+        note: "No valid holdings supplied.",
+      });
     }
 
     const analysis: TaxAnalysis = {
