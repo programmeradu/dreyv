@@ -1304,8 +1304,8 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "Set the IP, origin, or capability allowlist for this key",
     description: "Replaces (not appends) the named allowlist. Pass [] to clear and reopen that dimension. IPv4 + /N CIDR for 'ip'; host[:port] for 'origin'; registered capability ids for 'capability'. Max 64 entries.",
     inputSchema: z.object({
-      kind: z.enum(["ip", "origin", "capability"]),
-      values: z.array(z.string().min(1).max(256)).max(64),
+      kind: z.enum(["ip", "origin", "capability"]).describe("Which dimension to overwrite."),
+      values: z.array(z.string().min(1).max(256)).max(64).describe("For kind='ip' use IPv4 or CIDR (e.g. '203.0.113.7' or '203.0.113.0/24'); for kind='origin' use host[:port] (e.g. 'example.com' or 'api.example.com:443'); for kind='capability' use capability ids (e.g. 'portfolio.holdings'). Pass [] to clear."),
     }),
     handler: (i, c) => caps.safetyAllowlistSet(i, c),
   },
