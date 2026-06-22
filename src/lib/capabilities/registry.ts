@@ -686,9 +686,9 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "Registers an HTTPS endpoint to receive signed events. Returns signingSecret ONCE — store it now. Events are HMAC-SHA256 signed over `${t}.${rawBody}` and delivered with up to 3 retries (immediate, +2s, +8s).",
     inputSchema: z.object({
-      label: z.string().min(1).max(120),
-      targetUrl: z.string().url(),
-      events: z.array(z.string().min(1)).min(1).describe("Event names or ['*'] for all"),
+      label: z.string().min(1).max(120).describe("Human-readable label, e.g. 'prod-alerts'."),
+      targetUrl: z.string().url().describe("HTTPS endpoint that will receive POSTs, e.g. 'https://hooks.example.com/dreyv'."),
+      events: z.array(z.enum(WEBHOOK_EVENT_VALUES)).min(1).describe("Event names from the supported catalog, or ['*'] for all."),
     }),
     handler: (i, c) => caps.webhooksCreate(i, c),
   },
@@ -705,7 +705,7 @@ export const CAPABILITIES: PublicCapability[] = [
       id: z.string().uuid(),
       label: z.string().min(1).max(120).optional(),
       targetUrl: z.string().url().optional(),
-      events: z.array(z.string().min(1)).min(1).optional(),
+      events: z.array(z.enum(WEBHOOK_EVENT_VALUES)).min(1).optional(),
       active: z.boolean().optional(),
     }),
     handler: (i, c) => caps.webhooksUpdate(i, c),
