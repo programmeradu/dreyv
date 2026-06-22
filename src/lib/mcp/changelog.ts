@@ -12,7 +12,7 @@
  * required. Breaking changes MUST bump the major and call it out in `notes`.
  */
 
-export const SERVER_VERSION = "1.2.0";
+export const SERVER_VERSION = "1.3.0";
 export const SCHEMA_VERSION = "2025-06-18";
 
 export interface ChangelogEntry {
@@ -32,6 +32,23 @@ export interface ChangelogEntry {
  * into LLM context via `dreyv_meta_version`.
  */
 export const MCP_CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.3.0",
+    date: "2026-06-22",
+    kind: "minor",
+    summary:
+      "One-shot swap tool + uniform deeplinks on every UNSIGNED-TX response. Removes the multi-call quote→tx→handoff dance that was tripping up agents.",
+    added: [
+      "dreyv_defi_swap — SINGLE call that bundles quote + unsigned tx + dreyvDeeplinks (QR, phantomUniversal, solflareUniversal, backpackUniversal, mobileHandoffUrl). Inputs: { inputMint, outputMint, amount, userPublicKey, slippageBps? }.",
+      "`dreyvDeeplinks` now attached to dreyv_governance_vote_tx as well, so every [UNSIGNED-TX] tool ships a one-tap signing package uniformly.",
+    ],
+    changed: [
+      "MCP `initialize.instructions` now leads with: ASK THE USER for their Solana wallet address before any UNSIGNED-TX call, and reuse it for the session. Stops the 'which wallet?' guessing loop.",
+      "`dreyv_meta_intents_howto` Solana swap playbook now features the one-shot flow as the default; the two-step quote→tx flow is documented as a fallback for custom routing.",
+    ],
+    notes:
+      "Fully additive — no breaking changes. dreyv_defi_swap_quote / dreyv_defi_swap_tx remain available for custom flows. Clients pick up new tools on next tools/list call.",
+  },
   {
     version: "1.2.0",
     date: "2026-06-22",

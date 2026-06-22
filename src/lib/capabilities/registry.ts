@@ -1202,6 +1202,28 @@ export const CAPABILITIES: PublicCapability[] = [
     handler: (i, c) => caps.defiSwapTx(i, c),
   },
   {
+    id: "defi.swap",
+    mcpName: "dreyv_defi_swap",
+    pillar: "defi",
+    scope: "write:intent",
+    sideEffects: "simulate",
+    status: "stable",
+    title: "ONE-SHOT swap: quote + unsigned tx + one-tap deeplinks in a single call",
+    description:
+      "[UNSIGNED-TX] Single call that bundles dreyv_defi_swap_quote → dreyv_defi_swap_tx → dreyv_intents_deeplinks. Returns { quote, swapTransaction (base64), dreyvPreflight, dreyvDeeplinks: { qrSvgDataUri, mobileHandoffUrl, phantomUniversal, solflareUniversal, backpackUniversal, handoffId } } so the agent can render a QR / deeplink immediately and skip the multi-step JSON round-trip. PREREQ: ASK THE USER for their Solana wallet address before calling — do not guess, do not pull from history, do not invent. Reuse the same address for every UNSIGNED-TX call in the session.",
+    inputSchema: z.object({
+      inputMint: Address.describe("SPL mint the user is spending (e.g. So11111111111111111111111111111111111111112 for SOL)."),
+      outputMint: Address.describe("SPL mint the user wants to receive (e.g. EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v for USDC)."),
+      amount: z.string().regex(/^\d+$/).describe("Input amount in MINOR units (lamports for SOL, 1e6 for USDC). Positive integer string."),
+      userPublicKey: Address.describe("REQUIRED: the user's own Solana wallet base58 address — the one that will sign. Ask the user explicitly if you don't already have it in this turn."),
+      slippageBps: z.number().int().min(1).max(10000).optional().describe("Default 50 (0.5%)."),
+      wrapAndUnwrapSol: z.boolean().optional(),
+      asLegacyTransaction: z.boolean().optional(),
+      onlyDirectRoutes: z.boolean().optional(),
+    }).strict(),
+    handler: (i, c) => caps.defiSwap(i, c),
+  },
+  {
     id: "defi.stake_sol_tx",
     mcpName: "dreyv_defi_stake_sol_tx",
     pillar: "defi",

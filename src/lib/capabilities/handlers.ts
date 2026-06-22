@@ -1908,10 +1908,18 @@ export async function governanceVoteTx(
   if (!Number.isInteger(input.transactionIndex) || input.transactionIndex < 1) {
     throw new CapabilityError("transactionIndex must be a positive integer", 400, null);
   }
-  return callInternal(ctx, "/api/squads/proposals/vote", {
+  const data = await callInternal<Record<string, unknown>>(ctx, "/api/squads/proposals/vote", {
     method: "POST",
     body: JSON.stringify(input),
   });
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.member,
+    label: `Squads ${input.action} · tx #${input.transactionIndex}`,
+    keyId: ctx.keyId,
+    meta: { multisig: input.multisig, action: input.action, transactionIndex: input.transactionIndex },
+  }).catch(() => null);
+  return { ...data, dreyvDeeplinks: deeplinks };
 }
 
 // ─── Pillar Q — DeFi primitives (Phase 10) ───────────────────────────
@@ -1984,6 +1992,55 @@ export async function defiSwapTx(
   }).catch(() => null);
 
   return { ...data, dreyvPreflight: preflight, dreyvDeeplinks: deeplinks };
+}
+
+/**
+ * ONE-SHOT: quote → unsigned tx → preflight → deeplinks in a single MCP call.
+ * Eliminates the multi-step quote/swap_tx dance that trips up agents and
+ * removes the need to round-trip the (large, nested) quoteResponse JSON.
+ *
+ * Inputs are the simple, human-meaningful fields an agent already knows
+ * from the user's request: which mints, how much, and which wallet.
+ */
+export async function defiSwap(
+  input: {
+    inputMint: string;
+    outputMint: string;
+    amount: string;
+    userPublicKey: string;
+    slippageBps?: number;
+    wrapAndUnwrapSol?: boolean;
+    asLegacyTransaction?: boolean;
+    onlyDirectRoutes?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  const { quote } = await defiSwapQuote(
+    {
+      inputMint: input.inputMint,
+      outputMint: input.outputMint,
+      amount: input.amount,
+      slippageBps: input.slippageBps,
+      onlyDirectRoutes: input.onlyDirectRoutes,
+    },
+    ctx,
+  );
+  const tx = await defiSwapTx(
+    {
+      quoteResponse: quote as Record<string, unknown>,
+      userPublicKey: input.userPublicKey,
+      wrapAndUnwrapSol: input.wrapAndUnwrapSol,
+      asLegacyTransaction: input.asLegacyTransaction,
+    },
+    ctx,
+  );
+  return {
+    quote,
+    ...tx,
+    notice:
+      "Render `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `dreyvDeeplinks.phantomUniversal`/`solflareUniversal`/`backpackUniversal` (same-device) for one-tap signing. Poll GET /api/mcp/handoff/{dreyvDeeplinks.handoffId} for { status: 'signed', signature }. Check `dreyvPreflight.sol.sufficient` first — if false, top up at `dreyvPreflight.sol.topUpAddress` before signing.",
+  };
 }
 
 function buildSwapLabel(q: Record<string, unknown>): string {
@@ -11919,11 +11976,21 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
     custodyModel: "Dreyv NEVER holds private keys for user wallets. Every on-chain action is built server-side as an unsigned transaction or ExecutorPlan; YOU (or the connected wallet) sign locally and broadcast. The only exception is the agent's hosted x402 wallet used by `dreyv_economy_pay` — and that wallet is keyed per-API-key and funded explicitly by the developer.",
     flows: [
       {
-        name: "Solana swap (Jupiter)",
+        name: "Solana swap (ONE-SHOT — preferred)",
+        steps: [
+          { action: "Ask the user", detail: "Get their Solana wallet address (base58) BEFORE calling any UNSIGNED-TX tool. Reuse it for the rest of the session." },
+          { tool: "dreyv_defi_swap", input: "{ inputMint, outputMint, amount (minor units), userPublicKey, slippageBps? }", output: "{ quote, swapTransaction (base64), dreyvPreflight, dreyvDeeplinks: { qrSvgDataUri, mobileHandoffUrl, phantomUniversal, solflareUniversal, backpackUniversal, handoffId } } — single call." },
+          { action: "Render", detail: "Show `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `phantomUniversal` (same-device). Display `dreyvPreflight.sol.shortfallSol` if non-zero." },
+          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature }." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
+        ],
+      },
+      {
+        name: "Solana swap (manual two-step — only if you need a custom route)",
         steps: [
           { tool: "dreyv_defi_swap_quote", input: "{ inputMint, outputMint, amount (in minor units), slippageBps? }", output: "Jupiter quoteResponse — pass it verbatim into the next step." },
-          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight: { requiresAtaCreation, ataRentLamports, sol: { sufficient, shortfallSol, topUpAddress } } }" },
-          { action: "Client-side", detail: "Deserialize swapTransaction with VersionedTransaction.deserialize(base64), have the wallet sign, send via Connection.sendRawTransaction." },
+          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight, dreyvDeeplinks }" },
+          { action: "Sign + broadcast", detail: "Use the returned `dreyvDeeplinks` — do NOT re-implement wallet-adapter glue." },
           { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
         ],
       },
