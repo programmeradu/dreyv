@@ -110,7 +110,7 @@ export const CAPABILITIES: PublicCapability[] = [
     status: "stable",
     title: "Merged on-chain + social entity profile",
     description: "Combines resolved names, wallet meta, and known counterparty labels into one profile object.",
-    inputSchema: z.object({ identifier: z.string().min(1) }),
+    inputSchema: z.object({ identifier: z.string().min(1).describe("ENS/SNS/Basename/Lens/Farcaster handle or raw address. Examples: 'vitalik.eth', 'toly.sol', '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'.") }),
     handler: (i, c) => caps.identityProfile(i, c),
   },
   // NOTE: identity.agent_lookup and identity.delegate_session were removed —
