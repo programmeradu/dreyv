@@ -342,6 +342,7 @@ export function getMcpManifest(origin: string) {
     version: SERVER_INFO.version,
     transport: "streamable-http",
     endpoint: `${origin}/api/mcp`,
+    instructions: MCP_INSTRUCTIONS,
     authentication: {
       type: "bearer",
       scheme: "Bearer",
