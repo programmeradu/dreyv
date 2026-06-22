@@ -1908,10 +1908,18 @@ export async function governanceVoteTx(
   if (!Number.isInteger(input.transactionIndex) || input.transactionIndex < 1) {
     throw new CapabilityError("transactionIndex must be a positive integer", 400, null);
   }
-  return callInternal(ctx, "/api/squads/proposals/vote", {
+  const data = await callInternal<Record<string, unknown>>(ctx, "/api/squads/proposals/vote", {
     method: "POST",
     body: JSON.stringify(input),
   });
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.member,
+    label: `Squads ${input.action} · tx #${input.transactionIndex}`,
+    keyId: ctx.keyId,
+    meta: { multisig: input.multisig, action: input.action, transactionIndex: input.transactionIndex },
+  }).catch(() => null);
+  return { ...data, dreyvDeeplinks: deeplinks };
 }
 
 // ─── Pillar Q — DeFi primitives (Phase 10) ───────────────────────────
