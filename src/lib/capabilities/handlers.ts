@@ -11981,8 +11981,8 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
           { action: "Ask the user", detail: "Get their Solana wallet address (base58) BEFORE calling any UNSIGNED-TX tool. Reuse it for the rest of the session." },
           { tool: "dreyv_defi_swap", input: "{ inputMint, outputMint, amount (minor units), userPublicKey, slippageBps? }", output: "{ quote, swapTransaction (base64), dreyvPreflight, dreyvDeeplinks: { qrSvgDataUri, mobileHandoffUrl, phantomUniversal, solflareUniversal, backpackUniversal, handoffId } } — single call." },
           { action: "Render", detail: "Show `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `phantomUniversal` (same-device). Display `dreyvPreflight.sol.shortfallSol` if non-zero." },
-          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature }." },
-          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
+          { tool: "dreyv_intents_handoff_status", input: "{ handoffId, confirm?: true }", output: "{ status: 'pending'|'signed'|'rejected'|'expired'|'not_found', signature, onChain.confirmationStatus, explorerUrl, secondsRemaining } — poll every 2–5s, stop on terminal status." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "Detailed on-chain receipt (parsed instructions, balance deltas)." },
         ],
       },
       {
