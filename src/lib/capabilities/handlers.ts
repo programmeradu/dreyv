@@ -1377,6 +1377,11 @@ export async function economyPay(
   return { httpStatus: status, ...((data as object | null) ?? {}) };
 }
 
+function deliverableViewUrl(id: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://dreyv.com";
+  return `${base}/app/agent/deliverables/${id}`;
+}
+
 export async function economyDeliverablesList(
   input: { kind?: "snapshot" | "report" | "subscription"; limit?: number },
   ctx: CapabilityRunContext,
@@ -1411,7 +1416,9 @@ export async function economyDeliverablesList(
     .where(and(...conds))
     .orderBy(desc(agentDeliverables.createdAt))
     .limit(limit);
-  return { deliverables: rows };
+  return {
+    deliverables: rows.map((r) => ({ ...r, viewUrl: deliverableViewUrl(r.id) })),
+  };
 }
 
 export async function economyDeliverablesGet(
@@ -1425,7 +1432,7 @@ export async function economyDeliverablesGet(
     .where(and(eq(agentDeliverables.id, input.id), eq(agentDeliverables.userId, ctx.userId)))
     .limit(1);
   if (!row) throw new CapabilityError(`Deliverable ${input.id} not found`, 404, null);
-  return { deliverable: row };
+  return { deliverable: { ...row, viewUrl: deliverableViewUrl(row.id) } };
 }
 
 export async function economyWalletAddress(_input: Record<string, never>, ctx: CapabilityRunContext) {
