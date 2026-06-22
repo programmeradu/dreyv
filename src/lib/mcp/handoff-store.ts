@@ -170,10 +170,14 @@ export async function getHandoff(id: string): Promise<HandoffRecord | null> {
   if (sql) {
     try {
       await ensureSchema(sql);
+      // Return the record regardless of expiry — callers (status endpoint,
+      // intentsHandoffStatus tool) need to see signed/rejected/expired states
+      // to report final outcomes to the agent. Signing endpoints enforce
+      // expiry separately via the `status` and `expiresAt` fields.
       const rows = (await sql`
         SELECT id, tx_base64, user_pubkey, label, network, meta, key_id, status, signature, created_at, expires_at
         FROM mcp_handoffs
-        WHERE id = ${id} AND expires_at > ${Date.now()}
+        WHERE id = ${id}
         LIMIT 1
       `) as unknown as Row[];
       if (rows.length > 0) return rowToRecord(rows[0]);
@@ -183,10 +187,6 @@ export async function getHandoff(id: string): Promise<HandoffRecord | null> {
   }
   const mem = memStore().get(id);
   if (!mem) return null;
-  if (mem.expiresAt <= Date.now()) {
-    memStore().delete(id);
-    return null;
-  }
   return mem;
 }
 
