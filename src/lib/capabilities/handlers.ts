@@ -11773,3 +11773,144 @@ export async function contractsPolicy(_input: Record<string, never>, ctx: Capabi
 
 // ─── Phases 32–39 — re-export Pillar AP..AX handlers ──────────────────
 export * from "./handlers-phase32";
+
+// ═══════════════════════════════════════════════════════════════════════
+// Meta — orientation tools for MCP agents. Help agents discover what Dreyv
+// can do and the critical non-custodial execution model BEFORE they call
+// destructive tools. All read-only; require any granted scope.
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function metaVersion(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const { listPublicCapabilities } = await import("./registry");
+  const caps = listPublicCapabilities();
+  const pillars = Array.from(new Set(caps.map((c) => c.pillar))).sort();
+  return {
+    server: { name: "dreyv", version: "1.1.0" },
+    schemaVersion: "2025-06-18",
+    transport: "streamable-http",
+    endpoint: "https://dreyv.com/api/mcp",
+    toolCount: caps.length,
+    pillarCount: pillars.length,
+    pillars,
+    scopes: Array.from(new Set(caps.map((c) => c.scope))).sort(),
+    sideEffectBreakdown: {
+      read: caps.filter((c) => c.sideEffects === "read").length,
+      unsignedTx: caps.filter((c) => c.sideEffects === "simulate" || c.id === "intents.compile").length,
+      write: caps.filter((c) => c.sideEffects === "write" && c.id !== "intents.compile" && c.id !== "economy.pay").length,
+      pay: caps.filter((c) => c.id === "economy.pay").length,
+    },
+    docs: "https://dreyv.com/developers/mcp",
+    changelogUrl: "https://dreyv.com/developers/mcp#changelog",
+    rest: "https://dreyv.com/api/v1",
+    openapi: "https://dreyv.com/openapi.json",
+    manifest: "https://dreyv.com/api/mcp/manifest",
+  };
+}
+
+export async function metaCapabilitiesOverview(
+  input: { pillar?: string; executionLabel?: "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" },
+  _ctx: CapabilityRunContext,
+) {
+  const { listPublicCapabilities } = await import("./registry");
+  const all = listPublicCapabilities();
+  const labelOf = (c: { sideEffects: string; id: string }): "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" => {
+    if (c.id === "economy.pay") return "PAY";
+    if (c.sideEffects === "read") return "READ";
+    if (c.sideEffects === "simulate") return "UNSIGNED-TX";
+    if (c.id === "intents.compile") return "UNSIGNED-TX";
+    return "WRITE";
+  };
+  const filtered = all.filter((c) => {
+    if (input.pillar && c.pillar !== input.pillar) return false;
+    if (input.executionLabel && labelOf(c) !== input.executionLabel) return false;
+    return true;
+  });
+
+  // Group by pillar with execution-label tallies.
+  const pillars: Record<string, {
+    pillar: string;
+    total: number;
+    byLabel: Record<string, number>;
+    tools: Array<{ mcpName: string; id: string; title: string; executionLabel: string; scope: string }>;
+  }> = {};
+  for (const c of filtered) {
+    const p = (pillars[c.pillar] ??= {
+      pillar: c.pillar,
+      total: 0,
+      byLabel: { READ: 0, "UNSIGNED-TX": 0, WRITE: 0, PAY: 0 },
+      tools: [],
+    });
+    const lbl = labelOf(c);
+    p.total += 1;
+    p.byLabel[lbl] = (p.byLabel[lbl] ?? 0) + 1;
+    p.tools.push({ mcpName: c.mcpName, id: c.id, title: c.title, executionLabel: lbl, scope: c.scope });
+  }
+
+  return {
+    toolCount: filtered.length,
+    pillarCount: Object.keys(pillars).length,
+    note: "Use `executionLabel` to know what a tool does before calling it. READ = safe data. UNSIGNED-TX = returns a tx for YOUR wallet to sign locally (non-custodial). WRITE = mutates Dreyv server state. PAY = autonomously spends USDC from the agent's hosted wallet — fund it first via dreyv_economy_wallet_address.",
+    pillars: Object.values(pillars).sort((a, b) => a.pillar.localeCompare(b.pillar)),
+  };
+}
+
+export async function metaIntentsHowto(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    title: "How to execute on-chain actions with Dreyv (non-custodial)",
+    custodyModel: "Dreyv NEVER holds private keys for user wallets. Every on-chain action is built server-side as an unsigned transaction or ExecutorPlan; YOU (or the connected wallet) sign locally and broadcast. The only exception is the agent's hosted x402 wallet used by `dreyv_economy_pay` — and that wallet is keyed per-API-key and funded explicitly by the developer.",
+    flows: [
+      {
+        name: "Solana swap (Jupiter)",
+        steps: [
+          { tool: "dreyv_defi_swap_quote", input: "{ inputMint, outputMint, amount (in minor units), slippageBps? }", output: "Jupiter quoteResponse — pass it verbatim into the next step." },
+          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight: { requiresAtaCreation, ataRentLamports, sol: { sufficient, shortfallSol, topUpAddress } } }" },
+          { action: "Client-side", detail: "Deserialize swapTransaction with VersionedTransaction.deserialize(base64), have the wallet sign, send via Connection.sendRawTransaction." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
+        ],
+      },
+      {
+        name: "Persistent intent (audited, multisig-friendly)",
+        steps: [
+          { tool: "dreyv_intents_compile", input: "{ op: 'swap'|'stake'|'unstake'|'deposit_yield'|'withdraw'|'rebalance'|'transfer', params, routing?: 'wallet'|'multisig', multisigVault? }", output: "{ intent (queued row id), plan (ExecutorPlan), notice }" },
+          { action: "Client-side", detail: "Build, sign, and broadcast the plan in your wallet adapter / Squads multisig." },
+          { tool: "dreyv_intents_submit", input: "{ id, signature }", output: "Marks the intent submitted; Dreyv begins on-chain tracking." },
+          { tool: "dreyv_intents_status", input: "{ id }", output: "Latest status: queued | approved | submitted | confirmed | failed | rejected | expired." },
+        ],
+      },
+      {
+        name: "Stake SOL → mSOL (Marinade)",
+        steps: [
+          { tool: "dreyv_defi_stake_sol_tx", input: "{ userPublicKey, amountLamports }", output: "Legacy base64 tx — sign and broadcast." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }" },
+        ],
+      },
+      {
+        name: "Autonomous SKU purchase (the only PAY tool)",
+        steps: [
+          { tool: "dreyv_economy_wallet_address", input: "{}", output: "{ address, solanaPayUri } — fund this with USDC + ~0.01 SOL." },
+          { tool: "dreyv_economy_wallet_balance", input: "{}", output: "Confirm USDC + SOL float." },
+          { tool: "dreyv_economy_skus_list", input: "{}", output: "Catalog of purchasable SKUs." },
+          { tool: "dreyv_economy_checkout", input: "{ sku, rail?: 'solana'|'stripe'|'paystack' }", output: "402-style quote — inspect before committing." },
+          { tool: "dreyv_economy_pay", input: "{ sku, target_wallet? }", output: "{ deliverable: { id, viewUrl, pdfUrl }, receipt }. Use deliverable.viewUrl for the permalink." },
+        ],
+      },
+    ],
+    preflightTips: [
+      "ALWAYS read `dreyvPreflight` from dreyv_defi_swap_tx — if `sol.sufficient === false`, top up SOL at `sol.topUpAddress` for `sol.shortfallSol` before signing.",
+      "If `requiresAtaCreation === true`, expect a one-time ~0.00203928 SOL rent charge (refundable on close).",
+      "Use `dreyv_safety_simulate` (where available) for plan-level dry runs before producing the signed tx.",
+    ],
+    errors: {
+      insufficient_funds: "Top up the user's wallet (or the agent wallet for PAY tools), then retry.",
+      invalid_pair: "inputMint and outputMint resolved to the same token — pick two different SPL tokens.",
+      missing_scope: "Mint a new key with the required scope at https://dreyv.com/app/settings/api.",
+    },
+    docs: "https://dreyv.com/developers/mcp",
+  };
+}
+
+export async function metaInstructions(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const { MCP_INSTRUCTIONS } = await import("@/lib/mcp/server");
+  return { instructions: MCP_INSTRUCTIONS };
+}
+
