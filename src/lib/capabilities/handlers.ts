@@ -1993,8 +1993,6 @@ async function buildSwapPreflight(args: {
     : null;
   if (!outputMint) return { available: false, reason: "no_output_mint_in_quote" };
 
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const { getAssociatedTokenAddress } = await import("@solana/spl-token");
   const conn = new Connection(solanaRpcUrl(), "confirmed");
   const owner = new PublicKey(args.userPublicKey);
 
