@@ -25,6 +25,7 @@ import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { AGENT_SKUS, listSkus } from "@/lib/agent/skus";
 import { Connection, PublicKey } from "@solana/web3.js";
+// @ts-ignore — bundler-mode workspace doesn't resolve spl-token re-exports
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 // ─── internal helpers ────────────────────────────────────────────────
