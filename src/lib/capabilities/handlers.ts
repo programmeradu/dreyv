@@ -24,6 +24,9 @@ import { buildPlanForAction } from "@/lib/agents/brains/executor-plans";
 import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { AGENT_SKUS, listSkus } from "@/lib/agent/skus";
+import { Connection, PublicKey } from "@solana/web3.js";
+// @ts-ignore — bundler-mode workspace doesn't resolve spl-token re-exports
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
@@ -1374,6 +1377,11 @@ export async function economyPay(
   return { httpStatus: status, ...((data as object | null) ?? {}) };
 }
 
+function deliverableViewUrl(id: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://dreyv.com";
+  return `${base}/app/agent/deliverables/${id}`;
+}
+
 export async function economyDeliverablesList(
   input: { kind?: "snapshot" | "report" | "subscription"; limit?: number },
   ctx: CapabilityRunContext,
@@ -1408,7 +1416,9 @@ export async function economyDeliverablesList(
     .where(and(...conds))
     .orderBy(desc(agentDeliverables.createdAt))
     .limit(limit);
-  return { deliverables: rows };
+  return {
+    deliverables: rows.map((r) => ({ ...r, viewUrl: deliverableViewUrl(r.id) })),
+  };
 }
 
 export async function economyDeliverablesGet(
@@ -1422,7 +1432,7 @@ export async function economyDeliverablesGet(
     .where(and(eq(agentDeliverables.id, input.id), eq(agentDeliverables.userId, ctx.userId)))
     .limit(1);
   if (!row) throw new CapabilityError(`Deliverable ${input.id} not found`, 404, null);
-  return { deliverable: row };
+  return { deliverable: { ...row, viewUrl: deliverableViewUrl(row.id) } };
 }
 
 export async function economyWalletAddress(_input: Record<string, never>, ctx: CapabilityRunContext) {
@@ -1955,8 +1965,97 @@ export async function defiSwapTx(
     method: "POST",
     body: JSON.stringify(input),
   });
-  return data;
+
+  // ── Pre-flight enrichment: surface the data agents need BEFORE asking the
+  // user to sign — destination-ATA creation cost + SOL balance vs total cost.
+  // Best-effort: any RPC failure leaves the upstream payload untouched.
+  const preflight = await buildSwapPreflight({
+    userPublicKey: input.userPublicKey,
+    quoteResponse: input.quoteResponse,
+    swapResult: data,
+  }).catch((err) => ({
+    available: false,
+    reason: `preflight_unavailable: ${err instanceof Error ? err.message : "rpc_error"}`,
+  }));
+
+  return { ...data, dreyvPreflight: preflight };
 }
+
+/**
+ * Heuristic preflight: looks at the destination mint from the Jupiter
+ * quoteResponse, computes the user's ATA, and checks whether it already exists
+ * (=> cheap signed-only swap) or needs to be created (=> +0.00203928 SOL rent
+ * + ATA-create CU). Also reads SOL balance and reports shortfall if any.
+ */
+async function buildSwapPreflight(args: {
+  userPublicKey: string;
+  quoteResponse: Record<string, unknown>;
+  swapResult: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const outputMint = typeof args.quoteResponse?.outputMint === "string"
+    ? (args.quoteResponse.outputMint as string)
+    : null;
+  const inputMint = typeof args.quoteResponse?.inputMint === "string"
+    ? (args.quoteResponse.inputMint as string)
+    : null;
+  if (!outputMint) return { available: false, reason: "no_output_mint_in_quote" };
+
+  const conn = new Connection(solanaRpcUrl(), "confirmed");
+  const owner = new PublicKey(args.userPublicKey);
+
+  const outMintPk = new PublicKey(outputMint);
+  const destAta = await getAssociatedTokenAddress(outMintPk, owner);
+  const destInfo = await conn.getAccountInfo(destAta, "confirmed");
+  const requiresAtaCreation = !destInfo;
+  // SPL token-account fixed rent (165 bytes) — matches the well-known constant.
+  const ataRentLamports = requiresAtaCreation
+    ? await conn.getMinimumBalanceForRentExemption(165)
+    : 0;
+
+  const solLamports = await conn.getBalance(owner, "confirmed");
+  const prioritizationFee = Number(args.swapResult?.prioritizationFeeLamports ?? 0) || 0;
+  // Conservative base fee: 1 signature × 5000 lamports + a small ATA-create
+  // CU pad when applicable. Jupiter's `prioritizationFeeLamports` already
+  // captures the priority budget; we add the signature lamports here.
+  const baseFeeLamports = 5000;
+  const ataCreateCuPad = requiresAtaCreation ? 25_000 : 0; // ≈ 25k microlamports → tiny
+  // Input-side SOL the user is spending only matters when inputMint is wSOL.
+  const SOL_MINT = "So11111111111111111111111111111111111111112";
+  const inAmountLamports = inputMint === SOL_MINT && typeof args.quoteResponse?.inAmount === "string"
+    ? Number(args.quoteResponse.inAmount) || 0
+    : 0;
+  const requiredLamports = baseFeeLamports + prioritizationFee + ataCreateCuPad + ataRentLamports + inAmountLamports;
+  const shortfallLamports = Math.max(0, requiredLamports - solLamports);
+
+  return {
+    available: true,
+    destinationAta: destAta.toBase58(),
+    requiresAtaCreation: requiresAtaCreation,
+    ataRentLamports: ataRentLamports,
+    ataRentSol: ataRentLamports / 1e9,
+    sol: {
+      currentLamports: solLamports,
+      currentSol: solLamports / 1e9,
+      requiredLamports: requiredLamports,
+      requiredSol: requiredLamports / 1e9,
+      shortfallLamports: shortfallLamports,
+      shortfallSol: shortfallLamports / 1e9,
+      sufficient: shortfallLamports === 0,
+      breakdown: {
+        baseFeeLamports,
+        prioritizationFeeLamports: prioritizationFee,
+        ataCreateCuPadMicroLamports: ataCreateCuPad,
+        ataRentLamports,
+        inAmountLamportsIfSolInput: inAmountLamports,
+      },
+    },
+    topUpAddress: shortfallLamports > 0 ? args.userPublicKey : null,
+    notice: requiresAtaCreation
+      ? `Destination token account does not exist — signing this tx will also create it (one-time +${(ataRentLamports / 1e9).toFixed(8)} SOL rent, refundable on close).`
+      : "Destination token account already exists. No ATA rent will be charged.",
+  };
+}
+
 
 export async function defiStakeSolTx(
   input: { userPublicKey: string; amountLamports: number },
@@ -11674,3 +11773,144 @@ export async function contractsPolicy(_input: Record<string, never>, ctx: Capabi
 
 // ─── Phases 32–39 — re-export Pillar AP..AX handlers ──────────────────
 export * from "./handlers-phase32";
+
+// ═══════════════════════════════════════════════════════════════════════
+// Meta — orientation tools for MCP agents. Help agents discover what Dreyv
+// can do and the critical non-custodial execution model BEFORE they call
+// destructive tools. All read-only; require any granted scope.
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function metaVersion(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const { listPublicCapabilities } = await import("./registry");
+  const caps = listPublicCapabilities();
+  const pillars = Array.from(new Set(caps.map((c) => c.pillar))).sort();
+  return {
+    server: { name: "dreyv", version: "1.1.0" },
+    schemaVersion: "2025-06-18",
+    transport: "streamable-http",
+    endpoint: "https://dreyv.com/api/mcp",
+    toolCount: caps.length,
+    pillarCount: pillars.length,
+    pillars,
+    scopes: Array.from(new Set(caps.map((c) => c.scope))).sort(),
+    sideEffectBreakdown: {
+      read: caps.filter((c) => c.sideEffects === "read").length,
+      unsignedTx: caps.filter((c) => c.sideEffects === "simulate" || c.id === "intents.compile").length,
+      write: caps.filter((c) => c.sideEffects === "write" && c.id !== "intents.compile" && c.id !== "economy.pay").length,
+      pay: caps.filter((c) => c.id === "economy.pay").length,
+    },
+    docs: "https://dreyv.com/developers/mcp",
+    changelogUrl: "https://dreyv.com/developers/mcp#changelog",
+    rest: "https://dreyv.com/api/v1",
+    openapi: "https://dreyv.com/openapi.json",
+    manifest: "https://dreyv.com/api/mcp/manifest",
+  };
+}
+
+export async function metaCapabilitiesOverview(
+  input: { pillar?: string; executionLabel?: "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" },
+  _ctx: CapabilityRunContext,
+) {
+  const { listPublicCapabilities } = await import("./registry");
+  const all = listPublicCapabilities();
+  const labelOf = (c: { sideEffects: string; id: string }): "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" => {
+    if (c.id === "economy.pay") return "PAY";
+    if (c.sideEffects === "read") return "READ";
+    if (c.sideEffects === "simulate") return "UNSIGNED-TX";
+    if (c.id === "intents.compile") return "UNSIGNED-TX";
+    return "WRITE";
+  };
+  const filtered = all.filter((c) => {
+    if (input.pillar && c.pillar !== input.pillar) return false;
+    if (input.executionLabel && labelOf(c) !== input.executionLabel) return false;
+    return true;
+  });
+
+  // Group by pillar with execution-label tallies.
+  const pillars: Record<string, {
+    pillar: string;
+    total: number;
+    byLabel: Record<string, number>;
+    tools: Array<{ mcpName: string; id: string; title: string; executionLabel: string; scope: string }>;
+  }> = {};
+  for (const c of filtered) {
+    const p = (pillars[c.pillar] ??= {
+      pillar: c.pillar,
+      total: 0,
+      byLabel: { READ: 0, "UNSIGNED-TX": 0, WRITE: 0, PAY: 0 },
+      tools: [],
+    });
+    const lbl = labelOf(c);
+    p.total += 1;
+    p.byLabel[lbl] = (p.byLabel[lbl] ?? 0) + 1;
+    p.tools.push({ mcpName: c.mcpName, id: c.id, title: c.title, executionLabel: lbl, scope: c.scope });
+  }
+
+  return {
+    toolCount: filtered.length,
+    pillarCount: Object.keys(pillars).length,
+    note: "Use `executionLabel` to know what a tool does before calling it. READ = safe data. UNSIGNED-TX = returns a tx for YOUR wallet to sign locally (non-custodial). WRITE = mutates Dreyv server state. PAY = autonomously spends USDC from the agent's hosted wallet — fund it first via dreyv_economy_wallet_address.",
+    pillars: Object.values(pillars).sort((a, b) => a.pillar.localeCompare(b.pillar)),
+  };
+}
+
+export async function metaIntentsHowto(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  return {
+    title: "How to execute on-chain actions with Dreyv (non-custodial)",
+    custodyModel: "Dreyv NEVER holds private keys for user wallets. Every on-chain action is built server-side as an unsigned transaction or ExecutorPlan; YOU (or the connected wallet) sign locally and broadcast. The only exception is the agent's hosted x402 wallet used by `dreyv_economy_pay` — and that wallet is keyed per-API-key and funded explicitly by the developer.",
+    flows: [
+      {
+        name: "Solana swap (Jupiter)",
+        steps: [
+          { tool: "dreyv_defi_swap_quote", input: "{ inputMint, outputMint, amount (in minor units), slippageBps? }", output: "Jupiter quoteResponse — pass it verbatim into the next step." },
+          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight: { requiresAtaCreation, ataRentLamports, sol: { sufficient, shortfallSol, topUpAddress } } }" },
+          { action: "Client-side", detail: "Deserialize swapTransaction with VersionedTransaction.deserialize(base64), have the wallet sign, send via Connection.sendRawTransaction." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
+        ],
+      },
+      {
+        name: "Persistent intent (audited, multisig-friendly)",
+        steps: [
+          { tool: "dreyv_intents_compile", input: "{ op: 'swap'|'stake'|'unstake'|'deposit_yield'|'withdraw'|'rebalance'|'transfer', params, routing?: 'wallet'|'multisig', multisigVault? }", output: "{ intent (queued row id), plan (ExecutorPlan), notice }" },
+          { action: "Client-side", detail: "Build, sign, and broadcast the plan in your wallet adapter / Squads multisig." },
+          { tool: "dreyv_intents_submit", input: "{ id, signature }", output: "Marks the intent submitted; Dreyv begins on-chain tracking." },
+          { tool: "dreyv_intents_status", input: "{ id }", output: "Latest status: queued | approved | submitted | confirmed | failed | rejected | expired." },
+        ],
+      },
+      {
+        name: "Stake SOL → mSOL (Marinade)",
+        steps: [
+          { tool: "dreyv_defi_stake_sol_tx", input: "{ userPublicKey, amountLamports }", output: "Legacy base64 tx — sign and broadcast." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }" },
+        ],
+      },
+      {
+        name: "Autonomous SKU purchase (the only PAY tool)",
+        steps: [
+          { tool: "dreyv_economy_wallet_address", input: "{}", output: "{ address, solanaPayUri } — fund this with USDC + ~0.01 SOL." },
+          { tool: "dreyv_economy_wallet_balance", input: "{}", output: "Confirm USDC + SOL float." },
+          { tool: "dreyv_economy_skus_list", input: "{}", output: "Catalog of purchasable SKUs." },
+          { tool: "dreyv_economy_checkout", input: "{ sku, rail?: 'solana'|'stripe'|'paystack' }", output: "402-style quote — inspect before committing." },
+          { tool: "dreyv_economy_pay", input: "{ sku, target_wallet? }", output: "{ deliverable: { id, viewUrl, pdfUrl }, receipt }. Use deliverable.viewUrl for the permalink." },
+        ],
+      },
+    ],
+    preflightTips: [
+      "ALWAYS read `dreyvPreflight` from dreyv_defi_swap_tx — if `sol.sufficient === false`, top up SOL at `sol.topUpAddress` for `sol.shortfallSol` before signing.",
+      "If `requiresAtaCreation === true`, expect a one-time ~0.00203928 SOL rent charge (refundable on close).",
+      "Use `dreyv_safety_simulate` (where available) for plan-level dry runs before producing the signed tx.",
+    ],
+    errors: {
+      insufficient_funds: "Top up the user's wallet (or the agent wallet for PAY tools), then retry.",
+      invalid_pair: "inputMint and outputMint resolved to the same token — pick two different SPL tokens.",
+      missing_scope: "Mint a new key with the required scope at https://dreyv.com/app/settings/api.",
+    },
+    docs: "https://dreyv.com/developers/mcp",
+  };
+}
+
+export async function metaInstructions(_input: Record<string, never>, _ctx: CapabilityRunContext) {
+  const { MCP_INSTRUCTIONS } = await import("@/lib/mcp/server");
+  return { instructions: MCP_INSTRUCTIONS };
+}
+
