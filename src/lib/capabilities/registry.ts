@@ -5139,6 +5139,66 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({ id: z.string().uuid() }).strict(),
     handler: (i, c) => caps.entitlementsOverrideDelete(i, c),
   },
+
+  // ─── Meta — orientation for MCP agents ───────────────────────────────
+  // Read-only; uses the broadly-granted read:status scope so any key can call
+  // them. These are how agents discover the surface and the non-custodial
+  // execution model BEFORE invoking destructive tools.
+  {
+    id: "meta.version",
+    mcpName: "dreyv_meta_version",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Dreyv MCP server version, tool/pillar counts, and schema metadata",
+    description:
+      "[META] Returns server name + semver, MCP protocol schema version, total tool count, pillar count, scope list, and a sideEffect breakdown (read / unsigned-tx / write / pay). Call this first to know what you're connected to. Includes links to OpenAPI, manifest, REST base, and changelog.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.metaVersion(i, c),
+  },
+  {
+    id: "meta.capabilities_overview",
+    mcpName: "dreyv_meta_capabilities_overview",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "300+ tools mapped to 39 pillars with execution-label tallies",
+    description:
+      "[META] Compact map of every tool grouped by pillar, each tagged with executionLabel (READ / UNSIGNED-TX / WRITE / PAY) so agents know what each call will do before invoking. Filter by pillar or executionLabel to narrow. Safer than tools/list for first-pass discovery.",
+    inputSchema: z.object({
+      pillar: z.string().optional().describe("Filter to a single pillar id (e.g. 'defi', 'economy', 'forensics')."),
+      executionLabel: z.enum(["READ", "UNSIGNED-TX", "WRITE", "PAY"]).optional().describe("Filter by what the tool actually does."),
+    }).strict(),
+    handler: (i, c) => caps.metaCapabilitiesOverview(i, c),
+  },
+  {
+    id: "meta.intents_howto",
+    mcpName: "dreyv_meta_intents_howto",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "End-to-end execution playbooks (swap, intents, stake, autonomous pay)",
+    description:
+      "[META] Step-by-step flows for the four execution paths: Jupiter swap, persistent compile→sign→submit intent (multisig-friendly), Marinade SOL stake, and autonomous SKU purchase via dreyv_economy_pay. Includes the non-custodial signing model, preflight tips, and structured error semantics.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.metaIntentsHowto(i, c),
+  },
+  {
+    id: "meta.instructions",
+    mcpName: "dreyv_meta_instructions",
+    pillar: "status",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Server orientation text (custody model, tool tags, discovery)",
+    description:
+      "[META] Returns the same orientation block we'd return in MCP `initialize.instructions` if the transport supported it: who we are, the [READ]/[UNSIGNED-TX]/[WRITE]/[PAY] tag system, how to discover, how to authenticate.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.metaInstructions(i, c),
+  },
 ];
 
 
