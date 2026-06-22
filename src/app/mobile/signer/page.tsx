@@ -318,16 +318,17 @@ export default function MobileSignerPage() {
     return <Screen tone="loading" title="Loading transaction…" body="One moment while we fetch the request." />;
   if (data.status === "signed")
     return (
-      <Screen
-        tone="success"
-        title="Transaction signed"
-        body={data.signature ?? ""}
+      <SuccessScreen
         signature={data.signature}
         network={data.network}
+        label={data.label}
+        signer={data.userPublicKey}
+        meta={data.meta}
       />
     );
   if (data.status === "rejected")
     return <Screen tone="error" title="Transaction rejected" body="You declined this transaction." />;
+
 
   const expiresInSec = Math.max(0, Math.floor((data.expiresAt - now) / 1000));
   const expiresHuman = expiresInSec > 60 ? `${Math.floor(expiresInSec / 60)}m ${expiresInSec % 60}s` : `${expiresInSec}s`;
