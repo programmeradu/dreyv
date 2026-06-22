@@ -11946,11 +11946,31 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
           { tool: "dreyv_economy_pay", input: "{ sku, target_wallet? }", output: "{ deliverable: { id, viewUrl, pdfUrl }, receipt }. Use deliverable.viewUrl for the permalink." },
         ],
       },
+      {
+        name: "One-tap signing (desktop or mobile)",
+        steps: [
+          { action: "Produce a tx", detail: "Any UNSIGNED-TX tool (dreyv_defi_swap_tx, dreyv_defi_stake_sol_tx, dreyv_intents_compile) now returns `dreyvDeeplinks` with phantomUniversal / solflareUniversal / backpackUniversal universal links + qrSvgDataUri + mobileHandoffUrl." },
+          { tool: "dreyv_intents_handoff_qr", input: "{ txBase64, userPublicKey, label?, ttlSec? }", output: "Stage ANY base64 tx for desktop→phone handoff. Render `qrSvgDataUri` in chat — user scans with Phantom/Solflare/Backpack mobile, signs, broadcasts; the wallet redirects back to /mobile/signer with ?signature=<sig>." },
+          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature } to confirm completion." },
+        ],
+      },
+      {
+        name: "Autonomous session signer (capped, opt-in)",
+        steps: [
+          { tool: "dreyv_session_signer_create", input: "{ ttlSec?, maxLamports?, maxTxCount?, allowedProgramIds? }", output: "{ session: { id, publicKey, caps }, fundingInstructions }." },
+          { action: "User funds", detail: "User sends the SOL they're willing to delegate (≤ maxLamports) to `session.publicKey` from any wallet." },
+          { tool: "dreyv_session_signer_sign", input: "{ sessionId, txBase64, estimatedLamportsOut }", output: "{ signedTxBase64, signature } — caps enforced server-side; structured error if exceeded." },
+          { tool: "dreyv_session_signer_status", input: "{ sessionId }", output: "Remaining budget + usage." },
+          { tool: "dreyv_session_signer_revoke", input: "{ sessionId }", output: "Destroys keypair in memory. Sweep residual SOL BEFORE revoking." },
+        ],
+      },
     ],
     preflightTips: [
       "ALWAYS read `dreyvPreflight` from dreyv_defi_swap_tx — if `sol.sufficient === false`, top up SOL at `sol.topUpAddress` for `sol.shortfallSol` before signing.",
       "If `requiresAtaCreation === true`, expect a one-time ~0.00203928 SOL rent charge (refundable on close).",
       "Use `dreyv_safety_simulate` (where available) for plan-level dry runs before producing the signed tx.",
+      "Prefer `dreyvDeeplinks.mobileHandoffUrl` / `qrSvgDataUri` over re-implementing wallet-adapter glue.",
+      "For autonomous flows, keep session-signer caps SMALL (e.g. maxLamports = expected outflow × 1.2) and TTL SHORT.",
     ],
     errors: {
       insufficient_funds: "Top up the user's wallet (or the agent wallet for PAY tools), then retry.",
