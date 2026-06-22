@@ -49,7 +49,7 @@ function Mascot({ pose, size = 96 }: { pose: MascotPose; size?: number }) {
 function PearlMark() {
   return (
     <Img
-      src={`${APP}/dreyv-mark.svg`}
+      src={`${APP}/dreyv-mark.png`}
       alt="dreyv"
       width="32"
       height="32"
