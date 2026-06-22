@@ -108,31 +108,49 @@ function schemaAdapter(schema: unknown): Record<string, unknown> {
   }
 }
 
+/**
+ * Strong, agent-readable label of what calling this tool will actually do.
+ * Surfaced both in the description text (so LLMs see it inline) and in
+ * `_meta.executionLabel` (so deterministic clients can branch on it).
+ *
+ * Categories:
+ *   READ          — pure read; safe to call freely.
+ *   UNSIGNED-TX   — returns a transaction or ExecutorPlan for the CALLER to sign locally; non-custodial.
+ *   WRITE         — mutates Dreyv-owned state (webhooks, alerts, contracts, schemas, deliverables, etc.).
+ *   PAY           — autonomously settles USDC from the agent's hosted wallet (real money out).
+ */
+function executionLabelFor(cap: PublicCapability): "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" {
+  if (cap.id === "economy.pay") return "PAY";
+  if (cap.sideEffects === "read") return "READ";
+  if (cap.sideEffects === "simulate") return "UNSIGNED-TX";
+  // Compiled intents return an unsigned plan even though we persist a row.
+  if (cap.id === "intents.compile") return "UNSIGNED-TX";
+  return "WRITE";
+}
+
 /** Compact summary line shown to LLMs in addition to the description. */
 function describe(cap: PublicCapability): string {
-  const sideEffectLabel =
-    cap.sideEffects === "read"
-      ? "read-only"
-      : cap.sideEffects === "simulate"
-      ? "simulation (no on-chain write)"
-      : "writes state";
-  return `${cap.description} (pillar: ${cap.pillar}, scope: ${cap.scope}, ${sideEffectLabel}${cap.cost ? `, cost: ${cap.cost} credits` : ""})`;
+  const label = executionLabelFor(cap);
+  const cost = cap.cost ? `, cost: ${cap.cost} credits` : "";
+  return `[${label}] ${cap.description} (pillar: ${cap.pillar}, scope: ${cap.scope}${cost})`;
 }
 
 function buildServer(): McpServer {
   const server = new McpServer({
     ...SERVER_INFO,
+    instructions: MCP_INSTRUCTIONS,
     schemaAdapter,
   });
 
   for (const cap of CAPABILITIES) {
+    const label = executionLabelFor(cap);
     server.tool(cap.mcpName, {
       title: cap.title,
       description: describe(cap),
       inputSchema: cap.inputSchema as unknown as Parameters<typeof server.tool>[1]["inputSchema"],
       annotations: {
         readOnlyHint: cap.sideEffects === "read",
-        destructiveHint: cap.sideEffects === "write" && cap.scope.startsWith("write:"),
+        destructiveHint: label === "WRITE" || label === "PAY",
         idempotentHint: cap.sideEffects === "read" || cap.sideEffects === "simulate",
         openWorldHint: cap.sideEffects === "write",
       },
@@ -141,6 +159,7 @@ function buildServer(): McpServer {
         pillar: cap.pillar,
         scope: cap.scope,
         status: cap.status,
+        executionLabel: label,
         restPath: `/api/v1/${cap.id.replace(/\./g, "/")}`,
       },
       handler: async (args, ctx) => {
