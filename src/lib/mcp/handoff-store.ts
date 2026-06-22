@@ -53,7 +53,8 @@ function getSql() {
 }
 
 let _schemaReady: Promise<void> | null = null;
-async function ensureSchema(sql: ReturnType<typeof neon>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureSchema(sql: any) {
   if (_schemaReady) return _schemaReady;
   _schemaReady = (async () => {
     await sql`
