@@ -75,7 +75,7 @@ export default function DevelopersMcpPage() {
 
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
-                href="/app/settings?view=api"
+                href="/auth?redirect=/app/developer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
               >
                 <KeyRound size={13} /> Mint a key

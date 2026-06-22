@@ -86,7 +86,7 @@ export default function DevelopersPage() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
                 <Link
-                  href="/auth?redirect=/app"
+                  href="/auth?redirect=/app/developer"
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors"
                 >
                   Get an API key
@@ -273,7 +273,7 @@ export default function DevelopersPage() {
                 </p>
               </div>
               <Link
-                href="/auth?redirect=/app"
+                href="/auth?redirect=/app/developer"
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors self-start md:self-auto"
               >
                 Open sandbox

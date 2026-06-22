@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { publicApiKeys } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNotNull } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 import {
   mintPublicKey,
@@ -26,6 +26,12 @@ export async function GET(req: NextRequest) {
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ keys: [] });
+
+  // One-time cleanup: hard-delete any legacy soft-revoked rows for this user
+  // so the ledger stays minimal. New revocations are already hard deletes.
+  await db
+    .delete(publicApiKeys)
+    .where(and(eq(publicApiKeys.userId, user.id), isNotNull(publicApiKeys.revokedAt)));
 
   const rows = await db
     .select({
