@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const payload = req.nextUrl.searchParams.get("payload") ?? "";
-  const svg = renderSvg(payload);
+  const svg = await renderSvg(payload);
   return new NextResponse(svg, {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
