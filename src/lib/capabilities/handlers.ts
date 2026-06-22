@@ -12118,7 +12118,7 @@ export async function intentsHandoffQr(
   return {
     ...dl,
     instructions:
-      "Display `qrSvgDataUri` to the user (scan with any Solana mobile wallet) OR open `mobileHandoffUrl` directly. Wallet will redirect back with ?signature=<sig>; poll GET /api/mcp/handoff/{handoffId} to observe completion.",
+      "Display `qrSvgDataUri` to the user (scan with any Solana mobile wallet) OR open `mobileHandoffUrl` directly. Wallet will redirect back with ?signature=<sig>. To observe completion call `dreyv_intents_handoff_status { handoffId }` every 2–5s — it returns status + signature + on-chain confirmation. (Raw GET /api/mcp/handoff/{handoffId} also works as a fallback.)",
   };
 }
 
