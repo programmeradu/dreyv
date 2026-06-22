@@ -121,7 +121,10 @@ export async function createHandoff(args: {
   meta?: Record<string, unknown>;
   ttlSec?: number;
 }): Promise<HandoffRecord> {
-  const ttlSec = args.ttlSec ?? 5 * 60;
+  // Default TTL: 30 min (was 5 min — too short for agent loops where the user
+  // takes a coffee break before signing). Records remain queryable after
+  // expiry — see getHandoff — so agents can still verify status post-expiry.
+  const ttlSec = args.ttlSec ?? 30 * 60;
   const id = `hf_${randomBytes(12).toString("hex")}`;
   const now = Date.now();
   const network = args.network ?? "solana-mainnet";
@@ -142,8 +145,11 @@ export async function createHandoff(args: {
   if (sql) {
     try {
       await ensureSchema(sql);
-      // sweep expired opportunistically
-      await sql`DELETE FROM mcp_handoffs WHERE expires_at <= ${now}`;
+      // Sweep only PENDING handoffs that expired long ago (>24h). Signed and
+      // rejected records are retained so agents can verify status even after
+      // the signing TTL elapses.
+      const sweepCutoff = now - 24 * 3600 * 1000;
+      await sql`DELETE FROM mcp_handoffs WHERE status = 'pending' AND expires_at <= ${sweepCutoff}`;
       await sql`
         INSERT INTO mcp_handoffs (id, tx_base64, user_pubkey, label, network, meta, key_id, status, created_at, expires_at)
         VALUES (${id}, ${args.txBase64}, ${args.userPublicKey}, ${args.label}, ${network},
@@ -164,10 +170,14 @@ export async function getHandoff(id: string): Promise<HandoffRecord | null> {
   if (sql) {
     try {
       await ensureSchema(sql);
+      // Return the record regardless of expiry — callers (status endpoint,
+      // intentsHandoffStatus tool) need to see signed/rejected/expired states
+      // to report final outcomes to the agent. Signing endpoints enforce
+      // expiry separately via the `status` and `expiresAt` fields.
       const rows = (await sql`
         SELECT id, tx_base64, user_pubkey, label, network, meta, key_id, status, signature, created_at, expires_at
         FROM mcp_handoffs
-        WHERE id = ${id} AND expires_at > ${Date.now()}
+        WHERE id = ${id}
         LIMIT 1
       `) as unknown as Row[];
       if (rows.length > 0) return rowToRecord(rows[0]);
@@ -177,10 +187,6 @@ export async function getHandoff(id: string): Promise<HandoffRecord | null> {
   }
   const mem = memStore().get(id);
   if (!mem) return null;
-  if (mem.expiresAt <= Date.now()) {
-    memStore().delete(id);
-    return null;
-  }
   return mem;
 }
 
