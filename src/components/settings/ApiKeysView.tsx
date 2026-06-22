@@ -489,92 +489,118 @@ const { ok, data } = await res.json();`,
             <p className="mt-1 text-[12px] text-slate-500">Generate one to start calling the Dreyv API or MCP server.</p>
           </div>
         ) : (
-          <ul className="divide-y divide-violet-100">
+          <ul className="divide-y divide-violet-50">
             {keys.map((key) => {
               const isFresh = revealed?.id === key.id;
               const isRevoked = !!key.revokedAt;
+              const expanded = !!expandedScopes[key.id];
               return (
                 <li
                   key={key.id}
-                  className={`px-6 py-4 flex items-start gap-4 group transition ${
-                    isFresh ? "bg-violet-50/60" : isRevoked ? "opacity-60" : "hover:bg-violet-50/40"
+                  className={`group transition ${
+                    isFresh ? "bg-violet-50/50" : isRevoked ? "opacity-55" : "hover:bg-violet-50/30"
                   }`}
                 >
-                  <span className="h-9 w-9 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600 shrink-0">
-                    <KeyRound size={15} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13.5px] font-semibold text-slate-900 truncate">{key.label}</span>
+                  {/* Single thin row — Apple-style: one line on desktop, wraps on mobile */}
+                  <div className="px-5 h-11 flex items-center gap-3 text-[12px]">
+                    {/* Status dot — env color, tiny */}
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                        isRevoked
+                          ? "bg-rose-400"
+                          : key.env === "test"
+                            ? "bg-amber-500"
+                            : "bg-violet-600"
+                      }`}
+                    />
+
+                    {/* Label — primary identifier */}
+                    <span className="font-medium text-slate-900 truncate max-w-[28%]" title={key.label}>
+                      {key.label}
+                    </span>
+
+                    {/* Prefix — monospace, soft */}
+                    <code className="font-mono text-[11.5px] text-slate-400 truncate hidden sm:inline">
+                      {key.keyPrefix}
+                    </code>
+
+                    {/* Spacer pushes meta right */}
+                    <span className="flex-1" />
+
+                    {/* Meta cluster — right aligned, monoline, terse */}
+                    <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums">
+                      {key.lastUsedAt
+                        ? `used ${formatDistanceToNow(new Date(key.lastUsedAt), { addSuffix: false })} ago`
+                        : "never used"}
+                    </span>
+                    <span className="hidden lg:inline text-[11px] text-slate-300">·</span>
+                    <span className="hidden lg:inline text-[11px] text-slate-400 tabular-nums">
+                      {formatDistanceToNow(new Date(key.createdAt), { addSuffix: false })} old
+                    </span>
+                    <span className="hidden lg:inline text-[11px] text-slate-300">·</span>
+                    <span className="hidden lg:inline text-[11px] text-slate-400 tabular-nums">
+                      {key.rateLimitRpm} rpm
+                    </span>
+
+                    {/* Env / state chip — only when non-default */}
+                    {(key.env === "test" || isFresh || isRevoked) && (
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-semibold tracking-[0.18em] uppercase ${
-                          key.env === "test"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-violet-50 text-violet-700 border-violet-200"
+                        className={`hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-[0.14em] uppercase ${
+                          isRevoked
+                            ? "text-rose-600 bg-rose-50"
+                            : isFresh
+                              ? "text-emerald-700 bg-emerald-50"
+                              : "text-amber-700 bg-amber-50"
                         }`}
                       >
-                        {key.env}
+                        {isRevoked ? "Revoked" : isFresh ? "New" : "Test"}
                       </span>
-                      {isRevoked && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 text-[9px] font-semibold tracking-[0.18em] uppercase">
-                          Revoked
-                        </span>
-                      )}
-                      {isFresh && !isRevoked && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[9px] font-semibold tracking-[0.18em] uppercase">
-                          <CheckCircle2 size={10} /> New
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500 font-mono flex-wrap">
-                      <span>{key.keyPrefix}<span className="text-slate-300">·······················</span></span>
-                      <span className="text-slate-400">·</span>
-                      <span>created {formatDistanceToNow(new Date(key.createdAt), { addSuffix: true })}</span>
-                      <span className="text-slate-400">·</span>
-                      <span>{key.lastUsedAt ? `last used ${formatDistanceToNow(new Date(key.lastUsedAt), { addSuffix: true })}` : "never used"}</span>
-                      <span className="text-slate-400">·</span>
-                      <span>{key.rateLimitRpm} rpm</span>
-                    </div>
-                    {key.scopes.length > 0 && (
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedScopes((prev) => ({ ...prev, [key.id]: !prev[key.id] }))
-                          }
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-semibold hover:bg-violet-100 transition"
-                          title={expandedScopes[key.id] ? "Hide scopes" : "Show scopes"}
-                        >
-                          {key.scopes.length} {key.scopes.length === 1 ? "scope" : "scopes"}
-                          <ChevronDown
-                            size={10}
-                            className={`transition-transform ${expandedScopes[key.id] ? "rotate-180" : ""}`}
-                          />
-                        </button>
-                        {expandedScopes[key.id] && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {key.scopes.map((s) => (
-                              <span
-                                key={s}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-mono"
-                              >
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     )}
-                  </div>
-                  {!isRevoked && (
-                    <div className="flex items-center gap-1.5 shrink-0 opacity-60 group-hover:opacity-100 transition">
+
+                    {/* Scopes pill — collapsible */}
+                    {key.scopes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedScopes((prev) => ({ ...prev, [key.id]: !prev[key.id] }))
+                        }
+                        className="inline-flex items-center gap-1 px-2 h-6 rounded-md text-[10.5px] font-medium text-slate-500 hover:text-violet-700 hover:bg-violet-50 transition"
+                        title={expanded ? "Hide scopes" : "Show scopes"}
+                      >
+                        <span className="tabular-nums">{key.scopes.length}</span>
+                        <span className="text-slate-400 group-hover:text-current">scopes</span>
+                        <ChevronDown
+                          size={10}
+                          className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                    )}
+
+                    {/* Revoke — appears on hover, no fixed slot taking space */}
+                    {!isRevoked && (
                       <button
                         onClick={() => handleRevoke(key.id)}
-                        className="h-8 w-8 rounded-full border border-violet-100 bg-white text-slate-500 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 flex items-center justify-center transition"
+                        className="h-7 w-7 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition opacity-0 group-hover:opacity-100 focus:opacity-100"
                         title="Revoke"
+                        aria-label={`Revoke ${key.label}`}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={12} />
                       </button>
+                    )}
+                  </div>
+
+                  {/* Expanded scopes — flush, edge-to-edge subtle band */}
+                  {expanded && key.scopes.length > 0 && (
+                    <div className="px-5 pb-3 -mt-1 flex flex-wrap gap-1">
+                      {key.scopes.map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-violet-700/80 bg-violet-50"
+                        >
+                          {s}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </li>
