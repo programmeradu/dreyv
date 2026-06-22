@@ -314,10 +314,25 @@ export async function swapQuoteSolana(
 ) {
   const inMint = resolveSolanaToken(input.inputMint);
   const outMint = resolveSolanaToken(input.outputMint);
+  if (inMint === outMint) {
+    throw new CapabilityError(
+      `invalid_pair: inputMint and outputMint must differ (both resolved to ${inMint}). Pick two different SPL tokens, e.g. SOL → USDC.`,
+      400,
+      { inputMint: inMint, outputMint: outMint },
+    );
+  }
+  const amt = String(input.amount ?? "").trim();
+  if (!/^\d+$/.test(amt) || amt === "0") {
+    throw new CapabilityError(
+      "invalid_amount: amount must be a positive integer in base units (lamports for SOL, smallest units for SPL tokens).",
+      400,
+      { amount: input.amount },
+    );
+  }
   const qs = new URLSearchParams({
     inputMint: inMint,
     outputMint: outMint,
-    amount: String(input.amount),
+    amount: amt,
   });
   if (input.slippageBps != null) qs.set("slippageBps", String(input.slippageBps));
   if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
