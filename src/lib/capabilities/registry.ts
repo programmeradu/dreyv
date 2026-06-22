@@ -14,6 +14,20 @@
 import { z } from "zod";
 import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
+import { ALL_WEBHOOK_EVENTS } from "@/lib/webhooks/dispatcher";
+import { AGENT_SKUS } from "@/lib/agent/skus";
+
+// Closed catalogs surfaced as JSON-Schema enums so LLMs synthesize valid inputs first try.
+const WEBHOOK_EVENT_VALUES = [...ALL_WEBHOOK_EVENTS, "*"] as [string, ...string[]];
+const SKU_VALUES = Object.keys(AGENT_SKUS) as [string, ...string[]];
+const ENTITLEMENT_FEATURE_VALUES = [
+  "api.keys.max", "api.requests_per_minute", "webhooks.max",
+  "workflows.max", "workflows.max_nodes", "digests.channels", "digests.schedules",
+  "search.docs", "search.saved", "obs.retention_days", "audit.retention_days",
+  "residency.strict", "limits.custom_policies", "marketplace.publish",
+  "sla.custom_targets", "contracts.publish", "teams.members",
+  "exports.per_day", "storage.gb",
+] as [string, ...string[]];
 
 export type SideEffect = "read" | "simulate" | "write";
 export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs" | "exports" | "tags" | "flags" | "inbox" | "insights" | "marketplace" | "sla" | "contracts" | "observability" | "limits" | "residency" | "digests" | "workflows" | "entitlements";
