@@ -5090,8 +5090,8 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "Check whether a feature is allowed (optionally with a requested numeric value)",
     description: "For boolean features, returns the value. For numeric features, returns `allowed = requestedValue ≤ effectiveValue`.",
     inputSchema: z.object({
-      feature: z.string().min(1).max(128),
-      requestedValue: z.number().optional(),
+      feature: z.enum(ENTITLEMENT_FEATURE_VALUES).describe("Entitlement feature key. Use entitlements.list for the full catalog."),
+      requestedValue: z.number().optional().describe("Requested numeric value (only meaningful for numeric features)."),
     }).strict(),
     handler: (i, c) => caps.entitlementsCheck(i, c),
   },
