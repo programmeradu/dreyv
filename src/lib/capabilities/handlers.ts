@@ -1966,9 +1966,6 @@ export async function defiSwapTx(
     body: JSON.stringify(input),
   });
 
-  // ── Pre-flight enrichment: surface the data agents need BEFORE asking the
-  // user to sign — destination-ATA creation cost + SOL balance vs total cost.
-  // Best-effort: any RPC failure leaves the upstream payload untouched.
   const preflight = await buildSwapPreflight({
     userPublicKey: input.userPublicKey,
     quoteResponse: input.quoteResponse,
@@ -1978,7 +1975,55 @@ export async function defiSwapTx(
     reason: `preflight_unavailable: ${err instanceof Error ? err.message : "rpc_error"}`,
   }));
 
-  return { ...data, dreyvPreflight: preflight };
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.userPublicKey,
+    label: buildSwapLabel(input.quoteResponse),
+    keyId: ctx.keyId,
+    meta: { inputMint: input.quoteResponse?.inputMint, outputMint: input.quoteResponse?.outputMint },
+  }).catch(() => null);
+
+  return { ...data, dreyvPreflight: preflight, dreyvDeeplinks: deeplinks };
+}
+
+function buildSwapLabel(q: Record<string, unknown>): string {
+  const inMint = typeof q?.inputMint === "string" ? (q.inputMint as string).slice(0, 6) : "token";
+  const outMint = typeof q?.outputMint === "string" ? (q.outputMint as string).slice(0, 6) : "token";
+  return `Swap ${inMint}… → ${outMint}…`;
+}
+
+async function attachDeeplinks(args: {
+  tx: Record<string, unknown>;
+  userPublicKey: string;
+  label: string;
+  keyId: string;
+  meta?: Record<string, unknown>;
+}) {
+  const txBase64 = pickTxBase64(args.tx);
+  if (!txBase64) return null;
+  const { createHandoff } = await import("@/lib/mcp/handoff-store");
+  const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
+  const rec = createHandoff({
+    txBase64,
+    userPublicKey: args.userPublicKey,
+    label: args.label,
+    keyId: args.keyId,
+    meta: args.meta,
+  });
+  return buildDeeplinks({
+    txBase64,
+    userPublicKey: args.userPublicKey,
+    label: args.label,
+    handoffId: rec.id,
+  });
+}
+
+function pickTxBase64(tx: Record<string, unknown>): string | null {
+  for (const k of ["swapTransaction", "transaction", "tx", "txBase64", "serializedTransaction"]) {
+    const v = tx[k];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return null;
 }
 
 /**
@@ -2069,7 +2114,14 @@ export async function defiStakeSolTx(
     method: "POST",
     body: JSON.stringify(input),
   });
-  return data;
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.userPublicKey,
+    label: `Stake ${(input.amountLamports / 1e9).toFixed(4)} SOL → mSOL`,
+    keyId: ctx.keyId,
+    meta: { amountLamports: input.amountLamports },
+  }).catch(() => null);
+  return { ...data, dreyvDeeplinks: deeplinks };
 }
 
 // ─── Pillar R — Developer & Metering (Phase 10) ──────────────────────
@@ -11894,11 +11946,31 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
           { tool: "dreyv_economy_pay", input: "{ sku, target_wallet? }", output: "{ deliverable: { id, viewUrl, pdfUrl }, receipt }. Use deliverable.viewUrl for the permalink." },
         ],
       },
+      {
+        name: "One-tap signing (desktop or mobile)",
+        steps: [
+          { action: "Produce a tx", detail: "Any UNSIGNED-TX tool (dreyv_defi_swap_tx, dreyv_defi_stake_sol_tx, dreyv_intents_compile) now returns `dreyvDeeplinks` with phantomUniversal / solflareUniversal / backpackUniversal universal links + qrSvgDataUri + mobileHandoffUrl." },
+          { tool: "dreyv_intents_handoff_qr", input: "{ txBase64, userPublicKey, label?, ttlSec? }", output: "Stage ANY base64 tx for desktop→phone handoff. Render `qrSvgDataUri` in chat — user scans with Phantom/Solflare/Backpack mobile, signs, broadcasts; the wallet redirects back to /mobile/signer with ?signature=<sig>." },
+          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature } to confirm completion." },
+        ],
+      },
+      {
+        name: "Autonomous session signer (capped, opt-in)",
+        steps: [
+          { tool: "dreyv_session_signer_create", input: "{ ttlSec?, maxLamports?, maxTxCount?, allowedProgramIds? }", output: "{ session: { id, publicKey, caps }, fundingInstructions }." },
+          { action: "User funds", detail: "User sends the SOL they're willing to delegate (≤ maxLamports) to `session.publicKey` from any wallet." },
+          { tool: "dreyv_session_signer_sign", input: "{ sessionId, txBase64, estimatedLamportsOut }", output: "{ signedTxBase64, signature } — caps enforced server-side; structured error if exceeded." },
+          { tool: "dreyv_session_signer_status", input: "{ sessionId }", output: "Remaining budget + usage." },
+          { tool: "dreyv_session_signer_revoke", input: "{ sessionId }", output: "Destroys keypair in memory. Sweep residual SOL BEFORE revoking." },
+        ],
+      },
     ],
     preflightTips: [
       "ALWAYS read `dreyvPreflight` from dreyv_defi_swap_tx — if `sol.sufficient === false`, top up SOL at `sol.topUpAddress` for `sol.shortfallSol` before signing.",
       "If `requiresAtaCreation === true`, expect a one-time ~0.00203928 SOL rent charge (refundable on close).",
       "Use `dreyv_safety_simulate` (where available) for plan-level dry runs before producing the signed tx.",
+      "Prefer `dreyvDeeplinks.mobileHandoffUrl` / `qrSvgDataUri` over re-implementing wallet-adapter glue.",
+      "For autonomous flows, keep session-signer caps SMALL (e.g. maxLamports = expected outflow × 1.2) and TTL SHORT.",
     ],
     errors: {
       insufficient_funds: "Top up the user's wallet (or the agent wallet for PAY tools), then retry.",
@@ -11914,3 +11986,140 @@ export async function metaInstructions(_input: Record<string, never>, _ctx: Capa
   return { instructions: MCP_INSTRUCTIONS };
 }
 
+
+// ─── Pillar S — Mobile Signer Handoff + Session Signer (Phase 11) ────
+//
+// Three UX upgrades to make non-custodial signing one-tap:
+//   1. dreyv_intents_deeplinks    — produce phantom/solflare/backpack + QR for any base64 tx
+//   2. dreyv_intents_handoff_qr   — same, but explicitly staged for /mobile/signer
+//   3. dreyv_session_signer_*     — ephemeral keypair w/ caps for autonomous signing within limits
+
+export async function intentsDeeplinks(
+  input: { txBase64: string; userPublicKey: string; label?: string; meta?: Record<string, unknown> },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  if (!input.txBase64 || typeof input.txBase64 !== "string") {
+    throw new CapabilityError("txBase64 is required", 400, null);
+  }
+  const { createHandoff } = await import("@/lib/mcp/handoff-store");
+  const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
+  const rec = createHandoff({
+    txBase64: input.txBase64,
+    userPublicKey: input.userPublicKey,
+    label: input.label ?? "Sign transaction",
+    keyId: ctx.keyId,
+    meta: input.meta,
+  });
+  return buildDeeplinks({
+    txBase64: input.txBase64,
+    userPublicKey: input.userPublicKey,
+    label: input.label ?? "Sign transaction",
+    handoffId: rec.id,
+  });
+}
+
+export async function intentsHandoffQr(
+  input: { txBase64: string; userPublicKey: string; label?: string; ttlSec?: number },
+  ctx: CapabilityRunContext,
+) {
+  // Alias of intentsDeeplinks but with explicit TTL + emphasizes QR for desktop→mobile flow.
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  const { createHandoff } = await import("@/lib/mcp/handoff-store");
+  const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
+  const rec = createHandoff({
+    txBase64: input.txBase64,
+    userPublicKey: input.userPublicKey,
+    label: input.label ?? "Sign transaction",
+    keyId: ctx.keyId,
+    ttlSec: input.ttlSec,
+  });
+  const dl = buildDeeplinks({
+    txBase64: input.txBase64,
+    userPublicKey: input.userPublicKey,
+    label: input.label ?? "Sign transaction",
+    handoffId: rec.id,
+    ttlSec: input.ttlSec,
+  });
+  return {
+    ...dl,
+    instructions:
+      "Display `qrSvgDataUri` to the user (scan with any Solana mobile wallet) OR open `mobileHandoffUrl` directly. Wallet will redirect back with ?signature=<sig>; poll GET /api/mcp/handoff/{handoffId} to observe completion.",
+  };
+}
+
+export async function sessionSignerCreate(
+  input: {
+    ttlSec?: number;
+    maxLamports?: number;
+    maxTxCount?: number;
+    allowedProgramIds?: string[];
+  },
+  ctx: CapabilityRunContext,
+) {
+  const { createSessionSigner, redactSessionSigner } = await import("@/lib/mcp/session-signer-store");
+  const rec = createSessionSigner({
+    keyId: ctx.keyId,
+    ttlSec: input.ttlSec,
+    maxLamports: input.maxLamports,
+    maxTxCount: input.maxTxCount,
+    allowedProgramIds: input.allowedProgramIds,
+  });
+  return {
+    session: redactSessionSigner(rec),
+    fundingInstructions: {
+      step1: `Fund the session signer public key with the SOL you want it to spend, up to its cap (${rec.caps.maxLamports} lamports).`,
+      step2: `Top-up address: ${rec.publicKey}`,
+      step3:
+        "While the session is active, pass `sessionId` to dreyv_session_signer_sign to have Dreyv sign + return the tx without prompting the user wallet.",
+      revoke: "Call dreyv_session_signer_revoke with the sessionId — keypair is destroyed in memory immediately.",
+      sweep:
+        "Send the remaining SOL on this address back to your main wallet before revoking; Dreyv does not retain the keypair after revocation.",
+    },
+  };
+}
+
+export async function sessionSignerSign(
+  input: { sessionId: string; txBase64: string; estimatedLamportsOut?: number },
+  ctx: CapabilityRunContext,
+) {
+  const { signWithSessionSigner, redactSessionSigner } = await import("@/lib/mcp/session-signer-store");
+  try {
+    const out = signWithSessionSigner({
+      sessionId: input.sessionId,
+      keyId: ctx.keyId,
+      txBase64: input.txBase64,
+      estimatedLamportsOut: Math.max(0, input.estimatedLamportsOut ?? 0),
+    });
+    return {
+      signedTxBase64: out.signedTxBase64,
+      signature: out.signature,
+      session: redactSessionSigner(out.record),
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "session_signer_error";
+    throw new CapabilityError(msg, 400, { code: msg });
+  }
+}
+
+export async function sessionSignerStatus(
+  input: { sessionId: string },
+  ctx: CapabilityRunContext,
+) {
+  const { getSessionSigner, redactSessionSigner } = await import("@/lib/mcp/session-signer-store");
+  const rec = getSessionSigner(input.sessionId);
+  if (!rec || rec.keyId !== ctx.keyId) {
+    throw new CapabilityError("session_signer_not_found", 404, null);
+  }
+  return { session: redactSessionSigner(rec) };
+}
+
+export async function sessionSignerRevoke(
+  input: { sessionId: string },
+  ctx: CapabilityRunContext,
+) {
+  const { revokeSessionSigner, redactSessionSigner } = await import("@/lib/mcp/session-signer-store");
+  const rec = revokeSessionSigner(input.sessionId, ctx.keyId);
+  if (!rec) throw new CapabilityError("session_signer_not_found", 404, null);
+  return { session: redactSessionSigner(rec) };
+}
