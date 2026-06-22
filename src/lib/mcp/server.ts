@@ -138,7 +138,9 @@ function describe(cap: PublicCapability): string {
 function buildServer(): McpServer {
   const server = new McpServer({
     ...SERVER_INFO,
-    instructions: MCP_INSTRUCTIONS,
+    // NOTE: mcp-lite 0.10 doesn't surface `instructions` in McpServerOptions.
+    // We expose the same orientation text via the `dreyv_meta_instructions`
+    // tool (always callable) and inside the public MCP manifest.
     schemaAdapter,
   });
 
