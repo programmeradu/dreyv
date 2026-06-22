@@ -33,6 +33,19 @@ export interface ChangelogEntry {
  */
 export const MCP_CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.4.0",
+    date: "2026-06-22",
+    kind: "minor",
+    summary:
+      "Add dreyv_intents_handoff_status — native MCP tool to check whether a staged handoff has been signed, with optional on-chain confirmation status + Solscan URL. Replaces raw GET /api/mcp/handoff/{id} polling.",
+    added: [
+      "dreyv_intents_handoff_status { handoffId, confirm? } → { status, signature, onChain: { confirmationStatus, slot, err }, explorerUrl, secondsRemaining }.",
+    ],
+    changed: [
+      "dreyv_defi_swap / dreyv_intents_deeplinks / dreyv_intents_handoff_qr instructions now point agents at dreyv_intents_handoff_status instead of raw HTTP polling.",
+    ],
+  },
+  {
     version: "1.3.1",
     date: "2026-06-22",
     kind: "patch",
