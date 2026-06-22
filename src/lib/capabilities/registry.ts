@@ -14,6 +14,20 @@
 import { z } from "zod";
 import type { ApiScope } from "@/lib/api-keys/public-keys";
 import * as caps from "./handlers";
+import { ALL_WEBHOOK_EVENTS } from "@/lib/webhooks/dispatcher";
+import { AGENT_SKUS } from "@/lib/agent/skus";
+
+// Closed catalogs surfaced as JSON-Schema enums so LLMs synthesize valid inputs first try.
+const WEBHOOK_EVENT_VALUES = [...ALL_WEBHOOK_EVENTS, "*"] as unknown as [string, ...string[]];
+const SKU_VALUES = Object.keys(AGENT_SKUS) as [string, ...string[]];
+const ENTITLEMENT_FEATURE_VALUES = [
+  "api.keys.max", "api.requests_per_minute", "webhooks.max",
+  "workflows.max", "workflows.max_nodes", "digests.channels", "digests.schedules",
+  "search.docs", "search.saved", "obs.retention_days", "audit.retention_days",
+  "residency.strict", "limits.custom_policies", "marketplace.publish",
+  "sla.custom_targets", "contracts.publish", "teams.members",
+  "exports.per_day", "storage.gb",
+] as [string, ...string[]];
 
 export type SideEffect = "read" | "simulate" | "write";
 export type Pillar = "identity" | "portfolio" | "market" | "execution" | "forensics" | "tax" | "foresight" | "agentic" | "economy" | "reasoning" | "knowledge" | "governance" | "defi" | "developer" | "safety" | "compliance" | "notifications" | "audit" | "teams" | "billing" | "privacy" | "storage" | "search" | "status" | "jobs" | "exports" | "tags" | "flags" | "inbox" | "insights" | "marketplace" | "sla" | "contracts" | "observability" | "limits" | "residency" | "digests" | "workflows" | "entitlements";
@@ -96,7 +110,7 @@ export const CAPABILITIES: PublicCapability[] = [
     status: "stable",
     title: "Merged on-chain + social entity profile",
     description: "Combines resolved names, wallet meta, and known counterparty labels into one profile object.",
-    inputSchema: z.object({ identifier: z.string().min(1) }),
+    inputSchema: z.object({ identifier: z.string().min(1).describe("ENS/SNS/Basename/Lens/Farcaster handle or raw address. Examples: 'vitalik.eth', 'toly.sol', '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'.") }),
     handler: (i, c) => caps.identityProfile(i, c),
   },
   // NOTE: identity.agent_lookup and identity.delegate_session were removed —
@@ -672,9 +686,9 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "Registers an HTTPS endpoint to receive signed events. Returns signingSecret ONCE — store it now. Events are HMAC-SHA256 signed over `${t}.${rawBody}` and delivered with up to 3 retries (immediate, +2s, +8s).",
     inputSchema: z.object({
-      label: z.string().min(1).max(120),
-      targetUrl: z.string().url(),
-      events: z.array(z.string().min(1)).min(1).describe("Event names or ['*'] for all"),
+      label: z.string().min(1).max(120).describe("Human-readable label, e.g. 'prod-alerts'."),
+      targetUrl: z.string().url().describe("HTTPS endpoint that will receive POSTs, e.g. 'https://hooks.example.com/dreyv'."),
+      events: z.array(z.enum(WEBHOOK_EVENT_VALUES)).min(1).describe("Event names from the supported catalog, or ['*'] for all."),
     }),
     handler: (i, c) => caps.webhooksCreate(i, c),
   },
@@ -691,7 +705,7 @@ export const CAPABILITIES: PublicCapability[] = [
       id: z.string().uuid(),
       label: z.string().min(1).max(120).optional(),
       targetUrl: z.string().url().optional(),
-      events: z.array(z.string().min(1)).min(1).optional(),
+      events: z.array(z.enum(WEBHOOK_EVENT_VALUES)).min(1).optional(),
       active: z.boolean().optional(),
     }),
     handler: (i, c) => caps.webhooksUpdate(i, c),
@@ -903,7 +917,7 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "Returns the 402-style quote for a SKU: USDC-on-Solana settlement details plus any card rails (Stripe / Paystack) available. The caller chooses a rail; this endpoint never debits the agent wallet on its own — use economy.pay for autonomous settlement.",
     inputSchema: z.object({
-      sku: z.string().min(1).max(200),
+      sku: z.enum(SKU_VALUES).describe("Catalog SKU id, e.g. 'dreyv.treasury.snapshot'. Use economy.skus.list to discover."),
       rail: z.enum(["solana", "stripe", "paystack"]).optional(),
       chain: z.literal("solana").optional(),
       asset: z.enum(["usdc", "usdt"]).optional(),
@@ -921,8 +935,8 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "End-to-end: mints invoice, settles USDC from your hosted agent wallet, records the deliverable, emails the API-key owner. Returns the receipt token PLUS a permanent deliverable id. Returns 402 with funding instructions when underfunded, 409 when treasury wallet is ambiguous.",
     inputSchema: z.object({
-      sku: z.string().min(1).max(200),
-      target_wallet: z.string().min(32).max(44).optional(),
+      sku: z.enum(SKU_VALUES).describe("Catalog SKU id, e.g. 'dreyv.treasury.snapshot'."),
+      target_wallet: z.string().min(32).max(44).optional().describe("Solana wallet to credit the deliverable to. Defaults to the API-key owner's wallet."),
     }),
     handler: (i, c) => caps.economyPay(i, c),
   },
@@ -1290,8 +1304,8 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "Set the IP, origin, or capability allowlist for this key",
     description: "Replaces (not appends) the named allowlist. Pass [] to clear and reopen that dimension. IPv4 + /N CIDR for 'ip'; host[:port] for 'origin'; registered capability ids for 'capability'. Max 64 entries.",
     inputSchema: z.object({
-      kind: z.enum(["ip", "origin", "capability"]),
-      values: z.array(z.string().min(1).max(256)).max(64),
+      kind: z.enum(["ip", "origin", "capability"]).describe("Which dimension to overwrite."),
+      values: z.array(z.string().min(1).max(256)).max(64).describe("For kind='ip' use IPv4 or CIDR (e.g. '203.0.113.7' or '203.0.113.0/24'); for kind='origin' use host[:port] (e.g. 'example.com' or 'api.example.com:443'); for kind='capability' use capability ids (e.g. 'portfolio.holdings'). Pass [] to clear."),
     }),
     handler: (i, c) => caps.safetyAllowlistSet(i, c),
   },
@@ -1394,16 +1408,16 @@ export const CAPABILITIES: PublicCapability[] = [
         name: z.string().min(1).max(200),
         address: Address,
         vaspId: z.string().max(200).optional(),
-        country: z.string().length(2).optional(),
+        country: z.string().length(2).optional().describe("ISO-3166-1 alpha-2 country code, e.g. 'US', 'GH', 'GB'."),
       }),
       beneficiary: z.object({
         name: z.string().min(1).max(200),
         address: Address,
         vaspId: z.string().max(200).optional(),
-        country: z.string().length(2).optional(),
+        country: z.string().length(2).optional().describe("ISO-3166-1 alpha-2 country code, e.g. 'US', 'GH', 'GB'."),
       }),
-      amount: z.string().regex(/^\d+(\.\d+)?$/),
-      asset: z.string().min(1).max(32),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).describe("Decimal string in the asset's display units, e.g. '125.50'."),
+      asset: z.string().min(1).max(32).describe("Asset symbol, e.g. 'USDC', 'SOL', 'ETH'."),
       chain: Chain,
       purpose: z.string().max(500).optional(),
     }),
@@ -2558,11 +2572,14 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "List entities for a tag, or tags for an entity",
     description: "Two modes. (1) `tag` only → returns up to `limit` entities attached to that tag (`mode:'by_tag'`). (2) `entityType` + `entityId` → returns every tag attached to that entity (`mode:'by_entity'`), with the tag row joined inline. Default limit 200, max 1000.",
     inputSchema: z.object({
-      tag: z.string().min(1).max(128).optional(),
-      entityType: z.string().min(1).max(32).optional(),
-      entityId: z.string().min(1).max(256).optional(),
+      tag: z.string().min(1).max(128).optional().describe("Tag name. Use ALONE to list entities attached to this tag."),
+      entityType: z.string().min(1).max(32).optional().describe("Entity type, e.g. 'wallet','vault','agent'. Must be paired with entityId."),
+      entityId: z.string().min(1).max(256).optional().describe("Entity id. Must be paired with entityType."),
       limit: z.number().int().min(1).max(1000).optional(),
-    }).strict(),
+    }).strict().refine(
+      (v) => !!v.tag || (!!v.entityType && !!v.entityId),
+      { message: "Supply `tag` to list entities, OR both `entityType` + `entityId` to list tags." },
+    ),
     handler: (i, c) => caps.tagsEntities(i, c),
   },
   {
@@ -3650,12 +3667,15 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "read",
     status: "stable",
     title: "Fetch a listing by id or (publisherSlug, listingSlug)",
-    description: "Returns listing + publisher + caller's install row. Drafts are only visible to the owner.",
+    description: "Returns listing + publisher + caller's install row. Drafts are only visible to the owner. Pass `id`, OR both `publisherSlug` and `listingSlug`.",
     inputSchema: z.object({
-      id: z.string().uuid().optional(),
-      publisherSlug: z.string().optional(),
-      listingSlug: z.string().optional(),
-    }).strict(),
+      id: z.string().uuid().optional().describe("Listing UUID. Mutually exclusive with the slug pair."),
+      publisherSlug: z.string().optional().describe("Publisher slug — must be paired with listingSlug."),
+      listingSlug: z.string().optional().describe("Listing slug — must be paired with publisherSlug."),
+    }).strict().refine(
+      (v) => !!v.id || (!!v.publisherSlug && !!v.listingSlug),
+      { message: "Provide `id`, or both `publisherSlug` and `listingSlug`." },
+    ),
     handler: (i, c) => caps.marketplaceListingsGet(i, c),
   },
   {
@@ -3866,8 +3886,11 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "read",
     status: "stable",
     title: "Fetch a status page by id or slug (owner view)",
-    description: "Returns the owner's full page record. For the unauthenticated public view, use the public /status/{slug} route.",
-    inputSchema: z.object({ id: z.string().uuid().optional(), slug: z.string().min(1).max(64).optional() }).strict(),
+    description: "Returns the owner's full page record. For the unauthenticated public view, use the public /status/{slug} route. Provide either `id` or `slug`.",
+    inputSchema: z.object({
+      id: z.string().uuid().optional().describe("Status page UUID."),
+      slug: z.string().min(1).max(64).optional().describe("Status page slug, e.g. 'api'."),
+    }).strict().refine((v) => !!v.id || !!v.slug, { message: "Provide either `id` or `slug`." }),
     handler: (i, c) => caps.slaPagesGet(i, c),
   },
   {
@@ -4153,11 +4176,11 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "Register a new schema version (creates the schema on first call)",
     description: "Stores an immutable schema version under (namespace, name). Version must strictly increase by semver. Auto-computes compatibility (`backward` if no breaking changes) and a breaking-change diff vs the previous latest. Emits `schema.registered` on first version and `schema.version_published` on every version.",
     inputSchema: z.object({
-      name: z.string().min(1).max(64),
-      namespace: z.string().min(1).max(64).optional(),
+      name: z.string().min(1).max(64).describe("Schema name, e.g. 'OrderCreated'."),
+      namespace: z.string().min(1).max(64).optional().describe("Namespace, e.g. 'payments'. Defaults to 'default'."),
       description: z.string().max(1000).optional(),
-      version: z.string().min(5).max(64),
-      jsonSchema: z.record(z.unknown()),
+      version: z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/).describe("Semver version, e.g. '1.0.0' or '2.1.0-beta.1'. Must strictly increase across calls."),
+      jsonSchema: z.record(z.unknown()).describe("Valid JSON Schema document. Example: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }."),
       changelog: z.string().max(4000).optional(),
     }).strict(),
     handler: (i, c) => caps.schemasRegister(i, c),
@@ -5070,8 +5093,8 @@ export const CAPABILITIES: PublicCapability[] = [
     title: "Check whether a feature is allowed (optionally with a requested numeric value)",
     description: "For boolean features, returns the value. For numeric features, returns `allowed = requestedValue ≤ effectiveValue`.",
     inputSchema: z.object({
-      feature: z.string().min(1).max(128),
-      requestedValue: z.number().optional(),
+      feature: z.enum(ENTITLEMENT_FEATURE_VALUES).describe("Entitlement feature key. Use entitlements.list for the full catalog."),
+      requestedValue: z.number().optional().describe("Requested numeric value (only meaningful for numeric features)."),
     }).strict(),
     handler: (i, c) => caps.entitlementsCheck(i, c),
   },

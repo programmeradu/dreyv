@@ -221,8 +221,19 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
+  // Filter null / non-object entries so malformed agent input doesn't crash the simulator.
+  if (Array.isArray(body.portfolio)) {
+    body.portfolio = body.portfolio.filter(
+      (t): t is PortfolioToken => t != null && typeof t === "object" && typeof (t as PortfolioToken).symbol === "string",
+    );
+  }
+  if (Array.isArray(body.variables)) {
+    body.variables = body.variables.filter((v) => v != null && typeof v === "object");
+  }
   if (!body.portfolio?.length) return NextResponse.json({ error: "portfolio_required" }, { status: 400 });
-  if (!Array.isArray(body.variables)) return NextResponse.json({ error: "variables_required" }, { status: 400 });
+  if (!Array.isArray(body.variables) || body.variables.length === 0) {
+    return NextResponse.json({ error: "variables_required" }, { status: 400 });
+  }
   if (!body.timeframeMonths || body.timeframeMonths < 1 || body.timeframeMonths > 120) {
     return NextResponse.json({ error: "timeframeMonths_1_to_120" }, { status: 400 });
   }
