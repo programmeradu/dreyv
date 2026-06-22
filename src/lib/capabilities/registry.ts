@@ -3664,12 +3664,15 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "read",
     status: "stable",
     title: "Fetch a listing by id or (publisherSlug, listingSlug)",
-    description: "Returns listing + publisher + caller's install row. Drafts are only visible to the owner.",
+    description: "Returns listing + publisher + caller's install row. Drafts are only visible to the owner. Pass `id`, OR both `publisherSlug` and `listingSlug`.",
     inputSchema: z.object({
-      id: z.string().uuid().optional(),
-      publisherSlug: z.string().optional(),
-      listingSlug: z.string().optional(),
-    }).strict(),
+      id: z.string().uuid().optional().describe("Listing UUID. Mutually exclusive with the slug pair."),
+      publisherSlug: z.string().optional().describe("Publisher slug — must be paired with listingSlug."),
+      listingSlug: z.string().optional().describe("Listing slug — must be paired with publisherSlug."),
+    }).strict().refine(
+      (v) => !!v.id || (!!v.publisherSlug && !!v.listingSlug),
+      { message: "Provide `id`, or both `publisherSlug` and `listingSlug`." },
+    ),
     handler: (i, c) => caps.marketplaceListingsGet(i, c),
   },
   {
