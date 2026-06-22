@@ -92,8 +92,7 @@ export const ApiKeysView = () => {
   const [creating, setCreating] = useState(false);
   const [revealed, setRevealed] = useState<{ id: string; fullKey: string } | null>(null);
   const [showInstall, setShowInstall] = useState<"claude" | "cursor" | "curl" | "fetch">("claude");
-
-  const baseUrl = useMemo(() => {
+  const [expandedScopes, setExpandedScopes] = useState<Record<string, boolean>>({});
     if (typeof window === "undefined") return "https://dreyv.com";
     return window.location.origin;
   }, []);
