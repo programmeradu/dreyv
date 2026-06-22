@@ -5204,7 +5204,7 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "intents.deeplinks",
     mcpName: "dreyv_intents_deeplinks",
-    pillar: "intents",
+    pillar: "execution",
     scope: "read:status",
     sideEffects: "read",
     status: "stable",
@@ -5222,7 +5222,7 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "intents.handoff_qr",
     mcpName: "dreyv_intents_handoff_qr",
-    pillar: "intents",
+    pillar: "execution",
     scope: "read:status",
     sideEffects: "read",
     status: "stable",
@@ -5240,10 +5240,10 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "session_signer.create",
     mcpName: "dreyv_session_signer_create",
-    pillar: "intents",
-    scope: "write:agent",
+    pillar: "execution",
+    scope: "agent:delegate",
     sideEffects: "write",
-    status: "beta",
+    status: "preview",
     title: "Mint an ephemeral, capped Solana signer the agent can use without prompting the user wallet",
     description:
       "[WRITE] Generates a short-lived Ed25519 keypair held only in this MCP session's memory and bound to this API key. The user funds the returned public key with the SOL they're willing to delegate, then the agent calls dreyv_session_signer_sign for autonomous signing within strict caps (maxLamports cumulative, maxTxCount, allowedProgramIds whitelist, TTL). Use for short bursts of agent activity (e.g. a 1-hour rebalance session) without round-tripping every signature. Non-custodial — Dreyv does NOT touch the user's main wallet.",
@@ -5258,10 +5258,10 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "session_signer.sign",
     mcpName: "dreyv_session_signer_sign",
-    pillar: "intents",
-    scope: "write:agent",
+    pillar: "execution",
+    scope: "agent:delegate",
     sideEffects: "write",
-    status: "beta",
+    status: "preview",
     title: "Sign a base64 tx with an active session signer, enforcing caps",
     description:
       "[WRITE] Signs the supplied tx with the session signer. Rejects with a structured error if: session expired/revoked, tx count cap hit, lamports cap would be exceeded (pass estimatedLamportsOut), or any instruction targets a program not on the whitelist. Returns signedTxBase64 and signature — caller is still responsible for broadcasting via dreyv_intents_submit or sendRawTransaction.",
@@ -5275,10 +5275,10 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "session_signer.status",
     mcpName: "dreyv_session_signer_status",
-    pillar: "intents",
+    pillar: "execution",
     scope: "read:status",
     sideEffects: "read",
-    status: "beta",
+    status: "preview",
     title: "Get current usage + caps + remaining budget for a session signer",
     description: "[READ] Returns the session record minus the secret key — caps, usage (txCount, spentLamports), status, expiresAt.",
     inputSchema: z.object({ sessionId: z.string().min(1) }).strict(),
@@ -5287,10 +5287,10 @@ export const CAPABILITIES: PublicCapability[] = [
   {
     id: "session_signer.revoke",
     mcpName: "dreyv_session_signer_revoke",
-    pillar: "intents",
-    scope: "write:agent",
+    pillar: "execution",
+    scope: "agent:delegate",
     sideEffects: "write",
-    status: "beta",
+    status: "preview",
     title: "Destroy a session signer immediately",
     description: "[WRITE] Marks the session revoked and drops the secret key from memory. Idempotent. Sweep any remaining SOL on the public key back to your main wallet BEFORE revoking.",
     inputSchema: z.object({ sessionId: z.string().min(1) }).strict(),
