@@ -12,7 +12,7 @@
  * required. Breaking changes MUST bump the major and call it out in `notes`.
  */
 
-export const SERVER_VERSION = "1.4.0";
+export const SERVER_VERSION = "1.4.1";
 export const SCHEMA_VERSION = "2025-06-18";
 
 export interface ChangelogEntry {
