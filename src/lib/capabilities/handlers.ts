@@ -12122,6 +12122,84 @@ export async function intentsHandoffQr(
   };
 }
 
+export async function intentsHandoffStatus(
+  input: { handoffId: string; confirm?: boolean },
+  _ctx: CapabilityRunContext,
+) {
+  if (!input.handoffId || typeof input.handoffId !== "string") {
+    throw new CapabilityError("handoffId is required", 400, null);
+  }
+  const { getHandoff } = await import("@/lib/mcp/handoff-store");
+  const rec = await getHandoff(input.handoffId);
+  if (!rec) {
+    return {
+      handoffId: input.handoffId,
+      status: "not_found" as const,
+      signature: null,
+      onChain: null,
+      explorerUrl: null,
+      instructions:
+        "Handoff id is unknown or expired (TTL elapsed). Re-stage the tx with dreyv_intents_handoff_qr or dreyv_intents_deeplinks and ask the user to sign again.",
+    };
+  }
+
+  const now = Date.now();
+  const expiredButPending = rec.status === "pending" && rec.expiresAt < now;
+  const effectiveStatus = expiredButPending ? "expired" : rec.status;
+  const network = rec.network;
+  const cluster = network === "solana-devnet" ? "devnet" : "mainnet-beta";
+  const explorerUrl = rec.signature
+    ? `https://solscan.io/tx/${rec.signature}${cluster === "devnet" ? "?cluster=devnet" : ""}`
+    : null;
+
+  // Optional on-chain confirmation lookup (only when signed + caller opts in, default true).
+  let onChain: null | {
+    confirmationStatus: "processed" | "confirmed" | "finalized" | "unknown";
+    slot: number | null;
+    err: unknown;
+    fee: number | null;
+  } = null;
+  if (rec.signature && (input.confirm ?? true)) {
+    try {
+      const { getConnection } = await import("@/lib/solana-rpc");
+      const conn = getConnection();
+      const statuses = await conn.getSignatureStatuses([rec.signature], { searchTransactionHistory: true });
+      const s = statuses?.value?.[0] ?? null;
+      onChain = {
+        confirmationStatus: (s?.confirmationStatus as "processed" | "confirmed" | "finalized" | undefined) ?? "unknown",
+        slot: s?.slot ?? null,
+        err: s?.err ?? null,
+        fee: null,
+      };
+    } catch {
+      onChain = { confirmationStatus: "unknown", slot: null, err: null, fee: null };
+    }
+  }
+
+  return {
+    handoffId: rec.id,
+    status: effectiveStatus,
+    signature: rec.signature ?? null,
+    userPublicKey: rec.userPublicKey,
+    label: rec.label,
+    network,
+    explorerUrl,
+    onChain,
+    expiresAt: rec.expiresAt,
+    secondsRemaining: Math.max(0, Math.floor((rec.expiresAt - now) / 1000)),
+    instructions:
+      effectiveStatus === "signed"
+        ? "User has signed. `signature` is the on-chain tx id. `onChain.confirmationStatus` is 'processed' | 'confirmed' | 'finalized' (or 'unknown' if RPC lag). Share `explorerUrl` with the user."
+        : effectiveStatus === "pending"
+          ? "Still waiting on the user. Re-poll in 2–5s. Surface `secondsRemaining` so the user knows the handoff hasn't expired."
+          : effectiveStatus === "rejected"
+            ? "User explicitly rejected. Acknowledge and ask if they want to retry with adjusted params."
+            : "Handoff expired before the user signed. Re-stage and present a fresh QR / deeplink.",
+  };
+}
+
+
+
 export async function sessionSignerCreate(
   input: {
     ttlSec?: number;
