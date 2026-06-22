@@ -145,8 +145,11 @@ export async function createHandoff(args: {
   if (sql) {
     try {
       await ensureSchema(sql);
-      // sweep expired opportunistically
-      await sql`DELETE FROM mcp_handoffs WHERE expires_at <= ${now}`;
+      // Sweep only PENDING handoffs that expired long ago (>24h). Signed and
+      // rejected records are retained so agents can verify status even after
+      // the signing TTL elapses.
+      const sweepCutoff = now - 24 * 3600 * 1000;
+      await sql`DELETE FROM mcp_handoffs WHERE status = 'pending' AND expires_at <= ${sweepCutoff}`;
       await sql`
         INSERT INTO mcp_handoffs (id, tx_base64, user_pubkey, label, network, meta, key_id, status, created_at, expires_at)
         VALUES (${id}, ${args.txBase64}, ${args.userPublicKey}, ${args.label}, ${network},
