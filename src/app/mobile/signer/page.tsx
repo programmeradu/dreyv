@@ -338,7 +338,7 @@ export default function MobileSignerPage() {
       {/* Header */}
       <header className="px-6 sm:px-10 h-16 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2.5">
-          <Image src="/dreyv-mark.svg" alt="Dreyv" width={28} height={28} priority />
+          <Image src="/dreyv-mark.png" alt="Dreyv" width={28} height={28} priority />
           <span className="font-semibold tracking-tight text-[15px]">dreyv</span>
         </div>
         <div className="flex items-center gap-3">
