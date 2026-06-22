@@ -2039,7 +2039,7 @@ export async function defiSwap(
     quote,
     ...tx,
     notice:
-      "Render `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `dreyvDeeplinks.phantomUniversal`/`solflareUniversal`/`backpackUniversal` (same-device) for one-tap signing. Poll GET /api/mcp/handoff/{dreyvDeeplinks.handoffId} for { status: 'signed', signature }. Check `dreyvPreflight.sol.sufficient` first — if false, top up at `dreyvPreflight.sol.topUpAddress` before signing.",
+      "Render `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `dreyvDeeplinks.phantomUniversal`/`solflareUniversal`/`backpackUniversal` (same-device) for one-tap signing. To observe completion call `dreyv_intents_handoff_status { handoffId: dreyvDeeplinks.handoffId }` every 2–5s — it returns { status, signature, onChain.confirmationStatus, explorerUrl }. Check `dreyvPreflight.sol.sufficient` first — if false, top up at `dreyvPreflight.sol.topUpAddress` before signing.",
   };
 }
 
