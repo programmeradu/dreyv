@@ -12,7 +12,7 @@
  * required. Breaking changes MUST bump the major and call it out in `notes`.
  */
 
-export const SERVER_VERSION = "1.3.0";
+export const SERVER_VERSION = "1.3.1";
 export const SCHEMA_VERSION = "2025-06-18";
 
 export interface ChangelogEntry {
@@ -32,6 +32,17 @@ export interface ChangelogEntry {
  * into LLM context via `dreyv_meta_version`.
  */
 export const MCP_CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.3.1",
+    date: "2026-06-22",
+    kind: "patch",
+    summary:
+      "Fix: mobile signer 'Handoff not found or expired' on Vercel. Handoffs now persist in Neon Postgres so the MCP tool call and the /mobile/signer GET survive landing on different serverless instances.",
+    fixed: [
+      "Persist mcp_handoffs in Postgres (auto-created on first use) instead of a process-local Map.",
+      "/mobile/signer?id=… and /api/mcp/handoff/[id] now resolve across Vercel cold starts.",
+    ],
+  },
   {
     version: "1.3.0",
     date: "2026-06-22",

@@ -25,7 +25,7 @@ export async function OPTIONS() {
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const rec = getHandoff(id);
+  const rec = await getHandoff(id);
   if (!rec) return NextResponse.json({ error: "not_found" }, { status: 404, headers: CORS });
   return NextResponse.json(
     {
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const rec = getHandoff(id);
+  const rec = await getHandoff(id);
   if (!rec) return NextResponse.json({ error: "not_found" }, { status: 404, headers: CORS });
   const body = (await req.json().catch(() => ({}))) as { account?: string };
   if (!body.account) {

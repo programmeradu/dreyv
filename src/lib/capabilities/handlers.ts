@@ -2060,7 +2060,7 @@ async function attachDeeplinks(args: {
   if (!txBase64) return null;
   const { createHandoff } = await import("@/lib/mcp/handoff-store");
   const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
-  const rec = createHandoff({
+  const rec = await createHandoff({
     txBase64,
     userPublicKey: args.userPublicKey,
     label: args.label,
@@ -12078,7 +12078,7 @@ export async function intentsDeeplinks(
   }
   const { createHandoff } = await import("@/lib/mcp/handoff-store");
   const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
-  const rec = createHandoff({
+  const rec = await createHandoff({
     txBase64: input.txBase64,
     userPublicKey: input.userPublicKey,
     label: input.label ?? "Sign transaction",
@@ -12101,7 +12101,7 @@ export async function intentsHandoffQr(
   assertSolanaAddress(input.userPublicKey, "userPublicKey");
   const { createHandoff } = await import("@/lib/mcp/handoff-store");
   const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
-  const rec = createHandoff({
+  const rec = await createHandoff({
     txBase64: input.txBase64,
     userPublicKey: input.userPublicKey,
     label: input.label ?? "Sign transaction",

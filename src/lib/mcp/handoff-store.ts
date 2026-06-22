@@ -6,12 +6,17 @@
  *
  * STORAGE STRATEGY
  * ────────────────
- * We use a process-local Map keyed under globalThis so HMR + Next.js route
- * caching don't lose entries. For multi-instance / serverless production,
- * back this with `mcp_handoffs` in Postgres (migration TODO) — the public
- * API surface stays identical, just swap the impl.
+ * Production: Neon Postgres (`mcp_handoffs` table, auto-created on first use)
+ * — required because Vercel serverless invocations don't share process memory,
+ * so the MCP tool call (which stages the tx) and the mobile-signer GET (which
+ * reads it) almost always land on different instances. An in-process Map
+ * caused the "Handoff not found or expired" error in the field.
+ *
+ * Fallback: in-memory `globalThis` Map when `DATABASE_URL` is absent
+ * (local dev without DB, tests).
  */
 import { randomBytes } from "node:crypto";
+import { neon } from "@neondatabase/serverless";
 
 export interface HandoffRecord {
   id: string;
@@ -19,38 +24,95 @@ export interface HandoffRecord {
   userPublicKey: string;
   label: string;
   network: "solana-mainnet" | "solana-devnet";
-  /** Optional meta surfaced to the mobile signer UI. */
   meta?: Record<string, unknown>;
-  /** Owner — the API-key id that staged this handoff. */
   keyId: string;
   createdAt: number;
   expiresAt: number;
-  /** Set after the user signs + broadcasts. */
   signature?: string;
   status: "pending" | "signed" | "expired" | "rejected";
 }
 
-type Store = Map<string, HandoffRecord>;
+// ───────────────────────── in-memory fallback ─────────────────────────
 
+type Store = Map<string, HandoffRecord>;
 declare global {
   // eslint-disable-next-line no-var
   var __dreyvHandoffStore: Store | undefined;
 }
-
-function store(): Store {
+function memStore(): Store {
   if (!globalThis.__dreyvHandoffStore) globalThis.__dreyvHandoffStore = new Map();
   return globalThis.__dreyvHandoffStore;
 }
 
-function sweep() {
-  const now = Date.now();
-  const s = store();
-  for (const [id, rec] of s) {
-    if (rec.expiresAt <= now) s.delete(id);
-  }
+// ───────────────────────── postgres backend ───────────────────────────
+
+function getSql() {
+  const url = process.env.DATABASE_URL?.replace(/['"\r\n]/g, "").trim();
+  if (!url) return null;
+  return neon(url);
 }
 
-export function createHandoff(args: {
+let _schemaReady: Promise<void> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureSchema(sql: any) {
+  if (_schemaReady) return _schemaReady;
+  _schemaReady = (async () => {
+    await sql`
+      CREATE TABLE IF NOT EXISTS mcp_handoffs (
+        id            text PRIMARY KEY,
+        tx_base64     text NOT NULL,
+        user_pubkey   text NOT NULL,
+        label         text NOT NULL,
+        network       text NOT NULL DEFAULT 'solana-mainnet',
+        meta          jsonb,
+        key_id        text NOT NULL,
+        status        text NOT NULL DEFAULT 'pending',
+        signature     text,
+        created_at    bigint NOT NULL,
+        expires_at    bigint NOT NULL
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS mcp_handoffs_expires_at_idx ON mcp_handoffs (expires_at)`;
+  })().catch((e) => {
+    _schemaReady = null;
+    throw e;
+  });
+  return _schemaReady;
+}
+
+type Row = {
+  id: string;
+  tx_base64: string;
+  user_pubkey: string;
+  label: string;
+  network: string;
+  meta: Record<string, unknown> | null;
+  key_id: string;
+  status: string;
+  signature: string | null;
+  created_at: string | number;
+  expires_at: string | number;
+};
+
+function rowToRecord(r: Row): HandoffRecord {
+  return {
+    id: r.id,
+    txBase64: r.tx_base64,
+    userPublicKey: r.user_pubkey,
+    label: r.label,
+    network: (r.network as HandoffRecord["network"]) ?? "solana-mainnet",
+    meta: r.meta ?? undefined,
+    keyId: r.key_id,
+    status: r.status as HandoffRecord["status"],
+    signature: r.signature ?? undefined,
+    createdAt: Number(r.created_at),
+    expiresAt: Number(r.expires_at),
+  };
+}
+
+// ───────────────────────── public API ─────────────────────────────────
+
+export async function createHandoff(args: {
   txBase64: string;
   userPublicKey: string;
   label: string;
@@ -58,43 +120,102 @@ export function createHandoff(args: {
   network?: "solana-mainnet" | "solana-devnet";
   meta?: Record<string, unknown>;
   ttlSec?: number;
-}): HandoffRecord {
-  sweep();
+}): Promise<HandoffRecord> {
   const ttlSec = args.ttlSec ?? 5 * 60;
   const id = `hf_${randomBytes(12).toString("hex")}`;
   const now = Date.now();
+  const network = args.network ?? "solana-mainnet";
   const rec: HandoffRecord = {
     id,
     txBase64: args.txBase64,
     userPublicKey: args.userPublicKey,
     label: args.label,
-    network: args.network ?? "solana-mainnet",
+    network,
     meta: args.meta,
     keyId: args.keyId,
     createdAt: now,
     expiresAt: now + ttlSec * 1000,
     status: "pending",
   };
-  store().set(id, rec);
+
+  const sql = getSql();
+  if (sql) {
+    try {
+      await ensureSchema(sql);
+      // sweep expired opportunistically
+      await sql`DELETE FROM mcp_handoffs WHERE expires_at <= ${now}`;
+      await sql`
+        INSERT INTO mcp_handoffs (id, tx_base64, user_pubkey, label, network, meta, key_id, status, created_at, expires_at)
+        VALUES (${id}, ${args.txBase64}, ${args.userPublicKey}, ${args.label}, ${network},
+                ${args.meta ? JSON.stringify(args.meta) : null}::jsonb,
+                ${args.keyId}, 'pending', ${now}, ${rec.expiresAt})
+      `;
+      return rec;
+    } catch (e) {
+      console.error("[handoff-store] insert failed, falling back to memory", e);
+    }
+  }
+  memStore().set(id, rec);
   return rec;
 }
 
-export function getHandoff(id: string): HandoffRecord | null {
-  sweep();
-  return store().get(id) ?? null;
+export async function getHandoff(id: string): Promise<HandoffRecord | null> {
+  const sql = getSql();
+  if (sql) {
+    try {
+      await ensureSchema(sql);
+      const rows = (await sql`
+        SELECT id, tx_base64, user_pubkey, label, network, meta, key_id, status, signature, created_at, expires_at
+        FROM mcp_handoffs
+        WHERE id = ${id} AND expires_at > ${Date.now()}
+        LIMIT 1
+      `) as unknown as Row[];
+      if (rows.length > 0) return rowToRecord(rows[0]);
+    } catch (e) {
+      console.error("[handoff-store] read failed", e);
+    }
+  }
+  const mem = memStore().get(id);
+  if (!mem) return null;
+  if (mem.expiresAt <= Date.now()) {
+    memStore().delete(id);
+    return null;
+  }
+  return mem;
 }
 
-export function markHandoffSigned(id: string, signature: string): HandoffRecord | null {
-  const rec = getHandoff(id);
-  if (!rec) return null;
-  rec.status = "signed";
-  rec.signature = signature;
-  return rec;
+export async function markHandoffSigned(
+  id: string,
+  signature: string,
+): Promise<HandoffRecord | null> {
+  const sql = getSql();
+  if (sql) {
+    try {
+      await ensureSchema(sql);
+      await sql`UPDATE mcp_handoffs SET status = 'signed', signature = ${signature} WHERE id = ${id}`;
+    } catch (e) {
+      console.error("[handoff-store] update failed", e);
+    }
+  }
+  const mem = memStore().get(id);
+  if (mem) {
+    mem.status = "signed";
+    mem.signature = signature;
+  }
+  return getHandoff(id);
 }
 
-export function rejectHandoff(id: string): HandoffRecord | null {
-  const rec = getHandoff(id);
-  if (!rec) return null;
-  rec.status = "rejected";
-  return rec;
+export async function rejectHandoff(id: string): Promise<HandoffRecord | null> {
+  const sql = getSql();
+  if (sql) {
+    try {
+      await ensureSchema(sql);
+      await sql`UPDATE mcp_handoffs SET status = 'rejected' WHERE id = ${id}`;
+    } catch (e) {
+      console.error("[handoff-store] reject failed", e);
+    }
+  }
+  const mem = memStore().get(id);
+  if (mem) mem.status = "rejected";
+  return getHandoff(id);
 }
