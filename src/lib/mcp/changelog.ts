@@ -33,6 +33,18 @@ export interface ChangelogEntry {
  */
 export const MCP_CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.4.1",
+    date: "2026-06-22",
+    kind: "patch",
+    summary:
+      "Handoffs: default TTL bumped 5min → 30min, and signed/rejected records remain queryable post-expiry so agents can still verify outcomes via dreyv_intents_handoff_status after the signing window closes.",
+    changed: [
+      "createHandoff default ttlSec: 300 → 1800. Agents can still override via dreyv_intents_handoff_qr { ttlSec }.",
+      "getHandoff no longer filters out expired rows. status field reflects 'signed' | 'rejected' | 'expired' so post-TTL status checks return final outcome instead of 404.",
+      "Pending handoffs are swept only after 24h of inactivity; signed/rejected records are retained for audit.",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-06-22",
     kind: "minor",
