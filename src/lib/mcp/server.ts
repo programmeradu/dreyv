@@ -47,6 +47,9 @@ const MCP_INSTRUCTIONS = [
   "  • Tools tagged [WRITE] mutate Dreyv-owned state (webhooks, alerts, contracts, deliverables).",
   "  • Tools tagged [PAY] (dreyv_economy_pay) settle USDC autonomously from the agent's HOSTED wallet — fund it first via dreyv_economy_wallet_address.",
   "",
+  "ONE-TAP SIGNING: every UNSIGNED-TX response ships `dreyvDeeplinks` with phantomUniversal / solflareUniversal / backpackUniversal links + a QR + a /mobile/signer handoff URL. Use `dreyv_intents_deeplinks` or `dreyv_intents_handoff_qr` to wrap ANY base64 tx in the same package so the user can approve from desktop OR phone in one tap.",
+  "AUTONOMOUS SIGNING (opt-in): `dreyv_session_signer_create` mints a capped ephemeral keypair the user funds; the agent then signs locally via `dreyv_session_signer_sign` within strict lamport/tx/program-id caps. Revoke any time with `dreyv_session_signer_revoke`. Still non-custodial — the user's main wallet is untouched.",
+  "",
   "Discovery: call `dreyv_meta_capabilities_overview` for the 39-pillar map; `dreyv_meta_intents_howto` for the compile→sign→submit flow; `dreyv_meta_version` for schema/changelog.",
   "Auth: pass `Authorization: Bearer dk_live_…` on every tools/call. Mint keys at https://dreyv.com/app/settings/api.",
 ].join("\n");
