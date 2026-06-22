@@ -24,6 +24,8 @@ import {
   Code2,
   Globe,
   BookOpen,
+  ArrowUpRight,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { formatDistanceToNow } from "date-fns";
