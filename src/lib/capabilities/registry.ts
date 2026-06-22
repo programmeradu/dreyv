@@ -1129,7 +1129,7 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "read",
     status: "stable",
     title: "DB-mirrored Squads proposals (fast, no RPC)",
-    description: "Reads the vault_proposals mirror — no RPC hit. Use governance.sync to refresh from chain.",
+    description: "Reads the vault_proposals mirror — no RPC hit. Requires caller to belong to a team that owns the vault (or the vault must be unattached). Use governance.sync to refresh from chain.",
     inputSchema: z.object({
       vault: Address,
       limit: z.number().int().min(1).max(200).optional(),

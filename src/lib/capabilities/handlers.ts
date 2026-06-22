@@ -118,8 +118,17 @@ export async function identityProfile(
 ) {
   const resolved = await identityResolve({ identifier: input.identifier }, ctx) as Record<string, unknown>;
   const address = (resolved.address as string | undefined) ?? input.identifier;
+  const namespace = String(resolved.namespace ?? "").toLowerCase();
+  const isEvm = namespace === "ens" || namespace === "evm" || /^0x[0-9a-fA-F]{40}$/.test(address);
+  if (isEvm) {
+    // EVM identity — counterparties endpoint is Solana-only, return EVM holdings instead
+    const holdings = await callInternal(ctx, `/api/evm/holdings?address=${address}&chain=ethereum`).catch(
+      (err) => ({ error: err instanceof Error ? err.message : String(err) }),
+    );
+    return { identity: resolved, chain: "ethereum", holdings, counterparties: null };
+  }
   const counterparties = await callInternal(ctx, `/api/public/counterparties/${address}?limit=10`);
-  return { identity: resolved, counterparties };
+  return { identity: resolved, chain: "solana", counterparties };
 }
 
 // ─── Pillar B — Portfolio & Treasury ─────────────────────────────────
@@ -305,10 +314,25 @@ export async function swapQuoteSolana(
 ) {
   const inMint = resolveSolanaToken(input.inputMint);
   const outMint = resolveSolanaToken(input.outputMint);
+  if (inMint === outMint) {
+    throw new CapabilityError(
+      `invalid_pair: inputMint and outputMint must differ (both resolved to ${inMint}). Pick two different SPL tokens, e.g. SOL → USDC.`,
+      400,
+      { inputMint: inMint, outputMint: outMint },
+    );
+  }
+  const amt = String(input.amount ?? "").trim();
+  if (!/^\d+$/.test(amt) || amt === "0") {
+    throw new CapabilityError(
+      "invalid_amount: amount must be a positive integer in base units (lamports for SOL, smallest units for SPL tokens).",
+      400,
+      { amount: input.amount },
+    );
+  }
   const qs = new URLSearchParams({
     inputMint: inMint,
     outputMint: outMint,
-    amount: String(input.amount),
+    amount: amt,
   });
   if (input.slippageBps != null) qs.set("slippageBps", String(input.slippageBps));
   if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
@@ -1891,10 +1915,25 @@ export async function defiSwapQuote(
   },
   ctx: CapabilityRunContext,
 ) {
+  if (input.inputMint === input.outputMint) {
+    throw new CapabilityError(
+      `invalid_pair: inputMint and outputMint must differ (both ${input.inputMint}). Pick two different SPL tokens.`,
+      400,
+      { inputMint: input.inputMint, outputMint: input.outputMint },
+    );
+  }
+  const amt = String(input.amount ?? "").trim();
+  if (!/^\d+$/.test(amt) || amt === "0") {
+    throw new CapabilityError(
+      "invalid_amount: amount must be a positive integer in base units.",
+      400,
+      { amount: input.amount },
+    );
+  }
   const qs = new URLSearchParams({
     inputMint: input.inputMint,
     outputMint: input.outputMint,
-    amount: input.amount,
+    amount: amt,
   });
   if (typeof input.slippageBps === "number") qs.set("slippageBps", String(input.slippageBps));
   if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
