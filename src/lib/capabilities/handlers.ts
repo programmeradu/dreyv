@@ -11976,11 +11976,21 @@ export async function metaIntentsHowto(_input: Record<string, never>, _ctx: Capa
     custodyModel: "Dreyv NEVER holds private keys for user wallets. Every on-chain action is built server-side as an unsigned transaction or ExecutorPlan; YOU (or the connected wallet) sign locally and broadcast. The only exception is the agent's hosted x402 wallet used by `dreyv_economy_pay` — and that wallet is keyed per-API-key and funded explicitly by the developer.",
     flows: [
       {
-        name: "Solana swap (Jupiter)",
+        name: "Solana swap (ONE-SHOT — preferred)",
+        steps: [
+          { action: "Ask the user", detail: "Get their Solana wallet address (base58) BEFORE calling any UNSIGNED-TX tool. Reuse it for the rest of the session." },
+          { tool: "dreyv_defi_swap", input: "{ inputMint, outputMint, amount (minor units), userPublicKey, slippageBps? }", output: "{ quote, swapTransaction (base64), dreyvPreflight, dreyvDeeplinks: { qrSvgDataUri, mobileHandoffUrl, phantomUniversal, solflareUniversal, backpackUniversal, handoffId } } — single call." },
+          { action: "Render", detail: "Show `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `phantomUniversal` (same-device). Display `dreyvPreflight.sol.shortfallSol` if non-zero." },
+          { action: "Observe", detail: "Poll GET /api/mcp/handoff/{handoffId} for { status: 'signed', signature }." },
+          { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
+        ],
+      },
+      {
+        name: "Solana swap (manual two-step — only if you need a custom route)",
         steps: [
           { tool: "dreyv_defi_swap_quote", input: "{ inputMint, outputMint, amount (in minor units), slippageBps? }", output: "Jupiter quoteResponse — pass it verbatim into the next step." },
-          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight: { requiresAtaCreation, ataRentLamports, sol: { sufficient, shortfallSol, topUpAddress } } }" },
-          { action: "Client-side", detail: "Deserialize swapTransaction with VersionedTransaction.deserialize(base64), have the wallet sign, send via Connection.sendRawTransaction." },
+          { tool: "dreyv_defi_swap_tx", input: "{ quoteResponse, userPublicKey }", output: "{ swapTransaction (base64), prioritizationFeeLamports, dreyvPreflight, dreyvDeeplinks }" },
+          { action: "Sign + broadcast", detail: "Use the returned `dreyvDeeplinks` — do NOT re-implement wallet-adapter glue." },
           { tool: "dreyv_receipts_verify", input: "{ signature }", output: "On-chain confirmation status." },
         ],
       },
