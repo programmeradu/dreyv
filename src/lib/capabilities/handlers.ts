@@ -1966,9 +1966,6 @@ export async function defiSwapTx(
     body: JSON.stringify(input),
   });
 
-  // ── Pre-flight enrichment: surface the data agents need BEFORE asking the
-  // user to sign — destination-ATA creation cost + SOL balance vs total cost.
-  // Best-effort: any RPC failure leaves the upstream payload untouched.
   const preflight = await buildSwapPreflight({
     userPublicKey: input.userPublicKey,
     quoteResponse: input.quoteResponse,
@@ -1978,7 +1975,55 @@ export async function defiSwapTx(
     reason: `preflight_unavailable: ${err instanceof Error ? err.message : "rpc_error"}`,
   }));
 
-  return { ...data, dreyvPreflight: preflight };
+  const deeplinks = await attachDeeplinks({
+    tx: data,
+    userPublicKey: input.userPublicKey,
+    label: buildSwapLabel(input.quoteResponse),
+    keyId: ctx.keyId,
+    meta: { inputMint: input.quoteResponse?.inputMint, outputMint: input.quoteResponse?.outputMint },
+  }).catch(() => null);
+
+  return { ...data, dreyvPreflight: preflight, dreyvDeeplinks: deeplinks };
+}
+
+function buildSwapLabel(q: Record<string, unknown>): string {
+  const inMint = typeof q?.inputMint === "string" ? (q.inputMint as string).slice(0, 6) : "token";
+  const outMint = typeof q?.outputMint === "string" ? (q.outputMint as string).slice(0, 6) : "token";
+  return `Swap ${inMint}… → ${outMint}…`;
+}
+
+async function attachDeeplinks(args: {
+  tx: Record<string, unknown>;
+  userPublicKey: string;
+  label: string;
+  keyId: string;
+  meta?: Record<string, unknown>;
+}) {
+  const txBase64 = pickTxBase64(args.tx);
+  if (!txBase64) return null;
+  const { createHandoff } = await import("@/lib/mcp/handoff-store");
+  const { buildDeeplinks } = await import("@/lib/mcp/deeplinks");
+  const rec = createHandoff({
+    txBase64,
+    userPublicKey: args.userPublicKey,
+    label: args.label,
+    keyId: args.keyId,
+    meta: args.meta,
+  });
+  return buildDeeplinks({
+    txBase64,
+    userPublicKey: args.userPublicKey,
+    label: args.label,
+    handoffId: rec.id,
+  });
+}
+
+function pickTxBase64(tx: Record<string, unknown>): string | null {
+  for (const k of ["swapTransaction", "transaction", "tx", "txBase64", "serializedTransaction"]) {
+    const v = tx[k];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return null;
 }
 
 /**
