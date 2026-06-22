@@ -1,5 +1,6 @@
 /**
- * DELETE /api/agent/keys/[id] — revoke (soft-delete) an agent API key.
+ * DELETE /api/agent/keys/[id] — hard-delete an agent API key.
+ * Revoked keys are gone from the ledger to keep the settings view quiet.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
@@ -21,8 +22,7 @@ export async function DELETE(
     if (!id) return NextResponse.json({ error: "invalid_id" }, { status: 400 });
 
     const result = await db
-        .update(agentApiKeys)
-        .set({ revokedAt: new Date() })
+        .delete(agentApiKeys)
         .where(and(eq(agentApiKeys.id, id), eq(agentApiKeys.userId, user.id)))
         .returning({ id: agentApiKeys.id });
 

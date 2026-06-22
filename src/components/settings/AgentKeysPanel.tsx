@@ -214,43 +214,60 @@ export function AgentKeysPanel() {
                         No agent keys yet. Create one to let an autonomous agent pay for Dreyv calls.
                     </div>
                 ) : (
-                    <ul className="divide-y divide-violet-100 rounded-2xl border border-violet-100 bg-white">
+                    <ul className="divide-y divide-violet-100 overflow-hidden rounded-2xl border border-violet-100 bg-white">
                         {keys.map((k) => {
                             const revoked = !!k.revokedAt;
                             const cap = k.spendLimitUsd ? Number(k.spendLimitUsd) : null;
                             const spent = Number(k.spentUsd ?? 0);
+                            const pct = cap && cap > 0 ? Math.min(100, Math.round((spent / cap) * 100)) : null;
                             return (
-                                <li key={k.id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-medium text-slate-900">{k.label}</span>
-                                            {revoked && (
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
-                                                    <ShieldOff className="h-3 w-3" /> revoked
+                                <li
+                                    key={k.id}
+                                    className="group flex h-11 items-center gap-3 px-4 text-[12px] hover:bg-violet-50/50"
+                                >
+                                    <span
+                                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${revoked ? "bg-rose-400" : "bg-emerald-500"}`}
+                                        aria-hidden
+                                    />
+                                    <span className="min-w-0 max-w-[28%] truncate font-medium text-slate-900">
+                                        {k.label}
+                                    </span>
+                                    <code className="hidden shrink-0 font-mono text-[11px] text-slate-500 md:inline">
+                                        {k.keyPrefix}…
+                                    </code>
+                                    <span className="ml-auto hidden items-center gap-3 text-[11px] tabular-nums text-slate-500 md:flex">
+                                        <span>
+                                            ${spent.toFixed(2)}
+                                            {cap != null && <span className="text-slate-400"> / ${cap.toFixed(2)}</span>}
+                                            {pct != null && (
+                                                <span className={`ml-1 ${pct >= 90 ? "text-rose-600" : pct >= 70 ? "text-amber-600" : "text-slate-400"}`}>
+                                                    {pct}%
                                                 </span>
                                             )}
-                                        </div>
-                                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                                            <code className="font-mono text-slate-700">{k.keyPrefix}…</code>
-                                            <span>·</span>
-                                            <span>spent ${spent.toFixed(2)}{cap != null ? ` of $${cap.toFixed(2)}` : ""}</span>
-                                            <span>·</span>
-                                            <span>
-                                                last used{" "}
-                                                {k.lastUsedAt ? formatDistanceToNow(new Date(k.lastUsedAt), { addSuffix: true }) : "never"}
-                                            </span>
-                                            <span>·</span>
-                                            <span>created {formatDistanceToNow(new Date(k.createdAt), { addSuffix: true })}</span>
-                                        </div>
-                                    </div>
-                                    {!revoked && (
+                                        </span>
+                                        <span className="text-slate-300">·</span>
+                                        <span>
+                                            {k.lastUsedAt
+                                                ? formatDistanceToNow(new Date(k.lastUsedAt), { addSuffix: true })
+                                                : "never used"}
+                                        </span>
+                                    </span>
+                                    {revoked && (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+                                            <ShieldOff className="h-3 w-3" /> revoked
+                                        </span>
+                                    )}
+                                    {!revoked ? (
                                         <button
                                             type="button"
                                             onClick={() => revoke(k.id, k.label)}
-                                            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                            aria-label={`Revoke ${k.label}`}
+                                            className="shrink-0 rounded-md p-1 text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100"
                                         >
-                                            <Trash2 className="h-3.5 w-3.5" /> Revoke
+                                            <Trash2 className="h-3.5 w-3.5" />
                                         </button>
+                                    ) : (
+                                        <span className="w-[22px] shrink-0" aria-hidden />
                                     )}
                                 </li>
                             );
