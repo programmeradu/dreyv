@@ -51,6 +51,8 @@ const MCP_INSTRUCTIONS = [
   "Auth: pass `Authorization: Bearer dk_live_…` on every tools/call. Mint keys at https://dreyv.com/app/settings/api.",
 ].join("\n");
 
+export { MCP_INSTRUCTIONS, SERVER_INFO };
+
 /** JSON-RPC error codes per the MCP spec / JSON-RPC 2.0. */
 const JSON_RPC = {
   INVALID_PARAMS: -32602,
