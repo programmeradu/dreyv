@@ -1,5 +1,6 @@
 /**
- * DELETE /api/agent/keys/[id] — revoke (soft-delete) an agent API key.
+ * DELETE /api/agent/keys/[id] — hard-delete an agent API key.
+ * Revoked keys are gone from the ledger to keep the settings view quiet.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
