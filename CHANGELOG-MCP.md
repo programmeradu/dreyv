@@ -31,6 +31,19 @@ Semver, where the surface area is the MCP tool registry + REST shape:
 
 ---
 
+## 1.3.1 — 2026-06-22 (patch)
+
+**Fix: mobile signer "Handoff not found or expired" on Vercel.**
+Handoffs were stored in a process-local `Map`, so the MCP tool call that
+staged the unsigned tx and the `/mobile/signer` GET that read it almost
+always landed on different serverless instances → 404.
+
+### Fixed
+- Persist `mcp_handoffs` in Neon Postgres (auto-created on first use; falls back to in-memory only when `DATABASE_URL` is unset).
+- `/mobile/signer?id=…`, `/api/mcp/handoff/[id]`, and the Solana-Pay `/sign` endpoint now resolve across cold starts and across regions.
+
+---
+
 ## 1.3.0 — 2026-06-22 (minor)
 
 **One-shot swap tool + uniform deeplinks on every `UNSIGNED-TX` response.**
