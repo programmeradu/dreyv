@@ -1986,6 +1986,55 @@ export async function defiSwapTx(
   return { ...data, dreyvPreflight: preflight, dreyvDeeplinks: deeplinks };
 }
 
+/**
+ * ONE-SHOT: quote → unsigned tx → preflight → deeplinks in a single MCP call.
+ * Eliminates the multi-step quote/swap_tx dance that trips up agents and
+ * removes the need to round-trip the (large, nested) quoteResponse JSON.
+ *
+ * Inputs are the simple, human-meaningful fields an agent already knows
+ * from the user's request: which mints, how much, and which wallet.
+ */
+export async function defiSwap(
+  input: {
+    inputMint: string;
+    outputMint: string;
+    amount: string;
+    userPublicKey: string;
+    slippageBps?: number;
+    wrapAndUnwrapSol?: boolean;
+    asLegacyTransaction?: boolean;
+    onlyDirectRoutes?: boolean;
+  },
+  ctx: CapabilityRunContext,
+) {
+  assertSolanaAddress(input.userPublicKey, "userPublicKey");
+  const { quote } = await defiSwapQuote(
+    {
+      inputMint: input.inputMint,
+      outputMint: input.outputMint,
+      amount: input.amount,
+      slippageBps: input.slippageBps,
+      onlyDirectRoutes: input.onlyDirectRoutes,
+    },
+    ctx,
+  );
+  const tx = await defiSwapTx(
+    {
+      quoteResponse: quote as Record<string, unknown>,
+      userPublicKey: input.userPublicKey,
+      wrapAndUnwrapSol: input.wrapAndUnwrapSol,
+      asLegacyTransaction: input.asLegacyTransaction,
+    },
+    ctx,
+  );
+  return {
+    quote,
+    ...tx,
+    notice:
+      "Render `dreyvDeeplinks.qrSvgDataUri` (desktop→phone) OR open `dreyvDeeplinks.phantomUniversal`/`solflareUniversal`/`backpackUniversal` (same-device) for one-tap signing. Poll GET /api/mcp/handoff/{dreyvDeeplinks.handoffId} for { status: 'signed', signature }. Check `dreyvPreflight.sol.sufficient` first — if false, top up at `dreyvPreflight.sol.topUpAddress` before signing.",
+  };
+}
+
 function buildSwapLabel(q: Record<string, unknown>): string {
   const inMint = typeof q?.inputMint === "string" ? (q.inputMint as string).slice(0, 6) : "token";
   const outMint = typeof q?.outputMint === "string" ? (q.outputMint as string).slice(0, 6) : "token";
