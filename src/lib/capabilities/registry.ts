@@ -3883,8 +3883,11 @@ export const CAPABILITIES: PublicCapability[] = [
     sideEffects: "read",
     status: "stable",
     title: "Fetch a status page by id or slug (owner view)",
-    description: "Returns the owner's full page record. For the unauthenticated public view, use the public /status/{slug} route.",
-    inputSchema: z.object({ id: z.string().uuid().optional(), slug: z.string().min(1).max(64).optional() }).strict(),
+    description: "Returns the owner's full page record. For the unauthenticated public view, use the public /status/{slug} route. Provide either `id` or `slug`.",
+    inputSchema: z.object({
+      id: z.string().uuid().optional().describe("Status page UUID."),
+      slug: z.string().min(1).max(64).optional().describe("Status page slug, e.g. 'api'."),
+    }).strict().refine((v) => !!v.id || !!v.slug, { message: "Provide either `id` or `slug`." }),
     handler: (i, c) => caps.slaPagesGet(i, c),
   },
   {
