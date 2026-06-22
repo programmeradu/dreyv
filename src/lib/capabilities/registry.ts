@@ -18,7 +18,7 @@ import { ALL_WEBHOOK_EVENTS } from "@/lib/webhooks/dispatcher";
 import { AGENT_SKUS } from "@/lib/agent/skus";
 
 // Closed catalogs surfaced as JSON-Schema enums so LLMs synthesize valid inputs first try.
-const WEBHOOK_EVENT_VALUES = [...ALL_WEBHOOK_EVENTS, "*"] as [string, ...string[]];
+const WEBHOOK_EVENT_VALUES = [...ALL_WEBHOOK_EVENTS, "*"] as unknown as [string, ...string[]];
 const SKU_VALUES = Object.keys(AGENT_SKUS) as [string, ...string[]];
 const ENTITLEMENT_FEATURE_VALUES = [
   "api.keys.max", "api.requests_per_minute", "webhooks.max",
