@@ -1915,10 +1915,25 @@ export async function defiSwapQuote(
   },
   ctx: CapabilityRunContext,
 ) {
+  if (input.inputMint === input.outputMint) {
+    throw new CapabilityError(
+      `invalid_pair: inputMint and outputMint must differ (both ${input.inputMint}). Pick two different SPL tokens.`,
+      400,
+      { inputMint: input.inputMint, outputMint: input.outputMint },
+    );
+  }
+  const amt = String(input.amount ?? "").trim();
+  if (!/^\d+$/.test(amt) || amt === "0") {
+    throw new CapabilityError(
+      "invalid_amount: amount must be a positive integer in base units.",
+      400,
+      { amount: input.amount },
+    );
+  }
   const qs = new URLSearchParams({
     inputMint: input.inputMint,
     outputMint: input.outputMint,
-    amount: input.amount,
+    amount: amt,
   });
   if (typeof input.slippageBps === "number") qs.set("slippageBps", String(input.slippageBps));
   if (input.onlyDirectRoutes) qs.set("onlyDirectRoutes", "true");
