@@ -200,7 +200,8 @@ export async function multisigPending(
   input: { multisigAddress: string },
   ctx: CapabilityRunContext,
 ) {
-  return await callInternal(ctx, `/api/squads/proposals?multisig=${input.multisigAddress}&status=active`);
+  // Upstream route is /api/squads/proposals?vault=<addr> — alias the field name.
+  return await callInternal(ctx, `/api/squads/proposals?vault=${encodeURIComponent(input.multisigAddress)}&status=active`);
 }
 
 // ─── Pillar C — Market & Discovery ───────────────────────────────────
