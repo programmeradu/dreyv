@@ -935,8 +935,8 @@ export const CAPABILITIES: PublicCapability[] = [
     description:
       "End-to-end: mints invoice, settles USDC from your hosted agent wallet, records the deliverable, emails the API-key owner. Returns the receipt token PLUS a permanent deliverable id. Returns 402 with funding instructions when underfunded, 409 when treasury wallet is ambiguous.",
     inputSchema: z.object({
-      sku: z.string().min(1).max(200),
-      target_wallet: z.string().min(32).max(44).optional(),
+      sku: z.enum(SKU_VALUES).describe("Catalog SKU id, e.g. 'dreyv.treasury.snapshot'."),
+      target_wallet: z.string().min(32).max(44).optional().describe("Solana wallet to credit the deliverable to. Defaults to the API-key owner's wallet."),
     }),
     handler: (i, c) => caps.economyPay(i, c),
   },
