@@ -121,7 +121,10 @@ export async function createHandoff(args: {
   meta?: Record<string, unknown>;
   ttlSec?: number;
 }): Promise<HandoffRecord> {
-  const ttlSec = args.ttlSec ?? 5 * 60;
+  // Default TTL: 30 min (was 5 min — too short for agent loops where the user
+  // takes a coffee break before signing). Records remain queryable after
+  // expiry — see getHandoff — so agents can still verify status post-expiry.
+  const ttlSec = args.ttlSec ?? 30 * 60;
   const id = `hf_${randomBytes(12).toString("hex")}`;
   const now = Date.now();
   const network = args.network ?? "solana-mainnet";
