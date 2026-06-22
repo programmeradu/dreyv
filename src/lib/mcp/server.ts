@@ -26,9 +26,11 @@ import {
 import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
 
+import { SERVER_VERSION } from "./changelog";
+
 const SERVER_INFO = {
   name: "dreyv",
-  version: "1.1.0",
+  version: SERVER_VERSION,
 } as const;
 
 /**
