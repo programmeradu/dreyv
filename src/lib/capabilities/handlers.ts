@@ -24,6 +24,8 @@ import { buildPlanForAction } from "@/lib/agents/brains/executor-plans";
 import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { AGENT_SKUS, listSkus } from "@/lib/agent/skus";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 // ─── internal helpers ────────────────────────────────────────────────
 async function callInternal<T = unknown>(
