@@ -515,15 +515,33 @@ const { ok, data } = await res.json();`,
                       <span>{key.rateLimitRpm} rpm</span>
                     </div>
                     {key.scopes.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {key.scopes.map((s) => (
-                          <span
-                            key={s}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-mono"
-                          >
-                            {s}
-                          </span>
-                        ))}
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedScopes((prev) => ({ ...prev, [key.id]: !prev[key.id] }))
+                          }
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-semibold hover:bg-violet-100 transition"
+                          title={expandedScopes[key.id] ? "Hide scopes" : "Show scopes"}
+                        >
+                          {key.scopes.length} {key.scopes.length === 1 ? "scope" : "scopes"}
+                          <ChevronDown
+                            size={10}
+                            className={`transition-transform ${expandedScopes[key.id] ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                        {expandedScopes[key.id] && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {key.scopes.map((s) => (
+                              <span
+                                key={s}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-mono"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
