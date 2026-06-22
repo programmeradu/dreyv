@@ -22,7 +22,7 @@ export async function OPTIONS() {
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const rec = getHandoff(id);
+  const rec = await getHandoff(id);
   if (!rec) return NextResponse.json({ error: "not_found" }, { status: 404, headers: CORS });
   return NextResponse.json(
     {
@@ -46,14 +46,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!body.signature || typeof body.signature !== "string") {
     return NextResponse.json({ error: "missing_signature" }, { status: 400, headers: CORS });
   }
-  const rec = markHandoffSigned(id, body.signature);
+  const rec = await markHandoffSigned(id, body.signature);
   if (!rec) return NextResponse.json({ error: "not_found" }, { status: 404, headers: CORS });
   return NextResponse.json({ ok: true, status: rec.status, signature: rec.signature }, { headers: CORS });
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const rec = rejectHandoff(id);
+  const rec = await rejectHandoff(id);
   if (!rec) return NextResponse.json({ error: "not_found" }, { status: 404, headers: CORS });
   return NextResponse.json({ ok: true, status: rec.status }, { headers: CORS });
 }
