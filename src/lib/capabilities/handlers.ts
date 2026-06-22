@@ -11834,11 +11834,12 @@ export * from "./handlers-phase32";
 
 export async function metaVersion(_input: Record<string, never>, _ctx: CapabilityRunContext) {
   const { listPublicCapabilities } = await import("./registry");
+  const { SERVER_VERSION, SCHEMA_VERSION, recentChangelog } = await import("@/lib/mcp/changelog");
   const caps = listPublicCapabilities();
   const pillars = Array.from(new Set(caps.map((c) => c.pillar))).sort();
   return {
-    server: { name: "dreyv", version: "1.1.0" },
-    schemaVersion: "2025-06-18",
+    server: { name: "dreyv", version: SERVER_VERSION },
+    schemaVersion: SCHEMA_VERSION,
     transport: "streamable-http",
     endpoint: "https://dreyv.com/api/mcp",
     toolCount: caps.length,
@@ -11856,8 +11857,14 @@ export async function metaVersion(_input: Record<string, never>, _ctx: Capabilit
     rest: "https://dreyv.com/api/v1",
     openapi: "https://dreyv.com/openapi.json",
     manifest: "https://dreyv.com/api/mcp/manifest",
+    // Inline so LLM agents can read the most recent release notes via MCP
+    // without a second round trip to the docs site.
+    recentChangelog: recentChangelog(5),
+    clientRefreshHint:
+      "Additive changes (new tools / optional fields) are picked up automatically on the next `tools/list` call — start a new chat in Claude or reload the server entry in Cursor. No JSON config edit required.",
   };
 }
+
 
 export async function metaCapabilitiesOverview(
   input: { pillar?: string; executionLabel?: "READ" | "UNSIGNED-TX" | "WRITE" | "PAY" },
