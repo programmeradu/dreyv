@@ -5199,6 +5199,103 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.metaInstructions(i, c),
   },
+
+  // ─── Pillar S — Mobile Signer Handoff + Session Signer (Phase 11) ────
+  {
+    id: "intents.deeplinks",
+    mcpName: "dreyv_intents_deeplinks",
+    pillar: "intents",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Generate one-tap sign deeplinks (Phantom / Solflare / Backpack) + QR for any base64 tx",
+    description:
+      "[READ] Given an unsigned base64 Solana tx, returns universal-link URLs for Phantom, Solflare, and Backpack plus a QR-ready Solana Pay payload and a mobile-handoff URL pointing at /mobile/signer. Stages the tx server-side under a short-lived handoff id so wallets can fetch it via Solana Pay transaction-request. Use this whenever you've produced an unsigned tx (compile, swap_tx, stake_tx, custom) and want the user to sign in one tap on desktop OR mobile.",
+    inputSchema: z.object({
+      txBase64: z.string().min(1).describe("Base64-encoded VersionedTransaction or legacy Transaction."),
+      userPublicKey: z.string().min(32).describe("Wallet expected to sign."),
+      label: z.string().max(120).optional().describe("Human-readable action label shown on the signer page."),
+      meta: z.record(z.unknown()).optional().describe("Optional KV pairs surfaced on the mobile signer UI."),
+    }).strict(),
+    handler: (i, c) => caps.intentsDeeplinks(i, c),
+  },
+  {
+    id: "intents.handoff_qr",
+    mcpName: "dreyv_intents_handoff_qr",
+    pillar: "intents",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "stable",
+    title: "Stage a tx for QR handoff to the user's mobile wallet",
+    description:
+      "[READ] Same as dreyv_intents_deeplinks but with explicit TTL control and instructions tuned for desktop→phone handoff. Returns qrSvgDataUri (display directly in chat / a panel), mobileHandoffUrl (fallback link), and a Solana Pay payload. After the user signs, poll GET /api/mcp/handoff/{handoffId} to observe completion.",
+    inputSchema: z.object({
+      txBase64: z.string().min(1),
+      userPublicKey: z.string().min(32),
+      label: z.string().max(120).optional(),
+      ttlSec: z.number().int().min(30).max(3600).optional().describe("Handoff lifetime in seconds, default 300."),
+    }).strict(),
+    handler: (i, c) => caps.intentsHandoffQr(i, c),
+  },
+  {
+    id: "session_signer.create",
+    mcpName: "dreyv_session_signer_create",
+    pillar: "intents",
+    scope: "write:agent",
+    sideEffects: "write",
+    status: "beta",
+    title: "Mint an ephemeral, capped Solana signer the agent can use without prompting the user wallet",
+    description:
+      "[WRITE] Generates a short-lived Ed25519 keypair held only in this MCP session's memory and bound to this API key. The user funds the returned public key with the SOL they're willing to delegate, then the agent calls dreyv_session_signer_sign for autonomous signing within strict caps (maxLamports cumulative, maxTxCount, allowedProgramIds whitelist, TTL). Use for short bursts of agent activity (e.g. a 1-hour rebalance session) without round-tripping every signature. Non-custodial — Dreyv does NOT touch the user's main wallet.",
+    inputSchema: z.object({
+      ttlSec: z.number().int().min(60).max(86400).optional().describe("Default 3600 (1h), max 86400 (24h)."),
+      maxLamports: z.number().int().min(0).optional().describe("Cumulative SOL outflow cap. Default 50000000 (0.05 SOL)."),
+      maxTxCount: z.number().int().min(1).max(500).optional().describe("Tx count cap. Default 25."),
+      allowedProgramIds: z.array(z.string()).optional().describe("Whitelist; any tx touching another program is rejected. Empty = allow all."),
+    }).strict(),
+    handler: (i, c) => caps.sessionSignerCreate(i, c),
+  },
+  {
+    id: "session_signer.sign",
+    mcpName: "dreyv_session_signer_sign",
+    pillar: "intents",
+    scope: "write:agent",
+    sideEffects: "write",
+    status: "beta",
+    title: "Sign a base64 tx with an active session signer, enforcing caps",
+    description:
+      "[WRITE] Signs the supplied tx with the session signer. Rejects with a structured error if: session expired/revoked, tx count cap hit, lamports cap would be exceeded (pass estimatedLamportsOut), or any instruction targets a program not on the whitelist. Returns signedTxBase64 and signature — caller is still responsible for broadcasting via dreyv_intents_submit or sendRawTransaction.",
+    inputSchema: z.object({
+      sessionId: z.string().min(1),
+      txBase64: z.string().min(1),
+      estimatedLamportsOut: z.number().int().min(0).optional().describe("Best-effort SOL outflow estimate for cap enforcement. Default 0."),
+    }).strict(),
+    handler: (i, c) => caps.sessionSignerSign(i, c),
+  },
+  {
+    id: "session_signer.status",
+    mcpName: "dreyv_session_signer_status",
+    pillar: "intents",
+    scope: "read:status",
+    sideEffects: "read",
+    status: "beta",
+    title: "Get current usage + caps + remaining budget for a session signer",
+    description: "[READ] Returns the session record minus the secret key — caps, usage (txCount, spentLamports), status, expiresAt.",
+    inputSchema: z.object({ sessionId: z.string().min(1) }).strict(),
+    handler: (i, c) => caps.sessionSignerStatus(i, c),
+  },
+  {
+    id: "session_signer.revoke",
+    mcpName: "dreyv_session_signer_revoke",
+    pillar: "intents",
+    scope: "write:agent",
+    sideEffects: "write",
+    status: "beta",
+    title: "Destroy a session signer immediately",
+    description: "[WRITE] Marks the session revoked and drops the secret key from memory. Idempotent. Sweep any remaining SOL on the public key back to your main wallet BEFORE revoking.",
+    inputSchema: z.object({ sessionId: z.string().min(1) }).strict(),
+    handler: (i, c) => caps.sessionSignerRevoke(i, c),
+  },
 ];
 
 
