@@ -133,7 +133,7 @@ const agents: { name: string; note: string; logo: string }[] = [
   { name: "Continue.dev", note: "config.json mcpServers", logo: "https://avatars.githubusercontent.com/u/127876214?s=64&v=4" },
   { name: "Cline", note: "MCP-aware tool calling", logo: "https://cdn.simpleicons.org/cline/7c3aed" },
   { name: "elizaOS", note: "@dreyv/sdk client", logo: "https://avatars.githubusercontent.com/u/186240462?s=64&v=4" },
-  { name: "Custom agent", note: "REST + Bearer key", logo: "/brand/dreyv-mark-violet.png" },
+  { name: "Custom agent", note: "REST + Bearer key", logo: "/brand/dreyv-mark.png" },
 ];
 
 const softwareAppJsonLd = {
