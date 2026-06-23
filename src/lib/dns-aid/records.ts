@@ -30,7 +30,12 @@ export const DNS_AID_RECORDS: DnsAidRecord[] = [
   { name: "_x402._agents",  target: DNS_AID_TARGET, endpoint: "/.well-known/x402",                     ttl: DNS_AID_TTL },
 ];
 
-/** Build the SVCB params value string (e.g. `alpn="h2,http/1.1" port="443" endpoint="/..."`). */
+/**
+ * Build the SVCB params value string per RFC 9460.
+ * `endpoint` is not a registered SvcParamKey, so we publish it as the generic
+ * key `key7` (Cloudflare validates against the registry and rejects unknown
+ * named keys, but accepts `keyNNN` for private use). `port` must be unquoted.
+ */
 export function svcbValue(endpoint: string): string {
-  return `alpn="${DNS_AID_ALPN}" port="${DNS_AID_PORT}" endpoint="${endpoint}"`;
+  return `alpn="${DNS_AID_ALPN}" port=${DNS_AID_PORT} key7="${endpoint}"`;
 }
