@@ -67,9 +67,10 @@ type RecordReport = {
   endpoint: string;
   action: "created" | "updated" | "unchanged";
   id: string;
+  kind: "SVCB" | "TXT";
 };
 
-async function upsertOne(
+async function upsertSvcb(
   token: string,
   zoneId: string,
   rec: DnsAidRecord
@@ -78,15 +79,12 @@ async function upsertOne(
   const desiredValue = svcbValue(rec.endpoint);
   const desiredData = { priority: 1, target: rec.target, value: desiredValue };
 
-  // Cloudflare's list endpoint matches on the FQDN.
   const list = await cf<CfDnsRecord[]>(
     token,
     `/zones/${zoneId}/dns_records?type=SVCB&name=${encodeURIComponent(fullName)}&per_page=50`
   );
-
   const matches = list.result.filter((r) => r.type === "SVCB" && r.name === fullName);
 
-  // Find one that already equals our desired payload.
   const same = matches.find(
     (r) =>
       r.data?.priority === 1 &&
@@ -94,25 +92,18 @@ async function upsertOne(
       r.data?.value === desiredValue
   );
 
-  // Delete any stale duplicates (different value or extras).
   for (const r of matches) {
     if (same && r.id === same.id) continue;
     await cf<{ id: string }>(token, `/zones/${zoneId}/dns_records/${r.id}`, { method: "DELETE" });
   }
 
   if (same) {
-    return { name: fullName, endpoint: rec.endpoint, action: "unchanged", id: same.id };
+    return { name: fullName, endpoint: rec.endpoint, action: "unchanged", id: same.id, kind: "SVCB" };
   }
 
   const created = await cf<CfDnsRecord>(token, `/zones/${zoneId}/dns_records`, {
     method: "POST",
-    body: JSON.stringify({
-      type: "SVCB",
-      name: fullName,
-      ttl: rec.ttl,
-      proxied: false,
-      data: desiredData,
-    }),
+    body: JSON.stringify({ type: "SVCB", name: fullName, ttl: rec.ttl, proxied: false, data: desiredData }),
   });
 
   return {
@@ -120,6 +111,48 @@ async function upsertOne(
     endpoint: rec.endpoint,
     action: matches.length > 0 ? "updated" : "created",
     id: created.result.id,
+    kind: "SVCB",
+  };
+}
+
+async function upsertTxt(
+  token: string,
+  zoneId: string,
+  rec: DnsAidRecord
+): Promise<RecordReport> {
+  const fullName = fqdn(rec.name);
+  const desiredContent = `endpoint=${rec.endpoint}`;
+
+  const list = await cf<CfDnsRecord[]>(
+    token,
+    `/zones/${zoneId}/dns_records?type=TXT&name=${encodeURIComponent(fullName)}&per_page=50`
+  );
+  const matches = list.result.filter((r) => r.type === "TXT" && r.name === fullName);
+
+  const norm = (s?: string) => (s ?? "").replace(/^"|"$/g, "");
+  const same = matches.find((r) => norm(r.content) === desiredContent);
+
+  for (const r of matches) {
+    if (same && r.id === same.id) continue;
+    if (!norm(r.content).startsWith("endpoint=")) continue;
+    await cf<{ id: string }>(token, `/zones/${zoneId}/dns_records/${r.id}`, { method: "DELETE" });
+  }
+
+  if (same) {
+    return { name: fullName, endpoint: rec.endpoint, action: "unchanged", id: same.id, kind: "TXT" };
+  }
+
+  const created = await cf<CfDnsRecord>(token, `/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    body: JSON.stringify({ type: "TXT", name: fullName, ttl: rec.ttl, proxied: false, content: desiredContent }),
+  });
+
+  return {
+    name: fullName,
+    endpoint: rec.endpoint,
+    action: matches.some((r) => norm(r.content).startsWith("endpoint=")) ? "updated" : "created",
+    id: created.result.id,
+    kind: "TXT",
   };
 }
 
@@ -139,9 +172,11 @@ export async function POST() {
   try {
     const results: RecordReport[] = [];
     for (const rec of DNS_AID_RECORDS) {
-      // Sequential — the Cloudflare API rate limit is generous but 6 records
-      // is small enough that ordering also keeps the response easy to read.
-      results.push(await upsertOne(token, zoneId, rec));
+      // Sequential keeps the response easy to read; Cloudflare's rate limit is generous.
+      // SVCB advertises transport (alpn/port); a companion TXT carries the endpoint path,
+      // since `endpoint` isn't a registered SvcParamKey that Cloudflare's validator accepts.
+      results.push(await upsertSvcb(token, zoneId, rec));
+      results.push(await upsertTxt(token, zoneId, rec));
     }
     const summary = {
       created: results.filter((r) => r.action === "created").length,
@@ -158,12 +193,10 @@ export async function POST() {
 export async function GET() {
   return NextResponse.json({
     zone: DNS_AID_ZONE,
-    records: DNS_AID_RECORDS.map((r) => ({
-      name: fqdn(r.name),
-      endpoint: r.endpoint,
-      value: svcbValue(r.endpoint),
-      ttl: r.ttl,
-    })),
+    records: DNS_AID_RECORDS.flatMap((r) => [
+      { type: "SVCB", name: fqdn(r.name), endpoint: r.endpoint, value: svcbValue(r.endpoint), ttl: r.ttl },
+      { type: "TXT", name: fqdn(r.name), endpoint: r.endpoint, value: `endpoint=${r.endpoint}`, ttl: r.ttl },
+    ]),
     configured: Boolean(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ZONE_ID),
   });
 }

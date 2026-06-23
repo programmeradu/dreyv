@@ -1,31 +1,36 @@
 ; DNS-AID (DNS for AI Discovery) zone fragment for dreyv.com
 ; Spec: https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/
-; ServiceMode SVCB records per RFC 9460.
 ;
-; The SVCB records carry only registered SvcParamKeys (alpn, port) so they
-; validate cleanly on Cloudflare and any RFC 9460 resolver. The endpoint
-; path for each capability is published out-of-band via this well-known
-; zone mirror and the JSON manifests under /.well-known/.
+; Each capability is published as a pair:
+;   SVCB — transport (alpn, port) per RFC 9460 registered SvcParamKeys
+;   TXT  — endpoint=<path> companion (since `endpoint` is not a registered
+;          SvcParamKey, Cloudflare and other validating resolvers reject it
+;          inside SVCB; we carry it alongside instead).
 ;
-; Publish under the apex zone and sign with DNSSEC so validating
-; resolvers return authenticated data to agents.
+; Publish under the apex zone and sign with DNSSEC.
 
 $ORIGIN dreyv.com.
 
-; Top-level agent discovery index — endpoint: /.well-known/agent-skills/index.json
+; Top-level agent discovery index
 _index._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_index._agents   3600 IN TXT  "endpoint=/.well-known/agent-skills/index.json"
 
-; MCP Streamable HTTP — endpoint: /api/mcp
+; MCP Streamable HTTP
 _mcp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_mcp._agents     3600 IN TXT  "endpoint=/api/mcp"
 
-; ACP commerce discovery — endpoint: /.well-known/acp.json
+; ACP commerce discovery
 _acp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_acp._agents     3600 IN TXT  "endpoint=/.well-known/acp.json"
 
-; A2A — agent-to-agent surface — endpoint: /api/mcp
+; A2A — agent-to-agent surface
 _a2a._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_a2a._agents     3600 IN TXT  "endpoint=/api/mcp"
 
-; OAuth / OIDC discovery — endpoint: /.well-known/openid-configuration
+; OAuth / OIDC discovery
 _oauth._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_oauth._agents   3600 IN TXT  "endpoint=/.well-known/openid-configuration"
 
-; x402 payment capability — endpoint: /.well-known/x402
+; x402 payment capability
 _x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
+_x402._agents    3600 IN TXT  "endpoint=/.well-known/x402"
