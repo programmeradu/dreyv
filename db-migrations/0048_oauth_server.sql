@@ -99,3 +99,6 @@ CREATE TABLE IF NOT EXISTS oauth_registration_attempts (
   count                   integer NOT NULL DEFAULT 0,
   PRIMARY KEY (ip, day)
 );
+
+-- Grants — DATABASE_URL is the Neon owner role; no PostgREST RLS layer here.
+-- (Schema lives in Neon Postgres, not Supabase Data API.)
