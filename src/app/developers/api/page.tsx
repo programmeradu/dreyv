@@ -135,10 +135,10 @@ export default function DevelopersApiPage() {
               <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Quickstart</span>
             </div>
             <div className="p-5">
-              <pre className="rounded-2xl bg-slate-950 p-4 text-[12px] leading-relaxed font-mono text-violet-50 overflow-x-auto">{`curl -X POST https://dreyv.com/api/v1/market/price \\
+              <CodeBlock language="bash">{`curl -X POST https://dreyv.com/api/v1/market/price \\
   -H "Authorization: Bearer $DREYV_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"token":"SOL","chain":"solana"}'`}</pre>
+  -d '{"token":"SOL","chain":"solana"}'`}</CodeBlock>
               <p className="mt-3 text-[12px] text-slate-500">
                 Every endpoint accepts POST with a typed JSON body and returns <code className="font-mono text-violet-700">{`{ ok, data, meta }`}</code>. Errors are JSON with HTTP 400 / 401 / 403 / 429.
               </p>

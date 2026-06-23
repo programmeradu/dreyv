@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
+import { CodeBlock } from "@/components/ui/code-block";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";
 import { ArrowUpRight, KeyRound, Terminal } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
