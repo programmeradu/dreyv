@@ -402,24 +402,25 @@ export async function middleware(request: NextRequest) {
                 : request.nextUrl.origin;
         const target = `${origin}${pathname}${request.nextUrl.search}`;
         try {
-            const upstream = await fetch(`${origin}/api/studio/render-markdown`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: target }),
-                // Keep latency in check; agents can fall back to HTML on failure.
-                signal: AbortSignal.timeout(10_000),
-            });
+            const upstream = await fetch(
+                `${origin}/api/agents/markdown?path=${encodeURIComponent(pathname)}`,
+                {
+                    headers: { 'x-md-bypass': '1' },
+                    // Keep latency in check; agents can fall back to HTML on failure.
+                    signal: AbortSignal.timeout(10_000),
+                },
+            );
             if (upstream.ok) {
-                const data = (await upstream.json()) as { markdown?: string };
-                const md = data.markdown ?? '';
+                const md = await upstream.text();
                 const headers = new Headers({
                     'Content-Type': 'text/markdown; charset=utf-8',
                     'Cache-Control': 'public, max-age=300, s-maxage=300',
                     'Vary': 'Accept',
                     'X-Markdown-Source': target,
                 });
-                const tokenEstimate = Math.ceil(md.length / 4);
-                headers.set('x-markdown-tokens', String(tokenEstimate));
+                const tokenEstimate =
+                    upstream.headers.get('x-markdown-tokens') ?? String(Math.ceil(md.length / 4));
+                headers.set('x-markdown-tokens', tokenEstimate);
                 const res = new NextResponse(md, { status: 200, headers });
                 return withSeoHeaders(res, pathname);
             }
@@ -428,6 +429,7 @@ export async function middleware(request: NextRequest) {
             console.warn('[middleware] markdown negotiation failed:', (err as Error).message);
         }
     }
+
 
     // ─── Skip public routes ─────────────────────────────────────────
     const publicPaths = [
@@ -479,7 +481,7 @@ export async function middleware(request: NextRequest) {
     // Artifact download routes self-authenticate via signed JWT in `?t=`
     // (see /api/agent/artifacts/[id]) — they must be reachable without
     // a session cookie so download links work in any browser tab.
-    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media'];
+    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media', '/api/agents/markdown'];
     const isPublicArtifactRoute =
         pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
     const isStudioGatedRoute =
