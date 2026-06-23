@@ -3023,3 +3023,11 @@ export const oauthConsents = pgTable('oauth_consents', {
   pk: uniqueIndex('oauth_consents_pk').on(t.userId, t.clientId),
 }));
 
+export const oauthRegistrationAttempts = pgTable('oauth_registration_attempts', {
+  ip: text('ip').notNull(),
+  day: text('day').notNull(),
+  count: integer('count').notNull().default(0),
+}, (t) => ({
+  pk: uniqueIndex('oauth_registration_attempts_pk').on(t.ip, t.day),
+}));
+
