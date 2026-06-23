@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS oauth_consents (
 
 CREATE TABLE IF NOT EXISTS oauth_registration_attempts (
   ip                      text NOT NULL,
-  day                     date NOT NULL DEFAULT (now()::date),
+  day                     text NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD'),
   count                   integer NOT NULL DEFAULT 0,
   PRIMARY KEY (ip, day)
 );
