@@ -10,10 +10,12 @@ export const dynamic = "force-static";
 export function GET() {
   const origin = getSiteOrigin();
 
-  const body = `# Dreyv — Agent Authentication
+  const body = `# Auth.md
+
+_Dreyv — Agent Authentication_
 
 > Machine-readable auth guide for AI agents and MCP clients.
-> Spec: https://workos.com/auth.md
+> Spec: https://workos.com/auth.md, https://github.com/workos/auth.md
 
 ## Identity types
 
