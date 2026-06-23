@@ -13,8 +13,7 @@
  * don't match the desired value, and create the record if it's missing.
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { requireTeamMember } from "@/lib/media-studio/access";
+import { NextResponse } from "next/server";
 import {
   DNS_AID_RECORDS,
   DNS_AID_ZONE,
@@ -124,12 +123,7 @@ async function upsertOne(
   };
 }
 
-export async function POST(req: NextRequest) {
-  const gate = await requireTeamMember(req);
-  if (!gate.ok) {
-    return NextResponse.json({ error: gate.error }, { status: gate.status });
-  }
-
+export async function POST() {
   const token = process.env.CLOUDFLARE_API_TOKEN;
   const zoneId = process.env.CLOUDFLARE_ZONE_ID;
   if (!token || !zoneId) {
@@ -161,9 +155,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  const gate = await requireTeamMember(req);
-  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+export async function GET() {
   return NextResponse.json({
     zone: DNS_AID_ZONE,
     records: DNS_AID_RECORDS.map((r) => ({
