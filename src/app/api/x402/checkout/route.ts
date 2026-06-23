@@ -15,13 +15,16 @@
  * Pass `rail: "stripe" | "paystack" | "solana"` to receive only that rail.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes, createHash } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/db";
-import { agentPayments, users } from "@/db/schema";
+import { agentApiKeys, agentPayments, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { resolveAgentKeyOrInternal } from "@/lib/agent/api-keys";
+import { extractBearer, resolveAgentKeyOrInternal, type ResolvedAgentKey } from "@/lib/agent/api-keys";
+import { resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getSku } from "@/lib/agent/skus";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
+import { chargeAgentBalance, usdToMinor, minorToUsd } from "@/lib/agent/balance";
 import {
     CARD_RAIL_MIN_USD,
     createPaystackRail,
@@ -35,18 +38,64 @@ export const dynamic = "force-dynamic";
 
 const Body = z.object({
     sku: z.string().min(1).max(200),
-    rail: z.enum(["solana", "stripe", "paystack"]).optional(),
+    rail: z.enum(["solana", "stripe", "paystack", "balance"]).optional(),
     chain: z.enum(["solana"]).optional(),
     asset: z.enum(["usdc", "usdt"]).optional(),
 });
 
+/**
+ * Get-or-create a synthetic dak_ anchor row for a public-key (dk_live_) caller,
+ * so agent_payments.api_key_id FK is always satisfied.
+ */
+async function getOrCreatePublicKeyAnchor(userId: string): Promise<ResolvedAgentKey> {
+    const syntheticHash = createHash("sha256")
+        .update(`public-key-anchor:${userId}`, "utf8")
+        .digest("hex");
+    let [row] = await db!
+        .select()
+        .from(agentApiKeys)
+        .where(eq(agentApiKeys.keyHash, syntheticHash))
+        .limit(1);
+    if (!row) {
+        [row] = await db!
+            .insert(agentApiKeys)
+            .values({
+                userId,
+                label: "anchor · dk_live public key",
+                keyPrefix: "dak_pubkey",
+                keyHash: syntheticHash,
+                scopes: "x402.pay,x402.checkout",
+            })
+            .returning();
+    }
+    return {
+        id: row.id,
+        userId: row.userId,
+        label: row.label,
+        scopes: (row.scopes ?? "x402.pay").split(",").map((s) => s.trim()).filter(Boolean),
+        spendLimitUsd: row.spendLimitUsd != null ? Number(row.spendLimitUsd) : null,
+        spentUsd: row.spentUsd != null ? Number(row.spentUsd) : 0,
+    };
+}
+
 export async function POST(req: NextRequest) {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-    const key = await resolveAgentKeyOrInternal(req);
+    // Accept either a dak_ agent payment key (full x402 flow) OR a dk_live_
+    // public API key (prepaid-balance settlement only).
+    let key = await resolveAgentKeyOrInternal(req);
+    let viaPublicKey = false;
+    if (!key) {
+        const bearer = extractBearer(req);
+        const pub = bearer ? await resolvePublicKey(bearer) : null;
+        if (pub) {
+            key = await getOrCreatePublicKeyAnchor(pub.userId);
+            viaPublicKey = true;
+        }
+    }
     if (!key) {
         return NextResponse.json(
-            { error: "unauthorized", message: "Provide Authorization: Bearer dak_… (create at /app/settings/agent-keys)." },
+            { error: "unauthorized", message: "Provide Authorization: Bearer dak_… (create at /app/settings/agent-keys) or a dk_live_… key with a funded prepaid balance." },
             { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="dreyv-x402"' } },
         );
     }
@@ -73,6 +122,68 @@ export async function POST(req: NextRequest) {
             },
             { status: 402 },
         );
+    }
+
+    // ─── Prepaid-balance rail (dk_live_ default, or rail="balance") ────
+    // If caller authenticated via a dk_live_ public key, or explicitly asked
+    // for the balance rail, try to settle from the pre-funded agent balance.
+    if (viaPublicKey || parsed.data.rail === "balance") {
+        const amountMinor = usdToMinor(sku.priceUsd);
+        const [pendingRow] = await db
+            .insert(agentPayments)
+            .values({
+                apiKeyId: key.id,
+                userId: key.userId,
+                sku: sku.id,
+                amountUsd: sku.priceUsd.toFixed(2),
+                status: "pending",
+                rail: "balance",
+            })
+            .returning({ id: agentPayments.id });
+
+        const charged = await chargeAgentBalance({
+            userId: key.userId,
+            amountMinor,
+            reason: `x402_sku:${sku.id}`,
+            ref: pendingRow.id,
+        });
+
+        if (!charged.ok) {
+            await db.update(agentPayments).set({ status: "failed" }).where(eq(agentPayments.id, pendingRow.id));
+            // dk_live_ callers cannot fall back to on-chain settlement (no dak_).
+            if (viaPublicKey) {
+                return NextResponse.json(
+                    {
+                        error: "insufficient_balance",
+                        message: `Prepaid balance ($${minorToUsd(charged.balance_minor)}) is below SKU price ($${sku.priceUsd.toFixed(2)}). Top up at /api/agents/balance/topup, then retry.`,
+                        balance_usd: minorToUsd(charged.balance_minor),
+                        required_usd: sku.priceUsd.toFixed(2),
+                        topup_url: "/api/agents/balance/topup",
+                    },
+                    { status: 402 },
+                );
+            }
+            // dak_ caller asked for balance rail explicitly — fall through to x402.
+        } else {
+            const receiptToken = `rcpt_${randomBytes(24).toString("base64url")}`;
+            const now = new Date();
+            await db
+                .update(agentPayments)
+                .set({ status: "paid", receiptToken, paidAt: now })
+                .where(eq(agentPayments.id, pendingRow.id));
+            return NextResponse.json({
+                ok: true,
+                payment_id: pendingRow.id,
+                sku: { id: sku.id, name: sku.name, fulfilment: sku.fulfilmentHint },
+                rail: "balance",
+                amount_usd: sku.priceUsd,
+                status: "paid",
+                receipt_token: receiptToken,
+                paid_at: now.toISOString(),
+                balance_after_usd: minorToUsd(charged.balance_after),
+                poll_url: `/api/x402/checkout/${pendingRow.id}`,
+            });
+        }
     }
 
     const requestedRail = parsed.data.rail;
