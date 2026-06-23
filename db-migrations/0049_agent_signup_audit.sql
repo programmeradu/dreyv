@@ -13,4 +13,4 @@ CREATE TABLE IF NOT EXISTS agent_signup_audit (
 );
 
 CREATE INDEX IF NOT EXISTS agent_signup_audit_client_idx ON agent_signup_audit(client_id);
-CREATE INDEX IF NOT EXISTS agent_signup_audit_ip_day_idx ON agent_signup_audit(ip, date_trunc('day', created_at));
+CREATE INDEX IF NOT EXISTS agent_signup_audit_ip_day_idx ON agent_signup_audit(ip, ((created_at AT TIME ZONE 'UTC')::date));
