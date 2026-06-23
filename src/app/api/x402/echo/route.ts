@@ -36,33 +36,36 @@ async function handle(req: NextRequest) {
     const payment = req.headers.get("x-payment");
 
     if (!payment) {
+        const accepts = [
+            {
+                scheme: "exact",
+                network: "base-sepolia",
+                maxAmountRequired: "1000",
+                resource: `${origin}/api/x402/echo`,
+                description: "Per-call dreyv x402 echo endpoint.",
+                mimeType: "application/json",
+                payTo: "0x0000000000000000000000000000000000000000",
+                maxTimeoutSeconds: 60,
+                asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                extra: { name: "USDC", version: "2" },
+            },
+        ];
         return NextResponse.json(
             {
                 x402Version: 1,
                 error: "payment_required",
-                accepts: [
-                    {
-                        scheme: "exact",
-                        network: "base-sepolia",
-                        maxAmountRequired: "1000",
-                        resource: `${origin}/api/x402/echo`,
-                        description: "Per-call dreyv x402 echo endpoint.",
-                        mimeType: "application/json",
-                        payTo: "0x0000000000000000000000000000000000000000",
-                        maxTimeoutSeconds: 60,
-                        asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                        extra: {
-                            name: "USDC",
-                            version: "2",
-                        },
-                    },
-                ],
+                accepts,
             },
             {
                 status: 402,
                 headers: {
                     "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Expose-Headers": "X-PAYMENT-RESPONSE",
+                    "Access-Control-Expose-Headers":
+                        "X-PAYMENT-RESPONSE, WWW-Authenticate, Link",
+                    "WWW-Authenticate": `x402 resource="${origin}/api/x402/echo", scheme="exact", network="base-sepolia"`,
+                    Link: `<${origin}/.well-known/x402>; rel="payment-discovery"; type="application/json"`,
+                    "X-Payment-Required": "true",
+                    "X-X402-Version": "1",
                 },
             },
         );
