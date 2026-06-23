@@ -62,33 +62,41 @@ export default function DevelopersMcpPage() {
         <SiteHeader />
 
         <main className="mx-auto max-w-5xl px-5 sm:px-8 py-16 sm:py-24">
-          <header className="mb-12">
-            <div className="flex items-center gap-2.5">
-              <DreyvStar size={11} className="text-violet-600" />
-              <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv MCP server</span>
-            </div>
-            <h1 className="mt-3 text-[40px] sm:text-[52px] leading-[1.05] font-semibold tracking-[-0.02em]">
-              Plug any agent into <span className="italic font-light text-violet-600">all of Web3</span>.
-            </h1>
-            <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
-              Dreyv's MCP server speaks Streamable HTTP at <code className="font-mono text-violet-700">/api/mcp</code> and
-              exposes every capability from our typed registry as an MCP tool — identity, portfolio, treasury, market,
-              and (in Phase 2/3) execution, forensics, simulation, intents, x402, and agentic foresight.
-            </p>
+          <header className="mb-12 grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-8 items-center">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <DreyvStar size={11} className="text-violet-600" />
+                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv MCP server · {caps.length}+ tools</span>
+              </div>
+              <h1 className="mt-3 text-[40px] sm:text-[56px] leading-[1.04] font-semibold tracking-[-0.02em]">
+                Plug any agent into <span className="italic font-light text-violet-600">all of Web3</span>.
+              </h1>
+              <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
+                Dreyv's MCP server speaks Streamable HTTP at <code className="font-mono text-violet-700">/api/mcp</code> and
+                exposes every capability from our typed registry as an MCP tool — identity, portfolio, treasury, market,
+                execution, forensics, simulation, intents, x402, and agentic foresight.
+              </p>
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Link
-                href="/auth?redirect=/app/developer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
-              >
-                <KeyRound size={13} /> Mint a key
-              </Link>
-              <Link
-                href="/developers/api"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
-              >
-                REST reference <ArrowUpRight size={13} />
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link
+                  href="/auth?redirect=/app/developer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
+                >
+                  <KeyRound size={13} /> Mint a key
+                </Link>
+                <Link
+                  href="/developers/api"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
+                >
+                  REST reference <ArrowUpRight size={13} />
+                </Link>
+              </div>
+            </div>
+            <div className="hidden lg:flex justify-end relative">
+              <Image src={devCrystal} alt="" width={200} height={200} className="opacity-90" />
+              <div className="absolute -bottom-2 -left-2">
+                <DreyvMascot pose="greet" size={120} alt="Dreyv mascot" />
+              </div>
             </div>
           </header>
 
