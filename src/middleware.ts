@@ -547,7 +547,10 @@ export async function middleware(request: NextRequest) {
     if (
         (pathname === '/api/acp/checkout' ||
             pathname === '/api/keys' ||
-            pathname.startsWith('/api/keys/')) &&
+            pathname.startsWith('/api/keys/') ||
+            pathname === '/api/agents/balance' ||
+            pathname === '/api/agents/balance/topup' ||
+            pathname === '/api/agents/wallet') &&
         request.headers.has('authorization')
     ) {
         return withSeoHeaders(
@@ -555,6 +558,7 @@ export async function middleware(request: NextRequest) {
             pathname,
         );
     }
+
 
     // ─── Protect /app/* and /api/* routes ───────────────────────────
     const protectedPaths = [
