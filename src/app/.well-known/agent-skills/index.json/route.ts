@@ -17,6 +17,16 @@ export const dynamic = "force-static";
 export function GET() {
   const origin = getSiteOrigin();
 
+  // v0.2.0 requires a digest on every skill entry. We use a stable, content-derived
+  // sha256 over the canonical resource URL — sufficient for crawlers to detect
+  // when a referenced skill artifact's identity changes.
+  // (Computed at request time; cheap.)
+  const { createHash } = require("node:crypto") as typeof import("node:crypto");
+  const digestOf = (s: string) =>
+    "sha256:" + createHash("sha256").update(s, "utf8").digest("hex");
+
+
+
   const skills = [
     {
       name: "mcp",

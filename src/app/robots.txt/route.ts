@@ -37,6 +37,8 @@ Disallow: /mobile/
 Disallow: /github-cleanup
 Disallow: /hello
 Disallow: /working-swap
+# WebMCP internal endpoints — not for crawlers.
+Disallow: /_webmcp/
 
 # Search-focused crawlers — full access to public pages.
 User-agent: Googlebot

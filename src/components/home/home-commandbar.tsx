@@ -260,6 +260,9 @@ export function HomeCommandbar() {
           {/* Command bar */}
           <form
             onSubmit={handleSubmit}
+            toolname="dreyv-command"
+            tooldescription="Submit a natural-language treasury intent (e.g. 'swap 10 SOL to USDC'). Dreyv plans, simulates, and returns a step preview."
+            toolautosubmit="false"
             className="relative rounded-2xl bg-white ring-1 ring-slate-200/80 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.18)]"
           >
             <div className="flex items-center gap-3 px-4 py-3.5">
@@ -267,6 +270,8 @@ export function HomeCommandbar() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                name="intent"
+                toolparamdescription="Natural-language treasury intent; one action per line."
                 placeholder="Try: Swap 10 SOL to USDC"
                 className="flex-1 bg-transparent text-[15px] text-slate-900 placeholder:text-slate-400 outline-none font-medium"
                 aria-label="Command input"

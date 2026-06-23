@@ -50,6 +50,9 @@ export function HeroCommandbarDemo() {
 
       <form
         onSubmit={onSubmit}
+        toolname="preview-solana-wallet"
+        tooldescription="Open a read-only Dreyv portfolio preview for any Solana wallet address."
+        toolautosubmit="false"
         className="relative rounded-2xl bg-white ring-1 ring-slate-200/80 marketing-shadow-float p-2.5"
       >
         <div className="flex items-center gap-2.5 rounded-xl bg-slate-50/80 ring-1 ring-slate-200/70 px-3.5 py-3">
@@ -60,6 +63,8 @@ export function HeroCommandbarDemo() {
               setValue(e.target.value);
               if (error) setError(null);
             }}
+            name="wallet"
+            toolparamdescription="A base58-encoded Solana wallet address (32–44 chars)."
             placeholder="Paste any Solana wallet to preview it…"
             spellCheck={false}
             autoComplete="off"
