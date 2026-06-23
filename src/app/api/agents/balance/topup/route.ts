@@ -240,8 +240,43 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // ─── Paystack (human-in-the-loop, Africa-first) ──────────────────────
+  if (provider === "paystack") {
+    const { getPaystackSecret, paystackInitializeTransaction } = await import("@/lib/paystack");
+    try { getPaystackSecret(); } catch {
+      return NextResponse.json({ error: "paystack_not_configured" }, { status: 503 });
+    }
+    const [row] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, key.userId))
+      .limit(1);
+    const email = (row?.email ?? "").trim();
+    if (!email) {
+      return NextResponse.json(
+        { error: "email_required", hint: "Add an email to the agent's profile — Paystack requires it." },
+        { status: 422 },
+      );
+    }
+    const session = await paystackInitializeTransaction({
+      email,
+      amountKobo: Math.round(amountUsd * 100), // Paystack expects subunits; USD->cents acceptable on USD merchants
+      currency: "USD",
+      callbackUrl: `${origin}/app/billing?topup=success&provider=paystack`,
+      metadata: { dreyv_user_id: key.userId, source: "balance_topup", amount_minor: amountMinor.toString() },
+    });
+    return NextResponse.json({
+      ok: true,
+      provider: "paystack",
+      checkout_url: session.authorization_url,
+      reference: session.reference,
+      requires_human_step: true,
+      note: "Open checkout_url to fund the prepaid balance. Credit applied on webhook receipt.",
+    });
+  }
+
   return NextResponse.json(
-    { error: "unsupported_provider", supported: ["x402", "stripe"] },
+    { error: "unsupported_provider", supported: ["x402", "stripe", "paystack", "list"] },
     { status: 400 },
   );
 }
