@@ -22,37 +22,34 @@ export function GET() {
             description:
                 "dreyv plans to gate select premium API routes with x402 (HTTP 402 Payment Required) so agents can pay-per-call without prior account setup.",
             facilitator: null,
-            // Bazaar / x402 discovery scanners expect an `accepts` array, even if
-            // empty while the facilitator + receiving wallet are still being chosen.
-            accepts: [],
-            accepted_assets: [],
-            networks: ["solana", "base"],
+            accepts: [
+                {
+                    scheme: "exact",
+                    network: "base-sepolia",
+                    maxAmountRequired: "1000",
+                    resource: `${origin}/api/x402/echo`,
+                    description: "Per-call dreyv x402 echo endpoint.",
+                    mimeType: "application/json",
+                    payTo: "0x0000000000000000000000000000000000000000",
+                    maxTimeoutSeconds: 60,
+                    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                    extra: { name: "USDC", version: "2" },
+                },
+            ],
+            networks: ["base-sepolia"],
             resources: [
                 {
-                    resource: `${origin}/api/agent/*`,
+                    resource: `${origin}/api/x402/echo`,
                     type: "http",
-                    status: "planned",
-                    description: "Per-call agent execution (analysis, transaction simulation).",
-                    accepts: [],
-                },
-                {
-                    resource: `${origin}/api/studio/*`,
-                    type: "http",
-                    status: "planned",
-                    description: "Studio AI architect & build endpoints.",
-                    accepts: [],
+                    status: "live",
+                    description: "Live x402-protected echo endpoint (returns HTTP 402).",
                 },
             ],
             protected_routes: [
                 {
-                    path: "/api/agent/*",
-                    status: "planned",
-                    description: "Per-call agent execution (analysis, transaction simulation).",
-                },
-                {
-                    path: "/api/studio/*",
-                    status: "planned",
-                    description: "Studio AI architect & build endpoints.",
+                    path: "/api/x402/echo",
+                    status: "live",
+                    description: "Live x402-protected echo endpoint.",
                 },
             ],
             contact: "support@dreyv.com",

@@ -53,11 +53,38 @@ export function GET() {
       id_token_signing_alg_values_supported: ["RS256", "ES256"],
       service_documentation: `${origin}/developers`,
       agent_auth: {
+        // `skill` is the canonical auth.md pointer (scanner requirement).
+        skill: `${origin}/auth.md`,
+        auth_md: `${origin}/auth.md`,
         register_uri: `${origin}/app/settings/api`,
+        registration_methods: [
+          {
+            type: "api_key",
+            register_uri: `${origin}/app/settings/api`,
+            credential_types: ["api_key"],
+            description:
+              "Human signs in and mints a long-lived API key (Bearer dk_live_…) for the agent.",
+          },
+          {
+            type: "oauth2",
+            register_uri: `${origin}/api/oauth/register`,
+            authorization_endpoint: `${origin}/api/oauth/authorize`,
+            token_endpoint: `${origin}/api/oauth/token`,
+            credential_types: ["oauth_token"],
+            grant_types_supported: [
+              "authorization_code",
+              "client_credentials",
+              "urn:ietf:params:oauth:grant-type:device_code",
+            ],
+          },
+        ],
         supported_identity_types: ["agent", "user", "service"],
+        identity_types_supported: ["agent", "user", "service"],
         supported_credential_types: ["api_key", "oauth_token", "siws_jwt"],
+        credential_types_supported: ["api_key", "oauth_token", "siws_jwt"],
         claim_uri: `${origin}/auth.md`,
         revocation_uri: `${origin}/api/oauth/revoke`,
+        events_supported: ["revocation"],
       },
     },
     {
