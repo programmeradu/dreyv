@@ -5,7 +5,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { oauthClients, oauthRegistrationAttempts } from "@/lib/oauth/_schema-shim";
+import { oauthClients, oauthRegistrationAttempts } from "@/db/schema";
 import { OAUTH_SCOPES, type OAuthScope } from "@/lib/oauth/scopes";
 
 export const SUPPORTED_GRANT_TYPES = [
