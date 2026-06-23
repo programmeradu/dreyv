@@ -1349,8 +1349,8 @@ export function LivePreview({
         const errorCount = logs.filter((l) => l.startsWith("[error]")).length;
         const warnCount = logs.filter((l) => l.startsWith("[warn]")).length;
         return (
-            <div className="h-full w-full bg-[#011627] flex flex-col font-mono text-xs">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
+            <div className="h-full w-full bg-white flex flex-col font-mono text-xs">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-violet-100 shrink-0 bg-slate-50/60">
                     <div className="flex items-center gap-1">
                         {(["all", "info", "warn", "error", "event"] as const).map((f) => (
                             <button
@@ -1358,11 +1358,11 @@ export function LivePreview({
                                 onClick={() => setConsoleFilter(f)}
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
                                     consoleFilter === f
-                                        ? f === "error" ? "bg-red-500/20 text-red-400"
-                                        : f === "warn" ? "bg-yellow-500/20 text-yellow-400"
-                                        : f === "event" ? "bg-cyan-500/20 text-cyan-400"
-                                        : "bg-emerald-500/20 text-emerald-400"
-                                        : "text-zinc-600 hover:text-zinc-400"
+                                        ? f === "error" ? "bg-red-100 text-red-700"
+                                        : f === "warn" ? "bg-amber-100 text-amber-700"
+                                        : f === "event" ? "bg-cyan-100 text-cyan-700"
+                                        : "bg-violet-100 text-violet-700"
+                                        : "text-slate-500 hover:text-slate-800"
                                 }`}
                             >
                                 {f}
@@ -1371,13 +1371,13 @@ export function LivePreview({
                             </button>
                         ))}
                     </div>
-                    <button onClick={() => { logsRef.current = []; setLogs([]); }} className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-wider">
+                    <button onClick={() => { logsRef.current = []; setLogs([]); }} className="text-[10px] text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-wider">
                         Clear
                     </button>
                 </div>
-                <div className="flex-1 overflow-auto p-3">
+                <div className="flex-1 overflow-auto p-3 bg-white">
                     {filteredLogs.length === 0 ? (
-                        <div className="text-zinc-600 italic pt-4 text-center">
+                        <div className="text-slate-400 italic pt-4 text-center">
                             {logs.length === 0 ? "No logs yet — interact with your Mini-App" : `No ${consoleFilter} logs`}
                         </div>
                     ) : (
@@ -1386,24 +1386,25 @@ export function LivePreview({
                             const isWarn = log.startsWith("[warn]");
                             const isEvent = log.startsWith("[event]") || log.startsWith("[lit]") || log.startsWith("[mcp]") || log.startsWith("[jupiter]");
                             return (
-                                <div key={i} className={`py-1 border-b border-zinc-900/30 flex items-start gap-2 ${
-                                    isError ? "text-red-400 bg-red-500/5"
-                                    : isWarn ? "text-yellow-400"
-                                    : isEvent ? "text-cyan-400"
-                                    : "text-zinc-300"
+                                <div key={i} className={`py-1 border-b border-slate-100 flex items-start gap-2 ${
+                                    isError ? "text-red-700 bg-red-50/60"
+                                    : isWarn ? "text-amber-700"
+                                    : isEvent ? "text-cyan-700"
+                                    : "text-slate-700"
                                 }`}>
-                                    <span className="text-zinc-700 shrink-0 select-none w-6 text-right">{i + 1}</span>
+                                    <span className="text-slate-300 shrink-0 select-none w-6 text-right">{i + 1}</span>
                                     <span className="break-all">{log}</span>
                                 </div>
                             );
                         })
                     )}
                 </div>
-                <div className="px-3 py-1 border-t border-zinc-800 text-[10px] text-zinc-600 flex items-center justify-between shrink-0">
+                <div className="px-3 py-1 border-t border-violet-100 text-[10px] text-slate-500 flex items-center justify-between shrink-0 bg-slate-50/60">
                     <span>{logs.length} log entries</span>
                     <span>{errorCount > 0 ? `${errorCount} errors` : "No errors"}</span>
                 </div>
             </div>
+
         );
     }
 
