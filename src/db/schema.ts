@@ -3045,3 +3045,26 @@ export const agentSignupAudit = pgTable('agent_signup_audit', {
 }, (t) => ({
   clientIdx: index('agent_signup_audit_client_idx').on(t.clientId),
 }));
+
+
+// ─── Agent prepaid balance ("metered prepaid" rail) ───────────────────
+// Top up once (Stripe / x402 / manual crypto), capabilities debit per
+// call. See src/lib/agent/balance.ts and migration 0050_agent_balances.
+export const agentBalances = pgTable('agent_balances', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  balanceMinor: text('balance_minor').notNull().default('0'), // bigint as text to preserve precision
+  currency: text('currency').notNull().default('USDC'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const agentBalanceLedger = pgTable('agent_balance_ledger', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  deltaMinor: text('delta_minor').notNull(),
+  balanceAfter: text('balance_after').notNull(),
+  reason: text('reason').notNull(),
+  ref: text('ref'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index('agent_balance_ledger_user_idx').on(t.userId, t.createdAt),
+}));
