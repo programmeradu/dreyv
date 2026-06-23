@@ -24,9 +24,25 @@ import {
 } from "@/lib/api-keys/public-keys";
 import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
+import { chargeAgentBalance, getAgentBalance, minorToUsd } from "@/lib/agent/balance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+// Per-call price in USDC minor units (6 decimals). Defaults to $0.001/call.
+// Override per-capability via `cost` on the registry entry (also in minor units),
+// or globally via DREYV_CAPABILITY_DEFAULT_PRICE_MINOR. Set 0 to make a capability free.
+const DEFAULT_PRICE_MINOR = BigInt(
+  Number(process.env.DREYV_CAPABILITY_DEFAULT_PRICE_MINOR ?? 1000) | 0,
+);
+
+function priceMinorFor(cap: { cost?: number }): bigint {
+  if (typeof cap.cost === "number" && Number.isFinite(cap.cost)) {
+    return BigInt(Math.max(0, Math.floor(cap.cost)));
+  }
+  return DEFAULT_PRICE_MINOR;
+}
+
 
 async function handle(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   const t0 = Date.now();
@@ -140,6 +156,45 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
     );
   }
 
+  // Charge prepaid agent balance per call (skip if priced at 0).
+  const priceMinor = priceMinorFor(cap);
+  let balanceAfterMinor: bigint | null = null;
+  if (priceMinor > BigInt(0)) {
+    const charge = await chargeAgentBalance({
+      userId: key.userId,
+      amountMinor: priceMinor,
+      reason: `capability:${cap.id}`,
+      ref: key.id,
+    });
+    if (!charge.ok) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "denied",
+        latencyMs: Date.now() - t0,
+        errorCode: "insufficient_balance",
+      });
+      const bal = await getAgentBalance(key.userId);
+      return NextResponse.json(
+        {
+          error: "insufficient_balance",
+          message:
+            "Prepaid agent balance is too low to execute this capability. Top up via POST /api/agents/balance/topup.",
+          capability: cap.id,
+          required_usd: minorToUsd(priceMinor),
+          balance_usd: minorToUsd(bal.balance_minor),
+          required_minor: priceMinor.toString(),
+          balance_minor: bal.balance_minor.toString(),
+          topup_url: `${new URL(req.url).origin}/api/agents/balance/topup`,
+        },
+        { status: 402 },
+      );
+    }
+    balanceAfterMinor = charge.balance_after;
+  }
+
   const origin = new URL(req.url).origin;
   try {
     const result = await cap.handler(parsed.data, {
@@ -156,12 +211,25 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
       transport: "rest",
       status: "ok",
       latencyMs,
-      costCredits: cap.cost ?? 0,
+      costCredits: Number(priceMinor),
     });
     return NextResponse.json(
-      { ok: true, capability: cap.id, latencyMs, data: result },
+      {
+        ok: true,
+        capability: cap.id,
+        latencyMs,
+        data: result,
+        billing: priceMinor > BigInt(0)
+          ? {
+              charged_usd: minorToUsd(priceMinor),
+              charged_minor: priceMinor.toString(),
+              balance_after_usd: balanceAfterMinor !== null ? minorToUsd(balanceAfterMinor) : null,
+            }
+          : { charged_usd: "0.00", charged_minor: "0", balance_after_usd: null },
+      },
       { headers: { "x-dreyv-capability": cap.id, "x-dreyv-rate-remaining": String(rl.remaining) } },
     );
+
   } catch (err) {
     const latencyMs = Date.now() - t0;
     const status = err instanceof CapabilityError ? err.status : 500;
