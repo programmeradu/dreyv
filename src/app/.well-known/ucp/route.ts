@@ -12,6 +12,10 @@ export function GET() {
 
     return NextResponse.json(
         {
+            ucp: {
+                version: "0.1",
+                profile: "https://ucp.dev/specification/overview/",
+            },
             ucp_version: "0.1",
             name: "dreyv",
             description:
