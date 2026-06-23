@@ -19,6 +19,15 @@ export function GET() {
                 name: "acp",
                 version: "0.1",
             },
+            name: "dreyv",
+            description:
+                "dreyv commerce surface — marketplace mini-apps and subscription tiers, agent-discoverable.",
+            logo: `${origin}/dreyv-mark.png`,
+            icon: `${origin}/icon.png`,
+            icons: [
+                { src: `${origin}/icon.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+                { src: `${origin}/dreyv-mark.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+            ],
             api_base_url: `${origin}/api`,
             transports: ["https"],
             capabilities: {
