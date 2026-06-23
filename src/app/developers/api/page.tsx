@@ -7,6 +7,7 @@ import { listPublicCapabilities, type Pillar } from "@/lib/capabilities/registry
 // Phase 28 — Pillar AL ("insights") added to PILLAR_LABEL / PILLAR_ORDER below.
 import { ArrowUpRight, KeyRound } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { CodeBlock } from "@/components/ui/code-block";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import commandStar from "@/assets/command-star-violet.png";
 
