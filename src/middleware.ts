@@ -535,6 +535,27 @@ export async function middleware(request: NextRequest) {
         );
     }
 
+    // ─── Agent pipeline: machine signup is anonymous (rate-limited in route).
+    // ACP checkout and key management are bearer-authenticated by the routes
+    // themselves via withAgentAuth — let them through middleware.
+    if (pathname === '/api/agents/signup') {
+        return withSeoHeaders(
+            NextResponse.next({ request: { headers: request.headers } }),
+            pathname,
+        );
+    }
+    if (
+        (pathname === '/api/acp/checkout' ||
+            pathname === '/api/keys' ||
+            pathname.startsWith('/api/keys/')) &&
+        request.headers.has('authorization')
+    ) {
+        return withSeoHeaders(
+            NextResponse.next({ request: { headers: request.headers } }),
+            pathname,
+        );
+    }
+
     // ─── Protect /app/* and /api/* routes ───────────────────────────
     const protectedPaths = [
         '/app',
