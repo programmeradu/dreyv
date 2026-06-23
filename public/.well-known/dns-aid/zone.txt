@@ -2,6 +2,10 @@
 ; Spec: https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/
 ; ServiceMode SVCB records per RFC 9460.
 ;
+; `endpoint` is not a registered SvcParamKey, so the endpoint path is
+; published via the RFC 9460 generic-key form `key7="..."` (private use).
+; Validating resolvers and Cloudflare's SVCB validator both accept this.
+;
 ; Publish under the apex zone and sign with DNSSEC so validating
 ; resolvers return authenticated data to agents.
 
@@ -9,24 +13,24 @@ $ORIGIN dreyv.com.
 
 ; Top-level agent discovery index — points to .well-known/agent-skills/index.json
 _index._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/.well-known/agent-skills/index.json" )
+                                              key7="/.well-known/agent-skills/index.json" )
 
 ; MCP Streamable HTTP endpoint
 _mcp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/api/mcp" )
+                                              key7="/api/mcp" )
 
 ; ACP commerce discovery
 _acp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/.well-known/acp.json" )
+                                              key7="/.well-known/acp.json" )
 
 ; A2A — agent-to-agent surface (currently routed through MCP)
 _a2a._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/api/mcp" )
+                                              key7="/api/mcp" )
 
 ; OAuth / OIDC discovery
 _oauth._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/.well-known/openid-configuration" )
+                                              key7="/.well-known/openid-configuration" )
 
 ; x402 payment capability
 _x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              endpoint="/.well-known/x402" )
+                                              key7="/.well-known/x402" )
