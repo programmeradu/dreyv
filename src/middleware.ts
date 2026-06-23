@@ -301,6 +301,10 @@ async function isWalletWaitlistAllowed(request: NextRequest, wallet: string | nu
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+
+
+
+
     // ─── App construction gate (must run first) ─────────────────────
     if (
         process.env.DREYV_APP_CONSTRUCTION_MODE === 'true' &&
