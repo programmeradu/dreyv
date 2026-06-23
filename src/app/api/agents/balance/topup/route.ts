@@ -27,6 +27,9 @@ import { verifyX402Payment, type X402Requirements } from "@/lib/agent/x402-verif
 import { getSiteOrigin } from "@/lib/seo/site";
 import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
+import { buildPaymentOptions } from "@/lib/agent/payment-options";
+import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
+import { tokenFor } from "@/lib/billing/crypto-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
