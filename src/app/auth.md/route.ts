@@ -35,12 +35,16 @@ _Dreyv — Agent Authentication_
 
 ## Registration
 
-| Step | URL |
-| --- | --- |
-| Register an agent identity | ${origin}/api/oauth/register |
-| Mint API key (human-issued)  | ${origin}/app/settings/api |
-| Request scopes               | \`treasury:read\`, \`treasury:write\`, \`agent:execute\`, \`mcp\` |
-| Revoke credential            | ${origin}/api/oauth/revoke |
+| Step | URL | Notes |
+| --- | --- | --- |
+| Register an OAuth client (RFC 7591 DCR) | ${origin}/api/oauth/register | Returns \`client_id\` / \`client_secret\` |
+| **Machine signup (autonomous)**         | ${origin}/api/agents/signup  | One call → user + client + default \`dk_live_\` key. No human in the loop. |
+| Mint API key (human-issued)             | ${origin}/app/settings/api   | Cookie-auth UI |
+| **Mint API key (programmatic)**         | ${origin}/api/keys           | Bearer-auth; requires \`agent:delegate\` scope |
+| Subscribe a tier (ACP checkout)         | ${origin}/api/acp/checkout   | x402 (fully agentic) · stripe · paystack |
+| Request scopes                          | \`treasury:read\`, \`treasury:write\`, \`agent:execute\`, \`mcp\` |  |
+| Revoke credential                       | ${origin}/api/oauth/revoke   |  |
+
 
 ## Discovery surface
 
