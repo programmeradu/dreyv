@@ -30,6 +30,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { CodeBlock } from "@/components/ui/code-block";
 import {
   Connection,
   VersionedTransaction,
