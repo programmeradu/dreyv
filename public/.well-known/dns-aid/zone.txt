@@ -2,35 +2,30 @@
 ; Spec: https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/
 ; ServiceMode SVCB records per RFC 9460.
 ;
-; `endpoint` is not a registered SvcParamKey, so the endpoint path is
-; published via the RFC 9460 generic-key form `key7="..."` (private use).
-; Validating resolvers and Cloudflare's SVCB validator both accept this.
+; The SVCB records carry only registered SvcParamKeys (alpn, port) so they
+; validate cleanly on Cloudflare and any RFC 9460 resolver. The endpoint
+; path for each capability is published out-of-band via this well-known
+; zone mirror and the JSON manifests under /.well-known/.
 ;
 ; Publish under the apex zone and sign with DNSSEC so validating
 ; resolvers return authenticated data to agents.
 
 $ORIGIN dreyv.com.
 
-; Top-level agent discovery index — points to .well-known/agent-skills/index.json
-_index._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/.well-known/agent-skills/index.json" )
+; Top-level agent discovery index — endpoint: /.well-known/agent-skills/index.json
+_index._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 
-; MCP Streamable HTTP endpoint
-_mcp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/api/mcp" )
+; MCP Streamable HTTP — endpoint: /api/mcp
+_mcp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 
-; ACP commerce discovery
-_acp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/.well-known/acp.json" )
+; ACP commerce discovery — endpoint: /.well-known/acp.json
+_acp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 
-; A2A — agent-to-agent surface (currently routed through MCP)
-_a2a._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/api/mcp" )
+; A2A — agent-to-agent surface — endpoint: /api/mcp
+_a2a._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 
-; OAuth / OIDC discovery
-_oauth._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/.well-known/openid-configuration" )
+; OAuth / OIDC discovery — endpoint: /.well-known/openid-configuration
+_oauth._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 
-; x402 payment capability
-_x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
-                                              key7="/.well-known/x402" )
+; x402 payment capability — endpoint: /.well-known/x402
+_x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
