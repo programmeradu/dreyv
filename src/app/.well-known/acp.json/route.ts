@@ -37,22 +37,40 @@ export function GET() {
                         discovery: "/.well-known/x402",
                     },
                 },
-                services: [
-                    {
+                services: {
+                    marketplace: {
                         name: "marketplace",
                         description:
                             "dreyv mini-app marketplace — discover and purchase agent skills, treasury widgets, and yield strategies.",
                         endpoint: `${origin}/api/studio/marketplace`,
                         methods: ["GET"],
+                        protocol: "https",
                     },
-                    {
+                    subscriptions: {
                         name: "subscriptions",
                         description:
-                            "dreyv tier subscriptions (Free / Mini / Max) via Paystack.",
+                            "dreyv tier subscriptions (Free / Mini / Max) via Stripe + Paystack.",
                         endpoint: `${origin}/pricing`,
                         methods: ["GET"],
+                        protocol: "https",
                     },
-                ],
+                    checkout: {
+                        name: "checkout",
+                        description:
+                            "Agentic checkout session creation for marketplace + subscriptions.",
+                        endpoint: `${origin}/api/checkout`,
+                        methods: ["POST"],
+                        protocol: "https",
+                    },
+                },
+            },
+            agent_auth: {
+                type: "oauth2",
+                skill: `${origin}/auth.md`,
+                authorization_endpoint: `${origin}/api/oauth/authorize`,
+                token_endpoint: `${origin}/api/oauth/token`,
+                registration_endpoint: `${origin}/api/oauth/register`,
+                metadata: `${origin}/.well-known/oauth-authorization-server`,
             },
             contact: "support@dreyv.com",
             documentation: `${origin}/guides`,
