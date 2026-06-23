@@ -3031,3 +3031,17 @@ export const oauthRegistrationAttempts = pgTable('oauth_registration_attempts', 
   pk: uniqueIndex('oauth_registration_attempts_pk').on(t.ip, t.day),
 }));
 
+
+// ─── Agent signup audit (machine /api/agents/signup) ──────────────────
+export const agentSignupAudit = pgTable('agent_signup_audit', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  clientId: text('client_id').notNull(),
+  method: text('method').notNull(),
+  callerDid: text('caller_did'),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  clientIdx: index('agent_signup_audit_client_idx').on(t.clientId),
+}));

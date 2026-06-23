@@ -1,123 +1,110 @@
-# Plan: OAuth 2.1 + DCR Server + Agent Discovery Additions
+# Agent Pipeline — End-to-End
 
-Combines the previously-approved OAuth 2.1 / DCR build with six new agent-readiness scanner fixes.
+Goal: an autonomous AI agent can, without any human in the loop, create a Dreyv account, subscribe to a tier, mint its own scoped API key, and call every product capability over MCP / REST — using only the standards we already advertise (auth.md, OAuth 2.1 DCR, ACP, x402, MCP).
 
----
+## What exists today
+- Discovery surface complete: `acp.json`, `x402`, `oauth-authorization-server`, `oauth-protected-resource`, `openid-configuration`, `jwks.json`, `http-message-signatures-directory`, `auth.md`, `agent-skills`, DNS-AID.
+- DB: `oauth_server` (clients, tokens, codes), `public_api_keys`, `agent_x402`, `agent_payments` multirail, `agent_wallets`, `agent_deliverables`.
+- Routes: `/api/oauth/{register,authorize,token,revoke,introspect,userinfo,device}`, `/api/x402/echo`, `/api/mcp` (subset of tools).
+- Stripe + Paystack checkout (browser redirect only).
 
-## Part A — OAuth 2.1 + Dynamic Client Registration (unchanged)
+## What's missing (the four gaps)
+1. **Machine signup** — no way for an agent holding only a wallet / DID to provision a Dreyv user row without a human SIWS or Google OAuth click.
+2. **ACP-native subscribe** — `/api/mcp` and checkout don't expose an ACP `checkout` capability that flips `users.tier` after payment (Stripe / Paystack / x402 USDC).
+3. **Programmatic key issuance** — agents holding an OAuth access token can't mint a `dk_live_…` API key for themselves; only the human `/app/settings/api` UI does it.
+4. **Capability coverage** — `/api/mcp` lists only a handful of tools; Atlas, Foresight, Vault ops, Treasury actions, Studio, Insights are not registered as MCP tools, and most are not gated/metered via x402.
 
-Build a real OAuth server so Claude, ChatGPT, Cursor and other MCP clients can self-register and obtain tokens against `dreyv.com`.
+## Plan
 
-### Endpoints (`src/app/api/oauth/*`)
-- `POST /register` — RFC 7591 Dynamic Client Registration
-- `GET|POST /authorize` — authorization-code + PKCE, with consent screen
-- `POST /token` — `authorization_code`, `refresh_token`, `client_credentials`, `urn:ietf:params:oauth:grant-type:device_code`
-- `POST /device` — RFC 8628 device-code flow
-- `POST /introspect` — RFC 7662
-- `POST /revoke` — RFC 7009
-- `GET /.well-known/jwks.json` — public ES256 keys
+### Phase 1 — Machine signup (`POST /api/agents/signup`)
+- Accept one of: (a) OAuth DCR client + `client_credentials` token, (b) signed Web Bot Auth request (HTTP Message Signatures verified against caller's published JWKS), (c) wallet signature (SIWS / SIWE) without browser.
+- Creates: `users` row (`tier=free`, `is_agent=true`, `agent_owner_did`), `oauth_clients` row, default `public_api_keys` row scoped `mcp` only.
+- Returns `{ user_id, client_id, client_secret, api_key, scopes, tier }`.
+- Rate-limited per source IP + per Web Bot Auth key id; abuse tracked in `agent_signup_audit`.
+- Documented in `auth.md` and the ACP `agent_auth.register_uri`.
 
-### Schema (`dreyv_oauth` schema in Neon)
-- `oauth_clients` (`client_id`, `client_secret_hash`, `grant_types`, `response_types`, `token_endpoint_auth_method`, redirect URIs, owner)
-- `oauth_auth_codes` (10-min, `code_challenge`, `code_challenge_method`, `scope`, `user_id`)
-- `oauth_tokens` (JWT id + hash, `parent_refresh_hash` for refresh rotation, scopes, revoked_at)
-- `oauth_device_codes` (15-min, `user_code`, `approved_user_id`)
-- `oauth_signing_keys` (ES256 keypair, private key encrypted with `KEYPAIR_MASTER_KEY`)
-- `oauth_consents` (skip consent on re-auth per `client_id` + `user_id` + scope set)
+### Phase 2 — ACP subscribe capability (`POST /api/acp/checkout`)
+- Implements ACP `checkout` service: accepts `{ tier: mini|max, payment: { provider: stripe|paystack|x402, ... } }`.
+- Three payment paths:
+  - `stripe` → creates Checkout Session, returns hosted URL (human-finishable) **and** PaymentIntent for ACP `delegate_payment` flow.
+  - `paystack` → creates transaction init, returns authorization URL.
+  - `x402` → returns 402 with `accepts` for one-shot USDC on base; on successful payment proof verification, flips tier immediately (no human step). This is the only fully-agentic rail.
+- Webhook (`/api/webhooks/{stripe,paystack}`) and x402 settlement both call `upgradeUserTier(userId, tier)` — single source of truth.
+- Adds `acp.json` `capabilities.services` already includes `"checkout"`; add `"orders"` + `"delegate_payment"` once Stripe Agentic Commerce SDK is wired.
 
-### Library code
-`src/lib/oauth/{keys,store,tokens,scopes,pkce,session,clients,bearer}.ts` — key mgmt with `getActiveSigner()` / `getVerifierKeySet()`, rotation script `scripts/rotate-oauth-keys.mjs`.
+### Phase 3 — Programmatic key issuance (`POST /api/keys`)
+- Auth: OAuth access token with scope `keys:write` (granted to agents via DCR), or existing `api_key` with `keys:write`.
+- Creates a scoped `public_api_keys` row; returns `dk_live_…` exactly once.
+- Sister routes: `GET /api/keys` (list, redacted), `DELETE /api/keys/:id` (revoke), `POST /api/keys/:id/rotate`.
+- Audit row in existing `public_api_safety` tables.
+- Documented in `auth.md` step "Mint API key (programmatic)".
 
-### Integration
-- Extend `src/lib/auth/bearer.ts` to accept OAuth JWTs alongside `dk_live_*` API keys
-- Add `WWW-Authenticate: Bearer resource_metadata=...` on 401 from `/api/mcp` and `/api/v1/*`
-- Map OAuth scopes → existing `ApiScope` enum so route guards are unchanged
+### Phase 4 — MCP capability coverage + x402 metering
+- Register every product capability as an MCP tool in `/api/mcp` and in `agent-skills/index.json`:
+  - `atlas.search`, `atlas.protocol`, `atlas.token`, `atlas.yield`
+  - `foresight.simulate`, `foresight.regenerate`
+  - `vault.read`, `vault.propose`, `vault.execute`
+  - `treasury.payments.create`, `treasury.payroll.run`
+  - `insights.daily`, `insights.anomalies`, `insights.opportunities`
+  - `studio.generate` (media), `case.generate`
+- Each tool declares: required scopes, pricing (`free` | `metered` with x402 `maxAmountRequired`).
+- Middleware `withAgentAuth({ scope, x402 })` runs on each handler: validates Bearer (api_key or oauth_token), checks scope, debits credit OR returns 402 with payment requirements pointing at `/.well-known/x402` and the per-route price.
+- `/.well-known/x402.resources` enumerated automatically from a single `agentCapabilities.ts` registry — keeps ACP and x402 in sync without conflation (ACP describes commerce semantics; x402 describes per-call settlement).
 
-### UI
-- `/oauth/consent` — consent screen bound to SIWS / Neon Auth session
-- `/oauth/device` — user-code entry page for device flow
+### Phase 5 — End-to-end conformance test
+- `scripts/agent-e2e.mjs` runs the full flow against a deployed origin: DCR → signup → ACP checkout (x402 USDC) → key mint → MCP `tools/list` → call one paid tool (Atlas) → call one free tool → revoke.
+- Wired into CI as a smoke test against preview deploys.
 
-### Out of scope (follow-up)
-Admin UI for connected apps, automated rotation cron, mTLS, `private_key_jwt`.
+## Technical details
 
----
+```text
+Agent                       Dreyv
+ │  GET /.well-known/oauth-authorization-server
+ │ ─────────────────────────────────────────────▶
+ │  POST /api/oauth/register  (DCR, RFC 7591)
+ │ ─────────────────────────────────────────────▶ oauth_clients
+ │  POST /api/agents/signup   (Web Bot Auth sig + client_id)
+ │ ─────────────────────────────────────────────▶ users(tier=free,is_agent=true)
+ │  POST /api/acp/checkout    {tier:"mini", payment:{x402}}
+ │ ◀──────────── 402 + accepts (USDC base) ─────
+ │  POST /api/acp/checkout    + X-PAYMENT
+ │ ─────────────────────────────────────────────▶ verify → users.tier=mini
+ │  POST /api/keys            scope=keys:write (oauth token)
+ │ ◀──────────── dk_live_… ──────────────────────
+ │  POST /api/mcp             tools/list
+ │  POST /api/mcp             tools/call atlas.search
+ │ ◀──────────── 402 if metered, else 200 ──────
+```
 
-## Part B — Agent Discovery Additions (NEW)
+Files added:
+- `src/lib/agent/registry.ts` — single capability registry (id, scopes, price, handler).
+- `src/lib/agent/middleware.ts` — `withAgentAuth({scope, x402})`.
+- `src/lib/agent/x402-verify.ts` — verifies `X-PAYMENT` against base-sepolia facilitator.
+- `src/app/api/agents/signup/route.ts`
+- `src/app/api/acp/checkout/route.ts`
+- `src/app/api/keys/route.ts`, `src/app/api/keys/[id]/route.ts`, `src/app/api/keys/[id]/rotate/route.ts`
+- `src/app/api/mcp/route.ts` — expanded to read from registry.
+- `db-migrations/0049_agent_signup_audit.sql`
+- `scripts/agent-e2e.mjs`
 
-Six scanner-driven additions to make `dreyv.com` fully agent-ready.
+Files edited:
+- `src/app/.well-known/x402/route.ts` — resources auto-generated from registry.
+- `src/app/.well-known/acp.json/route.ts` — add `orders`, `delegate_payment` once Stripe ACS SDK lands (Phase 2.5).
+- `src/app/auth.md/route.ts` — add machine-signup + programmatic-key sections.
+- `public/.well-known/agent-skills/index.json` — full capability index.
 
-### B1. DNS-AID (DNS for AI Discovery)
-- Add a publishable zone snippet at `public/.well-known/dns-aid/zone.txt` with SVCB/HTTPS records, e.g.
-  - `_index._agents.dreyv.com. 3600 IN HTTPS 1 dreyv.com. alpn="h2,http/1.1" endpoint="/.well-known/agents.json"`
-  - `_a2a._agents.dreyv.com.   3600 IN HTTPS 1 dreyv.com. alpn="h2"        endpoint="/.well-known/a2a.json"`
-  - `_mcp._agents.dreyv.com.   3600 IN HTTPS 1 dreyv.com. alpn="h2"        endpoint="/api/mcp"`
-  - `_acp._agents.dreyv.com.   3600 IN HTTPS 1 dreyv.com. alpn="h2"        endpoint="/.well-known/acp.json"`
-- Document DNSSEC enablement in `docs/dns-aid.md` (operator step on Vercel DNS / registrar — not code).
-- Surface the same SVCB records in JSON at `/.well-known/dns-aid` for HTTP-based scanners.
+## Order of build
+1. Capability registry + middleware (foundation everything plugs into).
+2. Phase 3 (`/api/keys`) — smallest, validates auth + scope plumbing.
+3. Phase 1 (`/api/agents/signup`).
+4. Phase 2 (`/api/acp/checkout`) — Stripe + Paystack + x402.
+5. Phase 4 (expand MCP tools, route them through middleware).
+6. Phase 5 (e2e script + CI).
 
-### B2. Markdown for Agents (content negotiation)
-- New `src/middleware/markdown.ts` helper invoked from `src/middleware.ts`: when request `Accept` includes `text/markdown` and the route is HTML, rewrite to the existing page's `.md` sibling (e.g. `/pricing` → `/pricing.md`) or proxy through `/api/agents/markdown?path=...`.
-- Implement `src/app/api/agents/markdown/route.ts`: fetches the rendered HTML internally, runs through `turndown`, returns `Content-Type: text/markdown; charset=utf-8` + `x-markdown-tokens` header (approx via `gpt-tokenizer`).
-- Whitelist marketing/docs routes: `/`, `/pricing`, `/developers`, `/api-docs`, `/mcp`, `/case`, `/legal/*`, `/atlas`, `/compare`.
+## Out of scope (call out, not building now)
+- Stripe Agentic Commerce SDK integration (separate plan once Stripe approves the account).
+- Solana mainnet x402 (start on base-sepolia, mainnet after audit).
+- Per-org agent fleets / delegated identities (Phase 6).
+- Billing-portal style self-serve plan downgrade for agents (Phase 6).
 
-### B3. Auth.md
-- Update `src/app/auth.md/route.ts` to start with `# Auth.md` heading and follow WorkOS spec: list register_uri, supported identity types (`user`, `agent`), credential types (`oauth2`, `api_key`), claim URL, revocation URL, contact.
-- Augment `src/app/.well-known/oauth-authorization-server/route.ts` with an `agent_auth` block:
-  ```json
-  {
-    "agent_auth": {
-      "register_uri": "https://dreyv.com/api/oauth/register",
-      "identity_types": ["user","agent"],
-      "credential_types": ["oauth2","api_key"],
-      "claim_uri": "https://dreyv.com/auth?agent=1",
-      "revocation_uri": "https://dreyv.com/api/oauth/revoke"
-    }
-  }
-  ```
-- Ensure `/.well-known/oauth-protected-resource` advertises both the AS metadata URL and `resource_documentation: https://dreyv.com/auth.md`.
-
-### B4. WebMCP
-- Update `src/components/agent/WebMCPProvider.tsx` to register real tools via `navigator.modelContext?.provideContext(...)`:
-  - `search_atlas({ query })` → routes to `/api/atlas/search`
-  - `get_pricing()` → returns the tier JSON
-  - `start_waitlist({ email, aum_band })` → POST `/api/waitlist`
-  - `get_portfolio_snapshot({ address })` → GET `/api/v1/portfolio/:address`
-- Feature-detect, no-op gracefully when API absent.
-
-### B5. x402 (agent-native HTTP payments)
-- Add `src/lib/x402/middleware.ts` (lightweight; no `@x402/next` dep — implement the 402 challenge spec directly: facilitator URL, accepted asset list, wallet receiver address).
-- Protect a small, well-defined surface first:
-  - `GET /api/v1/atlas/deep/:address` — premium deep scan
-  - `GET /api/v1/insights/:address` — full insight stream
-- Env: `X402_FACILITATOR_URL`, `X402_RECEIVER_ADDRESS`, `X402_ASSET` (default USDC base-mainnet). Use `secrets--add_secret` for values.
-- Document at `/api-docs` under "Agent-native payments".
-
-### B6. ACP discovery (`/.well-known/acp.json`)
-- New `src/app/.well-known/acp.json/route.ts`:
-  ```json
-  {
-    "protocol": { "name": "acp", "version": "0.3" },
-    "api_base_url": "https://dreyv.com/api/v1",
-    "transports": ["https","mcp"],
-    "capabilities": {
-      "services": [
-        { "id": "atlas", "kind": "analytics", "endpoint": "/atlas" },
-        { "id": "insights", "kind": "insights", "endpoint": "/insights" },
-        { "id": "pricing", "kind": "commerce", "endpoint": "/checkout" }
-      ]
-    },
-    "auth": { "oauth2": "https://dreyv.com/.well-known/oauth-authorization-server" }
-  }
-  ```
-- Add to `src/app/sitemap.ts` and link from `/developers`.
-
----
-
-## Sequencing
-1. Part A schema + JWKS + `/authorize` + `/token` (auth-code+PKCE & client-credentials) + DCR + `/revoke`.
-2. Part A device-code + introspection.
-3. Part B6 (ACP) → B3 (Auth.md polish) → B1 (DNS-AID) → B4 (WebMCP tools) → B2 (Markdown for Agents) → B5 (x402).
-4. Update `public/llms.txt`, `public/llms-full.txt`, `public/developers/llms.txt`, `src/app/robots.txt/route.ts`, `src/app/sitemap.ts`, and `src/components/home/site-footer.tsx` to advertise the new endpoints.
-
-## Out of scope
-DNSSEC enablement at the registrar, real x402 facilitator deployment (use Coinbase hosted facilitator), admin UI for OAuth clients.
+Confirm to start at step 1 and I'll build it end-to-end.
