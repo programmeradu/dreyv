@@ -81,22 +81,30 @@ export async function POST(req: NextRequest) {
       extra: { name: "USDC", version: "2" },
     };
     const header = req.headers.get("x-payment");
+    const receipt = req.headers.get("x-payment-receipt");
     const testModeAllowed = process.env.X402_ALLOW_TEST_MODE !== "false";
     const isTest = testModeAllowed && (header === "test" || header === "sandbox");
-    if (!header) {
+
+    if (!header && !receipt) {
+      const humanCheckoutUrl = `${origin}/app/billing?tier=${tier}&via=x402`;
+      const costUsd = tier === "mini" ? "49.00" : "199.00";
       return NextResponse.json(
         {
-          x402Version: 1,
+          // ── Agent-friendly top-level (deterministic, single-step) ──
           error: "payment_required",
+          cost: costUsd,
+          currency: "USDC",
+          network: NETWORK,
+          payTo: RECEIVER,
+          asset: ASSET,
+          human_checkout_url: humanCheckoutUrl,
+          instructions: testModeAllowed
+            ? `Autonomous: send ${costUsd} USDC (${TIER_PRICE_USDC_ATOMIC[tier]} atomic) on ${NETWORK} to ${RECEIVER}, then replay this request with header 'X-Payment-Receipt: <tx_hash>' (or x402 EIP-3009 payload via 'X-PAYMENT'). Sandbox: replay with 'X-PAYMENT: test'. Human fallback: open human_checkout_url.`
+            : `Autonomous: send ${costUsd} USDC (${TIER_PRICE_USDC_ATOMIC[tier]} atomic) on ${NETWORK} to ${RECEIVER}, then replay this request with header 'X-Payment-Receipt: <tx_hash>' (or x402 EIP-3009 payload via 'X-PAYMENT'). Human fallback: open human_checkout_url.`,
+          // ── x402 spec compliance ──
+          x402Version: 1,
           accepts: [requirements],
           documentation: `${origin}/.well-known/x402`,
-          fulfillment: {
-            production:
-              "Sign an EIP-3009 USDC transferWithAuthorization for `maxAmountRequired` to `payTo` on `network`, base64-encode the payload, and retry with header `X-PAYMENT: <payload>`. See documentation URL.",
-            sandbox: testModeAllowed
-              ? "Retry with header `X-PAYMENT: test` (or `sandbox`) to provision a 31-day tier without on-chain settlement. Sandbox-only; disabled in prod when X402_ALLOW_TEST_MODE=false."
-              : "Sandbox disabled on this deployment.",
-          },
         },
         {
           status: 402,
@@ -109,12 +117,25 @@ export async function POST(req: NextRequest) {
         },
       );
     }
+
     let payer: string | undefined;
     let txHash: string | null = null;
     if (isTest) {
       payer = "test-mode";
+    } else if (receipt && !header) {
+      // Replay path: agent provides on-chain tx hash as proof-of-payment.
+      // Facilitator verifies amount/destination/uniqueness; sandbox accepts any.
+      const result = await verifyX402Payment(`receipt:${receipt}`, requirements);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: "payment_invalid", reason: result.reason, tx_hash: receipt, accepts: [requirements] },
+          { status: 402 },
+        );
+      }
+      payer = result.payer ?? "on-chain";
+      txHash = receipt;
     } else {
-      const result = await verifyX402Payment(header, requirements);
+      const result = await verifyX402Payment(header ?? "", requirements);
       if (!result.ok) {
         return NextResponse.json(
           { x402Version: 1, error: "payment_invalid", reason: result.reason, accepts: [requirements] },
@@ -124,6 +145,7 @@ export async function POST(req: NextRequest) {
       payer = result.payer;
       txHash = result.txHash ?? null;
     }
+
     const expires = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
     await upgradeUserTier(key.userId, tier, expires);
     return NextResponse.json({
