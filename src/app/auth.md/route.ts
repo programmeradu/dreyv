@@ -45,6 +45,21 @@ _Dreyv — Agent Authentication_
 | Request scopes                          | \`treasury:read\`, \`treasury:write\`, \`agent:execute\`, \`mcp\` |  |
 | Revoke credential                       | ${origin}/api/oauth/revoke   |  |
 
+## Key prefixes
+
+- \`dk_live_…\` — long-lived API key (live tier, default from \`/api/agents/signup\`).
+- \`dk_test_…\` — sandbox key, never billed; mint by passing \`{"mode":"test"}\` to \`/api/agents/signup\`.
+- \`dak_…\`     — autonomous **payment** key (x402-bound). Mint via \`POST /api/keys\` with scope \`payment:execute\`. Required to settle x402 invoices on the agent's own wallet.
+
+## Paying invoices (x402)
+
+\`POST /api/acp/checkout\` with \`{ "tier": "mini" | "max" }\` returns **402** with an \`accepts\` block describing the USDC settlement.
+
+- **Live:** sign EIP-3009 \`transferWithAuthorization\` for \`maxAmountRequired\` to \`payTo\` on \`network\`, base64-encode the payload, and retry with header \`X-PAYMENT: <payload>\`. Full schema at ${origin}/.well-known/x402.
+- **Sandbox:** retry with header \`X-PAYMENT: test\` (or \`sandbox\`) — provisions a 31-day tier without on-chain settlement. Disabled when \`X402_ALLOW_TEST_MODE=false\`.
+- **Hosted fallback:** pass \`{ "payment": { "provider": "stripe" | "paystack", "email": "…" } }\` to receive a \`checkout_url\` (\`requires_human_step: true\`).
+
+
 
 ## Discovery surface
 
