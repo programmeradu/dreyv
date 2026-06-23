@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CodeBlock } from "@/components/ui/code-block";
 
 type StatusResponse = {
     id: string;
