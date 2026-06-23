@@ -24,9 +24,25 @@ import {
 } from "@/lib/api-keys/public-keys";
 import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
+import { chargeAgentBalance, getAgentBalance, minorToUsd } from "@/lib/agent/balance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+// Per-call price in USDC minor units (6 decimals). Defaults to $0.001/call.
+// Override per-capability via `cost` on the registry entry (also in minor units),
+// or globally via DREYV_CAPABILITY_DEFAULT_PRICE_MINOR. Set 0 to make a capability free.
+const DEFAULT_PRICE_MINOR = BigInt(
+  Number(process.env.DREYV_CAPABILITY_DEFAULT_PRICE_MINOR ?? 1000) | 0,
+);
+
+function priceMinorFor(cap: { cost?: number }): bigint {
+  if (typeof cap.cost === "number" && Number.isFinite(cap.cost)) {
+    return BigInt(Math.max(0, Math.floor(cap.cost)));
+  }
+  return DEFAULT_PRICE_MINOR;
+}
+
 
 async function handle(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   const t0 = Date.now();
