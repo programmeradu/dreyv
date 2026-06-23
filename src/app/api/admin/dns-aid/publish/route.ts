@@ -178,12 +178,26 @@ export async function POST() {
       results.push(await upsertSvcb(token, zoneId, rec));
       results.push(await upsertTxt(token, zoneId, rec));
     }
+
+    // DNS-AID requires DNSSEC. Enable it on the zone (idempotent — Cloudflare
+    // returns success even if it was already active).
+    let dnssec: { status: string; enabled: boolean } = { status: "unknown", enabled: false };
+    try {
+      const ds = await cf<{ status: string }>(token, `/zones/${zoneId}/dnssec`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "active" }),
+      });
+      dnssec = { status: ds.result.status, enabled: ds.result.status === "active" };
+    } catch (e) {
+      dnssec = { status: e instanceof Error ? e.message : "error", enabled: false };
+    }
+
     const summary = {
       created: results.filter((r) => r.action === "created").length,
       updated: results.filter((r) => r.action === "updated").length,
       unchanged: results.filter((r) => r.action === "unchanged").length,
     };
-    return NextResponse.json({ ok: true, zone: DNS_AID_ZONE, summary, records: results });
+    return NextResponse.json({ ok: true, zone: DNS_AID_ZONE, summary, dnssec, records: results });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown Cloudflare error";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });
