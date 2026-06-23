@@ -238,6 +238,15 @@ export function GET() {
       mcpManifest: `${origin}/api/mcp/manifest`,
       discovery: `${origin}/.well-known/mcp.json`,
     },
+    "x-payment-info": {
+      providers: ["stripe", "paystack", "x402"],
+      discovery: {
+        x402: `${origin}/.well-known/x402`,
+        acp: `${origin}/.well-known/acp.json`,
+        ucp: `${origin}/.well-known/ucp`,
+      },
+      pricing: `${origin}/pricing`,
+    },
   } as const;
 
   return NextResponse.json(spec, {
