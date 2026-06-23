@@ -173,6 +173,35 @@ export async function resolvePublicKey(
   bearer: string | null | undefined,
 ): Promise<ResolvedPublicKey | null> {
   if (!bearer) return null;
+
+  // OAuth 2.1 access token (JWT issued by /api/oauth/token).
+  if (bearer.startsWith("ey") && bearer.includes(".")) {
+    try {
+      const { verifyAccessToken } = await import("@/lib/oauth/tokens");
+      const { expandToApiScopes } = await import("@/lib/oauth/scopes");
+      const verified = await verifyAccessToken(bearer);
+      if (verified && verified.userId) {
+        const apiScopes = expandToApiScopes(verified.scopes as never);
+        return {
+          id: `oauth:${verified.jti}`,
+          userId: verified.userId,
+          label: `OAuth client ${verified.clientId}`,
+          env: "live",
+          keyPrefix: "oauth_jwt",
+          scopes: apiScopes,
+          rateLimitRpm: 600,
+          killSwitchAt: null,
+          ipAllowlist: [],
+          originAllowlist: [],
+          capabilityAllowlist: [],
+        };
+      }
+    } catch {
+      // fall through to dk_ lookup
+    }
+    return null;
+  }
+
   if (!bearer.startsWith("dk_live_") && !bearer.startsWith("dk_test_")) return null;
   if (!db) return null;
 
