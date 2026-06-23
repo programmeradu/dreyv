@@ -103,6 +103,12 @@ export function GET() {
       description:
         "Dreyv — AI treasury command layer for Solana & EVM. MCP-first, agent-native.",
       homepage: origin,
+      logo: `${origin}/dreyv-mark.png`,
+      icon: `${origin}/icon.png`,
+      icons: [
+        { src: `${origin}/icon.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: `${origin}/dreyv-mark.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+      ],
       contact: "founders@dreyv.com",
       skills,
     },
