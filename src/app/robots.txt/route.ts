@@ -21,6 +21,13 @@ Content-Signal: search=yes, ai-input=yes, ai-train=no
 # Default policy — search + live agent retrieval welcome, training disallowed.
 User-agent: *
 Allow: /
+# Explicitly allow agent-discovery endpoints even though /api/ is otherwise blocked.
+Allow: /api/mcp$
+Allow: /api/mcp/manifest
+Allow: /api/llms.txt
+Allow: /api/health
+Allow: /api/price
+Allow: /api/atlas/
 Disallow: /app/
 Disallow: /app
 Disallow: /api/

@@ -40,9 +40,19 @@ const tokenLinks = [
   { label: "BONK", href: "/atlas/tokens/bonk" },
 ];
 
+const developerLinks = [
+  { label: "Developers hub", href: "/developers" },
+  { label: "MCP server", href: "/developers/mcp" },
+  { label: "REST API reference", href: "/developers/api" },
+  { label: "Agent integrations", href: "/developers/agents" },
+  { label: "OpenAPI spec", href: "/openapi.json" },
+  { label: "llms.txt", href: "/llms.txt" },
+  { label: "MCP manifest", href: "/api/mcp/manifest" },
+];
+
 const companyLinks = [
   { label: "About", href: "/#content" },
-  { label: "Documentation", href: "/#deep-dive" },
+  { label: "Documentation", href: "/developers/docs" },
   { label: "Contact", href: "/#contact" },
 ];
 
@@ -57,7 +67,7 @@ export function SiteFooter() {
   return (
     <footer className="relative border-t border-violet-200 bg-white font-inter-label">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid gap-8 md:grid-cols-6">
+        <div className="grid gap-8 md:grid-cols-7">
           <div className="md:col-span-1">
             <a
               href="/#content"
@@ -93,6 +103,21 @@ export function SiteFooter() {
             </h4>
             <ul className="space-y-2.5">
               {toolLinks.map((link) => (
+                <li key={link.label}>
+                  <a href={link.href} className="text-sm text-slate-600 hover:text-violet-700 transition-colors">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-4">
+              Developers
+            </h4>
+            <ul className="space-y-2.5">
+              {developerLinks.map((link) => (
                 <li key={link.label}>
                   <a href={link.href} className="text-sm text-slate-600 hover:text-violet-700 transition-colors">
                     {link.label}

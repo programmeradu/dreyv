@@ -82,7 +82,29 @@ Operator surface:
 
 Billed via Stripe (global cards) and Paystack (cards, mobile money, bank — Africa-first). Taxes shown at checkout.
 
-## 7. API surface (canonical: `/openapi.json`)
+## 7. MCP server (the headline integration)
+
+Dreyv exposes the entire capability registry as a **Streamable HTTP MCP server** at `/api/mcp`. One
+Bearer key, 100+ typed tools, simulation-first, non-custodial. Drop-in for Claude Desktop, Cursor,
+Windsurf, Cline, Continue.dev, elizaOS, and any MCP-aware agent.
+
+- Endpoint: `POST https://dreyv.com/api/mcp`  (Streamable HTTP per MCP 2025-06-18 spec)
+- Discovery: `GET  https://dreyv.com/.well-known/mcp.json`
+- Public manifest (no auth): `GET  https://dreyv.com/api/mcp/manifest`
+- Docs + client snippets: https://dreyv.com/developers/mcp
+- Key mint (prefix `dk_live_`): https://dreyv.com/app/settings/api
+
+Required MCP request headers:
+```
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Authorization: Bearer dk_live_YOUR_KEY
+```
+
+Tool naming: REST capability `foo.bar` → MCP tool `dreyv_foo_bar`. Same scopes, same rate limits,
+same metering across both transports — no drift.
+
+## 8. REST API surface (canonical: `/openapi.json`, mirrored at `/api/mcp/manifest`)
 
 Public/agent-relevant endpoint families (require auth via SIWS JWT or API key unless noted public):
 
@@ -90,24 +112,28 @@ Public/agent-relevant endpoint families (require auth via SIWS JWT or API key un
 - `GET  /api/price?token=SOL` — token price (public)
 - `GET  /api/atlas/tokens` — token directory (public)
 - `GET  /api/atlas/tokens/{symbol}` — token details (public)
-- `POST /api/command` — natural-language intent → plan (auth)
-- `POST /api/planner` — structured intent → plan (auth)
-- `POST /api/simulate` — simulate a plan; returns human-readable impact (auth)
-- `POST /api/foresight` — long-horizon simulation (auth)
-- `POST /api/swap/quote` — Jupiter route quote (auth)
-- `POST /api/swap/execute` — sign-ready swap tx (auth, non-custodial)
-- `GET  /api/vault/balances` — multisig balances (auth)
-- `POST /api/squads/propose` — create Squads proposal (auth)
-- `POST /api/research` — agent research with Cloudflare /crawl (auth)
-- `POST /api/tools/crawl` — Cloudflare Browser Run /crawl proxy (auth)
-- `POST /api/tools/browser` — single-page browser fetch (auth)
-- `GET  /api/yield/opportunities` — yield routing options (auth)
-- `POST /api/dreyv-gateway/*` — provider-routed AI gateway (auth)
+- `GET  /api/mcp/manifest` — every MCP tool with input schemas (public)
+- `/api/v1/identity/*`, `/api/v1/portfolio/*`, `/api/v1/treasury/*`
+- `/api/v1/market/*`, `/api/v1/swap/*`, `/api/v1/bridge/*`, `/api/v1/gas/*`
+- `/api/v1/risk/*`, `/api/v1/wallet/*`, `/api/v1/tax/*`, `/api/v1/foresight/*`
+- `/api/v1/agentic/*`, `/api/v1/watchers/*`, `/api/v1/monitors/*`
+- `/api/v1/economy/*` (x402, ACP, SKUs), `/api/v1/governance/*`, `/api/v1/defi/*`
+- `/api/v1/knowledge/*`, `/api/v1/safety/*`, `/api/v1/compliance/*`
+- `/api/v1/notifications/*`, `/api/v1/inbox/*`, `/api/v1/digests/*`, `/api/v1/webhooks/*`
+- `/api/v1/audit/*`, `/api/v1/observability/*`, `/api/v1/billing/*`, `/api/v1/entitlements/*`
+- `/api/v1/teams/*`, `/api/v1/privacy/*`, `/api/v1/storage/*`, `/api/v1/search/*`
+- `/api/v1/status/*`, `/api/v1/jobs/*`, `/api/v1/exports/*`, `/api/v1/tags/*`, `/api/v1/flags/*`
+- `/api/v1/insights/*`, `/api/v1/marketplace/*`, `/api/v1/sla/*`, `/api/v1/contracts/*`, `/api/v1/workflows/*`
+- Legacy convenience: `POST /api/command`, `POST /api/planner`, `POST /api/simulate`, `POST /api/swap/*`,
+  `GET /api/vault/balances`, `POST /api/squads/propose`, `POST /api/research`, `POST /api/tools/crawl`,
+  `POST /api/tools/browser`, `GET /api/yield/opportunities`, `POST /api/dreyv-gateway/*`
 
 Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at `/developers`.
 
-## 8. Discovery & agent-ready endpoints
+## 9. Discovery & agent-ready endpoints
 
+- `/.well-known/mcp.json` — MCP server discovery
+- `/api/mcp/manifest` — full MCP tool catalog (public)
 - `/.well-known/ai-plugin.json` — OpenAI plugin manifest
 - `/.well-known/acp.json` — Agentic Commerce Protocol descriptor
 - `/.well-known/ucp` — Universal Commerce Protocol profile
@@ -116,12 +142,19 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 - `/openapi.json` — OpenAPI 3.1 spec
 - `/llms.txt` — short canonical context
 - `/llms-full.txt` — this file (full single-request context)
+- `/api/llms.txt`, `/developers/llms.txt` — scoped agent contexts
 - `/pricing.md` — machine-readable pricing
 - `/index.md` — markdown homepage fallback
 - `/developers` — developer portal
+- `/developers/mcp` — MCP setup + client snippets
+- `/developers/api` — REST reference
+- `/developers/agents` — agent integration matrix (Claude, Cursor, elizaOS, Continue, custom)
+- `/developers/docs/[openapi|ai-plugin|acp|ucp|api-catalog|x402|llms-txt|llms-full|pricing-md]` — one page per spec
 - `/compare` — competitive comparison
 
-## 9. Brand & legal
+
+
+## 10. Brand & legal
 
 - Brand: **dreyv** (pronounced "DRAVE"). Domains: dreyv.com, dreyv.app, dreyv.finance.
 - Parent: StaUniverse (founded 2025). https://stauniverse.tech
@@ -129,7 +162,7 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 - Legal: `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/refunds`.
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
 
-## 10. Contact
+## 11. Contact
 
 - Product: founders@dreyv.com
 - Security: security@dreyv.com
