@@ -226,10 +226,10 @@ export function InlineCodeGen({
             className="absolute left-4 right-4 z-50 mt-2"
             style={{ top: `${Math.min(state.cursorLine * 20 + 40, 200)}px` }}
         >
-            <div className="bg-zinc-900 border border-emerald-500/30 rounded-xl shadow-2xl shadow-emerald-500/10 overflow-hidden">
+            <div className="bg-white border border-violet-200 rounded-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
                 {/* Input Bar */}
-                <div className="flex items-center gap-2 p-3 border-b border-zinc-800">
-                    <DreyvStar size={16} className="text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-2 p-3 border-b border-violet-100 bg-slate-50/60">
+                    <DreyvStar size={16} className="text-violet-600 shrink-0" />
                     <input
                         ref={inputRef}
                         value={state.prompt}
@@ -240,16 +240,16 @@ export function InlineCodeGen({
                                 ? "Describe how to transform the selection…"
                                 : "Describe code to generate at cursor…"
                         }
-                        className="flex-1 bg-transparent text-sm text-white placeholder:text-zinc-500 outline-none"
+                        className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
                         disabled={state.loading}
                     />
                     {state.loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                        <Loader2 className="w-4 h-4 animate-spin text-violet-600" />
                     ) : (
                         <button
                             onClick={state.generatedCode ? handleAccept : handleGenerate}
                             disabled={!state.prompt.trim()}
-                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-md text-xs font-bold text-white transition-colors flex items-center gap-1"
+                            className="px-3 py-1 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-100 disabled:text-slate-400 rounded-md text-xs font-bold text-white transition-colors flex items-center gap-1"
                         >
                             {state.generatedCode ? (
                                 <>
@@ -264,20 +264,20 @@ export function InlineCodeGen({
                     )}
                     <button
                         onClick={handleDismiss}
-                        className="p-1 hover:bg-zinc-800 rounded transition-colors"
+                        className="p-1 hover:bg-slate-100 rounded transition-colors"
                     >
-                        <X className="w-3.5 h-3.5 text-zinc-500" />
+                        <X className="w-3.5 h-3.5 text-slate-500" />
                     </button>
                 </div>
 
                 {/* Preset Chips */}
                 {!state.generatedCode && !state.loading && !state.prompt && (
-                    <div className="flex flex-wrap gap-1.5 p-3 border-b border-zinc-800">
+                    <div className="flex flex-wrap gap-1.5 p-3 border-b border-violet-100 bg-white">
                         {PRESETS.map((p) => (
                             <button
                                 key={p.label}
                                 onClick={() => setState((prev) => ({ ...prev, prompt: p.prompt }))}
-                                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs text-zinc-400 hover:text-white transition-colors"
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-violet-100 rounded-full text-xs text-slate-600 hover:text-violet-700 transition-colors"
                             >
                                 {p.label}
                             </button>
@@ -287,8 +287,8 @@ export function InlineCodeGen({
 
                 {/* Context Badge */}
                 {state.selectedText && (
-                    <div className="px-3 py-2 bg-zinc-800/50 border-b border-zinc-800">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                    <div className="px-3 py-2 bg-violet-50/60 border-b border-violet-100">
+                        <span className="text-[10px] text-violet-700 uppercase tracking-wider font-bold">
                             Selection ({state.selectedText.split("\n").length} lines)
                         </span>
                     </div>
@@ -296,8 +296,8 @@ export function InlineCodeGen({
 
                 {/* Generated Code Preview */}
                 {state.generatedCode && (
-                    <div className="max-h-64 overflow-auto">
-                        <pre className="p-3 text-xs font-mono text-emerald-300/90 bg-emerald-500/5 leading-relaxed whitespace-pre-wrap">
+                    <div className="max-h-64 overflow-auto bg-white">
+                        <pre className="p-3 text-xs font-mono text-slate-800 leading-relaxed whitespace-pre-wrap">
                             {state.generatedCode}
                         </pre>
                     </div>
@@ -305,21 +305,21 @@ export function InlineCodeGen({
 
                 {/* Error */}
                 {state.error && (
-                    <div className="px-3 py-2 text-xs text-red-400 bg-red-500/5">
+                    <div className="px-3 py-2 text-xs text-red-700 bg-red-50 border-t border-red-100">
                         {state.error}
                     </div>
                 )}
 
                 {/* Footer Hint */}
-                <div className="px-3 py-1.5 bg-zinc-950 text-[10px] text-zinc-600 flex items-center justify-between">
+                <div className="px-3 py-1.5 bg-slate-50/80 border-t border-violet-100 text-[10px] text-slate-500 flex items-center justify-between">
                     <span>
-                        <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-500 font-mono">Enter</kbd>
+                        <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-mono">Enter</kbd>
                         {" "}{state.generatedCode ? "Accept" : "Generate"}
                         {" · "}
-                        <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-500 font-mono">Esc</kbd>
+                        <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-mono">Esc</kbd>
                         {" "}Dismiss
                     </span>
-                    <span className="text-emerald-500/50">dreyv AI Architect</span>
+                    <span className="text-violet-600/80 font-semibold">dreyv AI Architect</span>
                 </div>
             </div>
         </div>
