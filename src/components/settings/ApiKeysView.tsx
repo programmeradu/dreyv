@@ -646,14 +646,14 @@ const { ok, data } = await res.json();`,
               Showing a placeholder key. Mint one above to copy a snippet pre-filled with your real secret.
             </p>
           )}
-          <div className="relative rounded-2xl border border-violet-100 bg-slate-950 p-4 overflow-x-auto">
+          <div className="relative rounded-2xl border border-violet-100 bg-slate-50/80 p-4 overflow-x-auto">
             <button
               onClick={() => handleCopySecret(snippets[showInstall])}
-              className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-600/90 hover:bg-violet-600 text-white text-[10px] font-semibold transition"
+              className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-violet-200 bg-white/90 hover:bg-violet-50 hover:border-violet-300 text-violet-700 text-[10.5px] font-semibold shadow-sm transition"
             >
               <Copy size={11} /> Copy
             </button>
-            <pre className="text-[12px] leading-relaxed font-mono text-violet-50 whitespace-pre-wrap break-all">{snippets[showInstall]}</pre>
+            <pre className="text-[12px] leading-relaxed font-mono text-slate-800 whitespace-pre-wrap break-all pr-14">{snippets[showInstall]}</pre>
           </div>
           {showInstall === "claude" && (
             <p className="mt-3 text-[11px] text-slate-500">
