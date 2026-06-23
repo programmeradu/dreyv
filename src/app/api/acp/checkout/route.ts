@@ -81,9 +81,23 @@ export async function POST(req: NextRequest) {
       extra: { name: "USDC", version: "2" },
     };
     const header = req.headers.get("x-payment");
+    const testModeAllowed = process.env.X402_ALLOW_TEST_MODE !== "false";
+    const isTest = testModeAllowed && (header === "test" || header === "sandbox");
     if (!header) {
       return NextResponse.json(
-        { x402Version: 1, error: "payment_required", accepts: [requirements] },
+        {
+          x402Version: 1,
+          error: "payment_required",
+          accepts: [requirements],
+          documentation: `${origin}/.well-known/x402`,
+          fulfillment: {
+            production:
+              "Sign an EIP-3009 USDC transferWithAuthorization for `maxAmountRequired` to `payTo` on `network`, base64-encode the payload, and retry with header `X-PAYMENT: <payload>`. See documentation URL.",
+            sandbox: testModeAllowed
+              ? "Retry with header `X-PAYMENT: test` (or `sandbox`) to provision a 31-day tier without on-chain settlement. Sandbox-only; disabled in prod when X402_ALLOW_TEST_MODE=false."
+              : "Sandbox disabled on this deployment.",
+          },
+        },
         {
           status: 402,
           headers: {
@@ -95,12 +109,20 @@ export async function POST(req: NextRequest) {
         },
       );
     }
-    const result = await verifyX402Payment(header, requirements);
-    if (!result.ok) {
-      return NextResponse.json(
-        { x402Version: 1, error: "payment_invalid", reason: result.reason, accepts: [requirements] },
-        { status: 402 },
-      );
+    let payer: string | undefined;
+    let txHash: string | null = null;
+    if (isTest) {
+      payer = "test-mode";
+    } else {
+      const result = await verifyX402Payment(header, requirements);
+      if (!result.ok) {
+        return NextResponse.json(
+          { x402Version: 1, error: "payment_invalid", reason: result.reason, accepts: [requirements] },
+          { status: 402 },
+        );
+      }
+      payer = result.payer;
+      txHash = result.txHash ?? null;
     }
     const expires = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
     await upgradeUserTier(key.userId, tier, expires);
@@ -108,8 +130,9 @@ export async function POST(req: NextRequest) {
       ok: true,
       tier,
       expires_at: expires.toISOString(),
-      payer: result.payer,
-      tx_hash: result.txHash ?? null,
+      payer,
+      tx_hash: txHash,
+      mode: isTest ? "test" : "live",
     });
   }
 
