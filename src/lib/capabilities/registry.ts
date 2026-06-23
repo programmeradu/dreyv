@@ -5358,6 +5358,20 @@ export function restPathFor(cap: PublicCapability): string {
 }
 
 export function findCapabilityByRestPath(slug: string[]): PublicCapability | undefined {
-  const id = slug.join(".");
-  return byId.get(id);
+  if (!slug || slug.length === 0) return undefined;
+  // Normalize each segment: URL hyphens → underscores (capability ids use underscores).
+  const norm = slug.map((s) => s.replace(/-/g, "_"));
+  // 1) Direct join (e.g. ["market","token_forensics"] → "market.token_forensics").
+  const direct = byId.get(norm.join("."));
+  if (direct) return direct;
+  // 2) Treat first segment as namespace, the rest as a single id segment joined by "_"
+  //    so ["market","token","forensics"] → "market.token_forensics".
+  if (norm.length >= 2) {
+    const collapsed = `${norm[0]}.${norm.slice(1).join("_")}`;
+    const hit = byId.get(collapsed);
+    if (hit) return hit;
+  }
+  // 3) Last resort: join everything with "." (legacy behaviour).
+  return byId.get(slug.join("."));
 }
+
