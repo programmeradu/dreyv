@@ -181,6 +181,7 @@ export default function RootLayout({
           `}
         </Script>
         <ConditionalAppProviders>{children}</ConditionalAppProviders>
+        <WebMCPProvider />
         <VisualEditsMessenger />
         <ToastContainer />
         <CookieBanner />
