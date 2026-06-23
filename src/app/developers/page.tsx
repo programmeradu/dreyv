@@ -125,13 +125,13 @@ const pillars = [
   { icon: Brain, title: "Foresight & agentic", desc: "Monte-Carlo sims, scenario IRs, agent watchers, hash-chained audit." },
 ];
 
-const agents = [
-  { name: "Claude Desktop", note: "claude_desktop_config.json" },
-  { name: "Cursor", note: "Settings → MCP → Add server" },
-  { name: "ChatGPT", note: "via /openapi.json plugin" },
-  { name: "Windsurf", note: "MCP servers panel" },
+const agents: { name: string; note: string; logo?: string }[] = [
+  { name: "Claude Desktop", note: "claude_desktop_config.json", logo: "https://cdn.simpleicons.org/claude/7c3aed" },
+  { name: "Cursor", note: "Settings → MCP → Add server", logo: "https://cdn.simpleicons.org/cursor/7c3aed" },
+  { name: "ChatGPT", note: "via /openapi.json plugin", logo: "https://svgl.app/library/openai.svg" },
+  { name: "Windsurf", note: "MCP servers panel", logo: "https://cdn.simpleicons.org/windsurf/7c3aed" },
   { name: "Continue.dev", note: "config.json mcpServers" },
-  { name: "Cline", note: "MCP-aware tool calling" },
+  { name: "Cline", note: "MCP-aware tool calling", logo: "https://cdn.simpleicons.org/cline/7c3aed" },
   { name: "elizaOS", note: "@dreyv/sdk client" },
   { name: "Custom agent", note: "REST + Bearer key" },
 ];
@@ -414,10 +414,20 @@ export default function DevelopersPage() {
                   {agents.map((a) => (
                     <div
                       key={a.name}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 hover:border-violet-300 transition-colors"
+                      className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 hover:border-violet-300 transition-colors"
                     >
-                      <div className="text-[13px] font-semibold text-slate-900">{a.name}</div>
-                      <div className="mt-0.5 text-[10.5px] text-slate-500 leading-snug">{a.note}</div>
+                      <span className="flex-none inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 ring-1 ring-violet-100 overflow-hidden">
+                        {a.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={a.logo} alt="" className="h-4 w-4 object-contain" loading="lazy" />
+                        ) : (
+                          <span className="text-[11px] font-semibold text-violet-700">{a.name.charAt(0)}</span>
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold text-slate-900 truncate">{a.name}</div>
+                        <div className="mt-0.5 text-[10.5px] text-slate-500 leading-snug truncate">{a.note}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
