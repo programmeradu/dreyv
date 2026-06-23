@@ -14,7 +14,7 @@ import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getAgentBalance, minorToUsd, TOPUP_MIN_USD } from "@/lib/agent/balance";
 import { getSiteOrigin } from "@/lib/seo/site";
 import { buildPaymentOptions } from "@/lib/agent/payment-options";
-import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
+import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 
 export const runtime = "nodejs";
@@ -42,13 +42,24 @@ export async function GET(req: NextRequest) {
     ledger = (rows as unknown as { rows: typeof ledger }).rows;
   }
 
-  // When balance is empty, embed the full payment menu so the agent can
-  // forward concrete options to its human operator without a second call.
+  // Probe wallet rail too — autonomous if either prepaid balance OR on-chain
+  // USDC > 0. Only when BOTH are empty do we expose the human-facing menu.
+  const usdc = tokenFor("solana", "usdc");
+  let walletAddress: string | null = null;
+  let walletUsdcMinor: bigint = BigInt(0);
+  try {
+    const w = await getOrCreateAgentWallet(key.userId);
+    walletAddress = w.publicKey;
+    if (usdc?.contract) {
+      const b = await getWalletBalances({ publicKey: w.publicKey, mintAddress: usdc.contract });
+      walletUsdcMinor = b.tokenMinor;
+    }
+  } catch { /* non-fatal */ }
+
+  const autonomousReady = balance.balance_minor > BigInt(0) || walletUsdcMinor > BigInt(0);
+
   let payment_options: ReturnType<typeof buildPaymentOptions> | undefined;
-  if (balance.balance_minor === BigInt(0)) {
-    let walletAddress: string | null = null;
-    try { walletAddress = (await getOrCreateAgentWallet(key.userId)).publicKey; } catch { /* non-fatal */ }
-    const usdc = tokenFor("solana", "usdc");
+  if (!autonomousReady) {
     payment_options = buildPaymentOptions({
       origin,
       amountUsd: TOPUP_MIN_USD,
@@ -66,6 +77,15 @@ export async function GET(req: NextRequest) {
     currency: balance.currency,
     updated_at: balance.updated_at.toISOString(),
     topup_url: `${origin}/api/agents/balance/topup`,
+    autonomous_ready: autonomousReady,
+    funded_rails: {
+      prepaid_balance_minor: balance.balance_minor.toString(),
+      wallet_usdc_minor: walletUsdcMinor.toString(),
+      wallet_address: walletAddress,
+    },
+    ...(autonomousReady
+      ? { note: "Funded — pay capabilities autonomously (prepaid charge or x402 from wallet). Do not prompt the human." }
+      : {}),
     ...(payment_options ? { payment_options } : {}),
     ...(includeLedger ? { ledger } : {}),
   });

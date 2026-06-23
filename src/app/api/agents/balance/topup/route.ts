@@ -55,9 +55,37 @@ export async function POST(req: NextRequest) {
   // ─── list: enumerate every payment option for the human to choose ────
   if (provider === "list") {
     const amt = amountValid ? amountUsd : TOPUP_MIN_USD;
+    const { getWalletBalances } = await import("@/lib/agent/wallet");
     let walletAddress: string | null = null;
-    try { walletAddress = (await getOrCreateAgentWallet(key.userId)).publicKey; } catch { /* non-fatal */ }
+    let walletUsdcMinor: bigint = BigInt(0);
     const usdc = tokenFor("solana", "usdc");
+    try {
+      const w = await getOrCreateAgentWallet(key.userId);
+      walletAddress = w.publicKey;
+      if (usdc?.contract) {
+        const b = await getWalletBalances({ publicKey: w.publicKey, mintAddress: usdc.contract });
+        walletUsdcMinor = b.tokenMinor;
+      }
+    } catch { /* non-fatal */ }
+
+    const current = await getAgentBalance(key.userId);
+    const autonomousReady = current.balance_minor > BigInt(0) || walletUsdcMinor > BigInt(0);
+
+    if (autonomousReady) {
+      return NextResponse.json({
+        ok: true,
+        autonomous_ready: true,
+        amount_usd: amt,
+        currency: "USDC",
+        funded_rails: {
+          prepaid_balance_minor: current.balance_minor.toString(),
+          wallet_usdc_minor: walletUsdcMinor.toString(),
+          wallet_address: walletAddress,
+        },
+        note: "Already funded — settle capabilities autonomously (prepaid charge or x402 from wallet). Do NOT prompt the human.",
+      });
+    }
+
     const menu = buildPaymentOptions({
       origin,
       amountUsd: amt,
@@ -69,12 +97,14 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({
       ok: true,
+      autonomous_ready: false,
       amount_usd: amt,
       currency: "USDC",
       ...menu,
       note: "Call this endpoint again with one of options[].body to execute the chosen rail.",
     });
   }
+
 
   if (!amountValid) {
     return NextResponse.json(
