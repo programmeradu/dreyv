@@ -1,25 +1,92 @@
 # dreyv — API context (scoped llms.txt)
 
-> Scoped agent context for the dreyv REST API surface. For full product context see `/llms-full.txt`.
+> Scoped agent context for the dreyv REST + MCP API surface.
+> Same capability registry powers both transports. For full product context see `/llms-full.txt`.
 
-## Canonical specs
+## Canonical specs (read these before generating client code)
+
 - OpenAPI 3.1: https://dreyv.com/openapi.json
+- MCP discovery: https://dreyv.com/.well-known/mcp.json
+- MCP tool manifest (every tool, every input schema): https://dreyv.com/api/mcp/manifest
 - Plugin manifest: https://dreyv.com/.well-known/ai-plugin.json
-- API catalog: https://dreyv.com/.well-known/api-catalog
+- ACP descriptor: https://dreyv.com/.well-known/acp.json
+- UCP profile: https://dreyv.com/.well-known/ucp
+- API catalog (RFC 9727): https://dreyv.com/.well-known/api-catalog
+- x402 capability: https://dreyv.com/.well-known/x402
 - Developer portal: https://dreyv.com/developers
+- MCP setup: https://dreyv.com/developers/mcp
+- REST reference: https://dreyv.com/developers/api
 
 ## Auth
+
 - Bearer JWT (SIWS) — issued via `/api/auth/*`
-- API keys — provisioned at `/developers` (per-org, scoped)
-- OAuth 2.0 (planned, beta) — see `/developers#oauth`
+- API keys (prefix `dk_live_`) — minted at `/app/settings/api`, scoped per-org
+- OAuth 2.0 (beta) — see `/developers#oauth`
+- Header (both REST and MCP): `Authorization: Bearer <key>`
+
+## Transports
+
+- REST: `https://dreyv.com/api/v1/{capability_path}` — capability id `foo.bar` → path `/api/v1/foo/bar`
+- MCP: `https://dreyv.com/api/mcp` — JSON-RPC over Streamable HTTP, tool name `dreyv_foo_bar`
+- Legacy `/api/*` routes (planner, simulate, command, swap, vault, squads, yield, research) remain available
+
+### MCP required headers (per spec)
+
+```
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Authorization: Bearer <key>
+```
+
+Servers built with the official MCP SDK reject POSTs without `Accept: application/json, text/event-stream`
+with HTTP 406. Always include both media types.
 
 ## Public endpoints (no auth)
+
 - `GET /api/health`
 - `GET /api/price?token=SOL`
 - `GET /api/atlas/tokens`
 - `GET /api/atlas/tokens/{symbol}`
+- `GET /api/mcp/manifest` — public MCP tool catalog
+- `GET /.well-known/mcp.json` — MCP discovery
+- `POST /api/mcp` — `initialize` only; `tools/call` requires Bearer
 
 ## Authenticated endpoint families
+
+### Capability registry (REST + MCP, unified)
+
+- `/api/v1/identity/*` — wallet resolve, wallet meta, profile
+- `/api/v1/portfolio/*` — holdings, PnL, DeFi positions
+- `/api/v1/treasury/*` — health, multisig pending
+- `/api/v1/market/*` — price, OHLCV, forensics, yields, trending, history
+- `/api/v1/swap/*` — Solana/EVM quote + build (unsigned)
+- `/api/v1/bridge/*` — bridge quotes
+- `/api/v1/gas/*` — gas estimates
+- `/api/v1/risk/*` — wallet risk, edge insights
+- `/api/v1/wallet/*` — narrative
+- `/api/v1/tax/*` — analyze
+- `/api/v1/foresight/*` — simulate
+- `/api/v1/agentic/*` — delegation request/status
+- `/api/v1/watchers/*`, `/api/v1/monitors/*` — agentic monitors
+- `/api/v1/economy/*` — x402 catalog, ACP catalog, SKUs
+- `/api/v1/governance/*` — proposals, votes
+- `/api/v1/defi/*` — positions, yields, vaults
+- `/api/v1/knowledge/*` — memory + vector
+- `/api/v1/safety/*`, `/api/v1/compliance/*` — sanctions, policy
+- `/api/v1/notifications/*`, `/api/v1/inbox/*`, `/api/v1/digests/*`, `/api/v1/webhooks/*`
+- `/api/v1/audit/*`, `/api/v1/observability/*`
+- `/api/v1/billing/*`, `/api/v1/entitlements/*`
+- `/api/v1/teams/*`, `/api/v1/privacy/*`, `/api/v1/storage/*`, `/api/v1/search/*`
+- `/api/v1/status/*`, `/api/v1/jobs/*`, `/api/v1/exports/*`
+- `/api/v1/tags/*`, `/api/v1/flags/*`, `/api/v1/insights/*`
+- `/api/v1/marketplace/*`, `/api/v1/sla/*`, `/api/v1/contracts/*`
+- `/api/v1/workflows/*`
+
+Full enumerated list with input schemas, scopes, side-effects (read/simulate/write), status (stable/preview),
+and per-call cost: fetch https://dreyv.com/api/mcp/manifest or https://dreyv.com/openapi.json.
+
+### Legacy / convenience routes
+
 - `/api/command/*` — natural-language treasury intents
 - `/api/planner/*` — structured intent → plan
 - `/api/simulate/*` and `/api/foresight/*` — fork simulation
@@ -31,7 +98,10 @@
 - `/api/dreyv-gateway/*` — provider-routed AI gateway
 
 ## Conventions
+
 - All bodies JSON; UTF-8.
 - All responses include `Link` headers (RFC 8288) pointing to api-catalog and service-desc.
 - Errors follow RFC 9457 Problem Details when possible.
 - Non-custodial: signing happens client-side; server returns sign-ready transactions.
+- Scopes are enforced per capability — minted keys can be scoped read-only.
+- Per-call cost is exposed in capability metadata; usage is metered against billing tier.
