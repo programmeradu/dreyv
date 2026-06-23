@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { RESOURCE_DOCS, getResourceDoc } from "@/lib/developers/resource-docs";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import { CodeBlock } from "@/components/ui/code-block";
 
 export function generateStaticParams() {
   return RESOURCE_DOCS.map((d) => ({ slug: d.slug }));
