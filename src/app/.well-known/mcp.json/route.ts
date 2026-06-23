@@ -17,6 +17,12 @@ export function GET(req: NextRequest) {
       version: "1.0.0",
       description:
         "Non-custodial AI treasury OS for Solana + EVM. Read positions, simulate, execute, govern — all unsigned-tx, all behind one Bearer key.",
+      logo: `${origin}/dreyv-mark.png`,
+      icon: `${origin}/icon.png`,
+      icons: [
+        { src: `${origin}/icon.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: `${origin}/dreyv-mark.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+      ],
       transport: "streamable-http",
       endpoint: `${origin}/api/mcp`,
       manifest: `${origin}/api/mcp/manifest`,
