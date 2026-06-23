@@ -2937,3 +2937,89 @@ export const entitlementOverrides = pgTable('entitlement_overrides', {
 }, (t) => ({
   userFeatureUq: uniqueIndex('entitlement_overrides_user_feature_uq').on(t.userId, t.feature),
 }));
+
+// ─── OAuth 2.1 + Dynamic Client Registration server ───────────────────
+// Lets MCP clients (Claude, ChatGPT, Cursor, etc.) self-register and obtain
+// scoped JWT access tokens that authorize calls to /api/mcp and /api/v1/*.
+// See db-migrations/0048_oauth_server.sql for the source-of-truth schema.
+
+export const oauthClients = pgTable('oauth_clients', {
+  clientId: text('client_id').primaryKey(),
+  clientSecretHash: text('client_secret_hash'),
+  clientName: text('client_name').notNull(),
+  clientUri: text('client_uri'),
+  logoUri: text('logo_uri'),
+  redirectUris: text('redirect_uris').array().notNull(),
+  grantTypes: text('grant_types').array().notNull(),
+  responseTypes: text('response_types').array().notNull(),
+  tokenEndpointAuthMethod: text('token_endpoint_auth_method').notNull().default('none'),
+  scopes: text('scopes').array().notNull(),
+  softwareId: text('software_id'),
+  softwareVersion: text('software_version'),
+  registrationAccessTokenHash: text('registration_access_token_hash'),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  disabledAt: timestamp('disabled_at', { withTimezone: true }),
+});
+
+export const oauthAuthCodes = pgTable('oauth_auth_codes', {
+  codeHash: text('code_hash').primaryKey(),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  scopes: text('scopes').array().notNull(),
+  redirectUri: text('redirect_uri').notNull(),
+  codeChallenge: text('code_challenge').notNull(),
+  codeChallengeMethod: text('code_challenge_method').notNull().default('S256'),
+  nonce: text('nonce'),
+  state: text('state'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const oauthTokens = pgTable('oauth_tokens', {
+  tokenHash: text('token_hash').primaryKey(),
+  tokenType: text('token_type').notNull(),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  scopes: text('scopes').array().notNull(),
+  jti: text('jti'),
+  parentRefreshHash: text('parent_refresh_hash'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const oauthDeviceCodes = pgTable('oauth_device_codes', {
+  deviceCodeHash: text('device_code_hash').primaryKey(),
+  userCode: text('user_code').notNull().unique(),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  scopes: text('scopes').array().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  intervalSeconds: integer('interval_seconds').notNull().default(5),
+  approvedUserId: uuid('approved_user_id').references(() => users.id, { onDelete: 'set null' }),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  deniedAt: timestamp('denied_at', { withTimezone: true }),
+  lastPolledAt: timestamp('last_polled_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const oauthSigningKeys = pgTable('oauth_signing_keys', {
+  kid: text('kid').primaryKey(),
+  algorithm: text('algorithm').notNull().default('ES256'),
+  publicJwk: jsonb('public_jwk').notNull(),
+  privateJwkEncrypted: bytea('private_jwk_encrypted').notNull(),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  retiredAt: timestamp('retired_at', { withTimezone: true }),
+});
+
+export const oauthConsents = pgTable('oauth_consents', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+  scopes: text('scopes').array().notNull(),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: uniqueIndex('oauth_consents_pk').on(t.userId, t.clientId),
+}));
+
