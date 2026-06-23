@@ -1,0 +1,32 @@
+; DNS-AID (DNS for AI Discovery) zone fragment for dreyv.com
+; Spec: https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/
+; ServiceMode SVCB records per RFC 9460.
+;
+; Publish under the apex zone and sign with DNSSEC so validating
+; resolvers return authenticated data to agents.
+
+$ORIGIN dreyv.com.
+
+; Top-level agent discovery index — points to .well-known/agent-skills/index.json
+_index._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/.well-known/agent-skills/index.json" )
+
+; MCP Streamable HTTP endpoint
+_mcp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/api/mcp" )
+
+; ACP commerce discovery
+_acp._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/.well-known/acp.json" )
+
+; A2A — agent-to-agent surface (currently routed through MCP)
+_a2a._agents     3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/api/mcp" )
+
+; OAuth / OIDC discovery
+_oauth._agents   3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/.well-known/openid-configuration" )
+
+; x402 payment capability
+_x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443
+                                              endpoint="/.well-known/x402" )

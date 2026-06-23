@@ -6,6 +6,7 @@ import Script from "next/script";
 import { ConditionalAppProviders } from "@/components/providers/conditional-app-providers";
 import { ToastContainer } from "@/components/ToastContainer";
 import { CookieBanner } from "@/components/CookieBanner";
+import { WebMCPProvider } from "@/components/agent/WebMCPProvider";
 import { RootJsonLd } from "@/components/seo/JsonLd";
 import { getSiteUrl } from "@/lib/seo/site";
 import { Analytics } from "@vercel/analytics/next";
@@ -180,6 +181,7 @@ export default function RootLayout({
           `}
         </Script>
         <ConditionalAppProviders>{children}</ConditionalAppProviders>
+        <WebMCPProvider />
         <VisualEditsMessenger />
         <ToastContainer />
         <CookieBanner />

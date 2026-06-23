@@ -134,9 +134,20 @@ export function GET() {
         "JSON-RPC 2.0 transport per the MCP spec. Set `Accept: application/json, text/event-stream` and authenticate with the same `Authorization: Bearer dk_live_…` key used for REST.",
       tags: ["mcp"],
       security: [{ bearerAuth: [] }],
+      "x-payment-info": {
+        intent: "session",
+        method: "stripe",
+        amount: 0,
+        currency: "USD",
+        description:
+          "Free tier covers basic MCP traffic; paid tiers metered via /pricing. x402 advertised at /.well-known/x402.",
+      },
       responses: {
         "200": { description: "JSON-RPC response or SSE stream" },
         "401": { $ref: "#/components/responses/Unauthorized" },
+        "402": {
+          description: "Payment required (x402 / MPP) — see headers and body for requirements.",
+        },
       },
     },
   };
@@ -226,6 +237,15 @@ export function GET() {
       mcpEndpoint: `${origin}/api/mcp`,
       mcpManifest: `${origin}/api/mcp/manifest`,
       discovery: `${origin}/.well-known/mcp.json`,
+    },
+    "x-payment-info": {
+      providers: ["stripe", "paystack", "x402"],
+      discovery: {
+        x402: `${origin}/.well-known/x402`,
+        acp: `${origin}/.well-known/acp.json`,
+        ucp: `${origin}/.well-known/ucp`,
+      },
+      pricing: `${origin}/pricing`,
     },
   } as const;
 
