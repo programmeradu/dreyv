@@ -172,9 +172,11 @@ export async function POST() {
   try {
     const results: RecordReport[] = [];
     for (const rec of DNS_AID_RECORDS) {
-      // Sequential — the Cloudflare API rate limit is generous but 6 records
-      // is small enough that ordering also keeps the response easy to read.
-      results.push(await upsertOne(token, zoneId, rec));
+      // Sequential keeps the response easy to read; Cloudflare's rate limit is generous.
+      // SVCB advertises transport (alpn/port); a companion TXT carries the endpoint path,
+      // since `endpoint` isn't a registered SvcParamKey that Cloudflare's validator accepts.
+      results.push(await upsertSvcb(token, zoneId, rec));
+      results.push(await upsertTxt(token, zoneId, rec));
     }
     const summary = {
       created: results.filter((r) => r.action === "created").length,
