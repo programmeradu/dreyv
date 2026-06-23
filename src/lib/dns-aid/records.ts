@@ -32,10 +32,11 @@ export const DNS_AID_RECORDS: DnsAidRecord[] = [
 
 /**
  * Build the SVCB params value string per RFC 9460.
- * `endpoint` is not a registered SvcParamKey, so we publish it as the generic
- * key `key7` (Cloudflare validates against the registry and rejects unknown
- * named keys, but accepts `keyNNN` for private use). `port` must be unquoted.
+ * Cloudflare's structured SVCB API only accepts registered SvcParamKeys, so we
+ * publish just `alpn` + `port`. The endpoint path is conveyed out-of-band via
+ * the /.well-known/dns-aid zone mirror (clients resolve the underscored name,
+ * then fetch the documented well-known path on the target host).
  */
-export function svcbValue(endpoint: string): string {
-  return `alpn="${DNS_AID_ALPN}" port=${DNS_AID_PORT} key7="${endpoint}"`;
+export function svcbValue(_endpoint?: string): string {
+  return `alpn="${DNS_AID_ALPN}" port=${DNS_AID_PORT}`;
 }
