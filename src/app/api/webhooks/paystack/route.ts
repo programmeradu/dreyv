@@ -67,6 +67,26 @@ export async function POST(req: NextRequest) {
         await settleAgentPayment({ paymentId: agentPaymentId, providerRef });
     }
 
+    // Prepaid agent balance top-up (POST /api/agents/balance/topup, paystack rail).
+    // Credits the agent_balances ledger when the Paystack init carried
+    // metadata.source === "balance_topup" + amount_minor + dreyv_user_id.
+    if (
+        event === "charge.success" &&
+        data?.metadata?.source === "balance_topup" &&
+        data?.metadata?.dreyv_user_id &&
+        data?.metadata?.amount_minor
+    ) {
+        try {
+            const { creditAgentBalance } = await import("@/lib/agent/balance");
+            const topupUserId: string = data.metadata.dreyv_user_id;
+            const amountMinor = BigInt(data.metadata.amount_minor);
+            const ref: string = data?.reference ?? `paystack:${Date.now()}`;
+            await creditAgentBalance({ userId: topupUserId, amountMinor, reason: "topup_paystack", ref });
+        } catch (err) {
+            console.error("[Paystack] balance top-up credit failed:", err);
+        }
+    }
+
     const customerCode: string | undefined =
         data?.customer?.customer_code || data?.subscription?.customer?.customer_code;
     const customerEmail: string | undefined =
