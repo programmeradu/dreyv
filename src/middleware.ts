@@ -298,8 +298,40 @@ async function isWalletWaitlistAllowed(request: NextRequest, wallet: string | nu
     }
 }
 
+const MD_NEGOTIATION_PATHS = new Set<string>([
+    '/', '/pricing', '/developers', '/developers/mcp', '/api-docs', '/mcp',
+    '/case', '/atlas', '/compare', '/waitlist',
+    '/legal/privacy', '/legal/terms', '/legal/refunds', '/legal/cookies',
+]);
+
+function wantsMarkdown(request: NextRequest): boolean {
+    if (request.headers.get('x-md-bypass')) return false;
+    const accept = request.headers.get('accept') || '';
+    if (!accept) return false;
+    // Only when text/markdown is explicitly preferred (not generic */*).
+    return /text\/markdown/i.test(accept);
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+
+    // ─── Markdown for Agents (content negotiation) ──────────────────
+    // Rewrite Accept: text/markdown requests for marketing/docs pages
+    // to /api/agents/markdown so HTML stays the default for browsers.
+    if (
+        request.method === 'GET' &&
+        wantsMarkdown(request) &&
+        (MD_NEGOTIATION_PATHS.has(pathname) ||
+            pathname.startsWith('/legal/') ||
+            pathname.startsWith('/case/'))
+    ) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/api/agents/markdown';
+        url.search = `?path=${encodeURIComponent(pathname)}`;
+        return NextResponse.rewrite(url);
+    }
+
+
 
     // ─── App construction gate (must run first) ─────────────────────
     if (
