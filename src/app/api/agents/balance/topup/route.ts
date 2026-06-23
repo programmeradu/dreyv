@@ -44,11 +44,39 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
 
-  let body: { amount_usd?: number; provider?: "x402" | "stripe" } = {};
+  let body: { amount_usd?: number; provider?: "x402" | "stripe" | "paystack" | "list" } = {};
   try { body = await req.json(); } catch { /* allow empty for x402 replay */ }
 
   const amountUsd = Number(body.amount_usd);
-  if (!Number.isFinite(amountUsd) || amountUsd < TOPUP_MIN_USD || amountUsd > TOPUP_MAX_USD) {
+  const amountValid = Number.isFinite(amountUsd) && amountUsd >= TOPUP_MIN_USD && amountUsd <= TOPUP_MAX_USD;
+  const provider = body.provider ?? (amountValid ? "x402" : "list");
+  const origin = getSiteOrigin();
+
+  // ─── list: enumerate every payment option for the human to choose ────
+  if (provider === "list") {
+    const amt = amountValid ? amountUsd : TOPUP_MIN_USD;
+    let walletAddress: string | null = null;
+    try { walletAddress = (await getOrCreateAgentWallet(key.userId)).publicKey; } catch { /* non-fatal */ }
+    const usdc = tokenFor("solana", "usdc");
+    const menu = buildPaymentOptions({
+      origin,
+      amountUsd: amt,
+      walletAddress,
+      walletUsdcMint: usdc?.contract ?? null,
+      network: process.env.X402_NETWORK?.trim() || "base-sepolia",
+      stripeEnabled: Boolean(process.env.STRIPE_SECRET_KEY?.trim()),
+      paystackEnabled: Boolean(process.env.PAYSTACK_SECRET_KEY?.trim()),
+    });
+    return NextResponse.json({
+      ok: true,
+      amount_usd: amt,
+      currency: "USDC",
+      ...menu,
+      note: "Call this endpoint again with one of options[].body to execute the chosen rail.",
+    });
+  }
+
+  if (!amountValid) {
     return NextResponse.json(
       { error: "invalid_amount", min_usd: TOPUP_MIN_USD, max_usd: TOPUP_MAX_USD },
       { status: 400 },
@@ -56,8 +84,6 @@ export async function POST(req: NextRequest) {
   }
   const amountMinor = usdToMinor(amountUsd);
   const amountAtomicUsdc = amountMinor.toString(); // USDC also 6 decimals on Base/Solana
-  const provider = body.provider ?? "x402";
-  const origin = getSiteOrigin();
 
   // ─── x402 ────────────────────────────────────────────────────────────
   if (provider === "x402") {
