@@ -86,37 +86,45 @@ export default function DevelopersApiPage() {
         <SiteHeader />
 
         <main className="mx-auto max-w-5xl px-5 sm:px-8 py-16 sm:py-24">
-          <header className="mb-12">
-            <div className="flex items-center gap-2.5">
-              <DreyvStar size={11} className="text-violet-600" />
-              <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv API · v1</span>
-            </div>
-            <h1 className="mt-3 text-[40px] sm:text-[52px] leading-[1.05] font-semibold tracking-[-0.02em]">
-              One typed Bearer key for <span className="italic font-light text-violet-600">every corner of Web3</span>.
-            </h1>
-            <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
-              REST at <code className="font-mono text-violet-700">{`/api/v1/{capability}`}</code>. Every capability is generated from the same typed registry that powers our MCP server, so REST and MCP never drift. Authenticate with <code className="font-mono text-violet-700">Authorization: Bearer dk_live_…</code>.
-            </p>
+          <header className="mb-12 grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-8 items-center">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <DreyvStar size={11} className="text-violet-600" />
+                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv API · v1 · {caps.length}+ capabilities</span>
+              </div>
+              <h1 className="mt-3 text-[40px] sm:text-[56px] leading-[1.04] font-semibold tracking-[-0.02em]">
+                One typed Bearer key for <span className="italic font-light text-violet-600">every corner of Web3</span>.
+              </h1>
+              <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
+                REST at <code className="font-mono text-violet-700">{`/api/v1/{capability}`}</code>. Every capability is generated from the same typed registry that powers our MCP server, so REST and MCP never drift. Authenticate with <code className="font-mono text-violet-700">Authorization: Bearer dk_live_…</code>.
+              </p>
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Link
-                href="/app/settings?view=api"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
-              >
-                <KeyRound size={13} /> Mint a key
-              </Link>
-              <Link
-                href="/developers/mcp"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
-              >
-                MCP server <ArrowUpRight size={13} />
-              </Link>
-              <a
-                href="/openapi.json"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
-              >
-                OpenAPI <ArrowUpRight size={13} />
-              </a>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link
+                  href="/app/settings?view=api"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
+                >
+                  <KeyRound size={13} /> Mint a key
+                </Link>
+                <Link
+                  href="/developers/mcp"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
+                >
+                  MCP server <ArrowUpRight size={13} />
+                </Link>
+                <a
+                  href="/openapi.json"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
+                >
+                  OpenAPI <ArrowUpRight size={13} />
+                </a>
+              </div>
+            </div>
+            <div className="hidden lg:flex justify-end relative">
+              <Image src={commandStar} alt="" width={180} height={180} className="opacity-90" />
+              <div className="absolute -bottom-2 -left-2">
+                <DreyvMascot pose="celebrate" size={120} alt="Dreyv mascot" />
+              </div>
             </div>
           </header>
 
