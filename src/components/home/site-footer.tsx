@@ -40,9 +40,19 @@ const tokenLinks = [
   { label: "BONK", href: "/atlas/tokens/bonk" },
 ];
 
+const developerLinks = [
+  { label: "Developers hub", href: "/developers" },
+  { label: "MCP server", href: "/developers/mcp" },
+  { label: "REST API reference", href: "/developers/api" },
+  { label: "Agent integrations", href: "/developers/agents" },
+  { label: "OpenAPI spec", href: "/openapi.json" },
+  { label: "llms.txt", href: "/llms.txt" },
+  { label: "MCP manifest", href: "/api/mcp/manifest" },
+];
+
 const companyLinks = [
   { label: "About", href: "/#content" },
-  { label: "Documentation", href: "/#deep-dive" },
+  { label: "Documentation", href: "/developers/docs" },
   { label: "Contact", href: "/#contact" },
 ];
 

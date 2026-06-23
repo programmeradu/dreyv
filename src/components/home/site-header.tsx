@@ -17,10 +17,9 @@ const wordmark = Urbanist({
 
 const navLinks = [
   { label: "Platform", href: "/#pillars" },
-  { label: "Features", href: "/#deep-dive" },
   { label: "Atlas", href: "/#atlas" },
-  { label: "How It Works", href: "/#how-it-works" },
-  { label: "Use Cases", href: "/#use-cases" },
+  { label: "Developers", href: "/developers" },
+  { label: "MCP", href: "/developers/mcp", highlight: true },
   { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/#faq" },
 ];
@@ -52,7 +51,12 @@ export function SiteHeader() {
               <a
                 key={link.href}
                 href={link.href}
-                className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-violet-700 rounded-lg hover:bg-violet-50/80 transition-all duration-200"
+                className={cn(
+                  "px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  link.highlight
+                    ? "text-violet-700 bg-violet-50 hover:bg-violet-100 ring-1 ring-violet-200"
+                    : "text-slate-600 hover:text-violet-700 hover:bg-violet-50/80",
+                )}
               >
                 {link.label}
               </a>
