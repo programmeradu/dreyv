@@ -120,6 +120,23 @@ export async function POST(req: NextRequest) {
             await settleAgentPayment({ paymentId: agentPaymentId, providerRef });
         }
 
+        // Prepaid balance top-up (POST /api/agents/balance/topup, stripe rail).
+        if (
+            metadata.source === "balance_topup" &&
+            userId &&
+            metadata.amount_minor &&
+            (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded")
+        ) {
+            try {
+                const { creditAgentBalance } = await import("@/lib/agent/balance");
+                const amountMinor = BigInt(metadata.amount_minor);
+                const ref = (obj.id as string | undefined) ?? `${event.type}:${Date.now()}`;
+                await creditAgentBalance({ userId, amountMinor, reason: "topup_stripe", ref });
+            } catch (err) {
+                console.error("[Stripe] balance top-up credit failed:", err);
+            }
+        }
+
         switch (event.type) {
             case "checkout.session.completed": {
                 // Initial activation. Resolve tier from metadata.

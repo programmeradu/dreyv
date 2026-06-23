@@ -30,6 +30,9 @@ import { db } from "@/db";
 import { users, agentSignupAudit } from "@/db/schema";
 import { registerClient } from "@/lib/oauth/clients";
 import { mintPublicKey } from "@/lib/api-keys/public-keys";
+import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
+import { getAgentBalance, minorToUsd } from "@/lib/agent/balance";
+import { getSiteOrigin } from "@/lib/seo/site";
 import type { OAuthScope } from "@/lib/oauth/scopes";
 
 export const dynamic = "force-dynamic";
@@ -134,6 +137,25 @@ export async function POST(req: NextRequest) {
     })
     .returning({ id: agentSignupAudit.id });
 
+  // Auto-provision the autonomous payment surfaces so the agent doesn't
+  // have to discover two extra endpoints before its first paid call.
+  let walletAddress: string | null = null;
+  let walletError: string | null = null;
+  try {
+    const w = await getOrCreateAgentWallet(userId);
+    walletAddress = w.publicKey;
+  } catch (err) {
+    walletError = err instanceof Error ? err.message : "wallet_provision_failed";
+  }
+  let balanceMinor = BigInt(0);
+  try {
+    const b = await getAgentBalance(userId);
+    balanceMinor = b.balance_minor;
+  } catch {
+    /* table may not be migrated yet — non-fatal */
+  }
+  const origin = getSiteOrigin();
+
   return NextResponse.json(
     {
       user_id: userId,
@@ -145,9 +167,19 @@ export async function POST(req: NextRequest) {
       scopes: apiKey.scopes,
       tier: "free",
       audit_id: audit.id,
+      wallet: walletAddress
+        ? { address: walletAddress, network: "solana", endpoint: `${origin}/api/agents/wallet` }
+        : { error: walletError },
+      balance: {
+        balance_minor: balanceMinor.toString(),
+        balance: minorToUsd(balanceMinor),
+        currency: "USDC",
+        topup_url: `${origin}/api/agents/balance/topup`,
+      },
       notice:
         "Store client_secret and api_key now — they are shown only once. " +
-        "Upgrade tier via POST /api/acp/checkout. Mint scoped keys via POST /api/keys.",
+        "Upgrade tier via POST /api/acp/checkout. Top up prepaid balance via POST /api/agents/balance/topup. " +
+        "Mint scoped keys via POST /api/keys.",
     },
     { status: 201 },
   );
