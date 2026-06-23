@@ -26,6 +26,7 @@ import ctaKey from "@/assets/cta-key-violet.png";
 import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 import heroLiquid from "@/assets/hero-liquid-violet.png";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import { CodeBlock } from "@/components/ui/code-block";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";

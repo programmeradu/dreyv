@@ -108,7 +108,7 @@ export default function DevelopersMcpPage() {
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Claude Desktop</span>
               </div>
               <div className="p-5">
-                <pre className="rounded-2xl bg-slate-950 p-4 text-[11.5px] leading-relaxed font-mono text-violet-50 overflow-x-auto whitespace-pre-wrap break-all">{claude}</pre>
+                <CodeBlock language="json" wrap dense>{claude}</CodeBlock>
                 <p className="mt-3 text-[11px] text-slate-500">
                   Paste into <code className="font-mono text-violet-700">~/Library/Application Support/Claude/claude_desktop_config.json</code> and restart Claude.
                 </p>
@@ -121,7 +121,7 @@ export default function DevelopersMcpPage() {
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Cursor</span>
               </div>
               <div className="p-5">
-                <pre className="rounded-2xl bg-slate-950 p-4 text-[11.5px] leading-relaxed font-mono text-violet-50 overflow-x-auto whitespace-pre-wrap break-all">{cursor}</pre>
+                <CodeBlock language="json" wrap dense>{cursor}</CodeBlock>
                 <p className="mt-3 text-[11px] text-slate-500">
                   Cursor → Settings → MCP → Add server, paste the JSON above.
                 </p>
