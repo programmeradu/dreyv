@@ -193,12 +193,10 @@ export async function POST() {
 export async function GET() {
   return NextResponse.json({
     zone: DNS_AID_ZONE,
-    records: DNS_AID_RECORDS.map((r) => ({
-      name: fqdn(r.name),
-      endpoint: r.endpoint,
-      value: svcbValue(r.endpoint),
-      ttl: r.ttl,
-    })),
+    records: DNS_AID_RECORDS.flatMap((r) => [
+      { type: "SVCB", name: fqdn(r.name), endpoint: r.endpoint, value: svcbValue(r.endpoint), ttl: r.ttl },
+      { type: "TXT", name: fqdn(r.name), endpoint: r.endpoint, value: `endpoint=${r.endpoint}`, ttl: r.ttl },
+    ]),
     configured: Boolean(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ZONE_ID),
   });
 }
