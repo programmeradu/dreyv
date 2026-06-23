@@ -78,7 +78,7 @@ async function generateAndStoreActive(): Promise<{ kid: string; privateJwk: JWK;
 export interface ActiveSigner {
   kid: string;
   alg: string;
-  privateKey: KeyLike;
+  privateKey: SigningKey;
 }
 
 export async function getActiveSigner(): Promise<ActiveSigner> {
@@ -91,12 +91,12 @@ export async function getActiveSigner(): Promise<ActiveSigner> {
 
   if (row) {
     const privateJwk = decryptPrivateJwk(Buffer.from(row.privateJwkEncrypted as unknown as Buffer));
-    const privateKey = (await importJWK(privateJwk, ALG)) as KeyLike;
+    const privateKey = (await importJWK(privateJwk, ALG)) as SigningKey;
     return { kid: row.kid, alg: ALG, privateKey };
   }
 
   const bootstrap = await generateAndStoreActive();
-  const privateKey = (await importJWK(bootstrap.privateJwk, ALG)) as KeyLike;
+  const privateKey = (await importJWK(bootstrap.privateJwk, ALG)) as SigningKey;
   return { kid: bootstrap.kid, alg: ALG, privateKey };
 }
 
