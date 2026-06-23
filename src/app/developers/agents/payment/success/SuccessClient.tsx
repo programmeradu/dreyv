@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CodeBlock } from "@/components/ui/code-block";
 
 type StatusResponse = {
     id: string;
@@ -116,10 +117,8 @@ export default function SuccessClient({ paymentId }: { paymentId: string }) {
                         <p className="text-[13px] font-medium text-slate-700">
                             Your agent can now claim the receipt:
                         </p>
-                        <pre className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-950 px-4 py-3 text-[12px] leading-relaxed text-slate-100">
-                            <code>{`curl https://dreyv.com/api/x402/checkout/${paymentId} \\
-  -H "Authorization: Bearer dak_…"`}</code>
-                        </pre>
+                        <CodeBlock dense wrap>{`curl https://dreyv.com/api/x402/checkout/${paymentId} \\
+  -H "Authorization: Bearer dak_…"`}</CodeBlock>
                         <p className="text-[12px] text-slate-500">
                             The response includes{" "}
                             <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">

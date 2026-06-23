@@ -30,6 +30,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { CodeBlock } from "@/components/ui/code-block";
 import {
   Connection,
   VersionedTransaction,
@@ -395,9 +396,9 @@ export default function MobileSignerPage() {
                 <ChevronDown size={14} className="transition group-open:rotate-180" />
                 Raw transaction (base64)
               </summary>
-              <pre className="mt-3 rounded-xl bg-neutral-50 ring-1 ring-black/5 p-3 text-[10px] leading-snug font-mono break-all whitespace-pre-wrap text-neutral-600 max-h-40 overflow-auto">
-                {data.txBase64}
-              </pre>
+              <div className="mt-3">
+                <CodeBlock dense wrap className="max-h-40 overflow-auto">{data.txBase64}</CodeBlock>
+              </div>
             </details>
 
             <button

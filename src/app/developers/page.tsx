@@ -26,6 +26,7 @@ import ctaKey from "@/assets/cta-key-violet.png";
 import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 import heroLiquid from "@/assets/hero-liquid-violet.png";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import { CodeBlock } from "@/components/ui/code-block";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";
@@ -227,9 +228,6 @@ export default function DevelopersPage() {
                   priority
                   className="h-[280px] w-[280px] object-contain"
                 />
-                <div className="absolute -bottom-6 -right-6">
-                  <DreyvMascot pose="greet" size={140} priority alt="Dreyv mascot greeting developers" />
-                </div>
               </div>
             </div>
           </div>
@@ -439,18 +437,14 @@ export default function DevelopersPage() {
                 <Image src={commandStar} alt="" width={28} height={28} className="opacity-90" />
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">REST quickstart</span>
               </div>
-              <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-5 text-[12px] leading-relaxed font-mono text-violet-50">
-                <code>{codeQuickstart}</code>
-              </pre>
+              <CodeBlock language="bash">{codeQuickstart}</CodeBlock>
             </div>
             <div className="rounded-3xl border border-violet-200/60 bg-white/85 backdrop-blur p-6 md:p-7 shadow-[0_20px_60px_-30px_rgba(124,58,237,0.20)]">
               <div className="flex items-center gap-2.5 mb-4">
                 <Plug className="h-4 w-4 text-violet-600" />
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">MCP install (Claude / Cursor)</span>
               </div>
-              <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-5 text-[12px] leading-relaxed font-mono text-violet-50">
-                <code>{mcpInstall}</code>
-              </pre>
+              <CodeBlock language="json">{mcpInstall}</CodeBlock>
               <p className="mt-3 text-[11.5px] text-slate-500 leading-relaxed">
                 Paste into your agent's MCP config and restart. Dreyv handles auth, scope enforcement, and per-key metering on the server.
               </p>

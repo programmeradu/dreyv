@@ -22,12 +22,10 @@ export const metadata: Metadata = {
     },
 };
 
-function Code({ children }: { children: React.ReactNode }) {
-    return (
-        <pre className="overflow-x-auto rounded-2xl border border-violet-100 bg-slate-950 p-5 text-[13px] leading-relaxed text-slate-100">
-            <code className="font-mono">{children}</code>
-        </pre>
-    );
+import { CodeBlock } from "@/components/ui/code-block";
+
+function Code({ children }: { children: string }) {
+    return <CodeBlock>{children}</CodeBlock>;
 }
 
 function Step({

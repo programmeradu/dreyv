@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { RESOURCE_DOCS, getResourceDoc } from "@/lib/developers/resource-docs";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import { CodeBlock } from "@/components/ui/code-block";
 
 export function generateStaticParams() {
   return RESOURCE_DOCS.map((d) => ({ slug: d.slug }));
@@ -133,16 +134,14 @@ export default async function ResourceDocPage({
         </section>
 
         {/* Curl */}
-        <section className="mt-10 rounded-3xl border border-violet-100 bg-zinc-950 p-7 text-zinc-100">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
+        <section className="mt-10 rounded-3xl border border-violet-100 bg-white p-7">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-700">
               Try it
             </h2>
-            <span className="font-mono text-xs text-zinc-500">bash</span>
+            <span className="font-mono text-xs text-slate-400">bash</span>
           </div>
-          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap break-all font-mono text-sm leading-relaxed text-violet-100">
-            {doc.curl}
-          </pre>
+          <CodeBlock wrap>{doc.curl}</CodeBlock>
         </section>
 
         {/* Optional mascot accent */}
