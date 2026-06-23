@@ -96,27 +96,27 @@ export function ErrorAutoFix({
     }, [error, code, logs, aiEndpoint]);
 
     return (
-        <div className="bg-zinc-900 border border-red-500/20 rounded-xl overflow-hidden">
+        <div className="bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm">
             {/* Error Header */}
-            <div className="flex items-start gap-3 p-4 bg-red-500/5 border-b border-red-500/10">
-                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-red-50 border-b border-red-100">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-red-400 mb-1">Runtime Error</h3>
-                    <p className="text-xs text-red-300/80 font-mono break-words leading-relaxed">
+                    <h3 className="text-sm font-bold text-red-700 mb-1">Runtime Error</h3>
+                    <p className="text-xs text-red-700/90 font-mono break-words leading-relaxed">
                         {error}
                     </p>
                 </div>
-                <button onClick={onDismiss} className="p-1 hover:bg-zinc-800 rounded transition-colors shrink-0">
-                    <X className="w-4 h-4 text-zinc-500" />
+                <button onClick={onDismiss} className="p-1 hover:bg-red-100 rounded transition-colors shrink-0">
+                    <X className="w-4 h-4 text-slate-500" />
                 </button>
             </div>
 
             {/* AI Fix Section */}
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 bg-white">
                 {state.phase === "idle" && (
                     <button
                         onClick={requestFix}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-sm font-bold transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-violet-600 hover:bg-violet-700 rounded-lg text-white text-sm font-bold transition-colors"
                     >
                         <DreyvStar size={16} />
                         Auto-Fix with AI Architect
@@ -124,7 +124,7 @@ export function ErrorAutoFix({
                 )}
 
                 {state.phase === "analyzing" && (
-                    <div className="flex items-center justify-center gap-2 py-4 text-emerald-400 text-sm">
+                    <div className="flex items-center justify-center gap-2 py-4 text-violet-700 text-sm">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Analyzing error and generating fix…
                     </div>
@@ -133,19 +133,19 @@ export function ErrorAutoFix({
                 {state.phase === "ready" && state.fixedCode && (
                     <>
                         {state.explanation && (
-                            <div className="bg-zinc-800/50 rounded-lg p-3">
-                                <h4 className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1">
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <h4 className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">
                                     AI Explanation
                                 </h4>
-                                <p className="text-xs text-zinc-300 leading-relaxed">{state.explanation}</p>
+                                <p className="text-xs text-slate-700 leading-relaxed">{state.explanation}</p>
                             </div>
                         )}
 
-                        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg overflow-hidden">
-                            <div className="px-3 py-1.5 bg-emerald-500/10 text-[10px] text-emerald-400 uppercase tracking-wider font-bold">
+                        <div className="bg-violet-50/60 border border-violet-200 rounded-lg overflow-hidden">
+                            <div className="px-3 py-1.5 bg-violet-100/70 text-[10px] text-violet-700 uppercase tracking-wider font-bold">
                                 Suggested Fix
                             </div>
-                            <pre className="p-3 text-xs font-mono text-emerald-300/90 overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed">
+                            <pre className="p-3 text-xs font-mono text-slate-800 overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed bg-white">
                                 {state.fixedCode}
                             </pre>
                         </div>
@@ -153,21 +153,21 @@ export function ErrorAutoFix({
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => onApplyFix(state.fixedCode!)}
-                                className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-sm font-bold transition-colors"
+                                className="flex-1 flex items-center justify-center gap-2 py-2 bg-violet-600 hover:bg-violet-700 rounded-lg text-white text-sm font-bold transition-colors"
                             >
                                 <Check className="w-4 h-4" />
                                 Apply Fix
                             </button>
                             <button
                                 onClick={requestFix}
-                                className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 text-sm transition-colors"
+                                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 text-sm transition-colors"
                                 title="Regenerate"
                             >
                                 <RotateCcw className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={onDismiss}
-                                className="px-3 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+                                className="px-3 py-2 text-slate-500 hover:text-slate-800 text-sm transition-colors"
                             >
                                 Dismiss
                             </button>
@@ -177,10 +177,10 @@ export function ErrorAutoFix({
 
                 {state.phase === "error" && (
                     <div className="space-y-2">
-                        <p className="text-xs text-amber-400">{state.fixError}</p>
+                        <p className="text-xs text-amber-700">{state.fixError}</p>
                         <button
                             onClick={requestFix}
-                            className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 text-sm transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 text-sm transition-colors"
                         >
                             <RotateCcw className="w-4 h-4" />
                             Retry
