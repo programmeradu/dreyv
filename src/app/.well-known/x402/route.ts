@@ -16,13 +16,33 @@ export function GET() {
 
     return NextResponse.json(
         {
+            x402Version: 1,
             x402_version: "0.1",
             status: "advertised",
             description:
                 "dreyv plans to gate select premium API routes with x402 (HTTP 402 Payment Required) so agents can pay-per-call without prior account setup.",
             facilitator: null,
+            // Bazaar / x402 discovery scanners expect an `accepts` array, even if
+            // empty while the facilitator + receiving wallet are still being chosen.
+            accepts: [],
             accepted_assets: [],
             networks: ["solana", "base"],
+            resources: [
+                {
+                    resource: `${origin}/api/agent/*`,
+                    type: "http",
+                    status: "planned",
+                    description: "Per-call agent execution (analysis, transaction simulation).",
+                    accepts: [],
+                },
+                {
+                    resource: `${origin}/api/studio/*`,
+                    type: "http",
+                    status: "planned",
+                    description: "Studio AI architect & build endpoints.",
+                    accepts: [],
+                },
+            ],
             protected_routes: [
                 {
                     path: "/api/agent/*",
@@ -45,7 +65,20 @@ export function GET() {
         {
             headers: {
                 "Cache-Control": "public, max-age=3600, s-maxage=3600",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
         },
     );
+}
+
+export function OPTIONS() {
+    return new NextResponse(null, {
+        status: 204,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    });
 }

@@ -34,11 +34,14 @@ export function GET() {
                 payments: {
                     x402: {
                         status: "advertised",
-                        discovery: "/.well-known/x402",
+                        discovery: `${origin}/.well-known/x402`,
                     },
                 },
-                services: {
-                    marketplace: {
+                // ACP discovery requires `capabilities.services` to be an array of
+                // service objects (validators reject the keyed-object form).
+                services: [
+                    {
+                        id: "marketplace",
                         name: "marketplace",
                         description:
                             "dreyv mini-app marketplace — discover and purchase agent skills, treasury widgets, and yield strategies.",
@@ -46,7 +49,8 @@ export function GET() {
                         methods: ["GET"],
                         protocol: "https",
                     },
-                    subscriptions: {
+                    {
+                        id: "subscriptions",
                         name: "subscriptions",
                         description:
                             "dreyv tier subscriptions (Free / Mini / Max) via Stripe + Paystack.",
@@ -54,7 +58,8 @@ export function GET() {
                         methods: ["GET"],
                         protocol: "https",
                     },
-                    checkout: {
+                    {
+                        id: "checkout",
                         name: "checkout",
                         description:
                             "Agentic checkout session creation for marketplace + subscriptions.",
@@ -62,10 +67,13 @@ export function GET() {
                         methods: ["POST"],
                         protocol: "https",
                     },
-                },
+                ],
             },
             agent_auth: {
                 type: "oauth2",
+                // auth.md spec uses `auth_md` (full URL); legacy `skill` retained for
+                // back-compat scanners.
+                auth_md: `${origin}/auth.md`,
                 skill: `${origin}/auth.md`,
                 authorization_endpoint: `${origin}/api/oauth/authorize`,
                 token_endpoint: `${origin}/api/oauth/token`,
