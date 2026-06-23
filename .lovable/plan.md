@@ -1,167 +1,123 @@
+# OAuth 2.1 + Dynamic Client Registration server
 
-# Dreyv Web3 API + MCP — The Ultimate Agentic Web3 Interface
+Goal: let MCP clients (Claude, ChatGPT, Cursor) self-register and obtain tokens that authorize calls to `/api/mcp` and `/api/v1/*`. Bind issued tokens to the existing dreyv session (SIWS JWT cookie or Neon Auth cookie) — no new login system.
 
-Goal: ship **one product with two faces** — a REST/JSON API (`api.dreyv.com`) and a fully spec-compliant MCP server (`mcp.dreyv.com`) — that any human dev, agent framework (Claude, Cursor, ChatGPT, LangGraph, AI SDK), or autonomous agent can plug into. We don't out-RPC Alchemy; we out-*think* them: simulation, agentic reasoning, forensics, intent routing, x402 native payments, and treasury intelligence layered on top of every primitive.
-
-## Positioning (from the 35-layer research)
-
-The Web3 API/MCP landscape today:
-- **Solved well**: raw RPC (Alchemy/Helius/QuickNode/dRPC), prices (CoinGecko/Pyth), basic NFT (Reservoir), basic swap (0x/Jupiter/1inch), bridges (LiFi/Wormhole), portfolio reads (Zerion/DeBank).
-- **Solved poorly or not at all** — Dreyv's wedge:
-  1. Cross-chain **unified namespace** (ENS+SNS+Basenames+NEAR+Lens as one resolver)
-  2. **Simulation as a universal primitive** (every write tool has dry-run with structured diffs, risk flags, honeypot/rug detection)
-  3. **MEV-protected submission** as default (Flashbots/MEV Blocker/Jito auto-routing)
-  4. **Intent routing** across UniswapX, CoW, Across, 1inch Fusion+, LiFi simultaneously (ERC-7683)
-  5. **On-chain forensics** (sanctions, mixer exposure, wash trade, counterparty graph) as first-class tools
-  6. **Treasury / multisig intelligence** (Squads + Safe pending props, simulate, queue, vote)
-  7. **x402-native payment-gated tools** + scoped agent keys (`dak_`)
-  8. **EAS attestations** on every tool call → verifiable agent action log
-  9. **A2A delegation** (ERC-8004 identity, scoped session keys via EIP-7702)
-  10. **Dreyv signature layers**: agentic reasoning, foresight simulator, narratives, edge-insights, knowledge memory, watchers — none of which exist in any competing API/MCP.
-
-## Architecture
+## Surface (all under `src/app/api/oauth/*`)
 
 ```text
-                ┌──────────────────────────────────────────┐
-                │     Dreyv Capability Registry (single)   │
-                │   capability spec = REST + MCP + types   │
-                └──────────────┬───────────────────────────┘
-                               │ one source of truth
-            ┌──────────────────┼──────────────────────────┐
-            ▼                  ▼                          ▼
-   /api/v1/* (REST)    /mcp (Streamable HTTP)     SDK (@dreyv/sdk)
-   dk_live_… bearer    OAuth2.1 + dk_live_…       typed wrappers
-   per-route scopes    tools auto-generated       browser + node
-            │                  │                          │
-            └────────┬─────────┴────────────┬─────────────┘
-                     ▼                      ▼
-        ┌────────────────────┐   ┌────────────────────────┐
-        │  Read plane        │   │  Write plane           │
-        │ Helius/Alchemy/    │   │ Simulation-first →     │
-        │ Jupiter/LiFi/      │   │ MEV-protected submit → │
-        │ DefiLlama/Pyth/    │   │ EAS attestation →      │
-        │ Bitquery/Nansen    │   │ x402 settlement        │
-        └────────────────────┘   └────────────────────────┘
-                     │                      │
-                     └──────────┬───────────┘
-                                ▼
-                    ┌─────────────────────────┐
-                    │  Dreyv Signature Layer  │
-                    │  - Foresight Simulator  │
-                    │  - Agentic reasoning    │
-                    │  - Forensics + risk     │
-                    │  - Narratives/insights  │
-                    │  - Watchers + alerts    │
-                    │  - Treasury brain       │
-                    └─────────────────────────┘
+POST /api/oauth/register          RFC 7591 Dynamic Client Registration
+GET  /api/oauth/authorize         Auth-code + PKCE; renders consent screen
+POST /api/oauth/authorize         Consent submit → issues code, 302 to redirect_uri
+POST /api/oauth/token             code | refresh_token | client_credentials | device_code
+POST /api/oauth/device            RFC 8628 device authorization request
+GET  /api/oauth/device/verify     User-facing device-code entry page
+POST /api/oauth/introspect        RFC 7662
+POST /api/oauth/revoke            RFC 7009
+GET  /api/oauth/userinfo          OIDC userinfo
+GET  /.well-known/jwks.json       Public JWKS (already advertised)
 ```
 
-## Key (un-negotiable) design rules
+Discovery docs already published at `/.well-known/openid-configuration` and `/oauth-protected-resource` — endpoints will now resolve.
 
-- **One registry, two transports.** Every capability is declared once in `src/lib/capabilities/registry.ts` with Zod input/output + scope + pricing. REST routes and MCP tools are *generated* from it. No drift.
-- **`dk_live_…` becomes a real key.** Hashed in `api_keys` table, bearer auth, scopes (`read:portfolio`, `read:treasury`, `read:market`, `read:forensics`, `write:simulate`, `write:intent`, `pay:x402`, `agent:delegate`), per-key rate limits, last-used, revocation.
-- **`dak_…` stays payment-only.** No reshuffling existing x402 logic.
-- **Simulation-first everywhere.** Any write tool returns `{ simulation, signedAction }`; submission is a second call. No surprises for agents.
-- **MEV by default.** Solana → Jito tip + staked Helius; EVM → Flashbots Protect / MEV Blocker. Caller can opt out with `mevProtection: 'off'`.
-- **Brand voice in narratives.** Calm, precise; banned words enforced server-side on AI-generated strings.
+## Schema (one migration, Neon Postgres — same DB as the rest of the app)
 
-## The 35 layers (capability map)
+Tables in `dreyv_oauth` schema (or `public` if simpler):
 
-Grouped into 7 pillars × 5 layers. Each layer = 3–10 tools. Implementation is incremental; pillars 1–3 ship first.
+- `oauth_clients` — `client_id`, `client_secret_hash` (null for public/PKCE-only), `client_name`, `redirect_uris[]`, `grant_types[]`, `response_types[]`, `token_endpoint_auth_method`, `scopes[]`, `software_id`, `software_version`, `registration_access_token_hash`, `created_by_user_id` (null for self-registered), `created_at`.
+- `oauth_auth_codes` — `code_hash`, `client_id`, `user_id`, `scopes[]`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `nonce`, `expires_at` (10 min), `consumed_at`.
+- `oauth_tokens` — `token_hash`, `token_type` (`access` | `refresh`), `client_id`, `user_id`, `scopes[]`, `expires_at`, `revoked_at`, `parent_refresh_hash` (for rotation chain), `created_at`. Access tokens are signed JWTs; we still log a hash for revocation/introspection.
+- `oauth_device_codes` — `device_code_hash`, `user_code` (8 chars), `client_id`, `scopes[]`, `expires_at` (15 min), `interval_seconds`, `approved_user_id`, `approved_at`, `denied_at`, `last_polled_at`.
+- `oauth_signing_keys` — `kid`, `algorithm` (`ES256`), `public_jwk` (jsonb), `private_jwk_encrypted` (bytea), `status` (`active` | `rotating` | `retired`), `created_at`, `retired_at`. Rotation policy: active + previous (still valid for verification) for 30 days.
+- `oauth_consents` — `user_id`, `client_id`, `scopes[]`, `granted_at`. Lets us skip the consent screen on re-auth when scopes match.
 
-### Pillar A — Identity & Resolution
-1. **Universal name resolver** — `resolve(identifier)` covering ENS, SNS, Basenames, NEAR, Lens, Farcaster, .sol, .eth
-2. **Entity profile** — merge of Nansen labels, Arkham tags, on-chain history, social handles
-3. **Agent identity** — ERC-8004 registration + lookup, Dreyv-issued agent passports
-4. **Capability delegation** — EIP-7702 session keys with spend caps + TTL
-5. **Wallet metadata** — first-seen, dormancy, classification (EOA/contract/CEX/bridge)
+All RLS-locked to `service_role`; only server code touches them.
 
-### Pillar B — Portfolio & Treasury (Dreyv signature)
-6. **Unified portfolio** — multi-chain holdings (reuse `/api/helius/das/wallet-holdings` + `/api/evm/holdings`)
-7. **PnL + cost basis** — wraps `/api/public/pnl` + tax-lot engine (FIFO/LIFO/HIFO)
-8. **DeFi positions** — Kamino/Marinade/Jito/Aave/Compound (Zerion-grade for Solana that nobody has)
-9. **Treasury health** — runway, diversification, concentration risk (reuse analytics endpoints)
-10. **Multisig intelligence** — Squads + Safe pending props, `simulate_safe_tx`, queue, vote (reuse `/api/squads/*`)
+## Key management
 
-### Pillar C — Market & Discovery
-11. **Best price oracle** — Pyth + Jupiter + CoinGecko fallback with confidence
-12. **OHLCV + trending** — Birdeye/Jupiter/Bitquery normalized
-13. **Token forensics** — rug, mint/freeze auth, holder concentration (reuse `/api/solana/rug-check` + `/api/public/token/[mint]`)
-14. **DeFi yields** — DefiLlama + yield-scanner normalized + Dreyv risk scoring
-15. **New listings / discovery** — DexScreener + Jupiter trending + AI ranking
+- ES256 keypair, kid = ULID. Private JWK encrypted at rest with `KEYPAIR_MASTER_KEY` (already a secret) via AES-256-GCM in `src/lib/oauth/keys.ts`.
+- `getActiveSigner()` returns the current signer; `getVerifierKeySet()` returns all non-retired keys for `jwtVerify`.
+- Rotation script (`scripts/rotate-oauth-keys.mjs`) — marks current key `rotating`, creates new `active`, retires keys older than 30 days. Documented; not auto-run.
 
-### Pillar D — Execution (simulation-first, MEV-protected)
-16. **Simulate transaction** — universal: Tenderly for EVM, Helius `simulateTransaction` for Solana, structured diff
-17. **Intent express** — ERC-7683 fan-out across UniswapX/CoW/Across/1inch Fusion+/LiFi
-18. **Bridge** — LiFi + deBridge + Wormhole, return ranked routes
-19. **Swap** — Jupiter (SOL) + 0x (EVM) with Permit2
-20. **Submit with MEV protection** — auto-route to Jito bundle / Flashbots Protect
+## Flows
 
-### Pillar E — Forensics & Compliance (huge gap — Dreyv signature)
-21. **Sanctions check** — OFAC + UN + EU lists, cached
-22. **Mixer exposure** — Tornado/Samourai depth score (reuse risk endpoint)
-23. **Counterparty graph** — multi-hop fund flow (reuse `/api/public/counterparties`)
-24. **Wash trade detection** — statistical on token + window
-25. **Composite risk score** — Dreyv proprietary 0–100 with explanations
+### Dynamic Client Registration (RFC 7591)
 
-### Pillar F — Agentic Layer (no competitor has this)
-26. **Foresight plan** — NL intent → multi-step plan (reuse `/api/foresight/plan`)
-27. **Foresight critique** — AI red-team of a proposed plan
-28. **Edge insights** — wallet-level alpha signals (reuse `/api/public/edge-insights`)
-29. **Narrative generator** — wallet/portfolio prose summary (reuse `/api/public/narrative`)
-30. **Watchers** — subscribe to address/token events; webhook + MCP-resource push (reuse `/api/inbox/watchers`)
+`POST /api/oauth/register` accepts any client. Required: `redirect_uris`. Optional: `client_name`, `grant_types`, `token_endpoint_auth_method` (default `none` → public client, PKCE required). Returns `client_id`, `client_secret` (only for confidential), `registration_access_token`, `client_id_issued_at`. We rate-limit per IP (existing limiter) and cap to 50 self-registered clients per IP per day.
 
-### Pillar G — Agent Economy (x402 + attestations)
-31. **x402 pay** — already shipped, expose as MCP tool `dreyv_x402_pay`
-32. **x402 deliverables** — list/get/resend (reuse `/api/agent/deliverables`)
-33. **EAS attestations** — `create / verify / revoke` on Base; one per tool call optional
-34. **Agent marketplace search** — discover Dreyv-registered agents by capability + price
-35. **Capability metering + usage** — per-key usage, billing-grade meter, export
+### Authorization Code + PKCE
 
-## Technical implementation
+`GET /api/oauth/authorize` validates `client_id`, `redirect_uri`, `response_type=code`, `code_challenge`, `code_challenge_method=S256`, `scope`, `state`. If no active dreyv session → 302 to `/auth?next=<authorize-url>`. If session exists and consent already granted for same scopes → auto-approve, redirect with `code`. Otherwise render `/oauth/consent` (server component) with client name, scopes, allow/deny buttons. Submit `POST /api/oauth/authorize` with a CSRF token, mint a 10-min one-time code.
 
-### New code
-- `src/lib/capabilities/registry.ts` — central declaration (one entry per capability with `{ id, scope, inputSchema, outputSchema, handler, pricing?, sideEffects: 'read' | 'simulate' | 'write' }`)
-- `src/lib/capabilities/generate-rest.ts` — builds `/api/v1/[...slug]` route from registry
-- `src/lib/capabilities/generate-mcp.ts` — uses `mcp-lite` via Hono to expose `/mcp` (Streamable HTTP). Returns `Accept: application/json, text/event-stream` properly.
-- `src/app/api/v1/[...slug]/route.ts` — single dispatcher, validates `dk_live_…`, scope, rate limit, then runs capability
-- `src/app/mcp/route.ts` (or Supabase edge function) — MCP transport
-- `src/lib/api-keys/` — hash (sha-256), validate, scope-check, rate-limit middleware
-- `db-migrations/0032_api_keys_and_usage.sql` — `api_keys` table (id, user_id, hash, prefix, name, scopes[], rate_limit_rpm, last_used_at, revoked_at) + `api_key_usage` (key_id, capability_id, ts, latency_ms, cost_credits, status)
-- `src/lib/mev/` — Flashbots Protect + Jito client
-- `src/lib/intents/` — ERC-7683 fan-out
-- `src/lib/attestations/eas.ts` — EAS wrapper
-- `packages/sdk/src/api/` — typed REST + MCP client
-- `src/app/developers/api/page.tsx` + `src/app/developers/mcp/page.tsx` — generated docs from registry, with copy-paste Claude/Cursor MCP configs
-- `public/openapi.json` — generated from registry
+### Token endpoint
 
-### Reused (no rewrite)
-All 50+ existing endpoints from the capability audit (portfolio, treasury, atlas, foresight, x402, deliverables, watchers, narratives, insights, agent system) become capability entries — no logic change, just registry wrapping.
+`POST /api/oauth/token` handles `grant_type`:
+- `authorization_code` — verify code, PKCE, redirect_uri match; mark code consumed; issue access JWT (1h) + refresh token (30d).
+- `refresh_token` — verify and rotate (issue new refresh, mark old `revoked_at` with `parent_refresh_hash` link). Reuse-detection: if a revoked refresh is presented, revoke the entire chain.
+- `client_credentials` — confidential clients only; user-less token for org/service use (scope-limited).
+- `urn:ietf:params:oauth:grant-type:device_code` — verify polled device code, return tokens once `approved_user_id` set.
 
-### Auth model summary
-| Key | Scope | Used for |
-|---|---|---|
-| `dk_live_…` / `dk_test_…` | scoped (`read:*`, `write:simulate`, `write:intent`, `agent:delegate`) | REST + MCP general use |
-| `dak_…` | payment only | x402 pay endpoints (unchanged) |
-| SIWS JWT | user-owned routes | existing app UI |
+Access JWT claims: `iss`, `sub` (user id or `client:<client_id>` for client_credentials), `aud` = `${origin}/api`, `client_id`, `scope`, `jti`, `iat`, `exp`, `kid` in header.
 
-### Rollout phases
-1. **Phase 1 (this PR)** — registry + `dk_live_` real keys + `/api/v1/*` dispatcher + `/mcp` MCP server exposing **pillars A, B, C** (15 tools). Settings UI updated with scopes, last-used, revoke. Developer docs page with Claude/Cursor MCP install snippets.
-2. **Phase 2** — pillars D (simulation-first + MEV + intents) + E (forensics).
-3. **Phase 3** — pillars F (agentic) + G (attestations + agent marketplace) + metering UI + OpenAPI publish.
+### Device flow
 
-### Acceptance for Phase 1
-- `dk_live_…` validates server-side; revoking immediately blocks calls.
-- `GET /api/v1/portfolio?address=…` works with `Authorization: Bearer dk_live_…`.
-- `https://dreyv.com/mcp` returns tool list in Claude Desktop / Cursor; `dreyv_portfolio_get` returns real data.
-- `GET /openapi.json` and `/developers/api`, `/developers/mcp` render from registry.
-- All 15 Phase-1 tools have integration tests using a sandbox `dk_test_…` key.
-- Existing `dak_…` x402 flow untouched.
+`POST /api/oauth/device` returns `device_code`, `user_code`, `verification_uri = ${origin}/oauth/device`, `verification_uri_complete`, `expires_in`, `interval`. User visits `/oauth/device`, signs in if needed, enters `user_code`, sees consent, approves. Polling at `/api/oauth/token` returns `authorization_pending`, `slow_down`, `access_denied`, or tokens.
 
-### Out of scope (deliberately deferred)
-- Per-call EAS attestation cost (opt-in flag, default off in Phase 1)
-- Full ZK proof generation/verification (Pillar G layer 33 stub only)
-- Perps execution on HyperLiquid/Drift (gap acknowledged, future pillar)
-- RWA-specific reads (Ondo/BUIDL/Maple) — added in Phase 2 inside Pillar C
+### Introspection & revocation
 
-This plan turns Dreyv from "another treasury app" into the **single capability surface** every Web3 agent in 2026 plugs into — the Stripe-of-Web3-for-agents thesis from the research.
+- `/introspect` — confidential clients (or registered MCP clients with their registration_access_token) get `{ active, scope, client_id, sub, exp }`. Looks up token hash; checks `revoked_at` and `exp`.
+- `/revoke` — accepts access or refresh token; sets `revoked_at`.
+
+## MCP/REST integration
+
+`src/lib/auth/bearer.ts` already validates `dk_live_*` API keys. Extend it: if the bearer is a JWT (starts with `eyJ`), verify against `getVerifierKeySet()`, check `aud`, `exp`, `revoked_at` (token_hash lookup), and map `scope` → existing capability scopes. `/api/mcp` and `/api/v1/*` get OAuth + API-key dual auth for free.
+
+`WWW-Authenticate` header on 401: `Bearer realm="dreyv", as_uri="${origin}/.well-known/openid-configuration", resource="${origin}/api"` so MCP clients discover and trigger DCR automatically.
+
+## Consent screen
+
+`src/app/oauth/consent/page.tsx` — server component reading signed `request_id` cookie set by `GET /authorize`. Shows client name, requested scopes with human labels (`treasury:read` → "View your treasury data"), allow / deny buttons. Approving writes to `oauth_consents` and 302s with the code. Light Stitch-style design matching `/pricing` (white, violet accents, Manrope).
+
+`src/app/oauth/device/page.tsx` — user-code entry + same consent UI.
+
+## Files to add
+
+```text
+supabase/migrations/<ts>_oauth_server.sql        schema + RLS + grants
+src/lib/oauth/keys.ts                            ES256 keypair load + rotate + encrypt
+src/lib/oauth/store.ts                           Drizzle queries for all oauth_* tables
+src/lib/oauth/tokens.ts                          sign/verify JWT, hash, rotation
+src/lib/oauth/scopes.ts                          scope catalog + human labels
+src/lib/oauth/pkce.ts                            S256 verify
+src/lib/oauth/session.ts                         resolve current dreyv user from SIWS/Neon cookies
+src/lib/oauth/clients.ts                         registration + lookup + rate limit
+src/lib/auth/bearer.ts                           extend to accept OAuth JWTs
+src/app/api/oauth/register/route.ts
+src/app/api/oauth/authorize/route.ts             GET + POST
+src/app/api/oauth/token/route.ts
+src/app/api/oauth/device/route.ts
+src/app/api/oauth/introspect/route.ts
+src/app/api/oauth/revoke/route.ts
+src/app/api/oauth/userinfo/route.ts
+src/app/.well-known/jwks.json/route.ts
+src/app/oauth/consent/page.tsx
+src/app/oauth/device/page.tsx
+scripts/rotate-oauth-keys.mjs
+```
+
+Existing `/.well-known/openid-configuration` and `/oauth-protected-resource` already advertise these URLs — no change needed there.
+
+## Out of scope (follow-ups)
+
+- Admin UI to list/revoke a user's authorized clients (will live at `/app/settings/connected-apps`).
+- Refresh-token sliding-window UI.
+- SAML/social IdP login for the consent screen (uses existing dreyv auth only).
+- `mTLS` and `private_key_jwt` client auth — defer until a partner needs it.
+
+## Acceptance
+
+1. `curl -X POST /api/oauth/register -d '{"redirect_uris":["http://localhost/cb"]}'` returns a client.
+2. Browser flow: `/authorize?...&code_challenge=...` → login → consent → 302 with `code` → `POST /token` returns JWT.
+3. `Authorization: Bearer <jwt>` works against `/api/mcp` and `/api/v1/*`.
+4. Refresh rotates and revokes the chain on reuse.
+5. Device flow: Claude Desktop / ChatGPT MCP connector completes registration and login end-to-end.
+6. `/revoke` immediately invalidates the token in `/introspect` and on the next API call.
