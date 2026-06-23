@@ -58,7 +58,7 @@ function htmlToMarkdown(html: string): { md: string; title: string } {
 
   const out: string[] = [];
 
-  const walk = (node: cheerio.Element) => {
+  const walk = (node: any) => {
     const $node = $(node);
     if (node.type === "text") {
       const t = (node.data ?? "").replace(/\s+/g, " ");
@@ -122,11 +122,11 @@ function htmlToMarkdown(html: string): { md: string; title: string } {
         return;
       }
       default:
-        $node.contents().each((_, child) => walk(child as cheerio.Element));
+        $node.contents().each((_, child) => walk(child as any));
     }
   };
 
-  root.contents().each((_, child) => walk(child as cheerio.Element));
+  root.contents().each((_, child) => walk(child as any));
 
   const md = out
     .join("")
