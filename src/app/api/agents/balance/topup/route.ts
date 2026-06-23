@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
 
   // ─── Paystack (human-in-the-loop, Africa-first) ──────────────────────
   if (provider === "paystack") {
-    const { getPaystackSecret, paystackInitializeTransaction } = await import("@/lib/paystack");
+    const { getPaystackSecret, paystackInitializeOneTime } = await import("@/lib/paystack");
     try { getPaystackSecret(); } catch {
       return NextResponse.json({ error: "paystack_not_configured" }, { status: 503 });
     }
@@ -258,10 +258,9 @@ export async function POST(req: NextRequest) {
         { status: 422 },
       );
     }
-    const session = await paystackInitializeTransaction({
+    const session = await paystackInitializeOneTime({
       email,
-      amountKobo: Math.round(amountUsd * 100), // Paystack expects subunits; USD->cents acceptable on USD merchants
-      currency: "USD",
+      amountUsd,
       callbackUrl: `${origin}/app/billing?topup=success&provider=paystack`,
       metadata: { dreyv_user_id: key.userId, source: "balance_topup", amount_minor: amountMinor.toString() },
     });
