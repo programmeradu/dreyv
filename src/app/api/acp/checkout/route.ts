@@ -122,8 +122,20 @@ export async function POST(req: NextRequest) {
     let txHash: string | null = null;
     if (isTest) {
       payer = "test-mode";
+    } else if (receipt && !header) {
+      // Replay path: agent provides on-chain tx hash as proof-of-payment.
+      // Facilitator verifies amount/destination/uniqueness; sandbox accepts any.
+      const result = await verifyX402Payment(`receipt:${receipt}`, requirements);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: "payment_invalid", reason: result.reason, tx_hash: receipt, accepts: [requirements] },
+          { status: 402 },
+        );
+      }
+      payer = result.payer ?? "on-chain";
+      txHash = receipt;
     } else {
-      const result = await verifyX402Payment(header, requirements);
+      const result = await verifyX402Payment(header ?? "", requirements);
       if (!result.ok) {
         return NextResponse.json(
           { x402Version: 1, error: "payment_invalid", reason: result.reason, accepts: [requirements] },
@@ -133,6 +145,7 @@ export async function POST(req: NextRequest) {
       payer = result.payer;
       txHash = result.txHash ?? null;
     }
+
     const expires = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
     await upgradeUserTier(key.userId, tier, expires);
     return NextResponse.json({
