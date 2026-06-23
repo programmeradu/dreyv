@@ -11,7 +11,9 @@
  */
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { exportJWK, generateKeyPair, importJWK, type JWK, type KeyLike } from "jose";
+import { exportJWK, generateKeyPair, importJWK, type JWK } from "jose";
+
+type SigningKey = CryptoKey;
 import { eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { oauthSigningKeys } from "@/db/schema";
