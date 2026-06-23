@@ -5,88 +5,62 @@ export const dynamic = "force-static";
 
 /**
  * Agentic Commerce Protocol (ACP) discovery document.
- * https://agenticcommerce.dev
+ * Spec: https://github.com/agentic-commerce-protocol/agentic-commerce-protocol/blob/main/rfcs/rfc.discovery.md
  *
- * Lets AI agents discover dreyv's commerce surface (marketplace mini-apps,
- * subscription tiers) without first creating a checkout session.
+ * Schema (strict):
+ *   protocol.name = "acp"
+ *   protocol.version = "YYYY-MM-DD" (latest)
+ *   protocol.supported_versions = string[] chronological
+ *   api_base_url = string
+ *   transports = string[] including "rest"
+ *   capabilities.services = string[] from {checkout, orders, delegate_payment, carts}
  */
 export function GET() {
-    const origin = getSiteOrigin();
+  const origin = getSiteOrigin();
 
-    return NextResponse.json(
-        {
-            protocol: {
-                name: "acp",
-                version: "0.1",
-            },
-            name: "dreyv",
-            description:
-                "dreyv commerce surface — marketplace mini-apps and subscription tiers, agent-discoverable.",
-            logo: `${origin}/dreyv-mark.png`,
-            icon: `${origin}/icon.png`,
-            icons: [
-                { src: `${origin}/icon.png`, sizes: "512x512", type: "image/png", purpose: "any" },
-                { src: `${origin}/dreyv-mark.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
-            ],
-            api_base_url: `${origin}/api`,
-            transports: ["https"],
-            capabilities: {
-                payments: {
-                    x402: {
-                        status: "advertised",
-                        discovery: `${origin}/.well-known/x402`,
-                    },
-                },
-                // ACP discovery requires `capabilities.services` to be an array of
-                // service objects (validators reject the keyed-object form).
-                services: [
-                    {
-                        id: "marketplace",
-                        name: "marketplace",
-                        description:
-                            "dreyv mini-app marketplace — discover and purchase agent skills, treasury widgets, and yield strategies.",
-                        endpoint: `${origin}/api/studio/marketplace`,
-                        methods: ["GET"],
-                        protocol: "https",
-                    },
-                    {
-                        id: "subscriptions",
-                        name: "subscriptions",
-                        description:
-                            "dreyv tier subscriptions (Free / Mini / Max) via Stripe + Paystack.",
-                        endpoint: `${origin}/pricing`,
-                        methods: ["GET"],
-                        protocol: "https",
-                    },
-                    {
-                        id: "checkout",
-                        name: "checkout",
-                        description:
-                            "Agentic checkout session creation for marketplace + subscriptions.",
-                        endpoint: `${origin}/api/checkout`,
-                        methods: ["POST"],
-                        protocol: "https",
-                    },
-                ],
-            },
-            agent_auth: {
-                type: "oauth2",
-                // auth.md spec uses `auth_md` (full URL); legacy `skill` retained for
-                // back-compat scanners.
-                auth_md: `${origin}/auth.md`,
-                skill: `${origin}/auth.md`,
-                authorization_endpoint: `${origin}/api/oauth/authorize`,
-                token_endpoint: `${origin}/api/oauth/token`,
-                registration_endpoint: `${origin}/api/oauth/register`,
-                metadata: `${origin}/.well-known/oauth-authorization-server`,
-            },
-            contact: "support@dreyv.com",
-            documentation: `${origin}/guides`,
-        },
-        {
-            headers: {
-                "Cache-Control": "public, max-age=3600, s-maxage=3600",
-            },
-        },
-    );
+  return NextResponse.json(
+    {
+      protocol: {
+        name: "acp",
+        version: "2026-01-30",
+        supported_versions: ["2025-09-29", "2025-12-12", "2026-01-16", "2026-01-30"],
+        documentation_url: "https://agenticcommerce.dev",
+      },
+      api_base_url: `${origin}/api`,
+      transports: ["rest"],
+      capabilities: {
+        services: ["checkout"],
+        extensions: [
+          {
+            name: "x402",
+            spec: "https://x402.org",
+          },
+          {
+            name: "agent_auth",
+            spec: `${origin}/auth.md`,
+          },
+        ],
+        supported_currencies: ["usd"],
+        supported_locales: ["en-US"],
+      },
+      // Non-spec metadata (additive, ignored by strict validators).
+      agent_auth: {
+        type: "oauth2",
+        auth_md: `${origin}/auth.md`,
+        skill: `${origin}/auth.md`,
+        authorization_endpoint: `${origin}/api/oauth/authorize`,
+        token_endpoint: `${origin}/api/oauth/token`,
+        registration_endpoint: `${origin}/api/oauth/register`,
+        metadata: `${origin}/.well-known/oauth-authorization-server`,
+      },
+      contact: "support@dreyv.com",
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600, s-maxage=3600",
+        "Access-Control-Allow-Origin": "*",
+      },
+    },
+  );
 }
