@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     const testModeAllowed = process.env.X402_ALLOW_TEST_MODE !== "false";
     const isTest = testModeAllowed && (header === "test" || header === "sandbox");
 
-    if (!header) {
+    if (!header && !receipt) {
       const humanCheckoutUrl = `${origin}/app/billing?tier=${tier}&via=x402`;
       const costUsd = tier === "mini" ? "49.00" : "199.00";
       return NextResponse.json(
