@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";
 import { ArrowUpRight, KeyRound, Terminal } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
+import devCrystal from "@/assets/dev-crystal.png";
 
 export const metadata: Metadata = {
   title: "Dreyv MCP server — connect any AI agent to Web3",
