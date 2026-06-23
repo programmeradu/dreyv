@@ -65,11 +65,17 @@ const nextConfig: NextConfig = {
             value: "strict-origin-when-cross-origin",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           // Allow Phantom embedded wallet iframe (Track A of Phantom SDK migration)
           // + WebContainer preview iframe (webcontainer-api.io) used by /app/studio.
+          // frame-ancestors 'self' provides modern clickjacking protection alongside X-Frame-Options.
           {
             key: "Content-Security-Policy",
-            value: "frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io;",
+            value: "frame-ancestors 'self'; frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io;",
           },
         ],
       },

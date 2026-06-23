@@ -476,12 +476,14 @@ export function StrategyLabClient() {
       <section id="strategy-lab" className="atlas-glass p-6 min-h-[80vh]">
         <div className="space-y-4">
           {/* Hero: NLP Command */}
+          <h1 className="sr-only">Strategy Lab — Dreyv Atlas</h1>
           <div className="flex items-center gap-2 mb-4">
             <FlaskConical className="text-violet-600 h-5 w-5" />
             <h2 className="text-base font-bold text-slate-900">Strategy Lab</h2>
             <LabPulseDot />
             <span className="text-xs text-slate-400 ml-auto">Press / to focus</span>
           </div>
+
           <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50 mb-4">
             <form onSubmit={(e) => { e.preventDefault(); handleParse(); }} className="relative">
               <Input ref={nlpInputRef} value={nlpText} onChange={(e) => setNlpText(e.target.value)}

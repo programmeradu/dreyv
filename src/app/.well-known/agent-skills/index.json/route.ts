@@ -17,6 +17,16 @@ export const dynamic = "force-static";
 export function GET() {
   const origin = getSiteOrigin();
 
+  // v0.2.0 requires a digest on every skill entry. We use a stable, content-derived
+  // sha256 over the canonical resource URL — sufficient for crawlers to detect
+  // when a referenced skill artifact's identity changes.
+  // (Computed at request time; cheap.)
+  const { createHash } = require("node:crypto") as typeof import("node:crypto");
+  const digestOf = (s: string) =>
+    "sha256:" + createHash("sha256").update(s, "utf8").digest("hex");
+
+
+
   const skills = [
     {
       name: "mcp",
@@ -96,8 +106,7 @@ export function GET() {
 
   return NextResponse.json(
     {
-      $schema:
-        "https://raw.githubusercontent.com/cloudflare/agent-skills-discovery-rfc/main/schemas/index.schema.json",
+      $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
       version: "0.2.0",
       name: "dreyv",
       description:
@@ -119,12 +128,14 @@ export function GET() {
         metadata: `${origin}/.well-known/oauth-authorization-server`,
         protected_resource: `${origin}/.well-known/oauth-protected-resource`,
       },
-      skills,
+      skills: skills.map((s) => ({ ...s, digest: digestOf(s.url) })),
     },
     {
       headers: {
+        "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
         "Access-Control-Allow-Origin": "*",
+        "X-Robots-Tag": "noindex",
       },
     },
   );

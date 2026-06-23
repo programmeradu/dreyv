@@ -74,6 +74,9 @@ dreyv helps treasury teams replace fragmented tab-juggling (wallets, DEX aggrega
 - UCP profile: /.well-known/ucp
 - API catalog (RFC 9727): /.well-known/api-catalog
 - x402 capability: /.well-known/x402
+- WebMCP manifest: /.well-known/webmcp  (also /.well-known/webmcp.json)
+- Agent Skills index: /.well-known/agent-skills/index.json
+- auth.md (agent auth guide): /auth.md
 - Full agent context: /llms-full.txt
 - Scoped contexts: /api/llms.txt, /developers/llms.txt
 - Markdown homepage: /index.md
