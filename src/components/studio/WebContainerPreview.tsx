@@ -12,7 +12,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, RotateCw } from "lucide-react";
+import { Loader2, AlertTriangle, RotateCw, ExternalLink } from "lucide-react";
+
 
 interface StudioFile {
     name: string;
@@ -65,9 +66,15 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
             return;
         }
         if (!window.crossOriginIsolated) {
-            setError("Full preview needs cross-origin isolation. Hard-reload the page (Cmd/Ctrl+Shift+R) so the new COOP/COEP headers take effect.");
+            const inIframe = window.top !== window.self;
+            setError(
+                inIframe
+                    ? "Full preview can't run inside an embedded preview. Open Studio in a new tab to enable cross-origin isolation."
+                    : "Full preview needs cross-origin isolation. Hard-reload the page (Cmd/Ctrl+Shift+R) so the new headers take effect.",
+            );
             return;
         }
+
 
         function onMessage(ev: MessageEvent<HostMessage>) {
             const data = ev.data;
@@ -187,18 +194,30 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
                         <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-red-600">
                             WebContainer error
                         </div>
-                        <p className="line-clamp-3 break-words font-mono text-xs leading-relaxed text-slate-700">
+                        <p className="line-clamp-3 break-words text-xs leading-relaxed text-slate-700">
                             {error}
                         </p>
                     </div>
-                    <button
-                        onClick={handleRestart}
-                        className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50"
-                    >
-                        <RotateCw className="h-3 w-3" /> Restart
-                    </button>
+                    {typeof window !== "undefined" && window.top !== window.self && !window.crossOriginIsolated ? (
+                        <a
+                            href="/app/studio"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50"
+                        >
+                            <ExternalLink className="h-3 w-3" /> Open in new tab
+                        </a>
+                    ) : (
+                        <button
+                            onClick={handleRestart}
+                            className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50"
+                        >
+                            <RotateCw className="h-3 w-3" /> Restart
+                        </button>
+                    )}
                 </div>
             )}
+
 
             {/* Live preview iframe — points at the in-browser Vite server */}
             {previewUrl && (
