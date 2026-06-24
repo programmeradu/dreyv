@@ -243,49 +243,130 @@ export function AgentWalletPanel() {
                             </div>
 
                             {/* Top-up amounts */}
-                            <div className="mt-4 flex items-center gap-1.5 px-5">
-                                {PREPAID_PRESETS.map((amt) => (
-                                    <button
-                                        key={amt}
-                                        type="button"
-                                        onClick={() => setPrepaidAmount(amt)}
-                                        className={`h-8 min-w-[56px] rounded-full px-3 text-[12px] font-semibold tabular-nums transition ${
-                                            prepaidAmount === amt
-                                                ? "bg-violet-600 text-white shadow-sm shadow-violet-600/25"
-                                                : "border border-violet-200 bg-white text-slate-700 hover:bg-violet-50"
+                            <div className="mt-4 flex flex-wrap items-center gap-1.5 px-5">
+                                {PREPAID_PRESETS.map((amt) => {
+                                    const active = !customMode && prepaidAmount === amt;
+                                    return (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => {
+                                                setCustomMode(false);
+                                                setPrepaidAmount(amt);
+                                            }}
+                                            className={`h-8 min-w-[56px] rounded-full px-3 text-[12px] font-semibold tabular-nums transition ${
+                                                active
+                                                    ? "bg-violet-600 text-white shadow-sm shadow-violet-600/25"
+                                                    : "border border-violet-200 bg-white text-slate-700 hover:bg-violet-50"
+                                            }`}
+                                        >
+                                            ${amt}
+                                        </button>
+                                    );
+                                })}
+                                {customMode ? (
+                                    <div
+                                        className={`flex h-8 items-center gap-1 rounded-full border bg-white pl-2.5 pr-1 transition ${
+                                            customInput && !customValid
+                                                ? "border-red-300"
+                                                : "border-violet-400 ring-2 ring-violet-100"
                                         }`}
                                     >
-                                        ${amt}
+                                        <span className="text-[12px] font-semibold text-slate-500">$</span>
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={MIN_TOPUP}
+                                            max={MAX_TOPUP}
+                                            step="1"
+                                            autoFocus
+                                            value={customInput}
+                                            onChange={(e) => setCustomInput(e.target.value)}
+                                            placeholder="Amount"
+                                            className="h-7 w-24 bg-transparent text-[12px] font-semibold tabular-nums text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCustomMode(false);
+                                                setCustomInput("");
+                                            }}
+                                            className="text-[10px] font-medium uppercase tracking-wider text-slate-400 hover:text-slate-600"
+                                            aria-label="Cancel custom amount"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setCustomMode(true);
+                                            setCustomInput(String(prepaidAmount));
+                                        }}
+                                        className="h-8 rounded-full border border-dashed border-violet-300 bg-white px-3 text-[12px] font-semibold text-violet-700 transition hover:bg-violet-50"
+                                    >
+                                        Custom
                                     </button>
-                                ))}
+                                )}
                                 <div className="ml-auto text-[10px] uppercase tracking-[0.14em] text-slate-400">
                                     Top up
                                 </div>
                             </div>
+                            {customMode && customInput && !customValid && (
+                                <p className="mt-1.5 px-5 text-[11px] text-red-600">
+                                    Enter an amount between ${MIN_TOPUP} and ${MAX_TOPUP.toLocaleString()}.
+                                </p>
+                            )}
 
                             {/* Provider CTAs */}
                             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-violet-100 bg-violet-50/40 p-3">
-                                <Link
-                                    href={`/app/billing?topup=${prepaidAmount}&via=stripe`}
-                                    className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <StripeLogo size={20} />
-                                        <span className="text-[12px] font-medium text-slate-800">
-                                            Card · Stripe
+                                {effectiveAmount != null ? (
+                                    <Link
+                                        href={`/app/billing?topup=${effectiveAmount}&via=stripe`}
+                                        className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <StripeLogo size={20} />
+                                            <span className="text-[12px] font-medium text-slate-800">
+                                                Card · Stripe
+                                            </span>
                                         </span>
-                                    </span>
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
-                                </Link>
-                                <Link
-                                    href={`/app/billing?topup=${prepaidAmount}&via=paystack`}
-                                    className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <PaystackLogo size={18} />
-                                    </span>
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
-                                </Link>
+                                        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
+                                    </Link>
+                                ) : (
+                                    <div className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white/50 px-3 py-2.5 opacity-60">
+                                        <span className="flex items-center gap-2">
+                                            <StripeLogo size={20} />
+                                            <span className="text-[12px] font-medium text-slate-500">
+                                                Card · Stripe
+                                            </span>
+                                        </span>
+                                    </div>
+                                )}
+                                {effectiveAmount != null ? (
+                                    <Link
+                                        href={`/app/billing?topup=${effectiveAmount}&via=paystack`}
+                                        className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <PaystackLogo size={18} />
+                                            <span className="text-[12px] font-medium text-slate-800">
+                                                Mobile money · Paystack
+                                            </span>
+                                        </span>
+                                        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
+                                    </Link>
+                                ) : (
+                                    <div className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white/50 px-3 py-2.5 opacity-60">
+                                        <span className="flex items-center gap-2">
+                                            <PaystackLogo size={18} />
+                                            <span className="text-[12px] font-medium text-slate-500">
+                                                Mobile money · Paystack
+                                            </span>
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </article>
 
