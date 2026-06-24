@@ -32,6 +32,7 @@ let bootPromise: Promise<void> | null = null;
 let booted = false;
 let installProcess: WebContainerProcess | null = null;
 let devProcess: WebContainerProcess | null = null;
+let currentPreviewUrl: string | null = null;
 
 function post(message: Record<string, unknown>) {
     window.parent?.postMessage({ source: "dreyv-wc-host", ...message }, "*");
@@ -69,6 +70,7 @@ function teardownWebContainer() {
     activeContainer = null;
     bootPromise = null;
     booted = false;
+    currentPreviewUrl = null;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -219,6 +221,9 @@ export default function WebContainerHost() {
             }
             if (booted && activeContainer) {
                 postStatus("running", "WebContainer is already running.");
+                if (currentPreviewUrl) {
+                    post({ type: "wc:server-ready", url: currentPreviewUrl });
+                }
                 return;
             }
 
@@ -239,6 +244,7 @@ export default function WebContainerHost() {
                 booted = true;
 
                 wc.on("server-ready", (_port, url) => {
+                    currentPreviewUrl = url;
                     setPhase("Dev server ready");
                     post({ type: "wc:server-ready", url });
                 });
