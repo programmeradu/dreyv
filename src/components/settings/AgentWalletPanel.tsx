@@ -36,8 +36,21 @@ interface WalletData {
         balance_lamports: string | null;
         balance: number | null;
     };
+    prepaid: {
+        balance_minor: string;
+        balance: string;
+        currency: string;
+        updated_at: string;
+    } | null;
     receiving_wallet: string;
     rpc_error: string | null;
+}
+
+function formatUsd(value: string | null | undefined): string {
+    if (!value) return "$0.00";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "$0.00";
+    return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function shortenAddress(addr: string) {
