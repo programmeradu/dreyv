@@ -65,6 +65,8 @@ interface WalletData {
 }
 
 const PREPAID_PRESETS = [25, 100, 500];
+const MIN_TOPUP = 5;
+const MAX_TOPUP = 10000;
 
 function formatUsd(value: string | null | undefined): string {
     if (!value) return "$0.00";
