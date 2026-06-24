@@ -35,36 +35,38 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
-    const coiHeaders = [
-      // WebContainers are strict about embedded hosts: when the runtime is
-      // inside an iframe, both the Studio document and the host iframe need the
-      // same COEP mode. StackBlitz documents `require-corp` for this embedded
-      // case; `credentialless` can leave the worker non-isolated even when the
-      // window reports as isolated.
+    // Top-level Studio document: use `credentialless` so cross-origin
+    // resources without CORP headers (Stripe, dicebear avatars, third-party
+    // images, RPCs) still load while keeping crossOriginIsolated=true. A
+    // credentialless parent can embed a require-corp child iframe — that
+    // combo is what WebContainers needs.
+    const coiParentHeaders = [
+      { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+      { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
+      { key: "Cache-Control", value: "no-store, max-age=0" },
+    ];
+    // Hidden wc-host iframe: WebContainer's worker requires strict
+    // `require-corp` to transfer SharedArrayBuffer reliably.
+    const coiHostHeaders = [
       { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
       { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
-      // WebContainers rely on SharedArrayBuffer; a cached 304 without these
-      // headers can make self.crossOriginIsolated false even after deploys.
       { key: "Cache-Control", value: "no-store, max-age=0" },
     ];
     return [
-      // Cross-origin isolation for WebContainers — must apply to the top-level
-      // Studio document AND the hidden wc-host iframe. Use (.*) so bare path
-      // and any sub-segment are both covered (Next's :path* can miss the bare
-      // path in some matchers, so be explicit).
       {
         source: "/app/studio",
-        headers: coiHeaders,
+        headers: coiParentHeaders,
       },
       {
         source: "/app/studio/wc-host",
-        headers: coiHeaders,
+        headers: coiHostHeaders,
       },
       {
         source: "/app/studio/wc-host/:path*",
-        headers: coiHeaders,
+        headers: coiHostHeaders,
       },
 
       {
