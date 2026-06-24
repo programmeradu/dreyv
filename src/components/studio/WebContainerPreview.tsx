@@ -51,6 +51,7 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
     const [phase, setPhase] = useState("Loading host…");
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [hostSession, setHostSession] = useState(0);
 
     filesRef.current = files;
 
@@ -77,6 +78,7 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
 
 
         function onMessage(ev: MessageEvent<HostMessage>) {
+            if (ev.source !== hostIframeRef.current?.contentWindow) return;
             const data = ev.data;
             if (!data || data.source !== "dreyv-wc-host") return;
             switch (data.type) {
@@ -118,7 +120,7 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [onLogsChange]);
+    }, [hostSession, onLogsChange]);
 
     // Surface a clear error if the host iframe never checks in (instead of
     // spinning forever). No fallback — user explicitly opted into Full mode.
@@ -132,7 +134,7 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
             }
         }, 15_000);
         return () => window.clearTimeout(t);
-    }, [previewUrl, error]);
+    }, [previewUrl, error, hostSession]);
 
     // Hot file sync: after boot, push any file changes to the live container.
     useEffect(() => {
@@ -148,26 +150,22 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
 
     const handleRestart = () => {
         bootedRef.current = false;
+        hostReadyRef.current = false;
         setPreviewUrl(null);
         setError(null);
-        setPhase("Restarting…");
-        hostIframeRef.current?.contentWindow?.postMessage({ type: "wc:restart" }, "*");
-        // Re-trigger boot after a beat.
-        window.setTimeout(() => {
-            hostIframeRef.current?.contentWindow?.postMessage(
-                { type: "wc:boot", files: flatten(filesRef.current) },
-                "*",
-            );
-            bootedRef.current = true;
-        }, 400);
+        setPhase("Restarting host…");
+        // WebContainer is a browser singleton. Recreate the hidden iframe so a
+        // failed/stale instance is released before the next boot request.
+        setHostSession((session) => session + 1);
     };
 
     return (
         <div className="relative h-full w-full bg-white">
             {/* Hidden host iframe runs Node/Vite in browser via WebContainers */}
             <iframe
+                key={hostSession}
                 ref={hostIframeRef}
-                src="/app/studio/wc-host"
+                src={`/app/studio/wc-host?session=${hostSession}`}
                 title="Dreyv WebContainer Host"
                 style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
                 allow="cross-origin-isolated"

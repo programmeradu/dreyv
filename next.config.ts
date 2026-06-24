@@ -40,6 +40,9 @@ const nextConfig: NextConfig = {
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
       { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
+      // WebContainers rely on SharedArrayBuffer; a cached 304 without these
+      // headers can make self.crossOriginIsolated false even after deploys.
+      { key: "Cache-Control", value: "no-store, max-age=0" },
     ];
     return [
       // Cross-origin isolation for WebContainers — must apply to the top-level
