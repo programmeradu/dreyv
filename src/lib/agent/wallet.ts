@@ -13,6 +13,7 @@ import {
     Connection,
     Keypair,
     PublicKey,
+    SystemProgram,
     Transaction,
     TransactionInstruction,
 } from "@solana/web3.js";
@@ -20,7 +21,7 @@ import {
 // bundler-mode workspace (same issue handled by `@ts-ignore` in
 // src/lib/studio/marketplace-payments.ts). Runtime exports are correct.
 // @ts-ignore
-import { createAssociatedTokenAccountInstruction, createTransferCheckedInstruction, getAccount, getAssociatedTokenAddress, TokenAccountNotFoundError, TokenInvalidAccountOwnerError } from "@solana/spl-token";
+import { createAssociatedTokenAccountInstruction, createCloseAccountInstruction, createTransferCheckedInstruction, getAccount, getAssociatedTokenAddress, TokenAccountNotFoundError, TokenInvalidAccountOwnerError } from "@solana/spl-token";
 
 
 
@@ -114,6 +115,18 @@ export interface WalletBalances {
     tokenAccountExists: boolean;
 }
 
+export interface SweepHostedWalletResult {
+    signature: string | null;
+    tokenMinor: bigint;
+    solLamports: bigint;
+    sourceTokenAccountExisted: boolean;
+    sourceTokenAccountClosed: boolean;
+    destinationTokenAccountCreated: boolean;
+    estimatedFeeLamports: bigint;
+    rentReserveLamports: bigint;
+    skippedReason?: "empty" | "sol_below_fee";
+}
+
 export async function getWalletBalances(args: {
     publicKey: string;
     mintAddress: string;
@@ -142,6 +155,166 @@ export async function getWalletBalances(args: {
     ]);
 
     return { solLamports, tokenMinor: balance.tokenMinor, tokenAccountExists: balance.tokenAccountExists };
+}
+
+/**
+ * Drain a hosted agent wallet into a destination Solana wallet before an
+ * account claim. Sweeps the configured SPL token balance, closes the source
+ * ATA to reclaim rent, then transfers every safely spendable lamport from the
+ * source system account. The caller remains responsible for deleting the DB
+ * wallet row only after this returns successfully (or when skipped as empty).
+ */
+export async function sweepHostedWallet(args: {
+    sourceSecretBase58: string;
+    destinationPublicKey: string;
+    mintAddress: string;
+    decimals: number;
+}): Promise<SweepHostedWalletResult> {
+    const conn = getAgentConnection();
+    const source = keypairFromBase58(args.sourceSecretBase58);
+    const destination = new PublicKey(args.destinationPublicKey);
+    const mint = new PublicKey(args.mintAddress);
+
+    if (source.publicKey.equals(destination)) {
+        throw new Error("destination_matches_source");
+    }
+
+    const sourceAta = await getAssociatedTokenAddress(mint, source.publicKey);
+    const destinationAta = await getAssociatedTokenAddress(mint, destination);
+
+    let tokenMinor = BigInt(0);
+    let sourceTokenAccountExisted = false;
+    try {
+        const sourceAccount = await getAccount(conn, sourceAta, "confirmed");
+        tokenMinor = sourceAccount.amount;
+        sourceTokenAccountExisted = true;
+    } catch (err) {
+        if (
+            err instanceof TokenAccountNotFoundError ||
+            err instanceof TokenInvalidAccountOwnerError
+        ) {
+            sourceTokenAccountExisted = false;
+        } else {
+            throw err;
+        }
+    }
+
+    const instructions: TransactionInstruction[] = [];
+    let destinationTokenAccountCreated = false;
+    let rentReserveLamports = BigInt(0);
+
+    if (tokenMinor > BigInt(0)) {
+        const destinationInfo = await conn.getAccountInfo(destinationAta, "confirmed");
+        if (!destinationInfo) {
+            instructions.push(
+                createAssociatedTokenAccountInstruction(
+                    source.publicKey,
+                    destinationAta,
+                    destination,
+                    mint,
+                ),
+            );
+            destinationTokenAccountCreated = true;
+            rentReserveLamports = BigInt(await conn.getMinimumBalanceForRentExemption(165));
+        }
+
+        instructions.push(
+            createTransferCheckedInstruction(
+                sourceAta,
+                mint,
+                destinationAta,
+                source.publicKey,
+                tokenMinor,
+                args.decimals,
+            ),
+        );
+    }
+
+    if (sourceTokenAccountExisted) {
+        instructions.push(createCloseAccountInstruction(sourceAta, destination, source.publicKey));
+    }
+
+    const solLamports = BigInt(await conn.getBalance(source.publicKey, "confirmed"));
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+
+    const feeProbe = new Transaction({ feePayer: source.publicKey, blockhash, lastValidBlockHeight });
+    feeProbe.add(...instructions);
+    if (solLamports > rentReserveLamports) {
+        feeProbe.add(
+            SystemProgram.transfer({
+                fromPubkey: source.publicKey,
+                toPubkey: destination,
+                lamports: BigInt(1),
+            }),
+        );
+    }
+    const estimatedFeeLamports = BigInt(
+        (await conn.getFeeForMessage(feeProbe.compileMessage(), "confirmed")).value ?? 5_000,
+    );
+
+    const reservedLamports = rentReserveLamports + estimatedFeeLamports;
+    const transferableSolLamports = solLamports > reservedLamports
+        ? solLamports - reservedLamports
+        : BigInt(0);
+
+    if (transferableSolLamports > BigInt(0)) {
+        instructions.push(
+            SystemProgram.transfer({
+                fromPubkey: source.publicKey,
+                toPubkey: destination,
+                lamports: transferableSolLamports,
+            }),
+        );
+    }
+
+    if (instructions.length === 0) {
+        return {
+            signature: null,
+            tokenMinor,
+            solLamports: BigInt(0),
+            sourceTokenAccountExisted,
+            sourceTokenAccountClosed: false,
+            destinationTokenAccountCreated,
+            estimatedFeeLamports,
+            rentReserveLamports,
+            skippedReason: solLamports > BigInt(0) ? "sol_below_fee" : "empty",
+        };
+    }
+
+    if (solLamports < reservedLamports) {
+        throw new Error(
+            `insufficient_sol_for_sweep: need at least ${reservedLamports.toString()} lamports for rent and fees; source has ${solLamports.toString()}`,
+        );
+    }
+
+    const tx = new Transaction({ feePayer: source.publicKey, blockhash, lastValidBlockHeight });
+    tx.add(...instructions);
+    tx.sign(source);
+
+    const signature = await conn.sendRawTransaction(tx.serialize(), {
+        skipPreflight: false,
+        maxRetries: 3,
+        preflightCommitment: "confirmed",
+    });
+
+    const confirmation = await conn.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        "confirmed",
+    );
+    if (confirmation.value.err) {
+        throw new Error(`solana_tx_failed: ${JSON.stringify(confirmation.value.err)}`);
+    }
+
+    return {
+        signature,
+        tokenMinor,
+        solLamports: transferableSolLamports,
+        sourceTokenAccountExisted,
+        sourceTokenAccountClosed: sourceTokenAccountExisted,
+        destinationTokenAccountCreated,
+        estimatedFeeLamports,
+        rentReserveLamports,
+    };
 }
 
 export interface PayInvoiceResult {

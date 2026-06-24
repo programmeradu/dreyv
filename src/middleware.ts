@@ -551,6 +551,7 @@ export async function middleware(request: NextRequest) {
             pathname === '/api/agents/balance' ||
             pathname === '/api/agents/balance/topup' ||
             pathname === '/api/agents/wallet' ||
+            pathname === '/api/agents/wallet/sweep' ||
             pathname === '/api/agents/scopes' ||
             pathname === '/api/agents/claim') &&
         request.headers.has('authorization')
