@@ -17,13 +17,22 @@
  *   host   → parent{ type: "wc:error",  message: "..." }
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { WebContainer, type FileSystemTree } from "@webcontainer/api";
 
 type IncomingMessage =
     | { type: "wc:boot"; files: Record<string, string> }
     | { type: "wc:write"; files: Record<string, string> }
     | { type: "wc:restart" };
+
+type WebContainerProcess = Awaited<ReturnType<WebContainer["spawn"]>>;
+
+let activeContainer: WebContainer | null = null;
+let bootPromise: Promise<void> | null = null;
+let booted = false;
+let installProcess: WebContainerProcess | null = null;
+let devProcess: WebContainerProcess | null = null;
+let currentPreviewUrl: string | null = null;
 
 function post(message: Record<string, unknown>) {
     window.parent?.postMessage({ source: "dreyv-wc-host", ...message }, "*");
@@ -39,6 +48,29 @@ function postLog(stream: "install" | "dev" | "system", chunk: string) {
 
 function postError(message: string) {
     post({ type: "wc:error", message });
+}
+
+function toErrorMessage(err: unknown) {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (raw.includes("SharedArrayBuffer") || raw.includes("crossOriginIsolated")) {
+        return `${raw}\n\nOpen Studio in a dedicated tab and hard-reload it. Browser WebContainers cannot boot unless the Studio document and host iframe are both cross-origin isolated.`;
+    }
+    if (raw.toLowerCase().includes("more instances")) {
+        return `${raw}\n\nA previous WebContainer boot is still being released. Click Restart once; Studio will recreate the isolated host before booting again.`;
+    }
+    return raw;
+}
+
+function teardownWebContainer() {
+    try { installProcess?.kill(); } catch {}
+    try { devProcess?.kill(); } catch {}
+    try { activeContainer?.teardown(); } catch {}
+    installProcess = null;
+    devProcess = null;
+    activeContainer = null;
+    bootPromise = null;
+    booted = false;
+    currentPreviewUrl = null;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -180,17 +212,22 @@ function mergeFiles(scaffold: Record<string, string>, user: Record<string, strin
 
 export default function WebContainerHost() {
     const [phase, setPhase] = useState<string>("Idle — waiting for parent…");
-    const wcRef = useRef<WebContainer | null>(null);
-    const bootedRef = useRef(false);
 
     useEffect(() => {
-        let installProcess: Awaited<ReturnType<WebContainer["spawn"]>> | null = null;
-        let devProcess: Awaited<ReturnType<WebContainer["spawn"]>> | null = null;
-
         async function boot(userFiles: Record<string, string>) {
-            if (bootedRef.current) return;
-            bootedRef.current = true;
-            try {
+            if (bootPromise) {
+                postStatus("booting", "WebContainer boot already in progress…");
+                return;
+            }
+            if (booted && activeContainer) {
+                postStatus("running", "WebContainer is already running.");
+                if (currentPreviewUrl) {
+                    post({ type: "wc:server-ready", url: currentPreviewUrl });
+                }
+                return;
+            }
+
+            bootPromise = (async () => {
                 setPhase("Booting Node.js runtime…");
                 postStatus("booting", "Booting Node.js runtime…");
                 if (!window.crossOriginIsolated) {
@@ -198,14 +235,15 @@ export default function WebContainerHost() {
                         "WebContainers need cross-origin isolation. Hard-reload Studio so the COOP/COEP headers apply.",
                     );
                 }
-                const wc = await withTimeout(
-                    WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true }),
-                    20_000,
-                    "WebContainer boot",
-                );
-                wcRef.current = wc;
+                // Do not wrap WebContainer.boot in a timeout: the boot call is
+                // not cancellable, and abandoning it can leave a ghost singleton
+                // that triggers "Unable to create more instances" on retry.
+                const wc = await WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true });
+                activeContainer = wc;
+                booted = true;
 
                 wc.on("server-ready", (_port, url) => {
+                    currentPreviewUrl = url;
                     setPhase("Dev server ready");
                     post({ type: "wc:server-ready", url });
                 });
@@ -233,16 +271,22 @@ export default function WebContainerHost() {
                 devProcess.output.pipeTo(
                     new WritableStream({ write(chunk) { postLog("dev", chunk); } }),
                 );
+            })();
+
+            try {
+                await bootPromise;
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = toErrorMessage(err);
                 setPhase(`Error: ${message}`);
                 postError(message);
-                bootedRef.current = false;
+                teardownWebContainer();
+            } finally {
+                bootPromise = null;
             }
         }
 
         async function writeFiles(userFiles: Record<string, string>) {
-            const wc = wcRef.current;
+            const wc = activeContainer;
             if (!wc) return;
             for (const [rawPath, contents] of Object.entries(userFiles)) {
                 const path = "/" + rawPath.replace(/^\/+/, "");
@@ -264,21 +308,18 @@ export default function WebContainerHost() {
             } else if (data.type === "wc:write") {
                 void writeFiles(data.files || {});
             } else if (data.type === "wc:restart") {
-                bootedRef.current = false;
-                wcRef.current?.teardown();
-                wcRef.current = null;
+                teardownWebContainer();
                 postStatus("restart", "Tear-down complete; send wc:boot again to restart.");
             }
         }
 
         window.addEventListener("message", onMessage);
+        window.addEventListener("pagehide", teardownWebContainer);
         post({ type: "wc:status", phase: "ready", message: "Host ready — send wc:boot." });
 
         return () => {
             window.removeEventListener("message", onMessage);
-            try { installProcess?.kill(); } catch {}
-            try { devProcess?.kill(); } catch {}
-            try { wcRef.current?.teardown(); } catch {}
+            window.removeEventListener("pagehide", teardownWebContainer);
         };
     }, []);
 
