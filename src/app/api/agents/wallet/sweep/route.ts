@@ -113,6 +113,22 @@ export async function POST(req: NextRequest) {
         );
     }
 
+    const [destinationHostedWallet] = await db
+        .select({ userId: agentWallets.userId })
+        .from(agentWallets)
+        .where(eq(agentWallets.publicKey, destinationWallet))
+        .limit(1);
+
+    if (!destinationHostedWallet) {
+        return NextResponse.json(
+            {
+                error: "destination_not_hosted_wallet",
+                message: "For claim safety, sweeps can only land in an existing Dreyv hosted customer wallet. Use the `customer_wallet` returned by POST /api/agents/claim/redeem.",
+            },
+            { status: 400 },
+        );
+    }
+
     const usdc = tokenFor("solana", "usdc");
     if (!usdc?.contract) {
         return NextResponse.json({ error: "usdc_mint_unconfigured" }, { status: 500 });
