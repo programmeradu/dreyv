@@ -235,11 +235,10 @@ export default function WebContainerHost() {
                         "WebContainers need cross-origin isolation. Hard-reload Studio so the COOP/COEP headers apply.",
                     );
                 }
-                const wc = await withTimeout(
-                    WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true }),
-                    20_000,
-                    "WebContainer boot",
-                );
+                // Do not wrap WebContainer.boot in a timeout: the boot call is
+                // not cancellable, and abandoning it can leave a ghost singleton
+                // that triggers "Unable to create more instances" on retry.
+                const wc = await WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true });
                 activeContainer = wc;
                 booted = true;
 
