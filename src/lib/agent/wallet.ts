@@ -235,6 +235,23 @@ export async function sweepHostedWallet(args: {
     }
 
     const solLamports = BigInt(await conn.getBalance(source.publicKey, "confirmed"));
+
+    // Wallet is completely empty — nothing to sweep. Bail before fee probe,
+    // since compiling an empty message throws "No instructions".
+    if (instructions.length === 0 && solLamports === BigInt(0)) {
+        return {
+            signature: null,
+            tokenMinor: BigInt(0),
+            solLamports: BigInt(0),
+            sourceTokenAccountExisted,
+            sourceTokenAccountClosed: false,
+            destinationTokenAccountCreated: false,
+            estimatedFeeLamports: BigInt(0),
+            rentReserveLamports: BigInt(0),
+            skippedReason: "empty",
+        };
+    }
+
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
 
     const feeProbe = new Transaction({ feePayer: source.publicKey, blockhash, lastValidBlockHeight });
