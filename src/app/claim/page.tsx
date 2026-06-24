@@ -18,6 +18,21 @@ function tokenLooksValid(t: string) {
   return v.startsWith("agcl.") && v.length > 16;
 }
 
+function formatUsdMinor(raw: unknown): string {
+  if (raw === undefined || raw === null) return "$0.00";
+  try {
+    const cents = BigInt(String(raw));
+    const neg = cents < BigInt(0);
+    const abs = neg ? -cents : cents;
+    const whole = abs / BigInt(100);
+    const frac = (abs % BigInt(100)).toString().padStart(2, "0");
+    const wholeStr = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${neg ? "-" : ""}$${wholeStr}.${frac}`;
+  } catch {
+    return "$0.00";
+  }
+}
+
 function ClaimInner() {
   const params = useSearchParams();
   const [token, setToken] = useState("");
