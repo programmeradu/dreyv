@@ -85,12 +85,24 @@ export function WebContainerPreview({ files, onLogsChange }: WebContainerPreview
                 case "wc:status":
                     if (data.phase === "ready" && !bootedRef.current) {
                         hostReadyRef.current = true;
-                        bootedRef.current = true;
                         setPhase("Booting WebContainer…");
                         hostIframeRef.current?.contentWindow?.postMessage(
                             { type: "wc:boot", files: flatten(filesRef.current) },
                             "*",
                         );
+                    } else if (data.phase === "booting" || data.phase === "mounting" || data.phase === "installing" || data.phase === "starting" || data.phase === "running") {
+                        bootedRef.current = true;
+                        if (data.message) {
+                            setPhase(data.message);
+                            pushLog(`[wc] ${data.message}`);
+                        }
+                    } else if (data.phase === "restart") {
+                        bootedRef.current = false;
+                        hostReadyRef.current = false;
+                        if (data.message) {
+                            setPhase(data.message);
+                            pushLog(`[wc] ${data.message}`);
+                        }
                     } else if (data.message) {
                         setPhase(data.message);
                         pushLog(`[wc] ${data.message}`);
