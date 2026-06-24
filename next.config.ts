@@ -75,7 +75,7 @@ const nextConfig: NextConfig = {
           // frame-ancestors 'self' provides modern clickjacking protection alongside X-Frame-Options.
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self'; frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io;",
+            value: "frame-ancestors 'self'; frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://stackblitz.com https://*.stackblitz.com https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com;",
           },
         ],
       },
