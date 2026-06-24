@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { tokenFor, receivingAddressFor } from "@/lib/billing/crypto-config";
 import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
+import { getAgentBalance, minorToUsd } from "@/lib/agent/balance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
