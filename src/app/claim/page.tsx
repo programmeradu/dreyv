@@ -32,6 +32,20 @@ function formatUsdMinor(raw: unknown): string {
     return "$0.00";
   }
 }
+function humanizeError(code: string): string {
+  const map: Record<string, string> = {
+    unauthorized: "Please sign in to claim this agent",
+    wallet_conflict: "Wallet conflict — sweep the agent wallet first",
+    token_expired: "This claim link has expired",
+    token_invalid: "This claim token isn't valid",
+    token_already_used: "This claim link was already redeemed",
+    db_unavailable: "We can't reach the database right now",
+    network_error: "Network error — check your connection",
+    request_failed: "Something went wrong",
+  };
+  return map[code] ?? code.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
 
 function ClaimInner() {
   const params = useSearchParams();
