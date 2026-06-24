@@ -158,6 +158,25 @@ export function AgentWalletPanel() {
                 </div>
             ) : data ? (
                 <div className="mt-5 space-y-2">
+                    {/* Prepaid balance — the primary "wallet" for metered API calls */}
+                    <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-violet-700">
+                                Prepaid balance
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                                Charged per capability call. Top up via Stripe, Paystack, or on-chain USDC below.
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-mono text-[20px] font-semibold tabular-nums text-slate-900">
+                                {formatUsd(data.prepaid?.balance)}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400">USDC credits</p>
+                        </div>
+                    </div>
+
+
                     {/* Address row — single line, monospace, hover-revealed actions */}
                     <div className="group flex h-10 items-center gap-2 rounded-xl border border-violet-100 bg-white px-3 hover:bg-violet-50/40">
                         <span
