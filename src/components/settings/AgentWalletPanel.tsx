@@ -221,7 +221,7 @@ export function AgentWalletPanel() {
                         <article className="relative mt-6 overflow-hidden rounded-2xl border border-violet-200/80 bg-white/85 backdrop-blur-sm">
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-300/70 to-transparent" />
                             <div className="flex items-center gap-3 px-5 pt-4">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600 shadow-sm shadow-violet-600/25">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-200 bg-white">
                                     <UsdcLogo size={22} />
                                 </span>
                                 <div className="min-w-0 flex-1">
