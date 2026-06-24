@@ -35,28 +35,30 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    const coiHeaders = [
+      { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+      { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+      { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
+    ];
     return [
+      // Cross-origin isolation for WebContainers — must apply to the top-level
+      // Studio document AND the hidden wc-host iframe. Use (.*) so bare path
+      // and any sub-segment are both covered (Next's :path* can miss the bare
+      // path in some matchers, so be explicit).
       {
-        // WebContainers require the top-level Studio document to be
-        // cross-origin isolated too; isolating only the hidden host iframe
-        // leaves SharedArrayBuffer unavailable and WebContainer.boot() hangs.
         source: "/app/studio",
-        headers: [
-          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
-        ],
+        headers: coiHeaders,
       },
       {
-        // Cross-origin isolation for WebContainers (Vite-in-browser) — scoped to
-        // the dedicated host route plus /app/studio above.
-        source: "/app/studio/wc-host/:path*",
-        headers: [
-          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
-        ],
+        source: "/app/studio/wc-host",
+        headers: coiHeaders,
       },
+      {
+        source: "/app/studio/wc-host/:path*",
+        headers: coiHeaders,
+      },
+
       {
         source: "/:path*",
         headers: [
