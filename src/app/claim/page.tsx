@@ -8,7 +8,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, KeyRound, Wallet, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ShieldCheck, KeyRound, Wallet, ArrowUpRight, Check } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import claimHandoff from "@/assets/claim/claim-handoff.png";
 
