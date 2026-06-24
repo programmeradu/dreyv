@@ -309,11 +309,12 @@ export default function WebContainerHost() {
         }
 
         window.addEventListener("message", onMessage);
+        window.addEventListener("pagehide", teardownWebContainer);
         post({ type: "wc:status", phase: "ready", message: "Host ready — send wc:boot." });
 
         return () => {
             window.removeEventListener("message", onMessage);
-            teardownWebContainer();
+            window.removeEventListener("pagehide", teardownWebContainer);
         };
     }, []);
 
