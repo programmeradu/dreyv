@@ -2,12 +2,6 @@
 
 /**
  * /claim — human-facing redemption page for agent claim tokens (`agcl.…`).
- *
- * Flow:
- *   1. Agent calls POST /api/agents/claim → receives `agcl.<JWT>` (10-min TTL).
- *   2. Agent hands the token to a human (link: /claim?token=agcl.…).
- *   3. Human signs in to Dreyv, then submits → POST /api/agents/claim/redeem.
- *   4. Backend reassigns keys/payments/balance/wallet to the customer account.
  */
 
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -15,7 +9,6 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, KeyRound, Wallet, ArrowUpRight } from "lucide-react";
-import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import claimHandoff from "@/assets/claim/claim-handoff.png";
 
@@ -41,13 +34,6 @@ function ClaimInner() {
   }, [params]);
 
   const tokenValid = useMemo(() => tokenLooksValid(token), [token]);
-  const mascotPose = result?.ok
-    ? "celebrate"
-    : result && !result.ok
-      ? "alert"
-      : submitting
-        ? "think"
-        : "greet";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,121 +70,99 @@ function ClaimInner() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-white font-[var(--font-manrope,Manrope),system-ui] text-slate-900">
-      {/* Ambient violet aurora */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-40 left-1/2 h-[640px] w-[640px] -translate-x-1/2 rounded-full bg-violet-400/25 blur-[140px]" />
-        <div className="absolute -bottom-40 -left-32 h-[520px] w-[520px] rounded-full bg-violet-300/30 blur-[140px]" />
-        <div className="absolute -right-40 top-40 h-[480px] w-[480px] rounded-full bg-violet-200/40 blur-[140px]" />
+    <div className="relative min-h-screen overflow-hidden bg-white font-[var(--font-manrope,Manrope),system-ui] text-slate-900 antialiased">
+      {/* Background composition — the handoff render lives here, not in a card */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        {/* Ambient violet aurora */}
+        <div className="absolute -top-56 left-1/2 h-[780px] w-[780px] -translate-x-1/2 rounded-full bg-violet-300/30 blur-[160px]" />
+        <div className="absolute -bottom-60 -left-40 h-[560px] w-[560px] rounded-full bg-violet-200/40 blur-[160px]" />
+        <div className="absolute -right-48 top-48 h-[520px] w-[520px] rounded-full bg-fuchsia-100/30 blur-[160px]" />
+
+        {/* Hero asset, dissolved into the background */}
+        <div className="absolute inset-x-0 top-[42vh] flex justify-center sm:top-[34vh]">
+          <Image
+            src={claimHandoff}
+            alt=""
+            priority
+            width={1600}
+            height={1200}
+            className="w-[min(1400px,140vw)] max-w-none select-none opacity-[0.16] mix-blend-luminosity sm:opacity-[0.13]"
+          />
+        </div>
+
+        {/* Soft white wash to keep text crisp */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/70 to-white" />
       </div>
 
+      {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"
+          className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-tight text-slate-900"
         >
-          <DreyvStar className="h-5 w-5 text-violet-600" />
+          <DreyvStar className="h-4 w-4 text-violet-600" />
           Dreyv
         </Link>
         <Link
           href="/docs"
-          className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-violet-700"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-slate-500 transition hover:text-slate-900"
         >
-          How claiming works <ArrowUpRight className="h-3.5 w-3.5" />
+          How claiming works
+          <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-12 px-6 pb-24 pt-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pt-20">
-        {/* LEFT — narrative + visual */}
-        <section className="relative">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-xs font-medium text-violet-700 backdrop-blur">
-            <DreyvStar className="h-3 w-3" />
+      {/* Hero */}
+      <main className="mx-auto max-w-3xl px-6 pb-24 pt-24 sm:pt-32">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/70 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-violet-700 backdrop-blur">
+            <DreyvStar className="h-2.5 w-2.5" />
             Agent → Human handoff
           </div>
 
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Take ownership of what your agent built.
+          <h1 className="mt-7 text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 sm:text-6xl">
+            Take ownership of
+            <br />
+            <span className="text-violet-600">what your agent built.</span>
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-            An autonomous agent ran tasks, spent credits, and earned balances on
-            your behalf. Redeem its claim token and everything &mdash; API keys,
-            payment history, prepaid balance, hosted Solana wallet &mdash; moves
-            cleanly into your Dreyv account. The agent keeps working. It just
-            answers to you now.
+
+          <p className="mx-auto mt-7 max-w-xl text-pretty text-[17px] leading-[1.55] text-slate-600">
+            Redeem the claim token and everything moves cleanly into your
+            account — API keys, payment history, prepaid balance, hosted Solana
+            wallet. The agent keeps working. It just answers to you now.
           </p>
+        </div>
 
-          <div className="relative mt-10 overflow-hidden rounded-3xl border border-violet-100 bg-gradient-to-br from-white via-violet-50/40 to-white p-6 shadow-[0_30px_80px_-40px_rgba(124,58,237,0.35)]">
-            <Image
-              src={claimHandoff}
-              alt="A Dreyv agent handing a glowing violet key to a human"
-              width={1024}
-              height={768}
-              priority
-              className="mx-auto h-auto w-full max-w-md"
-            />
-            <div className="absolute bottom-6 right-6 hidden sm:block">
-              <DreyvMascot pose={mascotPose} size={120} />
-            </div>
-          </div>
-
-          <ul className="mt-8 grid gap-3 sm:grid-cols-3">
-            {[
-              { icon: KeyRound, label: "API keys transfer", note: "dk_live_ keys keep working" },
-              { icon: Wallet, label: "Balance moves", note: "Prepaid credit + wallet" },
-              { icon: ShieldCheck, label: "Audited handoff", note: "Signed, single-use, 10 min" },
-            ].map(({ icon: Icon, label, note }) => (
-              <li
-                key={label}
-                className="rounded-2xl border border-violet-100 bg-white/80 p-4 backdrop-blur"
-              >
-                <Icon className="h-5 w-5 text-violet-600" strokeWidth={1.75} />
-                <div className="mt-3 text-sm font-semibold text-slate-900">{label}</div>
-                <div className="text-xs text-slate-500">{note}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* RIGHT — redeem card */}
-        <section className="lg:sticky lg:top-12 lg:self-start">
-          <div className="rounded-3xl border border-violet-200 bg-white p-7 shadow-[0_40px_120px_-40px_rgba(124,58,237,0.45)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-violet-700">
-                  Redeem
-                </div>
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-                  Paste your claim token
-                </h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  Starts with{" "}
-                  <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-violet-700">
-                    agcl.
-                  </code>{" "}
-                  &middot; valid for 10 minutes.
-                </p>
-              </div>
-              <DreyvMascot pose={mascotPose} size={64} glow={false} className="sm:hidden" />
+        {/* Redeem card */}
+        <section className="mx-auto mt-16 max-w-xl">
+          <div className="rounded-[28px] border border-slate-200/70 bg-white/80 p-7 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.25)] backdrop-blur-xl sm:p-8">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                Paste your claim token
+              </h2>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                10 min · single-use
+              </span>
             </div>
 
-            <form onSubmit={submit} className="mt-6 space-y-4">
+            <form onSubmit={submit} className="mt-5 space-y-4">
               <label className="block">
                 <span className="sr-only">Claim token</span>
                 <textarea
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   required
-                  rows={5}
+                  rows={4}
                   spellCheck={false}
                   placeholder="agcl.eyJhbGciOi…"
-                  className={`w-full rounded-2xl border bg-white px-4 py-3 font-mono text-sm leading-relaxed shadow-sm outline-none transition focus:ring-2 ${
+                  className={`w-full resize-none rounded-2xl border bg-white px-4 py-3.5 font-mono text-[13px] leading-relaxed text-slate-900 placeholder:text-slate-300 outline-none transition focus:ring-4 ${
                     tokenValid === false
-                      ? "border-rose-300 focus:border-rose-500 focus:ring-rose-100"
-                      : "border-violet-200 focus:border-violet-500 focus:ring-violet-100"
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-violet-500 focus:ring-violet-100"
                   }`}
                 />
                 {tokenValid === false && (
-                  <span className="mt-1.5 block text-xs text-rose-600">
+                  <span className="mt-2 block text-xs text-rose-600">
                     Doesn&rsquo;t look like an{" "}
                     <code className="font-mono">agcl.</code> token.
                   </span>
@@ -208,15 +172,15 @@ function ClaimInner() {
               <button
                 type="submit"
                 disabled={submitting || !token.trim()}
-                className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(124,58,237,0.6)] transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300 disabled:shadow-none"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-[14px] font-semibold tracking-tight text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {submitting ? "Redeeming…" : "Redeem & absorb agent"}
+                {submitting ? "Redeeming…" : "Redeem claim"}
                 {!submitting && (
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 )}
               </button>
 
-              <p className="text-center text-xs text-slate-500">
+              <p className="text-center text-[12px] text-slate-500">
                 You&rsquo;ll need to be signed in. We never re-share this token.
               </p>
             </form>
@@ -231,13 +195,13 @@ function ClaimInner() {
               >
                 {result.ok ? (
                   <>
-                    <div className="flex items-center gap-2 text-base font-semibold">
+                    <div className="flex items-center gap-2 text-[15px] font-semibold">
                       <ShieldCheck className="h-5 w-5" /> Agent absorbed.
                     </div>
                     <p className="mt-1 text-emerald-800">
                       Keys, balance and wallet now belong to your account.
                     </p>
-                    <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white/70 p-3 font-mono text-xs text-emerald-900">
+                    <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white/70 p-3 font-mono text-[11px] text-emerald-900">
                       {JSON.stringify(result.data, null, 2)}
                     </pre>
                     <Link
@@ -272,14 +236,33 @@ function ClaimInner() {
             )}
           </div>
 
-          <p className="mt-5 text-center text-xs text-slate-500">
+          <p className="mt-5 text-center text-[12px] text-slate-500">
             New to Dreyv?{" "}
-            <Link href="/auth" className="font-semibold text-violet-700 hover:text-violet-900">
-              Create an account first
+            <Link href="/auth" className="font-semibold text-slate-900 underline-offset-4 hover:underline">
+              Create an account
             </Link>{" "}
-            &mdash; takes 30 seconds.
+            — takes 30 seconds.
           </p>
         </section>
+
+        {/* Trust strip — minimal, evenly spaced */}
+        <ul className="mx-auto mt-20 grid max-w-3xl gap-px overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-200/70 sm:grid-cols-3">
+          {[
+            { icon: KeyRound, label: "API keys transfer", note: "dk_live_ keys keep working" },
+            { icon: Wallet, label: "Balance moves", note: "Prepaid credit + hosted wallet" },
+            { icon: ShieldCheck, label: "Audited handoff", note: "Signed, single-use, 10 min" },
+          ].map(({ icon: Icon, label, note }) => (
+            <li key={label} className="bg-white/90 p-6 backdrop-blur">
+              <Icon className="h-5 w-5 text-violet-600" strokeWidth={1.75} />
+              <div className="mt-4 text-[14px] font-semibold tracking-tight text-slate-900">
+                {label}
+              </div>
+              <div className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+                {note}
+              </div>
+            </li>
+          ))}
+        </ul>
       </main>
     </div>
   );
