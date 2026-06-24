@@ -160,17 +160,17 @@ export function AgentWalletPanel() {
 
     return (
         <section className="relative overflow-hidden rounded-[28px] border border-violet-100 bg-white">
-            {/* Ambient crystal background — quiet, never competes */}
+            {/* Ambient crystal background — visible but never competing */}
             <div className="pointer-events-none absolute inset-0 -z-0">
                 <Image
                     src={walletBg}
                     alt=""
                     fill
                     sizes="(max-width: 768px) 100vw, 720px"
-                    className="object-cover opacity-[0.18]"
+                    className="object-cover opacity-60"
                     priority={false}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/85 to-white" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/65 to-white/85" />
             </div>
 
             <div className="relative z-10 p-6 md:p-8">
