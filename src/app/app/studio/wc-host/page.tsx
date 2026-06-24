@@ -50,6 +50,54 @@ function postError(message: string) {
     post({ type: "wc:error", message });
 }
 
+async function assertSharedArrayBufferCanReachWorker() {
+    if (!window.crossOriginIsolated) {
+        throw new Error(
+            "WebContainers need cross-origin isolation. Hard-reload Studio so the COOP/COEP headers apply.",
+        );
+    }
+    if (typeof SharedArrayBuffer === "undefined") {
+        throw new Error("SharedArrayBuffer is unavailable in this browser context.");
+    }
+
+    const workerSource = `self.onmessage = (event) => {
+  self.postMessage({ isolated: self.crossOriginIsolated === true, bytes: event.data.byteLength });
+};`;
+    const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
+    const worker = new Worker(workerUrl, { name: "dreyv-wc-isolation-check" });
+
+    try {
+        await new Promise<void>((resolve, reject) => {
+            const timer = window.setTimeout(() => {
+                reject(new Error("SharedArrayBuffer worker isolation check timed out."));
+            }, 5_000);
+
+            worker.onmessage = (event: MessageEvent<{ isolated?: boolean; bytes?: number }>) => {
+                window.clearTimeout(timer);
+                if (event.data?.isolated && event.data.bytes === 1) {
+                    resolve();
+                } else {
+                    reject(new Error("Worker is not cross-origin isolated."));
+                }
+            };
+            worker.onerror = (event) => {
+                window.clearTimeout(timer);
+                reject(new Error(event.message || "SharedArrayBuffer worker isolation check failed."));
+            };
+
+            try {
+                worker.postMessage(new SharedArrayBuffer(1));
+            } catch (err) {
+                window.clearTimeout(timer);
+                reject(err);
+            }
+        });
+    } finally {
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+    }
+}
+
 function toErrorMessage(err: unknown) {
     const raw = err instanceof Error ? err.message : String(err);
     if (raw.includes("SharedArrayBuffer") || raw.includes("crossOriginIsolated")) {
@@ -230,15 +278,11 @@ export default function WebContainerHost() {
             bootPromise = (async () => {
                 setPhase("Booting Node.js runtime…");
                 postStatus("booting", "Booting Node.js runtime…");
-                if (!window.crossOriginIsolated) {
-                    throw new Error(
-                        "WebContainers need cross-origin isolation. Hard-reload Studio so the COOP/COEP headers apply.",
-                    );
-                }
+                await assertSharedArrayBufferCanReachWorker();
                 // Do not wrap WebContainer.boot in a timeout: the boot call is
                 // not cancellable, and abandoning it can leave a ghost singleton
                 // that triggers "Unable to create more instances" on retry.
-                const wc = await WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true });
+                const wc = await WebContainer.boot({ coep: "require-corp", forwardPreviewErrors: true });
                 activeContainer = wc;
                 booted = true;
 

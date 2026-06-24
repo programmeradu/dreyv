@@ -36,7 +36,12 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     const coiHeaders = [
-      { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+      // WebContainers are strict about embedded hosts: when the runtime is
+      // inside an iframe, both the Studio document and the host iframe need the
+      // same COEP mode. StackBlitz documents `require-corp` for this embedded
+      // case; `credentialless` can leave the worker non-isolated even when the
+      // window reports as isolated.
+      { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
       { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
