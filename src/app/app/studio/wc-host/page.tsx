@@ -17,7 +17,7 @@
  *   host   → parent{ type: "wc:error",  message: "..." }
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { WebContainer, type FileSystemTree } from "@webcontainer/api";
 
 type IncomingMessage =
