@@ -459,7 +459,7 @@ export function AgentWalletPanel() {
                                         </span>
                                         <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white bg-white ring-1 ring-violet-100">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src="/brand/backpack.svg" alt="Backpack" width={16} height={16} />
+                                            <img src="/brand/backpack.png" alt="Backpack" width={16} height={16} className="rounded-full object-contain" />
                                         </span>
                                     </div>
                                 </div>
