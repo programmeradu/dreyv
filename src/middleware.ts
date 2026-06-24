@@ -550,7 +550,9 @@ export async function middleware(request: NextRequest) {
             pathname.startsWith('/api/keys/') ||
             pathname === '/api/agents/balance' ||
             pathname === '/api/agents/balance/topup' ||
-            pathname === '/api/agents/wallet') &&
+            pathname === '/api/agents/wallet' ||
+            pathname === '/api/agents/scopes' ||
+            pathname === '/api/agents/claim') &&
         request.headers.has('authorization')
     ) {
         return withSeoHeaders(
