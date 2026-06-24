@@ -238,7 +238,7 @@ export default function WebContainerHost() {
                 // Do not wrap WebContainer.boot in a timeout: the boot call is
                 // not cancellable, and abandoning it can leave a ghost singleton
                 // that triggers "Unable to create more instances" on retry.
-                const wc = await WebContainer.boot({ coep: "credentialless", forwardPreviewErrors: true });
+                const wc = await WebContainer.boot({ coep: "require-corp", forwardPreviewErrors: true });
                 activeContainer = wc;
                 booted = true;
 
