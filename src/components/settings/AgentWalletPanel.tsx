@@ -348,53 +348,46 @@ export function AgentWalletPanel() {
 
                             {/* Provider CTAs */}
                             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-violet-100 bg-violet-50/40 p-3">
-                                {effectiveAmount != null ? (
-                                    <Link
-                                        href={`/app/billing?topup=${effectiveAmount}&via=stripe`}
-                                        className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <StripeLogo size={20} />
-                                            <span className="text-[12px] font-medium text-slate-800">
-                                                Card · Stripe
-                                            </span>
+                                <button
+                                    type="button"
+                                    disabled={effectiveAmount == null || topupLoading != null}
+                                    onClick={() => effectiveAmount != null && startTopup("stripe", effectiveAmount)}
+                                    className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm disabled:cursor-not-allowed disabled:bg-white/50 disabled:opacity-60 disabled:hover:border-violet-100 disabled:hover:shadow-none"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <StripeLogo size={20} />
+                                        <span className="text-[12px] font-medium text-slate-800 group-disabled:text-slate-500">
+                                            {topupLoading === "stripe" ? "Redirecting…" : "Card · Stripe"}
                                         </span>
+                                    </span>
+                                    {effectiveAmount != null && topupLoading !== "stripe" && (
                                         <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
-                                    </Link>
-                                ) : (
-                                    <div className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white/50 px-3 py-2.5 opacity-60">
-                                        <span className="flex items-center gap-2">
-                                            <StripeLogo size={20} />
-                                            <span className="text-[12px] font-medium text-slate-500">
-                                                Card · Stripe
-                                            </span>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={effectiveAmount == null || topupLoading != null}
+                                    onClick={() => effectiveAmount != null && startTopup("paystack", effectiveAmount)}
+                                    className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm disabled:cursor-not-allowed disabled:bg-white/50 disabled:opacity-60 disabled:hover:border-violet-100 disabled:hover:shadow-none"
+                                    title="Charged in GHS at today's USD→GHS rate"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <PaystackLogo size={18} />
+                                        <span className="text-[12px] font-medium text-slate-800 group-disabled:text-slate-500">
+                                            {topupLoading === "paystack" ? "Redirecting…" : "Mobile money · Paystack"}
                                         </span>
-                                    </div>
-                                )}
-                                {effectiveAmount != null ? (
-                                    <Link
-                                        href={`/app/billing?topup=${effectiveAmount}&via=paystack`}
-                                        className="group flex items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white px-3 py-2.5 transition hover:border-violet-300 hover:shadow-sm"
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <PaystackLogo size={18} />
-                                            <span className="text-[12px] font-medium text-slate-800">
-                                                Mobile money · Paystack
-                                            </span>
-                                        </span>
+                                    </span>
+                                    {effectiveAmount != null && topupLoading !== "paystack" && (
                                         <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-violet-600" />
-                                    </Link>
-                                ) : (
-                                    <div className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl border border-violet-100 bg-white/50 px-3 py-2.5 opacity-60">
-                                        <span className="flex items-center gap-2">
-                                            <PaystackLogo size={18} />
-                                            <span className="text-[12px] font-medium text-slate-500">
-                                                Mobile money · Paystack
-                                            </span>
-                                        </span>
-                                    </div>
-                                )}
+                                    )}
+                                </button>
                             </div>
+                            {topupError && (
+                                <p className="mt-1.5 px-5 pb-2 text-[11px] text-red-600">{topupError}</p>
+                            )}
+                            <p className="mt-1 px-5 pb-3 text-[10.5px] text-slate-500">
+                                Stripe charges in USD. Paystack converts to GHS at today's rate.
+                            </p>
                         </article>
 
                         {/* Rail 2 — Hosted on-chain wallet */}
