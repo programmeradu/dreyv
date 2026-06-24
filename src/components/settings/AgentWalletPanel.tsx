@@ -96,6 +96,33 @@ export function AgentWalletPanel() {
     const [prepaidAmount, setPrepaidAmount] = useState<number>(100);
     const [customMode, setCustomMode] = useState(false);
     const [customInput, setCustomInput] = useState<string>("");
+    const [topupLoading, setTopupLoading] = useState<"stripe" | "paystack" | null>(null);
+    const [topupError, setTopupError] = useState<string | null>(null);
+
+    const startTopup = useCallback(
+        async (provider: "stripe" | "paystack", amount: number) => {
+            setTopupError(null);
+            setTopupLoading(provider);
+            try {
+                const res = await fetch(`/api/billing/topup/${provider}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ amount }),
+                });
+                const body = await res.json().catch(() => ({} as { url?: string; error?: string }));
+                if (!res.ok || !body?.url) {
+                    setTopupError(body?.error || `Failed to start ${provider} checkout`);
+                    setTopupLoading(null);
+                    return;
+                }
+                window.location.href = body.url;
+            } catch (err) {
+                setTopupError(err instanceof Error ? err.message : "Network error");
+                setTopupLoading(null);
+            }
+        },
+        [],
+    );
 
     const customParsed = Number(customInput);
     const customValid =
