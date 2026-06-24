@@ -46,6 +46,17 @@ export async function GET(req: NextRequest) {
         balanceError = err instanceof Error ? err.message : "rpc_failed";
     }
 
+    let prepaid: { balance_minor: string; balance: string; currency: string; updated_at: string } | null = null;
+    try {
+        const b = await getAgentBalance(user.id);
+        prepaid = {
+            balance_minor: b.balance_minor.toString(),
+            balance: minorToUsd(b.balance_minor),
+            currency: b.currency,
+            updated_at: b.updated_at.toISOString(),
+        };
+    } catch { /* non-fatal */ }
+
     return NextResponse.json({
         address: wallet.publicKey,
         created_at: wallet.createdAt,
@@ -62,6 +73,7 @@ export async function GET(req: NextRequest) {
             balance_lamports: balances ? balances.solLamports.toString() : null,
             balance: balances ? Number(balances.solLamports) / 1e9 : null,
         },
+        prepaid,
         receiving_wallet: receivingAddressFor("solana"),
         rpc_error: balanceError,
     });
