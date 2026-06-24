@@ -200,56 +200,100 @@ function ClaimInner() {
               </p>
             </form>
 
-            {result && (
-              <div
-                className={`mt-6 rounded-2xl border p-5 text-sm ${
-                  result.ok
-                    ? "border-emerald-200 bg-emerald-50/70 text-emerald-900"
-                    : "border-rose-200 bg-rose-50/70 text-rose-900"
-                }`}
-              >
-                {result.ok ? (
-                  <>
-                    <div className="flex items-center gap-2 text-[15px] font-semibold">
-                      <ShieldCheck className="h-5 w-5" /> Agent absorbed.
+            {result && result.ok && (() => {
+              const t = (result.data?.transferred ?? {}) as {
+                balance_minor_added?: string;
+                balance_minor_total?: string;
+                wallet_transferred?: boolean;
+              };
+              const added = formatUsdMinor(t.balance_minor_added);
+              const total = formatUsdMinor(t.balance_minor_total);
+              const walletMoved = Boolean(t.wallet_transferred);
+              const rows: Array<{ label: string; value: string }> = [
+                { label: "Prepaid balance moved", value: added },
+                { label: "New account balance", value: total },
+                { label: "Hosted Solana wallet", value: walletMoved ? "Transferred" : "Already yours" },
+                { label: "API keys (dk_live_…)", value: "Still active" },
+              ];
+              return (
+                <div className="mt-6 overflow-hidden rounded-2xl border border-violet-200/70 bg-white/90 backdrop-blur">
+                  <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+                    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+                      <Check className="h-4 w-4" strokeWidth={2.5} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[15px] font-semibold tracking-tight text-slate-900">
+                        Welcome — the agent is yours.
+                      </div>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+                        Everything the agent built has moved into your account.
+                        Its keys keep working, just signed to you now.
+                      </p>
                     </div>
-                    <p className="mt-1 text-emerald-800">
-                      Keys, balance and wallet now belong to your account.
-                    </p>
-                    <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white/70 p-3 font-mono text-[11px] text-emerald-900">
-                      {JSON.stringify(result.data, null, 2)}
-                    </pre>
+                  </div>
+
+                  <dl className="divide-y divide-slate-100">
+                    {rows.map((row) => (
+                      <div
+                        key={row.label}
+                        className="flex items-center justify-between gap-4 px-5 py-3"
+                      >
+                        <dt className="text-[13px] text-slate-500">{row.label}</dt>
+                        <dd className="text-[13px] font-medium tabular-nums text-slate-900">
+                          {row.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-3.5">
                     <Link
                       href="/app"
-                      className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:text-emerald-900"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-violet-600"
                     >
-                      Open your dashboard <ArrowRight className="h-3.5 w-3.5" />
+                      Open dashboard
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
-                  </>
-                ) : (
-                  <>
-                    <div className="font-semibold">
-                      {result.error}
-                      {result.status ? ` (${result.status})` : ""}
-                    </div>
-                    {result.message && (
-                      <div className="mt-1 text-rose-800">{result.message}</div>
-                    )}
-                    {result.status === 401 && (
-                      <Link
-                        href={`/auth?next=${encodeURIComponent(
-                          `/claim?token=${encodeURIComponent(token)}`,
-                        )}`}
-                        className="mt-3 inline-flex items-center gap-1 font-semibold text-violet-700 hover:text-violet-900"
-                      >
-                        Sign in to Dreyv <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    )}
-                  </>
+                    <Link
+                      href="/app/agents"
+                      className="text-[12.5px] font-medium text-slate-500 transition hover:text-slate-900"
+                    >
+                      View agent settings
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {result && !result.ok && (
+              <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50/70 p-5 text-sm text-rose-900">
+                <div className="font-semibold">
+                  {humanizeError(result.error)}
+                  {result.status ? (
+                    <span className="ml-1 text-[12px] font-medium text-rose-500">
+                      ({result.status})
+                    </span>
+                  ) : null}
+                </div>
+                {result.message && (
+                  <div className="mt-1 text-[13px] leading-relaxed text-rose-800">
+                    {result.message}
+                  </div>
+                )}
+                {result.status === 401 && (
+                  <Link
+                    href={`/auth?next=${encodeURIComponent(
+                      `/claim?token=${encodeURIComponent(token)}`,
+                    )}`}
+                    className="mt-3 inline-flex items-center gap-1 font-semibold text-violet-700 hover:text-violet-900"
+                  >
+                    Sign in to Dreyv <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 )}
               </div>
             )}
           </div>
+
 
           <p className="mt-5 text-center text-[12px] text-slate-500">
             New to Dreyv?{" "}
