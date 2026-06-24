@@ -94,6 +94,21 @@ export function AgentWalletPanel() {
     const [showQr, setShowQr] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
     const [prepaidAmount, setPrepaidAmount] = useState<number>(100);
+    const [customMode, setCustomMode] = useState(false);
+    const [customInput, setCustomInput] = useState<string>("");
+
+    const customParsed = Number(customInput);
+    const customValid =
+        customMode &&
+        customInput.trim() !== "" &&
+        Number.isFinite(customParsed) &&
+        customParsed >= MIN_TOPUP &&
+        customParsed <= MAX_TOPUP;
+    const effectiveAmount = customMode
+        ? customValid
+            ? Math.round(customParsed * 100) / 100
+            : null
+        : prepaidAmount;
 
     const load = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
