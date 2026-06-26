@@ -82,7 +82,7 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
 export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [isUnlocked, setIsUnlocked] = React.useState(unlocked);
   const [formatId, setFormatId] = React.useState("explainer");
-  const [angle, setAngle] = React.useState<string>(DREYV_DEV_SURFACE.heroHooks[0].id);
+  const [angle, setAngle] = React.useState<string>(VIDEO_ANGLES[0].id);
   const [customAngle, setCustomAngle] = React.useState("");
   const [primaryTool, setPrimaryTool] = React.useState("");
   const [trendingSound, setTrendingSound] = React.useState("");
