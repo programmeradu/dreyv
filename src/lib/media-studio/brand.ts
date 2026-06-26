@@ -67,8 +67,11 @@ export function brandSystemPrompt(): string {
     `- Never invent metrics, partnerships, or customer logos.`,
     `- If you reference a number, it must come from the user's prompt or be obviously generic ("a few seconds").`,
     `- Output must be ready to publish — no "[insert X]" placeholders.`,
+    ``,
+    developersContextPrompt(),
   ].join("\n");
 }
+
 
 export function imageStylePrompt(kind: AssetKind): string {
   const base = `Premium fintech brand visual for Dreyv. Solid violet (#7c3aed) accents on a clean white background. Manrope-style typography. Flat, editorial, calm — never gradient-mush or generic SaaS. Subtle violet ambient glow allowed.
