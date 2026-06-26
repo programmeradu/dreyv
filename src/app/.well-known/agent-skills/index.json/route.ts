@@ -102,6 +102,20 @@ export function GET() {
       description: "RFC 9727 API catalog linkset.",
       url: `${origin}/.well-known/api-catalog`,
     },
+    {
+      name: "skill-md",
+      type: "skill.md",
+      description:
+        "npx-skills installable catalog (mirrors solana.com/SKILL.md shape). Install: npx skills add <origin>.",
+      url: `${origin}/SKILL.md`,
+    },
+    {
+      name: "rpc-quick-lookups",
+      type: "rest",
+      description:
+        "Cached, rate-friendly lookups: balances, token metadata, prices, tx history across Solana + EVM.",
+      url: `${origin}/api/v1`,
+    },
   ];
 
   return NextResponse.json(
