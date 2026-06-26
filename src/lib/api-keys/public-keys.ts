@@ -265,24 +265,40 @@ export function extractBearer(req: Request): string | null {
 // Adequate for single-region; replace with Redis when we scale out.
 // ─────────────────────────────────────────────────────────────────────
 const buckets = new Map<string, number[]>();
+const dailyBuckets = new Map<string, { day: string; count: number }>();
+
+// Free-tier daily call cap. Override via env. Default 5,000/day per key.
+const FREE_TIER_DAILY_CAP = Number(process.env.FREE_TIER_DAILY_CAP ?? 5000);
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function checkRateLimit(key: ResolvedPublicKey): {
   ok: boolean;
   retryAfterMs: number;
   remaining: number;
+  reason?: "rpm" | "daily";
 } {
   const now = Date.now();
   const windowMs = 60_000;
   const arr = buckets.get(key.id) ?? [];
-  // drop timestamps older than window
   while (arr.length > 0 && arr[0] <= now - windowMs) arr.shift();
   if (arr.length >= key.rateLimitRpm) {
     const retryAfterMs = Math.max(0, windowMs - (now - arr[0]));
     buckets.set(key.id, arr);
-    return { ok: false, retryAfterMs, remaining: 0 };
+    return { ok: false, retryAfterMs, remaining: 0, reason: "rpm" };
+  }
+  const day = todayUtc();
+  const cur = dailyBuckets.get(key.id);
+  const dailyCount = cur && cur.day === day ? cur.count : 0;
+  if (dailyCount >= FREE_TIER_DAILY_CAP) {
+    const msUntilMidnight = new Date(`${day}T23:59:59.999Z`).getTime() - now + 1;
+    return { ok: false, retryAfterMs: msUntilMidnight, remaining: 0, reason: "daily" };
   }
   arr.push(now);
   buckets.set(key.id, arr);
+  dailyBuckets.set(key.id, { day, count: dailyCount + 1 });
   return { ok: true, retryAfterMs: 0, remaining: key.rateLimitRpm - arr.length };
 }
 
