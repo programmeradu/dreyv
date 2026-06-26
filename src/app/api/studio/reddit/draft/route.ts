@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     customAngle?: string;
     tone?: "founder" | "technical" | "contrarian";
     length?: "short" | "medium" | "long";
+    perspective?: "founder" | "discoverer" | "recommender" | "auto";
     audience?: string;
   };
   try {
