@@ -78,6 +78,7 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
   const [customAngle, setCustomAngle] = React.useState("");
   const [tone, setTone] = React.useState<(typeof TONES)[number]["id"]>("founder");
   const [length, setLength] = React.useState<(typeof LENGTHS)[number]["id"]>("medium");
+  const [perspective, setPerspective] = React.useState<(typeof PERSPECTIVES)[number]["id"]>("auto");
   const [audience, setAudience] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
