@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
 import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
-import { videoToolsPrompt, VIDEO_FORMATS, VIDEO_TOOLS } from "@/lib/media-studio/video-tools";
+import { videoToolsPrompt, VIDEO_FORMATS, VIDEO_TOOLS, VIDEO_ANGLES } from "@/lib/media-studio/video-tools";
 import { chatJson } from "@/lib/media-studio/ai";
 
 export const runtime = "nodejs";
