@@ -27,11 +27,24 @@ export async function POST(req: NextRequest) {
   }
 
   if (typeof body.id === "string" && body.id.length > 0) {
-    const result = await verifyAttestationById(body.id);
-    if (!result.ok) {
-      return NextResponse.json({ valid: false, reason: result.reason }, { status: 200 });
+    try {
+      const result = await verifyAttestationById(body.id);
+      if (!result.ok) {
+        return NextResponse.json({ valid: false, reason: result.reason }, { status: 200 });
+      }
+      return NextResponse.json({ valid: true, attestation: result.attestation });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      // Treat unmigrated table / unknown lookup failures as not_found so
+      // the contract stays { valid:false, reason } instead of leaking 500s.
+      if (msg.includes("agent_attestations") && msg.includes("does not exist")) {
+        return NextResponse.json(
+          { valid: false, reason: "not_found", note: "attestations_unmigrated" },
+          { status: 200 },
+        );
+      }
+      return NextResponse.json({ valid: false, reason: "lookup_failed" }, { status: 500 });
     }
-    return NextResponse.json({ valid: true, attestation: result.attestation });
   }
 
   if (
