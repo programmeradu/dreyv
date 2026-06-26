@@ -7,6 +7,7 @@ import StudioPasswordGate from "../StudioPasswordGate";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { studioJsonHeaders, studioAuthHeaders } from "@/lib/media-studio/client-auth";
 import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
+import { VIDEO_ANGLES } from "@/lib/media-studio/video-tools";
 
 type Shot = {
   n: number;
