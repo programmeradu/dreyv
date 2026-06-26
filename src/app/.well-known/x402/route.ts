@@ -36,7 +36,7 @@ export function GET() {
                     extra: { name: "USDC", version: "2" },
                 },
             ],
-            networks: ["base-sepolia"],
+            networks: ["base-sepolia", "solana"],
             resources: [
                 {
                     resource: `${origin}/api/x402/echo`,
@@ -44,12 +44,25 @@ export function GET() {
                     status: "live",
                     description: "Live x402-protected echo endpoint (returns HTTP 402).",
                 },
+                {
+                    resource: `${origin}/api/x402/proxy`,
+                    type: "facilitator",
+                    status: "live",
+                    description:
+                        "Universal x402 payment relay — pay for ANY x402-protected resource on the open web from a Dreyv agent's prepaid balance / custodial Solana wallet. POST { url, method?, headers?, body?, max_price_usd? } with Authorization: Bearer dk_live_… or dak_…",
+                },
             ],
             protected_routes: [
                 {
                     path: "/api/x402/echo",
                     status: "live",
                     description: "Live x402-protected echo endpoint.",
+                },
+                {
+                    path: "/api/x402/proxy",
+                    status: "live",
+                    description:
+                        "Outbound x402 facilitator — Dreyv pays any x402-protected URL on the agent's behalf and returns the response.",
                 },
             ],
             contact: "support@dreyv.com",

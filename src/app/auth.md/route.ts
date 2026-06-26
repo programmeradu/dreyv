@@ -59,6 +59,23 @@ _Dreyv — Agent Authentication_
 - **Sandbox:** retry with header \`X-PAYMENT: test\` (or \`sandbox\`) — provisions a 31-day tier without on-chain settlement. Disabled when \`X402_ALLOW_TEST_MODE=false\`.
 - **Hosted fallback:** pass \`{ "payment": { "provider": "stripe" | "paystack", "email": "…" } }\` to receive a \`checkout_url\` (\`requires_human_step: true\`).
 
+## Paying ANY x402 resource on the web (\`/api/x402/proxy\`)
+
+Dreyv acts as a Solana USDC facilitator for arbitrary x402-protected URLs. One call, deterministic, no human in the loop:
+
+\`\`\`
+POST ${origin}/api/x402/proxy
+Authorization: Bearer dk_live_…  (or dak_…)
+Content-Type: application/json
+
+{ "url": "https://some-x402-api.example/premium", "method": "GET", "max_price_usd": 0.25 }
+\`\`\`
+
+- Dreyv forwards the request, catches the upstream 402, picks the cheapest Solana USDC quote within \`max_price_usd\`, settles on-chain from the agent's custodial wallet, retries with \`X-PAYMENT\`, and returns the fulfilled response + signed receipt.
+- Underfunded wallet → HTTP 402 with topup instructions. Over budget → HTTP 413 with the quote. No Solana quote advertised → HTTP 415.
+
+
+
 
 
 ## Discovery surface
