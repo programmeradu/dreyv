@@ -406,10 +406,23 @@ export default function MediaStudioClient() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href="/studio/reddit"
+              className="rounded-full border border-studio-border bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-studio-violet hover:border-violet-400"
+            >
+              Reddit drafts →
+            </a>
+            <a
+              href="/studio/case-studies"
+              className="rounded-full border border-studio-border bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-studio-violet hover:border-violet-400"
+            >
+              Case studies →
+            </a>
             <span className="rounded-full border border-studio-border bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-studio-violet backdrop-blur">
               Private · Team only
             </span>
           </div>
+
         </header>
 
         {/* Mode tabs */}
