@@ -181,19 +181,32 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1.5 md:col-span-2">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Angle</span>
               <select
                 value={angle}
                 onChange={(e) => setAngle(e.target.value)}
                 className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
               >
-                {DREYV_DEV_SURFACE.heroHooks.map((h) => (
-                  <option key={h.id} value={h.id}>{h.title}</option>
+                {VIDEO_ANGLES.map((a) => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
                 ))}
                 <option value="custom">Custom angle…</option>
               </select>
+              {angle !== "custom" && (() => {
+                const a = VIDEO_ANGLES.find((x) => x.id === angle);
+                if (!a) return null;
+                return (
+                  <div className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-2 text-[12px] leading-relaxed text-slate-700">
+                    <div className="text-slate-900">{a.teaser}</div>
+                    <div className="mt-1 text-[11px] text-violet-700">
+                      Hook ideas: {a.hookIdeas.map((h) => `“${h}”`).join(" · ")}
+                    </div>
+                  </div>
+                );
+              })()}
             </label>
+
 
             {angle === "custom" && (
               <label className="flex flex-col gap-1.5 md:col-span-2">
