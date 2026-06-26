@@ -130,6 +130,7 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <Link href="/studio" className="hover:text-violet-700">Media</Link>
+            <Link href="/studio/video" className="hover:text-violet-700">Video</Link>
             <Link href="/studio/case-studies" className="hover:text-violet-700">Case studies</Link>
             <Link href={DREYV_DEV_SURFACE.homepage} className="hover:text-violet-700" target="_blank">
               /developers ↗
