@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
   if (!wallet.secretBase58) {
     return NextResponse.json({ ok: false, reason: "agent_wallet_unavailable" }, { status: 500 });
   }
-  const balances = await getWalletBalances({ publicKey: wallet.publicKey, mintAddress: SOLANA_USDC_MAINNET, decimals: USDC_DECIMALS });
+  const balances = await getWalletBalances({ publicKey: wallet.publicKey, mintAddress: SOLANA_USDC_MAINNET });
   if (balances.solLamports < MIN_SOL_LAMPORTS_FOR_TX || balances.tokenMinor < amountMinor) {
     return NextResponse.json({
       ok: false,
