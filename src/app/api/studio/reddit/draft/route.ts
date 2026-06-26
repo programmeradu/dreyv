@@ -115,11 +115,22 @@ export async function POST(req: NextRequest) {
       ? "You disagree with the consensus in this sub and you're going to say why. Lead with the spicy take. Back it with what you actually shipped, not vibes."
       : "You're the founder writing this yourself, late at night, in the Reddit textbox. Sound like a human thinking out loud — half-formed asides, real opinions, mild self-deprecation. NOT a marketing post wearing a hoodie.";
 
+  const perspective = body.perspective ?? "auto";
+  const perspectiveGuide =
+    perspective === "discoverer"
+      ? `POV: You are a regular r/${subreddit} member who recently stumbled on Dreyv (you do NOT work there). You're sharing what you found because the sub will care. Write in 1st person about YOUR experience using it ("I tried…", "I came across…", "been messing with this thing called Dreyv"). Talk about Dreyv in 3rd person ("they built…", "their MCP…", "the team behind it"). Be honest — mention what's rough or what you're still figuring out. Don't sound like the founder; sound like a user who happens to be enthusiastic.`
+      : perspective === "recommender"
+      ? `POV: You're a r/${subreddit} regular answering, basically, "what's everyone using for X?" — except you're posting it as a top-level recommendation because you've been quietly using Dreyv and think more people should know. 1st person about you, 3rd person about Dreyv ("they have…", "what won me over was…"). Compare it casually to alternatives you've tried. Caveats and what's missing are fine — they make it credible.`
+      : perspective === "founder"
+      ? `POV: You ARE the founder/builder behind Dreyv, posting under your own account. 1st person, transparent about that ("I'm building…", "we just shipped…"). No hiding it — Reddit smells stealth marketing instantly. Founder honesty (what's broken, what you're unsure about, what feedback you want) is the whole appeal.`
+      : `POV: Pick whichever framing actually lands best in r/${subreddit} for this angle — founder sharing what they built (1st person, transparent), a user who discovered Dreyv and is telling the sub (1st person about themselves, 3rd person about Dreyv), or a recommender answering an implicit "what do you use for X". Whichever you pick, commit to it fully and never break the frame mid-post. Be honest about which one you chose — the title and body should make the POV obvious from the first line.`;
+
   const userPrompt = [
-    `You're writing a Reddit self-post to r/${subreddit}. You.`,
-    `Not "we at Dreyv". Not "our platform". A person, on Reddit, talking about something they're building or noticing.`,
+    `You're writing a Reddit self-post to r/${subreddit}.`,
     ``,
-    `What you want to talk about (use it as raw material, not a script — riff on it, make it yours, drop whatever doesn't fit):`,
+    perspectiveGuide,
+    ``,
+    `Raw material to work from (not a script — riff, reorder, drop what doesn't fit the POV):`,
     angleText,
     ``,
     `How it should sound: ${toneGuide}`,
@@ -127,10 +138,10 @@ export async function POST(req: NextRequest) {
     body.audience ? `Who in r/${subreddit} you're actually thinking about as you write: ${body.audience}` : null,
     ``,
     `WRITE LIKE A REAL REDDIT POSTER:`,
-    `- Open with something that sounds like a thought, not a headline. "Spent the weekend trying to…", "Hot take but…", "Anyone else noticed…", "Ok so I gave Claude…". Whatever fits. Just don't open like a press release.`,
+    `- Open with something that sounds like a thought, not a headline. "Spent the weekend trying to…", "Hot take but…", "Anyone else noticed…", "Ok so I gave Claude…", "Been looking for X forever and finally found…". Whatever fits the POV. Just don't open like a press release.`,
     `- Vary sentence length. Use fragments. Start sentences with "And" or "But" if it sounds right.`,
     `- Be specific. One real example beats three abstract claims. If you can describe the exact prompt you typed and what came back, do that.`,
-    `- It's fine to be unsure, to say "I might be wrong about this", to admit something didn't work the first time. That's what makes it real.`,
+    `- It's fine to be unsure, to admit something didn't work the first time, to say "not sponsored, just genuinely impressed" if you're in discoverer/recommender mode. That's what makes it real.`,
     `- Light formatting only. Maybe one short code block or one short list if it genuinely helps. No bold headers carving the post into "sections". This is Reddit, not a Notion doc.`,
     `- End however a person would end — a question, an aside, an ask for war stories, "curious what others have tried". Not "Let me know your thoughts! 👇".`,
     ``,
@@ -139,7 +150,8 @@ export async function POST(req: NextRequest) {
     `- No marketing voice. If a sentence could appear on a landing page, rewrite it or cut it.`,
     `- No Title Case titles. Titles read like a sentence or a thought, lowercase or sentence case, under ~100 chars.`,
     `- No links inside the post body — links go in the first comment only. Use plain ${DREYV_DEV_SURFACE.homepage} / ${DREYV_DEV_SURFACE.mcp} there, no UTMs, no shorteners.`,
-    `- Don't name-drop Dreyv every paragraph. Mention it once, naturally, the way you'd mention any side project. The post is about the idea, not the product.`,
+    `- Don't name-drop Dreyv every paragraph. In discoverer/recommender POV especially, name it once or twice max — the post is about the problem and the experience, not the brand.`,
+    `- Never break the POV. If you chose discoverer, never accidentally write "we built" or "our MCP". If you chose founder, don't pretend to be a random user.`,
     `- If r/${subreddit} is crypto-skeptical, lean into the dev-tool / agent angle and let the on-chain part be incidental. If it's crypto-native, the opposite.`,
     ``,
     `Give me:`,
