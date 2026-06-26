@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
     `Give me:`,
     `- 4 title options (1 you'd actually post + 3 alternates with different angles/voice). All sentence case, under 100 chars, no clickbait punctuation.`,
     `- The post body, written as the person would actually type it.`,
-    `- The first comment from OP — short, human, drops the link(s), maybe thanks the sub or adds one more thought.`,
+    `- The first comment from OP — short, human, in the same POV as the body. Drops the link(s). Discoverer/recommender POV: phrase it like "link in case anyone wants to poke at it" — never like a CTA.`,
     `- A posting window in UTC with a one-line "why this time" (when this sub is actually awake and reading).`,
     `- A short compliance checklist specific to r/${subreddit} (karma/age/flair/self-promo ratio/AI-content stance — whatever actually applies there) so the team can double-check before hitting post.`,
   ]
