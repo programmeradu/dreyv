@@ -481,11 +481,14 @@ export async function middleware(request: NextRequest) {
     // Artifact download routes self-authenticate via signed JWT in `?t=`
     // (see /api/agent/artifacts/[id]) — they must be reachable without
     // a session cookie so download links work in any browser tab.
-    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media', '/api/agents/markdown'];
+    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media', '/api/studio/reddit', '/api/studio/case-studies', '/api/agents/markdown'];
     const isPublicArtifactRoute =
         pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
     const isStudioGatedRoute =
-        pathname.startsWith('/api/studio/unlock') || pathname.startsWith('/api/studio/media');
+        pathname.startsWith('/api/studio/unlock') ||
+        pathname.startsWith('/api/studio/media') ||
+        pathname.startsWith('/api/studio/reddit') ||
+        pathname.startsWith('/api/studio/case-studies');
     // Hero paste-vault entry-point parses Solana addresses from natural-language
     // input pre-auth; it never executes anything. Keep parse public, keep any
     // sibling /api/ai/* routes protected by the regular gate below.
