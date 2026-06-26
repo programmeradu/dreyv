@@ -66,8 +66,8 @@ const MODES: Array<{ id: Mode; label: string; icon: React.ComponentType<{ classN
   { id: "post", label: "Post", icon: FileText, hint: "Copy + image" },
   { id: "infographic", label: "Infographic", icon: Layout, hint: "Brand card" },
   { id: "announcement", label: "Announcement", icon: Megaphone, hint: "Launch visual" },
-  { id: "video", label: "Video", icon: Video, hint: "Storyboard" },
   { id: "mascot", label: "Mascot", icon: FileText, hint: "Dreyv visuals" },
+  // Video moved to dedicated /studio/video page (TikTok production packs).
 ];
 
 const CHANNELS: Channel[] = ["x", "linkedin", "instagram", "generic"];
@@ -406,6 +406,12 @@ export default function MediaStudioClient() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href="/studio/video"
+              className="rounded-full border border-violet-300 bg-violet-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-white hover:bg-violet-700"
+            >
+              🎬 Video studio →
+            </a>
             <a
               href="/studio/reddit"
               className="rounded-full border border-studio-border bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-studio-violet hover:border-violet-400"
