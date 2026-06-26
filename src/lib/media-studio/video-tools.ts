@@ -235,3 +235,124 @@ export function videoToolsPrompt(): string {
     "  - Captions ARE the content for 60% of viewers (sound off). Make text legible in frame 1.",
   ].join("\n");
 }
+
+/**
+ * TikTok-tuned angles. Concrete, scroll-stopping, mascot-friendly.
+ * These replace the generic dev hero hooks in the Video Studio picker —
+ * each one is written as the FIRST CARD a viewer would actually see.
+ */
+export const VIDEO_ANGLES = [
+  {
+    id: "agent-pays-itself",
+    label: "My AI agent paid its own bill",
+    teaser: "Funded a USDC wallet, gave Claude the key, watched it pay per API call. No human in the loop.",
+    caps: "agent wallet + x402 + prepaid balance + per-call billing",
+    hookIdeas: [
+      "I gave Claude $20 in USDC and walked away",
+      "this AI agent has its own bank account now",
+      "watch an agent pay for itself in real time",
+    ],
+  },
+  {
+    id: "paste-wallet-story",
+    label: "Paste any wallet → Claude tells the story",
+    teaser: "Drop a Solana address into Claude. Get the PnL, the rug exposure, the whale moves — in plain English.",
+    caps: "wallet intel + portfolio + pnl + risk",
+    hookIdeas: [
+      "Claude just read this whale's wallet like a diary",
+      "paste any SOL address and watch this",
+      "I asked Claude what this wallet has been doing. terrifying.",
+    ],
+  },
+  {
+    id: "rug-in-3-seconds",
+    label: "Is this token a rug? Claude answers in 3 seconds",
+    teaser: "Real on-chain forensics — holder concentration, mint authority, liquidity locks — not vibes.",
+    caps: "security firewall + risk + holder concentration + mint authority",
+    hookIdeas: [
+      "this token was a rug and Claude caught it in 3 seconds",
+      "stop asking Twitter if it's a rug. ask Claude.",
+      "every degen needs this prompt before aping",
+    ],
+  },
+  {
+    id: "yield-hunt",
+    label: "Best yield on my stables, ranked by risk",
+    teaser: "40+ protocols scored by audits, TVL, history. The AI picks. You approve. Non-custodial.",
+    caps: "yield + risk-adjusted return + audit status + tvl",
+    hookIdeas: [
+      "Claude found me 14% on USDC and it's not a Ponzi",
+      "I let an AI rank every Solana yield. here's #1",
+      "this beats every yield aggregator UI I've used",
+    ],
+  },
+  {
+    id: "foresight-sim",
+    label: "Simulate a $500k sell before clicking",
+    teaser: "Ask Claude what happens if you sell. Get the slippage, the LP drain, the post-trade portfolio.",
+    caps: "foresight simulation + market impact + portfolio delta",
+    hookIdeas: [
+      "I simulated dumping 30% of my bag before doing it",
+      "this is what 'check before you click' should feel like",
+      "Claude ran the impact model and saved me $40k",
+    ],
+  },
+  {
+    id: "mcp-install",
+    label: "Install Dreyv MCP in 30 seconds (Claude / Cursor)",
+    teaser: "One config line. Suddenly Claude has 300+ web3 tools. No SDK. No keys to manage upfront.",
+    caps: "MCP server + tool discovery + Claude/Cursor/ChatGPT compatibility",
+    hookIdeas: [
+      "your AI agent is one config line away from web3 superpowers",
+      "I added 300 tools to Claude in 30 seconds",
+      "Cursor + this MCP = unfair advantage",
+    ],
+  },
+  {
+    id: "agent-vs-human",
+    label: "Agent does treasury ops faster than the CFO",
+    teaser: "Payouts, runway, drift detection — the AI ships it before you finish your coffee.",
+    caps: "treasury ops + payouts + runway + drift + foresight",
+    hookIdeas: [
+      "I fired my treasury spreadsheet",
+      "the AI closed the books before I sat down",
+      "watch Claude run a 6-figure treasury in 90 seconds",
+    ],
+  },
+  {
+    id: "non-custodial-magic",
+    label: "AI signs nothing. You sign everything. Still magic.",
+    teaser: "The misconception that 'AI agents = give up your keys' — debunked with the actual flow.",
+    caps: "non-custodial signing + intent layer + user-approved execution",
+    hookIdeas: [
+      "no, your AI agent doesn't need your seed phrase",
+      "the right way to let an agent touch your wallet",
+      "this is what non-custodial AI actually looks like",
+    ],
+  },
+  {
+    id: "before-after-cli",
+    label: "Before/after: 8 dashboards vs one command line",
+    teaser: "Birdeye + DexScreener + DeBank + Step + Phantom + … → one prompt.",
+    caps: "command bar + unified data + agentic UX",
+    hookIdeas: [
+      "I closed 8 tabs and opened one prompt",
+      "the last crypto dashboard you'll ever need",
+      "POV: you stopped tab-hopping",
+    ],
+  },
+  {
+    id: "mascot-explains",
+    label: "Mascot POV: 'why I exist'",
+    teaser: "Dreyv mascot breaks the fourth wall and explains the product in 15 seconds. Pure character bait.",
+    caps: "brand + mascot storytelling",
+    hookIdeas: [
+      "hi. I'm the reason your agent can ship.",
+      "I live inside Claude now",
+      "POV: you're an AI agent and I just unlocked your hands",
+    ],
+  },
+] as const;
+
+export type VideoAngleId = (typeof VIDEO_ANGLES)[number]["id"];
+
