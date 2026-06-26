@@ -3068,3 +3068,13 @@ export const agentBalanceLedger = pgTable('agent_balance_ledger', {
 }, (t) => ({
   userIdx: index('agent_balance_ledger_user_idx').on(t.userId, t.createdAt),
 }));
+
+// Persistent single-use replay guard for agent claim tokens (migration 0051).
+export const redeemedClaimTokens = pgTable('redeemed_claim_tokens', {
+  jti: text('jti').primaryKey(),
+  agentUserId: uuid('agent_user_id').notNull(),
+  customerUserId: uuid('customer_user_id').notNull(),
+  redeemedAt: timestamp('redeemed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  customerIdx: index('redeemed_claim_tokens_customer_idx').on(t.customerUserId, t.redeemedAt),
+}));

@@ -29,6 +29,7 @@ import {
   agentPayments,
   agentWallets,
   publicApiKeys,
+  redeemedClaimTokens,
   users,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -36,8 +37,6 @@ import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const REDEEMED = new Set<string>();
 
 function secret() {
   const s = process.env.JWT_SECRET;
@@ -90,7 +89,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (REDEEMED.has(jti)) {
+  const [alreadyRedeemed] = await db
+    .select()
+    .from(redeemedClaimTokens)
+    .where(eq(redeemedClaimTokens.jti, jti))
+    .limit(1);
+  if (alreadyRedeemed) {
     return NextResponse.json(
       { error: "already_redeemed", message: "This claim token has already been used." },
       { status: 409 },
@@ -226,7 +230,11 @@ export async function POST(req: NextRequest) {
     })
     .where(eq(users.id, agentUserId));
 
-  REDEEMED.add(jti);
+  await db
+    .insert(redeemedClaimTokens)
+    .values({ jti, agentUserId, customerUserId: me.id })
+    .onConflictDoNothing();
+
 
   return NextResponse.json({
     ok: true,
