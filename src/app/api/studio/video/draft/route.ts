@@ -116,14 +116,17 @@ export async function POST(req: NextRequest) {
   }
 
   const format = VIDEO_FORMATS.find((f) => f.id === body.formatId) ?? VIDEO_FORMATS[0];
-  const angleId = body.angle ?? "wallet-brain";
-  const hook = HERO_HOOKS.find((h) => h.id === angleId);
+  const angleId = body.angle ?? VIDEO_ANGLES[0].id;
+  const videoAngle = VIDEO_ANGLES.find((a) => a.id === angleId);
+  const legacyHook = HERO_HOOKS.find((h) => h.id === angleId);
   const angleText =
     angleId === "custom" && body.customAngle
       ? body.customAngle.trim()
-      : hook
-      ? `${hook.title}\nCapabilities: ${hook.caps}\nSafety: ${hook.safety}`
-      : HERO_HOOKS[0].title;
+      : videoAngle
+      ? `${videoAngle.label}\nTeaser: ${videoAngle.teaser}\nCapabilities to showcase: ${videoAngle.caps}\nCandidate hook lines (riff, don't recite): ${videoAngle.hookIdeas.join(" | ")}`
+      : legacyHook
+      ? `${legacyHook.title}\nCapabilities: ${legacyHook.caps}\nSafety: ${legacyHook.safety}`
+      : `${VIDEO_ANGLES[0].label}\nTeaser: ${VIDEO_ANGLES[0].teaser}`;
 
   const primary = body.primaryTool && VIDEO_TOOLS.find((t) => t.id === body.primaryTool);
 
