@@ -101,6 +101,7 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
           customAngle: angle === "custom" ? customAngle : undefined,
           tone,
           length,
+          perspective,
           audience: audience || undefined,
         }),
       });
