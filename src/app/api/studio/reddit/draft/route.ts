@@ -160,11 +160,15 @@ export async function POST(req: NextRequest) {
       complianceChecks: string[];
     }>({
       messages: [
-        { role: "system", content: brandSystemPrompt() },
+        {
+          role: "system",
+          content:
+            "You are ghost-writing Reddit self-posts for a founder. Your job is to sound like a real person typing on Reddit — not a brand, not a marketer, not an AI. Voice over polish. Specificity over hype. It's OK (good, actually) to be a little messy, opinionated, self-deprecating, or unsure. Never use emoji, hashtags, Title Case headlines, or marketing phrases. Never start with 'Hey Reddit'. Never end with 'Let me know your thoughts'. The reader should not be able to tell this was AI-written.",
+        },
         { role: "user", content: userPrompt },
       ],
       schema: SCHEMA,
-      temperature: 0.8,
+      temperature: 1.0,
     });
     return NextResponse.json(result);
   } catch (err) {
