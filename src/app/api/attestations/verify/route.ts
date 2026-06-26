@@ -27,11 +27,27 @@ export async function POST(req: NextRequest) {
   }
 
   if (typeof body.id === "string" && body.id.length > 0) {
-    const result = await verifyAttestationById(body.id);
-    if (!result.ok) {
-      return NextResponse.json({ valid: false, reason: result.reason }, { status: 200 });
+    try {
+      const result = await verifyAttestationById(body.id);
+      if (!result.ok) {
+        return NextResponse.json({ valid: false, reason: result.reason }, { status: 200 });
+      }
+      return NextResponse.json({ valid: true, attestation: result.attestation });
+    } catch (err) {
+      const flat = [
+        err instanceof Error ? err.message : "",
+        err && typeof err === "object" && "cause" in err && (err as { cause?: unknown }).cause instanceof Error
+          ? ((err as { cause: Error }).cause.message)
+          : "",
+      ].join(" | ");
+      if (flat.includes("agent_attestations") || flat.includes("does not exist")) {
+        return NextResponse.json(
+          { valid: false, reason: "not_found", note: "attestations_unmigrated" },
+          { status: 200 },
+        );
+      }
+      return NextResponse.json({ valid: false, reason: "lookup_failed" }, { status: 500 });
     }
-    return NextResponse.json({ valid: true, attestation: result.attestation });
   }
 
   if (
