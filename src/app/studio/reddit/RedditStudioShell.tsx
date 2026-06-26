@@ -67,7 +67,7 @@ function CopyButton({ text }: { text: string }) {
 export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
   const [isUnlocked, setIsUnlocked] = React.useState(unlocked);
   const [subreddit, setSubreddit] = React.useState("ClaudeAI");
-  const [angle, setAngle] = React.useState(DREYV_DEV_SURFACE.heroHooks[0].id);
+  const [angle, setAngle] = React.useState<string>(DREYV_DEV_SURFACE.heroHooks[0].id);
   const [customAngle, setCustomAngle] = React.useState("");
   const [tone, setTone] = React.useState<(typeof TONES)[number]["id"]>("founder");
   const [length, setLength] = React.useState<(typeof LENGTHS)[number]["id"]>("medium");
