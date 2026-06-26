@@ -160,11 +160,15 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
   const priceMinor = priceMinorFor(cap);
   let balanceAfterMinor: bigint | null = null;
   if (priceMinor > BigInt(0)) {
+    // Per-call ref MUST be unique — the ledger has UNIQUE(reason, ref).
+    // Reusing key.id here would either silently skip the second charge
+    // (free calls) or raise a constraint error and 500 the request.
+    const callRef = `${key.id}:${t0}:${crypto.randomUUID()}`;
     const charge = await chargeAgentBalance({
       userId: key.userId,
       amountMinor: priceMinor,
       reason: `capability:${cap.id}`,
-      ref: key.id,
+      ref: callRef,
     });
     if (!charge.ok) {
       await recordUsage({

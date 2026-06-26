@@ -132,7 +132,12 @@ export async function POST(req: NextRequest) {
     };
     const header = req.headers.get("x-payment");
     const receipt = req.headers.get("x-payment-receipt");
-    const testModeAllowed = process.env.X402_ALLOW_TEST_MODE !== "false";
+    // Sandbox header credits balance without on-chain settlement. MUST be
+    // explicit opt-in: default OFF in production so a leaked dk_live_ key
+    // can't mint unlimited prepaid USDC by replaying `X-PAYMENT: test`.
+    const testModeAllowed =
+      process.env.X402_ALLOW_TEST_MODE === "true" ||
+      (process.env.NODE_ENV !== "production" && process.env.X402_ALLOW_TEST_MODE !== "false");
     const isTest = testModeAllowed && (header === "test" || header === "sandbox");
 
     if (!header && !receipt) {
