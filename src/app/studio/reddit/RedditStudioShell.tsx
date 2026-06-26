@@ -46,6 +46,13 @@ const LENGTHS = [
   { id: "long", label: "Long (500w+)" },
 ] as const;
 
+const PERSPECTIVES = [
+  { id: "founder", label: "Founder (1st person)", hint: "You built it. You're sharing." },
+  { id: "discoverer", label: "User who found it (3rd person)", hint: "You stumbled on Dreyv and are telling the sub." },
+  { id: "recommender", label: "Recommender (3rd person)", hint: "Someone asked for X — you've been using Dreyv, here's why." },
+  { id: "auto", label: "Let the model pick", hint: "Best fit for the sub + angle." },
+] as const;
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false);
   return (
@@ -71,6 +78,7 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
   const [customAngle, setCustomAngle] = React.useState("");
   const [tone, setTone] = React.useState<(typeof TONES)[number]["id"]>("founder");
   const [length, setLength] = React.useState<(typeof LENGTHS)[number]["id"]>("medium");
+  const [perspective, setPerspective] = React.useState<(typeof PERSPECTIVES)[number]["id"]>("auto");
   const [audience, setAudience] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -93,6 +101,7 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
           customAngle: angle === "custom" ? customAngle : undefined,
           tone,
           length,
+          perspective,
           audience: audience || undefined,
         }),
       });
@@ -214,6 +223,27 @@ export default function RedditStudioShell({ unlocked }: { unlocked: boolean }) {
                     }`}
                   >
                     {l.label}
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <label className="flex flex-col gap-1.5 md:col-span-2">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Perspective</span>
+              <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-violet-200 bg-white p-1.5 md:grid-cols-4">
+                {PERSPECTIVES.map((p) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onClick={() => setPerspective(p.id)}
+                    className={`flex flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                      perspective === p.id ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-violet-50"
+                    }`}
+                  >
+                    <span>{p.label}</span>
+                    <span className={`text-[10px] font-normal ${perspective === p.id ? "text-violet-100" : "text-slate-400"}`}>
+                      {p.hint}
+                    </span>
                   </button>
                 ))}
               </div>
