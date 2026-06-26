@@ -34,10 +34,13 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ valid: true, attestation: result.attestation });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      // Treat unmigrated table / unknown lookup failures as not_found so
-      // the contract stays { valid:false, reason } instead of leaking 500s.
-      if (msg.includes("agent_attestations") && msg.includes("does not exist")) {
+      const flat = [
+        err instanceof Error ? err.message : "",
+        err && typeof err === "object" && "cause" in err && (err as { cause?: unknown }).cause instanceof Error
+          ? ((err as { cause: Error }).cause.message)
+          : "",
+      ].join(" | ");
+      if (flat.includes("agent_attestations") || flat.includes("does not exist")) {
         return NextResponse.json(
           { valid: false, reason: "not_found", note: "attestations_unmigrated" },
           { status: 200 },
