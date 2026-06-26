@@ -46,6 +46,13 @@ const LENGTHS = [
   { id: "long", label: "Long (500w+)" },
 ] as const;
 
+const PERSPECTIVES = [
+  { id: "founder", label: "Founder (1st person)", hint: "You built it. You're sharing." },
+  { id: "discoverer", label: "User who found it (3rd person)", hint: "You stumbled on Dreyv and are telling the sub." },
+  { id: "recommender", label: "Recommender (3rd person)", hint: "Someone asked for X — you've been using Dreyv, here's why." },
+  { id: "auto", label: "Let the model pick", hint: "Best fit for the sub + angle." },
+] as const;
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false);
   return (
