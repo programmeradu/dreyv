@@ -15,6 +15,16 @@
  */
 import { SignJWT, importPKCS8 } from "jose";
 import { putR2Object, isR2Configured, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
+import type { VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+
+export type VertexVeoSubmitOptions = {
+  /**
+   * Up to 3 Veo 3.1 asset reference images. Used to lock the Dreyv mascot to
+   * its canonical design (violet body, cream chest with "D" mark, violet cap)
+   * instead of letting Veo invent it from text.
+   */
+  referenceImages?: VeoReferenceImage[];
+};
 
 const REGION = process.env.GCP_VERTEX_REGION?.trim() || "us-central1";
 const MODEL = process.env.GCP_VEO_MODEL?.trim() || "veo-3.1-generate-001";
