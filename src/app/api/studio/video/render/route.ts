@@ -46,14 +46,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const inserted = await db.execute(
+  const inserted = (await db.execute(
     sql`INSERT INTO studio_video_jobs (status, pack, shots_total)
         VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${pack.shotList.length})
         RETURNING id`,
-  );
-  // drizzle .execute returns { rows } on neon-http; { rows: [...] } on pg
-  const row = (inserted as { rows?: Array<{ id: string }> }).rows?.[0]
-    ?? (inserted as unknown as Array<{ id: string }>)[0];
+  )) as unknown;
+  // drizzle .execute returns { rows } on neon-http; an array on pg
+  const row =
+    (inserted as { rows?: Array<{ id?: string }> }).rows?.[0] ??
+    (Array.isArray(inserted) ? (inserted[0] as { id?: string } | undefined) : undefined);
   const jobId = row?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to insert job" }, { status: 500 });
 
