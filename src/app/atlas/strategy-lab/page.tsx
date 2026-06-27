@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AtlasShell } from "@/components/atlas/atlas-shell";
 import { StrategyLabClient } from "@/components/atlas/strategy-lab-client";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function StrategyLabPage() {
-  return <StrategyLabClient />;
+  return (
+    <AtlasShell activeSection="strategy-lab">
+      <StrategyLabClient />
+    </AtlasShell>
+  );
 }
