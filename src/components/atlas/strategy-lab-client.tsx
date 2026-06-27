@@ -238,7 +238,10 @@ function AddressGate({ onResolve, address, busy }: {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="text-center">
-        <div className="text-xs uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
+        <div className="flex items-center justify-center gap-1.5 text-[13px] leading-none text-violet-700">
+          <span className="font-semibold lowercase tracking-tight" style={{ fontFamily: "Urbanist, ui-sans-serif, system-ui" }}>dreyv</span>
+          <span className="font-black uppercase tracking-[0.18em]">LAB</span>
+        </div>
         <h1 className="mt-3 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
           Decide with hindsight.
           <br />
