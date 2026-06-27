@@ -20,7 +20,7 @@ import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studi
 import { advanceVertexRenderJob } from "@/lib/media-studio/vertex-render-job";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,9 +64,6 @@ async function handlePost(req: NextRequest) {
   // Per-provider secret guard — only the chosen provider's creds are required.
   if ((provider === "veo3-fal" || provider === "wan22-fal") && !process.env.FAL_KEY) {
     return NextResponse.json({ error: "FAL_KEY missing — required for fal-hosted providers." }, { status: 500 });
-  }
-  if (provider === "veo3-vertex" && pack.shotList.length > 1 && !process.env.FAL_KEY) {
-    return NextResponse.json({ error: "FAL_KEY missing — required to stitch multiple Vertex shots into one final ad." }, { status: 500 });
   }
   if (provider === "veo3-google" && !process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY missing." }, { status: 500 });

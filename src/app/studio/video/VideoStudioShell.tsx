@@ -94,7 +94,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [trends, setTrends] = React.useState<Trends | null>(null);
   const [trendsLoading, setTrendsLoading] = React.useState(false);
 
-  // ---- Video render job (fal.ai pipeline) -----------------------------
+  // ---- Video render job pipeline --------------------------------------
   type RenderJob = {
     id: string;
     status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
@@ -115,7 +115,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   // are used purely to surface an estimated cost in the UI.
   type ProviderId = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
   const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
-    { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)",     secs: 8, usdPerSec: 0.35, note: "Full multi-shot render · stitched MP4 · no burned text" },
+    { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)",     secs: 8, usdPerSec: 0.35, note: "Full multi-shot render · local stitch · no burned text" },
     { id: "veo3-fal",    label: "Veo 3 Fast · fal.ai",        secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
     { id: "veo3-google", label: "Veo 3 · Google direct",      secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
     { id: "wan22-fal",   label: "Wan 2.2 Fast · budget",      secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
@@ -124,7 +124,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const provider = PROVIDERS.find((p) => p.id === providerId)!;
   const estimatedRenderSeconds = (pack?.shotList.length ?? 1) * provider.secs;
   const renderModeCopy = providerId === "veo3-vertex"
-    ? `Renders all ${pack?.shotList.length ?? 0} Vertex shots, avoids AI-burned text, then stitches one seamless MP4.`
+    ? `Renders all ${pack?.shotList.length ?? 0} sequential Vertex shots, avoids AI-burned text, then stitches locally into one MP4.`
     : `Renders all ${pack?.shotList.length ?? 0} shots, then stitches the final MP4.`;
 
   const startRender = React.useCallback(async () => {
@@ -565,7 +565,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                 {renderJob.status !== "done" && renderJob.status !== "failed" && (
                   <div className="rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
                     {isVertexRender
-                      ? "Submitted to Vertex. Each shot completes independently, then the finished clips are stitched into one MP4. Captions are intentionally kept out of Veo to avoid misspellings."
+                      ? "Submitted to Vertex. Each shot is prompted as the next scene in one ad, then Dreyv stitches the finished clips locally into one MP4. Captions are intentionally kept out of Veo to avoid misspellings."
                       : "Background render is active. The page can refresh safely; the session will recover from the saved job."}
                   </div>
                 )}
