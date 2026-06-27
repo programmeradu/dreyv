@@ -108,6 +108,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [renderJob, setRenderJob] = React.useState<RenderJob | null>(null);
   const [renderStarting, setRenderStarting] = React.useState(false);
   const [renderError, setRenderError] = React.useState<string | null>(null);
+  const [renderStartedAt, setRenderStartedAt] = React.useState<number | null>(null);
+  const [renderNow, setRenderNow] = React.useState(Date.now());
 
   // Provider catalogue mirrors the server-side allowlist. `secs` and `usdPerSec`
   // are used purely to surface an estimated cost in the UI.
@@ -147,6 +149,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
         duration_sec: null,
         error: j.warning ?? null,
       });
+      setRenderStartedAt(Date.now());
       try { localStorage.setItem("studio.video.activeJobId", j.jobId); } catch {}
     } catch (e) {
       setRenderError(e instanceof Error ? e.message : String(e));
@@ -176,6 +179,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
             duration_sec: j.duration_sec ?? null,
             error: j.error ?? null,
           });
+          setRenderStartedAt(new Date(j.updated_at ?? j.created_at ?? Date.now()).getTime());
         } else if (!cancelled && r.status === 404) {
           try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
         } else if (!cancelled && !r.ok) {
@@ -192,6 +196,12 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
     }
   }, [renderJob?.status]);
+
+  React.useEffect(() => {
+    if (!renderJob || renderJob.status === "done" || renderJob.status === "failed") return;
+    const handle = setInterval(() => setRenderNow(Date.now()), 1000);
+    return () => clearInterval(handle);
+  }, [renderJob?.id, renderJob?.status]);
 
   // Poll job until terminal.
   React.useEffect(() => {
@@ -236,6 +246,10 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       setTrendsLoading(false);
     }
   }, []);
+
+  const elapsedSeconds = renderStartedAt ? Math.max(0, Math.floor((renderNow - renderStartedAt) / 1000)) : 0;
+  const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
+  const isVertexRender = renderJob?.shots_total === 1 && providerId === "veo3-vertex";
 
   React.useEffect(() => {
     if (isUnlocked && !trends) void loadTrends();
@@ -542,10 +556,19 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                   </span>
                   {renderJob.status !== "done" && renderJob.status !== "failed" && (
                     <span className="text-slate-600">
-                      {renderJob.shots_done}/{renderJob.shots_total} shots rendered
+                      {isVertexRender
+                        ? `Vertex render running · ${elapsedLabel}`
+                        : `${renderJob.shots_done}/${renderJob.shots_total} shots rendered · ${elapsedLabel}`}
                     </span>
                   )}
                 </div>
+                {renderJob.status !== "done" && renderJob.status !== "failed" && (
+                  <div className="rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
+                    {isVertexRender
+                      ? "Submitted to Vertex. This usually sits quiet for a few minutes, then returns the MP4 in one step. The page can refresh safely."
+                      : "Background render is active. The page can refresh safely; the session will recover from the saved job."}
+                  </div>
+                )}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                   <div
                     className="h-full rounded-full bg-violet-600 transition-all"
@@ -555,7 +578,9 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                           ? "100%"
                           : renderJob.status === "stitching"
                             ? "92%"
-                            : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * 85}%`,
+                            : isVertexRender
+                              ? `${Math.min(90, 12 + elapsedSeconds * 0.45)}%`
+                              : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * 85}%`,
                     }}
                   />
                 </div>
