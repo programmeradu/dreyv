@@ -108,6 +108,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     'drizzle-orm',
     '@neondatabase/serverless',
+    'ffmpeg-static',
   ],
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
