@@ -17,6 +17,7 @@ import { sql } from "drizzle-orm";
 import { publish } from "@/lib/agents/bus";
 import { presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
+import { advanceVertexRenderJob } from "@/lib/media-studio/vertex-render-job";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -87,9 +88,10 @@ async function handlePost(req: NextRequest) {
     provider === "wan22-fal"   ? "fal-ai/wan/v2.2-5b/fast/text-to-video" :
                                  "fal-ai/veo3/fast";
 
+  const renderUnits = provider === "veo3-vertex" ? 1 : pack.shotList.length;
   const inserted = (await db.execute(
     sql`INSERT INTO studio_video_jobs (status, pack, shots_total, model, created_by)
-        VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${pack.shotList.length}, ${modelLabel}, ${auth.user?.id ?? null})
+        VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${renderUnits}, ${modelLabel}, ${auth.user?.id ?? null})
         RETURNING id`,
   )) as unknown;
   const row =
@@ -98,20 +100,34 @@ async function handlePost(req: NextRequest) {
   const jobId = row?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to insert job" }, { status: 500 });
 
+  if (provider === "veo3-vertex") {
+    const advanced = await advanceVertexRenderJob(jobId);
+    return NextResponse.json({
+      jobId,
+      mode: "vertex-managed",
+      warning: advanced.failed ?? undefined,
+    });
+  }
+
   const delivered = await publish({
     name: "studio.video.render.requested",
     data: { jobId, pack, provider },
   });
 
   if (!delivered.delivered) {
+    await db.execute(sql`
+      UPDATE studio_video_jobs
+      SET status = 'failed', error = ${`Background worker did not accept the event (${delivered.reason}).`}, updated_at = now()
+      WHERE id = ${jobId}::uuid
+    `);
     return NextResponse.json(
       {
         jobId,
-        warning:
+        error:
           `Job created but background worker did not accept the event (${delivered.reason}). ` +
           `Check INNGEST_EVENT_KEY (direct) or LOVABLE_API_KEY+INNGEST_API_KEY (connector), and that /api/inngest is synced.`,
       },
-      { status: 202 },
+      { status: 503 },
     );
   }
 
@@ -207,11 +223,21 @@ export async function GET(req: NextRequest) {
 
     if (!isUuid(id)) return NextResponse.json({ error: "Invalid render job id" }, { status: 400 });
 
-    const result = (await db.execute(sql`SELECT id, status, shots_total, shots_done, shot_urls,
+    let result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done, shot_urls,
                                                 final_url, duration_sec, error, created_at, updated_at
                                          FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
-    const row = rowsFromResult(result)[0];
+    let row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+    const isVertexManaged = typeof row.model === "string" && row.model.includes("(vertex)");
+    if (isVertexManaged && row.status !== "done" && row.status !== "failed") {
+      await advanceVertexRenderJob(id);
+      result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done, shot_urls,
+                                            final_url, duration_sec, error, created_at, updated_at
+                                     FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
+      row = rowsFromResult(result)[0];
+      if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
 
     let shotKeys: unknown = [];
     let finalKey: unknown = null;

@@ -120,6 +120,10 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   ];
   const [providerId, setProviderId] = React.useState<ProviderId>("veo3-vertex");
   const provider = PROVIDERS.find((p) => p.id === providerId)!;
+  const estimatedRenderSeconds = providerId === "veo3-vertex" ? provider.secs : (pack?.shotList.length ?? 1) * provider.secs;
+  const renderModeCopy = providerId === "veo3-vertex"
+    ? "Renders one complete 8-second MP4 directly through Vertex; no background worker or stitching queue."
+    : `Renders all ${pack?.shotList.length ?? 0} shots, then stitches the final MP4.`;
 
   const startRender = React.useCallback(async () => {
     if (!pack) return;
@@ -135,8 +139,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
       setRenderJob({
         id: j.jobId,
-        status: "queued",
-        shots_total: pack.shotList.length,
+        status: j.warning ? "failed" : "queued",
+        shots_total: providerId === "veo3-vertex" ? 1 : pack.shotList.length,
         shots_done: 0,
         shot_urls: [],
         final_url: null,
@@ -194,6 +198,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     if (!renderJob || renderJob.status === "done" || renderJob.status === "failed") return;
     const id = renderJob.id;
     let cancelled = false;
+    let handle: ReturnType<typeof setTimeout> | null = null;
     const tick = async () => {
       try {
         const r = await fetch(`/api/studio/video/render?id=${id}`, { headers: studioAuthHeaders() });
@@ -206,12 +211,16 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
         } else if (!cancelled && !r.ok) {
           setRenderError(j?.error || `Render polling failed (HTTP ${r.status})`);
         }
-      } catch {}
+      } catch {
+        if (!cancelled) setRenderError("Render status check failed. I’ll keep retrying automatically.");
+      } finally {
+        if (!cancelled) handle = setTimeout(tick, 5000);
+      }
     };
-    const handle = setInterval(tick, 4000);
+    handle = setTimeout(tick, 1000);
     return () => {
       cancelled = true;
-      clearInterval(handle);
+      if (handle) clearTimeout(handle);
     };
   }, [renderJob]);
 
@@ -476,8 +485,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                   Auto-render · {provider.label}
                 </div>
                 <div className="mt-1 text-sm text-slate-700">
-                  Renders all {pack.shotList.length} shots, stitches into one 9:16 MP4.
-                  ~${(pack.shotList.length * provider.secs * provider.usdPerSec).toFixed(2)} estimated cost. {provider.note}.
+                  {renderModeCopy}
+                  {' '}~${(estimatedRenderSeconds * provider.usdPerSec).toFixed(2)} estimated cost. {provider.note}.
                 </div>
 
                 {/* Provider segmented control */}

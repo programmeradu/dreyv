@@ -88,6 +88,11 @@ type Operation = {
   };
 };
 
+export type VertexVeoMaterializedVideo = { url: string; key?: string };
+export type VertexVeoPollResult =
+  | { done: false; operationName: string }
+  | ({ done: true; operationName: string } & VertexVeoMaterializedVideo);
+
 const VERTEX_BASE = () =>
   `https://${REGION}-aiplatform.googleapis.com/v1/projects`;
 
@@ -130,10 +135,11 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
 }
 
 /**
- * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
- * Returns a presigned R2 URL the browser can stream.
+ * Submit one Vertex Veo 3.1 generation and return the long-running operation.
+ * The caller should poll separately; this keeps web requests short enough for
+ * Vercel instead of blocking a function for 8–10 minutes.
  */
-export async function renderVertexVeoShot(prompt: string): Promise<{ url: string; key?: string }> {
+export async function submitVertexVeoOperation(prompt: string): Promise<{ operationName: string }> {
   const auth = await vertexAuth();
   const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
@@ -160,28 +166,10 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
   if (!submit.ok) throw new Error(`Vertex submit ${submit.status}: ${submitText.slice(0, 600)}`);
   const opName = (JSON.parse(submitText) as { name?: string }).name;
   if (!opName) throw new Error("Vertex: missing operation name");
+  return { operationName: opName };
+}
 
-  // Poll fetchPredictOperation up to 8 min.
-  const deadline = Date.now() + 8 * 60 * 1000;
-  let op: Operation | null = null;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 6000));
-    const poll = await fetch(`${modelBase}:fetchPredictOperation`, {
-      method: "POST",
-      headers: authHeaders(auth),
-      body: JSON.stringify({ operationName: opName }),
-    });
-    const pollText = await poll.text();
-    if (!poll.ok) throw new Error(`Vertex poll ${poll.status}: ${pollText.slice(0, 400)}`);
-    op = JSON.parse(pollText) as Operation;
-    if (op.done) break;
-  }
-  if (!op?.done) throw new Error("Vertex Veo timed out after 8m");
-  if (op.error) throw new Error(`Vertex Veo failed: ${op.error.message}`);
-
-  const video = op.response?.videos?.[0];
-  if (!video) throw new Error("Vertex returned no video");
-
+async function materializeVertexVideo(auth: Awaited<ReturnType<typeof vertexAuth>>, video: NonNullable<Operation["response"]>["videos"][number]): Promise<VertexVeoMaterializedVideo> {
   let bytes: Uint8Array;
   if (video.bytesBase64Encoded) {
     bytes = Uint8Array.from(Buffer.from(video.bytesBase64Encoded, "base64"));
@@ -210,6 +198,45 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
   await putR2Object({ key, body: Buffer.from(bytes), mime: "video/mp4", filename: "shot.mp4" });
   const url = await presignR2Get({ key, filename: "shot.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
   return { url, key };
+}
+
+/** Poll a Vertex Veo operation once. If complete, persist the result to R2. */
+export async function pollVertexVeoOperation(operationName: string): Promise<VertexVeoPollResult> {
+  const auth = await vertexAuth();
+  const modelBase = auth.url;
+  const poll = await fetch(`${modelBase}:fetchPredictOperation`, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify({ operationName }),
+  });
+  const pollText = await poll.text();
+  if (!poll.ok) throw new Error(`Vertex poll ${poll.status}: ${pollText.slice(0, 400)}`);
+  const op = JSON.parse(pollText) as Operation;
+  if (!op.done) return { done: false, operationName };
+  if (op.error) throw new Error(`Vertex Veo failed: ${op.error.message}`);
+
+  const video = op.response?.videos?.[0];
+  if (!video) throw new Error("Vertex returned no video");
+  const persisted = await materializeVertexVideo(auth, video);
+  return { done: true, operationName, ...persisted };
+}
+
+/**
+ * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
+ * Returns a presigned R2 URL the browser can stream. Kept for durable workers;
+ * request/response APIs should prefer submitVertexVeoOperation + polling.
+ */
+export async function renderVertexVeoShot(prompt: string): Promise<VertexVeoMaterializedVideo> {
+  const { operationName } = await submitVertexVeoOperation(prompt);
+
+  // Poll fetchPredictOperation up to 8 min.
+  const deadline = Date.now() + 8 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 6000));
+    const result = await pollVertexVeoOperation(operationName);
+    if (result.done) return { url: result.url, key: result.key };
+  }
+  throw new Error("Vertex Veo timed out after 8m");
 }
 
 /** Cheap auth/entitlement probe used by /api/debug/veo-ping?vertex=1. */
