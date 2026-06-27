@@ -1360,6 +1360,9 @@ function PlaybooksPanel({ address }: { address: string }) {
                     playbook={backtest.series.map((s) => s.playbook)}
                     baseline={backtest.series.map((s) => s.baseline)}
                   />
+                  <div className="mt-5">
+                    <DrawdownStrip series={backtest.series.map((s) => s.playbook)} />
+                  </div>
                   <div className="mt-6 grid gap-6 sm:grid-cols-3">
                     <Stat label="End · playbook" value={formatUsd(backtest.endUsdPlaybook)} />
                     <Stat label="End · baseline" value={formatUsd(backtest.endUsdBaseline)} />
