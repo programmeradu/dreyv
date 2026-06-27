@@ -28,5 +28,6 @@ export const { GET, POST, PUT } = serve({
     ...DACS_FUNCTIONS,
     ...TX_STREAM_FUNCTIONS,
     ...TREASURY_WATCHERS,
+    studioVideoRender,
   ],
 });
