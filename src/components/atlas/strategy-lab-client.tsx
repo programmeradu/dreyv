@@ -513,7 +513,12 @@ function AddressGate({ onResolve, address, busy }: {
   const valid = SOL_ADDR_RE.test(v.trim());
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="text-center">
+      <div className="relative text-center">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-300/25 blur-[80px]" />
+        <div className="mx-auto mb-6 h-28 w-28 sm:h-32 sm:w-32">
+          <Image src={labCrystal} alt="" width={256} height={256} priority
+            className="h-full w-full object-contain drop-shadow-[0_28px_60px_rgba(124,58,237,0.35)]" />
+        </div>
         <div className="flex items-center justify-center gap-1.5 text-[13px] leading-none text-violet-700">
           <span className="font-semibold lowercase tracking-tight" style={{ fontFamily: "Urbanist, ui-sans-serif, system-ui" }}>dreyv</span>
           <span className="font-black uppercase tracking-[0.18em]">LAB</span>
