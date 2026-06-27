@@ -1,737 +1,870 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { useWallet, useConnection } from "@/lib/wallet/compat";
-import { useWalletModal } from "@/lib/wallet/compat";
-import { VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { toast, toastNotifications } from "@/lib/toast-notifications";
-import { sendAndConfirmSigned } from "@/lib/solana/send-and-confirm";
-import { Loader2, ArrowRight, FlaskConical } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ScoreGauge as LabScoreGauge,
-  YieldProjectionChart as LabYieldChart,
-  RiskBar as LabRiskBar,
-  StrategyCompare as LabStrategyCompare,
-  PulseDot as LabPulseDot,
-} from "@/components/atlas/StrategyLabCharts";
-import { AtlasShell } from "@/components/atlas/atlas-shell";
-import { useAtlasCommand } from "@/hooks/use-atlas-command";
-import { useAtlasData, fetchJsonWithRetry } from "@/hooks/use-atlas-data";
+/**
+ * Dreyv Lab — Hindsight · Foresight · Stress · Playbooks
+ *
+ * Design language: "Numbers as monuments."
+ *   - Bone-white surfaces, hairline borders, oversized tabular numerics.
+ *   - Custom hand-drawn SVG sparklines / bars — no chart library.
+ *   - Motion is restrained: cross-fade between modes, no bouncy easings.
+ *
+ * All data is real (Helius DAS + CoinGecko + our /api/lab/* routes).
+ * No fabricated figures, no demo wallets, no fake percentages.
+ */
 
-type StrategyKind = "stake_marinade" | "swap_jupiter" | "lp_sol_usdc";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUpRight, Check, Loader2, X } from "lucide-react";
+import type {
+  LabPosition,
+  LabRotation,
+  LabMissedRotation,
+  LabStressResult,
+  LabPlaybook,
+  LabBacktestResult,
+} from "@/lib/lab/types";
 
-const MINTS = {
-  SOL: "So11111111111111111111111111111111111111112",
-  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  MSOL: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
-  JITOSOL: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
-  BSOL: "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1",
-} as const;
+type Mode = "hindsight" | "foresight" | "stress" | "playbooks";
 
-const LST_OPTIONS = [
-  { id: "MSOL",    mint: MINTS.MSOL,    name: "Marinade",   symbol: "mSOL",    apyBoost: 2.8,  maturity: 20, riskNote: "Largest LST by TVL", icon: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So/logo.png" },
-  { id: "JITOSOL", mint: MINTS.JITOSOL, name: "Jito",       symbol: "jitoSOL", apyBoost: 4.2,  maturity: 18, riskNote: "MEV-boosted rewards", icon: "https://storage.googleapis.com/token-metadata/JitoSOL-256.png" },
-  { id: "BSOL",    mint: MINTS.BSOL,    name: "BlazeStake", symbol: "bSOL",    apyBoost: 2.0,  maturity: 14, riskNote: "BLZE incentives + staking", icon: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1/logo.png" },
-] as const;
+const MODES: Array<{ id: Mode; label: string; hint: string }> = [
+  { id: "hindsight", label: "Hindsight", hint: "What you missed" },
+  { id: "foresight", label: "Foresight", hint: "Where to move" },
+  { id: "stress", label: "Stress", hint: "What breaks you" },
+  { id: "playbooks", label: "Playbooks", hint: "What to deploy" },
+];
 
-function resolveStakeProvider(provider?: string): string {
-  if (!provider) return "MSOL";
-  const p = provider.toLowerCase().replace(/[-_\s]/g, "");
-  if (p === "jito" || p === "jitosol") return "JITOSOL";
-  if (p === "blaze" || p === "blazestake" || p === "bsol") return "BSOL";
-  return "MSOL"; // default to Marinade
-}
+const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-export function StrategyLabClient() {
-  const { connection } = useConnection();
-  const { publicKey, signTransaction } = useWallet();
-  const { setVisible } = useWalletModal();
-  const { prices, solBalance, inflationApy } = useAtlasData();
-  const { lastCommand } = useAtlasCommand();
+// ─── Atomic primitives ──────────────────────────────────────────────
 
-  const [kind, setKind] = useState<StrategyKind>("stake_marinade");
-  const [amountSol, setAmountSol] = useState<number>(5);
-  const [selectedLst, setSelectedLst] = useState<string>("MSOL");
-  const [quote, setQuote] = useState<any>(null);
-  const [nlpText, setNlpText] = useState("");
-  const [nlpLoading, setNlpLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [execLoading, setExecLoading] = useState(false);
-  
-  const nlpInputRef = useRef<HTMLInputElement | null>(null);
-  const simulateAbortRef = useRef<AbortController | null>(null);
-
-  // Prefill from URL (deep link)
-  useEffect(() => {
-    try {
-      const sp = new URLSearchParams(window.location.search);
-      const k = sp.get("kind") as StrategyKind | null;
-      const amt = sp.get("amountSol");
-      const nlp = sp.get("nlp");
-      if (k === "stake_marinade" || k === "swap_jupiter" || k === "lp_sol_usdc") setKind(k);
-      if (amt && !Number.isNaN(Number(amt))) setAmountSol(Number(amt));
-      if (nlp) setNlpText(nlp);
-      if (k && amt) {
-        setTimeout(() => simulateRef.current(), 50);
-      }
-    } catch {}
-  }, []);
-
-  // Listen for strategy-lab specific commands
-  useEffect(() => {
-    if (!lastCommand) return;
-    const { tool_id, parameters } = lastCommand;
-
-    switch (tool_id) {
-      case "stake_sol": {
-        const lstId = resolveStakeProvider(parameters.provider);
-        setKind("stake_marinade");
-        setSelectedLst(lstId);
-        if (parameters.amount) setAmountSol(parameters.amount);
-        const lstLabel = LST_OPTIONS.find(l => l.id === lstId)?.name || "Marinade";
-        setTimeout(() => simulateRef.current(lstId), 100);
-        toast.info(`Staking${parameters.amount ? ` ${parameters.amount} SOL` : ""} via ${lstLabel}`);
-        break;
-      }
-      case "provide_liquidity":
-        setKind("lp_sol_usdc");
-        if (parameters.amount) setAmountSol(parameters.amount);
-        setTimeout(() => simulateRef.current(), 100);
-        toast.info(`LP simulation${parameters.amount ? ` for ${parameters.amount} SOL` : ""} started`);
-        break;
-      case "swap_tokens":
-        // Wait, main page executes swap inline. Only do this if we are ALREADY in the lab tab!
-        // But we are in the lab tab since this component is mounted!
-        setKind("swap_jupiter");
-        if (parameters.amount) setAmountSol(parameters.amount);
-        setTimeout(() => simulateRef.current(), 100);
-        toast.info(`Swap simulation initiated.`);
-        break;
-    }
-  }, [lastCommand]);
-
-  async function simulate(overrideLst?: string) {
-    if (!Number.isFinite(amountSol) || amountSol <= 0) {
-      setError("Please enter a valid amount greater than 0");
-      return;
-    }
-    if (amountSol > 1_000_000) {
-      setError("Amount too large — please enter a realistic value");
-      return;
-    }
-
-    if (simulateAbortRef.current) simulateAbortRef.current.abort();
-    simulateAbortRef.current = new AbortController();
-
-    setLoading(true);
-    setError(null);
-    setQuote(null);
-    try {
-      const solPrice = prices.SOL ?? 0;
-      const inputUsd = amountSol * solPrice;
-
-      if (kind === "swap_jupiter") {
-        const amount = Math.max(0, amountSol) * LAMPORTS_PER_SOL;
-        const url = new URL("/api/jupiter/quote", window.location.origin);
-        url.searchParams.set("inputMint", MINTS.SOL);
-        url.searchParams.set("outputMint", MINTS.USDC);
-        url.searchParams.set("amount", String(Math.floor(amount)));
-        url.searchParams.set("slippageBps", "50");
-        const r = await fetch(url.toString(), { cache: "no-store" });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || "Quote failed");
-        const outAmount = Number(j?.outAmount || j?.data?.outAmount || 0) / 1e6;
-        const priceImpact = Number(j?.priceImpactPct || j?.data?.priceImpactPct || 0);
-        const slippageBps = Number(j?.slippageBps || j?.data?.slippageBps || 50);
-        const routeCount = j?.routePlan?.length || j?.data?.routePlan?.length || 1;
-        const swapUsdValue = Number(j?.swapUsdValue || j?.data?.swapUsdValue || inputUsd);
-
-        const impactPenalty = Math.min(40, priceImpact * 2000);
-        const slippagePenalty = slippageBps > 200 ? 15 : slippageBps > 100 ? 8 : 0;
-        const routeBonus = routeCount === 1 ? 5 : routeCount <= 3 ? 0 : -5;
-        const sizeFactor = Math.min(10, Math.max(0, (Math.log10(swapUsdValue + 1) - 1) * 3));
-        const marketJitter = (Math.sin(Date.now() / 60000) + 1) * 2.5;
-        const rateEff = solPrice > 0 ? Math.min(10, (outAmount / (amountSol * solPrice)) * 10) : 5;
-        const score = Math.max(0, Math.min(100, Math.round(85 - impactPenalty - slippagePenalty + routeBonus + sizeFactor + marketJitter + rateEff)));
-
-        const riskLevel: "low" | "medium" | "high" = priceImpact > 0.01 || amountSol > 500 ? "high" : priceImpact > 0.002 || amountSol > 100 ? "medium" : "low";
-        const riskLabel = priceImpact > 0.005 ? "High Impact" : amountSol > 200 ? "Large Trade" : "Execution Risk";
-
-        setQuote({ ...j, _parsed: { outAmount, priceImpact, slippageBps, routeCount, inputUsd, score, riskLevel, riskLabel } });
-        toast.success("Jupiter quote ready");
-
-      } else if (kind === "stake_marinade") {
-        const lstId = overrideLst || selectedLst;
-        const lst = LST_OPTIONS.find(l => l.id === lstId) || LST_OPTIONS[0];
-        const baseApy = inflationApy ?? 4.0;
-        let protocolApy = baseApy + lst.apyBoost;
-        try {
-          const lstPrice = prices[lst.id] ?? 0;
-          const solPriceLive = prices.SOL ?? 0;
-          if (lstPrice > 0 && solPriceLive > 0) {
-            const premium = lstPrice / solPriceLive;
-            const expectedPremium = 1 + (protocolApy / 100);
-            const liveAdjustment = premium > 1 ? ((premium - 1) / (expectedPremium - 1)) * protocolApy - protocolApy : 0;
-            protocolApy = Math.max(baseApy, protocolApy + Math.min(2, Math.max(-2, liveAdjustment * 0.3)));
-          }
-        } catch (_e) {}
-
-        const apy = Math.round(protocolApy * 100) / 100;
-        const yield12m = amountSol * (apy / 100);
-        const yieldUsd = yield12m * solPrice;
-
-        const apyScore = Math.min(35, Math.round(apy * 4.5));
-        const yieldRatio = amountSol > 0 ? Math.min(20, Math.round((yield12m / amountSol) * 280)) : 0;
-        const protocolBonus = lst.maturity;
-        const amtBonus = amountSol >= 0.5 ? Math.min(12, Math.round(Math.log10(amountSol + 1) * 7)) : 0;
-        const timeJitter = (Math.cos(Date.now() / 90000) + 1) * 2;
-        const score = Math.max(0, Math.min(100, Math.round(apyScore + yieldRatio + protocolBonus + amtBonus + timeJitter)));
-
-        const riskLevel: "low" | "medium" | "high" = amountSol > 10000 ? "high" : amountSol > 1000 || lst.maturity < 15 ? "medium" : "low";
-        const riskLabel = amountSol > 5000 ? "Concentration Risk" : apy < 3 ? "Low Yield Environment" : lst.riskNote;
-
-        setQuote({ kind, apy, yield12m, yieldUsd, inputUsd, score, riskLevel, riskLabel, lstId: selectedLst });
-        toast.success(`${lst.name} projection ready`);
-
-      } else if (kind === "lp_sol_usdc") {
-        let pools: any[] = [];
-        try {
-          const lpRes = await fetch("/api/lp/apy", { cache: "no-store" });
-          if (lpRes.ok) {
-            const lpData = await lpRes.json();
-            pools = lpData?.pools || [];
-          }
-        } catch (_e) {}
-        const bestPool = pools[0] || { dex: "Orca", pair: "SOL/USDC", apy: 12.5, tvl: 45_000_000 };
-        const lpApy = bestPool.apy;
-        const yield12m = amountSol * (lpApy / 100);
-        const yieldUsd = yield12m * solPrice;
-
-        const apyScore = Math.min(30, Math.round(lpApy * 0.6));
-        const tvlScore = bestPool.tvl > 20_000_000 ? 25 : bestPool.tvl > 5_000_000 ? 18 : bestPool.tvl > 1_000_000 ? 12 : 5;
-        const volRatio = (bestPool.volume24h || 0) / Math.max(bestPool.tvl, 1);
-        const utilizationScore = Math.min(15, Math.round(volRatio * 30));
-        const ilPenalty = Math.round(Math.min(20, lpApy * 0.15));
-        const feeBonus = bestPool.fee && bestPool.fee <= 0.003 ? 10 : 5;
-        const lpJitter = (Math.sin(Date.now() / 75000) + 1) * 2;
-        const score = Math.max(0, Math.min(100, Math.round(apyScore + tvlScore + utilizationScore - ilPenalty + feeBonus + lpJitter)));
-
-        const riskLevel: "low" | "medium" | "high" = bestPool.tvl < 1_000_000 || lpApy > 100 ? "high" : bestPool.tvl < 10_000_000 || lpApy > 50 ? "medium" : "low";
-        const riskLabel = bestPool.tvl < 2_000_000 ? "Low Liquidity" : lpApy > 60 ? "Volatile Yield" : "IL + Protocol Risk";
-
-        setQuote({ kind, pools, bestPool, lpApy, yield12m, yieldUsd, inputUsd, solPrice, score, riskLevel, riskLabel });
-        toast.success("LP data ready");
-      }
-    } catch (e: any) {
-      setError(e?.message || String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const simulateRef = useRef(simulate);
-  simulateRef.current = simulate;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea") return;
-      if (e.key === "/") {
-        e.preventDefault();
-        nlpInputRef.current?.focus();
-      } else if (e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        simulateRef.current();
-      } else if (["1", "2", "3"].includes(e.key)) {
-        e.preventDefault();
-        const map: Record<string, StrategyKind> = { "1": "stake_marinade", "2": "swap_jupiter", "3": "lp_sol_usdc" };
-        setKind(map[e.key]);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  async function handleParse() {
-    const text = nlpText.trim();
-    if (!text) return;
-    setNlpLoading(true);
-    try {
-      let parsed: any | null = null;
-      try {
-        const r = await fetch("/api/ai/parse", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
-        });
-        if (r.ok) parsed = await r.json();
-      } catch {}
-
-      if (!parsed || !parsed.ok) {
-        const lower = text.toLowerCase();
-        const amtMatch = lower.match(/([0-9]+(?:\.[0-9]+)?)\s*sol/);
-        const amt = amtMatch ? Number(amtMatch[1]) : amountSol;
-        if (/\b(stake|staking)\b/.test(lower)) parsed = { action: "stake", amount: amt, asset: "SOL", venue: "marinade", confidence: 0.5 };
-        else if (/\b(swap|buy|sell|convert)\b/.test(lower)) parsed = { action: "swap", amount: amt, asset: "SOL", venue: "jupiter", confidence: 0.5 };
-        else if (/\b(lp|liquidity|pool)\b/.test(lower)) parsed = { action: "lp", amount: amt, asset: "SOL", venue: "orca", confidence: 0.5 };
-      }
-
-      if (!parsed || !parsed.action) {
-        toast.error("Could not understand that. Try: 'stake 5 sol', 'swap 10 sol to usdc', or 'lp 5 sol'");
-        return;
-      }
-
-      let nextKind: StrategyKind = "stake_marinade";
-      if (parsed.action === "swap" || parsed.action === "dca") nextKind = "swap_jupiter";
-      if (parsed.action === "lp") nextKind = "lp_sol_usdc";
-      setKind(nextKind);
-      if (typeof parsed.amount === "number" && !Number.isNaN(parsed.amount)) setAmountSol(parsed.amount);
-
-      const conf = parsed.confidence ? ` (${(parsed.confidence * 100).toFixed(0)}% conf)` : "";
-      toast.success(`Parsed: ${parsed.action} ${parsed.amount ?? ""} ${parsed.asset ?? "SOL"}${parsed.venue ? " via " + parsed.venue : ""}${conf}`);
-      await simulateRef.current();
-    } finally {
-      setNlpLoading(false);
-    }
-  }
-
-  function shareLink() {
-    try {
-      const url = new URL(window.location.href);
-      const sp = url.searchParams;
-      sp.set("kind", kind);
-      sp.set("amountSol", String(amountSol));
-      if (nlpText.trim()) sp.set("nlp", nlpText.trim());else sp.delete("nlp");
-      url.search = sp.toString();
-      const href = url.toString();
-      navigator.clipboard.writeText(href);
-      toast.success("Link copied", { description: "Shareable Strategy Lab link copied to clipboard" });
-    } catch (e: any) {
-      toast.error("Failed to copy link", { description: e?.message || String(e) });
-    }
-  }
-
-  async function executeSwap() {
-    try {
-      if (!publicKey) { toast.error("Connect wallet to execute"); return; }
-      if (!quote || kind !== "swap_jupiter") { toast.error("No quote to execute"); return; }
-      setExecLoading(true);
-
-      const rawQuote = quote?.data ?? quote;
-      const { _parsed, ...quoteResponse } = rawQuote as any;
-
-      const res = await fetch("/api/jupiter/swap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteResponse,
-          userPublicKey: publicKey.toBase58(),
-          wrapAndUnwrapSol: true,
-          asLegacyTransaction: false
-        })
-      });
-      const j = await res.json();
-      if (!res.ok || !j?.swapTransaction) throw new Error(j?.error || "Failed to build swap transaction");
-
-      const b64 = j.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-      const vtx = VersionedTransaction.deserialize(bytes);
-
-      const signedTx = await signTransaction!(vtx);
-      const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toastNotifications.executionPending("Swap", sig),
-        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
-        onError: (err) => toastNotifications.executionFailed("Swap", err.message),
-      });
-      if (!result.confirmed) throw new Error(result.error || "Swap not confirmed");
-    } catch (e: any) {
-      toast.error("Swap failed", { description: e?.message || String(e) });
-    } finally {
-      setExecLoading(false);
-    }
-  }
-
-  async function executeStake() {
-    try {
-      if (!publicKey) { toast.error("Connect wallet to execute"); return; }
-      if (kind !== "stake_marinade") { toast.error("Not in staking mode"); return; }
-      const lamports = Math.floor(Math.max(0, amountSol) * LAMPORTS_PER_SOL);
-      if (!lamports) { toast.error("Enter amount > 0"); return; }
-      setExecLoading(true);
-
-      const lst = LST_OPTIONS.find(l => l.id === selectedLst) || LST_OPTIONS[0];
-      const quoteUrl = new URL("/api/jupiter/quote", window.location.origin);
-      quoteUrl.searchParams.set("inputMint", MINTS.SOL);
-      quoteUrl.searchParams.set("outputMint", lst.mint);
-      quoteUrl.searchParams.set("amount", String(lamports));
-      quoteUrl.searchParams.set("slippageBps", "10"); 
-      const quoteRes = await fetch(quoteUrl.toString(), { cache: "no-store" });
-      const quoteData = await quoteRes.json();
-      if (!quoteRes.ok || !quoteData) throw new Error(quoteData?.error || "Failed to get staking quote");
-
-      const swapRes = await fetch("/api/jupiter/swap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteResponse: quoteData,
-          userPublicKey: publicKey.toBase58(),
-          wrapAndUnwrapSol: true,
-          asLegacyTransaction: false
-        })
-      });
-      const swapData = await swapRes.json();
-      if (!swapRes.ok || !swapData?.swapTransaction) throw new Error(swapData?.error || "Failed to build stake transaction");
-
-      const b64 = swapData.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-      const vtx = VersionedTransaction.deserialize(bytes);
-
-      const signedTx = await signTransaction!(vtx);
-      const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toastNotifications.executionPending(`Stake via ${lst.name}`, sig),
-        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
-        onError: (err) => toastNotifications.executionFailed("Stake", err.message),
-      });
-      if (!result.confirmed) throw new Error(result.error || "Stake not confirmed");
-    } catch (e: any) {
-      toast.error("Stake failed", { description: e?.message || String(e) });
-    } finally {
-      setExecLoading(false);
-    }
-  }
-
-  async function executeLp() {
-    try {
-      if (!publicKey) { toast.error("Connect wallet to execute"); return; }
-      if (kind !== "lp_sol_usdc") { toast.error("Not in LP mode"); return; }
-      const halfSol = amountSol / 2;
-      const lamports = Math.floor(Math.max(0, halfSol) * LAMPORTS_PER_SOL);
-      if (!lamports) { toast.error("Enter amount > 0"); return; }
-      setExecLoading(true);
-
-      const quoteUrl = new URL("/api/jupiter/quote", window.location.origin);
-      quoteUrl.searchParams.set("inputMint", MINTS.SOL);
-      quoteUrl.searchParams.set("outputMint", MINTS.USDC);
-      quoteUrl.searchParams.set("amount", String(lamports));
-      quoteUrl.searchParams.set("slippageBps", "50");
-      const quoteRes = await fetch(quoteUrl.toString(), { cache: "no-store" });
-      const quoteData = await quoteRes.json();
-      if (!quoteRes.ok || !quoteData) throw new Error(quoteData?.error || "Failed to get LP swap quote");
-
-      const swapRes = await fetch("/api/jupiter/swap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteResponse: quoteData,
-          userPublicKey: publicKey.toBase58(),
-          wrapAndUnwrapSol: true,
-          asLegacyTransaction: false,
-        }),
-      });
-      const swapData = await swapRes.json();
-      if (!swapRes.ok || !swapData?.swapTransaction) throw new Error(swapData?.error || "Failed to build LP swap transaction");
-
-      const b64 = swapData.swapTransaction as string;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-      const vtx = VersionedTransaction.deserialize(bytes);
-      const signedTx = await signTransaction!(vtx);
-      const result = await sendAndConfirmSigned(connection, signedTx, {
-        onPending: (sig) => toastNotifications.executionPending("LP swap", sig),
-        onConfirmed: (sig) => toastNotifications.blockchainConfirmed(sig),
-        onError: (err) => toastNotifications.executionFailed("LP swap", err.message),
-      });
-      if (!result.confirmed) throw new Error(result.error || "LP swap not confirmed");
-
-      toast.success(`Swapped ${halfSol.toFixed(3)} SOL → USDC for LP pair`, {
-        description: "Opening pool deposit…",
-      });
-
-      const bestPool = quote?.bestPool;
-      let poolUrl: string;
-      if (bestPool?.dex === "Raydium" && bestPool?.pool && bestPool.pool !== "unknown" && bestPool.pool !== "estimated") {
-        poolUrl = `https://raydium.io/liquidity/increase/?mode=add&pool_id=${bestPool.pool}`;
-      } else if (bestPool?.pool && bestPool.pool !== "unknown" && bestPool.pool !== "estimated") {
-        poolUrl = `https://www.orca.so/pools/${bestPool.pool}`;
-      } else {
-        poolUrl = "https://www.orca.so/?tokenA=SOL&tokenB=USDC";
-      }
-
-      setTimeout(() => {
-        window.open(poolUrl, "_blank", "noopener,noreferrer");
-      }, 1500);
-    } catch (e: any) {
-      toast.error("LP execution failed", { description: e?.message || String(e) });
-    } finally {
-      setExecLoading(false);
-    }
-  }
-
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <AtlasShell activeSection="strategy-lab">
-      <section id="strategy-lab" className="atlas-glass p-6 min-h-[80vh]">
-        <div className="space-y-4">
-          {/* Hero: NLP Command */}
-          <h1 className="sr-only">Strategy Lab — Dreyv Atlas</h1>
-          <div className="flex items-center gap-2 mb-4">
-            <FlaskConical className="text-violet-600 h-5 w-5" />
-            <h2 className="text-base font-bold text-slate-900">Strategy Lab</h2>
-            <LabPulseDot />
-            <span className="text-xs text-slate-400 ml-auto">Press / to focus</span>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50 mb-4">
-            <form onSubmit={(e) => { e.preventDefault(); handleParse(); }} className="relative">
-              <Input ref={nlpInputRef} value={nlpText} onChange={(e) => setNlpText(e.target.value)}
-                placeholder="stake 5 SOL · swap 10 SOL to USDC · provide liquidity 3 SOL"
-                className="h-11 pr-24 text-sm bg-white border-slate-200 rounded-xl text-slate-900 placeholder-slate-400" />
-              <button type="submit" disabled={nlpLoading || !nlpText.trim()}
-                className="absolute right-1 top-1 h-9 px-4 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50">
-                {nlpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Run <ArrowRight className="h-3.5 w-3.5 ml-1" /></>}
-              </button>
-            </form>
-          </div>
-
-          {/* Strategy Selector + Amount */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {(["stake_marinade", "swap_jupiter", "lp_sol_usdc"] as StrategyKind[]).map((k) => {
-              const labels: Record<StrategyKind, string> = { stake_marinade: "Stake", swap_jupiter: "Swap", lp_sol_usdc: "LP" };
-              const active = kind === k;
-              return (
-                <button key={k} onClick={() => { setKind(k); setQuote(null); }}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${active ? "bg-violet-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                  {labels[k]}
-                </button>
-              );
-            })}
-            <div className="ml-auto flex items-center gap-2">
-              <input type="number" min={0} step={0.1} value={amountSol} onChange={(e) => setAmountSol(Number(e.target.value))}
-                className="h-9 w-24 text-sm text-center border border-slate-200 rounded-xl bg-white text-slate-900 outline-none focus:ring-2 focus:ring-violet-500/50" />
-              <span className="text-xs text-slate-400">SOL</span>
-              <button onClick={() => simulate()} disabled={loading} className="h-9 px-4 text-sm font-medium bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors">
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Simulate"}
-              </button>
-              <button onClick={shareLink} className="h-9 px-3 text-sm text-slate-400 hover:text-slate-600 transition-colors">Share</button>
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {loading && (
-            <div className="rounded-xl border border-border/30 bg-card/60 backdrop-blur-md p-6 space-y-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin opacity-50" />
-                <span className="text-xs opacity-50">Analyzing strategy…</span>
-              </div>
-              <Skeleton className="h-16 w-full rounded-lg" />
-              <div className="grid grid-cols-3 gap-2">
-                <Skeleton className="h-12 rounded-lg" />
-                <Skeleton className="h-12 rounded-lg" />
-                <Skeleton className="h-12 rounded-lg" />
-              </div>
-              <Skeleton className="h-24 w-full rounded-lg" />
-            </div>
-          )}
-
-          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-
-          {/* Strategy Comparison (shown before simulation) */}
-          {!quote && !loading && (
-            <div className="rounded-xl border border-border/30 bg-card/60 backdrop-blur-md p-4 space-y-3">
-              <div className="text-[11px] font-medium opacity-60">Compare Strategies</div>
-              <LabStrategyCompare strategies={[
-                { name: "Stake", apy: inflationApy ?? 7.0, risk: "Low", active: kind === "stake_marinade" },
-                { name: "Swap", apy: 0, risk: "None", active: kind === "swap_jupiter" },
-                { name: "LP", apy: 12.5, risk: "Med", active: kind === "lp_sol_usdc" },
-              ]} />
-              <div className="text-[10px] opacity-30 text-center">Select a strategy and hit Simulate, or type a command above</div>
-            </div>
-          )}
-
-          {/* Swap Results */}
-          {quote && kind === "swap_jupiter" && (() => {
-            const p = quote._parsed || {};
-            const score = p.score ?? 0;
-            return (
-            <div className="rounded-xl border border-border/30 bg-card/60 backdrop-blur-md overflow-hidden">
-              <div className="p-4 space-y-3">
-                <div className="flex items-start gap-4">
-                  <LabScoreGauge score={score} size={64} label="Strategy" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">Swap via Jupiter</span>
-                      <LabPulseDot />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">You Send</div>
-                        <div className="font-mono text-sm font-semibold">{amountSol} SOL</div>
-                        <div className="text-[10px] opacity-30 font-mono">${p.inputUsd?.toFixed(2) ?? "-"}</div>
-                      </div>
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">You Receive</div>
-                        <div className="font-mono text-sm font-semibold text-emerald-500">{p.outAmount?.toFixed(2) ?? "-"} USDC</div>
-                        <div className="text-[10px] opacity-30 font-mono">{p.outAmount && amountSol ? (p.outAmount / amountSol).toFixed(2) : "-"}/SOL</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {[
-                    { label: "Price Impact", value: `${((p.priceImpact ?? 0) * 100).toFixed(3)}%`, warn: (p.priceImpact ?? 0) > 0.01 },
-                    { label: "Slippage", value: `${((p.slippageBps ?? 50) / 100).toFixed(1)}%`, warn: false },
-                    { label: "Route Hops", value: String(p.routeCount ?? 1), warn: false },
-                  ].map((m, i) => (
-                    <div key={i} className="rounded-lg py-1.5 bg-background/25">
-                      <div className="text-[9px] opacity-40">{m.label}</div>
-                      <div className={`font-mono text-[11px] font-medium ${m.warn ? "text-red-400" : ""}`}>{m.value}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <LabRiskBar level={p.riskLevel || "low"} label={p.riskLabel || "Execution Risk"} />
-              </div>
-              <div className="border-t border-border/20 p-3">
-                <Button size="sm" onClick={executeSwap} disabled={!publicKey || execLoading} className="w-full h-9 rounded-lg">
-                  {execLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : !publicKey ? "Connect Wallet" : "Execute Swap →"}
-                </Button>
-              </div>
-            </div>);
-          })()}
-
-          {/* Stake Results */}
-          {quote && kind === "stake_marinade" && (() => {
-            const score = quote.score ?? 0;
-            const apy = quote.apy ?? 7;
-            const activeLst = LST_OPTIONS.find(l => l.id === selectedLst) || LST_OPTIONS[0];
-            return (
-            <div className="rounded-xl border border-border/30 bg-card/60 backdrop-blur-md overflow-hidden">
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-1.5 mb-1">
-                  {LST_OPTIONS.map((lst) => (
-                    <button
-                      key={lst.id}
-                      onClick={() => { if (selectedLst !== lst.id) { setSelectedLst(lst.id); simulate(lst.id); } }}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all cursor-pointer ${selectedLst === lst.id ? "bg-foreground/10 text-foreground ring-1 ring-foreground/10" : "bg-card/40 text-foreground/40 hover:text-foreground/60"}`}
-                    >
-                      <img src={lst.icon} alt={lst.symbol} className="h-3.5 w-3.5 rounded-full" />
-                      {lst.symbol}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <LabScoreGauge score={score} size={64} label="Strategy" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">Stake via {activeLst.name}</span>
-                      <LabPulseDot />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">Deposit</div>
-                        <div className="font-mono text-sm font-semibold">{amountSol} SOL</div>
-                        <div className="text-[10px] opacity-30 font-mono">${quote.inputUsd?.toFixed(2) ?? "-"}</div>
-                      </div>
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">APY</div>
-                        <div className="font-mono text-sm font-semibold text-emerald-500">{apy.toFixed(2)}%</div>
-                        <div className="text-[10px] opacity-30">{activeLst.name}</div>
-                      </div>
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">12m Yield</div>
-                        <div className="font-mono text-sm font-semibold">{quote.yield12m?.toFixed(3)} SOL</div>
-                        <div className="text-[10px] opacity-30 font-mono">${quote.yieldUsd?.toFixed(2) ?? "-"}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg p-3 bg-background/20">
-                  <div className="text-[10px] opacity-40 mb-1">Projected Growth (12 months)</div>
-                  <LabYieldChart principal={amountSol} apy={apy} />
-                </div>
-
-                <LabRiskBar level={(quote as any).riskLevel || "low"} label={(quote as any).riskLabel || "Protocol Risk"} />
-              </div>
-              <div className="border-t border-border/20 p-3">
-                <Button size="sm" onClick={executeStake} disabled={!publicKey || execLoading} className="w-full h-9 rounded-lg">
-                  {execLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : !publicKey ? "Connect Wallet" : `Stake → ${activeLst.symbol}`}
-                </Button>
-              </div>
-            </div>);
-          })()}
-
-          {/* LP Results */}
-          {quote && kind === "lp_sol_usdc" && (() => {
-            const score = quote.score ?? 0;
-            const pools = quote.pools || [];
-            const lpApy = quote.lpApy ?? 12.5;
-            return (
-            <div className="rounded-xl border border-border/30 bg-card/60 backdrop-blur-md overflow-hidden">
-              <div className="p-4 space-y-3">
-                <div className="flex items-start gap-4">
-                  <LabScoreGauge score={score} size={64} label="Strategy" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">LP SOL/USDC</span>
-                      <LabPulseDot />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">Deposit</div>
-                        <div className="font-mono text-sm font-semibold">{amountSol} SOL</div>
-                        <div className="text-[10px] opacity-30 font-mono">${quote.inputUsd?.toFixed(2) ?? "-"}</div>
-                      </div>
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">Best APY</div>
-                        <div className="font-mono text-sm font-semibold text-emerald-500">{lpApy.toFixed(1)}%</div>
-                        <div className="text-[10px] opacity-30">{quote.bestPool?.dex ?? "Orca"}</div>
-                      </div>
-                      <div className="rounded-lg p-2.5 bg-background/30">
-                        <div className="text-[10px] opacity-40">12m Yield</div>
-                        <div className="font-mono text-sm font-semibold">{quote.yield12m?.toFixed(3)} SOL</div>
-                        <div className="text-[10px] opacity-30 font-mono">${quote.yieldUsd?.toFixed(2) ?? "-"}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg p-3 bg-background/20">
-                  <div className="text-[10px] opacity-40 mb-1">Projected Growth (12 months, excl. IL)</div>
-                  <LabYieldChart principal={amountSol} apy={lpApy} color="#6366f1" />
-                </div>
-
-                {pools.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-medium opacity-50">Pools</div>
-                    {pools.slice(0, 4).map((pool: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-[10px] rounded-lg px-2.5 py-1.5 bg-background/20">
-                        <span className="opacity-60">{pool.dex}</span>
-                        <span className="opacity-40">{pool.pair}</span>
-                        <span className="font-mono text-emerald-500">{pool.apy?.toFixed(1)}%</span>
-                        <span className="opacity-30">${(pool.tvl / 1e6).toFixed(1)}M</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <LabRiskBar level={(quote as any).riskLevel || "low"} label={(quote as any).riskLabel || "IL + Protocol Risk"} />
-              </div>
-              <div className="border-t border-border/20 p-3">
-                <Button size="sm" onClick={executeLp} disabled={!publicKey || execLoading} className="w-full h-9 rounded-lg">
-                  {execLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : !publicKey ? "Connect Wallet" : `Deposit on ${quote.bestPool?.dex ?? "Orca"} →`}
-                </Button>
-              </div>
-            </div>);
-          })()}
-
-        </div>
-      </section>
-    </AtlasShell>
+    <div
+      className={`rounded-3xl border border-zinc-200/70 bg-white ${className}`}
+    >
+      {children}
+    </div>
   );
 }
+
+function Numeric({
+  value,
+  prefix = "",
+  suffix = "",
+  size = "xl",
+  tone = "ink",
+}: {
+  value: number | string;
+  prefix?: string;
+  suffix?: string;
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  tone?: "ink" | "positive" | "negative" | "muted" | "violet";
+}) {
+  const sizes = {
+    sm: "text-base",
+    md: "text-2xl",
+    lg: "text-4xl",
+    xl: "text-6xl",
+    "2xl": "text-7xl",
+  };
+  const tones = {
+    ink: "text-zinc-900",
+    positive: "text-emerald-600",
+    negative: "text-rose-600",
+    muted: "text-zinc-400",
+    violet: "text-violet-600",
+  };
+  return (
+    <span
+      className={`font-mono tabular-nums tracking-tight ${sizes[size]} ${tones[tone]}`}
+      style={{ fontFeatureSettings: '"ss01","cv11"', fontVariantNumeric: "tabular-nums" }}
+    >
+      {prefix}
+      {typeof value === "number" ? formatNum(value) : value}
+      {suffix}
+    </span>
+  );
+}
+
+function formatNum(n: number): string {
+  if (!isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
+  if (abs >= 10_000) return (n / 1000).toFixed(1) + "k";
+  if (abs >= 1) return n.toFixed(2);
+  if (abs >= 0.01) return n.toFixed(3);
+  return n.toFixed(4);
+}
+
+function formatUsd(n: number, big = false): string {
+  const s = Math.abs(n) >= 1000 ? formatNum(n) : n.toFixed(2);
+  return (n < 0 ? "−" : big ? "" : "") + "$" + s.replace(/^−/, "");
+}
+
+function formatPct(n: number, digits = 2): string {
+  return (n >= 0 ? "+" : "−") + Math.abs(n * 100).toFixed(digits) + "%";
+}
+
+// ─── Custom SVG charts ──────────────────────────────────────────────
+
+function Sparkline({ series, width = 320, height = 64, color = "#7c3aed" }: {
+  series: Array<[number, number]> | number[];
+  width?: number;
+  height?: number;
+  color?: string;
+}) {
+  const pts: number[] = useMemo(() => {
+    if (!series || series.length === 0) return [];
+    if (typeof series[0] === "number") return series as number[];
+    return (series as Array<[number, number]>).map((p) => p[1]);
+  }, [series]);
+  if (pts.length < 2) return <div className="h-16 w-full" />;
+
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
+  const range = max - min || 1;
+  const dx = width / (pts.length - 1);
+  const path = pts
+    .map((v, i) => {
+      const x = i * dx;
+      const y = height - ((v - min) / range) * (height - 4) - 2;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  const areaPath = `${path} L${width},${height} L0,${height} Z`;
+
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`spark-${color}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#spark-${color})`} />
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DualSparkline({
+  a,
+  b,
+  height = 220,
+  labelA = "Playbook",
+  labelB = "Hold baseline",
+}: {
+  a: number[];
+  b: number[];
+  height?: number;
+  labelA?: string;
+  labelB?: string;
+}) {
+  if (a.length < 2 || b.length < 2) return <div className="h-56 w-full" />;
+  const all = [...a, ...b];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min || 1;
+  const width = 800;
+  const dx = width / (a.length - 1);
+  const toPath = (arr: number[], color: string) => {
+    const d = arr
+      .map((v, i) => {
+        const x = i * dx;
+        const y = height - ((v - min) / range) * (height - 16) - 8;
+        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+    return { d, color };
+  };
+  const pa = toPath(a, "#7c3aed");
+  const pb = toPath(b, "#a1a1aa");
+
+  return (
+    <div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        {[0.25, 0.5, 0.75].map((g) => (
+          <line key={g} x1={0} x2={width} y1={height * g} y2={height * g} stroke="#e4e4e7" strokeDasharray="2 6" />
+        ))}
+        <path d={pb.d} fill="none" stroke={pb.color} strokeWidth="1.25" />
+        <path d={pa.d} fill="none" stroke={pa.color} strokeWidth="1.75" />
+      </svg>
+      <div className="mt-3 flex items-center gap-5 text-xs text-zinc-500">
+        <span className="flex items-center gap-2"><span className="h-[2px] w-5 bg-violet-600" />{labelA}</span>
+        <span className="flex items-center gap-2"><span className="h-[2px] w-5 bg-zinc-400" />{labelB}</span>
+      </div>
+    </div>
+  );
+}
+
+function HorizontalBar({ label, value, max, tone = "violet", suffix = "" }: {
+  label: string;
+  value: number;
+  max: number;
+  tone?: "violet" | "rose" | "emerald" | "zinc";
+  suffix?: string;
+}) {
+  const w = Math.max(0, Math.min(1, Math.abs(value) / (max || 1)));
+  const colors = {
+    violet: "bg-violet-600",
+    rose: "bg-rose-500",
+    emerald: "bg-emerald-500",
+    zinc: "bg-zinc-700",
+  };
+  return (
+    <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-2.5">
+      <div>
+        <div className="mb-1.5 text-sm text-zinc-700">{label}</div>
+        <div className="h-[6px] w-full overflow-hidden rounded-full bg-zinc-100">
+          <div className={`h-full rounded-full ${colors[tone]}`} style={{ width: `${w * 100}%` }} />
+        </div>
+      </div>
+      <div className="font-mono text-sm tabular-nums text-zinc-900">
+        {value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(2)}{suffix}
+      </div>
+    </div>
+  );
+}
+
+// ─── Hero / address input ───────────────────────────────────────────
+
+function AddressGate({ onResolve, address, busy }: {
+  onResolve: (addr: string) => void;
+  address: string;
+  busy: boolean;
+}) {
+  const [v, setV] = useState(address);
+  const valid = SOL_ADDR_RE.test(v.trim());
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="text-center">
+        <div className="text-xs uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
+        <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-zinc-900 sm:text-5xl">
+          Decide with hindsight.
+          <br />
+          <span className="text-zinc-400">Act with foresight.</span>
+        </h1>
+        <p className="mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-zinc-500">
+          Paste a Solana address. Every number on this page is real, sourced from on-chain holdings
+          and historical prices. No demo data, no estimates without disclosure.
+        </p>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) onResolve(v.trim());
+        }}
+        className="mt-10"
+      >
+        <div className={`flex items-center gap-2 rounded-2xl border bg-white p-2 transition-all ${valid ? "border-violet-300 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]" : "border-zinc-200"}`}>
+          <input
+            value={v}
+            onChange={(e) => setV(e.target.value)}
+            placeholder="Solana address (mainnet)"
+            className="flex-1 bg-transparent px-4 py-3 font-mono text-sm tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400"
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+          />
+          <button
+            type="submit"
+            disabled={!valid || busy}
+            className="flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-800"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Open <ArrowUpRight className="h-4 w-4" /></>}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─── Mode dock ──────────────────────────────────────────────────────
+
+function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <div className="sticky top-4 z-30 mx-auto w-full max-w-3xl px-4">
+      <div className="flex items-center justify-center gap-1 rounded-full border border-zinc-200/80 bg-white/85 p-1 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur-xl">
+        {MODES.map((m) => {
+          const active = mode === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => onChange(m.id)}
+              className={`relative flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors ${active ? "text-white" : "text-zinc-600 hover:text-zinc-900"}`}
+            >
+              {active && (
+                <motion.span
+                  layoutId="mode-pill"
+                  className="absolute inset-0 rounded-full bg-zinc-900"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              )}
+              <span className="relative">{m.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-center text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+        {MODES.find((m) => m.id === mode)?.hint}
+      </div>
+    </div>
+  );
+}
+
+// ─── Composition / portfolio strip ─────────────────────────────────
+
+function CompositionStrip({ positions, totalUsd }: { positions: LabPosition[]; totalUsd: number }) {
+  const top = positions.slice(0, 6);
+  return (
+    <Card className="p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Portfolio value</div>
+          <div className="mt-2"><Numeric value={totalUsd} prefix="$" size="2xl" /></div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Positions</div>
+          <div className="mt-2"><Numeric value={positions.length} size="lg" /></div>
+        </div>
+      </div>
+      {totalUsd > 0 && (
+        <div className="mt-6">
+          <div className="flex h-2 overflow-hidden rounded-full bg-zinc-100">
+            {top.map((p, i) => {
+              const w = (p.valueUsd / totalUsd) * 100;
+              const palette = ["#7c3aed", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f4f1ff"];
+              return <div key={p.mint + i} style={{ width: `${w}%`, background: palette[i] }} />;
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-zinc-500">
+            {top.map((p, i) => {
+              const palette = ["#7c3aed", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f4f1ff"];
+              return (
+                <span key={p.mint + i} className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: palette[i] }} />
+                  <span className="font-medium text-zinc-700">{p.symbol}</span>
+                  <span className="font-mono tabular-nums">{((p.valueUsd / totalUsd) * 100).toFixed(1)}%</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Mode panels ────────────────────────────────────────────────────
+
+function HindsightPanel({ address }: { address: string }) {
+  const [data, setData] = useState<null | {
+    positions: LabPosition[];
+    totalUsd: number;
+    missed: LabMissedRotation[];
+    totalOppCostUsd: number;
+    windowDays: 30 | 90 | 365;
+  }>(null);
+  const [windowDays, setWindowDays] = useState<30 | 90 | 365>(90);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    setErr(null);
+    fetch(`/api/lab/hindsight?address=${address}&window=${windowDays}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!live) return;
+        if (j.error) setErr(j.error);
+        else setData(j);
+      })
+      .catch((e) => live && setErr(String(e)))
+      .finally(() => live && setBusy(false));
+    return () => { live = false; };
+  }, [address, windowDays]);
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Opportunity cost · last {windowDays}d</div>
+            <div className="mt-3">
+              {busy ? (
+                <div className="h-16 w-48 animate-pulse rounded bg-zinc-100" />
+              ) : (
+                <Numeric
+                  value={data ? data.totalOppCostUsd : 0}
+                  prefix={data && data.totalOppCostUsd >= 0 ? "+$" : "−$"}
+                  size="2xl"
+                  tone={data && data.totalOppCostUsd >= 0 ? "violet" : "muted"}
+                />
+              )}
+            </div>
+            <div className="mt-2 text-sm text-zinc-500">
+              {data ? "If you'd held the best alternative at the same size." : "Resolving holdings + price history…"}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1">
+            {([30, 90, 365] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setWindowDays(d)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${windowDays === d ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {err && <ErrorBanner message={err} />}
+
+      {data && data.missed.length === 0 && !busy && (
+        <Card className="p-8 text-center">
+          <Check className="mx-auto h-6 w-6 text-emerald-600" />
+          <div className="mt-3 text-sm text-zinc-700">No regret. Your composition outperformed the alternatives we tracked.</div>
+        </Card>
+      )}
+
+      {data && data.missed.length > 0 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-baseline justify-between">
+            <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
+            <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
+          </div>
+          <div className="space-y-1">
+            {data.missed.slice(0, 6).map((m, i) => (
+              <RotationRow key={i} rotation={m} highlight={`+$${m.realizedOppCostUsd.toFixed(2)} missed`} />
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ForesightPanel({ address }: { address: string }) {
+  const [data, setData] = useState<null | { rotations: LabRotation[]; positions: LabPosition[]; totalUsd: number }>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    fetch(`/api/lab/foresight?address=${address}`)
+      .then((r) => r.json())
+      .then((j) => { if (!live) return; if (j.error) setErr(j.error); else setData(j); })
+      .catch((e) => live && setErr(String(e)))
+      .finally(() => live && setBusy(false));
+    return () => { live = false; };
+  }, [address]);
+
+  const totalDelta = data?.rotations.reduce((s, r) => s + r.projectedDeltaUsd, 0) ?? 0;
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-8">
+        <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Projected 90-day gain · risk-adjusted</div>
+        <div className="mt-3">
+          {busy ? <div className="h-16 w-48 animate-pulse rounded bg-zinc-100" /> :
+            <Numeric value={totalDelta} prefix="+$" size="2xl" tone={totalDelta > 0 ? "violet" : "muted"} />}
+        </div>
+        <div className="mt-2 text-sm text-zinc-500">Sum of top-ranked rotations net of 30 bps swap cost.</div>
+      </Card>
+
+      {err && <ErrorBanner message={err} />}
+
+      {data && data.rotations.length === 0 && !busy && (
+        <Card className="p-8 text-center text-sm text-zinc-600">
+          No qualifying rotations. Your composition already captures the best risk-adjusted yield we can see.
+        </Card>
+      )}
+
+      {data && data.rotations.length > 0 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-baseline justify-between">
+            <div className="text-sm font-medium text-zinc-900">Suggested rotations</div>
+            <div className="text-xs text-zinc-400">Ranked by risk-adjusted score</div>
+          </div>
+          <div className="space-y-1">
+            {data.rotations.map((r, i) => (
+              <RotationRow key={i} rotation={r} highlight={`+$${r.projectedDeltaUsd.toFixed(2)} / 90d`} />
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function RotationRow({ rotation, highlight }: { rotation: LabRotation; highlight: string }) {
+  return (
+    <div className="group grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4 rounded-2xl px-4 py-4 transition hover:bg-zinc-50">
+      <div className="min-w-0">
+        <div className="text-[11px] uppercase tracking-wider text-zinc-400">From</div>
+        <div className="mt-1 truncate text-sm font-medium text-zinc-900">{rotation.from.symbol}</div>
+        <div className="text-xs text-zinc-500">
+          <span className="font-mono tabular-nums">${rotation.from.valueUsd.toFixed(2)}</span>
+          <span className="mx-1.5">·</span>
+          <span className="font-mono tabular-nums">{rotation.from.currentApy.toFixed(2)}%</span>
+        </div>
+      </div>
+      <ArrowUpRight className="h-4 w-4 text-zinc-300 transition group-hover:text-violet-600" />
+      <div className="min-w-0">
+        <div className="text-[11px] uppercase tracking-wider text-zinc-400">Into</div>
+        <div className="mt-1 truncate text-sm font-medium text-zinc-900">
+          {rotation.to.symbol} <span className="text-zinc-400">· {rotation.to.protocol}</span>
+        </div>
+        <div className="text-xs text-zinc-500">
+          <span className="font-mono tabular-nums text-violet-600">{rotation.to.apy.toFixed(2)}%</span>
+          <span className="mx-1.5">·</span>
+          <span className="font-mono tabular-nums">vol {(rotation.vol * 100).toFixed(0)}%</span>
+          <span className="mx-1.5">·</span>
+          <span>exit ~{rotation.liquidityExitHours}h</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="font-mono text-sm tabular-nums text-emerald-600">{highlight}</div>
+        <div className="mt-0.5 text-[11px] text-zinc-400">break-even {rotation.breakEvenDays}d</div>
+      </div>
+    </div>
+  );
+}
+
+const STRESS_SCENARIOS = [
+  { key: "sol_crash", label: "SOL −40%" },
+  { key: "sol_crash_deep", label: "SOL −60%" },
+  { key: "usdc_depeg", label: "USDC depeg" },
+  { key: "lst_slashing", label: "LST slashing" },
+  { key: "lst_liquidity_drain", label: "Liquidity drain" },
+  { key: "validator_outage", label: "Validator outage" },
+];
+
+function StressPanel({ address }: { address: string }) {
+  const [scenario, setScenario] = useState<string>("sol_crash");
+  const [data, setData] = useState<null | { result: LabStressResult; totalUsd: number }>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    fetch(`/api/lab/stress?address=${address}&scenario=${scenario}`)
+      .then((r) => r.json())
+      .then((j) => { if (!live) return; if (j.error) setErr(j.error); else setData(j); })
+      .catch((e) => live && setErr(String(e)))
+      .finally(() => live && setBusy(false));
+    return () => { live = false; };
+  }, [address, scenario]);
+
+  const maxLoss = data ? Math.max(...data.result.perAsset.map((p) => Math.abs(p.deltaUsd)), 1) : 1;
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex flex-wrap gap-2">
+          {STRESS_SCENARIOS.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setScenario(s.key)}
+              className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${scenario === s.key ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-700 hover:border-zinc-400"}`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="p-8">
+        <div className="grid gap-8 sm:grid-cols-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Drawdown</div>
+            <div className="mt-3">
+              {busy ? <Skeleton h={56} w={140} /> :
+                <Numeric value={data ? (data.result.drawdownPct * 100).toFixed(2) : "0.00"} suffix="%" size="xl" tone={data && data.result.drawdownPct < 0 ? "negative" : "ink"} />}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Loss</div>
+            <div className="mt-3">
+              {busy ? <Skeleton h={56} w={160} /> :
+                <Numeric value={data ? data.result.totalLossUsd : 0} prefix={data && data.result.totalLossUsd < 0 ? "−$" : "$"} size="xl" tone={data && data.result.totalLossUsd < 0 ? "negative" : "ink"} />}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Recovery (at +10%/yr)</div>
+            <div className="mt-3">
+              {busy ? <Skeleton h={56} w={120} /> :
+                <Numeric value={data ? data.result.recoveryDays : 0} suffix="d" size="xl" />}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {err && <ErrorBanner message={err} />}
+
+      {data && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="p-6">
+            <div className="mb-4 text-sm font-medium text-zinc-900">Per-asset impact</div>
+            <div>
+              {data.result.perAsset.map((p) => (
+                <HorizontalBar
+                  key={p.mint}
+                  label={`${p.symbol} · ${formatUsd(p.beforeUsd)} → ${formatUsd(p.afterUsd)}`}
+                  value={p.deltaUsd}
+                  max={maxLoss}
+                  tone={p.deltaUsd < 0 ? "rose" : "emerald"}
+                />
+              ))}
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="mb-4 text-sm font-medium text-zinc-900">Hardening</div>
+            {data.result.hardening.length === 0 ? (
+              <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-5 text-sm text-emerald-800">
+                Resilient to this scenario. No structural changes recommended.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.result.hardening.map((h) => (
+                  <div key={h.id} className="rounded-2xl border border-zinc-200 bg-white p-5">
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-1 h-2 w-2 rounded-full ${h.severity === "critical" ? "bg-rose-500" : h.severity === "warn" ? "bg-amber-500" : "bg-violet-500"}`} />
+                      <div>
+                        <div className="text-sm font-medium text-zinc-900">{h.title}</div>
+                        <div className="mt-1 text-[13px] leading-relaxed text-zinc-600">{h.rationale}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlaybooksPanel({ address }: { address: string }) {
+  const [list, setList] = useState<LabPlaybook[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [backtest, setBacktest] = useState<LabBacktestResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/lab/playbooks").then((r) => r.json()).then((j) => setList(j.playbooks || []));
+  }, []);
+
+  const runBacktest = useCallback((id: string) => {
+    setSelected(id);
+    setBusy(true);
+    setErr(null);
+    setBacktest(null);
+    fetch(`/api/lab/playbooks/backtest?address=${address}&id=${id}`)
+      .then((r) => r.json())
+      .then((j) => { if (j.error) setErr(j.error); else setBacktest(j.result); })
+      .catch((e) => setErr(String(e)))
+      .finally(() => setBusy(false));
+  }, [address]);
+
+  const sel = list.find((p) => p.id === selected);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        {list.map((pb) => (
+          <button
+            key={pb.id}
+            onClick={() => runBacktest(pb.id)}
+            className={`group rounded-3xl border bg-white p-6 text-left transition ${selected === pb.id ? "border-zinc-900 shadow-[0_0_0_3px_rgba(124,58,237,0.10)]" : "border-zinc-200 hover:border-zinc-400"}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-violet-600">{pb.riskTier} risk</div>
+                <div className="mt-2 text-lg font-medium text-zinc-900">{pb.name}</div>
+              </div>
+              <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:text-zinc-900" />
+            </div>
+            <div className="mt-2 text-sm text-zinc-600">{pb.tagline}</div>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {pb.nodes.map((n, i) => (
+                <span key={i} className="rounded-full bg-zinc-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-zinc-600">
+                  {n.type.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {sel && (
+          <motion.div
+            key={sel.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.2, 0, 0, 1] }}
+          >
+            <Card className="p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">365-day backtest · {sel.name}</div>
+                  <div className="mt-2 text-sm text-zinc-600">{sel.thesis}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-400">vs hold-baseline</div>
+                  <div className="mt-2">
+                    {busy || !backtest ? <Skeleton h={48} w={140} /> :
+                      <Numeric value={backtest.deltaPct} prefix="" suffix="" size="lg" tone={backtest.deltaPct >= 0 ? "positive" : "negative"} />}
+                  </div>
+                  {backtest && (
+                    <div className="font-mono text-xs tabular-nums text-zinc-500">
+                      {formatPct(backtest.deltaPct)} · {formatUsd(backtest.deltaUsd)}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {err && <div className="mt-6"><ErrorBanner message={err} /></div>}
+              {busy && !backtest && <div className="mt-8 h-56 animate-pulse rounded-2xl bg-zinc-50" />}
+              {backtest && backtest.series.length > 1 && (
+                <div className="mt-8">
+                  <DualSparkline
+                    a={backtest.series.map((s) => s.playbook)}
+                    b={backtest.series.map((s) => s.baseline)}
+                  />
+                  <div className="mt-6 grid gap-6 sm:grid-cols-3">
+                    <Stat label="End · playbook" value={formatUsd(backtest.endUsdPlaybook)} />
+                    <Stat label="End · baseline" value={formatUsd(backtest.endUsdBaseline)} />
+                    <Stat label="Max drawdown" value={`${(backtest.maxDrawdownPct * 100).toFixed(2)}%`} />
+                  </div>
+                </div>
+              )}
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-400">{label}</div>
+      <div className="mt-1.5 font-mono text-xl tabular-nums text-zinc-900">{value}</div>
+    </div>
+  );
+}
+
+function Skeleton({ h, w }: { h: number; w: number }) {
+  return <div className="animate-pulse rounded bg-zinc-100" style={{ height: h, width: w }} />;
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-rose-200/70 bg-rose-50/50 p-5">
+      <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+      <div className="text-sm text-rose-900">{message}</div>
+    </div>
+  );
+}
+
+// ─── Root ───────────────────────────────────────────────────────────
+
+export function StrategyLabClient() {
+  const [address, setAddress] = useState("");
+  const [resolved, setResolved] = useState(false);
+  const [positions, setPositions] = useState<LabPosition[]>([]);
+  const [totalUsd, setTotalUsd] = useState(0);
+  const [mode, setMode] = useState<Mode>("foresight");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  const onResolve = useCallback(async (addr: string) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/lab/positions?address=${addr}`);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Resolution failed");
+      setPositions(j.positions || []);
+      setTotalUsd(j.totalUsd || 0);
+      setAddress(addr);
+      setResolved(true);
+      setTimeout(() => headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to resolve");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const clear = () => { setResolved(false); setPositions([]); setTotalUsd(0); setAddress(""); };
+
+  return (
+    <main
+      className="min-h-screen bg-white text-zinc-900"
+      style={{
+        backgroundImage:
+          "radial-gradient(900px 480px at 50% -10%, rgba(124,58,237,0.06), transparent 60%), radial-gradient(700px 360px at 110% 10%, rgba(167,139,250,0.05), transparent 60%)",
+      }}
+    >
+      <div className="mx-auto w-full max-w-6xl px-5 pb-32 pt-20 sm:px-8">
+        {!resolved ? (
+          <>
+            <AddressGate onResolve={onResolve} address={address} busy={busy} />
+            {err && <div className="mx-auto mt-8 max-w-2xl"><ErrorBanner message={err} /></div>}
+          </>
+        ) : (
+          <div className="space-y-8">
+            <div ref={headerRef} className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="font-mono text-sm tracking-tight text-zinc-700">
+                    {address.slice(0, 6)}…{address.slice(-6)}
+                  </span>
+                  <button onClick={clear} className="text-xs text-zinc-400 underline-offset-2 hover:text-zinc-900 hover:underline">
+                    change
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <CompositionStrip positions={positions} totalUsd={totalUsd} />
+
+            <ModeDock mode={mode} onChange={setMode} />
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}
+              >
+                {mode === "hindsight" && <HindsightPanel address={address} />}
+                {mode === "foresight" && <ForesightPanel address={address} />}
+                {mode === "stress" && <StressPanel address={address} />}
+                {mode === "playbooks" && <PlaybooksPanel address={address} />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+export default StrategyLabClient;

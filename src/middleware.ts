@@ -481,7 +481,7 @@ export async function middleware(request: NextRequest) {
     // Artifact download routes self-authenticate via signed JWT in `?t=`
     // (see /api/agent/artifacts/[id]) — they must be reachable without
     // a session cookie so download links work in any browser tab.
-    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media', '/api/studio/reddit', '/api/studio/video', '/api/studio/case-studies', '/api/agents/markdown'];
+    const publicApiPaths = ['/api/studio/marketplace', '/api/studio/unlock', '/api/studio/media', '/api/studio/reddit', '/api/studio/video', '/api/studio/case-studies', '/api/agents/markdown', '/api/lab'];
     const isPublicArtifactRoute =
         pathname.startsWith('/api/agent/artifacts/') && request.method === 'GET';
     const isStudioGatedRoute =
