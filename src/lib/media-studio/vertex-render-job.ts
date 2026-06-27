@@ -244,9 +244,13 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       }
 
       const submittedAt = new Date().toISOString();
+      const mascotRefs = await loadDreyvMascotReferences();
       const operations: VertexShotOperation[] = [];
       for (let i = 0; i < shots.length; i += 1) {
-        const op = await submitVertexVeoOperation(shotPrompt(shots[i], i, shots.length, pack));
+        const op = await submitVertexVeoOperation(
+          shotPrompt(shots[i], i, shots.length, pack),
+          { referenceImages: mascotRefs },
+        );
         operations.push({ n: shots[i].n ?? i + 1, operationName: op.operationName, submittedAt });
       }
       const nextPack: Pack = {
