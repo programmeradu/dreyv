@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "FAL_KEY missing — add it in project secrets." }, { status: 500 });
   }
 
-  let body: { pack?: unknown };
+  let body: { pack?: unknown; provider?: unknown };
   try {
-    body = (await req.json()) as { pack?: unknown };
+    body = (await req.json()) as { pack?: unknown; provider?: unknown };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -46,12 +46,35 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Provider selection — defaults to fal Veo 3 Fast (best quality, native audio).
+  const ALLOWED = ["veo3-fal", "veo3-google", "wan22-fal"] as const;
+  type Provider = (typeof ALLOWED)[number];
+  const provider: Provider = (ALLOWED as readonly string[]).includes(String(body.provider))
+    ? (body.provider as Provider)
+    : "veo3-fal";
+
+  // Per-provider secret guard — fail fast with a clear message.
+  if ((provider === "veo3-fal" || provider === "wan22-fal") && !process.env.FAL_KEY) {
+    return NextResponse.json({ error: "FAL_KEY missing — add it in project secrets." }, { status: 500 });
+  }
+  if (provider === "veo3-google" && !process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY missing." }, { status: 500 });
+  }
+  // ffmpeg compose step still runs on fal regardless of shot provider.
+  if (!process.env.FAL_KEY) {
+    return NextResponse.json({ error: "FAL_KEY missing (required for stitching step)." }, { status: 500 });
+  }
+
+  const modelLabel =
+    provider === "veo3-google" ? "google/veo-3.0-generate-001" :
+    provider === "wan22-fal"   ? "fal-ai/wan/v2.2-5b/fast/text-to-video" :
+                                 "fal-ai/veo3/fast";
+
   const inserted = (await db.execute(
-    sql`INSERT INTO studio_video_jobs (status, pack, shots_total)
-        VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${pack.shotList.length})
+    sql`INSERT INTO studio_video_jobs (status, pack, shots_total, model)
+        VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${pack.shotList.length}, ${modelLabel})
         RETURNING id`,
   )) as unknown;
-  // drizzle .execute returns { rows } on neon-http; an array on pg
   const row =
     (inserted as { rows?: Array<{ id?: string }> }).rows?.[0] ??
     (Array.isArray(inserted) ? (inserted[0] as { id?: string } | undefined) : undefined);
@@ -60,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   const delivered = await publish({
     name: "studio.video.render.requested",
-    data: { jobId, pack },
+    data: { jobId, pack, provider },
   });
 
   if (!delivered.delivered) {
