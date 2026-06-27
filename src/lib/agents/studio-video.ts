@@ -48,7 +48,7 @@ const PROVIDERS: Record<
 > = {
   "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
   "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "local" },
-  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "local" },
+  "veo3-vertex": { render: renderVertexVeoShotWithMascot, secondsPerShot: 8, stitch: "local" },
   "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
 };
 
