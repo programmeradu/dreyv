@@ -109,6 +109,17 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [renderStarting, setRenderStarting] = React.useState(false);
   const [renderError, setRenderError] = React.useState<string | null>(null);
 
+  // Provider catalogue mirrors the server-side allowlist. `secs` and `usdPerSec`
+  // are used purely to surface an estimated cost in the UI.
+  type ProviderId = "veo3-fal" | "veo3-google" | "wan22-fal";
+  const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
+    { id: "veo3-fal",    label: "Veo 3 Fast · fal.ai",       secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
+    { id: "veo3-google", label: "Veo 3 · Google direct",     secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
+    { id: "wan22-fal",   label: "Wan 2.2 Fast · budget",     secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
+  ];
+  const [providerId, setProviderId] = React.useState<ProviderId>("veo3-fal");
+  const provider = PROVIDERS.find((p) => p.id === providerId)!;
+
   const startRender = React.useCallback(async () => {
     if (!pack) return;
     setRenderError(null);
@@ -117,7 +128,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       const res = await fetch("/api/studio/video/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack }),
+        body: JSON.stringify({ pack, provider: providerId }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
@@ -136,7 +147,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     } finally {
       setRenderStarting(false);
     }
-  }, [pack]);
+  }, [pack, providerId]);
+
 
   // Poll job until terminal.
   React.useEffect(() => {
