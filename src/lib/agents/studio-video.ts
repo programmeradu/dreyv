@@ -22,9 +22,19 @@ import { sql } from "drizzle-orm";
 import { renderVeo3FastShot, renderWan22FastShot } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
 import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
+import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
+
+// Vertex Veo 3.1 accepts up to 3 asset reference images per generation. We
+// feed the canonical Dreyv mascot PNGs directly so the model copies the real
+// design (violet body, cream chest with the "D" mark, violet cap) instead of
+// inventing one from text.
+async function renderVertexVeoShotWithMascot(prompt: string) {
+  const referenceImages = await loadDreyvMascotReferences();
+  return renderVertexVeoShot(prompt, { referenceImages });
+}
 
 /**
  * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
@@ -38,7 +48,7 @@ const PROVIDERS: Record<
 > = {
   "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
   "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "local" },
-  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "local" },
+  "veo3-vertex": { render: renderVertexVeoShotWithMascot, secondsPerShot: 8, stitch: "local" },
   "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
 };
 
@@ -84,6 +94,8 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
   const nextShot = shotIndex < pack.shotList.length - 1 ? pack.shotList[shotIndex + 1] : null;
   return [
     dreyvShotStylePreamble(),
+    "",
+    "MASCOT REFERENCE IMAGES MAY BE ATTACHED — when they are, copy the mascot from those images exactly: violet body, cream chest with the violet Dreyv 'D' mark, violet cap, amber eyes, same proportions. Do not invent a new mascot, do not omit the chest 'D' mark, do not omit the cap, do not change the colors.",
     "",
     `9:16 vertical ad segment ${shot.n} of ${pack.shotList.length} for ONE continuous Dreyv ad, pronounced DRAVE.`,
     `This is not a variant, restart, recap, or alternate take. It must be the next chronological scene in the same ad.`,

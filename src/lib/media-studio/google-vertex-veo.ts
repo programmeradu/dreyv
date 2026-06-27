@@ -15,6 +15,16 @@
  */
 import { SignJWT, importPKCS8 } from "jose";
 import { putR2Object, isR2Configured, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
+import type { VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+
+export type VertexVeoSubmitOptions = {
+  /**
+   * Up to 3 Veo 3.1 asset reference images. Used to lock the Dreyv mascot to
+   * its canonical design (violet body, cream chest with "D" mark, violet cap)
+   * instead of letting Veo invent it from text.
+   */
+  referenceImages?: VeoReferenceImage[];
+};
 
 const REGION = process.env.GCP_VERTEX_REGION?.trim() || "us-central1";
 const MODEL = process.env.GCP_VEO_MODEL?.trim() || "veo-3.1-generate-001";
@@ -140,13 +150,20 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
  * The caller should poll separately; this keeps web requests short enough for
  * Vercel instead of blocking a function for 8–10 minutes.
  */
-export async function submitVertexVeoOperation(prompt: string): Promise<{ operationName: string }> {
+export async function submitVertexVeoOperation(
+  prompt: string,
+  opts: VertexVeoSubmitOptions = {},
+): Promise<{ operationName: string }> {
   const auth = await vertexAuth();
   const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
 
+  const refs = (opts.referenceImages ?? []).slice(0, 3);
+  const instance: Record<string, unknown> = { prompt };
+  if (refs.length) instance.referenceImages = refs;
+
   const submitBody = {
-    instances: [{ prompt }],
+    instances: [instance],
     parameters: {
       sampleCount: 1,
       aspectRatio: "9:16",
@@ -227,8 +244,11 @@ export async function pollVertexVeoOperation(operationName: string): Promise<Ver
  * Returns a presigned R2 URL the browser can stream. Kept for durable workers;
  * request/response APIs should prefer submitVertexVeoOperation + polling.
  */
-export async function renderVertexVeoShot(prompt: string): Promise<VertexVeoMaterializedVideo> {
-  const { operationName } = await submitVertexVeoOperation(prompt);
+export async function renderVertexVeoShot(
+  prompt: string,
+  opts: VertexVeoSubmitOptions = {},
+): Promise<VertexVeoMaterializedVideo> {
+  const { operationName } = await submitVertexVeoOperation(prompt, opts);
 
   // Poll fetchPredictOperation up to 8 min.
   const deadline = Date.now() + 8 * 60 * 1000;
