@@ -239,12 +239,12 @@ function AddressGate({ onResolve, address, busy }: {
     <div className="mx-auto max-w-2xl">
       <div className="text-center">
         <div className="text-xs uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
-        <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-zinc-900 sm:text-5xl">
+        <h1 className="mt-3 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
           Decide with hindsight.
           <br />
           <span className="text-zinc-400">Act with foresight.</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-zinc-500">
+        <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-zinc-500">
           Paste a Solana address. Every number on this page is real, sourced from on-chain holdings
           and historical prices. No demo data, no estimates without disclosure.
         </p>
@@ -255,14 +255,14 @@ function AddressGate({ onResolve, address, busy }: {
           e.preventDefault();
           if (valid) onResolve(v.trim());
         }}
-        className="mt-10"
+        className="mt-6"
       >
         <div className={`flex items-center gap-2 rounded-2xl border bg-white p-2 transition-all ${valid ? "border-violet-300 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]" : "border-zinc-200"}`}>
           <input
             value={v}
             onChange={(e) => setV(e.target.value)}
             placeholder="Solana address (mainnet)"
-            className="flex-1 bg-transparent px-4 py-3 font-mono text-sm tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400"
+            className="flex-1 bg-transparent px-3 py-2 font-mono text-xs tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400"
             spellCheck={false}
             autoCorrect="off"
             autoCapitalize="off"
@@ -270,7 +270,7 @@ function AddressGate({ onResolve, address, busy }: {
           <button
             type="submit"
             disabled={!valid || busy}
-            className="flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-800"
+            className="flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-800"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Open <ArrowUpRight className="h-4 w-4" /></>}
           </button>
@@ -284,7 +284,7 @@ function AddressGate({ onResolve, address, busy }: {
 
 function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   return (
-    <div className="sticky top-4 z-30 mx-auto w-full max-w-3xl px-4">
+    <div className="sticky top-2 z-30 mx-auto w-full max-w-3xl px-4">
       <div className="flex items-center justify-center gap-1 rounded-full border border-zinc-200/80 bg-white/85 p-1 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur-xl">
         {MODES.map((m) => {
           const active = mode === m.id;
@@ -292,7 +292,7 @@ function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void 
             <button
               key={m.id}
               onClick={() => onChange(m.id)}
-              className={`relative flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors ${active ? "text-white" : "text-zinc-600 hover:text-zinc-900"}`}
+              className={`relative flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${active ? "text-white" : "text-zinc-600 hover:text-zinc-900"}`}
             >
               {active && (
                 <motion.span
@@ -318,7 +318,7 @@ function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void 
 function CompositionStrip({ positions, totalUsd }: { positions: LabPosition[]; totalUsd: number }) {
   const top = positions.slice(0, 6);
   return (
-    <Card className="p-6">
+    <Card className="p-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Portfolio value</div>
@@ -387,8 +387,8 @@ function HindsightPanel({ address }: { address: string }) {
   }, [address, windowDays]);
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden p-8">
+    <div className="space-y-4">
+      <Card className="overflow-hidden p-5">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Opportunity cost · last {windowDays}d</div>
@@ -425,14 +425,14 @@ function HindsightPanel({ address }: { address: string }) {
       {err && <ErrorBanner message={err} />}
 
       {data && data.missed.length === 0 && !busy && (
-        <Card className="p-8 text-center">
+        <Card className="p-5 text-center">
           <Check className="mx-auto h-6 w-6 text-emerald-600" />
           <div className="mt-3 text-sm text-zinc-700">No regret. Your composition outperformed the alternatives we tracked.</div>
         </Card>
       )}
 
       {data && data.missed.length > 0 && (
-        <Card className="p-6">
+        <Card className="p-4">
           <div className="mb-4 flex items-baseline justify-between">
             <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
             <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
@@ -467,8 +467,8 @@ function ForesightPanel({ address }: { address: string }) {
   const totalDelta = data?.rotations.reduce((s, r) => s + r.projectedDeltaUsd, 0) ?? 0;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-8">
+    <div className="space-y-4">
+      <Card className="p-5">
         <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Projected 90-day gain · risk-adjusted</div>
         <div className="mt-3">
           {busy ? <div className="h-16 w-48 animate-pulse rounded bg-zinc-100" /> :
@@ -480,13 +480,13 @@ function ForesightPanel({ address }: { address: string }) {
       {err && <ErrorBanner message={err} />}
 
       {data && data.rotations.length === 0 && !busy && (
-        <Card className="p-8 text-center text-sm text-zinc-600">
+        <Card className="p-5 text-center text-sm text-zinc-600">
           No qualifying rotations. Your composition already captures the best risk-adjusted yield we can see.
         </Card>
       )}
 
       {data && data.rotations.length > 0 && (
-        <Card className="p-6">
+        <Card className="p-4">
           <div className="mb-4 flex items-baseline justify-between">
             <div className="text-sm font-medium text-zinc-900">Suggested rotations</div>
             <div className="text-xs text-zinc-400">Ranked by risk-adjusted score</div>
@@ -565,8 +565,8 @@ function StressPanel({ address }: { address: string }) {
   const maxLoss = data ? Math.max(...data.result.perAsset.map((p) => Math.abs(p.deltaUsd)), 1) : 1;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
+    <div className="space-y-4">
+      <Card className="p-4">
         <div className="flex flex-wrap gap-2">
           {STRESS_SCENARIOS.map((s) => (
             <button
@@ -580,8 +580,8 @@ function StressPanel({ address }: { address: string }) {
         </div>
       </Card>
 
-      <Card className="p-8">
-        <div className="grid gap-8 sm:grid-cols-3">
+      <Card className="p-5">
+        <div className="grid gap-5 sm:grid-cols-3">
           <div>
             <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">Drawdown</div>
             <div className="mt-3">
@@ -610,7 +610,7 @@ function StressPanel({ address }: { address: string }) {
 
       {data && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="p-6">
+          <Card className="p-4">
             <div className="mb-4 text-sm font-medium text-zinc-900">Per-asset impact</div>
             <div>
               {data.result.perAsset.map((p) => (
@@ -625,7 +625,7 @@ function StressPanel({ address }: { address: string }) {
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-4">
             <div className="mb-4 text-sm font-medium text-zinc-900">Hardening</div>
             {data.result.hardening.length === 0 ? (
               <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-5 text-sm text-emerald-800">
@@ -679,13 +679,13 @@ function PlaybooksPanel({ address }: { address: string }) {
   const sel = list.find((p) => p.id === selected);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         {list.map((pb) => (
           <button
             key={pb.id}
             onClick={() => runBacktest(pb.id)}
-            className={`group rounded-3xl border bg-white p-6 text-left transition ${selected === pb.id ? "border-zinc-900 shadow-[0_0_0_3px_rgba(124,58,237,0.10)]" : "border-zinc-200 hover:border-zinc-400"}`}
+            className={`group rounded-3xl border bg-white p-4 text-left transition ${selected === pb.id ? "border-zinc-900 shadow-[0_0_0_3px_rgba(124,58,237,0.10)]" : "border-zinc-200 hover:border-zinc-400"}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -715,7 +715,7 @@ function PlaybooksPanel({ address }: { address: string }) {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: [0.2, 0, 0, 1] }}
           >
-            <Card className="p-8">
+            <Card className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">365-day backtest · {sel.name}</div>
