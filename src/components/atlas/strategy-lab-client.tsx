@@ -248,8 +248,7 @@ function AddressGate({ onResolve, address, busy }: {
           <span className="text-zinc-400">Act with foresight.</span>
         </h1>
         <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-zinc-500">
-          Paste a Solana address. Every number on this page is real, sourced from on-chain holdings
-          and historical prices. No demo data, no estimates without disclosure.
+          Paste a Solana address to begin.
         </p>
       </div>
 
