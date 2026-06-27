@@ -150,13 +150,20 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
  * The caller should poll separately; this keeps web requests short enough for
  * Vercel instead of blocking a function for 8–10 minutes.
  */
-export async function submitVertexVeoOperation(prompt: string): Promise<{ operationName: string }> {
+export async function submitVertexVeoOperation(
+  prompt: string,
+  opts: VertexVeoSubmitOptions = {},
+): Promise<{ operationName: string }> {
   const auth = await vertexAuth();
   const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
 
+  const refs = (opts.referenceImages ?? []).slice(0, 3);
+  const instance: Record<string, unknown> = { prompt };
+  if (refs.length) instance.referenceImages = refs;
+
   const submitBody = {
-    instances: [{ prompt }],
+    instances: [instance],
     parameters: {
       sampleCount: 1,
       aspectRatio: "9:16",
