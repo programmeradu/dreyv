@@ -185,14 +185,16 @@ export async function GET(req: NextRequest) {
                                            LIMIT 20`)) as unknown;
       const rows = rowsFromResult(result);
       let finalKeys = new Map<string, unknown>();
-      if (await studioVideoR2ColumnsAvailable()) try {
-        const ids = rows.map((r) => r.id).filter((v): v is string => typeof v === "string" && isUuid(v));
-        if (ids.length > 0) {
-          const keyResult = (await db.execute(sql`SELECT id, final_key FROM studio_video_jobs WHERE id = ANY(${ids}::uuid[])`)) as unknown;
-          finalKeys = new Map(rowsFromResult(keyResult).map((r) => [String(r.id), r.final_key]));
+      if (await studioVideoR2ColumnsAvailable()) {
+        try {
+          const ids = rows.map((r) => r.id).filter((v): v is string => typeof v === "string" && isUuid(v));
+          if (ids.length > 0) {
+            const keyResult = (await db.execute(sql`SELECT id, final_key FROM studio_video_jobs WHERE id = ANY(${ids}::uuid[])`)) as unknown;
+            finalKeys = new Map(rowsFromResult(keyResult).map((r) => [String(r.id), r.final_key]));
+          }
+        } catch (err) {
+          console.warn("[studio/video/render] final_key lookup skipped:", err);
         }
-      } catch (err) {
-        console.warn("[studio/video/render] final_key lookup skipped:", err);
       }
       const jobs = await Promise.all(
         rows.map(async (r) => ({
@@ -213,15 +215,17 @@ export async function GET(req: NextRequest) {
 
     let shotKeys: unknown = [];
     let finalKey: unknown = null;
-    if (await studioVideoR2ColumnsAvailable()) try {
-      const keyResult = (await db.execute(sql`SELECT COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
-                                                     final_key
-                                              FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
-      const keyRow = rowsFromResult(keyResult)[0];
-      shotKeys = keyRow?.shot_keys ?? [];
-      finalKey = keyRow?.final_key ?? null;
-    } catch (err) {
-      console.warn("[studio/video/render] R2 key lookup skipped:", err);
+    if (await studioVideoR2ColumnsAvailable()) {
+      try {
+        const keyResult = (await db.execute(sql`SELECT COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
+                                                       final_key
+                                                FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
+        const keyRow = rowsFromResult(keyResult)[0];
+        shotKeys = keyRow?.shot_keys ?? [];
+        finalKey = keyRow?.final_key ?? null;
+      } catch (err) {
+        console.warn("[studio/video/render] R2 key lookup skipped:", err);
+      }
     }
 
     const shotUrls = await refreshShotUrls(shotKeys, row.shot_urls);
