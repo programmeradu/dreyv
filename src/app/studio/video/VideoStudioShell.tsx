@@ -109,6 +109,17 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [renderStarting, setRenderStarting] = React.useState(false);
   const [renderError, setRenderError] = React.useState<string | null>(null);
 
+  // Provider catalogue mirrors the server-side allowlist. `secs` and `usdPerSec`
+  // are used purely to surface an estimated cost in the UI.
+  type ProviderId = "veo3-fal" | "veo3-google" | "wan22-fal";
+  const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
+    { id: "veo3-fal",    label: "Veo 3 Fast · fal.ai",       secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
+    { id: "veo3-google", label: "Veo 3 · Google direct",     secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
+    { id: "wan22-fal",   label: "Wan 2.2 Fast · budget",     secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
+  ];
+  const [providerId, setProviderId] = React.useState<ProviderId>("veo3-fal");
+  const provider = PROVIDERS.find((p) => p.id === providerId)!;
+
   const startRender = React.useCallback(async () => {
     if (!pack) return;
     setRenderError(null);
@@ -117,7 +128,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       const res = await fetch("/api/studio/video/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack }),
+        body: JSON.stringify({ pack, provider: providerId }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
@@ -136,7 +147,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     } finally {
       setRenderStarting(false);
     }
-  }, [pack]);
+  }, [pack, providerId]);
+
 
   // Poll job until terminal.
   React.useEffect(() => {
@@ -410,16 +422,39 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
             <span className="text-xs text-slate-500">{pack.whyItWorks}</span>
           </div>
 
-          {/* RENDER BAR — Dreyv makes its own ad with fal.ai Veo 3 Fast */}
-          <div className="mb-6 rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+          {/* RENDER BAR — Dreyv makes its own ad. Pick a video provider. */}
+          <div className="mb-6 rounded-3xl border border-violet-200 bg-violet-50/60 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
-                  Auto-render · Veo 3 Fast + ffmpeg compose
+                  Auto-render · {provider.label}
                 </div>
                 <div className="mt-1 text-sm text-slate-700">
-                  Renders all {pack.shotList.length} shots with synced audio, stitches into one vertical MP4.
-                  ~${(pack.shotList.length * 8 * 0.4).toFixed(2)} estimated fal.ai cost.
+                  Renders all {pack.shotList.length} shots, stitches into one 9:16 MP4.
+                  ~${(pack.shotList.length * provider.secs * provider.usdPerSec).toFixed(2)} estimated cost. {provider.note}.
+                </div>
+
+                {/* Provider segmented control */}
+                <div className="mt-3 inline-flex flex-wrap gap-1.5 rounded-2xl border border-violet-200 bg-white p-1">
+                  {PROVIDERS.map((p) => {
+                    const active = p.id === providerId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setProviderId(p.id)}
+                        disabled={renderStarting || (renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed")}
+                        className={
+                          "rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 " +
+                          (active
+                            ? "bg-violet-600 text-white"
+                            : "text-slate-700 hover:bg-violet-50")
+                        }
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <button

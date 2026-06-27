@@ -19,7 +19,20 @@
 import { inngest } from "./inngest-client";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
-import { renderVeo3FastShot, composeFinalAd } from "@/lib/media-studio/fal";
+import { renderVeo3FastShot, renderWan22FastShot, composeFinalAd } from "@/lib/media-studio/fal";
+import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
+
+/**
+ * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
+ * `secondsPerShot` is the actual duration each model produces — used so the
+ * ffmpeg compose timeline lines clips up correctly.
+ */
+export type VideoProvider = "veo3-fal" | "veo3-google" | "wan22-fal";
+const PROVIDERS: Record<VideoProvider, { render: (p: string) => Promise<{ url: string }>; secondsPerShot: number }> = {
+  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8 },
+  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8 },
+  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5 },
+};
 
 type Shot = {
   n: number;
@@ -73,8 +86,13 @@ export const studioVideoRender = inngest.createFunction(
   { id: "studio-video-render", name: "Studio • render TikTok ad", concurrency: 2, retries: 1 },
   { event: "studio.video.render.requested" },
   async ({ event, step }) => {
-    const { jobId, pack } = event.data as { jobId: string; pack: Pack };
+    const { jobId, pack, provider: providerId } = event.data as {
+      jobId: string;
+      pack: Pack;
+      provider?: VideoProvider;
+    };
     if (!jobId || !pack) throw new Error("missing jobId or pack");
+    const provider = PROVIDERS[providerId ?? "veo3-fal"] ?? PROVIDERS["veo3-fal"];
 
     const shots = (pack.shotList ?? []).slice(0, 5); // hard cap — cost guard
     if (!shots.length) {
@@ -88,7 +106,7 @@ export const studioVideoRender = inngest.createFunction(
       const shotUrls: string[] = [];
       for (const shot of shots) {
         const url = await step.run(`shot-${shot.n}`, async () => {
-          const r = await renderVeo3FastShot(buildShotPrompt(shot, pack));
+          const r = await provider.render(buildShotPrompt(shot, pack));
           return r.url;
         });
         shotUrls.push(url);
@@ -98,7 +116,7 @@ export const studioVideoRender = inngest.createFunction(
       await setJob(jobId, { status: "stitching" });
 
       const final = await step.run("compose", () =>
-        composeFinalAd({ shotUrls, shotDurationSec: 8 }),
+        composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
       );
 
       await setJob(jobId, {

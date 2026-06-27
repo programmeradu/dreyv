@@ -138,3 +138,26 @@ export async function composeFinalAd(args: {
   if (!url) throw new Error("ffmpeg compose returned no url");
   return { url, durationSec: dur * args.shotUrls.length };
 }
+
+/**
+ * Wan 2.2 Fast — text-to-video, ~$0.05/sec, no native audio.
+ * The cheapest production-grade option on fal. We render silent 5s clips
+ * here; downstream ffmpeg-compose just concatenates them. If the user wants
+ * voice they can layer their own TTS in CapCut.
+ *
+ * https://fal.ai/models/fal-ai/wan/v2.2-5b/fast/text-to-video
+ */
+export async function renderWan22FastShot(prompt: string): Promise<{ url: string }> {
+  const out = await falRun<{ video: { url: string } }>(
+    "fal-ai/wan/v2.2-5b/fast/text-to-video",
+    {
+      prompt,
+      aspect_ratio: "9:16",
+      num_frames: 81, // ~5s at 16fps
+      resolution: "720p",
+    },
+    { maxMs: 4 * 60 * 1000 },
+  );
+  if (!out?.video?.url) throw new Error("Wan 2.2 returned no video url");
+  return { url: out.video.url };
+}
