@@ -91,15 +91,43 @@ type Operation = {
 const VERTEX_BASE = () =>
   `https://${REGION}-aiplatform.googleapis.com/v1/projects`;
 
+/** Express-mode endpoint — no project, auth via `x-goog-api-key`. */
+const VERTEX_EXPRESS = () =>
+  `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}`;
+
+/**
+ * Resolve auth: prefer a Vertex API key (Express mode, simplest) and fall
+ * back to a service-account JSON if no key is set.
+ */
+async function vertexAuth(): Promise<
+  | { mode: "key"; key: string; url: string }
+  | { mode: "sa"; token: string; url: string }
+> {
+  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || "").trim();
+  if (key) return { mode: "key", key, url: VERTEX_EXPRESS() };
+  const sa = loadServiceAccount();
+  const project = projectId(sa);
+  const token = await getAccessToken();
+  return {
+    mode: "sa",
+    token,
+    url: `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`,
+  };
+}
+
+function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: string }): Record<string, string> {
+  return a.mode === "key"
+    ? { "x-goog-api-key": a.key, "Content-Type": "application/json; charset=utf-8" }
+    : { Authorization: `Bearer ${a.token}`, "Content-Type": "application/json; charset=utf-8" };
+}
+
 /**
  * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
  * Returns a presigned R2 URL the browser can stream.
  */
 export async function renderVertexVeoShot(prompt: string): Promise<{ url: string }> {
-  const sa = loadServiceAccount();
-  const project = projectId(sa);
-  const token = await getAccessToken();
-  const modelBase = `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`;
+  const auth = await vertexAuth();
+  const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
 
   const submitBody = {
@@ -117,10 +145,7 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
 
   const submit = await fetch(`${modelBase}:predictLongRunning`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json; charset=utf-8",
-    },
+    headers: authHeaders(auth),
     body: JSON.stringify(submitBody),
   });
   const submitText = await submit.text();
@@ -135,10 +160,7 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
     await new Promise((r) => setTimeout(r, 6000));
     const poll = await fetch(`${modelBase}:fetchPredictOperation`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json; charset=utf-8",
-      },
+      headers: authHeaders(auth),
       body: JSON.stringify({ operationName: opName }),
     });
     const pollText = await poll.text();
@@ -149,7 +171,6 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
   if (!op?.done) throw new Error("Vertex Veo timed out after 8m");
   if (op.error) throw new Error(`Vertex Veo failed: ${op.error.message}`);
 
-  // Vertex shape: response.videos[].gcsUri | bytesBase64Encoded
   const video = op.response?.videos?.[0];
   if (!video) throw new Error("Vertex returned no video");
 
@@ -157,13 +178,16 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
   if (video.bytesBase64Encoded) {
     bytes = Uint8Array.from(Buffer.from(video.bytesBase64Encoded, "base64"));
   } else if (video.gcsUri) {
-    // Download from GCS using the same access token.
+    // Download from GCS — needs an OAuth bearer; API-key auth can't read GCS.
+    if (auth.mode !== "sa") {
+      throw new Error("Vertex returned a gcsUri but API-key mode can't read GCS. Unset GCS_OUTPUT_URI or use a service account.");
+    }
     const m = video.gcsUri.match(/^gs:\/\/([^/]+)\/(.+)$/);
     if (!m) throw new Error(`Bad gcsUri: ${video.gcsUri}`);
     const [, bucket, object] = m;
     const dl = await fetch(
       `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(object)}?alt=media`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${auth.token}` } },
     );
     if (!dl.ok) throw new Error(`GCS download ${dl.status}`);
     bytes = new Uint8Array(await dl.arrayBuffer());
@@ -184,26 +208,22 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
 /** Cheap auth/entitlement probe used by /api/debug/veo-ping?vertex=1. */
 export async function vertexHealthCheck(): Promise<{
   ok: true;
-  project: string;
+  mode: "key" | "sa";
   region: string;
   model: string;
-  token_prefix: string;
+  project?: string;
 }> {
-  const sa = loadServiceAccount();
-  const project = projectId(sa);
-  const token = await getAccessToken();
-  // List publisher models — auth + project check without spending credits.
-  const url = `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const auth = await vertexAuth();
+  const res = await fetch(auth.url, { headers: authHeaders(auth) });
   if (!res.ok) {
     const t = await res.text();
     throw new Error(`Vertex model probe ${res.status}: ${t.slice(0, 400)}`);
   }
   return {
     ok: true,
-    project,
+    mode: auth.mode,
     region: REGION,
     model: MODEL,
-    token_prefix: token.slice(0, 6),
+    project: auth.mode === "sa" ? (process.env.GCP_PROJECT_ID || "(from sa)") : undefined,
   };
 }
