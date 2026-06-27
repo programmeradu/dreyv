@@ -98,6 +98,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   type RenderJob = {
     id: string;
     status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
+    model?: string | null;
     shots_total: number;
     shots_done: number;
     shot_urls: string[];
@@ -172,6 +173,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
           setRenderJob({
             id: j.id,
             status: j.status,
+            model: j.model ?? null,
             shots_total: j.shots_total ?? 0,
             shots_done: j.shots_done ?? 0,
             shot_urls: Array.isArray(j.shot_urls) ? j.shot_urls : [],
@@ -249,7 +251,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
 
   const elapsedSeconds = renderStartedAt ? Math.max(0, Math.floor((renderNow - renderStartedAt) / 1000)) : 0;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
-  const isVertexRender = providerId === "veo3-vertex";
+  const isVertexRender = providerId === "veo3-vertex" || Boolean(renderJob?.model?.includes("vertex"));
 
   React.useEffect(() => {
     if (isUnlocked && !trends) void loadTrends();
