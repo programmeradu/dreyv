@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
   if (!jobId) return NextResponse.json({ error: "Failed to insert job" }, { status: 500 });
 
   const delivered = await publish({
-    name: "studio.video.render.requested" as never,
-    data: { jobId, pack } as never,
+    name: "studio.video.render.requested",
+    data: { jobId, pack },
   });
 
   if (!delivered.delivered) {
