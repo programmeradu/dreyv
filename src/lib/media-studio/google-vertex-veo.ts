@@ -96,23 +96,31 @@ const VERTEX_EXPRESS = () =>
   `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}`;
 
 /**
- * Resolve auth: prefer a Vertex API key (Express mode, simplest) and fall
- * back to a service-account JSON if no key is set.
+ * Resolve auth: prefer service-account JSON (the only thing
+ * `aiplatform.googleapis.com` actually accepts). Fall back to an explicit
+ * Vertex Express key only if one is set. Gemini AI Studio keys do NOT work
+ * on Vertex — never silently use them here.
  */
 async function vertexAuth(): Promise<
   | { mode: "key"; key: string; url: string }
   | { mode: "sa"; token: string; url: string }
 > {
-  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
+  if (process.env.GCP_SERVICE_ACCOUNT_JSON?.trim()) {
+    const sa = loadServiceAccount();
+    const project = projectId(sa);
+    const token = await getAccessToken();
+    return {
+      mode: "sa",
+      token,
+      url: `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`,
+    };
+  }
+  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || "").trim();
   if (key) return { mode: "key", key, url: VERTEX_EXPRESS() };
-  const sa = loadServiceAccount();
-  const project = projectId(sa);
-  const token = await getAccessToken();
-  return {
-    mode: "sa",
-    token,
-    url: `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`,
-  };
+  throw new Error(
+    "Vertex auth missing — set GCP_SERVICE_ACCOUNT_JSON (recommended). " +
+      "Gemini AI Studio keys do not work on aiplatform.googleapis.com.",
+  );
 }
 
 function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: string }): Record<string, string> {
