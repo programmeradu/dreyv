@@ -78,8 +78,11 @@ async function acquireLock(jobId: string) {
     WHERE id = ${jobId}::uuid
       AND status NOT IN ('done', 'failed')
       AND (
-        pack #>> '{__renderState,lockUntil}' IS NULL
-        OR (pack #>> '{__renderState,lockUntil}')::timestamptz < now()
+        NULLIF(pack #>> '{__renderState,lockUntil}', '') IS NULL
+        OR (
+          (pack #>> '{__renderState,lockUntil}') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+          AND (pack #>> '{__renderState,lockUntil}')::timestamptz < now()
+        )
       )
     RETURNING id, status, pack, shot_urls, final_url, shots_done, shots_total
   `)) as unknown;
