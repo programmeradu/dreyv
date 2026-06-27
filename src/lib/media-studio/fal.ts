@@ -118,18 +118,10 @@ export async function composeFinalAd(args: {
   shotDurationSec?: number; // each clip duration (Veo3 Fast = 8)
 }): Promise<{ url: string; durationSec: number }> {
   const dur = args.shotDurationSec ?? 8;
-  const keyframes = args.shotUrls.map((url, i) => ({
-    url,
-    timestamp: i * dur,
-    duration: dur,
-  }));
-  const tracks = [
-    { id: "video", type: "video", keyframes },
-    { id: "audio", type: "audio", keyframes },
-  ];
+  const input = composeFinalAdInput({ shotUrls: args.shotUrls, shotDurationSec: dur });
   const out = await falRun<{ video_url: string } | { video: { url: string } }>(
     "fal-ai/ffmpeg-api/compose",
-    { tracks },
+    input,
     { maxMs: 5 * 60 * 1000 },
   );
   const url =
@@ -137,6 +129,48 @@ export async function composeFinalAd(args: {
     (out as { video?: { url?: string } }).video?.url;
   if (!url) throw new Error("ffmpeg compose returned no url");
   return { url, durationSec: dur * args.shotUrls.length };
+}
+
+function composeFinalAdInput(args: { shotUrls: string[]; shotDurationSec: number }) {
+  const dur = args.shotDurationSec;
+  const keyframes = args.shotUrls.map((url, i) => ({
+    url,
+    timestamp: i * dur,
+    duration: dur,
+  }));
+  return {
+    tracks: [
+    { id: "video", type: "video", keyframes },
+    { id: "audio", type: "audio", keyframes },
+    ],
+  };
+}
+
+export async function submitComposeFinalAd(args: {
+  shotUrls: string[];
+  shotDurationSec?: number;
+}): Promise<FalSubmitResult & { durationSec: number }> {
+  const dur = args.shotDurationSec ?? 8;
+  const submitted = await falSubmit("fal-ai/ffmpeg-api/compose", composeFinalAdInput({
+    shotUrls: args.shotUrls,
+    shotDurationSec: dur,
+  }));
+  return { ...submitted, durationSec: dur * args.shotUrls.length };
+}
+
+export async function pollComposeFinalAd(args: {
+  statusUrl: string;
+  responseUrl: string;
+}): Promise<{ done: false } | { done: true; url: string }> {
+  const status = await falStatus(args.statusUrl);
+  if (status.status === "FAILED") throw new Error("fal ffmpeg compose FAILED");
+  if (status.status !== "COMPLETED") return { done: false };
+  const out = await falResult<{ video_url: string } | { video: { url: string } }>(args.responseUrl);
+  const url =
+    (out as { video_url?: string }).video_url ??
+    (out as { video?: { url?: string } }).video?.url;
+  if (!url) throw new Error("ffmpeg compose returned no url");
+  return { done: true, url };
 }
 
 /**
