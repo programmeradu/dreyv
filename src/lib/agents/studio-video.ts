@@ -39,12 +39,14 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   if (!db) return;
   const entries = Object.entries(patch);
   if (!entries.length) return;
-  const sets = entries.map(([k, v], i) => {
+  const sets = entries.map(([k, v]) => {
     const col = k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    // jsonb columns need explicit cast; everything else binds fine as-is.
+    if (col === "shot_urls" || col === "pack") {
+      return sql`${sql.identifier(col)} = ${JSON.stringify(v)}::jsonb`;
+    }
     return sql`${sql.identifier(col)} = ${v as never}`;
   });
-  // Build a parameterised UPDATE manually so we can mix multiple columns.
-  // Drizzle's tagged sql lets us join fragments with commas.
   const setExpr = sql.join(sets, sql`, `);
   await db.execute(
     sql`UPDATE studio_video_jobs SET ${setExpr}, updated_at = now() WHERE id = ${id}::uuid`,
