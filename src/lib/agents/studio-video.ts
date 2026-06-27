@@ -29,11 +29,14 @@ import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
  * ffmpeg compose timeline lines clips up correctly.
  */
 export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
-const PROVIDERS: Record<VideoProvider, { render: (p: string) => Promise<{ url: string }>; secondsPerShot: number }> = {
-  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8 },
-  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8 },
-  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8 },
-  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5 },
+const PROVIDERS: Record<
+  VideoProvider,
+  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "fal" | "none" }
+> = {
+  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "fal" },
+  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "none" },
+  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "none" },
+  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "fal" },
 };
 
 type Shot = {
