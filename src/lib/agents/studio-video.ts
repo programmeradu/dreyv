@@ -21,16 +21,18 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { renderVeo3FastShot, renderWan22FastShot, composeFinalAd } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
+import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
 
 /**
  * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
  * `secondsPerShot` is the actual duration each model produces — used so the
  * ffmpeg compose timeline lines clips up correctly.
  */
-export type VideoProvider = "veo3-fal" | "veo3-google" | "wan22-fal";
+export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
 const PROVIDERS: Record<VideoProvider, { render: (p: string) => Promise<{ url: string }>; secondsPerShot: number }> = {
   "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8 },
   "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8 },
+  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8 },
   "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5 },
 };
 
