@@ -8,9 +8,9 @@
  *
  * Pipeline:
  *   1. mark job rendering_shots
- *   2. for each shot in pack.shotList: fal Veo 3 Fast text→video (8s, audio)
+ *   2. for each shot in pack.shotList: selected provider renders one segment
  *   3. mark job stitching
- *   4. fal-ai/ffmpeg-api/compose concatenates shots into a single MP4
+ *   4. local ffmpeg concatenates shots into a single MP4
  *   5. mark job done with final_url + duration
  *
  * Failure at any step marks job=failed with the error string so the UI
@@ -19,25 +19,26 @@
 import { inngest } from "./inngest-client";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
-import { renderVeo3FastShot, renderWan22FastShot, composeFinalAd } from "@/lib/media-studio/fal";
+import { renderVeo3FastShot, renderWan22FastShot } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
 import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
 import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
+import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 
 /**
  * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
- * `secondsPerShot` is the actual duration each model produces — used so the
- * ffmpeg compose timeline lines clips up correctly.
+ * `secondsPerShot` is the actual duration each model produces — used for final
+ * duration metadata after local ffmpeg stitching.
  */
 export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
 const PROVIDERS: Record<
   VideoProvider,
-  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "fal" | "none" }
+  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "local" | "none" }
 > = {
-  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "fal" },
+  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
   "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "none" },
   "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "none" },
-  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "fal" },
+  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
 };
 
 type Shot = {
@@ -77,16 +78,19 @@ async function setJob(id: string, patch: Record<string, unknown>) {
 }
 
 function buildShotPrompt(shot: Shot, pack: Pack): string {
-  // Veo 3 Fast wants a vivid, cinematic description with dialogue/sfx baked
-  // in. Wrap the per-shot prompt with mascot + brand consistency so every
-  // clip feels like the same ad.
-  const captionLine = pack.burnedCaptions?.[shot.n - 1];
+  const shotIndex = Math.max(0, (shot.n ?? 1) - 1);
+  const previousShot = shotIndex > 0 ? pack.shotList[shotIndex - 1] : null;
+  const nextShot = shotIndex < pack.shotList.length - 1 ? pack.shotList[shotIndex + 1] : null;
   return [
-    `9:16 vertical TikTok ad shot ${shot.n} of ${pack.shotList.length}. ${shot.description}`,
-    `Style: soft warm 3200K indoor lighting, shallow depth of field, premium tech ad aesthetic, violet accent color (#7c3aed).`,
-    `Audio: natural ambient + clear voiceover. Voiceover line: "${shot.toolPrompt.slice(0, 240)}"`,
-    captionLine ? `On-screen text overlay: "${captionLine}"` : "",
-    `Mascot consistency: if a mascot character appears, it is a small friendly violet abstract shape — Dreyv. Never change its color or proportions.`,
+    `9:16 vertical ad segment ${shot.n} of ${pack.shotList.length} for ONE continuous Dreyv ad, pronounced DRAVE.`,
+    `This is not a variant, restart, recap, or alternate take. It must be the next chronological scene in the same ad.`,
+    previousShot ? `Previous scene context to continue from, not repeat: ${previousShot.description}` : `Opening scene: establish the visual world and motion hook.`,
+    `Current scene action: ${shot.description}`,
+    nextShot ? `End with motion that hands off into this next scene: ${nextShot.description}` : `Final scene: resolve into a clean product payoff without text.`,
+    `Style lock: premium light SaaS ad, white product environment, solid violet accents (#7c3aed), crisp abstract interface shapes, consistent lighting and camera language.`,
+    `Text rule: do not render readable words, subtitles, captions, logo text, numbers, or UI labels. Use only abstract UI blocks and unreadable micro-glyph lines; captions are added separately after generation.`,
+    `Creative intent, without rendering written text: ${shot.toolPrompt.slice(0, 700)}`,
+    `Mascot consistency: if a mascot appears, keep the same friendly abstract Dreyv character proportions and color; do not redesign it between shots.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -128,18 +132,17 @@ export const studioVideoRender = inngest.createFunction(
         });
       }
 
-      // Stitching: only fal-based providers go through fal's hosted ffmpeg.
-      // Vertex / Google-direct stay as a per-shot deliverable — the UI shows
-      // each clip and the operator concatenates in CapCut. We avoid spending
-      // FAL credits when the user explicitly picked a non-fal provider.
-      if (provider.stitch === "fal" && process.env.FAL_KEY) {
+      // Stitching happens inside Dreyv with the bundled ffmpeg binary. fal may
+      // render a shot, but it is never required for the final compose step.
+      if (provider.stitch === "local") {
         await setJob(jobId, { status: "stitching" });
         const final = await step.run("compose", () =>
-          composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
+          stitchShotsLocally({ jobId, shotUrls, shotDurationSec: provider.secondsPerShot }),
         );
         await setJob(jobId, {
           status: "done",
           final_url: final.url,
+          final_key: final.key ?? null,
           duration_sec: final.durationSec,
         });
         return { ok: true, url: final.url };

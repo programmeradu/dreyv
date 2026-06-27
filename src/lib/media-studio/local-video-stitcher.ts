@@ -45,7 +45,7 @@ function concatList(files: string[]): string {
  * Stitch Vertex shots locally with ffmpeg, then persist the single MP4 to R2.
  * This keeps the Vertex path independent from fal credits/billing.
  */
-export async function stitchVertexShotsLocally(args: {
+export async function stitchShotsLocally(args: {
   jobId: string;
   shotUrls: string[];
   shotDurationSec?: number;
@@ -121,3 +121,5 @@ export async function stitchVertexShotsLocally(args: {
     await rm(workdir, { recursive: true, force: true });
   }
 }
+
+export const stitchVertexShotsLocally = stitchShotsLocally;

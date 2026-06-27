@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { pollVertexVeoOperation, submitVertexVeoOperation } from "@/lib/media-studio/google-vertex-veo";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
-import { stitchVertexShotsLocally } from "@/lib/media-studio/local-video-stitcher";
+import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 
 type Shot = {
   n: number;
@@ -323,7 +323,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_urls: shotUrls,
         shot_keys: shotKeys,
       });
-      const stitched = await stitchVertexShotsLocally({ jobId, shotUrls, shotDurationSec: 8 });
+      const stitched = await stitchShotsLocally({ jobId, shotUrls, shotDurationSec: 8 });
       const nextPack: Pack = {
         ...pack,
         __renderState: {
