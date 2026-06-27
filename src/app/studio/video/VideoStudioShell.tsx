@@ -94,6 +94,69 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [trends, setTrends] = React.useState<Trends | null>(null);
   const [trendsLoading, setTrendsLoading] = React.useState(false);
 
+  // ---- Video render job (fal.ai pipeline) -----------------------------
+  type RenderJob = {
+    id: string;
+    status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
+    shots_total: number;
+    shots_done: number;
+    shot_urls: string[];
+    final_url: string | null;
+    duration_sec: number | null;
+    error: string | null;
+  };
+  const [renderJob, setRenderJob] = React.useState<RenderJob | null>(null);
+  const [renderStarting, setRenderStarting] = React.useState(false);
+  const [renderError, setRenderError] = React.useState<string | null>(null);
+
+  const startRender = React.useCallback(async () => {
+    if (!pack) return;
+    setRenderError(null);
+    setRenderStarting(true);
+    try {
+      const res = await fetch("/api/studio/video/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setRenderJob({
+        id: j.jobId,
+        status: "queued",
+        shots_total: pack.shotList.length,
+        shots_done: 0,
+        shot_urls: [],
+        final_url: null,
+        duration_sec: null,
+        error: j.warning ?? null,
+      });
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenderStarting(false);
+    }
+  }, [pack]);
+
+  // Poll job until terminal.
+  React.useEffect(() => {
+    if (!renderJob || renderJob.status === "done" || renderJob.status === "failed") return;
+    const id = renderJob.id;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/studio/video/render?id=${id}`);
+        const j = await r.json();
+        if (!cancelled && r.ok) setRenderJob((prev) => (prev && prev.id === id ? { ...prev, ...j } : prev));
+      } catch {}
+    };
+    const handle = setInterval(tick, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(handle);
+    };
+  }, [renderJob]);
+
   const loadTrends = React.useCallback(async () => {
     setTrendsLoading(true);
     try {
@@ -345,6 +408,112 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
           <div className="mb-6 flex items-baseline justify-between gap-4">
             <h2 className="text-2xl font-bold tracking-tight">{pack.formatLabel}</h2>
             <span className="text-xs text-slate-500">{pack.whyItWorks}</span>
+          </div>
+
+          {/* RENDER BAR — Dreyv makes its own ad with fal.ai Veo 3 Fast */}
+          <div className="mb-6 rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                  Auto-render · Veo 3 Fast + ffmpeg compose
+                </div>
+                <div className="mt-1 text-sm text-slate-700">
+                  Renders all {pack.shotList.length} shots with synced audio, stitches into one vertical MP4.
+                  ~${(pack.shotList.length * 8 * 0.4).toFixed(2)} estimated fal.ai cost.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={startRender}
+                disabled={renderStarting || (renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed")}
+                className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {renderStarting
+                  ? "Submitting…"
+                  : renderJob && renderJob.status !== "done" && renderJob.status !== "failed"
+                    ? "Rendering…"
+                    : renderJob?.status === "done"
+                      ? "Re-render full ad"
+                      : "Render full ad"}
+              </button>
+            </div>
+
+            {renderError && (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {renderError}
+              </div>
+            )}
+
+            {renderJob && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="rounded-full bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-white">
+                    {renderJob.status}
+                  </span>
+                  {renderJob.status !== "done" && renderJob.status !== "failed" && (
+                    <span className="text-slate-600">
+                      {renderJob.shots_done}/{renderJob.shots_total} shots rendered
+                    </span>
+                  )}
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-violet-600 transition-all"
+                    style={{
+                      width:
+                        renderJob.status === "done"
+                          ? "100%"
+                          : renderJob.status === "stitching"
+                            ? "92%"
+                            : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * 85}%`,
+                    }}
+                  />
+                </div>
+                {renderJob.error && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    {renderJob.error}
+                  </div>
+                )}
+                {renderJob.shot_urls && renderJob.shot_urls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                    {renderJob.shot_urls.map((u, i) => (
+                      <a
+                        key={i}
+                        href={u}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded-xl border border-violet-100 bg-black"
+                      >
+                        <video src={u} className="aspect-[9/16] w-full object-cover" muted playsInline />
+                        <div className="px-2 py-1 text-[10px] text-slate-500">Shot {i + 1}</div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {renderJob.final_url && (
+                  <div className="rounded-2xl border border-violet-200 bg-white p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                        Final ad · {renderJob.duration_sec}s
+                      </div>
+                      <a
+                        href={renderJob.final_url}
+                        download
+                        className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline"
+                      >
+                        Download MP4 ↓
+                      </a>
+                    </div>
+                    <video
+                      src={renderJob.final_url}
+                      className="aspect-[9/16] w-full max-w-xs rounded-xl bg-black"
+                      controls
+                      playsInline
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">

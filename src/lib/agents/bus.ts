@@ -40,7 +40,9 @@ export type BusEventName =
   | "agent.subagent.completed"
   // DACS Phase 5 — multi-agent orchestration
   | "agent.handoff.requested"
-  | "agent.handoff.reported";
+  | "agent.handoff.reported"
+  // Studio — video pipeline
+  | "studio.video.render.requested";
 
 export interface BusEnvelope<T = unknown> {
   name: BusEventName;

@@ -3078,3 +3078,24 @@ export const redeemedClaimTokens = pgTable('redeemed_claim_tokens', {
 }, (t) => ({
   customerIdx: index('redeemed_claim_tokens_customer_idx').on(t.customerUserId, t.redeemedAt),
 }));
+
+// Studio video render jobs (migration 0055). Background fal.ai pipeline
+// that turns a generated TikTok pack into a stitched 9:16 MP4 ad.
+export const studioVideoJobs = pgTable('studio_video_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  status: text('status').notNull().default('queued'), // queued|rendering_shots|stitching|done|failed
+  pack: jsonb('pack').notNull(),
+  model: text('model').notNull().default('fal-ai/veo3/fast'),
+  shotsTotal: integer('shots_total').notNull().default(0),
+  shotsDone: integer('shots_done').notNull().default(0),
+  shotUrls: jsonb('shot_urls').notNull().default([] as unknown as object),
+  finalUrl: text('final_url'),
+  durationSec: integer('duration_sec'),
+  costUsdMinor: integer('cost_usd_minor'),
+  error: text('error'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  createdIdx: index('studio_video_jobs_created_idx').on(t.createdAt),
+}));
