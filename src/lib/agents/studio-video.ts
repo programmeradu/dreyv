@@ -57,10 +57,10 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   if (!db) return;
   const entries = Object.entries(patch);
   if (!entries.length) return;
+  const JSONB_COLS = new Set(["shot_urls", "shot_keys", "pack"]);
   const sets = entries.map(([k, v]) => {
     const col = k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    // jsonb columns need explicit cast; everything else binds fine as-is.
-    if (col === "shot_urls" || col === "pack") {
+    if (JSONB_COLS.has(col)) {
       return sql`${sql.identifier(col)} = ${JSON.stringify(v)}::jsonb`;
     }
     return sql`${sql.identifier(col)} = ${v as never}`;
