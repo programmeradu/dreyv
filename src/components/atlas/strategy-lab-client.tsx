@@ -16,6 +16,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Check, Loader2, X } from "lucide-react";
 import labCrystal from "@/assets/lab-crystal.png";
+import labHeroHindsight from "@/assets/lab-hero-hindsight.png";
+import labHeroForesight from "@/assets/lab-hero-foresight.png";
+import labHeroStress from "@/assets/lab-hero-stress.png";
+import labHeroPlaybooks from "@/assets/lab-hero-playbooks.png";
 import glyphHindsight from "@/assets/lab-glyph-hindsight.png";
 import glyphForesight from "@/assets/lab-glyph-foresight.png";
 import glyphStress from "@/assets/lab-glyph-stress.png";
@@ -502,7 +506,223 @@ function RiskReturnScatter({
   );
 }
 
+/** Stacked horizontal bars showing per-rotation opportunity cost contribution. */
+function OpportunityStacks({
+  items,
+  height = 220,
+}: {
+  items: Array<{ from: string; to: string; usd: number }>;
+  height?: number;
+}) {
+  if (items.length === 0) return null;
+  const max = Math.max(...items.map((i) => i.usd), 1);
+  const total = items.reduce((s, i) => s + i.usd, 0);
+  return (
+    <div className="space-y-2" style={{ minHeight: height }}>
+      {items.map((it, i) => {
+        const w = (it.usd / max) * 100;
+        const pct = (it.usd / total) * 100;
+        return (
+          <div key={i} className="group">
+            <div className="flex items-baseline justify-between text-[11px]">
+              <span className="font-medium text-zinc-700">
+                {it.from} <span className="text-zinc-400">→</span> {it.to}
+              </span>
+              <span className="font-mono tabular-nums text-zinc-500">
+                <span className="text-violet-700">${it.usd.toFixed(2)}</span>
+                <span className="ml-2 text-zinc-400">{pct.toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${w}%` }}
+                transition={{ delay: 0.06 * i, duration: 0.6, ease: [0.2, 0, 0, 1] }}
+                className="h-full rounded-full"
+                style={{
+                  background: `linear-gradient(90deg, #a78bfa 0%, #7c3aed ${Math.min(100, w + 20)}%)`,
+                  boxShadow: "0 0 16px rgba(124,58,237,0.25)",
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Drawdown strip — underwater equity curve (red below 0). */
+function DrawdownStrip({ series, height = 80 }: { series: number[]; height?: number }) {
+  if (series.length < 2) return null;
+  // peak-to-trough drawdown series in %
+  let peak = series[0];
+  const dd = series.map((v) => {
+    if (v > peak) peak = v;
+    return (v - peak) / peak; // <=0
+  });
+  const minDD = Math.min(...dd);
+  const width = 880;
+  const padL = 56;
+  const padR = 24;
+  const padT = 8;
+  const padB = 18;
+  const innerH = height - padT - padB;
+  const innerW = width - padL - padR;
+  const dx = innerW / (dd.length - 1);
+  const x = (i: number) => padL + i * dx;
+  const y = (v: number) => padT + ((v - 0) / (minDD || -1)) * innerH;
+  const path =
+    `M${x(0).toFixed(2)},${y(0).toFixed(2)} ` +
+    dd.map((v, i) => `L${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ") +
+    ` L${x(dd.length - 1).toFixed(2)},${y(0).toFixed(2)} Z`;
+  const stroke = dd.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+        <span>Underwater · drawdown</span>
+        <span className="font-mono tabular-nums text-rose-500">{(minDD * 100).toFixed(2)}% trough</span>
+      </div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="dd-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fb7185" stopOpacity="0.04" />
+            <stop offset="100%" stopColor="#e11d48" stopOpacity="0.28" />
+          </linearGradient>
+        </defs>
+        <line x1={padL} x2={width - padR} y1={y(0)} y2={y(0)} stroke="#e4e4e7" />
+        <motion.path d={path} fill="url(#dd-fill)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
+        <motion.path d={stroke} fill="none" stroke="#e11d48" strokeWidth="1.5" strokeLinejoin="round"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9 }} />
+      </svg>
+    </div>
+  );
+}
+
+/** Loss → recovery glide: shows the drop event then a glide back to par over recoveryDays. */
+function RecoveryRibbon({
+  totalUsd,
+  lossUsd,
+  recoveryDays,
+  height = 170,
+}: {
+  totalUsd: number;
+  lossUsd: number; // negative
+  recoveryDays: number;
+  height?: number;
+}) {
+  if (totalUsd <= 0) return null;
+  const par = totalUsd;
+  const trough = par + lossUsd;
+  // Build series: 5 pre-shock points at par, instant drop, then exp glide back over recoveryDays
+  const preDays = 5;
+  const totalDays = preDays + recoveryDays;
+  const series: Array<{ d: number; v: number }> = [];
+  for (let i = 0; i <= preDays; i++) series.push({ d: i - preDays, v: par });
+  for (let i = 1; i <= recoveryDays; i++) {
+    const t = i / recoveryDays;
+    // ease-out exponential recovery
+    const eased = 1 - Math.pow(1 - t, 2.2);
+    series.push({ d: i, v: trough + (par - trough) * eased });
+  }
+  const width = 880;
+  const padL = 56;
+  const padR = 24;
+  const padT = 16;
+  const padB = 28;
+  const innerW = width - padL - padR;
+  const innerH = height - padT - padB;
+  const minV = Math.min(trough, par) * 0.97;
+  const maxV = par * 1.02;
+  const x = (d: number) => padL + ((d + preDays) / totalDays) * innerW;
+  const y = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
+  const pts = series.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.d).toFixed(2)},${y(p.v).toFixed(2)}`).join(" ");
+  const area = `${pts} L${x(series[series.length - 1].d).toFixed(2)},${y(trough).toFixed(2)} L${x(series[0].d).toFixed(2)},${y(trough).toFixed(2)} Z`;
+
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="rec-area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.02" />
+        </linearGradient>
+        <linearGradient id="rec-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#e11d48" />
+          <stop offset="25%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+
+      {/* Par line */}
+      <line x1={padL} x2={width - padR} y1={y(par)} y2={y(par)} stroke="#d4d4d8" strokeDasharray="3 4" />
+      <text x={padL - 8} y={y(par) + 3} textAnchor="end" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+        ${par >= 1000 ? (par / 1000).toFixed(1) + "k" : par.toFixed(0)}
+      </text>
+      {/* Trough line */}
+      <line x1={padL} x2={width - padR} y1={y(trough)} y2={y(trough)} stroke="#fecdd3" strokeDasharray="3 4" />
+      <text x={padL - 8} y={y(trough) + 3} textAnchor="end" fontSize="10" fill="#fb7185" fontFamily="ui-monospace,monospace">
+        ${trough >= 1000 ? (trough / 1000).toFixed(1) + "k" : trough.toFixed(0)}
+      </text>
+
+      {/* Shock marker (d=0) */}
+      <line x1={x(0)} x2={x(0)} y1={padT} y2={padT + innerH} stroke="#fda4af" strokeDasharray="2 3" />
+      <text x={x(0)} y={padT + 10} textAnchor="middle" fontSize="9" fill="#e11d48" fontWeight="600">SHOCK</text>
+
+      {/* X ticks */}
+      {[0, 0.5, 1].map((t, i) => {
+        const d = Math.round(t * recoveryDays);
+        return (
+          <text key={i} x={x(d)} y={height - 8} textAnchor="middle" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+            {d === 0 ? "d0" : `+${d}d`}
+          </text>
+        );
+      })}
+
+      <motion.path d={area} fill="url(#rec-area)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} />
+      <motion.path d={pts} fill="none" stroke="url(#rec-stroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: [0.2, 0, 0, 1] }} />
+
+      {/* End marker */}
+      <circle cx={x(recoveryDays)} cy={y(par)} r="9" fill="#7c3aed" fillOpacity="0.14" />
+      <circle cx={x(recoveryDays)} cy={y(par)} r="4" fill="#7c3aed" stroke="#fff" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** Panel hero: large eyebrow + headline + supporting copy + context-aware illustration. */
+function PanelHero({
+  eyebrow,
+  title,
+  subtitle,
+  art,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  art: typeof labHeroHindsight;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card className="relative overflow-hidden p-5 sm:p-6">
+      <div className="pointer-events-none absolute -right-10 -top-10 hidden h-56 w-56 opacity-95 sm:block">
+        <Image src={art} alt="" width={448} height={448} loading="lazy"
+          className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+      </div>
+      <div className="pointer-events-none absolute -right-20 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+      <div className="relative max-w-[60%]">
+        <div className="text-[10px] uppercase tracking-[0.22em] text-violet-600">{eyebrow}</div>
+        <div className="mt-3 font-display text-xl font-medium tracking-tight text-zinc-900 sm:text-2xl">{title}</div>
+        {subtitle && <p className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">{subtitle}</p>}
+        {children && <div className="mt-5">{children}</div>}
+      </div>
+    </Card>
+  );
+}
+
 // ─── Hero / address input ───────────────────────────────────────────
+
 
 function AddressGate({ onResolve, address, busy }: {
   onResolve: (addr: string) => void;
@@ -514,16 +734,12 @@ function AddressGate({ onResolve, address, busy }: {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="relative text-center">
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-300/25 blur-[80px]" />
-        <div className="mx-auto mb-6 h-28 w-28 sm:h-32 sm:w-32">
-          <Image src={labCrystal} alt="" width={256} height={256} priority
-            className="h-full w-full object-contain drop-shadow-[0_28px_60px_rgba(124,58,237,0.35)]" />
-        </div>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-300/20 blur-[80px]" />
         <div className="flex items-center justify-center gap-1.5 text-[13px] leading-none text-violet-700">
           <span className="font-semibold lowercase tracking-tight" style={{ fontFamily: "Urbanist, ui-sans-serif, system-ui" }}>dreyv</span>
           <span className="font-black uppercase tracking-[0.18em]">LAB</span>
         </div>
-        <h1 className="mt-3 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
+        <h1 className="mt-4 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
           Decide with hindsight.
           <br />
           <span className="text-zinc-400">Act with foresight.</span>
@@ -723,12 +939,26 @@ function HindsightPanel({ address }: { address: string }) {
     return () => { live = false; };
   }, [address, windowDays]);
 
+  const stacks = useMemo(() => {
+    if (!data) return [];
+    return data.missed.slice(0, 8).map((m) => ({
+      from: m.from.symbol,
+      to: `${m.to.symbol}·${m.to.protocol}`,
+      usd: m.realizedOppCostUsd,
+    }));
+  }, [data]);
+
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden p-5">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Opportunity cost · last {windowDays}d</div>
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroHindsight} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-[58%]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-violet-600">Hindsight · last {windowDays}d</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={200} /> :
                 <Numeric
@@ -738,8 +968,8 @@ function HindsightPanel({ address }: { address: string }) {
                   tone={data && data.totalOppCostUsd >= 0 ? "violet" : "muted"}
                 />}
             </div>
-            <div className="mt-2 text-sm text-zinc-500">
-              {data ? "If you'd held the best alternative at the same size." : "Resolving holdings + price history…"}
+            <div className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">
+              {data ? "The dollars you'd have earned holding the best alternative at the same size." : "Resolving holdings + price history…"}
             </div>
           </div>
           <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1">
@@ -766,17 +996,26 @@ function HindsightPanel({ address }: { address: string }) {
       )}
 
       {data && data.missed.length > 0 && (
-        <Card className="p-5">
-          <div className="mb-4 flex items-baseline justify-between">
-            <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
-            <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
-          </div>
-          <div className="divide-y divide-zinc-100">
-            {data.missed.slice(0, 6).map((m, i) => (
-              <RotationRow key={i} rotation={m} highlight={`+$${m.realizedOppCostUsd.toFixed(2)}`} highlightLabel="missed" />
-            ))}
-          </div>
-        </Card>
+        <>
+          <Card className="p-5">
+            <div className="mb-3 flex items-baseline justify-between">
+              <div className="text-sm font-medium text-zinc-900">Where the cost came from</div>
+              <div className="text-[11px] text-zinc-400">Contribution to total · {windowDays}d</div>
+            </div>
+            <OpportunityStacks items={stacks} />
+          </Card>
+          <Card className="p-5">
+            <div className="mb-4 flex items-baseline justify-between">
+              <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
+              <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
+            </div>
+            <div className="divide-y divide-zinc-100">
+              {data.missed.slice(0, 6).map((m, i) => (
+                <RotationRow key={i} rotation={m} highlight={`+$${m.realizedOppCostUsd.toFixed(2)}`} highlightLabel="missed" />
+              ))}
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );
@@ -802,18 +1041,23 @@ function ForesightPanel({ address }: { address: string }) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Projected 90-day gain · risk-adjusted</div>
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroForesight} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-[42%]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-violet-600">Foresight · projected 90d</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={200} /> :
                 <Numeric value={totalDelta} prefix="+$" size="2xl" tone={totalDelta > 0 ? "violet" : "muted"} />}
             </div>
-            <div className="mt-2 text-sm text-zinc-500">Sum of top-ranked rotations net of 30 bps swap cost.</div>
+            <div className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">Sum of top-ranked rotations net of 30 bps swap cost.</div>
           </div>
           {data && data.rotations.length > 0 && (
-            <div className="w-full max-w-[420px]">
+            <div className="w-full max-w-[440px]">
               <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-400">Risk · Return surface</div>
               <RiskReturnScatter rotations={data.rotations} />
             </div>
@@ -935,10 +1179,15 @@ function StressPanel({ address }: { address: string }) {
         </div>
       </Card>
 
-      <Card className="p-5">
-        <div className="grid gap-5 sm:grid-cols-3">
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroStress} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(225,29,72,0.28)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-rose-300/25 blur-3xl" />
+        <div className="relative grid gap-5 sm:grid-cols-3 sm:max-w-[62%]">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Drawdown</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-rose-500">Drawdown</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={140} /> :
                 <Numeric value={data ? (data.result.drawdownPct * 100).toFixed(2) : "0.00"} suffix="%" size="xl" tone={data && data.result.drawdownPct < 0 ? "negative" : "ink"} />}
@@ -962,6 +1211,16 @@ function StressPanel({ address }: { address: string }) {
       </Card>
 
       {err && <ErrorBanner message={err} />}
+
+      {data && (
+        <Card className="p-5">
+          <div className="mb-3 flex items-baseline justify-between">
+            <div className="text-sm font-medium text-zinc-900">Loss event → recovery glide</div>
+            <div className="text-[11px] text-zinc-400">From par, through shock, back to par</div>
+          </div>
+          <RecoveryRibbon totalUsd={data.totalUsd} lossUsd={data.result.totalLossUsd} recoveryDays={Math.max(7, data.result.recoveryDays)} />
+        </Card>
+      )}
 
       {data && waterfallItems.length > 0 && (
         <Card className="p-5">
@@ -1030,6 +1289,12 @@ function PlaybooksPanel({ address }: { address: string }) {
 
   return (
     <div className="space-y-4">
+      <PanelHero
+        eyebrow="Playbooks · backtested"
+        title="Strategies, proven against history."
+        subtitle="Pick a thesis. We re-run it day-by-day against the last 365 days of prices and show what it would have done to your stack."
+        art={labHeroPlaybooks}
+      />
       <div className="grid gap-4 md:grid-cols-2">
         {list.map((pb) => (
           <button
@@ -1095,6 +1360,9 @@ function PlaybooksPanel({ address }: { address: string }) {
                     playbook={backtest.series.map((s) => s.playbook)}
                     baseline={backtest.series.map((s) => s.baseline)}
                   />
+                  <div className="mt-5">
+                    <DrawdownStrip series={backtest.series.map((s) => s.playbook)} />
+                  </div>
                   <div className="mt-6 grid gap-6 sm:grid-cols-3">
                     <Stat label="End · playbook" value={formatUsd(backtest.endUsdPlaybook)} />
                     <Stat label="End · baseline" value={formatUsd(backtest.endUsdBaseline)} />
