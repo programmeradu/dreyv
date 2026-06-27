@@ -86,13 +86,13 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const result = await db.execute(
+  const result = (await db.execute(
     sql`SELECT id, status, shots_total, shots_done, shot_urls, final_url, duration_sec, error, created_at, updated_at
         FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
-  );
+  )) as unknown;
   const row =
-    (result as { rows?: Array<Record<string, unknown>> }).rows?.[0]
-    ?? (result as unknown as Array<Record<string, unknown>>)[0];
+    (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ??
+    (Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined);
   if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   return NextResponse.json(row);
 }
