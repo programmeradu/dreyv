@@ -813,29 +813,29 @@ export function StrategyLabClient() {
   const clear = () => { setResolved(false); setPositions([]); setTotalUsd(0); setAddress(""); };
 
   return (
-    <main
-      className="min-h-screen bg-white text-zinc-900"
+    <div
+      className="-m-4 sm:-m-6 lg:-m-8 min-h-full bg-white text-zinc-900"
       style={{
         backgroundImage:
-          "radial-gradient(900px 480px at 50% -10%, rgba(124,58,237,0.06), transparent 60%), radial-gradient(700px 360px at 110% 10%, rgba(167,139,250,0.05), transparent 60%)",
+          "radial-gradient(700px 360px at 50% -10%, rgba(124,58,237,0.06), transparent 60%), radial-gradient(560px 280px at 110% 10%, rgba(167,139,250,0.05), transparent 60%)",
       }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 pb-32 pt-20 sm:px-8">
+      <div className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 sm:px-6">
         {!resolved ? (
           <>
             <AddressGate onResolve={onResolve} address={address} busy={busy} />
-            {err && <div className="mx-auto mt-8 max-w-2xl"><ErrorBanner message={err} /></div>}
+            {err && <div className="mx-auto mt-6 max-w-2xl"><ErrorBanner message={err} /></div>}
           </>
         ) : (
-          <div className="space-y-8">
-            <div ref={headerRef} className="flex flex-wrap items-end justify-between gap-4">
+          <div className="space-y-5">
+            <div ref={headerRef} className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="font-mono text-sm tracking-tight text-zinc-700">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-violet-600">Dreyv Lab</div>
+                <div className="mt-1.5 flex items-center gap-3">
+                  <span className="font-mono text-xs tracking-tight text-zinc-700">
                     {address.slice(0, 6)}…{address.slice(-6)}
                   </span>
-                  <button onClick={clear} className="text-xs text-zinc-400 underline-offset-2 hover:text-zinc-900 hover:underline">
+                  <button onClick={clear} className="text-[11px] text-zinc-400 underline-offset-2 hover:text-zinc-900 hover:underline">
                     change
                   </button>
                 </div>
@@ -863,7 +863,7 @@ export function StrategyLabClient() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
