@@ -91,15 +91,35 @@ type Operation = {
 const VERTEX_BASE = () =>
   `https://${REGION}-aiplatform.googleapis.com/v1/projects`;
 
+/** Express-mode endpoint — no project, auth via `x-goog-api-key`. */
+const VERTEX_EXPRESS = () =>
+  `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}`;
+
 /**
- * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
- * Returns a presigned R2 URL the browser can stream.
+ * Resolve auth: prefer a Vertex API key (Express mode, simplest) and fall
+ * back to a service-account JSON if no key is set.
  */
-export async function renderVertexVeoShot(prompt: string): Promise<{ url: string }> {
+async function vertexAuth(): Promise<
+  | { mode: "key"; key: string; url: string }
+  | { mode: "sa"; token: string; url: string }
+> {
+  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || "").trim();
+  if (key) return { mode: "key", key, url: VERTEX_EXPRESS() };
   const sa = loadServiceAccount();
   const project = projectId(sa);
   const token = await getAccessToken();
-  const modelBase = `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`;
+  return {
+    mode: "sa",
+    token,
+    url: `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`,
+  };
+}
+
+function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: string }): Record<string, string> {
+  return a.mode === "key"
+    ? { "x-goog-api-key": a.key, "Content-Type": "application/json; charset=utf-8" }
+    : { Authorization: `Bearer ${a.token}`, "Content-Type": "application/json; charset=utf-8" };
+}
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
 
   const submitBody = {
