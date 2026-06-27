@@ -395,7 +395,7 @@ export async function getColosseumProject(
       const raw = await copilotGet(`/search?q=${encodeURIComponent(s)}&limit=1`);
       const builders = normalize(raw);
       project = builders[0]
-        ? { ...builders[0], raw: { ...(builders[0] as unknown as Record<string, unknown>) } }
+        ? { ...builders[0], raw: (builders[0] as unknown) as Record<string, unknown> }
         : null;
       source = "copilot.search";
     } catch {
