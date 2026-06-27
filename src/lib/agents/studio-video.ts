@@ -136,8 +136,16 @@ export const studioVideoRender = inngest.createFunction(
           status: "done",
           final_url: final.url,
           duration_sec: final.durationSec,
+        });
+        return { ok: true, url: final.url };
+      }
+
+      // No-stitch path: shots are the deliverable.
+      await setJob(jobId, {
+        status: "done",
+        duration_sec: shots.length * provider.secondsPerShot,
       });
-      return { ok: true, url: final.url };
+      return { ok: true, shots: shotUrls };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await setJob(jobId, { status: "failed", error: msg.slice(0, 1000) });
