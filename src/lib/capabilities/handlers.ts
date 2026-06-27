@@ -1491,6 +1491,111 @@ export async function economyWalletBalance(_input: Record<string, never>, ctx: C
   };
 }
 
+// ─── Hot/Cold split + Action Codes ────────────────────────────────────
+//
+// Exposes the wallet/cold + action-codes surfaces as MCP tools so any
+// agent runtime can adopt the human-approval primitive without leaving
+// the MCP server (mirrors REST routes under /api/agents/*).
+
+export async function economyWalletCold(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const cold = await getOrCreateColdWallet(ctx.userId);
+  const usdc = tokenFor("solana", "usdc");
+  let balances: Awaited<ReturnType<typeof getWalletBalances>> | null = null;
+  if (usdc?.contract) {
+    try {
+      balances = await getWalletBalances({ publicKey: cold.publicKey, mintAddress: usdc.contract });
+    } catch {
+      balances = null;
+    }
+  }
+  return {
+    role: "cold",
+    address: cold.publicKey,
+    createdAt: cold.createdAt,
+    chain: "solana",
+    usdcMint: usdc?.contract ?? null,
+    usdcMinor: balances?.tokenMinor.toString() ?? null,
+    solLamports: balances?.solLamports.toString() ?? null,
+    note: "Cold wallet — sweep destination for promote(); refilling hot requires a human-approved action code.",
+  };
+}
+
+export async function economyWalletPromote(_input: Record<string, never>, ctx: CapabilityRunContext) {
+  const usdc = tokenFor("solana", "usdc");
+  if (!usdc?.contract) throw new CapabilityError("USDC mint not configured", 503, null);
+  const hot = await getOrCreateAgentWallet(ctx.userId, { withSecret: true });
+  const cold = await getOrCreateColdWallet(ctx.userId);
+  if (!hot.secretBase58) throw new CapabilityError("hot_secret_missing", 500, null);
+  const r = await sweepHostedWallet({
+    sourceSecretBase58: hot.secretBase58,
+    destinationPublicKey: cold.publicKey,
+    mintAddress: usdc.contract,
+    decimals: usdc.decimals,
+  });
+  return {
+    ok: true,
+    signature: r.signature,
+    from: hot.publicKey,
+    to: cold.publicKey,
+    sweptUsdcMinor: r.tokenMinor.toString(),
+    sweptSolLamports: r.solLamports.toString(),
+    skipped: r.skippedReason ?? null,
+  };
+}
+
+export async function economyActionCodeRequest(
+  input: {
+    intent: string;
+    description: string;
+    amount_minor?: number | string | null;
+    currency?: string;
+    metadata?: Record<string, unknown>;
+  },
+  ctx: CapabilityRunContext,
+) {
+  const minted = await mintActionCode(
+    {
+      userId: ctx.userId,
+      apiKeyId: ctx.keyId,
+      intent: input.intent,
+      description: input.description,
+      amountMinor: input.amount_minor != null ? BigInt(input.amount_minor) : null,
+      currency: input.currency ?? null,
+      metadata: input.metadata ?? {},
+    },
+    ctx.origin,
+  );
+  return {
+    id: minted.id,
+    code: minted.code,
+    approvalUrl: minted.approvalUrl,
+    expiresAt: minted.expiresAt,
+    humanPrompt: `Tell the user to open ${minted.approvalUrl} and enter code ${minted.code} to approve "${input.intent}".`,
+    pollTool: "dreyv_economy_action_code_status",
+  };
+}
+
+export async function economyActionCodeStatus(
+  input: { id: string },
+  ctx: CapabilityRunContext,
+) {
+  const status = await getCodeStatus(input.id, ctx.userId);
+  if (!status) throw new CapabilityError(`Action code ${input.id} not found`, 404, null);
+  return {
+    id: status.id,
+    intent: status.intent,
+    description: status.description,
+    amountMinor: status.amountMinor,
+    currency: status.currency,
+    status: status.status,
+    expiresAt: status.expiresAt,
+    approvedAt: status.approvedAt,
+    consumedAt: status.consumedAt,
+  };
+}
+
+
+
 // ─── Pillar N — Reasoning & Knowledge ─────────────────────────────────
 // LOVABLE_API_KEY is NEVER on Vercel (per project policy). All Lovable AI calls
 // go through the Supabase edge function `lovable-ai-proxy` which holds the key
