@@ -22,6 +22,7 @@ import { sql } from "drizzle-orm";
 import { renderVeo3FastShot, renderWan22FastShot, composeFinalAd } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
 import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
+import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 
 /**
  * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
@@ -55,7 +56,11 @@ type Pack = {
 
 async function setJob(id: string, patch: Record<string, unknown>) {
   if (!db) return;
-  const entries = Object.entries(patch);
+  const r2ColumnsReady = await studioVideoR2ColumnsAvailable();
+  const entries = Object.entries(patch).filter(([key]) => {
+    const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    return r2ColumnsReady || (col !== "shot_keys" && col !== "final_key");
+  });
   if (!entries.length) return;
   const JSONB_COLS = new Set(["shot_urls", "shot_keys", "pack"]);
   const sets = entries.map(([k, v]) => {
