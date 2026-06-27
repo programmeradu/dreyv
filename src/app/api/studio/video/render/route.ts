@@ -173,15 +173,30 @@ export async function GET(req: NextRequest) {
 
     // List mode — recent jobs for the dashboard's "Recent renders" panel.
     if (!id) {
-      const result = (await db.execute(
-        sql`SELECT id, status, model, shots_total, shots_done,
-                   final_url,
-                   COALESCE(final_key, NULL) AS final_key,
-                   duration_sec, error, created_at
-            FROM studio_video_jobs
-            ORDER BY created_at DESC
-            LIMIT 20`,
-      )) as unknown;
+      const runList = async (withKeys: boolean) =>
+        (await db!.execute(
+          withKeys
+            ? sql`SELECT id, status, model, shots_total, shots_done,
+                         final_url,
+                         COALESCE(final_key, NULL) AS final_key,
+                         duration_sec, error, created_at
+                  FROM studio_video_jobs
+                  ORDER BY created_at DESC
+                  LIMIT 20`
+            : sql`SELECT id, status, model, shots_total, shots_done,
+                         final_url,
+                         NULL::text AS final_key,
+                         duration_sec, error, created_at
+                  FROM studio_video_jobs
+                  ORDER BY created_at DESC
+                  LIMIT 20`,
+        )) as unknown;
+      let result: unknown;
+      try {
+        result = await runList(true);
+      } catch {
+        result = await runList(false);
+      }
       const rows =
         (result as { rows?: Array<Record<string, unknown>> }).rows ??
         (Array.isArray(result) ? (result as Array<Record<string, unknown>>) : []);
@@ -194,14 +209,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ jobs });
     }
 
-    const result = (await db.execute(
-      sql`SELECT id, status, shots_total, shots_done, shot_urls,
-                 COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
-                 final_url,
-                 COALESCE(final_key, NULL) AS final_key,
-                 duration_sec, error, created_at, updated_at
-          FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
-    )) as unknown;
+    const runOne = async (withKeys: boolean) =>
+      (await db!.execute(
+        withKeys
+          ? sql`SELECT id, status, shots_total, shots_done, shot_urls,
+                       COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
+                       final_url,
+                       COALESCE(final_key, NULL) AS final_key,
+                       duration_sec, error, created_at, updated_at
+                FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`
+          : sql`SELECT id, status, shots_total, shots_done, shot_urls,
+                       '[]'::jsonb AS shot_keys,
+                       final_url,
+                       NULL::text AS final_key,
+                       duration_sec, error, created_at, updated_at
+                FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
+      )) as unknown;
+    let result: unknown;
+    try {
+      result = await runOne(true);
+    } catch {
+      result = await runOne(false);
+    }
     const row =
       (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ??
       (Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined);
@@ -210,6 +239,7 @@ export async function GET(req: NextRequest) {
     const shotUrls = await refreshShotUrls(row.shot_keys, row.shot_urls);
     const finalUrl = await refreshFinalUrl(row.final_key, row.final_url);
     return NextResponse.json({ ...row, shot_urls: shotUrls, final_url: finalUrl });
+
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[studio/video/render] GET failed:", err);
