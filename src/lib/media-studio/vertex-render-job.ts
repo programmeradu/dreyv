@@ -309,6 +309,26 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     }
 
     if (!state.compose) {
+      // Stitching uses fal's hosted ffmpeg API. If FAL_KEY is missing OR fal
+      // rejects us (e.g. exhausted balance — we're on the Vertex path so the
+      // user explicitly didn't pick fal for rendering), deliver the shots as
+      // individual clips instead of failing the whole job.
+      if (!process.env.FAL_KEY?.trim()) {
+        const nextPack: Pack = {
+          ...pack,
+          __renderState: { ...state, completedAt: new Date().toISOString() },
+        };
+        await saveFinal({
+          jobId,
+          pack: nextPack,
+          finalUrl: shotUrls[0],
+          finalKey: shotKeys[0],
+          shotUrls,
+          shotKeys,
+          durationSec: 8 * shotUrls.length,
+        });
+        return { advanced: true };
+      }
       await savePack(jobId, { ...pack, __renderState: state }, {
         status: "stitching",
         shots_total: shotUrls.length,
@@ -316,7 +336,31 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_urls: shotUrls,
         shot_keys: shotKeys,
       });
-      const submitted = await submitComposeFinalAd({ shotUrls, shotDurationSec: 8 });
+      let submitted;
+      try {
+        submitted = await submitComposeFinalAd({ shotUrls, shotDurationSec: 8 });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // fal billing/auth failures (401/402/403) — degrade to per-shot delivery
+        // instead of failing the Vertex render the user already paid for.
+        if (/\b(401|402|403)\b/.test(msg) || /exhausted balance|locked/i.test(msg)) {
+          const nextPack: Pack = {
+            ...pack,
+            __renderState: { ...state, completedAt: new Date().toISOString() },
+          };
+          await saveFinal({
+            jobId,
+            pack: nextPack,
+            finalUrl: shotUrls[0],
+            finalKey: shotKeys[0],
+            shotUrls,
+            shotKeys,
+            durationSec: 8 * shotUrls.length,
+          });
+          return { advanced: true };
+        }
+        throw err;
+      }
       const nextPack: Pack = {
         ...pack,
         __renderState: {
@@ -333,6 +377,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       await savePack(jobId, nextPack, { status: "stitching", duration_sec: submitted.durationSec });
       return { advanced: true };
     }
+
 
     const composed = await pollComposeFinalAd({
       statusUrl: state.compose.statusUrl,
