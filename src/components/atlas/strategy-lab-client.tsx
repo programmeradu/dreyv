@@ -506,7 +506,223 @@ function RiskReturnScatter({
   );
 }
 
+/** Stacked horizontal bars showing per-rotation opportunity cost contribution. */
+function OpportunityStacks({
+  items,
+  height = 220,
+}: {
+  items: Array<{ from: string; to: string; usd: number }>;
+  height?: number;
+}) {
+  if (items.length === 0) return null;
+  const max = Math.max(...items.map((i) => i.usd), 1);
+  const total = items.reduce((s, i) => s + i.usd, 0);
+  return (
+    <div className="space-y-2" style={{ minHeight: height }}>
+      {items.map((it, i) => {
+        const w = (it.usd / max) * 100;
+        const pct = (it.usd / total) * 100;
+        return (
+          <div key={i} className="group">
+            <div className="flex items-baseline justify-between text-[11px]">
+              <span className="font-medium text-zinc-700">
+                {it.from} <span className="text-zinc-400">→</span> {it.to}
+              </span>
+              <span className="font-mono tabular-nums text-zinc-500">
+                <span className="text-violet-700">${it.usd.toFixed(2)}</span>
+                <span className="ml-2 text-zinc-400">{pct.toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${w}%` }}
+                transition={{ delay: 0.06 * i, duration: 0.6, ease: [0.2, 0, 0, 1] }}
+                className="h-full rounded-full"
+                style={{
+                  background: `linear-gradient(90deg, #a78bfa 0%, #7c3aed ${Math.min(100, w + 20)}%)`,
+                  boxShadow: "0 0 16px rgba(124,58,237,0.25)",
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Drawdown strip — underwater equity curve (red below 0). */
+function DrawdownStrip({ series, height = 80 }: { series: number[]; height?: number }) {
+  if (series.length < 2) return null;
+  // peak-to-trough drawdown series in %
+  let peak = series[0];
+  const dd = series.map((v) => {
+    if (v > peak) peak = v;
+    return (v - peak) / peak; // <=0
+  });
+  const minDD = Math.min(...dd);
+  const width = 880;
+  const padL = 56;
+  const padR = 24;
+  const padT = 8;
+  const padB = 18;
+  const innerH = height - padT - padB;
+  const innerW = width - padL - padR;
+  const dx = innerW / (dd.length - 1);
+  const x = (i: number) => padL + i * dx;
+  const y = (v: number) => padT + ((v - 0) / (minDD || -1)) * innerH;
+  const path =
+    `M${x(0).toFixed(2)},${y(0).toFixed(2)} ` +
+    dd.map((v, i) => `L${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ") +
+    ` L${x(dd.length - 1).toFixed(2)},${y(0).toFixed(2)} Z`;
+  const stroke = dd.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+        <span>Underwater · drawdown</span>
+        <span className="font-mono tabular-nums text-rose-500">{(minDD * 100).toFixed(2)}% trough</span>
+      </div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="dd-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fb7185" stopOpacity="0.04" />
+            <stop offset="100%" stopColor="#e11d48" stopOpacity="0.28" />
+          </linearGradient>
+        </defs>
+        <line x1={padL} x2={width - padR} y1={y(0)} y2={y(0)} stroke="#e4e4e7" />
+        <motion.path d={path} fill="url(#dd-fill)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
+        <motion.path d={stroke} fill="none" stroke="#e11d48" strokeWidth="1.5" strokeLinejoin="round"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9 }} />
+      </svg>
+    </div>
+  );
+}
+
+/** Loss → recovery glide: shows the drop event then a glide back to par over recoveryDays. */
+function RecoveryRibbon({
+  totalUsd,
+  lossUsd,
+  recoveryDays,
+  height = 170,
+}: {
+  totalUsd: number;
+  lossUsd: number; // negative
+  recoveryDays: number;
+  height?: number;
+}) {
+  if (totalUsd <= 0) return null;
+  const par = totalUsd;
+  const trough = par + lossUsd;
+  // Build series: 5 pre-shock points at par, instant drop, then exp glide back over recoveryDays
+  const preDays = 5;
+  const totalDays = preDays + recoveryDays;
+  const series: Array<{ d: number; v: number }> = [];
+  for (let i = 0; i <= preDays; i++) series.push({ d: i - preDays, v: par });
+  for (let i = 1; i <= recoveryDays; i++) {
+    const t = i / recoveryDays;
+    // ease-out exponential recovery
+    const eased = 1 - Math.pow(1 - t, 2.2);
+    series.push({ d: i, v: trough + (par - trough) * eased });
+  }
+  const width = 880;
+  const padL = 56;
+  const padR = 24;
+  const padT = 16;
+  const padB = 28;
+  const innerW = width - padL - padR;
+  const innerH = height - padT - padB;
+  const minV = Math.min(trough, par) * 0.97;
+  const maxV = par * 1.02;
+  const x = (d: number) => padL + ((d + preDays) / totalDays) * innerW;
+  const y = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
+  const pts = series.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.d).toFixed(2)},${y(p.v).toFixed(2)}`).join(" ");
+  const area = `${pts} L${x(series[series.length - 1].d).toFixed(2)},${y(trough).toFixed(2)} L${x(series[0].d).toFixed(2)},${y(trough).toFixed(2)} Z`;
+
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="rec-area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.02" />
+        </linearGradient>
+        <linearGradient id="rec-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#e11d48" />
+          <stop offset="25%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+
+      {/* Par line */}
+      <line x1={padL} x2={width - padR} y1={y(par)} y2={y(par)} stroke="#d4d4d8" strokeDasharray="3 4" />
+      <text x={padL - 8} y={y(par) + 3} textAnchor="end" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+        ${par >= 1000 ? (par / 1000).toFixed(1) + "k" : par.toFixed(0)}
+      </text>
+      {/* Trough line */}
+      <line x1={padL} x2={width - padR} y1={y(trough)} y2={y(trough)} stroke="#fecdd3" strokeDasharray="3 4" />
+      <text x={padL - 8} y={y(trough) + 3} textAnchor="end" fontSize="10" fill="#fb7185" fontFamily="ui-monospace,monospace">
+        ${trough >= 1000 ? (trough / 1000).toFixed(1) + "k" : trough.toFixed(0)}
+      </text>
+
+      {/* Shock marker (d=0) */}
+      <line x1={x(0)} x2={x(0)} y1={padT} y2={padT + innerH} stroke="#fda4af" strokeDasharray="2 3" />
+      <text x={x(0)} y={padT + 10} textAnchor="middle" fontSize="9" fill="#e11d48" fontWeight="600">SHOCK</text>
+
+      {/* X ticks */}
+      {[0, 0.5, 1].map((t, i) => {
+        const d = Math.round(t * recoveryDays);
+        return (
+          <text key={i} x={x(d)} y={height - 8} textAnchor="middle" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+            {d === 0 ? "d0" : `+${d}d`}
+          </text>
+        );
+      })}
+
+      <motion.path d={area} fill="url(#rec-area)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} />
+      <motion.path d={pts} fill="none" stroke="url(#rec-stroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: [0.2, 0, 0, 1] }} />
+
+      {/* End marker */}
+      <circle cx={x(recoveryDays)} cy={y(par)} r="9" fill="#7c3aed" fillOpacity="0.14" />
+      <circle cx={x(recoveryDays)} cy={y(par)} r="4" fill="#7c3aed" stroke="#fff" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** Panel hero: large eyebrow + headline + supporting copy + context-aware illustration. */
+function PanelHero({
+  eyebrow,
+  title,
+  subtitle,
+  art,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  art: typeof labHeroHindsight;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card className="relative overflow-hidden p-5 sm:p-6">
+      <div className="pointer-events-none absolute -right-10 -top-10 hidden h-56 w-56 opacity-95 sm:block">
+        <Image src={art} alt="" width={448} height={448} loading="lazy"
+          className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+      </div>
+      <div className="pointer-events-none absolute -right-20 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+      <div className="relative max-w-[60%]">
+        <div className="text-[10px] uppercase tracking-[0.22em] text-violet-600">{eyebrow}</div>
+        <div className="mt-3 font-display text-xl font-medium tracking-tight text-zinc-900 sm:text-2xl">{title}</div>
+        {subtitle && <p className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">{subtitle}</p>}
+        {children && <div className="mt-5">{children}</div>}
+      </div>
+    </Card>
+  );
+}
+
 // ─── Hero / address input ───────────────────────────────────────────
+
 
 function AddressGate({ onResolve, address, busy }: {
   onResolve: (addr: string) => void;
