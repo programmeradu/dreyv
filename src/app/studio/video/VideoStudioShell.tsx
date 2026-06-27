@@ -94,6 +94,69 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [trends, setTrends] = React.useState<Trends | null>(null);
   const [trendsLoading, setTrendsLoading] = React.useState(false);
 
+  // ---- Video render job (fal.ai pipeline) -----------------------------
+  type RenderJob = {
+    id: string;
+    status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
+    shots_total: number;
+    shots_done: number;
+    shot_urls: string[];
+    final_url: string | null;
+    duration_sec: number | null;
+    error: string | null;
+  };
+  const [renderJob, setRenderJob] = React.useState<RenderJob | null>(null);
+  const [renderStarting, setRenderStarting] = React.useState(false);
+  const [renderError, setRenderError] = React.useState<string | null>(null);
+
+  const startRender = React.useCallback(async () => {
+    if (!pack) return;
+    setRenderError(null);
+    setRenderStarting(true);
+    try {
+      const res = await fetch("/api/studio/video/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setRenderJob({
+        id: j.jobId,
+        status: "queued",
+        shots_total: pack.shotList.length,
+        shots_done: 0,
+        shot_urls: [],
+        final_url: null,
+        duration_sec: null,
+        error: j.warning ?? null,
+      });
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenderStarting(false);
+    }
+  }, [pack]);
+
+  // Poll job until terminal.
+  React.useEffect(() => {
+    if (!renderJob || renderJob.status === "done" || renderJob.status === "failed") return;
+    const id = renderJob.id;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/studio/video/render?id=${id}`);
+        const j = await r.json();
+        if (!cancelled && r.ok) setRenderJob((prev) => (prev && prev.id === id ? { ...prev, ...j } : prev));
+      } catch {}
+    };
+    const handle = setInterval(tick, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(handle);
+    };
+  }, [renderJob]);
+
   const loadTrends = React.useCallback(async () => {
     setTrendsLoading(true);
     try {
