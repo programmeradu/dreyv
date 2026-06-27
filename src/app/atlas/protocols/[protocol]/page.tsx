@@ -180,6 +180,14 @@ export default async function AtlasProtocolPage({
           </ul>
         </article>
 
+        <div className="mt-12">
+          <BuildersInThisSpace
+            variant="light"
+            query={`${p.name} ${p.category.replace(/-/g, " ")}`}
+            subtitle={`Hackathon teams building on or alongside ${p.name} — indexed by Colosseum Copilot.`}
+          />
+        </div>
+
         {siblings.length > 0 && (
           <section className="mt-16 pt-12 border-t border-violet-100">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">
