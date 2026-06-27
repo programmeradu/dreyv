@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import ffmpegStaticPath from "ffmpeg-static";
-import { putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
+import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
-type StitchResult = { url: string; key: string; durationSec: number };
+type StitchResult = { url: string; key?: string; durationSec: number };
 
 const SHOT_DURATION_SEC = 8;
 
@@ -107,6 +107,12 @@ export async function stitchVertexShotsLocally(args: {
     }
 
     const body = await readFile(outputFile);
+    if (!isR2Configured()) {
+      return {
+        url: `data:video/mp4;base64,${body.toString("base64")}`,
+        durationSec: (args.shotDurationSec ?? SHOT_DURATION_SEC) * args.shotUrls.length,
+      };
+    }
     const key = `studio/video/final-${args.jobId}-${Date.now()}.mp4`;
     await putR2Object({ key, body, mime: "video/mp4", filename: "dreyv-final-ad.mp4" });
     const url = await presignR2Get({ key, filename: "dreyv-final-ad.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
