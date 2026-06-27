@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { pollVertexVeoOperation, submitVertexVeoOperation } from "@/lib/media-studio/google-vertex-veo";
-import { pollComposeFinalAd, submitComposeFinalAd } from "@/lib/media-studio/fal";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
+import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 
 type Shot = {
   n: number;
@@ -30,13 +30,11 @@ type VertexRenderState = {
   submittedAt?: string;
   completedAt?: string;
   shotOperations?: VertexShotOperation[];
-  compose?: {
-    requestId: string;
-    statusUrl: string;
-    responseUrl: string;
+  stitch?: {
     submittedAt: string;
     completedAt?: string;
     durationSec: number;
+    finalKey?: string;
   };
 };
 
@@ -61,19 +59,28 @@ function packFrom(value: unknown): Pack {
 }
 
 function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): string {
+  const previousShot = index > 0 ? pack.shotList?.[index - 1] : null;
+  const nextShot = index < total - 1 ? pack.shotList?.[index + 1] : null;
+  const phase = index === 0 ? "opening hook" : index === total - 1 ? "final payoff" : `continuation beat ${index + 1}`;
   return [
-    `Create segment ${index + 1} of ${total} for a seamless vertical 9:16 Dreyv ad, pronounced DRAVE.`,
-    "Duration: exactly 8 seconds. Start and end with smooth motion that can cut cleanly into adjacent segments.",
+    `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
+    "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",
+    "Continuity lock: same premium white product space, same solid violet design language, same camera language, same abstract product surfaces, same lighting, same mascot/product proportions if present.",
+    index === 0
+      ? "Start with a strong opening motion and establish the visual world."
+      : `Begin as if the viewer has just watched segment ${index}. Do not restart the story, do not repeat the hook, and do not reintroduce Dreyv.`,
+    previousShot ? `Previous segment context to continue from, not repeat: ${previousShot.description}` : "",
+    nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
     "Visual direction: premium light SaaS ad, white environment, solid violet accents only, crisp product-like motion, no fuchsia, no pink, no gradients, no stock-looking people.",
     "Important text rule: DO NOT render any readable words, subtitles, captions, logo text, UI labels, numbers, or typography. Use only abstract interface shapes and unreadable micro-glyph lines. Captions will be added separately in post-production.",
     pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
     `Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
     pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
-    pack.voiceoverScript ? `Voiceover direction for audio only, not captions: ${pack.voiceoverScript.slice(0, 700)}` : "",
+    pack.voiceoverScript ? `Full ad voiceover context for story continuity only, not captions: ${pack.voiceoverScript.slice(0, 900)}` : "",
     pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
     pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
-    index === total - 1 ? "End with a clean product payoff, using shapes and product motion only — no text reveal." : "Keep the final frame in motion so the next segment cuts naturally.",
+    index === total - 1 ? "End with a clean product payoff, using shapes and product motion only — no text reveal." : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
   ].filter(Boolean).join("\n");
 }
 
@@ -308,27 +315,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       return { advanced: true };
     }
 
-    if (!state.compose) {
-      // Stitching uses fal's hosted ffmpeg API. If FAL_KEY is missing OR fal
-      // rejects us (e.g. exhausted balance — we're on the Vertex path so the
-      // user explicitly didn't pick fal for rendering), deliver the shots as
-      // individual clips instead of failing the whole job.
-      if (!process.env.FAL_KEY?.trim()) {
-        const nextPack: Pack = {
-          ...pack,
-          __renderState: { ...state, completedAt: new Date().toISOString() },
-        };
-        await saveFinal({
-          jobId,
-          pack: nextPack,
-          finalUrl: shotUrls[0],
-          finalKey: shotKeys[0],
-          shotUrls,
-          shotKeys,
-          durationSec: 8 * shotUrls.length,
-        });
-        return { advanced: true };
-      }
+    if (!state.stitch?.completedAt) {
       await savePack(jobId, { ...pack, __renderState: state }, {
         status: "stitching",
         shots_total: shotUrls.length,
@@ -336,82 +323,33 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_urls: shotUrls,
         shot_keys: shotKeys,
       });
-      let submitted;
-      try {
-        submitted = await submitComposeFinalAd({ shotUrls, shotDurationSec: 8 });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        // fal billing/auth failures (401/402/403) — degrade to per-shot delivery
-        // instead of failing the Vertex render the user already paid for.
-        if (/\b(401|402|403)\b/.test(msg) || /exhausted balance|locked/i.test(msg)) {
-          const nextPack: Pack = {
-            ...pack,
-            __renderState: { ...state, completedAt: new Date().toISOString() },
-          };
-          await saveFinal({
-            jobId,
-            pack: nextPack,
-            finalUrl: shotUrls[0],
-            finalKey: shotKeys[0],
-            shotUrls,
-            shotKeys,
-            durationSec: 8 * shotUrls.length,
-          });
-          return { advanced: true };
-        }
-        throw err;
-      }
+      const stitched = await stitchShotsLocally({ jobId, shotUrls, shotDurationSec: 8 });
       const nextPack: Pack = {
         ...pack,
         __renderState: {
           ...state,
-          compose: {
-            requestId: submitted.request_id,
-            statusUrl: submitted.status_url,
-            responseUrl: submitted.response_url,
+          stitch: {
             submittedAt: new Date().toISOString(),
-            durationSec: submitted.durationSec,
+            completedAt: new Date().toISOString(),
+            durationSec: stitched.durationSec,
+            ...(stitched.key ? { finalKey: stitched.key } : {}),
           },
+          completedAt: new Date().toISOString(),
         },
       };
-      await savePack(jobId, nextPack, { status: "stitching", duration_sec: submitted.durationSec });
-      return { advanced: true };
-    }
-
-
-    const composed = await pollComposeFinalAd({
-      statusUrl: state.compose.statusUrl,
-      responseUrl: state.compose.responseUrl,
-    });
-    if (!composed.done) {
-      await savePack(jobId, { ...pack, __renderState: state }, {
-        status: "stitching",
-        shots_total: shotUrls.length,
-        shots_done: shotUrls.length,
-        shot_urls: shotUrls,
-        shot_keys: shotKeys,
-        duration_sec: state.compose.durationSec,
+      await saveFinal({
+        jobId,
+        pack: nextPack,
+        finalUrl: stitched.url,
+        ...(stitched.key ? { finalKey: stitched.key } : {}),
+        shotUrls,
+        shotKeys,
+        durationSec: stitched.durationSec,
       });
       return { advanced: true };
     }
 
-    const nextPack: Pack = {
-      ...pack,
-      __renderState: {
-        ...state,
-        compose: { ...state.compose, completedAt: new Date().toISOString() },
-        completedAt: new Date().toISOString(),
-      },
-    };
-    await saveFinal({
-      jobId,
-      pack: nextPack,
-      finalUrl: composed.url,
-      shotUrls,
-      shotKeys,
-      durationSec: state.compose.durationSec,
-    });
-    return { advanced: true };
+    return { advanced: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await markFailed(jobId, message);

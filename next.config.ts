@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
       "db-migrations/**/*.sql",
       "migrations/sql/**/*.sql",
     ],
+    "/api/studio/video/render": [
+      "node_modules/ffmpeg-static/**/*",
+    ],
+    "/api/inngest": [
+      "node_modules/ffmpeg-static/**/*",
+    ],
   },
   async redirects() {
     return [
@@ -102,6 +108,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     'drizzle-orm',
     '@neondatabase/serverless',
+    'ffmpeg-static',
   ],
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)

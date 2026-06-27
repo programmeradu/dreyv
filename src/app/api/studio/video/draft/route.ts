@@ -149,7 +149,9 @@ export async function POST(req: NextRequest) {
     ``,
     `OUTPUT REQUIREMENTS:`,
     `- Hook: 1 text card (≤8 words, hits in first 1.5s) + 1 spoken opener.`,
-    `- Shot list: 3–6 shots. Each has timing, description, recommendedTool (use the tool id from the catalog: hedra | hailuo | kling | veo3-fast | wan22 | runway-gen4), and a toolPrompt phrased the way THAT tool expects.`,
+      `- Shot list: 3–6 shots that form ONE continuous ad: hook → setup → proof/demo → tension → payoff. These are sequential scenes, not variants of the same idea.`,
+      `- Each shot must advance the story with a new visual state/action. Do not repeat the hook, restart the premise, or make alternate versions of the same scene.`,
+      `- Each shot has timing, description, recommendedTool (use the tool id from the catalog: hedra | hailuo | kling | veo3-fast | wan22 | runway-gen4), and a toolPrompt phrased the way THAT tool expects.`,
     `  • Hedra prompts describe motion directives on top of an uploaded mascot PNG + audio. No scene generation.`,
     `  • Hailuo / Wan 2.2 / Kling prompts: short dense visual descriptions, 9:16, specify mascot explicitly even with I2V.`,
     `  • Veo 3 Fast prompts: 5-layer formula [camera/lens] + [lighting/time] + [subject + precise action] + [camera motion] + [mood/sound], 8s max.`,
@@ -168,6 +170,7 @@ export async function POST(req: NextRequest) {
     `- Never invent capabilities, partner names, or metrics not in the angle block.`,
     `- Never break the mascot description ("orange owl-fox character with amber eyes and russet wing-tips").`,
     `- Don't pitch the dreyv.com app shell — pitch the developer surface (${DREYV_DEV_SURFACE.homepage}, ${DREYV_DEV_SURFACE.mcp}).`,
+      `- Do not produce 5 variants of one prompt. The render system sends each shot to Veo separately, so every shot prompt must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
   ]
     .filter(Boolean)
     .join("\n");
