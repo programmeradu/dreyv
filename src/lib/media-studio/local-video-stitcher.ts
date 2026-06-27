@@ -41,6 +41,57 @@ function concatList(files: string[]): string {
     .join("\n");
 }
 
+async function concatCopy(files: string[], listFile: string, outputFile: string, workdir: string) {
+  await writeFile(listFile, concatList(files));
+  await runFfmpeg([
+    "-hide_banner",
+    "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    listFile,
+    "-c",
+    "copy",
+    "-movflags",
+    "+faststart",
+    outputFile,
+  ], workdir);
+}
+
+async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean) {
+  await runFfmpeg([
+    "-hide_banner",
+    "-y",
+    "-i",
+    input,
+    "-vf",
+    "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "19",
+    ...(keepAudio
+      ? ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"]
+      : ["-an"]),
+    "-movflags",
+    "+faststart",
+    output,
+  ], workdir);
+}
+
+async function normalizeAll(inputs: string[], workdir: string, keepAudio: boolean): Promise<string[]> {
+  const suffix = keepAudio ? "norm" : "silent";
+  const outputs = inputs.map((_, i) => path.join(workdir, `${suffix}-${String(i + 1).padStart(2, "0")}.mp4`));
+  for (let i = 0; i < inputs.length; i += 1) {
+    await normalizeShot(inputs[i], outputs[i], workdir, keepAudio);
+  }
+  return outputs;
+}
+
 /**
  * Stitch Vertex shots locally with ffmpeg, then persist the single MP4 to R2.
  * This keeps the Vertex path independent from fal credits/billing.
@@ -58,52 +109,26 @@ export async function stitchShotsLocally(args: {
       await downloadShot(args.shotUrls[i], inputs[i], i);
     }
 
-    const listFile = path.join(workdir, "concat.txt");
-    const outputFile = path.join(workdir, "final-ad.mp4");
-    await writeFile(listFile, concatList(inputs));
+    let outputFile = path.join(workdir, "final-copy.mp4");
 
     try {
-      await runFfmpeg([
-        "-hide_banner",
-        "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        listFile,
-        "-c",
-        "copy",
-        "-movflags",
-        "+faststart",
-        outputFile,
-      ], workdir);
-    } catch {
-      await runFfmpeg([
-        "-hide_banner",
-        "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        listFile,
-        "-vf",
-        "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "19",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "160k",
-        "-movflags",
-        "+faststart",
-        outputFile,
-      ], workdir);
+      await concatCopy(inputs, path.join(workdir, "concat-copy.txt"), outputFile, workdir);
+    } catch (copyErr) {
+      try {
+        const normalized = await normalizeAll(inputs, workdir, true);
+        outputFile = path.join(workdir, "final-normalized.mp4");
+        await concatCopy(normalized, path.join(workdir, "concat-normalized.txt"), outputFile, workdir);
+      } catch {
+        const silent = await normalizeAll(inputs, workdir, false);
+        outputFile = path.join(workdir, "final-silent.mp4");
+        try {
+          await concatCopy(silent, path.join(workdir, "concat-silent.txt"), outputFile, workdir);
+        } catch (silentErr) {
+          const primary = copyErr instanceof Error ? copyErr.message : String(copyErr);
+          const fallback = silentErr instanceof Error ? silentErr.message : String(silentErr);
+          throw new Error(`Local stitch failed. copy=${primary}; normalized=${fallback}`);
+        }
+      }
     }
 
     const body = await readFile(outputFile);
