@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
   if (provider === "veo3-google" && !process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY missing." }, { status: 500 });
   }
-  if (provider === "veo3-vertex" && !process.env.GCP_SERVICE_ACCOUNT_JSON) {
+  if (provider === "veo3-vertex" && !process.env.GCP_VERTEX_API_KEY && !process.env.VERTEX_API_KEY && !process.env.GCP_SERVICE_ACCOUNT_JSON) {
     return NextResponse.json(
-      { error: "GCP_SERVICE_ACCOUNT_JSON missing — paste the full service-account JSON in project secrets." },
+      { error: "Vertex auth missing — set GCP_VERTEX_API_KEY (Express-mode API key, simplest) or GCP_SERVICE_ACCOUNT_JSON." },
       { status: 500 },
     );
   }
