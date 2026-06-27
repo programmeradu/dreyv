@@ -12384,3 +12384,37 @@ export async function sessionSignerRevoke(
   if (!rec) throw new CapabilityError("session_signer_not_found", 404, null);
   return { session: redactSessionSigner(rec) };
 }
+
+// ─── Colosseum Copilot ───────────────────────────────────────────────
+export async function colosseumSearch(
+  input: { query: string; limit?: number },
+  _ctx: CapabilityRunContext,
+) {
+  const { getBuildersInSpace, isColosseumConfigured } = await import("@/lib/colosseum/client");
+  if (!isColosseumConfigured()) {
+    throw new CapabilityError("colosseum_unconfigured", 503, "COLOSSEUM_COPILOT_PAT not set");
+  }
+  return getBuildersInSpace(input.query, { limit: input.limit ?? 8 });
+}
+
+export async function colosseumProject(
+  input: { slug: string },
+  _ctx: CapabilityRunContext,
+) {
+  const { getColosseumProject, isColosseumConfigured } = await import("@/lib/colosseum/client");
+  if (!isColosseumConfigured()) {
+    throw new CapabilityError("colosseum_unconfigured", 503, "COLOSSEUM_COPILOT_PAT not set");
+  }
+  return getColosseumProject(input.slug);
+}
+
+export async function colosseumSimilar(
+  input: { slug: string; limit?: number },
+  _ctx: CapabilityRunContext,
+) {
+  const { getSimilarProjects, isColosseumConfigured } = await import("@/lib/colosseum/client");
+  if (!isColosseumConfigured()) {
+    throw new CapabilityError("colosseum_unconfigured", 503, "COLOSSEUM_COPILOT_PAT not set");
+  }
+  return getSimilarProjects(input.slug, { limit: input.limit ?? 6 });
+}
