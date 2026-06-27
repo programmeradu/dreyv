@@ -1,14 +1,14 @@
 /**
  * /api/studio/video/render
  *
- *   POST  { pack }       → creates a studio_video_jobs row, fires the
- *                          Inngest `studio.video.render.requested` event,
- *                          returns { jobId }.
+ *   POST  { pack }       → creates a studio_video_jobs row and starts the
+ *                          selected renderer. Vertex uses short operation
+ *                          polling; fal providers still use Inngest.
  *   GET   ?id=<uuid>     → returns the row so the UI can poll progress
  *                          and surface the final mp4 url + per-shot urls.
  *
- * The actual fal.ai pipeline runs in `studioVideoRender` (Inngest) so this
- * route stays fast and never blows the Vercel 60s default.
+ * The default Vertex path never holds a request open for the full render, so
+ * the UI cannot sit on an invisible serverless timeout and spin forever.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
@@ -256,7 +256,8 @@ export async function GET(req: NextRequest) {
 
     const shotUrls = await refreshShotUrls(shotKeys, row.shot_urls);
     const finalUrl = await refreshFinalUrl(finalKey, row.final_url);
-    return NextResponse.json({ ...row, shot_urls: shotUrls, final_url: finalUrl });
+    const { pack: _pack, ...safeRow } = row;
+    return NextResponse.json({ ...safeRow, shot_urls: shotUrls, final_url: finalUrl });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
