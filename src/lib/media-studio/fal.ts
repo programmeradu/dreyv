@@ -115,7 +115,7 @@ export async function renderVeo3FastShot(prompt: string): Promise<{ url: string 
  */
 export async function composeFinalAd(args: {
   shotUrls: string[];
-  shotDurationSec?: number; // each clip duration (Veo3 Fast = 8)
+  shotDurationSec?: number; // each clip duration in seconds (Veo3 Fast = 8)
 }): Promise<{ url: string; durationSec: number }> {
   const dur = args.shotDurationSec ?? 8;
   const input = composeFinalAdInput({ shotUrls: args.shotUrls, shotDurationSec: dur });
@@ -133,10 +133,14 @@ export async function composeFinalAd(args: {
 
 function composeFinalAdInput(args: { shotUrls: string[]; shotDurationSec: number }) {
   const dur = args.shotDurationSec;
+  const durMs = dur * 1000;
   const keyframes = args.shotUrls.map((url, i) => ({
     url,
-    timestamp: i * dur,
-    duration: dur,
+    // fal compose schema uses milliseconds, not seconds.
+    // Passing 8/16/24 overlaps clips in the first few milliseconds and makes
+    // the output look like only the first generated segment survived.
+    timestamp: i * durMs,
+    duration: durMs,
   }));
   return {
     tracks: [
