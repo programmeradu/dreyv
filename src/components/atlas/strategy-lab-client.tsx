@@ -259,12 +259,12 @@ function AddressGate({ onResolve, address, busy }: {
         }}
         className="mt-6"
       >
-        <div className={`flex items-center gap-2 rounded-2xl border bg-white p-2 transition-all ${valid ? "border-violet-300 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]" : "border-zinc-200"}`}>
+        <div className={`group flex items-center gap-1.5 rounded-full border bg-white p-1.5 pl-2 transition-all ${valid ? "border-violet-300 shadow-[0_0_0_6px_rgba(124,58,237,0.08)]" : "border-violet-100 hover:border-violet-200"}`}>
           <input
             value={v}
             onChange={(e) => setV(e.target.value)}
-            placeholder="Solana address (mainnet)"
-            className="flex-1 bg-transparent px-3 py-2 font-mono text-xs tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400"
+            placeholder="Paste a Solana address…"
+            className="flex-1 bg-transparent px-3 py-2 font-mono text-[12px] tracking-tight text-zinc-900 outline-none placeholder:font-sans placeholder:text-[13px] placeholder:tracking-normal placeholder:text-zinc-400"
             spellCheck={false}
             autoCorrect="off"
             autoCapitalize="off"
@@ -272,9 +272,9 @@ function AddressGate({ onResolve, address, busy }: {
           <button
             type="submit"
             disabled={!valid || busy}
-            className="flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-800"
+            className="flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-200 disabled:text-white/80"
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Open <ArrowUpRight className="h-4 w-4" /></>}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Open <ArrowUpRight className="h-3.5 w-3.5" /></>}
           </button>
         </div>
       </form>
