@@ -11,11 +11,15 @@
  * All data is real (Helius DAS + CoinGecko + our /api/lab/* routes).
  */
 
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Check, Loader2, X } from "lucide-react";
 import labCrystal from "@/assets/lab-crystal.png";
+import glyphHindsight from "@/assets/lab-glyph-hindsight.png";
+import glyphForesight from "@/assets/lab-glyph-foresight.png";
+import glyphStress from "@/assets/lab-glyph-stress.png";
+import glyphPlaybooks from "@/assets/lab-glyph-playbooks.png";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import type {
   LabPosition,
@@ -28,11 +32,11 @@ import type {
 
 type Mode = "hindsight" | "foresight" | "stress" | "playbooks";
 
-const MODES: Array<{ id: Mode; label: string; hint: string }> = [
-  { id: "hindsight", label: "Hindsight", hint: "What you missed" },
-  { id: "foresight", label: "Foresight", hint: "Where to move" },
-  { id: "stress", label: "Stress", hint: "What breaks you" },
-  { id: "playbooks", label: "Playbooks", hint: "What to deploy" },
+const MODES: Array<{ id: Mode; label: string; hint: string; glyph: StaticImageData }> = [
+  { id: "hindsight", label: "Hindsight", hint: "What you missed", glyph: glyphHindsight },
+  { id: "foresight", label: "Foresight", hint: "Where to move", glyph: glyphForesight },
+  { id: "stress", label: "Stress", hint: "What breaks you", glyph: glyphStress },
+  { id: "playbooks", label: "Playbooks", hint: "What to deploy", glyph: glyphPlaybooks },
 ];
 
 const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
