@@ -13,7 +13,7 @@
  * bytes server-side, push them to R2, and return the public R2 URL so the
  * studio UI behaves identically to the fal.ai path.
  */
-import { putR2Object, isR2Configured, publicR2Url } from "@/lib/agents/artifacts/r2-storage";
+import { putR2Object, isR2Configured, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
