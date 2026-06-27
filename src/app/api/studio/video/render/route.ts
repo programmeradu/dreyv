@@ -20,6 +20,16 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[studio/video/render] POST failed:", err);
+    return NextResponse.json({ error: msg.slice(0, 500) }, { status: 500 });
+  }
+}
+
+async function handlePost(req: NextRequest) {
   const auth = await requireTeamMember(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
