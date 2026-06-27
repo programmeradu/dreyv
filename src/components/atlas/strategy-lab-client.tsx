@@ -561,18 +561,19 @@ function AddressGate({ onResolve, address, busy }: {
 // ─── Mode dock ──────────────────────────────────────────────────────
 
 function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  const active = MODES.find((m) => m.id === mode)!;
   return (
     <div className="sticky top-2 z-30 mx-auto w-full max-w-3xl px-4">
       <div className="flex items-center justify-center gap-1 rounded-full border border-zinc-200/80 bg-white/85 p-1 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur-xl">
         {MODES.map((m) => {
-          const active = mode === m.id;
+          const isActive = mode === m.id;
           return (
             <button
               key={m.id}
               onClick={() => onChange(m.id)}
-              className={`relative flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${active ? "text-white" : "text-zinc-600 hover:text-zinc-900"}`}
+              className={`relative flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${isActive ? "text-white" : "text-zinc-600 hover:text-zinc-900"}`}
             >
-              {active && (
+              {isActive && (
                 <motion.span
                   layoutId="mode-pill"
                   className="absolute inset-0 rounded-full bg-zinc-900"
@@ -584,8 +585,9 @@ function ModeDock({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void 
           );
         })}
       </div>
-      <div className="mt-2 text-center text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-        {MODES.find((m) => m.id === mode)?.hint}
+      <div className="mt-2 flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+        <Image src={active.glyph} alt="" width={16} height={16} className="h-4 w-4 object-contain opacity-80" />
+        <span>{active.hint}</span>
       </div>
     </div>
   );
