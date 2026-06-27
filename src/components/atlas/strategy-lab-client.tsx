@@ -1179,10 +1179,15 @@ function StressPanel({ address }: { address: string }) {
         </div>
       </Card>
 
-      <Card className="p-5">
-        <div className="grid gap-5 sm:grid-cols-3">
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroStress} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(225,29,72,0.28)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-rose-300/25 blur-3xl" />
+        <div className="relative grid gap-5 sm:grid-cols-3 sm:max-w-[62%]">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Drawdown</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-rose-500">Drawdown</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={140} /> :
                 <Numeric value={data ? (data.result.drawdownPct * 100).toFixed(2) : "0.00"} suffix="%" size="xl" tone={data && data.result.drawdownPct < 0 ? "negative" : "ink"} />}
@@ -1206,6 +1211,16 @@ function StressPanel({ address }: { address: string }) {
       </Card>
 
       {err && <ErrorBanner message={err} />}
+
+      {data && (
+        <Card className="p-5">
+          <div className="mb-3 flex items-baseline justify-between">
+            <div className="text-sm font-medium text-zinc-900">Loss event → recovery glide</div>
+            <div className="text-[11px] text-zinc-400">From par, through shock, back to par</div>
+          </div>
+          <RecoveryRibbon totalUsd={data.totalUsd} lossUsd={data.result.totalLossUsd} recoveryDays={Math.max(7, data.result.recoveryDays)} />
+        </Card>
+      )}
 
       {data && waterfallItems.length > 0 && (
         <Card className="p-5">
