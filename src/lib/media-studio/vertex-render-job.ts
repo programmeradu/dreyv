@@ -33,7 +33,7 @@ type VertexRenderState = {
 };
 
 const VERTEX_TIMEOUT_MS = 15 * 60 * 1000;
-const LOCK_MS = 75_000;
+const STALE_SUBMISSION_MS = 2 * 60 * 1000;
 
 function packFrom(value: unknown): Pack {
   if (value && typeof value === "object") return value as Pack;
@@ -62,32 +62,39 @@ function fullAdPrompt(pack: Pack): string {
   ].filter(Boolean).join("\n");
 }
 
-async function acquireLock(jobId: string) {
+function dateMs(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const n = new Date(value).getTime();
+  return Number.isFinite(n) ? n : null;
+}
+
+async function loadActiveJob(jobId: string) {
   if (!db) return null;
-  const lockId = Math.random().toString(36).slice(2);
-  const lockUntil = new Date(Date.now() + LOCK_MS).toISOString();
   const result = (await db.execute(sql`
-    UPDATE studio_video_jobs
-    SET pack = jsonb_set(
-          pack,
-          '{__renderState}',
-          COALESCE(pack->'__renderState', '{}'::jsonb) || jsonb_build_object('lockId', ${lockId}, 'lockUntil', ${lockUntil}),
-          true
-        ),
-        updated_at = now()
+    SELECT id, status, pack, shot_urls, final_url, shots_done, shots_total, updated_at
+    FROM studio_video_jobs
     WHERE id = ${jobId}::uuid
       AND status NOT IN ('done', 'failed')
-      AND (
-        NULLIF(pack #>> '{__renderState,lockUntil}', '') IS NULL
-        OR (
-          (pack #>> '{__renderState,lockUntil}') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
-          AND (pack #>> '{__renderState,lockUntil}')::timestamptz < now()
-        )
-      )
+    LIMIT 1
+  `)) as unknown;
+  return rowsFromResult(result)[0] ?? null;
+}
+
+async function claimQueuedJob(jobId: string) {
+  if (!db) return null;
+  const result = (await db.execute(sql`
+    UPDATE studio_video_jobs
+    SET status = 'rendering_shots',
+        shots_total = 1,
+        shots_done = 0,
+        error = NULL,
+        updated_at = now()
+    WHERE id = ${jobId}::uuid
+      AND status = 'queued'
     RETURNING id, status, pack, shot_urls, final_url, shots_done, shots_total
   `)) as unknown;
-  const row = rowsFromResult(result)[0];
-  return row ? { lockId, row } : null;
+  return rowsFromResult(result)[0] ?? null;
 }
 
 async function savePack(jobId: string, pack: Pack, patch: Record<string, unknown>) {
@@ -155,10 +162,10 @@ async function markFailed(jobId: string, message: string) {
  * No Inngest dependency, no long-held serverless request, no endless spinner.
  */
 export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced: boolean; failed?: string }> {
-  const locked = await acquireLock(jobId);
-  if (!locked) return { advanced: false };
+  const row = await loadActiveJob(jobId);
+  if (!row) return { advanced: false };
 
-  const pack = packFrom(locked.row.pack);
+  const pack = packFrom(row.pack);
   const state: VertexRenderState = {
     provider: "veo3-vertex",
     mode: "single_ad",
@@ -167,6 +174,17 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
 
   try {
     if (!state.operationName) {
+      const status = typeof row.status === "string" ? row.status : "queued";
+      const updatedAt = dateMs(row.updated_at);
+      const staleSubmission = status === "rendering_shots" && updatedAt !== null && Date.now() - updatedAt > STALE_SUBMISSION_MS;
+
+      if (status === "queued") {
+        const claimed = await claimQueuedJob(jobId);
+        if (!claimed) return { advanced: false };
+      } else if (!staleSubmission) {
+        return { advanced: false };
+      }
+
       const op = await submitVertexVeoOperation(fullAdPrompt(pack));
       const nextPack: Pack = {
         ...pack,
@@ -197,7 +215,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     if (!poll.done) {
       const nextPack: Pack = {
         ...pack,
-        __renderState: { ...state, lockId: undefined, lockUntil: undefined },
+        __renderState: { ...state },
       };
       await savePack(jobId, nextPack, { status: "rendering_shots", shots_total: 1, shots_done: 0 });
       return { advanced: true };
@@ -205,7 +223,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
 
     const nextPack: Pack = {
       ...pack,
-      __renderState: { ...state, completedAt: new Date().toISOString(), lockId: undefined, lockUntil: undefined },
+      __renderState: { ...state, completedAt: new Date().toISOString() },
     };
     await saveFinal(jobId, nextPack, poll.url, poll.key);
     return { advanced: true };
