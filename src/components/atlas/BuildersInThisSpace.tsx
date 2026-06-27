@@ -43,16 +43,41 @@ export interface BuildersInThisSpaceProps {
   limit?: number;
   /** Optional one-line subtitle override. */
   subtitle?: string;
+  /** Visual theme. Light = marketing pages; dark = Atlas detail pages. */
+  variant?: "light" | "dark";
   className?: string;
 }
+
+const THEMES = {
+  light: {
+    card: "rounded-2xl border border-violet-200 bg-white p-5 sm:p-6",
+    title: "text-sm font-semibold tracking-tight text-violet-900",
+    subtitle: "mt-0.5 text-xs text-violet-700/70",
+    link: "inline-flex items-center gap-1 text-xs font-medium text-violet-700 hover:text-violet-900",
+    chip: "inline-flex max-w-[min(18rem,100%)] items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-900 transition hover:border-violet-300 hover:bg-violet-100",
+    chipIcon: "h-3 w-3 shrink-0 text-violet-600",
+    skel: "h-7 animate-pulse rounded-full bg-violet-100",
+  },
+  dark: {
+    card: "rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6",
+    title: "text-xs font-black uppercase tracking-[0.2em] text-white/70",
+    subtitle: "mt-1 text-xs text-white/45",
+    link: "inline-flex items-center gap-1 text-xs font-medium text-violet-300 hover:text-violet-200",
+    chip: "inline-flex max-w-[min(18rem,100%)] items-center gap-1 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 transition hover:border-violet-300/60 hover:bg-violet-500/20",
+    chipIcon: "h-3 w-3 shrink-0 text-violet-300",
+    skel: "h-7 animate-pulse rounded-full bg-white/5",
+  },
+} as const;
 
 export function BuildersInThisSpace({
   query,
   title = "Builders in this space",
   limit = 8,
   subtitle,
+  variant = "light",
   className,
 }: BuildersInThisSpaceProps) {
+  const t = THEMES[variant];
   const [state, setState] = useState<
     | { status: "idle" | "loading" }
     | { status: "ready"; data: ApiResponse }
