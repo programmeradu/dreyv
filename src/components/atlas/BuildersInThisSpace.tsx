@@ -120,18 +120,13 @@ export function BuildersInThisSpace({
 
   return (
     <section
-      className={[
-        "rounded-2xl border border-violet-200 bg-white p-5 sm:p-6",
-        className ?? "",
-      ].join(" ")}
+      className={[t.card, className ?? ""].join(" ")}
       aria-label={title}
     >
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight text-violet-900">
-            {title}
-          </h2>
-          <p className="mt-0.5 text-xs text-violet-700/70">
+          <h2 className={t.title}>{title}</h2>
+          <p className={t.subtitle}>
             {subtitle ?? `Live from Colosseum builder index — query: "${query}"`}
           </p>
         </div>
@@ -139,7 +134,7 @@ export function BuildersInThisSpace({
           href={`https://www.colosseum.com/search?q=${encodeURIComponent(query)}`}
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 hover:text-violet-900"
+          className={t.link}
         >
           See all on Colosseum
           <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -151,7 +146,7 @@ export function BuildersInThisSpace({
           {Array.from({ length: 5 }).map((_, i) => (
             <span
               key={i}
-              className="h-7 w-24 animate-pulse rounded-full bg-violet-100"
+              className={t.skel}
               style={{ width: `${72 + ((i * 37) % 72)}px` }}
             />
           ))}
@@ -163,11 +158,11 @@ export function BuildersInThisSpace({
             const chip = (
               <span
                 title={b.summary ? `${label} — ${b.summary}` : label}
-                className="inline-flex max-w-[min(18rem,100%)] items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-900 transition hover:border-violet-300 hover:bg-violet-100"
+                className={t.chip}
               >
                 <span className="truncate">{label}</span>
                 {b.url ? (
-                  <ArrowUpRight className="h-3 w-3 shrink-0 text-violet-600" aria-hidden />
+                  <ArrowUpRight className={t.chipIcon} aria-hidden />
                 ) : null}
               </span>
             );
