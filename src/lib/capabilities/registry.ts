@@ -991,8 +991,65 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({}).strict(),
     handler: (i, c) => caps.economyWalletBalance(i, c),
   },
+  {
+    id: "economy.wallet.cold",
+    mcpName: "dreyv_economy_wallet_cold",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Get (or provision) cold agent wallet address",
+    description:
+      "Returns the COLD wallet — high-trust sweep destination. Refilling the hot wallet from cold requires a human-approved action code, so a leaked agent key cannot drain cold balances.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyWalletCold(i, c),
+  },
+  {
+    id: "economy.wallet.promote",
+    mcpName: "dreyv_economy_wallet_promote",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Sweep hot wallet → cold wallet",
+    description:
+      "Sweeps the entire USDC + SOL balance of the hot agent wallet into the cold wallet. Idempotent: returns skipped='empty' when nothing to move. Use after large top-ups to minimise blast radius.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyWalletPromote(i, c),
+  },
+  {
+    id: "economy.action_code.request",
+    mcpName: "dreyv_economy_action_code_request",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "write",
+    status: "stable",
+    title: "Mint a one-time human approval code",
+    description:
+      "Mints a 6-digit code + approval URL the agent shows to the human. Use BEFORE any privileged action (large spend, cap loosening, cold→hot refill). Single-use, 10-minute TTL. After the human approves at the URL, poll economy.action_code.status until status='approved', then pass the id back into the action.",
+    inputSchema: z.object({
+      intent: z.string().min(1).max(64).describe("Short machine label, e.g. 'wallet.refill_hot', 'spend.large_charge', 'wallet.caps.update'."),
+      description: z.string().min(1).max(280).describe("Human-friendly summary shown on the approval page."),
+      amount_minor: z.union([z.string(), z.number()]).optional().describe("Optional spend amount in minor units (USDC 6dp)."),
+      currency: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }),
+    handler: (i, c) => caps.economyActionCodeRequest(i, c),
+  },
+  {
+    id: "economy.action_code.status",
+    mcpName: "dreyv_economy_action_code_status",
+    pillar: "economy",
+    scope: "read:portfolio",
+    sideEffects: "read",
+    status: "stable",
+    title: "Poll approval status of an action code",
+    description: "Returns pending | approved | rejected | expired | consumed. Lazy-expires pending codes past TTL.",
+    inputSchema: z.object({ id: z.string().uuid() }),
+    handler: (i, c) => caps.economyActionCodeStatus(i, c),
+  },
 
-  // ─── Pillar N — Reasoning & Knowledge ──────────────────────────────
+
   {
     id: "reasoning.ask",
     mcpName: "dreyv_reasoning_ask",
