@@ -308,10 +308,49 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
 
       <section className="border-b border-violet-100 bg-violet-50/40">
         <div className="mx-auto max-w-7xl px-6 py-10">
-          <h1 className="text-3xl font-bold tracking-tight">Generate a TikTok pack for the Dreyv mascot</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            One generation = a full production plan: hook, shot list with per-tool prompts (Hedra · Hailuo · Kling · Veo 3 · Wan 2.2), voiceover, burned captions, hashtags, sound, posting window, mascot consistency notes. Nothing renders or posts automatically — you paste the prompts into the tools you have access to.
-          </p>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Generate a TikTok pack for the Dreyv mascot</h1>
+              <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                One generation = a full production plan: hook, shot list with per-tool prompts (Hedra · Hailuo · Kling · Veo 3 · Wan 2.2), voiceover, burned captions, hashtags, sound, posting window, mascot consistency notes. Nothing renders or posts automatically — you paste the prompts into the tools you have access to.
+              </p>
+            </div>
+
+            {/* Cinematic Lock panel — shows what the pipeline is enforcing on every render. */}
+            <aside className="rounded-3xl border border-violet-200 bg-white p-5 shadow-[0_30px_60px_-40px_rgba(124,58,237,0.45)]">
+              <div className="flex items-center gap-3">
+                <div className="relative h-14 w-14 shrink-0 rounded-2xl bg-violet-50 ring-1 ring-violet-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/mascot/dreyv-greet.png"
+                    alt="Dreyv mascot reference"
+                    className="absolute inset-1 h-12 w-12 object-contain"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Cinematic lock</div>
+                  <div className="truncate text-sm font-semibold text-slate-900">Hollywood pipeline · v2</div>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-2 text-[12px] leading-relaxed text-slate-700">
+                {[
+                  ["Mascot", "Solid violet #7c3aed Dreyv — no orange / brown / fox drift"],
+                  ["Style bible", "Pixar/Apple-keynote polish, single calm set per scene"],
+                  ["Clean frame", "No floating particles, orbs, fake dashboards or AI noise"],
+                  ["Continuity", "Same camera, lighting, palette across every segment"],
+                  ["Text", "Composited in post — model never spells on-screen"],
+                ].map(([k, v]) => (
+                  <li key={k} className="flex items-start gap-2">
+                    <DreyvStar className="mt-[3px] h-2.5 w-2.5 shrink-0 text-violet-600" />
+                    <span>
+                      <strong className="font-semibold text-slate-900">{k}.</strong> {v}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          </div>
+
 
           <form onSubmit={generate} className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="flex flex-col gap-1.5">

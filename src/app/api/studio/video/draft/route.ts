@@ -21,6 +21,7 @@ import { requireTeamMember } from "@/lib/media-studio/access";
 import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
 import { videoToolsPrompt, VIDEO_FORMATS, VIDEO_TOOLS, VIDEO_ANGLES } from "@/lib/media-studio/video-tools";
 import { chatJson } from "@/lib/media-studio/ai";
+import { DREYV_MASCOT_DESCRIPTION, dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -164,13 +165,21 @@ export async function POST(req: NextRequest) {
     `- Mascot notes: 3–5 bullets on which reference PNG to seed each tool with, lighting lock, camera distance discipline.`,
     `- whyItWorks: cite the format archetype + one viral rule it leans on.`,
     ``,
+    ``,
+    `MASCOT (use this description verbatim wherever the mascot appears in a toolPrompt):`,
+    DREYV_MASCOT_DESCRIPTION,
+    ``,
+    `CINEMATIC STYLE — every toolPrompt for a video model (Veo / Wan / Kling / Runway) must include this preamble before its scene-specific text so all shots share the same look, mascot, and clean-frame rules:`,
+    dreyvShotStylePreamble(),
+    ``,
     `HARD DON'TS:`,
     `- No emoji in voiceover, captions, or text card.`,
     `- No "Hey TikTok!", "In this video we'll…", or any classic AI-narrator phrasing.`,
     `- Never invent capabilities, partner names, or metrics not in the angle block.`,
-    `- Never break the mascot description ("orange owl-fox character with amber eyes and russet wing-tips").`,
+    `- Never describe the mascot as orange, brown, red, or a fox. Dreyv is a SOLID violet (#7c3aed) owl-fox sentinel — keep that lock.`,
+    `- Never let the scene fill with floating abstract elements, drifting particles, glowing orbs, holographic ribbons, fake floating dashboards, or any other "obvious AI video" tells. Keep the frame clean and cinematic.`,
     `- Don't pitch the dreyv.com app shell — pitch the developer surface (${DREYV_DEV_SURFACE.homepage}, ${DREYV_DEV_SURFACE.mcp}).`,
-      `- Do not produce 5 variants of one prompt. The render system sends each shot to Veo separately, so every shot prompt must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
+    `- Do not produce 5 variants of one prompt. The render system sends each shot to Veo separately, so every shot prompt must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
   ]
     .filter(Boolean)
     .join("\n");

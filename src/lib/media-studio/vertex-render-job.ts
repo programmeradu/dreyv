@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { pollVertexVeoOperation, submitVertexVeoOperation } from "@/lib/media-studio/google-vertex-veo";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
+import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 
 type Shot = {
   n: number;
@@ -63,16 +64,16 @@ function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): strin
   const nextShot = index < total - 1 ? pack.shotList?.[index + 1] : null;
   const phase = index === 0 ? "opening hook" : index === total - 1 ? "final payoff" : `continuation beat ${index + 1}`;
   return [
+    dreyvShotStylePreamble(),
+    "",
     `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
     "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",
-    "Continuity lock: same premium white product space, same solid violet design language, same camera language, same abstract product surfaces, same lighting, same mascot/product proportions if present.",
+    "Continuity lock: identical mascot (solid violet #7c3aed owl-fox per the MASCOT LOCK above), identical environment, identical camera language, identical lighting, identical palette as the previous segment.",
     index === 0
-      ? "Start with a strong opening motion and establish the visual world."
+      ? "Start with a strong, calm opening motion and establish the cinematic world. Hold the frame clean — no abstract garnish."
       : `Begin as if the viewer has just watched segment ${index}. Do not restart the story, do not repeat the hook, and do not reintroduce Dreyv.`,
     previousShot ? `Previous segment context to continue from, not repeat: ${previousShot.description}` : "",
     nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
-    "Visual direction: premium light SaaS ad, white environment, solid violet accents only, crisp product-like motion, no fuchsia, no pink, no gradients, no stock-looking people.",
-    "Important text rule: DO NOT render any readable words, subtitles, captions, logo text, UI labels, numbers, or typography. Use only abstract interface shapes and unreadable micro-glyph lines. Captions will be added separately in post-production.",
     pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
     `Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
@@ -80,7 +81,9 @@ function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): strin
     pack.voiceoverScript ? `Full ad voiceover context for story continuity only, not captions: ${pack.voiceoverScript.slice(0, 900)}` : "",
     pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
     pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
-    index === total - 1 ? "End with a clean product payoff, using shapes and product motion only — no text reveal." : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
+    index === total - 1
+      ? "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish."
+      : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
   ].filter(Boolean).join("\n");
 }
 
