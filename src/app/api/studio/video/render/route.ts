@@ -163,6 +163,17 @@ async function refreshFinalUrl(key: unknown, fallback: unknown): Promise<string 
   return typeof fallback === "string" ? fallback : null;
 }
 
+function rowsFromResult(result: unknown): Array<Record<string, unknown>> {
+  return (
+    (result as { rows?: Array<Record<string, unknown>> }).rows ??
+    (Array.isArray(result) ? (result as Array<Record<string, unknown>>) : [])
+  );
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireTeamMember(req);
@@ -173,71 +184,54 @@ export async function GET(req: NextRequest) {
 
     // List mode — recent jobs for the dashboard's "Recent renders" panel.
     if (!id) {
-      const runList = async (withKeys: boolean) =>
-        (await db!.execute(
-          withKeys
-            ? sql`SELECT id, status, model, shots_total, shots_done,
-                         final_url,
-                         COALESCE(final_key, NULL) AS final_key,
-                         duration_sec, error, created_at
-                  FROM studio_video_jobs
-                  ORDER BY created_at DESC
-                  LIMIT 20`
-            : sql`SELECT id, status, model, shots_total, shots_done,
-                         final_url,
-                         NULL::text AS final_key,
-                         duration_sec, error, created_at
-                  FROM studio_video_jobs
-                  ORDER BY created_at DESC
-                  LIMIT 20`,
-        )) as unknown;
-      let result: unknown;
+      const result = (await db.execute(sql`SELECT id, status, model, shots_total, shots_done,
+                                                  final_url, duration_sec, error, created_at
+                                           FROM studio_video_jobs
+                                           ORDER BY created_at DESC
+                                           LIMIT 20`)) as unknown;
+      const rows = rowsFromResult(result);
+      let finalKeys = new Map<string, unknown>();
       try {
-        result = await runList(true);
-      } catch {
-        result = await runList(false);
+        const ids = rows.map((r) => r.id).filter((v): v is string => typeof v === "string" && isUuid(v));
+        if (ids.length > 0) {
+          const keyResult = (await db.execute(sql`SELECT id, final_key FROM studio_video_jobs WHERE id = ANY(${ids}::uuid[])`)) as unknown;
+          finalKeys = new Map(rowsFromResult(keyResult).map((r) => [String(r.id), r.final_key]));
+        }
+      } catch (err) {
+        console.warn("[studio/video/render] final_key lookup skipped:", err);
       }
-      const rows =
-        (result as { rows?: Array<Record<string, unknown>> }).rows ??
-        (Array.isArray(result) ? (result as Array<Record<string, unknown>>) : []);
       const jobs = await Promise.all(
         rows.map(async (r) => ({
           ...r,
-          final_url: await refreshFinalUrl(r.final_key, r.final_url),
+          final_url: await refreshFinalUrl(finalKeys.get(String(r.id)), r.final_url),
         })),
       );
       return NextResponse.json({ jobs });
     }
 
-    const runOne = async (withKeys: boolean) =>
-      (await db!.execute(
-        withKeys
-          ? sql`SELECT id, status, shots_total, shots_done, shot_urls,
-                       COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
-                       final_url,
-                       COALESCE(final_key, NULL) AS final_key,
-                       duration_sec, error, created_at, updated_at
-                FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`
-          : sql`SELECT id, status, shots_total, shots_done, shot_urls,
-                       '[]'::jsonb AS shot_keys,
-                       final_url,
-                       NULL::text AS final_key,
-                       duration_sec, error, created_at, updated_at
-                FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
-      )) as unknown;
-    let result: unknown;
-    try {
-      result = await runOne(true);
-    } catch {
-      result = await runOne(false);
-    }
-    const row =
-      (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ??
-      (Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined);
+    if (!isUuid(id)) return NextResponse.json({ error: "Invalid render job id" }, { status: 400 });
+
+    const result = (await db.execute(sql`SELECT id, status, shots_total, shots_done, shot_urls,
+                                                final_url, duration_sec, error, created_at, updated_at
+                                         FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
+    const row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
-    const shotUrls = await refreshShotUrls(row.shot_keys, row.shot_urls);
-    const finalUrl = await refreshFinalUrl(row.final_key, row.final_url);
+    let shotKeys: unknown = [];
+    let finalKey: unknown = null;
+    try {
+      const keyResult = (await db.execute(sql`SELECT COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
+                                                     final_key
+                                              FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
+      const keyRow = rowsFromResult(keyResult)[0];
+      shotKeys = keyRow?.shot_keys ?? [];
+      finalKey = keyRow?.final_key ?? null;
+    } catch (err) {
+      console.warn("[studio/video/render] R2 key lookup skipped:", err);
+    }
+
+    const shotUrls = await refreshShotUrls(shotKeys, row.shot_urls);
+    const finalUrl = await refreshFinalUrl(finalKey, row.final_url);
     return NextResponse.json({ ...row, shot_urls: shotUrls, final_url: finalUrl });
 
   } catch (err) {

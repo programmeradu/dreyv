@@ -128,7 +128,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     try {
       const res = await fetch("/api/studio/video/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studioJsonHeaders(),
         body: JSON.stringify({ pack, provider: providerId }),
       });
       const j = await res.json();
@@ -159,7 +159,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     if (!stored) return;
     (async () => {
       try {
-        const r = await fetch(`/api/studio/video/render?id=${stored}`);
+        const r = await fetch(`/api/studio/video/render?id=${stored}`, { headers: studioAuthHeaders() });
         const j = await r.json();
         if (!cancelled && r.ok && j?.id) {
           setRenderJob({
@@ -174,6 +174,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
           });
         } else if (!cancelled && r.status === 404) {
           try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
+        } else if (!cancelled && !r.ok) {
+          setRenderError(j?.error || `Could not recover render session (HTTP ${r.status})`);
         }
       } catch {}
     })();
@@ -194,9 +196,16 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     let cancelled = false;
     const tick = async () => {
       try {
-        const r = await fetch(`/api/studio/video/render?id=${id}`);
+        const r = await fetch(`/api/studio/video/render?id=${id}`, { headers: studioAuthHeaders() });
         const j = await r.json();
         if (!cancelled && r.ok) setRenderJob((prev) => (prev && prev.id === id ? { ...prev, ...j } : prev));
+        else if (!cancelled && r.status === 404) {
+          try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
+          setRenderJob(null);
+          setRenderError("That render session is no longer available. Start a new render to continue.");
+        } else if (!cancelled && !r.ok) {
+          setRenderError(j?.error || `Render polling failed (HTTP ${r.status})`);
+        }
       } catch {}
     };
     const handle = setInterval(tick, 4000);
