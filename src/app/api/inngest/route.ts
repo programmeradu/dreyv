@@ -15,6 +15,7 @@ import { BRAIN_FUNCTIONS } from "@/lib/agents/brains/functions";
 import { DACS_FUNCTIONS } from "@/lib/agents/dacs/functions";
 import { TX_STREAM_FUNCTIONS } from "@/lib/agents/tx-stream/functions";
 import { TREASURY_WATCHERS } from "@/lib/agents/treasury/watchers";
+import { studioVideoRender } from "@/lib/agents/studio-video";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
