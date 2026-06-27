@@ -36,8 +36,8 @@ const PROVIDERS: Record<
   { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "local" | "none" }
 > = {
   "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
-  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "none" },
-  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "none" },
+  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "local" },
+  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "local" },
   "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
 };
 
@@ -134,7 +134,7 @@ export const studioVideoRender = inngest.createFunction(
 
       // Stitching happens inside Dreyv with the bundled ffmpeg binary. fal may
       // render a shot, but it is never required for the final compose step.
-      if (provider.stitch === "local") {
+      if (provider.stitch === "local" && shotUrls.length > 1) {
         await setJob(jobId, { status: "stitching" });
         const final = await step.run("compose", () =>
           stitchShotsLocally({ jobId, shotUrls, shotDurationSec: provider.secondsPerShot }),
@@ -148,9 +148,11 @@ export const studioVideoRender = inngest.createFunction(
         return { ok: true, url: final.url };
       }
 
-      // No-stitch path: shots are the deliverable.
+      // Single-shot path: the rendered clip is already the final deliverable.
       await setJob(jobId, {
         status: "done",
+        final_url: shotUrls[0] ?? null,
+        final_key: shotKeys[0] ?? null,
         duration_sec: shots.length * provider.secondsPerShot,
       });
       return { ok: true, shots: shotUrls };
