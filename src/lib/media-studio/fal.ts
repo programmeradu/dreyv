@@ -1,7 +1,7 @@
 /**
  * Minimal fal.ai client for the Video Studio.
  *
- * We only need three things:
+ * We only need three things for fal-hosted render models:
  *   1) submit a job to a model and get a request_id back
  *   2) poll its status until COMPLETED / FAILED
  *   3) fetch the final result
@@ -69,7 +69,7 @@ export async function falResult<T = unknown>(responseUrl: string): Promise<T> {
 
 /**
  * Submit + poll until terminal. Returns the parsed response payload.
- * Default budget: 8 minutes (Veo 3 Fast at 8s = ~30–90s; ffmpeg compose < 1 min).
+ * Default budget: 8 minutes (Veo 3 Fast at 8s = ~30–90s).
  */
 export async function falRun<T = unknown>(
   model: string,
@@ -109,79 +109,10 @@ export async function renderVeo3FastShot(prompt: string): Promise<{ url: string 
 }
 
 /**
- * Stitch a list of video URLs end-to-end via fal's hosted ffmpeg API.
- * `fal-ai/ffmpeg-api/compose` takes a track-based timeline.
- * https://fal.ai/models/fal-ai/ffmpeg-api/compose
- */
-export async function composeFinalAd(args: {
-  shotUrls: string[];
-  shotDurationSec?: number; // each clip duration in seconds (Veo3 Fast = 8)
-}): Promise<{ url: string; durationSec: number }> {
-  const dur = args.shotDurationSec ?? 8;
-  const input = composeFinalAdInput({ shotUrls: args.shotUrls, shotDurationSec: dur });
-  const out = await falRun<{ video_url: string } | { video: { url: string } }>(
-    "fal-ai/ffmpeg-api/compose",
-    input,
-    { maxMs: 5 * 60 * 1000 },
-  );
-  const url =
-    (out as { video_url?: string }).video_url ??
-    (out as { video?: { url?: string } }).video?.url;
-  if (!url) throw new Error("ffmpeg compose returned no url");
-  return { url, durationSec: dur * args.shotUrls.length };
-}
-
-function composeFinalAdInput(args: { shotUrls: string[]; shotDurationSec: number }) {
-  const dur = args.shotDurationSec;
-  const durMs = dur * 1000;
-  const keyframes = args.shotUrls.map((url, i) => ({
-    url,
-    // fal compose schema uses milliseconds, not seconds.
-    // Passing 8/16/24 overlaps clips in the first few milliseconds and makes
-    // the output look like only the first generated segment survived.
-    timestamp: i * durMs,
-    duration: durMs,
-  }));
-  return {
-    tracks: [
-    { id: "video", type: "video", keyframes },
-    { id: "audio", type: "audio", keyframes },
-    ],
-  };
-}
-
-export async function submitComposeFinalAd(args: {
-  shotUrls: string[];
-  shotDurationSec?: number;
-}): Promise<FalSubmitResult & { durationSec: number }> {
-  const dur = args.shotDurationSec ?? 8;
-  const submitted = await falSubmit("fal-ai/ffmpeg-api/compose", composeFinalAdInput({
-    shotUrls: args.shotUrls,
-    shotDurationSec: dur,
-  }));
-  return { ...submitted, durationSec: dur * args.shotUrls.length };
-}
-
-export async function pollComposeFinalAd(args: {
-  statusUrl: string;
-  responseUrl: string;
-}): Promise<{ done: false } | { done: true; url: string }> {
-  const status = await falStatus(args.statusUrl);
-  if (status.status === "FAILED") throw new Error("fal ffmpeg compose FAILED");
-  if (status.status !== "COMPLETED") return { done: false };
-  const out = await falResult<{ video_url: string } | { video: { url: string } }>(args.responseUrl);
-  const url =
-    (out as { video_url?: string }).video_url ??
-    (out as { video?: { url?: string } }).video?.url;
-  if (!url) throw new Error("ffmpeg compose returned no url");
-  return { done: true, url };
-}
-
-/**
  * Wan 2.2 Fast — text-to-video, ~$0.05/sec, no native audio.
  * The cheapest production-grade option on fal. We render silent 5s clips
- * here; downstream ffmpeg-compose just concatenates them. If the user wants
- * voice they can layer their own TTS in CapCut.
+ * here; Dreyv's local ffmpeg stitcher concatenates them. If the user wants
+ * voice they can layer their own TTS in the next post-production pass.
  *
  * https://fal.ai/models/fal-ai/wan/v2.2-5b/fast/text-to-video
  */
