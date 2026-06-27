@@ -78,8 +78,19 @@ export function SiteFooter() {
             </a>
             <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
               Treasury command layer for Solana teams — intent, simulation, readable impact, then multisig sign.
-              Non-custodial. StaUniverse.
+              Non-custodial.
             </p>
+            <address className="not-italic mt-4 text-xs text-slate-500 leading-relaxed max-w-xs">
+              <div className="font-semibold text-slate-700">StaUniverse</div>
+              <div>Operator of dreyv</div>
+              <div>Nicosia, Cyprus</div>
+              <div className="mt-1">
+                <a href="mailto:samuel@dreyv.com" className="hover:text-violet-700 transition-colors">
+                  samuel@dreyv.com
+                </a>
+              </div>
+            </address>
+
           </div>
 
           <div>
