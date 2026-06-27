@@ -24,6 +24,7 @@ import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
 import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
 import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
+import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 
 /**
  * Provider catalogue. Surfaced in the UI so the user can pick the trade-off.
@@ -82,15 +83,15 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
   const previousShot = shotIndex > 0 ? pack.shotList[shotIndex - 1] : null;
   const nextShot = shotIndex < pack.shotList.length - 1 ? pack.shotList[shotIndex + 1] : null;
   return [
+    dreyvShotStylePreamble(),
+    "",
     `9:16 vertical ad segment ${shot.n} of ${pack.shotList.length} for ONE continuous Dreyv ad, pronounced DRAVE.`,
     `This is not a variant, restart, recap, or alternate take. It must be the next chronological scene in the same ad.`,
-    previousShot ? `Previous scene context to continue from, not repeat: ${previousShot.description}` : `Opening scene: establish the visual world and motion hook.`,
+    previousShot ? `Previous scene context to continue from, not repeat: ${previousShot.description}` : `Opening scene: establish the cinematic world and motion hook — clean frame, no abstract garnish.`,
     `Current scene action: ${shot.description}`,
     nextShot ? `End with motion that hands off into this next scene: ${nextShot.description}` : `Final scene: resolve into a clean product payoff without text.`,
-    `Style lock: premium light SaaS ad, white product environment, solid violet accents (#7c3aed), crisp abstract interface shapes, consistent lighting and camera language.`,
-    `Text rule: do not render readable words, subtitles, captions, logo text, numbers, or UI labels. Use only abstract UI blocks and unreadable micro-glyph lines; captions are added separately after generation.`,
+    `Continuity lock: identical mascot, identical environment, identical lighting, identical camera language across all segments.`,
     `Creative intent, without rendering written text: ${shot.toolPrompt.slice(0, 700)}`,
-    `Mascot consistency: if a mascot appears, keep the same friendly abstract Dreyv character proportions and color; do not redesign it between shots.`,
   ]
     .filter(Boolean)
     .join("\n");
