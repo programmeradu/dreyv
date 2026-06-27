@@ -939,12 +939,26 @@ function HindsightPanel({ address }: { address: string }) {
     return () => { live = false; };
   }, [address, windowDays]);
 
+  const stacks = useMemo(() => {
+    if (!data) return [];
+    return data.missed.slice(0, 8).map((m) => ({
+      from: m.from.symbol,
+      to: `${m.to.symbol}·${m.to.protocol}`,
+      usd: m.realizedOppCostUsd,
+    }));
+  }, [data]);
+
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden p-5">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Opportunity cost · last {windowDays}d</div>
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroHindsight} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-[58%]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-violet-600">Hindsight · last {windowDays}d</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={200} /> :
                 <Numeric
@@ -954,8 +968,8 @@ function HindsightPanel({ address }: { address: string }) {
                   tone={data && data.totalOppCostUsd >= 0 ? "violet" : "muted"}
                 />}
             </div>
-            <div className="mt-2 text-sm text-zinc-500">
-              {data ? "If you'd held the best alternative at the same size." : "Resolving holdings + price history…"}
+            <div className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">
+              {data ? "The dollars you'd have earned holding the best alternative at the same size." : "Resolving holdings + price history…"}
             </div>
           </div>
           <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1">
@@ -982,17 +996,26 @@ function HindsightPanel({ address }: { address: string }) {
       )}
 
       {data && data.missed.length > 0 && (
-        <Card className="p-5">
-          <div className="mb-4 flex items-baseline justify-between">
-            <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
-            <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
-          </div>
-          <div className="divide-y divide-zinc-100">
-            {data.missed.slice(0, 6).map((m, i) => (
-              <RotationRow key={i} rotation={m} highlight={`+$${m.realizedOppCostUsd.toFixed(2)}`} highlightLabel="missed" />
-            ))}
-          </div>
-        </Card>
+        <>
+          <Card className="p-5">
+            <div className="mb-3 flex items-baseline justify-between">
+              <div className="text-sm font-medium text-zinc-900">Where the cost came from</div>
+              <div className="text-[11px] text-zinc-400">Contribution to total · {windowDays}d</div>
+            </div>
+            <OpportunityStacks items={stacks} />
+          </Card>
+          <Card className="p-5">
+            <div className="mb-4 flex items-baseline justify-between">
+              <div className="text-sm font-medium text-zinc-900">Missed rotations, ranked</div>
+              <div className="text-xs text-zinc-400">Realized USD cost over {windowDays}d</div>
+            </div>
+            <div className="divide-y divide-zinc-100">
+              {data.missed.slice(0, 6).map((m, i) => (
+                <RotationRow key={i} rotation={m} highlight={`+$${m.realizedOppCostUsd.toFixed(2)}`} highlightLabel="missed" />
+              ))}
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );
