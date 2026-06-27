@@ -108,8 +108,8 @@ async function handlePost(req: NextRequest) {
       {
         jobId,
         warning:
-          `Job created but background worker is not linked (${delivered.reason}). ` +
-          `Inngest needs INNGEST_API_KEY connector + /api/inngest registered.`,
+          `Job created but background worker did not accept the event (${delivered.reason}). ` +
+          `Check INNGEST_EVENT_KEY (direct) or LOVABLE_API_KEY+INNGEST_API_KEY (connector), and that /api/inngest is synced.`,
       },
       { status: 202 },
     );
