@@ -103,7 +103,7 @@ async function vertexAuth(): Promise<
   | { mode: "key"; key: string; url: string }
   | { mode: "sa"; token: string; url: string }
 > {
-  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || "").trim();
+  const key = (process.env.GCP_VERTEX_API_KEY || process.env.VERTEX_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "").trim();
   if (key) return { mode: "key", key, url: VERTEX_EXPRESS() };
   const sa = loadServiceAccount();
   const project = projectId(sa);
