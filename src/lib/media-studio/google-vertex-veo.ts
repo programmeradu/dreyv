@@ -244,8 +244,11 @@ export async function pollVertexVeoOperation(operationName: string): Promise<Ver
  * Returns a presigned R2 URL the browser can stream. Kept for durable workers;
  * request/response APIs should prefer submitVertexVeoOperation + polling.
  */
-export async function renderVertexVeoShot(prompt: string): Promise<VertexVeoMaterializedVideo> {
-  const { operationName } = await submitVertexVeoOperation(prompt);
+export async function renderVertexVeoShot(
+  prompt: string,
+  opts: VertexVeoSubmitOptions = {},
+): Promise<VertexVeoMaterializedVideo> {
+  const { operationName } = await submitVertexVeoOperation(prompt, opts);
 
   // Poll fetchPredictOperation up to 8 min.
   const deadline = Date.now() + 8 * 60 * 1000;
