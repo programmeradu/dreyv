@@ -56,7 +56,6 @@ export async function GET(req: Request) {
   const list = JSON.parse(listText) as { models?: ModelEntry[] };
   const veo = (list.models ?? []).filter((m) => (m.name ?? "").includes("veo"));
 
-  const url = new URL(req.url);
   if (url.searchParams.get("render") !== "1") {
     return NextResponse.json({
       ok: true,
