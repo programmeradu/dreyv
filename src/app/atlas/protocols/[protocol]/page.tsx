@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
+import { BuildersInThisSpace } from "@/components/atlas/BuildersInThisSpace";
 import {
   ATLAS_PROTOCOLS,
   getProtocol,
@@ -178,6 +179,14 @@ export default async function AtlasProtocolPage({
             ))}
           </ul>
         </article>
+
+        <div className="mt-12">
+          <BuildersInThisSpace
+            variant="light"
+            query={`${p.name} ${p.category.replace(/-/g, " ")}`}
+            subtitle={`Hackathon teams building on or alongside ${p.name} — indexed by Colosseum Copilot.`}
+          />
+        </div>
 
         {siblings.length > 0 && (
           <section className="mt-16 pt-12 border-t border-violet-100">
