@@ -222,10 +222,23 @@ export async function vertexHealthCheck(): Promise<{
   project?: string;
 }> {
   const auth = await vertexAuth();
-  const res = await fetch(auth.url, { headers: authHeaders(auth) });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Vertex model probe ${res.status}: ${t.slice(0, 400)}`);
+  // Vertex publisher models don't support a plain GET on the model URL
+  // (returns Google's 404 HTML page). Probe via :fetchPredictOperation with
+  // a sentinel operation name — a valid auth/entitlement returns a structured
+  // JSON 400/404 ("Operation not found"); auth/region/model errors return
+  // 401/403 or the HTML 404 we want to catch.
+  const probeUrl = `${auth.url}:fetchPredictOperation`;
+  const res = await fetch(probeUrl, {
+    method: "POST",
+    headers: authHeaders(auth),
+    body: JSON.stringify({ operationName: "projects/_/locations/_/operations/_probe_" }),
+  });
+  const text = await res.text();
+  // Accept any JSON response — that proves the endpoint+auth are valid.
+  // Only fail on HTML (wrong host/region) or 401/403 (bad auth).
+  const isHtml = text.trimStart().startsWith("<");
+  if (isHtml || res.status === 401 || res.status === 403) {
+    throw new Error(`Vertex model probe ${res.status}: ${text.slice(0, 400)}`);
   }
   return {
     ok: true,
