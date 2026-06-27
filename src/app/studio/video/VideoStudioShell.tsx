@@ -115,16 +115,16 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   // are used purely to surface an estimated cost in the UI.
   type ProviderId = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
   const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
-    { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)",     secs: 8, usdPerSec: 0.35, note: "Bills GCP credits · native audio · 720p" },
+    { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)",     secs: 8, usdPerSec: 0.35, note: "Full multi-shot render · stitched MP4 · no burned text" },
     { id: "veo3-fal",    label: "Veo 3 Fast · fal.ai",        secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
     { id: "veo3-google", label: "Veo 3 · Google direct",      secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
     { id: "wan22-fal",   label: "Wan 2.2 Fast · budget",      secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
   ];
   const [providerId, setProviderId] = React.useState<ProviderId>("veo3-vertex");
   const provider = PROVIDERS.find((p) => p.id === providerId)!;
-  const estimatedRenderSeconds = providerId === "veo3-vertex" ? provider.secs : (pack?.shotList.length ?? 1) * provider.secs;
+  const estimatedRenderSeconds = (pack?.shotList.length ?? 1) * provider.secs;
   const renderModeCopy = providerId === "veo3-vertex"
-    ? "Renders one complete 8-second MP4 directly through Vertex; no background worker or stitching queue."
+    ? `Renders all ${pack?.shotList.length ?? 0} Vertex shots, avoids AI-burned text, then stitches one seamless MP4.`
     : `Renders all ${pack?.shotList.length ?? 0} shots, then stitches the final MP4.`;
 
   const startRender = React.useCallback(async () => {
@@ -142,7 +142,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
       setRenderJob({
         id: j.jobId,
         status: j.warning ? "failed" : "queued",
-        shots_total: providerId === "veo3-vertex" ? 1 : pack.shotList.length,
+        shots_total: pack.shotList.length,
         shots_done: 0,
         shot_urls: [],
         final_url: null,
@@ -249,7 +249,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
 
   const elapsedSeconds = renderStartedAt ? Math.max(0, Math.floor((renderNow - renderStartedAt) / 1000)) : 0;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
-  const isVertexRender = renderJob?.shots_total === 1 && providerId === "veo3-vertex";
+  const isVertexRender = providerId === "veo3-vertex";
 
   React.useEffect(() => {
     if (isUnlocked && !trends) void loadTrends();
@@ -557,7 +557,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                   {renderJob.status !== "done" && renderJob.status !== "failed" && (
                     <span className="text-slate-600">
                       {isVertexRender
-                        ? `Vertex render running · ${elapsedLabel}`
+                        ? `${renderJob.shots_done}/${renderJob.shots_total} Vertex shots rendered · ${elapsedLabel}`
                         : `${renderJob.shots_done}/${renderJob.shots_total} shots rendered · ${elapsedLabel}`}
                     </span>
                   )}
@@ -565,7 +565,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                 {renderJob.status !== "done" && renderJob.status !== "failed" && (
                   <div className="rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
                     {isVertexRender
-                      ? "Submitted to Vertex. This usually sits quiet for a few minutes, then returns the MP4 in one step. The page can refresh safely."
+                      ? "Submitted to Vertex. Each shot completes independently, then the finished clips are stitched into one MP4. Captions are intentionally kept out of Veo to avoid misspellings."
                       : "Background render is active. The page can refresh safely; the session will recover from the saved job."}
                   </div>
                 )}
@@ -578,9 +578,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                           ? "100%"
                           : renderJob.status === "stitching"
                             ? "92%"
-                            : isVertexRender
-                              ? `${Math.min(90, 12 + elapsedSeconds * 0.45)}%`
-                              : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * 85}%`,
+                            : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * (isVertexRender ? 82 : 85)}%`,
                     }}
                   />
                 </div>
