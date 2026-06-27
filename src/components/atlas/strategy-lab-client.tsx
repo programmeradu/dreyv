@@ -61,11 +61,11 @@ function Numeric({
   tone?: "ink" | "positive" | "negative" | "muted" | "violet";
 }) {
   const sizes = {
-    sm: "text-base",
-    md: "text-2xl",
-    lg: "text-4xl",
-    xl: "text-6xl",
-    "2xl": "text-7xl",
+    sm: "text-xs",
+    md: "text-lg",
+    lg: "text-2xl",
+    xl: "text-4xl",
+    "2xl": "text-5xl",
   };
   const tones = {
     ink: "text-zinc-900",
