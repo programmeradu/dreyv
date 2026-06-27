@@ -116,6 +116,8 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {
         ...config.resolve.alias,
         'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
+        // MetaMask SDK imports this React Native–only package; stub it for web.
+        '@react-native-async-storage/async-storage': false,
       };
       // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
       // eth-json-rpc-filters, etc. transitively reference node:* modules).
