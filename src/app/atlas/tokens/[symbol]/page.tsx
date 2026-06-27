@@ -201,6 +201,14 @@ export default async function AtlasTokenPage({
           </ul>
         </article>
 
+        <div className="mt-12">
+          <BuildersInThisSpace
+            variant="dark"
+            query={`${token.symbol} ${token.category}`}
+            subtitle={`Hackathon teams shipping on or around ${token.symbol} — indexed by Colosseum Copilot.`}
+          />
+        </div>
+
         <section className="mt-16 pt-12 border-t border-white/10">
           <h2 className="text-xs font-black uppercase tracking-[0.2em] text-white/45 mb-4">
             Other tokens in atlas
