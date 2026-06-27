@@ -86,8 +86,13 @@ export const studioVideoRender = inngest.createFunction(
   { id: "studio-video-render", name: "Studio • render TikTok ad", concurrency: 2, retries: 1 },
   { event: "studio.video.render.requested" },
   async ({ event, step }) => {
-    const { jobId, pack } = event.data as { jobId: string; pack: Pack };
+    const { jobId, pack, provider: providerId } = event.data as {
+      jobId: string;
+      pack: Pack;
+      provider?: VideoProvider;
+    };
     if (!jobId || !pack) throw new Error("missing jobId or pack");
+    const provider = PROVIDERS[providerId ?? "veo3-fal"] ?? PROVIDERS["veo3-fal"];
 
     const shots = (pack.shotList ?? []).slice(0, 5); // hard cap — cost guard
     if (!shots.length) {
@@ -101,7 +106,7 @@ export const studioVideoRender = inngest.createFunction(
       const shotUrls: string[] = [];
       for (const shot of shots) {
         const url = await step.run(`shot-${shot.n}`, async () => {
-          const r = await renderVeo3FastShot(buildShotPrompt(shot, pack));
+          const r = await provider.render(buildShotPrompt(shot, pack));
           return r.url;
         });
         shotUrls.push(url);
@@ -111,7 +116,7 @@ export const studioVideoRender = inngest.createFunction(
       await setJob(jobId, { status: "stitching" });
 
       const final = await step.run("compose", () =>
-        composeFinalAd({ shotUrls, shotDurationSec: 8 }),
+        composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
       );
 
       await setJob(jobId, {
