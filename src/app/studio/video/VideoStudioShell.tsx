@@ -410,6 +410,112 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
             <span className="text-xs text-slate-500">{pack.whyItWorks}</span>
           </div>
 
+          {/* RENDER BAR — Dreyv makes its own ad with fal.ai Veo 3 Fast */}
+          <div className="mb-6 rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                  Auto-render · Veo 3 Fast + ffmpeg compose
+                </div>
+                <div className="mt-1 text-sm text-slate-700">
+                  Renders all {pack.shotList.length} shots with synced audio, stitches into one vertical MP4.
+                  ~${(pack.shotList.length * 8 * 0.4).toFixed(2)} estimated fal.ai cost.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={startRender}
+                disabled={renderStarting || (renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed")}
+                className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {renderStarting
+                  ? "Submitting…"
+                  : renderJob && renderJob.status !== "done" && renderJob.status !== "failed"
+                    ? "Rendering…"
+                    : renderJob?.status === "done"
+                      ? "Re-render full ad"
+                      : "Render full ad"}
+              </button>
+            </div>
+
+            {renderError && (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {renderError}
+              </div>
+            )}
+
+            {renderJob && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="rounded-full bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-white">
+                    {renderJob.status}
+                  </span>
+                  {renderJob.status !== "done" && renderJob.status !== "failed" && (
+                    <span className="text-slate-600">
+                      {renderJob.shots_done}/{renderJob.shots_total} shots rendered
+                    </span>
+                  )}
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-violet-600 transition-all"
+                    style={{
+                      width:
+                        renderJob.status === "done"
+                          ? "100%"
+                          : renderJob.status === "stitching"
+                            ? "92%"
+                            : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * 85}%`,
+                    }}
+                  />
+                </div>
+                {renderJob.error && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    {renderJob.error}
+                  </div>
+                )}
+                {renderJob.shot_urls && renderJob.shot_urls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                    {renderJob.shot_urls.map((u, i) => (
+                      <a
+                        key={i}
+                        href={u}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded-xl border border-violet-100 bg-black"
+                      >
+                        <video src={u} className="aspect-[9/16] w-full object-cover" muted playsInline />
+                        <div className="px-2 py-1 text-[10px] text-slate-500">Shot {i + 1}</div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {renderJob.final_url && (
+                  <div className="rounded-2xl border border-violet-200 bg-white p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                        Final ad · {renderJob.duration_sec}s
+                      </div>
+                      <a
+                        href={renderJob.final_url}
+                        download
+                        className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline"
+                      >
+                        Download MP4 ↓
+                      </a>
+                    </div>
+                    <video
+                      src={renderJob.final_url}
+                      className="aspect-[9/16] w-full max-w-xs rounded-xl bg-black"
+                      controls
+                      playsInline
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
             <div className="space-y-6">
               {/* HOOK */}
