@@ -1049,6 +1049,9 @@ export const CAPABILITIES: PublicCapability[] = [
     handler: (i, c) => caps.economyActionCodeStatus(i, c),
   },
 
+  // ─── Pillar N — Reasoning & Knowledge ──────────────────────────────
+
+
 
   {
     id: "reasoning.ask",
