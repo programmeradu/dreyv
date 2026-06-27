@@ -208,26 +208,22 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
 /** Cheap auth/entitlement probe used by /api/debug/veo-ping?vertex=1. */
 export async function vertexHealthCheck(): Promise<{
   ok: true;
-  project: string;
+  mode: "key" | "sa";
   region: string;
   model: string;
-  token_prefix: string;
+  project?: string;
 }> {
-  const sa = loadServiceAccount();
-  const project = projectId(sa);
-  const token = await getAccessToken();
-  // List publisher models — auth + project check without spending credits.
-  const url = `${VERTEX_BASE()}/${project}/locations/${REGION}/publishers/google/models/${MODEL}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const auth = await vertexAuth();
+  const res = await fetch(auth.url, { headers: authHeaders(auth) });
   if (!res.ok) {
     const t = await res.text();
     throw new Error(`Vertex model probe ${res.status}: ${t.slice(0, 400)}`);
   }
   return {
     ok: true,
-    project,
+    mode: auth.mode,
     region: REGION,
     model: MODEL,
-    token_prefix: token.slice(0, 6),
+    project: auth.mode === "sa" ? (process.env.GCP_PROJECT_ID || "(from sa)") : undefined,
   };
 }
