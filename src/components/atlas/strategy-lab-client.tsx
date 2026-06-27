@@ -1178,10 +1178,10 @@ function StressPanel({ address }: { address: string }) {
       {data && waterfallItems.length > 0 && (
         <Card className="p-5">
           <div className="mb-3 flex items-baseline justify-between">
-            <div className="text-sm font-medium text-zinc-900">Cascade · per-asset impact</div>
-            <div className="text-[11px] text-zinc-400">Cumulative path from start to stressed end</div>
+            <div className="text-sm font-medium text-zinc-900">Impact ranking · per-asset damage</div>
+            <div className="text-[11px] text-zinc-400">Sorted by loss magnitude · share of total impact</div>
           </div>
-          <WaterfallChart items={waterfallItems} />
+          <ImpactBars items={waterfallItems} />
         </Card>
       )}
 
