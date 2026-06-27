@@ -556,6 +556,11 @@ export async function middleware(request: NextRequest) {
             pathname === '/api/agents/balance/topup' ||
             pathname === '/api/agents/wallet' ||
             pathname === '/api/agents/wallet/sweep' ||
+            pathname === '/api/agents/wallet/cold' ||
+            pathname === '/api/agents/wallet/promote' ||
+            pathname === '/api/agents/wallet/caps' ||
+            pathname === '/api/agents/action-codes' ||
+            pathname.startsWith('/api/agents/action-codes/') ||
             pathname === '/api/agents/scopes' ||
             pathname === '/api/agents/claim') &&
         request.headers.has('authorization')
@@ -565,6 +570,15 @@ export async function middleware(request: NextRequest) {
             pathname,
         );
     }
+
+    // /api/agents/discover is fully public (read-only capability catalog).
+    if (pathname === '/api/agents/discover') {
+        return withSeoHeaders(
+            NextResponse.next({ request: { headers: request.headers } }),
+            pathname,
+        );
+    }
+
 
 
     // ─── Protect /app/* and /api/* routes ───────────────────────────
