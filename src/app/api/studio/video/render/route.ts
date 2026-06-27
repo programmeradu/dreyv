@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Provider selection — defaults to fal Veo 3 Fast (best quality, native audio).
-  const ALLOWED = ["veo3-fal", "veo3-google", "wan22-fal"] as const;
+  const ALLOWED = ["veo3-fal", "veo3-google", "veo3-vertex", "wan22-fal"] as const;
   type Provider = (typeof ALLOWED)[number];
   const provider: Provider = (ALLOWED as readonly string[]).includes(String(body.provider))
     ? (body.provider as Provider)
@@ -60,12 +60,19 @@ export async function POST(req: NextRequest) {
   if (provider === "veo3-google" && !process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY missing." }, { status: 500 });
   }
+  if (provider === "veo3-vertex" && !process.env.GCP_SERVICE_ACCOUNT_JSON) {
+    return NextResponse.json(
+      { error: "GCP_SERVICE_ACCOUNT_JSON missing — paste the full service-account JSON in project secrets." },
+      { status: 500 },
+    );
+  }
   // ffmpeg compose step still runs on fal regardless of shot provider.
   if (!process.env.FAL_KEY) {
     return NextResponse.json({ error: "FAL_KEY missing (required for stitching step)." }, { status: 500 });
   }
 
   const modelLabel =
+    provider === "veo3-vertex" ? "google/veo-3.1-generate-001 (vertex)" :
     provider === "veo3-google" ? "google/veo-3.0-generate-001" :
     provider === "wan22-fal"   ? "fal-ai/wan/v2.2-5b/fast/text-to-video" :
                                  "fal-ai/veo3/fast";
