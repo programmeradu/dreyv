@@ -49,11 +49,10 @@ async function handlePost(req: NextRequest) {
   if (!pack || !Array.isArray(pack.shotList) || pack.shotList.length === 0) {
     return NextResponse.json({ error: "pack.shotList must be a non-empty array" }, { status: 400 });
   }
+  // Hard cap to 5 shots — Veo is billed per second. Trim silently rather
+  // than 400ing so the UI can just hit "render" without pre-validating.
   if (pack.shotList.length > 5) {
-    return NextResponse.json(
-      { error: "Pack has more than 5 shots. Trim before rendering — Veo is billed per second." },
-      { status: 400 },
-    );
+    pack.shotList = pack.shotList.slice(0, 5);
   }
 
   const ALLOWED = ["veo3-fal", "veo3-google", "veo3-vertex", "wan22-fal"] as const;
