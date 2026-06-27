@@ -66,11 +66,12 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Data controller:</strong><br />
-          StaUniverse — operator of dreyv<br />
+          dreyv<br />
           Nicosia, Cyprus<br />
           Email: <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a><br />
           General inquiries: <a href="mailto:hello@dreyv.com">hello@dreyv.com</a>
         </p>
+
 
       </div>
     </>
