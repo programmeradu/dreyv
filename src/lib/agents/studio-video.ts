@@ -109,25 +109,33 @@ export const studioVideoRender = inngest.createFunction(
       await setJob(jobId, { status: "rendering_shots", shots_total: shots.length });
 
       const shotUrls: string[] = [];
+      const shotKeys: (string | null)[] = [];
       for (const shot of shots) {
-        const url = await step.run(`shot-${shot.n}`, async () => {
-          const r = await provider.render(buildShotPrompt(shot, pack));
-          return r.url;
+        const result = await step.run(`shot-${shot.n}`, async () => {
+          return provider.render(buildShotPrompt(shot, pack));
         });
-        shotUrls.push(url);
-        await setJob(jobId, { shots_done: shotUrls.length, shot_urls: shotUrls });
+        shotUrls.push(result.url);
+        shotKeys.push(result.key ?? null);
+        await setJob(jobId, {
+          shots_done: shotUrls.length,
+          shot_urls: shotUrls,
+          shot_keys: shotKeys,
+        });
       }
 
-      await setJob(jobId, { status: "stitching" });
-
-      const final = await step.run("compose", () =>
-        composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
-      );
-
-      await setJob(jobId, {
-        status: "done",
-        final_url: final.url,
-        duration_sec: final.durationSec,
+      // Stitching: only fal-based providers go through fal's hosted ffmpeg.
+      // Vertex / Google-direct stay as a per-shot deliverable — the UI shows
+      // each clip and the operator concatenates in CapCut. We avoid spending
+      // FAL credits when the user explicitly picked a non-fal provider.
+      if (provider.stitch === "fal" && process.env.FAL_KEY) {
+        await setJob(jobId, { status: "stitching" });
+        const final = await step.run("compose", () =>
+          composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
+        );
+        await setJob(jobId, {
+          status: "done",
+          final_url: final.url,
+          duration_sec: final.durationSec,
       });
       return { ok: true, url: final.url };
     } catch (err) {
