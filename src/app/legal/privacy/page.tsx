@@ -64,6 +64,14 @@ export default function PrivacyPage() {
         <p>
           For privacy-related inquiries, contact us at <strong>privacy@dreyv.com</strong>.
         </p>
+        <p>
+          <strong>Data controller:</strong><br />
+          StaUniverse — operator of dreyv<br />
+          Nicosia, Cyprus<br />
+          Email: <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a><br />
+          General inquiries: <a href="mailto:hello@dreyv.com">hello@dreyv.com</a>
+        </p>
+
       </div>
     </>
   );
