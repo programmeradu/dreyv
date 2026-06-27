@@ -291,7 +291,7 @@ function normalizeProject(raw: unknown): ColosseumProject | null {
     team: team.length ? team : undefined,
     funding: Object.keys(funding).length ? funding : undefined,
     links: Object.keys(links).length ? links : undefined,
-    raw: node,
+    raw: node as Record<string, unknown>,
   };
 }
 
