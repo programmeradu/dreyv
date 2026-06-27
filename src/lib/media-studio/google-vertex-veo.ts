@@ -133,7 +133,7 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
  * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
  * Returns a presigned R2 URL the browser can stream.
  */
-export async function renderVertexVeoShot(prompt: string): Promise<{ url: string }> {
+export async function renderVertexVeoShot(prompt: string): Promise<{ url: string; key?: string }> {
   const auth = await vertexAuth();
   const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
@@ -186,7 +186,6 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
   if (video.bytesBase64Encoded) {
     bytes = Uint8Array.from(Buffer.from(video.bytesBase64Encoded, "base64"));
   } else if (video.gcsUri) {
-    // Download from GCS — needs an OAuth bearer; API-key auth can't read GCS.
     if (auth.mode !== "sa") {
       throw new Error("Vertex returned a gcsUri but API-key mode can't read GCS. Unset GCS_OUTPUT_URI or use a service account.");
     }
@@ -207,10 +206,10 @@ export async function renderVertexVeoShot(prompt: string): Promise<{ url: string
     const b64 = Buffer.from(bytes).toString("base64");
     return { url: `data:video/mp4;base64,${b64}` };
   }
-  const objKey = `studio/video/vertex-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
-  await putR2Object({ key: objKey, body: Buffer.from(bytes), mime: "video/mp4", filename: "shot.mp4" });
-  const url = await presignR2Get({ key: objKey, filename: "shot.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
-  return { url };
+  const key = `studio/video/vertex-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
+  await putR2Object({ key, body: Buffer.from(bytes), mime: "video/mp4", filename: "shot.mp4" });
+  const url = await presignR2Get({ key, filename: "shot.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
+  return { url, key };
 }
 
 /** Cheap auth/entitlement probe used by /api/debug/veo-ping?vertex=1. */
