@@ -29,11 +29,14 @@ import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
  * ffmpeg compose timeline lines clips up correctly.
  */
 export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
-const PROVIDERS: Record<VideoProvider, { render: (p: string) => Promise<{ url: string }>; secondsPerShot: number }> = {
-  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8 },
-  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8 },
-  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8 },
-  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5 },
+const PROVIDERS: Record<
+  VideoProvider,
+  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "fal" | "none" }
+> = {
+  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "fal" },
+  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "none" },
+  "veo3-vertex": { render: renderVertexVeoShot,  secondsPerShot: 8, stitch: "none" },
+  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "fal" },
 };
 
 type Shot = {
@@ -54,10 +57,10 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   if (!db) return;
   const entries = Object.entries(patch);
   if (!entries.length) return;
+  const JSONB_COLS = new Set(["shot_urls", "shot_keys", "pack"]);
   const sets = entries.map(([k, v]) => {
     const col = k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    // jsonb columns need explicit cast; everything else binds fine as-is.
-    if (col === "shot_urls" || col === "pack") {
+    if (JSONB_COLS.has(col)) {
       return sql`${sql.identifier(col)} = ${JSON.stringify(v)}::jsonb`;
     }
     return sql`${sql.identifier(col)} = ${v as never}`;
@@ -106,27 +109,43 @@ export const studioVideoRender = inngest.createFunction(
       await setJob(jobId, { status: "rendering_shots", shots_total: shots.length });
 
       const shotUrls: string[] = [];
+      const shotKeys: (string | null)[] = [];
       for (const shot of shots) {
-        const url = await step.run(`shot-${shot.n}`, async () => {
-          const r = await provider.render(buildShotPrompt(shot, pack));
-          return r.url;
+        const result = await step.run(`shot-${shot.n}`, async () => {
+          return provider.render(buildShotPrompt(shot, pack));
         });
-        shotUrls.push(url);
-        await setJob(jobId, { shots_done: shotUrls.length, shot_urls: shotUrls });
+        shotUrls.push(result.url);
+        shotKeys.push(result.key ?? null);
+        await setJob(jobId, {
+          shots_done: shotUrls.length,
+          shot_urls: shotUrls,
+          shot_keys: shotKeys,
+        });
       }
 
-      await setJob(jobId, { status: "stitching" });
+      // Stitching: only fal-based providers go through fal's hosted ffmpeg.
+      // Vertex / Google-direct stay as a per-shot deliverable — the UI shows
+      // each clip and the operator concatenates in CapCut. We avoid spending
+      // FAL credits when the user explicitly picked a non-fal provider.
+      if (provider.stitch === "fal" && process.env.FAL_KEY) {
+        await setJob(jobId, { status: "stitching" });
+        const final = await step.run("compose", () =>
+          composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
+        );
+        await setJob(jobId, {
+          status: "done",
+          final_url: final.url,
+          duration_sec: final.durationSec,
+        });
+        return { ok: true, url: final.url };
+      }
 
-      const final = await step.run("compose", () =>
-        composeFinalAd({ shotUrls, shotDurationSec: provider.secondsPerShot }),
-      );
-
+      // No-stitch path: shots are the deliverable.
       await setJob(jobId, {
         status: "done",
-        final_url: final.url,
-        duration_sec: final.durationSec,
+        duration_sec: shots.length * provider.secondsPerShot,
       });
-      return { ok: true, url: final.url };
+      return { ok: true, shots: shotUrls };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await setJob(jobId, { status: "failed", error: msg.slice(0, 1000) });

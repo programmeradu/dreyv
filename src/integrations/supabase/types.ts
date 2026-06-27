@@ -509,10 +509,12 @@ export type Database = {
           created_by: string | null
           duration_sec: number | null
           error: string | null
+          final_key: string | null
           final_url: string | null
           id: string
           model: string
           pack: Json
+          shot_keys: Json
           shot_urls: Json
           shots_done: number
           shots_total: number
@@ -525,10 +527,12 @@ export type Database = {
           created_by?: string | null
           duration_sec?: number | null
           error?: string | null
+          final_key?: string | null
           final_url?: string | null
           id?: string
           model?: string
           pack: Json
+          shot_keys?: Json
           shot_urls?: Json
           shots_done?: number
           shots_total?: number
@@ -541,10 +545,12 @@ export type Database = {
           created_by?: string | null
           duration_sec?: number | null
           error?: string | null
+          final_key?: string | null
           final_url?: string | null
           id?: string
           model?: string
           pack?: Json
+          shot_keys?: Json
           shot_urls?: Json
           shots_done?: number
           shots_total?: number

@@ -143,6 +143,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
         duration_sec: null,
         error: j.warning ?? null,
       });
+      try { localStorage.setItem("studio.video.activeJobId", j.jobId); } catch {}
     } catch (e) {
       setRenderError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -150,6 +151,41 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     }
   }, [pack, providerId]);
 
+  // Rehydrate the active job after a refresh so long renders survive reloads.
+  React.useEffect(() => {
+    let cancelled = false;
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("studio.video.activeJobId"); } catch {}
+    if (!stored) return;
+    (async () => {
+      try {
+        const r = await fetch(`/api/studio/video/render?id=${stored}`);
+        const j = await r.json();
+        if (!cancelled && r.ok && j?.id) {
+          setRenderJob({
+            id: j.id,
+            status: j.status,
+            shots_total: j.shots_total ?? 0,
+            shots_done: j.shots_done ?? 0,
+            shot_urls: Array.isArray(j.shot_urls) ? j.shot_urls : [],
+            final_url: j.final_url ?? null,
+            duration_sec: j.duration_sec ?? null,
+            error: j.error ?? null,
+          });
+        } else if (!cancelled && r.status === 404) {
+          try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Clear the saved job id once it lands in a terminal state.
+  React.useEffect(() => {
+    if (renderJob && (renderJob.status === "done" || renderJob.status === "failed")) {
+      try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
+    }
+  }, [renderJob?.status]);
 
   // Poll job until terminal.
   React.useEffect(() => {
