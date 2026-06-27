@@ -16,6 +16,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Check, Loader2, X } from "lucide-react";
 import labCrystal from "@/assets/lab-crystal.png";
+import labHeroHindsight from "@/assets/lab-hero-hindsight.png";
+import labHeroForesight from "@/assets/lab-hero-foresight.png";
+import labHeroStress from "@/assets/lab-hero-stress.png";
+import labHeroPlaybooks from "@/assets/lab-hero-playbooks.png";
 import glyphHindsight from "@/assets/lab-glyph-hindsight.png";
 import glyphForesight from "@/assets/lab-glyph-foresight.png";
 import glyphStress from "@/assets/lab-glyph-stress.png";
@@ -514,16 +518,12 @@ function AddressGate({ onResolve, address, busy }: {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="relative text-center">
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-300/25 blur-[80px]" />
-        <div className="mx-auto mb-6 h-28 w-28 sm:h-32 sm:w-32">
-          <Image src={labCrystal} alt="" width={256} height={256} priority
-            className="h-full w-full object-contain drop-shadow-[0_28px_60px_rgba(124,58,237,0.35)]" />
-        </div>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-300/20 blur-[80px]" />
         <div className="flex items-center justify-center gap-1.5 text-[13px] leading-none text-violet-700">
           <span className="font-semibold lowercase tracking-tight" style={{ fontFamily: "Urbanist, ui-sans-serif, system-ui" }}>dreyv</span>
           <span className="font-black uppercase tracking-[0.18em]">LAB</span>
         </div>
-        <h1 className="mt-3 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
+        <h1 className="mt-4 font-display text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl">
           Decide with hindsight.
           <br />
           <span className="text-zinc-400">Act with foresight.</span>
