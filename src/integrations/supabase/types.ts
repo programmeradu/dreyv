@@ -502,6 +502,57 @@ export type Database = {
           },
         ]
       }
+      studio_video_jobs: {
+        Row: {
+          cost_usd_minor: number | null
+          created_at: string
+          created_by: string | null
+          duration_sec: number | null
+          error: string | null
+          final_url: string | null
+          id: string
+          model: string
+          pack: Json
+          shot_urls: Json
+          shots_done: number
+          shots_total: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cost_usd_minor?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          error?: string | null
+          final_url?: string | null
+          id?: string
+          model?: string
+          pack: Json
+          shot_urls?: Json
+          shots_done?: number
+          shots_total?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cost_usd_minor?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          error?: string | null
+          final_url?: string | null
+          id?: string
+          model?: string
+          pack?: Json
+          shot_urls?: Json
+          shots_done?: number
+          shots_total?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
