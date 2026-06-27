@@ -5394,6 +5394,61 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({ sessionId: z.string().min(1) }).strict(),
     handler: (i, c) => caps.sessionSignerRevoke(i, c),
   },
+
+  // ─── Pillar — Ecosystem Intel (Colosseum Copilot) ─────────────────────
+  {
+    id: "colosseum.search",
+    mcpName: "dreyv_colosseum_search",
+    pillar: "knowledge",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "stable",
+    title: "Search the Solana builder ecosystem (Colosseum Copilot)",
+    description:
+      "[READ] Search Colosseum's index of Solana hackathon projects, accelerator companies, and active builders. Returns name, summary, tags, score. Cached 24h.",
+    inputSchema: z
+      .object({
+        query: z.string().min(2).describe("Free-text query e.g. 'solana lending', 'restaking', 'AI agents on solana'."),
+        limit: z.number().int().min(1).max(20).default(8),
+      })
+      .strict(),
+    handler: (i, c) => caps.colosseumSearch(i, c),
+  },
+  {
+    id: "colosseum.project",
+    mcpName: "dreyv_colosseum_project",
+    pillar: "knowledge",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "preview",
+    title: "Full Colosseum project profile (team, hackathon, funding, links)",
+    description:
+      "[READ] Full project profile from Colosseum: hackathon track, cohort, team/founders, funding stage, social/github/website links. Falls back to top-hit search when an exact slug isn't found.",
+    inputSchema: z
+      .object({
+        slug: z.string().min(2).describe("Project name or slug, e.g. 'jupiter', 'marginfi'."),
+      })
+      .strict(),
+    handler: (i, c) => caps.colosseumProject(i, c),
+  },
+  {
+    id: "colosseum.similar",
+    mcpName: "dreyv_colosseum_similar",
+    pillar: "knowledge",
+    scope: "read:market",
+    sideEffects: "read",
+    status: "preview",
+    title: "Projects similar to a given Solana project",
+    description:
+      "[READ] Ranked list of Colosseum projects similar to the input slug. Useful for competitor discovery, Foresight rotation suggestions, and 'builders in this space' surfaces.",
+    inputSchema: z
+      .object({
+        slug: z.string().min(2),
+        limit: z.number().int().min(1).max(20).default(6),
+      })
+      .strict(),
+    handler: (i, c) => caps.colosseumSimilar(i, c),
+  },
 ];
 
 
