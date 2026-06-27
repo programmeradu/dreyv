@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
       "db-migrations/**/*.sql",
       "migrations/sql/**/*.sql",
     ],
+    "/api/studio/video/render": [
+      "node_modules/ffmpeg-static/**/*",
+    ],
+    "/api/inngest": [
+      "node_modules/ffmpeg-static/**/*",
+    ],
   },
   async redirects() {
     return [
