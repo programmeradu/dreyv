@@ -1041,18 +1041,23 @@ function ForesightPanel({ address }: { address: string }) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Projected 90-day gain · risk-adjusted</div>
+      <Card className="relative overflow-hidden p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-12 hidden h-56 w-56 opacity-95 sm:block">
+          <Image src={labHeroForesight} alt="" width={448} height={448} loading="lazy"
+            className="h-full w-full object-contain drop-shadow-[0_24px_60px_rgba(124,58,237,0.30)]" />
+        </div>
+        <div className="pointer-events-none absolute -right-24 top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-[42%]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-violet-600">Foresight · projected 90d</div>
             <div className="mt-3">
               {busy ? <Skeleton h={56} w={200} /> :
                 <Numeric value={totalDelta} prefix="+$" size="2xl" tone={totalDelta > 0 ? "violet" : "muted"} />}
             </div>
-            <div className="mt-2 text-sm text-zinc-500">Sum of top-ranked rotations net of 30 bps swap cost.</div>
+            <div className="mt-2 max-w-md text-[13px] leading-relaxed text-zinc-500">Sum of top-ranked rotations net of 30 bps swap cost.</div>
           </div>
           {data && data.rotations.length > 0 && (
-            <div className="w-full max-w-[420px]">
+            <div className="w-full max-w-[440px]">
               <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-zinc-400">Risk · Return surface</div>
               <RiskReturnScatter rotations={data.rotations} />
             </div>
