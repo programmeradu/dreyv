@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,7 +11,8 @@ type StitchResult = { url: string; key?: string; durationSec: number };
 const SHOT_DURATION_SEC = 8;
 
 function ffmpegPath(): string {
-  return ffmpegStaticPath || process.env.FFMPEG_PATH || "ffmpeg";
+  if (ffmpegStaticPath && existsSync(ffmpegStaticPath)) return ffmpegStaticPath;
+  return process.env.FFMPEG_PATH || "ffmpeg";
 }
 
 function runFfmpeg(args: string[], cwd: string): Promise<void> {
