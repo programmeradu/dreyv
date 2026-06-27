@@ -173,138 +173,91 @@ function RadialDonut({
   );
 }
 
-/** Waterfall — cumulative impact chart with axis ticks, gradient bars, glow. */
-function WaterfallChart({
+/** ImpactBars — ranked horizontal tornado of per-asset stress damage. */
+function ImpactBars({
   items,
-  height = 260,
 }: {
   items: Array<{ label: string; delta: number; before: number }>;
-  height?: number;
 }) {
+  if (!items.length) return null;
+  const rowH = 44;
+  const height = items.length * rowH + 16;
   const width = 880;
-  const padL = 64;
-  const padR = 28;
-  const padT = 24;
-  const padB = 40;
-  const innerH = height - padT - padB;
+  const padL = 110;
+  const padR = 150;
   const innerW = width - padL - padR;
-
-  const startTotal = items.reduce((s, x) => s + x.before, 0);
-  let running = startTotal;
-  const points: Array<{ y0: number; y1: number; delta: number; label: string }> = [];
-  for (let i = 0; i < items.length; i++) {
-    const before = running;
-    running += items[i].delta;
-    points.push({ y0: before, y1: running, delta: items[i].delta, label: items[i].label });
-  }
-  const allVals = [startTotal, running, ...points.flatMap((p) => [p.y0, p.y1])];
-  const maxV = Math.max(...allVals);
-  const minV = Math.min(0, ...allVals);
-  const range = maxV - minV || 1;
-  const cols = items.length + 2; // start + items + end
-  const slot = innerW / cols;
-  const barW = slot * 0.62;
-  const scaleY = (v: number) => padT + innerH - ((v - minV) / range) * innerH;
-
-  // Y-axis ticks (4 levels)
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => minV + range * t);
+  const maxAbs = Math.max(...items.map((i) => Math.abs(i.delta)), 1);
+  const totalAbs = items.reduce((s, i) => s + Math.abs(i.delta), 0) || 1;
+  const fmt = (v: number) => {
+    const a = Math.abs(v);
+    if (a >= 1_000_000) return `${(a / 1_000_000).toFixed(2)}M`;
+    if (a >= 1_000) return `${(a / 1_000).toFixed(1)}k`;
+    return a.toFixed(0);
+  };
 
   return (
     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="wf-pos" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#10b981" stopOpacity="0.85" />
+        <linearGradient id="ib-neg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#fb7185" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#e11d48" stopOpacity="0.95" />
         </linearGradient>
-        <linearGradient id="wf-neg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fb7185" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#e11d48" stopOpacity="0.85" />
+        <linearGradient id="ib-pos" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#34d399" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#059669" stopOpacity="0.95" />
         </linearGradient>
-        <linearGradient id="wf-start" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#27272a" />
-          <stop offset="100%" stopColor="#52525b" />
+        <linearGradient id="ib-track" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#f4f4f5" />
+          <stop offset="100%" stopColor="#fafafa" />
         </linearGradient>
-        <linearGradient id="wf-end" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#5b21b6" />
-        </linearGradient>
-        <filter id="wf-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="b" />
-          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
       </defs>
 
-      {/* Gridlines + Y ticks */}
-      {ticks.map((tv, i) => {
-        const y = scaleY(tv);
+      <line x1={padL} x2={padL} y1={8} y2={height - 8} stroke="#27272a" strokeWidth="1" />
+
+      {items.map((it, i) => {
+        const cy = 8 + i * rowH + rowH / 2;
+        const isNeg = it.delta < 0;
+        const w = (Math.abs(it.delta) / maxAbs) * innerW;
+        const share = (Math.abs(it.delta) / totalAbs) * 100;
         return (
           <g key={i}>
-            <line x1={padL} x2={width - padR} y1={y} y2={y} stroke={tv === 0 ? "#d4d4d8" : "#f4f4f5"} strokeDasharray={tv === 0 ? "0" : "2 4"} />
-            <text x={padL - 10} y={y + 3} textAnchor="end" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
-              ${tv >= 0 ? "" : "−"}{Math.abs(tv) >= 1000 ? (Math.abs(tv) / 1000).toFixed(1) + "k" : Math.abs(tv).toFixed(0)}
+            <rect x={padL} y={cy - 9} width={innerW} height={18} rx="9" fill="url(#ib-track)" />
+            <motion.rect
+              x={padL}
+              y={cy - 9}
+              height={18}
+              rx="9"
+              fill={isNeg ? "url(#ib-neg)" : "url(#ib-pos)"}
+              initial={{ width: 0 }}
+              animate={{ width: Math.max(4, w) }}
+              transition={{ delay: 0.05 * i, duration: 0.6, ease: [0.2, 0, 0, 1] }}
+            />
+            <motion.circle
+              cx={padL}
+              cy={cy}
+              r="3"
+              fill={isNeg ? "#e11d48" : "#059669"}
+              initial={{ cx: padL }}
+              animate={{ cx: padL + Math.max(4, w) }}
+              transition={{ delay: 0.05 * i, duration: 0.6, ease: [0.2, 0, 0, 1] }}
+            />
+
+            <text x={padL - 14} y={cy - 2} textAnchor="end" fontSize="12" fontWeight="600" fill="#18181b">
+              {it.label}
+            </text>
+            <text x={padL - 14} y={cy + 12} textAnchor="end" fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+              ${fmt(it.before)}
+            </text>
+
+            <text x={width - padR + 14} y={cy - 2} fontSize="12" fontWeight="700" fontFamily="ui-monospace,monospace" fill={isNeg ? "#e11d48" : "#059669"}>
+              {isNeg ? "−" : "+"}${fmt(it.delta)}
+            </text>
+            <text x={width - padR + 14} y={cy + 12} fontSize="10" fill="#a1a1aa" fontFamily="ui-monospace,monospace">
+              {share.toFixed(1)}% of impact
             </text>
           </g>
         );
       })}
-
-      {/* Start column */}
-      {(() => {
-        const cx = padL + slot * 0.5 - barW / 2;
-        const y = scaleY(startTotal);
-        return (
-          <g>
-            <motion.rect x={cx} y={y} width={barW} height={Math.max(2, scaleY(0) - y)} fill="url(#wf-start)" rx="4"
-              initial={{ opacity: 0, y: y + 8 }} animate={{ opacity: 1, y }} transition={{ duration: 0.4 }} />
-            <text x={cx + barW / 2} y={y - 8} textAnchor="middle" fontSize="10" fill="#27272a" fontFamily="ui-monospace,monospace" fontWeight="600">
-              ${startTotal >= 1000 ? (startTotal / 1000).toFixed(1) + "k" : startTotal.toFixed(0)}
-            </text>
-            <text x={cx + barW / 2} y={height - 14} textAnchor="middle" fontSize="10" fill="#71717a" fontWeight="500">Before</text>
-          </g>
-        );
-      })()}
-
-      {/* Delta bars */}
-      {points.map((p, i) => {
-        const cx = padL + slot * (i + 1.5) - barW / 2;
-        const top = scaleY(Math.max(p.y0, p.y1));
-        const bot = scaleY(Math.min(p.y0, p.y1));
-        const isNeg = p.delta < 0;
-        return (
-          <g key={i}>
-            <motion.rect x={cx} width={barW} y={top} height={Math.max(2, bot - top)} fill={isNeg ? "url(#wf-neg)" : "url(#wf-pos)"} rx="4"
-              filter="url(#wf-glow)"
-              initial={{ opacity: 0, scaleY: 0 }} animate={{ opacity: 1, scaleY: 1 }}
-              transition={{ delay: 0.06 * i, duration: 0.4, ease: [0.2, 0, 0, 1] }}
-              style={{ transformOrigin: `${cx + barW / 2}px ${scaleY(p.y0)}px` }} />
-            <text x={cx + barW / 2} y={top - 6} textAnchor="middle" fontSize="10" fill={isNeg ? "#e11d48" : "#059669"} fontFamily="ui-monospace,monospace" fontWeight="600">
-              {p.delta >= 0 ? "+" : "−"}${Math.abs(p.delta) >= 1000 ? (Math.abs(p.delta) / 1000).toFixed(1) + "k" : Math.abs(p.delta).toFixed(0)}
-            </text>
-            <text x={cx + barW / 2} y={height - 14} textAnchor="middle" fontSize="10" fill="#71717a">
-              {p.label.length > 8 ? p.label.slice(0, 7) + "…" : p.label}
-            </text>
-            {i < points.length - 1 && (
-              <line x1={cx + barW} x2={padL + slot * (i + 2.5) - barW / 2} y1={scaleY(p.y1)} y2={scaleY(p.y1)} stroke="#d4d4d8" strokeDasharray="2 3" />
-            )}
-          </g>
-        );
-      })}
-
-      {/* End column */}
-      {(() => {
-        const cx = padL + slot * (cols - 0.5) - barW / 2;
-        const y = scaleY(running);
-        return (
-          <g>
-            <motion.rect x={cx} y={y} width={barW} height={Math.max(2, scaleY(0) - y)} fill="url(#wf-end)" rx="4"
-              filter="url(#wf-glow)"
-              initial={{ opacity: 0, y: y + 8 }} animate={{ opacity: 1, y }} transition={{ delay: 0.06 * points.length + 0.1, duration: 0.45 }} />
-            <text x={cx + barW / 2} y={y - 8} textAnchor="middle" fontSize="10" fill="#5b21b6" fontFamily="ui-monospace,monospace" fontWeight="700">
-              ${running >= 1000 ? (running / 1000).toFixed(1) + "k" : running.toFixed(0)}
-            </text>
-            <text x={cx + barW / 2} y={height - 14} textAnchor="middle" fontSize="10" fill="#5b21b6" fontWeight="600">After</text>
-          </g>
-        );
-      })()}
     </svg>
   );
 }
@@ -1225,10 +1178,10 @@ function StressPanel({ address }: { address: string }) {
       {data && waterfallItems.length > 0 && (
         <Card className="p-5">
           <div className="mb-3 flex items-baseline justify-between">
-            <div className="text-sm font-medium text-zinc-900">Cascade · per-asset impact</div>
-            <div className="text-[11px] text-zinc-400">Cumulative path from start to stressed end</div>
+            <div className="text-sm font-medium text-zinc-900">Impact ranking · per-asset damage</div>
+            <div className="text-[11px] text-zinc-400">Sorted by loss magnitude · share of total impact</div>
           </div>
-          <WaterfallChart items={waterfallItems} />
+          <ImpactBars items={waterfallItems} />
         </Card>
       )}
 
