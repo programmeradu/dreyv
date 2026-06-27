@@ -49,8 +49,11 @@ export interface BusEnvelope<T = unknown> {
   data: T;
 }
 
-function inngestReady(): boolean {
+function gatewayReady(): boolean {
   return Boolean(process.env.LOVABLE_API_KEY && process.env.INNGEST_API_KEY);
+}
+function directReady(): boolean {
+  return Boolean(process.env.INNGEST_EVENT_KEY);
 }
 
 export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
@@ -60,8 +63,34 @@ export async function publish(events: BusEnvelope | BusEnvelope[]): Promise<{
   const list = Array.isArray(events) ? events : [events];
   if (!list.length) return { delivered: true };
 
-  if (!inngestReady()) {
-    // Dev fallback: structured log so we can still trace flow.
+  // Direct path: classic Inngest setup (Vercel envs INNGEST_EVENT_KEY/SIGNING_KEY).
+  // Preferred when configured because it's the production wiring on dreyv.com.
+  if (directReady()) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const res = await fetch(`https://inn.gs/e/${process.env.INNGEST_EVENT_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(list.length === 1 ? list[0] : list),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error("[bus:direct:error]", res.status, body.slice(0, 200));
+        return { delivered: false, reason: `inngest_${res.status}` };
+      }
+      return { delivered: true };
+    } catch (e: any) {
+      const reason = e?.name === "AbortError" ? "inngest_timeout_8s" : e?.message || "unknown";
+      console.error("[bus:direct:exception]", reason);
+      return { delivered: false, reason };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (!gatewayReady()) {
     for (const e of list) {
       // eslint-disable-next-line no-console
       console.log("[bus:pending]", e.name, JSON.stringify(e.data).slice(0, 240));
