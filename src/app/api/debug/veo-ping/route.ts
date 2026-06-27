@@ -4,6 +4,7 @@
  *   GET /api/debug/veo-ping?render=1   -> submits a 5s test clip end-to-end
  */
 import { NextResponse } from "next/server";
+import { vertexHealthCheck } from "@/lib/media-studio/google-vertex-veo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,21 @@ export const dynamic = "force-dynamic";
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+
+  // Vertex AI path: GET /api/debug/veo-ping?vertex=1
+  if (url.searchParams.get("vertex") === "1") {
+    try {
+      const r = await vertexHealthCheck();
+      return NextResponse.json({ ...r, hint: "Vertex AI Veo reachable. Use provider=veo3-vertex in /api/studio/video/render." });
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, stage: "vertex", error: e instanceof Error ? e.message : String(e) },
+        { status: 500 },
+      );
+    }
+  }
+
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) {
     return NextResponse.json({ ok: false, stage: "env", error: "GEMINI_API_KEY missing" }, { status: 500 });
