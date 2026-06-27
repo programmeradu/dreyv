@@ -92,7 +92,7 @@ export async function renderGoogleVeo3Shot(prompt: string): Promise<{ url: strin
   const objKey = `studio/video/veo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
   await putR2Object({ key: objKey, body: Buffer.from(bytes), mime: "video/mp4", filename: "shot.mp4" });
   // Bucket is private — presign an inline GET URL (1h TTL is plenty for the
-  // ffmpeg-compose step + user preview in the studio panel).
+  // local stitch step + user preview in the studio panel).
   const url = await presignR2Get({ key: objKey, filename: "shot.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
   return { url };
 }
