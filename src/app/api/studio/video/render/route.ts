@@ -2,13 +2,13 @@
  * /api/studio/video/render
  *
  *   POST  { pack }       → creates a studio_video_jobs row and starts the
- *                          selected renderer. Vertex uses short operation
+ *                          selected renderer. Vertex uses per-shot operation
  *                          polling; fal providers still use Inngest.
  *   GET   ?id=<uuid>     → returns the row so the UI can poll progress
  *                          and surface the final mp4 url + per-shot urls.
  *
- * The default Vertex path never holds a request open for the full render, so
- * the UI cannot sit on an invisible serverless timeout and spin forever.
+ * The default Vertex path never holds a request open for the full render: it
+ * submits/polls each 8s segment, then stitches the finished shots into one ad.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
@@ -65,6 +65,9 @@ async function handlePost(req: NextRequest) {
   if ((provider === "veo3-fal" || provider === "wan22-fal") && !process.env.FAL_KEY) {
     return NextResponse.json({ error: "FAL_KEY missing — required for fal-hosted providers." }, { status: 500 });
   }
+  if (provider === "veo3-vertex" && pack.shotList.length > 1 && !process.env.FAL_KEY) {
+    return NextResponse.json({ error: "FAL_KEY missing — required to stitch multiple Vertex shots into one final ad." }, { status: 500 });
+  }
   if (provider === "veo3-google" && !process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY missing." }, { status: 500 });
   }
@@ -87,7 +90,7 @@ async function handlePost(req: NextRequest) {
     provider === "wan22-fal"   ? "fal-ai/wan/v2.2-5b/fast/text-to-video" :
                                  "fal-ai/veo3/fast";
 
-  const renderUnits = provider === "veo3-vertex" ? 1 : pack.shotList.length;
+  const renderUnits = pack.shotList.length;
   const inserted = (await db.execute(
     sql`INSERT INTO studio_video_jobs (status, pack, shots_total, model, created_by)
         VALUES ('queued', ${JSON.stringify(pack)}::jsonb, ${renderUnits}, ${modelLabel}, ${auth.user?.id ?? null})
