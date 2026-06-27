@@ -120,6 +120,14 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
     ? { "x-goog-api-key": a.key, "Content-Type": "application/json; charset=utf-8" }
     : { Authorization: `Bearer ${a.token}`, "Content-Type": "application/json; charset=utf-8" };
 }
+
+/**
+ * Submit one Vertex Veo 3.1 generation, poll until done, persist to R2.
+ * Returns a presigned R2 URL the browser can stream.
+ */
+export async function renderVertexVeoShot(prompt: string): Promise<{ url: string }> {
+  const auth = await vertexAuth();
+  const modelBase = auth.url;
   const storageUri = process.env.GCS_OUTPUT_URI?.trim(); // optional gs://bucket/prefix/
 
   const submitBody = {
@@ -137,10 +145,7 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
 
   const submit = await fetch(`${modelBase}:predictLongRunning`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json; charset=utf-8",
-    },
+    headers: authHeaders(auth),
     body: JSON.stringify(submitBody),
   });
   const submitText = await submit.text();
@@ -155,10 +160,7 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
     await new Promise((r) => setTimeout(r, 6000));
     const poll = await fetch(`${modelBase}:fetchPredictOperation`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json; charset=utf-8",
-      },
+      headers: authHeaders(auth),
       body: JSON.stringify({ operationName: opName }),
     });
     const pollText = await poll.text();
@@ -169,7 +171,6 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
   if (!op?.done) throw new Error("Vertex Veo timed out after 8m");
   if (op.error) throw new Error(`Vertex Veo failed: ${op.error.message}`);
 
-  // Vertex shape: response.videos[].gcsUri | bytesBase64Encoded
   const video = op.response?.videos?.[0];
   if (!video) throw new Error("Vertex returned no video");
 
@@ -177,13 +178,16 @@ function authHeaders(a: { mode: "key"; key: string } | { mode: "sa"; token: stri
   if (video.bytesBase64Encoded) {
     bytes = Uint8Array.from(Buffer.from(video.bytesBase64Encoded, "base64"));
   } else if (video.gcsUri) {
-    // Download from GCS using the same access token.
+    // Download from GCS — needs an OAuth bearer; API-key auth can't read GCS.
+    if (auth.mode !== "sa") {
+      throw new Error("Vertex returned a gcsUri but API-key mode can't read GCS. Unset GCS_OUTPUT_URI or use a service account.");
+    }
     const m = video.gcsUri.match(/^gs:\/\/([^/]+)\/(.+)$/);
     if (!m) throw new Error(`Bad gcsUri: ${video.gcsUri}`);
     const [, bucket, object] = m;
     const dl = await fetch(
       `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(object)}?alt=media`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${auth.token}` } },
     );
     if (!dl.ok) throw new Error(`GCS download ${dl.status}`);
     bytes = new Uint8Array(await dl.arrayBuffer());
