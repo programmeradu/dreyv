@@ -95,6 +95,8 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
   return [
     dreyvShotStylePreamble(),
     "",
+    "MASCOT REFERENCE IMAGES MAY BE ATTACHED — when they are, copy the mascot from those images exactly: violet body, cream chest with the violet Dreyv 'D' mark, violet cap, amber eyes, same proportions. Do not invent a new mascot, do not omit the chest 'D' mark, do not omit the cap, do not change the colors.",
+    "",
     `9:16 vertical ad segment ${shot.n} of ${pack.shotList.length} for ONE continuous Dreyv ad, pronounced DRAVE.`,
     `This is not a variant, restart, recap, or alternate take. It must be the next chronological scene in the same ad.`,
     previousShot ? `Previous scene context to continue from, not repeat: ${previousShot.description}` : `Opening scene: establish the cinematic world and motion hook — clean frame, no abstract garnish.`,
