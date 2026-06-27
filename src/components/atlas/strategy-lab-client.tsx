@@ -1289,6 +1289,12 @@ function PlaybooksPanel({ address }: { address: string }) {
 
   return (
     <div className="space-y-4">
+      <PanelHero
+        eyebrow="Playbooks · backtested"
+        title="Strategies, proven against history."
+        subtitle="Pick a thesis. We re-run it day-by-day against the last 365 days of prices and show what it would have done to your stack."
+        art={labHeroPlaybooks}
+      />
       <div className="grid gap-4 md:grid-cols-2">
         {list.map((pb) => (
           <button
