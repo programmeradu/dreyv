@@ -92,6 +92,7 @@ export type VertexVeoMaterializedVideo = { url: string; key?: string };
 export type VertexVeoPollResult =
   | { done: false; operationName: string }
   | ({ done: true; operationName: string } & VertexVeoMaterializedVideo);
+type VertexVideo = { gcsUri?: string; bytesBase64Encoded?: string; mimeType?: string };
 
 const VERTEX_BASE = () =>
   `https://${REGION}-aiplatform.googleapis.com/v1/projects`;
@@ -169,7 +170,7 @@ export async function submitVertexVeoOperation(prompt: string): Promise<{ operat
   return { operationName: opName };
 }
 
-async function materializeVertexVideo(auth: Awaited<ReturnType<typeof vertexAuth>>, video: NonNullable<Operation["response"]>["videos"][number]): Promise<VertexVeoMaterializedVideo> {
+async function materializeVertexVideo(auth: Awaited<ReturnType<typeof vertexAuth>>, video: VertexVideo): Promise<VertexVeoMaterializedVideo> {
   let bytes: Uint8Array;
   if (video.bytesBase64Encoded) {
     bytes = Uint8Array.from(Buffer.from(video.bytesBase64Encoded, "base64"));
