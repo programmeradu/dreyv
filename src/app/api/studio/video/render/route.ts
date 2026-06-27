@@ -164,43 +164,56 @@ async function refreshFinalUrl(key: unknown, fallback: unknown): Promise<string 
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireTeamMember(req);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
+  try {
+    const auth = await requireTeamMember(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
 
-  const id = req.nextUrl.searchParams.get("id");
+    const id = req.nextUrl.searchParams.get("id");
 
-  // List mode — recent jobs for the dashboard's "Recent renders" panel.
-  if (!id) {
+    // List mode — recent jobs for the dashboard's "Recent renders" panel.
+    if (!id) {
+      const result = (await db.execute(
+        sql`SELECT id, status, model, shots_total, shots_done,
+                   final_url,
+                   COALESCE(final_key, NULL) AS final_key,
+                   duration_sec, error, created_at
+            FROM studio_video_jobs
+            ORDER BY created_at DESC
+            LIMIT 20`,
+      )) as unknown;
+      const rows =
+        (result as { rows?: Array<Record<string, unknown>> }).rows ??
+        (Array.isArray(result) ? (result as Array<Record<string, unknown>>) : []);
+      const jobs = await Promise.all(
+        rows.map(async (r) => ({
+          ...r,
+          final_url: await refreshFinalUrl(r.final_key, r.final_url),
+        })),
+      );
+      return NextResponse.json({ jobs });
+    }
+
     const result = (await db.execute(
-      sql`SELECT id, status, model, shots_total, shots_done, final_url, final_key, duration_sec, error, created_at
-          FROM studio_video_jobs
-          ORDER BY created_at DESC
-          LIMIT 20`,
+      sql`SELECT id, status, shots_total, shots_done, shot_urls,
+                 COALESCE(shot_keys, '[]'::jsonb) AS shot_keys,
+                 final_url,
+                 COALESCE(final_key, NULL) AS final_key,
+                 duration_sec, error, created_at, updated_at
+          FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
     )) as unknown;
-    const rows =
-      (result as { rows?: Array<Record<string, unknown>> }).rows ??
-      (Array.isArray(result) ? (result as Array<Record<string, unknown>>) : []);
-    const jobs = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        final_url: await refreshFinalUrl(r.final_key, r.final_url),
-      })),
-    );
-    return NextResponse.json({ jobs });
+    const row =
+      (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ??
+      (Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined);
+    if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+    const shotUrls = await refreshShotUrls(row.shot_keys, row.shot_urls);
+    const finalUrl = await refreshFinalUrl(row.final_key, row.final_url);
+    return NextResponse.json({ ...row, shot_urls: shotUrls, final_url: finalUrl });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[studio/video/render] GET failed:", err);
+    return NextResponse.json({ error: msg.slice(0, 500) }, { status: 500 });
   }
-
-  const result = (await db.execute(
-    sql`SELECT id, status, shots_total, shots_done, shot_urls, shot_keys,
-               final_url, final_key, duration_sec, error, created_at, updated_at
-        FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`,
-  )) as unknown;
-  const row =
-    (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ??
-    (Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined);
-  if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
-
-  const shotUrls = await refreshShotUrls(row.shot_keys, row.shot_urls);
-  const finalUrl = await refreshFinalUrl(row.final_key, row.final_url);
-  return NextResponse.json({ ...row, shot_urls: shotUrls, final_url: finalUrl });
 }
+
