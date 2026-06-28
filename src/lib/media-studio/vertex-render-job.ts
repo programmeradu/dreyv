@@ -8,6 +8,11 @@ import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references"
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
+import {
+  isElevenLabsConfigured,
+  narrationContextFor,
+  synthesizeShotNarration,
+} from "@/lib/media-studio/elevenlabs-narration";
 
 type Shot = {
   n: number;
