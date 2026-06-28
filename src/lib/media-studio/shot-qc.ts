@@ -265,6 +265,23 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
       issues.push(`freeze ${probed.freezeSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
       needsReshoot = true;
     }
+    if (durationSec && probed.silenceSec > durationSec * 0.85) {
+      // Almost the entire 8s clip is silent — the model likely dropped audio.
+      issues.push(`silence ${probed.silenceSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
+    }
+    if (probed.audioMeanDb !== null && probed.audioMeanDb < -55) {
+      issues.push(`audio mean ${probed.audioMeanDb.toFixed(1)}dB (effectively silent)`);
+    }
+    // Detect "model recycled the same frame" — zero scene cuts AND high freeze.
+    if (durationSec && probed.sceneChanges === 0 && probed.freezeSec > durationSec * 0.3) {
+      issues.push(`no motion (0 scene changes, freeze ${probed.freezeSec.toFixed(1)}s)`);
+      needsReshoot = true;
+    }
+    // Veo should always return 9:16. Anything else means the wrong aspect leaked through.
+    if (probed.width && probed.height && probed.width > probed.height) {
+      issues.push(`wrong aspect ${probed.width}x${probed.height} (expected portrait 9:16)`);
+      needsReshoot = true;
+    }
 
     // 2 + 3 run in parallel — independent IO.
     const mid = durationSec ? (durationSec / 2).toFixed(2) : "1";
@@ -286,7 +303,24 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
     lastAction = vision.lastAction;
     settingFingerprint = vision.settingFingerprint;
 
-    return { ok: issues.length === 0, issues, durationSec, lastWords, lastAction, settingFingerprint, needsReshoot };
+    return {
+      ok: !needsReshoot && issues.length === 0,
+      issues,
+      durationSec,
+      lastWords,
+      lastAction,
+      settingFingerprint,
+      needsReshoot,
+      metrics: {
+        width: probed.width,
+        height: probed.height,
+        blackSec: probed.blackSec,
+        freezeSec: probed.freezeSec,
+        silenceSec: probed.silenceSec,
+        sceneChanges: probed.sceneChanges,
+        audioMeanDb: probed.audioMeanDb,
+      },
+    };
   } finally {
     await rm(work, { recursive: true, force: true });
   }
