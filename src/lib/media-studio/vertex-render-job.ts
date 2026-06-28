@@ -164,22 +164,22 @@ async function submitNextShotOperation(args: {
   shots: Shot[];
   pack: Pack;
   index: number;
-  firstFrameImage?: VeoFirstFrameImage;
+  continuityRefs?: VeoReferenceImage[];
   previousObservation?: ShotObservation;
   reshootNote?: string;
   reshootCount?: number;
 }): Promise<VertexShotOperation> {
-  const mascotRefs = await loadDreyvMascotReferences();
   const shot = args.shots[args.index];
+  // Shot 1: lock to canonical mascot poses. Shots 2+: lock to the last few
+  // frames of the previous shot so mascot + scene + camera carry forward
+  // without any Gemini repaint in the loop.
+  const refs = args.continuityRefs?.length ? args.continuityRefs : await loadDreyvMascotReferences();
   const op = await submitVertexVeoOperation(
     shotPrompt(shot, args.index, args.shots.length, args.pack, {
       previousObservation: args.previousObservation,
       reshootNote: args.reshootNote,
     }),
-    {
-      referenceImages: mascotRefs,
-      ...(args.firstFrameImage ? { firstFrameImage: args.firstFrameImage } : {}),
-    },
+    { referenceImages: refs },
   );
   return {
     n: shot.n ?? args.index + 1,
@@ -187,6 +187,14 @@ async function submitNextShotOperation(args: {
     submittedAt: new Date().toISOString(),
     ...(args.reshootCount ? { reshootCount: args.reshootCount } : {}),
   };
+}
+
+async function tailRefsFor(url: string | undefined): Promise<VeoReferenceImage[] | undefined> {
+  if (!url) return undefined;
+  return extractTailFramesAsRefs(url, 3).catch((err) => {
+    console.warn("[vertex-render-job] tail frame extraction failed, falling back to mascot refs:", err);
+    return undefined;
+  });
 }
 
 async function freshShotUrls(operations: VertexShotOperation[]): Promise<string[]> {
