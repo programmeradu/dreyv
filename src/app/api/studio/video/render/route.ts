@@ -60,6 +60,57 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/studio/video/render?id=<uuid>&action=retry-stitch
+ *
+ * Resets the stitch attempts counter and re-queues the job in 'stitching'
+ * status so the chunked stitcher can pick up where it left off. All rendered
+ * shots in R2 are preserved — only the stitching loop is restarted.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const auth = await requireTeamMember(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
+
+    const id = req.nextUrl.searchParams.get("id");
+    const action = req.nextUrl.searchParams.get("action");
+    if (!id || !isUuid(id)) return NextResponse.json({ error: "Invalid render job id" }, { status: 400 });
+    if (action !== "retry-stitch") {
+      return NextResponse.json({ error: "Unsupported action — use action=retry-stitch" }, { status: 400 });
+    }
+
+    const result = (await db.execute(sql`SELECT id, status, pack, model FROM studio_video_jobs WHERE id = ${id}::uuid`)) as unknown;
+    const row = rowsFromResult(result)[0];
+    if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+    const pack = (row as { pack?: Record<string, unknown> }).pack ?? {};
+    const renderState = (pack.__renderState as Record<string, unknown> | undefined) ?? {};
+    const stitch = (renderState.stitch as Record<string, unknown> | undefined) ?? {};
+    // Reset the attempt counter and clear any concat-phase failure so the
+    // loop can resume; keep already-normalized segments + masterNarration.
+    const newStitch = { ...stitch, attempts: 0, phase: "normalizing" };
+    const newPack = { ...pack, __renderState: { ...renderState, stitch: newStitch } };
+
+    await db.execute(sql`
+      UPDATE studio_video_jobs
+      SET status = 'stitching',
+          pack = ${JSON.stringify(newPack)}::jsonb,
+          error = NULL,
+          updated_at = now()
+      WHERE id = ${id}::uuid
+    `);
+
+    // Kick the worker inline so the user sees movement immediately.
+    await advanceVertexInline({ ...row, status: "stitching" });
+    return NextResponse.json({ ok: true, jobId: id, status: "stitching" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[studio/video/render] PATCH failed:", err);
+    return NextResponse.json({ error: msg.slice(0, 500) }, { status: 500 });
+  }
+}
+
 async function handlePost(req: NextRequest) {
   const auth = await requireTeamMember(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });

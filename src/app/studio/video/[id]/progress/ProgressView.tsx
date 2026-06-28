@@ -173,9 +173,12 @@ export default function ProgressView({ jobId }: { jobId: string }) {
           </p>
         ) : null}
         {job?.error ? (
-          <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
-            {job.error}
-          </p>
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            <p>{job.error}</p>
+            {isFailed && /stitch/i.test(job.error) ? (
+              <RetryStitchButton jobId={jobId} onDone={() => setRefreshedAt(Date.now())} />
+            ) : null}
+          </div>
         ) : null}
 
         {/* Shots */}
@@ -345,5 +348,42 @@ export default function ProgressView({ jobId }: { jobId: string }) {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function RetryStitchButton({ jobId, onDone }: { jobId: string; onDone: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const retry = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/studio/video/render?id=${jobId}&action=retry-stitch`, {
+        method: "PATCH",
+        headers: studioAuthHeaders(),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-3 flex items-center gap-3">
+      <button
+        onClick={retry}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-full bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+        Retry stitching
+      </button>
+      {err ? <span className="text-[11px] text-rose-700">{err}</span> : null}
+    </div>
   );
 }
