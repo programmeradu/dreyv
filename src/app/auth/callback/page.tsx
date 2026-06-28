@@ -1,26 +1,44 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
-import { useConnect } from "@phantom/react-sdk";
+import { useConnect, usePhantom } from "@phantom/react-sdk";
 import { useWallet } from "@/lib/wallet/compat";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
+
+const PHANTOM_SOCIAL_PENDING_KEY = "dreyv_phantom_social_pending";
+
+function getRedirectTarget() {
+  if (typeof window === "undefined") return "/app";
+  const target = sessionStorage.getItem("dreyv_post_auth_redirect") || "/app";
+  return target.startsWith("/") ? target : "/app";
+}
 
 export default function PhantomAuthCallbackPage() {
   const { connected, publicKey } = useWallet();
   const { isConnecting, error: connectError } = useConnect();
+  const { isLoading: phantomLoading, errors: phantomErrors } = usePhantom();
   const { isAuthenticated, isLoading, step, error } = useKeystoneAuth();
+
+  const callbackError = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const description = params.get("error_description");
+    const code = params.get("error");
+    return description || code;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isAuthenticated) {
-      sessionStorage.removeItem("dreyv_phantom_social_pending");
-      window.location.href = "/app";
+      sessionStorage.removeItem(PHANTOM_SOCIAL_PENDING_KEY);
+      window.location.href = getRedirectTarget();
     }
   }, [isAuthenticated]);
 
-  const failed = connectError || error;
+  const failed = callbackError || connectError || phantomErrors?.connect || error;
   const failedMessage = failed instanceof Error ? failed.message : failed ? String(failed) : null;
+  const isBusy = phantomLoading || isConnecting || isLoading || step === "connecting" || step === "signing" || step === "verifying";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-6 py-12 font-sans text-slate-900">
@@ -32,10 +50,12 @@ export default function PhantomAuthCallbackPage() {
         <p className="mt-3 text-sm font-medium leading-6 text-slate-600">
           {failedMessage
             ? failedMessage
-            : isConnecting || isLoading
+            : isBusy
               ? "Securing your Phantom session…"
               : connected
-                ? "Verifying wallet ownership…"
+                ? publicKey
+                  ? `Verifying wallet ${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}…`
+                  : "Verifying wallet ownership…"
                 : "Finishing the Google or Apple handoff from Phantom…"}
         </p>
         {failed && (
