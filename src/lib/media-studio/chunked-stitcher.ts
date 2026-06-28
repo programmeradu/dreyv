@@ -98,9 +98,18 @@ export async function normalizeSegment(args: {
   caption?: string;
   colorGrade?: boolean;
   upscaleTo1080?: boolean;
+  /**
+   * Optional ElevenLabs narration MP3 URL (presigned R2 GET). When provided
+   * we drop Veo's native audio entirely and use this as the shot's audio
+   * track, padded/trimmed to the shot's video duration so concat stays clean.
+   */
+  narrationUrl?: string;
+  /** Target shot duration in seconds (used to pad/trim narration). */
+  shotDurationSec?: number;
 }): Promise<StitchSegment> {
   if (!isR2Configured()) throw new Error("R2 must be configured for chunked stitching");
   const workdir = await mkdtemp(path.join(tmpdir(), `dreyv-seg-${args.index}-`));
+  const duration = args.shotDurationSec ?? 8;
   try {
     const inFile = path.join(workdir, `shot.mp4`);
     const outFile = path.join(workdir, `seg.mp4`);
@@ -108,27 +117,67 @@ export async function normalizeSegment(args: {
     if (!res.ok) throw new Error(`Could not download shot ${args.index + 1} (${res.status})`);
     await writeFile(inFile, Buffer.from(await res.arrayBuffer()));
 
+    // Optionally pull narration to a local file so ffmpeg can mux it in.
+    let narrationFile: string | undefined;
+    if (args.narrationUrl) {
+      try {
+        const r = await fetch(args.narrationUrl);
+        if (r.ok) {
+          narrationFile = path.join(workdir, "narration.mp3");
+          await writeFile(narrationFile, Buffer.from(await r.arrayBuffer()));
+        } else {
+          console.warn(`[stitcher] narration fetch ${r.status} for shot ${args.index + 1}; falling back to Veo audio`);
+        }
+      } catch (err) {
+        console.warn(`[stitcher] narration download failed for shot ${args.index + 1}:`, err);
+      }
+    }
+
     let captionFile: string | undefined;
     if (args.caption && args.caption.trim() && (await hasDrawtextFilter())) {
       captionFile = path.join(workdir, "caption.txt");
       await writeFile(captionFile, wrapCaption(args.caption), "utf8");
     }
 
-    const tryRun = async (keepAudio: boolean) => {
-      await runFfmpeg(
-        [
-          "-hide_banner", "-y",
-          "-i", inFile,
-          "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
-          "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
-          ...(keepAudio ? ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"] : ["-an"]),
-          "-movflags", "+faststart",
-          outFile,
-        ],
-        workdir,
+    const tryRun = async (mode: "narration" | "veo" | "silent") => {
+      // When ElevenLabs narration is present, swap Veo's audio for it.
+      //   -map 0:v: video from the shot
+      //   -map 1:a: audio from the narration
+      //   apad + atrim: pad short narrations with silence so the segment
+      //                 still hits the full shot duration (concat-copy needs
+      //                 every segment to have matching audio length).
+      const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile];
+      if (mode === "narration" && narrationFile) ffmpegArgs.push("-i", narrationFile);
+      ffmpegArgs.push(
+        "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
       );
+      if (mode === "narration" && narrationFile) {
+        ffmpegArgs.push(
+          "-map", "0:v:0",
+          "-map", "1:a:0",
+          "-af", `apad,atrim=0:${duration},aresample=async=1:first_pts=0`,
+        );
+      }
+      ffmpegArgs.push(
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+        "-t", String(duration),
+      );
+      if (mode === "silent") ffmpegArgs.push("-an");
+      else ffmpegArgs.push("-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2");
+      ffmpegArgs.push("-movflags", "+faststart", outFile);
+      await runFfmpeg(ffmpegArgs, workdir);
     };
-    try { await tryRun(true); } catch { await tryRun(false); }
+
+    // Prefer ElevenLabs narration → fall back to Veo audio → fall back to silent.
+    if (narrationFile) {
+      try { await tryRun("narration"); }
+      catch (err) {
+        console.warn(`[stitcher] narration mux failed for shot ${args.index + 1}, falling back to Veo audio:`, err);
+        try { await tryRun("veo"); } catch { await tryRun("silent"); }
+      }
+    } else {
+      try { await tryRun("veo"); } catch { await tryRun("silent"); }
+    }
 
     const body = await readFile(outFile);
     const key = `studio/video/segments/${args.jobId}/${String(args.index + 1).padStart(2, "0")}.mp4`;

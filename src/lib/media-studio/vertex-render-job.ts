@@ -8,6 +8,11 @@ import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references"
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
+import {
+  isElevenLabsConfigured,
+  narrationContextFor,
+  synthesizeShotNarration,
+} from "@/lib/media-studio/elevenlabs-narration";
 
 type Shot = {
   n: number;
@@ -130,6 +135,11 @@ function shotPrompt(
     currentCaption ? `What is being said during this segment for pacing only (captions are burned by Dreyv after rendering; do NOT render any letters or subtitles inside the video): "${currentCaption}"` : "",
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
     pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
+    // Audio is post-produced by Dreyv with ElevenLabs; Veo's own voice track
+    // is unreliable and will be discarded. Keep the render visually clean —
+    // the mascot can mouth/gesture along but no spoken dialogue should be
+    // generated in the audio track and no caption letters in the frame.
+    "AUDIO RULE: Render this segment effectively SILENT — no spoken dialogue, no narration, no whispered words. Ambient room tone or subtle motion sound is fine. The mascot may MOUTH the line above to sync lips, but do not generate any spoken audio — Dreyv replaces the audio track in post.",
     pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
     pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
     opts?.reshootNote ? `RESHOOT NOTE — the previous attempt at this segment failed QC for these reasons, fix them: ${opts.reshootNote}` : "",
@@ -539,6 +549,27 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         durationSec: shotUrls.length * 8,
       };
       try {
+        // Synthesize ElevenLabs narration for this shot so the stitcher can
+        // mux it in. Falls back to Veo's native audio if ElevenLabs is not
+        // configured or the request fails.
+        let narrationUrl: string | undefined;
+        const captions = pack.burnedCaptions ?? [];
+        const narrationText = captions[nextIndex]?.trim();
+        if (isElevenLabsConfigured() && narrationText) {
+          try {
+            const ctx = narrationContextFor(captions, nextIndex);
+            const narration = await synthesizeShotNarration({
+              jobId,
+              index: nextIndex,
+              text: narrationText,
+              previousText: ctx.previousText,
+              nextText: ctx.nextText,
+            });
+            narrationUrl = narration.url;
+          } catch (err) {
+            console.warn(`[vertex-render-job] ElevenLabs narration failed for shot ${nextIndex + 1} (using Veo audio):`, err);
+          }
+        }
         const segment = await normalizeSegment({
           jobId,
           shotUrl: shotUrls[nextIndex],
@@ -546,6 +577,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           caption: pack.burnedCaptions?.[nextIndex],
           colorGrade: true,
           upscaleTo1080: true,
+          narrationUrl,
+          shotDurationSec: 8,
         });
         const segments = [...existingSegments, segment].sort((a, b) => a.n - b.n);
         const nextState: VertexRenderState = {
