@@ -67,7 +67,7 @@ function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): strin
   return [
     dreyvShotStylePreamble(),
     "",
-    "MASCOT REFERENCE IMAGES ARE ATTACHED — copy the mascot from those images exactly. Match the violet body, the cream chest with the violet Dreyv 'D' mark, the violet cap, the amber eyes, and the overall proportions. Do not invent a new mascot. Do not omit the chest 'D' mark or the cap. Do not change the colors.",
+    "MASCOT REFERENCE IMAGES ARE ATTACHED — copy the mascot from those images exactly. Match the violet owl body, the cream chest with the Dreyv logo mark on it (a rotated violet rounded-square glyph with an inner cutout — NOT a letter, NOT the letter 'D'), the violet ball cap also stamped with the same Dreyv logo mark, the cream face, the dark violet eyes, and the overall proportions. Do not invent a new mascot. Do not replace the logo with any letter. Do not omit the chest logo or the cap. Do not change the colors.",
     "",
     `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
     "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",

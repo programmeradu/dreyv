@@ -12,13 +12,16 @@
  */
 
 export const DREYV_MASCOT_DESCRIPTION =
-  "Dreyv mascot: a calm, dignified owl-fox hybrid treasury sentinel. " +
-  "Body and head are SOLID violet (#7c3aed) with slightly deeper violet shading. " +
-  "Cream-colored chest and brow accents. Large alert amber eyes. " +
+  "Dreyv mascot: a calm, dignified owl treasury sentinel. " +
+  "Body, wings, and ear tufts are SOLID violet (#7c3aed) with slightly deeper violet shading. " +
+  "Cream-colored face, brow, and chest plumage. Large dark-violet eyes (not amber, not yellow). " +
+  "Wears a SOLID violet ball cap stamped on the front with the Dreyv logo mark. " +
+  "Cream chest is also stamped with the Dreyv logo mark. " +
+  "The Dreyv logo mark is a rotated violet rounded-square glyph with an inner cutout — it is a symbol, NOT a letter, NEVER the letter 'D' or any other letter. " +
   "Flat illustration with clean vector lines and subtle cel-shaded depth — " +
   "Linear / Vercel / Stripe tier mascot quality. " +
-  "Never orange, never brown, never red, never a realistic fox, never gradients, never fuchsia or pink. " +
-  "Same silhouette, proportions, and palette in every shot.";
+  "Never orange, never brown, never red, never a realistic fox or owl, never gradients, never fuchsia or pink. " +
+  "Same silhouette, proportions, palette, cap, and chest mark in every shot.";
 
 export const DREYV_CINEMATIC_STYLE_BIBLE = [
   "Look and feel: cinematic, Pixar/Apple-keynote-grade clean. Disney-Pixar polish, not stock AI footage.",
