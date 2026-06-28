@@ -6,6 +6,7 @@ import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
+import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
 type Shot = {
