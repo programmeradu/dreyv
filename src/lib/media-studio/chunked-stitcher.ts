@@ -265,7 +265,9 @@ export async function concatSegments(args: {
     const inputs: string[] = [];
     for (const f of files) inputs.push("-i", f);
     if (narrationFile) inputs.push("-i", narrationFile);
-    const filter = `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`;
+    const filter = narrationFile
+      ? `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]`
+      : `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`;
     const measured = args.segments.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
     const finalDuration = measured > 0 ? Math.round(measured * 100) / 100 : args.durationSec;
     const mapArgs = narrationFile
