@@ -260,10 +260,13 @@ export async function GET(req: NextRequest) {
         }
       }
       const jobs = await Promise.all(
-        rows.map(async (r) => ({
-          ...r,
-          final_url: await refreshFinalUrl(finalKeys.get(String(r.id)), r.final_url),
-        })),
+        rows.map(async (r) => {
+          const { pack: _pack, updated_at: _updated, ...rest } = r as Record<string, unknown>;
+          return {
+            ...rest,
+            final_url: await refreshFinalUrl(finalKeys.get(String(r.id)), r.final_url),
+          };
+        }),
       );
       return NextResponse.json({ jobs });
     }
