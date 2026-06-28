@@ -257,22 +257,20 @@ export async function normalizeSegment(args: {
       await runFfmpeg(ffmpegArgs, workdir);
     };
 
-    // Prefer ElevenLabs narration → fall back to Veo audio → fall back to silent.
-    let normalized = false;
+    // Prefer legacy per-shot narration → fall back to Veo audio → fall back to
+    // a guaranteed silent AAC track. New jobs normally skip per-shot narration
+    // and use the full-ad narration in concatSegments().
     if (narrationFile) {
-      const narrated = await runFfmpegOptional(await (async () => {
-        const narratedOut = path.join(workdir, `seg-narrated.mp4`);
-        const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile, "-i", narrationFile!, "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }), "-map", "0:v:0", "-map", "1:a:0", "-af", `apad,atrim=0:${segmentDuration},aresample=async=1:first_pts=0`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-t", String(segmentDuration), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", narratedOut];
-        return ffmpegArgs;
-      })(), workdir);
-      if (narrated.ok) {
-        await runFfmpeg(["-hide_banner", "-y", "-i", path.join(workdir, `seg-narrated.mp4`), "-c", "copy", outFile], workdir);
-        normalized = true;
-      } else {
-        console.warn(`[stitcher] narration mux failed for shot ${args.index + 1}, falling back to Veo/silent audio:`, narrated.error);
+      try { await tryRun("narration"); }
+      catch (err) {
+        console.warn(`[stitcher] narration mux failed for shot ${args.index + 1}, falling back to Veo/silent audio:`, err);
+        try { await tryRun("veo"); }
+        catch (veoErr) {
+          console.warn(`[stitcher] Veo-audio normalize failed for shot ${args.index + 1}, retrying silent:`, veoErr);
+          await tryRun("silent");
+        }
       }
-    }
-    if (!normalized) {
+    } else {
       try { await tryRun("veo"); }
       catch (err) {
         console.warn(`[stitcher] Veo-audio normalize failed for shot ${args.index + 1}, retrying silent:`, err);
