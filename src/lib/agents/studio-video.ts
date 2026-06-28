@@ -24,9 +24,10 @@ import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
 import { renderVertexVeoShot, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
-import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
+import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
+import { advanceVertexRenderJob } from "@/lib/media-studio/vertex-render-job";
 
 // Vertex Veo 3.1 accepts up to 3 asset reference images per generation. We
 // feed the canonical Dreyv mascot PNGs directly so the model copies the real
@@ -94,6 +95,23 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   );
 }
 
+async function getJobSnapshot(id: string): Promise<{
+  status?: string;
+  shots_done?: number;
+  shots_total?: number;
+  final_url?: string | null;
+  error?: string | null;
+}> {
+  if (!db) return {};
+  const result = (await db.execute(sql`
+    SELECT status, shots_done, shots_total, final_url, error
+    FROM studio_video_jobs
+    WHERE id = ${id}::uuid
+    LIMIT 1
+  `)) as unknown;
+  return rowsFromResult(result)[0] ?? {};
+}
+
 function buildShotPrompt(shot: Shot, pack: Pack): string {
   const shotIndex = Math.max(0, (shot.n ?? 1) - 1);
   const previousShot = shotIndex > 0 ? pack.shotList[shotIndex - 1] : null;
@@ -140,6 +158,30 @@ export const studioVideoRender = inngest.createFunction(
     if (!shots.length) {
       await setJob(jobId, { status: "failed", error: "Pack has no shots" });
       return { ok: false };
+    }
+
+    if ((providerId ?? "veo3-fal") === "veo3-vertex") {
+      // Vertex-managed renders are advanced here, not from the browser's GET
+      // polling route. That keeps status checks sub-second while this durable
+      // worker handles slow phases: operation polling, QC/STT/vision, tail-frame
+      // extraction, next-shot submission, and final ffmpeg stitching.
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        await step.run(`vertex-advance-${attempt}`, () => advanceVertexRenderJob(jobId));
+        const snapshot = await step.run(`vertex-status-${attempt}`, () => getJobSnapshot(jobId));
+
+        if (snapshot.status === "done") {
+          return { ok: true, url: snapshot.final_url ?? null };
+        }
+        if (snapshot.status === "failed") {
+          return { ok: false, error: snapshot.error ?? "Vertex render failed" };
+        }
+
+        await step.sleep(`vertex-wait-${attempt}`, "10s");
+      }
+
+      const message = "Vertex render exceeded the 40 minute worker window. Start a new render with fewer shots or try again.";
+      await setJob(jobId, { status: "failed", error: message });
+      return { ok: false, error: message };
     }
 
     try {
