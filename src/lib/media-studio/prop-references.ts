@@ -22,9 +22,18 @@ type PropRule = {
 };
 
 const PROP_RULES: PropRule[] = [
+  // Devices — phone-in-hand wins over blank phone when a "holding" verb is present.
+  { keywords: ["holding a phone", "phone in hand", "holds up", "swipes", "taps the phone", "scrolls"], file: "public/mascot/screens/device-phone-in-hand.png" },
   { keywords: ["phone", "smartphone", "mobile screen", "handset"], file: "public/mascot/screens/device-phone-blank.png" },
   { keywords: ["laptop", "macbook", "notebook computer", "desktop screen"], file: "public/mascot/screens/device-laptop-blank.png" },
+  // Sets / environments
+  { keywords: ["night", "evening", "late", "lamp", "dim"], file: "public/mascot/screens/set-desk-night.png" },
+  { keywords: ["cafe", "coffee shop", "barista", "espresso"], file: "public/mascot/screens/set-cafe.png" },
+  { keywords: ["rooftop", "skyline", "city view", "golden hour", "sunset terrace"], file: "public/mascot/screens/set-rooftop.png" },
   { keywords: ["desk", "workspace", "office", "studio room", "set"], file: "public/mascot/screens/set-desk-environment.png" },
+  // Brand props
+  { keywords: ["coin", "token", "crystal", "asset orb"], file: "public/mascot/screens/prop-crystal-coin.png" },
+  { keywords: ["abstract", "intro graphic", "brand wash", "transition", "ribbon"], file: "public/mascot/screens/brand-abstract-violet.png" },
 ];
 
 const cache = new Map<string, VeoReferenceImage | null>();
