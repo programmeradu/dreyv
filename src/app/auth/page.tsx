@@ -702,6 +702,7 @@ function AuthPageContent() {
         }
 
         try {
+            sessionStorage.setItem("dreyv_post_auth_redirect", postAuthRedirect);
             sessionStorage.setItem("dreyv_phantom_social_pending", provider);
             await phantomConnect({ provider });
             addLog(`PHANTOM_${provider.toUpperCase()}_CONNECTED`);
@@ -719,7 +720,7 @@ function AuthPageContent() {
             sessionStorage.removeItem("dreyv_phantom_social_pending");
             setSocialLoading(null);
         }
-    }, [addLog, phantomConnect]);
+    }, [addLog, phantomConnect, postAuthRedirect]);
 
     const { select } = useWallet();
 
