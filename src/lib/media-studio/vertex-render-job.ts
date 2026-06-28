@@ -4,8 +4,8 @@ import { pollVertexVeoOperation, submitVertexVeoOperation, type VeoFirstFrameIma
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
-import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
-import { extractAndCorrectLastFrame } from "@/lib/media-studio/mascot-correct-frame";
+import { loadDreyvMascotReferences, type VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+import { extractTailFramesAsRefs } from "@/lib/media-studio/extract-tail-frames";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import {
