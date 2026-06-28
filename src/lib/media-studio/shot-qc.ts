@@ -233,7 +233,40 @@ async function describeFrames(frames: Array<{ png: Buffer; label: string }>): Pr
   }
 }
 
-export async function observeShot(videoUrl: string): Promise<ShotObservation> {
+function normalizeWords(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+function jaccardOverlap(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const A = new Set(a), B = new Set(b);
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter += 1;
+  return inter / new Set([...A, ...B]).size;
+}
+
+/**
+ * Cheap gibberish heuristic: high ratio of tokens that have no vowels, are
+ * single letters, or are long random consonant clusters → transcription of
+ * Veo audio that's actually mumbled / non-English / phoneme soup.
+ */
+function gibberishRatio(words: string[]): number {
+  if (!words.length) return 0;
+  let bad = 0;
+  for (const w of words) {
+    const hasVowel = /[aeiouy]/.test(w);
+    const longConsonants = /[bcdfghjklmnpqrstvwxz]{5,}/.test(w);
+    if (!hasVowel && w.length > 2) bad += 1;
+    else if (longConsonants) bad += 1;
+    else if (w.length === 1 && !"ai".includes(w)) bad += 1;
+  }
+  return bad / words.length;
+}
+
+export async function observeShot(
+  videoUrl: string,
+  opts?: { expectedNarration?: string | null },
+): Promise<ShotObservation> {
   const work = await mkdtemp(path.join(tmpdir(), "dreyv-qc-"));
   const issues: string[] = [];
   let needsReshoot = false;
@@ -265,12 +298,14 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
       issues.push(`freeze ${probed.freezeSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
       needsReshoot = true;
     }
-    if (durationSec && probed.silenceSec > durationSec * 0.85) {
-      // Almost the entire 8s clip is silent — the model likely dropped audio.
+    if (durationSec && probed.silenceSec > durationSec * 0.6) {
+      // More than 60% of the clip is silent — Veo dropped most of the VO.
       issues.push(`silence ${probed.silenceSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
+      needsReshoot = true;
     }
-    if (probed.audioMeanDb !== null && probed.audioMeanDb < -55) {
+    if (probed.audioMeanDb !== null && probed.audioMeanDb < -50) {
       issues.push(`audio mean ${probed.audioMeanDb.toFixed(1)}dB (effectively silent)`);
+      needsReshoot = true;
     }
     // Detect "model recycled the same frame" — zero scene cuts AND high freeze.
     if (durationSec && probed.sceneChanges === 0 && probed.freezeSec > durationSec * 0.3) {
@@ -302,6 +337,40 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
     lastWords = transcript;
     lastAction = vision.lastAction;
     settingFingerprint = vision.settingFingerprint;
+
+    // 4. Narration validation — compare what was actually said against the
+    // locked caption for this shot. Catches the two failure modes operators
+    // keep hitting: "mascot says 3 words then 7s of silence" and "mascot
+    // mumbles gibberish that isn't the scripted line".
+    const expected = opts?.expectedNarration?.trim() || "";
+    const expectedWords = expected ? normalizeWords(expected) : [];
+    const spokenWords = transcript ? normalizeWords(transcript) : [];
+
+    if (expectedWords.length >= 4) {
+      // Expected at least ~4 words of VO but got <40% of them.
+      if (spokenWords.length < Math.max(3, Math.floor(expectedWords.length * 0.4))) {
+        issues.push(`spoke ${spokenWords.length}/${expectedWords.length} expected words ("${transcript ?? ""}")`);
+        needsReshoot = true;
+      } else {
+        const overlap = jaccardOverlap(expectedWords, spokenWords);
+        if (overlap < 0.2) {
+          issues.push(`transcript drifted from script (overlap ${(overlap * 100).toFixed(0)}%): "${transcript ?? ""}"`);
+          needsReshoot = true;
+        }
+      }
+    } else if (spokenWords.length >= 3) {
+      // No expected line but we still got speech — guard against pure gibberish.
+      const ratio = gibberishRatio(spokenWords);
+      if (ratio > 0.5) {
+        issues.push(`gibberish transcript (${(ratio * 100).toFixed(0)}% non-words): "${transcript ?? ""}"`);
+        needsReshoot = true;
+      }
+    }
+
+    if (spokenWords.length >= 4 && gibberishRatio(spokenWords) > 0.55) {
+      issues.push(`audio sounds non-English / phonetic soup: "${transcript ?? ""}"`);
+      needsReshoot = true;
+    }
 
     return {
       ok: !needsReshoot && issues.length === 0,
