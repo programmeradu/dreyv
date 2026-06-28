@@ -513,8 +513,17 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     }
 
     const stitchSubmittedAt = dateMs(state.stitch?.submittedAt);
+    const stitchAttempts = state.stitch?.attempts ?? 0;
     if (state.stitch && !state.stitch.completedAt && stitchSubmittedAt !== null && Date.now() - stitchSubmittedAt < STITCH_TIMEOUT_MS) {
       return { advanced: false };
+    }
+
+    // If a previous stitch attempt timed out (lambda died mid-encode), give it
+    // exactly one more shot. After 2 attempts, mark the job failed so the UI
+    // can clear and the user can start fresh — otherwise we loop forever.
+    if (state.stitch && !state.stitch.completedAt && stitchAttempts >= 2) {
+      await markFailed(jobId, `Stitching exceeded function timeout after ${stitchAttempts} attempts. Start a new render.`);
+      return { advanced: true, failed: "stitch_timeout" };
     }
 
     if (!state.stitch?.completedAt) {
@@ -524,6 +533,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         stitch: {
           submittedAt: stitchStartedAt,
           durationSec: shotUrls.length * 8,
+          attempts: stitchAttempts + 1,
         },
       };
       await savePack(jobId, { ...pack, __renderState: stitchingState }, {
@@ -533,6 +543,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_urls: shotUrls,
         shot_keys: shotKeys,
       });
+
       const stitched = await stitchShotsLocally({
         jobId,
         shotUrls,
