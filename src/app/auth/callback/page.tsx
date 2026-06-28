@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { useConnect, usePhantom } from "@phantom/react-sdk";
 import { useWallet } from "@/lib/wallet/compat";
@@ -27,12 +27,13 @@ export default function PhantomAuthCallbackPage() {
   const { isAuthenticated, isLoading, step, error } = useKeystoneAuth();
   const [resumeTimedOut, setResumeTimedOut] = useState(false);
 
-  const callbackError = useMemo(() => {
-    if (typeof window === "undefined") return null;
+  const [callbackError, setCallbackError] = useState<string | null>(null);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const description = params.get("error_description");
     const code = params.get("error");
-    return description || code;
+    setCallbackError(description || code);
   }, []);
 
   useEffect(() => {
