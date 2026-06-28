@@ -447,7 +447,11 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         // STT), describe last action + setting via Gemini Flash. Feeds the
         // next shot's prompt with what was ACTUALLY said and shown.
         const expectedNarration = pack.burnedCaptions?.[pending.n - 1] ?? null;
-        const observation = await observeShot(poll.url, { expectedNarration }).catch((err) => {
+        // ElevenLabs overrides Veo's audio during normalize — don't reshoot
+        // the video for Veo's gibberish audio when it'll be replaced anyway.
+        const ignoreAudio = Boolean(process.env.ELEVENLABS_API_KEY);
+        const observation = await observeShot(poll.url, { expectedNarration, ignoreAudio }).catch((err) => {
+
           console.warn("[vertex-render-job] QC failed (non-fatal):", err);
           return undefined;
         });
