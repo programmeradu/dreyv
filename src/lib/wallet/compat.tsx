@@ -22,6 +22,7 @@ import {
 } from "@phantom/react-sdk";
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
+import { getPhantomRedirectUrl } from "@/lib/wallet/phantom-auth-config";
 
 // No hardcoded fallback — appId must come from env (NEXT_PUBLIC_PHANTOM_APP_ID).
 // If missing, we degrade to injected-only so the SDK doesn't crash.
@@ -73,9 +74,7 @@ export function PhantomCompatProvider({
       addressTypes: [AddressType.solana] as AddressType[],
       providers,
       authOptions: {
-        redirectUrl:
-          (typeof window !== "undefined" ? window.location.origin : "") +
-          "/auth/callback",
+        redirectUrl: getPhantomRedirectUrl(),
       },
     };
 

@@ -7,6 +7,7 @@ import { useConnect } from "@phantom/react-sdk";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
+import { getPhantomPortalOrigin, getPhantomRedirectUrl } from "@/lib/wallet/phantom-auth-config";
 import {
     Shield,
     Wallet,
@@ -676,11 +677,10 @@ function AuthPageContent() {
 
     // Phantom embedded social sign-in: Google / Apple create or recover the
     // user's Phantom embedded wallet, then the existing SIWS hook verifies it.
-    // This hits Phantom's hosted endpoint (/login/start) and requires:
-    //   1. NEXT_PUBLIC_PHANTOM_APP_ID to be set, AND
-    //   2. window.location.origin to be whitelisted for that appId in the
-    //      Phantom Developer Dashboard.
-    // A 400 from /login/start means one of those two prerequisites is missing.
+    // This hits Phantom's hosted endpoint (/login/start). There are no Google,
+    // Apple, or OAuth scopes to enable in Phantom Portal; the SDK always sends
+    // `openid offline_access`. A 400 means the app ID, Allowed Origin, or exact
+    // Redirect URL does not match the Portal entry.
     const handlePhantomSocial = useCallback(async (provider: PhantomSocialProvider) => {
         const loadingKey = `phantom-${provider}`;
         setOauthError(null);
@@ -705,6 +705,9 @@ function AuthPageContent() {
             return;
         }
 
+        const phantomRedirectUrl = getPhantomRedirectUrl();
+        const phantomOrigin = getPhantomPortalOrigin();
+
         try {
             sessionStorage.setItem("dreyv_post_auth_redirect", postAuthRedirect);
             sessionStorage.setItem("dreyv_phantom_social_pending", provider);
@@ -717,7 +720,7 @@ function AuthPageContent() {
                 /login\/start|400|unauthorized|origin|app[_ ]?id/i.test(raw);
             setOauthError(
                 looksLikeOriginIssue
-                    ? `Phantom rejected this environment. Verify the Phantom app ID, enable ${provider}, and allow ${window.location.origin} plus ${window.location.origin}/auth/callback.`
+                    ? `Phantom rejected the hosted login request. There are no scopes to enable in Phantom Portal; set Allowed Origin to ${phantomOrigin} and Redirect URL to ${phantomRedirectUrl} exactly for this app ID.`
                     : raw || `Phantom ${provider} sign-in failed.`
             );
             addLog("ERROR: PHANTOM_SOCIAL_FAILED");
