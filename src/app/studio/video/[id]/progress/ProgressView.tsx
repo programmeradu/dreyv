@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Loader2, ArrowLeft, CheckCircle2, AlertCircle, Clock, RefreshCw, Film } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, AlertCircle, Clock, RefreshCw, Film, Mic2, MicOff } from "lucide-react";
 import { studioAuthHeaders } from "@/lib/media-studio/client-auth";
 
 type ShotProgress = {
