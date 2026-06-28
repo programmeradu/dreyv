@@ -596,7 +596,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         const expectedNarration = pack.burnedCaptions?.[pending.n - 1] ?? null;
         // ElevenLabs overrides Veo's audio during normalize — don't reshoot
         // the video for Veo's gibberish audio when it'll be replaced anyway.
-        const ignoreAudio = Boolean(process.env.ELEVENLABS_API_KEY);
+        const ignoreAudio = isElevenLabsConfigured();
         const observation = await observeShot(poll.url, { expectedNarration, ignoreAudio }).catch((err) => {
 
           console.warn("[vertex-render-job] QC failed (non-fatal):", err);
