@@ -698,7 +698,6 @@ function AuthPageContent() {
 
         // Match socials
         else if (lower.includes('google')) handleSocialLogin('google');
-        else if (lower.includes('discord')) handleSocialLogin('discord');
         // If nothing matches explicitly, trigger wallet modal
         else openWalletModal(true);
     }, [select, handleSocialLogin, openWalletModal]);
