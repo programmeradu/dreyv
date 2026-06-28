@@ -265,8 +265,10 @@ function gibberishRatio(words: string[]): number {
 
 export async function observeShot(
   videoUrl: string,
-  opts?: { expectedNarration?: string | null },
+  opts?: { expectedNarration?: string | null; ignoreAudio?: boolean },
 ): Promise<ShotObservation> {
+  const ignoreAudio = opts?.ignoreAudio === true;
+
   const work = await mkdtemp(path.join(tmpdir(), "dreyv-qc-"));
   const issues: string[] = [];
   let needsReshoot = false;
