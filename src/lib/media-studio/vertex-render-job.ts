@@ -805,7 +805,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     // master-narration pipeline existed: create the full-script track here so
     // final concat still gets the complete message instead of legacy per-shot
     // fragments or raw Veo gibberish.
-    if (!stitchBase.masterNarration) {
+    if (!stitchBase.masterNarration || stitchBase.masterNarration.status === "synthesizing") {
       const narrationText = fullNarrationText(pack);
       let masterNarration: MasterNarrationEntry;
       if (isElevenLabsConfigured() && narrationText) {
