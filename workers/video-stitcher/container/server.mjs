@@ -248,7 +248,7 @@ async function readJson(req) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
+    if (req.method === "GET" && (req.url === "/" || req.url === "/health" || req.url === "/healthz")) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, service: "dreyv-video-stitcher", r2: Boolean(r2Client()) }));
       return;
