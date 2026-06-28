@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useWallet } from "@/lib/wallet/compat";
 import { useWalletModal } from "@/lib/wallet/compat";
+import { useConnect } from "@phantom/react-sdk";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
