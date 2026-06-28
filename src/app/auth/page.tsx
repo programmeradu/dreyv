@@ -672,45 +672,47 @@ function AuthPageContent() {
 
     // One-click Phantom (social-style): selects the Phantom wallet adapter
     // which triggers Phantom's connect → sign flow (no OAuth required).
+    const { connect: phantomConnect } = useConnect();
+
+    // Phantom *social* sign-in: uses Phantom's embedded wallet (passkey/Phantom Login).
+    // This hits Phantom's hosted endpoint (/login/start) and requires:
+    //   1. NEXT_PUBLIC_PHANTOM_APP_ID to be set, AND
+    //   2. window.location.origin to be whitelisted for that appId in the
+    //      Phantom Developer Dashboard.
+    // A 400 from /login/start means one of those two prerequisites is missing.
     const handlePhantomSocial = useCallback(async () => {
-        try {
-            setOauthError(null);
-            addLog("INITIATING_PHANTOM_CONNECT");
+        setOauthError(null);
+        addLog("INITIATING_PHANTOM_SOCIAL");
 
-            // Detect the Phantom browser extension. Without it, @phantom/react-sdk
-            // falls back to its embedded wallet flow, which calls
-            // https://.../login/start and 400s unless this exact origin is
-            // whitelisted for NEXT_PUBLIC_PHANTOM_APP_ID in the Phantom Dashboard.
-            const hasExtension =
-                typeof window !== "undefined" &&
-                Boolean((window as any).phantom?.solana?.isPhantom);
+        const hasAppId =
+            typeof process !== "undefined" &&
+            typeof process.env.NEXT_PUBLIC_PHANTOM_APP_ID === "string" &&
+            process.env.NEXT_PUBLIC_PHANTOM_APP_ID.trim().length > 0;
 
-            if (!hasExtension) {
-                const msg =
-                    "Phantom extension not detected. Install Phantom or open this page in the Phantom in-app browser to continue.";
-                setOauthError(msg);
-                addLog("ERROR: PHANTOM_EXTENSION_MISSING");
-                if (typeof window !== "undefined") {
-                    window.open("https://phantom.app/download", "_blank", "noopener");
-                }
-                return;
-            }
-
-            select('Phantom' as any);
-            openWalletModal(true);
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.error("[Phantom] connect error:", msg);
-            setOauthError(
-                msg.includes("login/start") || msg.includes("400")
-                    ? "Phantom sign-in is not enabled for this domain yet. Use the Phantom extension, or contact support to whitelist this origin."
-                    : msg
-            );
-            addLog("ERROR: PHANTOM_CONNECT_FAILED");
+        if (!hasAppId) {
+            const msg =
+                "Phantom social sign-in isn't configured for this environment yet (missing app ID). Use a wallet, Google, or email instead.";
+            setOauthError(msg);
+            addLog("ERROR: PHANTOM_SOCIAL_NOT_CONFIGURED");
+            return;
         }
-    // select/openWalletModal declared below via useWallet — safe via closure
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [addLog]);
+
+        try {
+            await phantomConnect({ provider: "phantom" });
+            addLog("PHANTOM_SOCIAL_CONNECTED");
+        } catch (err) {
+            const raw = err instanceof Error ? err.message : String(err);
+            console.error("[Phantom social] connect error:", raw);
+            const looksLikeOriginIssue =
+                /login\/start|400|unauthorized|origin|app[_ ]?id/i.test(raw);
+            setOauthError(
+                looksLikeOriginIssue
+                    ? "Phantom rejected this domain. The current origin needs to be whitelisted for the Phantom app ID, or sign in with a wallet / Google instead."
+                    : raw || "Phantom sign-in failed."
+            );
+            addLog("ERROR: PHANTOM_SOCIAL_FAILED");
+        }
+    }, [addLog, phantomConnect]);
 
     const { select } = useWallet();
 
