@@ -216,11 +216,12 @@ async function nudgeVertexWorker(row: Record<string, unknown>) {
   if (!isUuid(id) || !model.includes("(vertex)") || status === "done" || status === "failed") return;
 
   const updatedAt = dateMs(row.updated_at);
-  if (updatedAt !== null && Date.now() - updatedAt < 75_000) return;
+  // Queued jobs get re-published immediately on any poll — the worker uses a
+  // DB claim guard (`claimQueuedJob`) so duplicate events are harmless. For
+  // in-flight statuses we still throttle to avoid event spam.
+  const throttleMs = status === "queued" ? 5_000 : 75_000;
+  if (updatedAt !== null && Date.now() - updatedAt < throttleMs) return;
 
-  // Back-compat for renders started before Vertex was moved fully into the
-  // durable worker. Mark updated first so repeated browser polls don't fan out
-  // duplicate resume events while the worker wakes up.
   await db.execute(sql`UPDATE studio_video_jobs SET updated_at = now() WHERE id = ${id}::uuid`);
   await publish({
     name: "studio.video.render.requested",
