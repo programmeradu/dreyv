@@ -287,7 +287,8 @@ async function saveFinal(args: {
           shot_keys = ${JSON.stringify(args.shotKeys)}::jsonb,
           final_url = ${args.finalUrl},
           final_key = ${args.finalKey ?? null},
-          duration_sec = ${args.durationSec},
+          duration_sec = ${Math.round(args.durationSec)},
+
           error = NULL,
           updated_at = now()
       WHERE id = ${args.jobId}::uuid
