@@ -671,15 +671,41 @@ function AuthPageContent() {
 
     // One-click Phantom (social-style): selects the Phantom wallet adapter
     // which triggers Phantom's connect → sign flow (no OAuth required).
-    const handlePhantomSocial = useCallback(() => {
+    const handlePhantomSocial = useCallback(async () => {
         try {
             setOauthError(null);
             addLog("INITIATING_PHANTOM_CONNECT");
+
+            // Detect the Phantom browser extension. Without it, @phantom/react-sdk
+            // falls back to its embedded wallet flow, which calls
+            // https://.../login/start and 400s unless this exact origin is
+            // whitelisted for NEXT_PUBLIC_PHANTOM_APP_ID in the Phantom Dashboard.
+            const hasExtension =
+                typeof window !== "undefined" &&
+                Boolean((window as any).phantom?.solana?.isPhantom);
+
+            if (!hasExtension) {
+                const msg =
+                    "Phantom extension not detected. Install Phantom or open this page in the Phantom in-app browser to continue.";
+                setOauthError(msg);
+                addLog("ERROR: PHANTOM_EXTENSION_MISSING");
+                if (typeof window !== "undefined") {
+                    window.open("https://phantom.app/download", "_blank", "noopener");
+                }
+                return;
+            }
+
             select('Phantom' as any);
             openWalletModal(true);
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
-            setOauthError(msg);
+            console.error("[Phantom] connect error:", msg);
+            setOauthError(
+                msg.includes("login/start") || msg.includes("400")
+                    ? "Phantom sign-in is not enabled for this domain yet. Use the Phantom extension, or contact support to whitelist this origin."
+                    : msg
+            );
+            addLog("ERROR: PHANTOM_CONNECT_FAILED");
         }
     // select/openWalletModal declared below via useWallet — safe via closure
     // eslint-disable-next-line react-hooks/exhaustive-deps
