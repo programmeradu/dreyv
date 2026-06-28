@@ -1,14 +1,13 @@
 /**
  * /api/studio/video/render
  *
- *   POST  { pack }       → creates a studio_video_jobs row and starts the
- *                          selected renderer. Vertex uses per-shot operation
- *                          polling; fal providers still use Inngest.
+ *   POST  { pack }       → creates a studio_video_jobs row and queues the
+ *                          selected renderer in the durable worker.
  *   GET   ?id=<uuid>     → returns the row so the UI can poll progress
  *                          and surface the final mp4 url + per-shot urls.
  *
- * The default Vertex path never holds a request open for the full render: it
- * submits/polls each 8s segment, then stitches the finished shots into one ad.
+ * Status checks must stay cheap. The durable worker advances Vertex operations,
+ * runs QC, and stitches the finished shots so browser polling never 504s.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
@@ -17,7 +16,6 @@ import { sql } from "drizzle-orm";
 import { publish } from "@/lib/agents/bus";
 import { presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
-import { advanceVertexRenderJob } from "@/lib/media-studio/vertex-render-job";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -99,15 +97,6 @@ async function handlePost(req: NextRequest) {
   const jobId = row?.id;
   if (!jobId) return NextResponse.json({ error: "Failed to insert job" }, { status: 500 });
 
-  if (provider === "veo3-vertex") {
-    const advanced = await advanceVertexRenderJob(jobId);
-    return NextResponse.json({
-      jobId,
-      mode: "vertex-managed",
-      warning: advanced.failed ?? undefined,
-    });
-  }
-
   const delivered = await publish({
     name: "studio.video.render.requested",
     data: { jobId, pack, provider },
@@ -130,7 +119,7 @@ async function handlePost(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ jobId });
+  return NextResponse.json({ jobId, mode: provider === "veo3-vertex" ? "vertex-managed-worker" : "worker" });
 }
 
 // Re-presign each stored R2 key so the browser always gets working URLs,
@@ -183,6 +172,33 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function dateMs(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const n = new Date(value).getTime();
+  return Number.isFinite(n) ? n : null;
+}
+
+async function nudgeVertexWorker(row: Record<string, unknown>) {
+  if (!db) return;
+  const id = typeof row.id === "string" ? row.id : "";
+  const model = typeof row.model === "string" ? row.model : "";
+  const status = typeof row.status === "string" ? row.status : "";
+  if (!isUuid(id) || !model.includes("(vertex)") || status === "done" || status === "failed") return;
+
+  const updatedAt = dateMs(row.updated_at);
+  if (updatedAt !== null && Date.now() - updatedAt < 75_000) return;
+
+  // Back-compat for renders started before Vertex was moved fully into the
+  // durable worker. Mark updated first so repeated browser polls don't fan out
+  // duplicate resume events while the worker wakes up.
+  await db.execute(sql`UPDATE studio_video_jobs SET updated_at = now() WHERE id = ${id}::uuid`);
+  await publish({
+    name: "studio.video.render.requested",
+    data: { jobId: id, pack: row.pack, provider: "veo3-vertex" },
+  }).catch((err) => console.warn("[studio/video/render] vertex worker nudge failed:", err));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireTeamMember(req);
@@ -228,15 +244,7 @@ export async function GET(req: NextRequest) {
     let row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
-    const isVertexManaged = typeof row.model === "string" && row.model.includes("(vertex)");
-    if (isVertexManaged && row.status !== "done" && row.status !== "failed") {
-      await advanceVertexRenderJob(id);
-      result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done, shot_urls,
-                                            final_url, duration_sec, error, created_at, updated_at
-                                     FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
-      row = rowsFromResult(result)[0];
-      if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
-    }
+    await nudgeVertexWorker(row);
 
     let shotKeys: unknown = [];
     let finalKey: unknown = null;
