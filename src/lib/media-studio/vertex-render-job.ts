@@ -859,8 +859,11 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
             masterNarration: stitchBase.masterNarration,
           },
         };
-        await savePack(jobId, { ...pack, __renderState: nextState }, { status: "stitching" });
-        throw new Error(`normalizeSegment[${nextIndex}] failed: ${message}`);
+        await savePack(jobId, { ...pack, __renderState: nextState }, {
+          status: "stitching",
+          error: `normalizeSegment[${nextIndex + 1}] failed; will retry on next poll (${message.slice(0, 260)})`,
+        });
+        return { advanced: true };
       }
     }
 
@@ -905,12 +908,22 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
 
     const narrationUrl = await narrationUrlFromEntry(stitchBase.masterNarration);
 
-    const stitched = await concatSegments({
-      jobId,
-      segments: existingSegments,
-      durationSec: shotUrls.length * 8,
-      narrationUrl,
-    });
+    let stitched: { url: string; key: string; durationSec: number };
+    try {
+      stitched = await concatSegments({
+        jobId,
+        segments: existingSegments,
+        durationSec: shotUrls.length * 8,
+        narrationUrl,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await savePack(jobId, { ...pack, __renderState: concatState }, {
+        status: "stitching",
+        error: `concat failed; will retry on next poll (${message.slice(0, 260)})`,
+      });
+      return { advanced: true };
+    }
     const masterNarration = stitchBase.masterNarration?.key
       ? { ...stitchBase.masterNarration, status: "muxed" as const, updatedAt: new Date().toISOString() }
       : stitchBase.masterNarration;

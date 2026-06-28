@@ -352,20 +352,39 @@ export async function concatSegments(args: {
     } catch (err) {
       if (narrationFile) {
         console.warn("[stitcher] concat with master narration failed; retrying full visual concat with original/silent audio:", err);
-        await runFfmpeg(
-          [
-            "-hide_banner", "-y",
-            ...inputs,
-            "-filter_complex", `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`,
-            "-map", "[vcat]", "-map", "[scratcha]",
-            "-t", String(visualDuration),
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-            "-movflags", "+faststart",
-            outFile,
-          ],
-          workdir,
-        );
+        try {
+          await runFfmpeg(
+            [
+              "-hide_banner", "-y",
+              ...inputs,
+              "-filter_complex", `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`,
+              "-map", "[vcat]", "-map", "[scratcha]",
+              "-t", String(visualDuration),
+              "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+              "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+              "-movflags", "+faststart",
+              outFile,
+            ],
+            workdir,
+          );
+        } catch (audioErr) {
+          console.warn("[stitcher] narration fallback audio concat failed; retrying video-only with silent track:", audioErr);
+          await runFfmpeg(
+            [
+              "-hide_banner", "-y",
+              ...inputs,
+              "-f", "lavfi", "-t", String(visualDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+              "-filter_complex", `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]`,
+              "-map", "[vcat]", "-map", `${n + 1}:a:0`,
+              "-t", String(visualDuration),
+              "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+              "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+              "-movflags", "+faststart",
+              outFile,
+            ],
+            workdir,
+          );
+        }
         const body = await readFile(outFile);
         const key = `studio/video/final-${args.jobId}-${Date.now()}.mp4`;
         await putR2Object({ key, body, mime: "video/mp4", filename: "dreyv-final-ad.mp4" });
