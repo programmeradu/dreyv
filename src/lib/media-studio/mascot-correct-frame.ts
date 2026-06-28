@@ -136,11 +136,17 @@ async function correctMascotInFrame(frame: InlinePng): Promise<InlinePng | null>
  */
 export async function extractAndCorrectLastFrame(videoUrl: string): Promise<InlinePng> {
   const raw = await extractLastFramePng(videoUrl);
-  try {
-    const corrected = await correctMascotInFrame(raw);
-    if (corrected) return corrected;
-  } catch (err) {
-    console.warn("[mascot-correct] correction failed, using raw last frame:", err);
+  // One retry — a single Gemini hiccup mid-render otherwise feeds Veo the raw
+  // drifted last frame and the mascot compounds drift shot-after-shot.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const corrected = await correctMascotInFrame(raw);
+      if (corrected) return corrected;
+    } catch (err) {
+      console.warn(`[mascot-correct] attempt ${attempt + 1} failed:`, err);
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
   }
+  console.warn("[mascot-correct] both attempts failed, using raw last frame (mascot may drift)");
   return raw;
 }
