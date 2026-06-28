@@ -168,14 +168,19 @@ export async function submitVertexVeoOperation(
 
   const refs = (opts.referenceImages ?? []).slice(0, 3);
   const instance: Record<string, unknown> = { prompt };
-  // Veo 3.1 rejects requests that set both `image` (first-frame conditioning)
-  // and `referenceImages` (asset locks): "Image and reference images cannot be
-  // both set." When chaining shots, the first frame IS the mascot lock, so
-  // prefer first-frame and drop reference images for shots 2+.
-  if (opts.firstFrameImage) {
-    instance.image = opts.firstFrameImage;
-  } else if (refs.length) {
+  // Veo 3.1 rejects requests that set BOTH `image` (first-frame conditioning)
+  // and `referenceImages` (asset/mascot lock): "Image and reference images
+  // cannot be both set." We learned the hard way that prioritising the
+  // first-frame causes the mascot to drift shot-after-shot — Veo extrapolates
+  // from a half-turned/blurred tail frame and forgets the canonical violet
+  // mascot, cap, and chest mark. The canonical mascot lock is the only
+  // reliable consistency anchor across an 8-shot ad, so reference images
+  // ALWAYS win. Continuity between shots is carried by the prompt itself
+  // (previous shot description + observation), not by a literal frame handoff.
+  if (refs.length) {
     instance.referenceImages = refs;
+  } else if (opts.firstFrameImage) {
+    instance.image = opts.firstFrameImage;
   }
 
   const submitBody = {
