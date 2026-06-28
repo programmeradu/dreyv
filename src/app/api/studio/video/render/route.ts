@@ -286,12 +286,16 @@ function buildProgress(row: Record<string, unknown>, shotUrls: string[]): {
     key: segMap.get(i),
   }));
   const phase = (stitchRaw.phase as StitchProgress["phase"] | undefined) ?? "idle";
+  const narrations = Array.isArray(stitchRaw.narrations)
+    ? (stitchRaw.narrations as NarrationProgress[])
+    : [];
   const stitch: StitchProgress = {
     phase: row.status === "done" ? "done" : phase,
     attempts: (stitchRaw.attempts as number | undefined) ?? 0,
     segmentsDone: segments.length,
     segmentsTotal: totalShots,
     segments: segmentEntries,
+    narrations,
     lastChunkAt: (stitchRaw.lastChunkAt as string | undefined) ?? null,
     completedAt: (stitchRaw.completedAt as string | undefined) ?? null,
   };
