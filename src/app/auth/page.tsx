@@ -644,7 +644,7 @@ function AuthPageContent() {
     }, [connected, signIn, openWalletModal]);
 
     // Social OAuth via Neon Auth
-    const handleSocialLogin = useCallback(async (provider: 'google' | 'discord') => {
+    const handleSocialLogin = useCallback(async (provider: 'google') => {
         try {
             setSocialLoading(provider);
             setOauthError(null);
@@ -669,6 +669,22 @@ function AuthPageContent() {
         }
     }, [addLog]);
 
+    // One-click Phantom (social-style): selects the Phantom wallet adapter
+    // which triggers Phantom's connect → sign flow (no OAuth required).
+    const handlePhantomSocial = useCallback(() => {
+        try {
+            setOauthError(null);
+            addLog("INITIATING_PHANTOM_CONNECT");
+            select('Phantom' as any);
+            openWalletModal(true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setOauthError(msg);
+        }
+    // select/openWalletModal declared below via useWallet — safe via closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [addLog]);
+
     const { select } = useWallet();
 
     const handleCommand = useCallback((cmd: string) => {
@@ -682,7 +698,6 @@ function AuthPageContent() {
 
         // Match socials
         else if (lower.includes('google')) handleSocialLogin('google');
-        else if (lower.includes('discord')) handleSocialLogin('discord');
         // If nothing matches explicitly, trigger wallet modal
         else openWalletModal(true);
     }, [select, handleSocialLogin, openWalletModal]);
@@ -814,7 +829,7 @@ function AuthPageContent() {
 
                                         <div className="grid grid-cols-2 gap-2">
                                             <SocialButton name="Google" domain="google.com" onClick={() => handleSocialLogin('google')} loading={socialLoading === 'google'} />
-                                            <SocialButton name="Discord" domain="discord.com" onClick={() => handleSocialLogin('discord')} loading={socialLoading === 'discord'} />
+                                            <SocialButton name="Phantom" domain="phantom.app" onClick={handlePhantomSocial} loading={false} />
                                         </div>
 
                                         <AuthCommandBar onExecute={handleCommand} />
