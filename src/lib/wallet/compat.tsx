@@ -72,7 +72,6 @@ export function PhantomCompatProvider({
     const baseConfig: Record<string, unknown> = {
       addressTypes: [AddressType.solana] as AddressType[],
       providers,
-      theme: lightTheme,
       authOptions: {
         redirectUrl:
           (typeof window !== "undefined" ? window.location.origin : "") +
@@ -91,7 +90,7 @@ export function PhantomCompatProvider({
   }, [appId]);
 
   return (
-    <PhantomProvider config={config} appName={appName} appIcon={appIcon}>
+    <PhantomProvider config={config} theme={lightTheme} appName={appName} appIcon={appIcon}>
       {children}
     </PhantomProvider>
   );
