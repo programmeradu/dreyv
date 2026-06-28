@@ -89,13 +89,41 @@ function parseFreezeSeconds(stderr: string): number {
   return total;
 }
 
+function parseSilenceSeconds(stderr: string): number {
+  let total = 0;
+  for (const m of stderr.matchAll(/silence_duration:\s*(\d+\.?\d*)/g)) total += Number(m[1]);
+  return total;
+}
+
+function parseSceneChanges(stderr: string): number {
+  // scdet emits "scene_score:NN" — count occurrences as a rough cut count.
+  let count = 0;
+  for (const _ of stderr.matchAll(/lavfi\.scd\.score:/g)) count += 1;
+  // Fallback: scdet stderr lines.
+  if (count === 0) {
+    for (const _ of stderr.matchAll(/scdet @ .*score:\s*\d/g)) count += 1;
+  }
+  return count;
+}
+
+function parseResolution(stderr: string): { width: number | null; height: number | null } {
+  const m = stderr.match(/Stream #\d+:\d+.*Video:.*?(\d{2,5})x(\d{2,5})/);
+  if (!m) return { width: null, height: null };
+  return { width: Number(m[1]), height: Number(m[2]) };
+}
+
+function parseAudioMeanDb(stderr: string): number | null {
+  const m = stderr.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
+  return m ? Number(m[1]) : null;
+}
+
 async function probe(inFile: string, cwd: string) {
   const stderr = await runFfmpeg(
     [
       "-hide_banner",
       "-i", inFile,
-      "-vf", "blackdetect=d=0.4:pix_th=0.1,freezedetect=n=-60dB:d=0.5",
-      "-af", "silencedetect=noise=-50dB:d=0.5",
+      "-vf", "blackdetect=d=0.4:pix_th=0.1,freezedetect=n=-60dB:d=0.5,scdet=threshold=10",
+      "-af", "silencedetect=noise=-50dB:d=0.5,volumedetect",
       "-f", "null", "-",
     ],
     cwd,
@@ -103,7 +131,11 @@ async function probe(inFile: string, cwd: string) {
   const duration = parseDuration(stderr);
   const blackSec = parseBlackSeconds(stderr);
   const freezeSec = parseFreezeSeconds(stderr);
-  return { duration, blackSec, freezeSec };
+  const silenceSec = parseSilenceSeconds(stderr);
+  const sceneChanges = parseSceneChanges(stderr);
+  const { width, height } = parseResolution(stderr);
+  const audioMeanDb = parseAudioMeanDb(stderr);
+  return { duration, blackSec, freezeSec, silenceSec, sceneChanges, width, height, audioMeanDb };
 }
 
 async function extractAudioMp3(inFile: string, cwd: string): Promise<Buffer | null> {
