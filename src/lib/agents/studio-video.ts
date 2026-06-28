@@ -150,7 +150,18 @@ export const studioVideoRender = inngest.createFunction(
       if (provider.stitch === "local" && shotUrls.length > 1) {
         await setJob(jobId, { status: "stitching" });
         const final = await step.run("compose", () =>
-          stitchShotsLocally({ jobId, shotUrls, shotDurationSec: provider.secondsPerShot }),
+          stitchShotsLocally({
+            jobId,
+            shotUrls,
+            shotDurationSec: provider.secondsPerShot,
+            // Tight v2 post stack: burn captions from the pack, apply a subtle
+            // cinematic grade, and upscale to 1080x1920. Captions are sourced
+            // from `pack.burnedCaptions` (one per shot) so the model never has
+            // to render legible text itself.
+            captions: pack.burnedCaptions,
+            colorGrade: true,
+            upscaleTo1080: true,
+          }),
         );
         await setJob(jobId, {
           status: "done",

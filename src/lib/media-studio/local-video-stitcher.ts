@@ -1,3 +1,16 @@
+/**
+ * Local ffmpeg stitch + post pipeline for the Dreyv Video Studio.
+ *
+ * Tight v2 post stack (runs after Veo 3.1 returns each shot):
+ *   1. Download every shot to a temp workdir.
+ *   2. Normalize each shot to a consistent 720x1280 / 30fps / AAC frame.
+ *      - Optional cinematic LUT pass (curves + subtle saturation/contrast).
+ *      - Optional burned caption per shot via drawtext + bundled Manrope.
+ *      - Optional 1080x1920 upscale (lanczos).
+ *   3. Concat with stream copy when no post is needed, otherwise concat the
+ *      re-encoded normalized shots.
+ *   4. Push the final MP4 to R2 and return a presigned inline URL.
+ */
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +22,8 @@ import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifact
 type StitchResult = { url: string; key?: string; durationSec: number };
 
 const SHOT_DURATION_SEC = 8;
+
+const FONT_PATH = path.join(process.cwd(), "public", "fonts", "Manrope-SemiBold.ttf");
 
 function ffmpegPath(): string {
   if (ffmpegStaticPath && existsSync(ffmpegStaticPath)) return ffmpegStaticPath;
@@ -38,70 +53,114 @@ async function downloadShot(url: string, filePath: string, index: number): Promi
 }
 
 function concatList(files: string[]): string {
-  return files
-    .map((file) => `file '${file.replace(/'/g, "'\\''")}'`)
-    .join("\n");
+  return files.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join("\n");
 }
 
 async function concatCopy(files: string[], listFile: string, outputFile: string, workdir: string) {
   await writeFile(listFile, concatList(files));
-  await runFfmpeg([
-    "-hide_banner",
-    "-y",
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    listFile,
-    "-c",
-    "copy",
-    "-movflags",
-    "+faststart",
-    outputFile,
-  ], workdir);
+  await runFfmpeg(
+    ["-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-movflags", "+faststart", outputFile],
+    workdir,
+  );
 }
 
-async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean) {
-  await runFfmpeg([
-    "-hide_banner",
-    "-y",
-    "-i",
-    input,
-    "-vf",
-    "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-crf",
-    "19",
-    ...(keepAudio
-      ? ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"]
-      : ["-an"]),
-    "-movflags",
-    "+faststart",
-    output,
-  ], workdir);
+/** Escape text for ffmpeg drawtext. */
+function escapeDrawtext(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "\\'")
+    .replace(/%/g, "\\%");
 }
 
-async function normalizeAll(inputs: string[], workdir: string, keepAudio: boolean): Promise<string[]> {
+type PostOptions = {
+  caption?: string;
+  colorGrade?: boolean;
+  upscaleTo1080?: boolean;
+};
+
+function buildVideoFilter(opts: PostOptions): string {
+  const target = opts.upscaleTo1080 ? { w: 1080, h: 1920 } : { w: 720, h: 1280 };
+  const chain: string[] = [
+    `scale=${target.w}:${target.h}:force_original_aspect_ratio=decrease:flags=lanczos`,
+    `pad=${target.w}:${target.h}:(ow-iw)/2:(oh-ih)/2:color=black`,
+    "setsar=1",
+    "fps=30",
+  ];
+  if (opts.colorGrade) {
+    // Subtle "premium" grade: lift shadows, gentle s-curve, +saturation,
+    // slight contrast. Tuned to keep the violet brand color punchy without
+    // looking like an Instagram filter.
+    chain.push("curves=preset=increase_contrast");
+    chain.push("eq=saturation=1.08:contrast=1.04:gamma=0.98");
+  }
+  if (opts.caption && existsSync(FONT_PATH)) {
+    const fontfile = FONT_PATH.replace(/\\/g, "/").replace(/:/g, "\\:");
+    const text = escapeDrawtext(opts.caption);
+    const fontsize = Math.round(target.w * 0.055);
+    // Bottom-third caption with rounded translucent box.
+    chain.push(
+      [
+        "drawtext=",
+        `fontfile='${fontfile}'`,
+        `:text='${text}'`,
+        `:fontcolor=white`,
+        `:fontsize=${fontsize}`,
+        `:line_spacing=8`,
+        `:box=1:boxcolor=black@0.55:boxborderw=28`,
+        `:x=(w-text_w)/2`,
+        `:y=h-(h*0.18)-text_h`,
+      ].join(""),
+    );
+  }
+  return chain.join(",");
+}
+
+async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean, post: PostOptions) {
+  await runFfmpeg(
+    [
+      "-hide_banner",
+      "-y",
+      "-i",
+      input,
+      "-vf",
+      buildVideoFilter(post),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "19",
+      ...(keepAudio ? ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"] : ["-an"]),
+      "-movflags",
+      "+faststart",
+      output,
+    ],
+    workdir,
+  );
+}
+
+async function normalizeAll(inputs: string[], workdir: string, keepAudio: boolean, perShot: PostOptions[]): Promise<string[]> {
   const suffix = keepAudio ? "norm" : "silent";
   const outputs = inputs.map((_, i) => path.join(workdir, `${suffix}-${String(i + 1).padStart(2, "0")}.mp4`));
   for (let i = 0; i < inputs.length; i += 1) {
-    await normalizeShot(inputs[i], outputs[i], workdir, keepAudio);
+    await normalizeShot(inputs[i], outputs[i], workdir, keepAudio, perShot[i] ?? {});
   }
   return outputs;
 }
 
 /**
- * Stitch Vertex shots locally with ffmpeg, then persist the single MP4 to R2.
- * This keeps the Vertex path independent from fal credits/billing.
+ * Stitch Veo shots locally with ffmpeg, then persist the single MP4 to R2.
+ * Captions, color grade, and upscaling are applied per-shot during the
+ * normalize pass so the final concat is always a clean stream copy.
  */
 export async function stitchShotsLocally(args: {
   jobId: string;
   shotUrls: string[];
   shotDurationSec?: number;
+  captions?: string[];
+  colorGrade?: boolean;
+  upscaleTo1080?: boolean;
 }): Promise<StitchResult> {
   if (args.shotUrls.length < 2) throw new Error("At least two shots are required for stitching");
   const workdir = await mkdtemp(path.join(tmpdir(), "dreyv-video-stitch-"));
@@ -111,24 +170,48 @@ export async function stitchShotsLocally(args: {
       await downloadShot(args.shotUrls[i], inputs[i], i);
     }
 
+    const wantsPost =
+      Boolean(args.colorGrade) ||
+      Boolean(args.upscaleTo1080) ||
+      (args.captions ?? []).some((c) => c && c.trim().length > 0);
+
+    const perShot: PostOptions[] = inputs.map((_, i) => ({
+      caption: args.captions?.[i]?.trim() || undefined,
+      colorGrade: args.colorGrade,
+      upscaleTo1080: args.upscaleTo1080,
+    }));
+
     let outputFile = path.join(workdir, "final-copy.mp4");
 
-    try {
-      await concatCopy(inputs, path.join(workdir, "concat-copy.txt"), outputFile, workdir);
-    } catch (copyErr) {
+    if (wantsPost) {
+      // Post requires re-encode, so we go straight to normalize.
       try {
-        const normalized = await normalizeAll(inputs, workdir, true);
+        const normalized = await normalizeAll(inputs, workdir, true, perShot);
         outputFile = path.join(workdir, "final-normalized.mp4");
         await concatCopy(normalized, path.join(workdir, "concat-normalized.txt"), outputFile, workdir);
       } catch {
-        const silent = await normalizeAll(inputs, workdir, false);
+        const silent = await normalizeAll(inputs, workdir, false, perShot);
         outputFile = path.join(workdir, "final-silent.mp4");
+        await concatCopy(silent, path.join(workdir, "concat-silent.txt"), outputFile, workdir);
+      }
+    } else {
+      try {
+        await concatCopy(inputs, path.join(workdir, "concat-copy.txt"), outputFile, workdir);
+      } catch (copyErr) {
         try {
-          await concatCopy(silent, path.join(workdir, "concat-silent.txt"), outputFile, workdir);
-        } catch (silentErr) {
-          const primary = copyErr instanceof Error ? copyErr.message : String(copyErr);
-          const fallback = silentErr instanceof Error ? silentErr.message : String(silentErr);
-          throw new Error(`Local stitch failed. copy=${primary}; normalized=${fallback}`);
+          const normalized = await normalizeAll(inputs, workdir, true, perShot);
+          outputFile = path.join(workdir, "final-normalized.mp4");
+          await concatCopy(normalized, path.join(workdir, "concat-normalized.txt"), outputFile, workdir);
+        } catch {
+          const silent = await normalizeAll(inputs, workdir, false, perShot);
+          outputFile = path.join(workdir, "final-silent.mp4");
+          try {
+            await concatCopy(silent, path.join(workdir, "concat-silent.txt"), outputFile, workdir);
+          } catch (silentErr) {
+            const primary = copyErr instanceof Error ? copyErr.message : String(copyErr);
+            const fallback = silentErr instanceof Error ? silentErr.message : String(silentErr);
+            throw new Error(`Local stitch failed. copy=${primary}; normalized=${fallback}`);
+          }
         }
       }
     }
