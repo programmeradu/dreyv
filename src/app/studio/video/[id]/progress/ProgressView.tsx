@@ -173,9 +173,12 @@ export default function ProgressView({ jobId }: { jobId: string }) {
           </p>
         ) : null}
         {job?.error ? (
-          <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
-            {job.error}
-          </p>
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            <p>{job.error}</p>
+            {isFailed && /stitch/i.test(job.error) ? (
+              <RetryStitchButton jobId={jobId} onDone={() => setRefreshedAt(Date.now())} />
+            ) : null}
+          </div>
         ) : null}
 
         {/* Shots */}
