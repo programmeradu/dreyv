@@ -221,12 +221,21 @@ type ShotProgress = {
   } | null;
 };
 
+type NarrationProgress = {
+  n: number;
+  status: "synthesizing" | "ready" | "skipped" | "failed" | "muxed";
+  bytes?: number;
+  reason?: string;
+  updatedAt?: string;
+};
+
 type StitchProgress = {
   phase: "idle" | "normalizing" | "concat" | "done";
   attempts: number;
   segmentsDone: number;
   segmentsTotal: number;
   segments: Array<{ n: number; status: "pending" | "ready"; key?: string }>;
+  narrations: NarrationProgress[];
   lastChunkAt?: string | null;
   completedAt?: string | null;
 };
