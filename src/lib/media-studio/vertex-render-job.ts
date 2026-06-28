@@ -721,7 +721,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           shotUrl: shotUrls[nextIndex],
           index: nextIndex,
           caption: pack.burnedCaptions?.[nextIndex],
-          colorGrade: true,
+          colorGrade: false,
           upscaleTo1080: true,
           narrationUrl,
           shotDurationSec: 8,
