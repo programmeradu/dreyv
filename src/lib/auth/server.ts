@@ -87,17 +87,26 @@ function createStubHandler() {
         const location = responseHeaders.get('location');
         if (location) {
             try {
-                const locUrl = new URL(location);
+                const basePath = new URL(base).pathname.replace(/\/$/, '');
+                // Resolve relative Locations against the upstream target so we
+                // can normalize them uniformly.
+                const locUrl = new URL(location, target);
                 if (locUrl.origin === target.origin) {
-                    // Map the Neon Auth path back to /api/auth/...
-                    const basePath = new URL(base).pathname.replace(/\/$/, '');
-                    const suffix = locUrl.pathname.startsWith(basePath)
-                        ? locUrl.pathname.slice(basePath.length)
-                        : locUrl.pathname;
-                    responseHeaders.set(
-                        'location',
-                        `${incoming.origin}/api/auth${suffix}${locUrl.search}`,
-                    );
+                    if (locUrl.pathname.startsWith(basePath)) {
+                        // Auth-API path → re-prefix with /api/auth on our origin.
+                        const suffix = locUrl.pathname.slice(basePath.length);
+                        responseHeaders.set(
+                            'location',
+                            `${incoming.origin}/api/auth${suffix}${locUrl.search}`,
+                        );
+                    } else {
+                        // User-facing callbackURL (e.g. /auth?oauth=complete).
+                        // Send the browser to that path on OUR origin.
+                        responseHeaders.set(
+                            'location',
+                            `${incoming.origin}${locUrl.pathname}${locUrl.search}`,
+                        );
+                    }
                 }
             } catch {}
         }
