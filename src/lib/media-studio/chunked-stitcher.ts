@@ -152,7 +152,7 @@ export async function concatSegments(args: {
     for (let i = 0; i < args.segments.length; i += 1) {
       const seg = args.segments[i];
       const local = path.join(workdir, `seg-${String(i + 1).padStart(2, "0")}.mp4`);
-      const signed = await presignR2Get({ key: seg.key, mime: "video/mp4", inline: true, ttlSeconds: 600 });
+      const signed = await presignR2Get({ key: seg.key, filename: `seg-${i + 1}.mp4`, mime: "video/mp4", inline: true, ttlSeconds: 600 });
       const res = await fetch(signed);
       if (!res.ok) throw new Error(`Missing segment ${seg.n + 1} (${seg.key}) — fetch ${res.status}`);
       await writeFile(local, Buffer.from(await res.arrayBuffer()));
