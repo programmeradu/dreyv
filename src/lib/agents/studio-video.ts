@@ -21,8 +21,9 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { renderVeo3FastShot, renderWan22FastShot } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
-import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
+import { renderVertexVeoShot, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
+import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
 import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
@@ -30,10 +31,11 @@ import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 // Vertex Veo 3.1 accepts up to 3 asset reference images per generation. We
 // feed the canonical Dreyv mascot PNGs directly so the model copies the real
 // design (violet body, cream chest with the "D" mark, violet cap) instead of
-// inventing one from text.
-async function renderVertexVeoShotWithMascot(prompt: string) {
+// inventing one from text. When `firstFrameImage` is passed, Veo also chains
+// the new clip from the tail frame of the previous shot for seamless cuts.
+async function renderVertexVeoShotWithMascot(prompt: string, firstFrameImage?: VeoFirstFrameImage) {
   const referenceImages = await loadDreyvMascotReferences();
-  return renderVertexVeoShot(prompt, { referenceImages });
+  return renderVertexVeoShot(prompt, { referenceImages, firstFrameImage });
 }
 
 /**
@@ -42,14 +44,18 @@ async function renderVertexVeoShotWithMascot(prompt: string) {
  * duration metadata after local ffmpeg stitching.
  */
 export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
+type ShotRenderer = (
+  prompt: string,
+  firstFrameImage?: VeoFirstFrameImage,
+) => Promise<{ url: string; key?: string }>;
 const PROVIDERS: Record<
   VideoProvider,
-  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "local" | "none" }
+  { render: ShotRenderer; secondsPerShot: number; stitch: "local" | "none"; supportsChaining: boolean }
 > = {
-  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
-  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "local" },
-  "veo3-vertex": { render: renderVertexVeoShotWithMascot, secondsPerShot: 8, stitch: "local" },
-  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
+  "veo3-fal":    { render: (p) => renderVeo3FastShot(p),   secondsPerShot: 8, stitch: "local", supportsChaining: false },
+  "veo3-google": { render: (p) => renderGoogleVeo3Shot(p), secondsPerShot: 8, stitch: "local", supportsChaining: false },
+  "veo3-vertex": { render: renderVertexVeoShotWithMascot,  secondsPerShot: 8, stitch: "local", supportsChaining: true },
+  "wan22-fal":   { render: (p) => renderWan22FastShot(p),  secondsPerShot: 5, stitch: "local", supportsChaining: false },
 };
 
 type Shot = {
@@ -132,9 +138,13 @@ export const studioVideoRender = inngest.createFunction(
 
       const shotUrls: string[] = [];
       const shotKeys: (string | null)[] = [];
+      // Carries the tail frame of the previous shot so the next shot starts
+      // from the exact same image — invisible cuts, locked mascot/scene/light.
+      let nextFirstFrame: VeoFirstFrameImage | undefined = undefined;
       for (const shot of shots) {
-        const result = await step.run(`shot-${shot.n}`, async () => {
-          return provider.render(buildShotPrompt(shot, pack));
+        const firstFrame: VeoFirstFrameImage | undefined = provider.supportsChaining ? nextFirstFrame : undefined;
+        const result: { url: string; key?: string } = await step.run(`shot-${shot.n}`, async (): Promise<{ url: string; key?: string }> => {
+          return provider.render(buildShotPrompt(shot, pack), firstFrame);
         });
         shotUrls.push(result.url);
         shotKeys.push(result.key ?? null);
@@ -143,6 +153,10 @@ export const studioVideoRender = inngest.createFunction(
           shot_urls: shotUrls,
           shot_keys: shotKeys,
         });
+        // Only extract a tail frame if there's another shot to chain into.
+        if (provider.supportsChaining && shotUrls.length < shots.length) {
+          nextFirstFrame = await step.run(`tail-${shot.n}`, async (): Promise<VeoFirstFrameImage> => extractLastFramePng(result.url));
+        }
       }
 
       // Stitching happens inside Dreyv with the bundled ffmpeg binary. fal may

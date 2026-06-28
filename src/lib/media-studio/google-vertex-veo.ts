@@ -17,6 +17,8 @@ import { SignJWT, importPKCS8 } from "jose";
 import { putR2Object, isR2Configured, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import type { VeoReferenceImage } from "@/lib/media-studio/mascot-references";
 
+export type VeoFirstFrameImage = { bytesBase64Encoded: string; mimeType: string };
+
 export type VertexVeoSubmitOptions = {
   /**
    * Up to 3 Veo 3.1 asset reference images. Used to lock the Dreyv mascot to
@@ -24,6 +26,12 @@ export type VertexVeoSubmitOptions = {
    * instead of letting Veo invent it from text.
    */
   referenceImages?: VeoReferenceImage[];
+  /**
+   * Optional starting frame for image-to-video conditioning. When set, Veo
+   * generates a clip that begins from this exact image — used to seamlessly
+   * continue from the last frame of the previous shot.
+   */
+  firstFrameImage?: VeoFirstFrameImage;
 };
 
 const REGION = process.env.GCP_VERTEX_REGION?.trim() || "us-central1";
@@ -161,6 +169,9 @@ export async function submitVertexVeoOperation(
   const refs = (opts.referenceImages ?? []).slice(0, 3);
   const instance: Record<string, unknown> = { prompt };
   if (refs.length) instance.referenceImages = refs;
+  // First-frame conditioning for seamless shot-to-shot continuity. Veo 3.1
+  // accepts `image` on the instance and generates a clip that starts from it.
+  if (opts.firstFrameImage) instance.image = opts.firstFrameImage;
 
   const submitBody = {
     instances: [instance],
