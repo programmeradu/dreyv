@@ -1,0 +1,31 @@
+name = "dreyv-video-stitcher"
+main = "src/worker.ts"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare Container that runs ffmpeg. The Worker forwards POST /stitch
+# requests into the container instance.
+[[containers]]
+class_name = "VideoStitcher"
+image = "./Dockerfile"
+max_instances = 5
+instance_type = "standard"
+
+[[durable_objects.bindings]]
+class_name = "VideoStitcher"
+name = "VIDEO_STITCHER"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["VideoStitcher"]
+
+[observability.logs]
+enabled = true
+
+# Secrets (set via `wrangler secret put <NAME>`):
+#   STITCHER_SECRET        — shared bearer with Vercel (matches VIDEO_STITCHER_SECRET there)
+#   R2_ACCOUNT_ID          — Cloudflare account id
+#   R2_BUCKET              — R2 bucket for final MP4s (same one Vercel uses)
+#   R2_ACCESS_KEY_ID       — R2 S3 access key id
+#   R2_SECRET_ACCESS_KEY   — R2 S3 secret access key
+#   R2_PUBLIC_BASE         — (optional) public base URL for the bucket; falls back to presigned URLs
