@@ -1,50 +1,38 @@
-# Dreyv Video Stitcher (Fly.io)
+# Dreyv Video Stitcher
 
-Long-running ffmpeg server that stitches Veo shots into final MP4s. Lives on
-Fly.io because Vercel lambdas time out at 5 minutes and Cloudflare Workers
-can't run native ffmpeg.
+Long-running ffmpeg server that stitches Veo shots into final MP4s. Lives off
+Vercel because Vercel lambdas time out at 5 minutes.
 
-Vercel calls it directly — no Cloudflare Worker proxy in between.
+## Zero-CLI deploy (Render.com)
 
-## Deploy (no Docker required locally)
+1. Push this repo to GitHub (already wired via Lovable's GitHub sync).
+2. Go to https://dashboard.render.com → **New +** → **Blueprint**.
+3. Connect the repo. Render reads `render.yaml` at the repo root and proposes
+   the `dreyv-video-stitcher` web service. Click **Apply**.
+4. After the first build fails (no secrets yet), open the service →
+   **Environment** and set:
+   - `STITCHER_SECRET` — any long random string (Render has a "Generate" button)
+   - `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+     `R2_PUBLIC_BASE` — same values already on Vercel
+5. Click **Manual Deploy → Deploy latest commit**. Render gives you a URL like
+   `https://dreyv-video-stitcher.onrender.com`.
 
-```bash
-cd workers/video-stitcher
-
-# 1. One-time: create the app on Fly
-flyctl launch --copy-config --no-deploy --name dreyv-video-stitcher
-
-# 2. Set secrets
-flyctl secrets set \
-  STITCHER_SECRET=$(openssl rand -hex 32) \
-  R2_ACCOUNT_ID=... \
-  R2_BUCKET=... \
-  R2_ACCESS_KEY_ID=... \
-  R2_SECRET_ACCESS_KEY=... \
-  R2_PUBLIC_BASE=https://media.dreyv.com
-
-# 3. Build + deploy remotely (Fly's builder runs Docker, you don't)
-flyctl deploy --remote-only
-```
-
-Fly prints the public URL, e.g. `https://dreyv-video-stitcher.fly.dev`.
+No terminal, no Docker, no `flyctl`, no GitHub Actions.
 
 ## Wire into Vercel
 
-Set on the Next.js app:
+On the Next.js project set:
 
 ```
-VIDEO_STITCHER_URL=https://dreyv-video-stitcher.fly.dev
+VIDEO_STITCHER_URL=https://dreyv-video-stitcher.onrender.com
 VIDEO_STITCHER_SECRET=<same value as STITCHER_SECRET above>
 ```
 
-`src/lib/media-studio/remote-video-stitcher.ts` POSTs `/stitch` with
-`Authorization: Bearer ${VIDEO_STITCHER_SECRET}`. `vertex-render-job.ts`
-auto-prefers the remote stitcher whenever both env vars are present.
+`vertex-render-job.ts` auto-prefers the remote stitcher when both are set.
 
 ## Endpoint
 
-`POST /stitch` — auth `Authorization: Bearer ${STITCHER_SECRET}`
+`POST /stitch` — `Authorization: Bearer ${STITCHER_SECRET}`
 
 ```json
 {
@@ -57,4 +45,10 @@ auto-prefers the remote stitcher whenever both env vars are present.
 }
 ```
 
-Returns `{ ok: true, url, key, durationSec }`.
+Returns `{ ok: true, url, key, durationSec }`. Health check: `GET /healthz`.
+
+## Alternative hosts
+
+The same Dockerfile works on Railway (New Project → Deploy from GitHub repo →
+set root `workers/video-stitcher`) or Fly.io (`flyctl deploy --remote-only`
+from the `fly.toml` in this folder). Render is the simplest browser-only path.
