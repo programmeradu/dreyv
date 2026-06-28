@@ -330,7 +330,7 @@ async function advanceVertexInline(row: Record<string, unknown>) {
   const model = typeof row.model === "string" ? row.model : "";
   const status = typeof row.status === "string" ? row.status : "";
   if (!isUuid(id) || !model.includes("(vertex)")) return;
-  if (status !== "queued" && status !== "rendering_shots") return;
+  if (status !== "queued" && status !== "rendering_shots" && status !== "stitching") return;
 
   try {
     // Durable worker delivery can be accepted while no consumer is actually
