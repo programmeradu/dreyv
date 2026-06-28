@@ -216,11 +216,12 @@ async function nudgeVertexWorker(row: Record<string, unknown>) {
   if (!isUuid(id) || !model.includes("(vertex)") || status === "done" || status === "failed") return;
 
   const updatedAt = dateMs(row.updated_at);
-  if (updatedAt !== null && Date.now() - updatedAt < 75_000) return;
+  // Queued jobs get re-published immediately on any poll — the worker uses a
+  // DB claim guard (`claimQueuedJob`) so duplicate events are harmless. For
+  // in-flight statuses we still throttle to avoid event spam.
+  const throttleMs = status === "queued" ? 5_000 : 75_000;
+  if (updatedAt !== null && Date.now() - updatedAt < throttleMs) return;
 
-  // Back-compat for renders started before Vertex was moved fully into the
-  // durable worker. Mark updated first so repeated browser polls don't fan out
-  // duplicate resume events while the worker wakes up.
   await db.execute(sql`UPDATE studio_video_jobs SET updated_at = now() WHERE id = ${id}::uuid`);
   await publish({
     name: "studio.video.render.requested",
@@ -238,12 +239,14 @@ export async function GET(req: NextRequest) {
 
     // List mode — recent jobs for the dashboard's "Recent renders" panel.
     if (!id) {
-      const result = (await db.execute(sql`SELECT id, status, model, shots_total, shots_done,
-                                                  final_url, duration_sec, error, created_at
+      const result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done,
+                                                  final_url, duration_sec, error, created_at, updated_at
                                            FROM studio_video_jobs
                                            ORDER BY created_at DESC
                                            LIMIT 20`)) as unknown;
       const rows = rowsFromResult(result);
+      // Auto-resume any queued / in-flight Vertex jobs surfaced in the list.
+      await Promise.all(rows.map((r) => nudgeVertexWorker(r).catch(() => {})));
       let finalKeys = new Map<string, unknown>();
       if (await studioVideoR2ColumnsAvailable()) {
         try {
@@ -257,10 +260,13 @@ export async function GET(req: NextRequest) {
         }
       }
       const jobs = await Promise.all(
-        rows.map(async (r) => ({
-          ...r,
-          final_url: await refreshFinalUrl(finalKeys.get(String(r.id)), r.final_url),
-        })),
+        rows.map(async (r) => {
+          const { pack: _pack, updated_at: _updated, ...rest } = r as Record<string, unknown>;
+          return {
+            ...rest,
+            final_url: await refreshFinalUrl(finalKeys.get(String(r.id)), r.final_url),
+          };
+        }),
       );
       return NextResponse.json({ jobs });
     }
