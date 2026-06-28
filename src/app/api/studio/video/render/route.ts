@@ -214,7 +214,7 @@ async function nudgeVertexWorker(row: Record<string, unknown>) {
   const id = typeof row.id === "string" ? row.id : "";
   const model = typeof row.model === "string" ? row.model : "";
   const status = typeof row.status === "string" ? row.status : "";
-  if (!isUuid(id) || !model.includes("(vertex)") || status === "done" || status === "failed") return;
+  if (!isUuid(id) || !model.includes("(vertex)") || status !== "queued") return;
 
   const updatedAt = dateMs(row.updated_at);
   // Queued jobs get re-published immediately on any poll — the worker uses a
@@ -237,30 +237,32 @@ async function nudgeVertexWorker(row: Record<string, unknown>) {
   }
 }
 
-async function startQueuedVertexInline(row: Record<string, unknown>) {
+async function advanceVertexInline(row: Record<string, unknown>) {
   if (!db) return;
   const id = typeof row.id === "string" ? row.id : "";
   const model = typeof row.model === "string" ? row.model : "";
   const status = typeof row.status === "string" ? row.status : "";
-  if (!isUuid(id) || !model.includes("(vertex)") || status !== "queued") return;
+  if (!isUuid(id) || !model.includes("(vertex)")) return;
+  if (status !== "queued" && status !== "rendering_shots") return;
 
   try {
     // Durable worker delivery can be accepted while no consumer is actually
-    // running (stale Inngest sync / wrong event key). For queued Vertex jobs,
-    // the first advance is cheap: claim the DB row and submit the first LRO.
-    // This keeps Studio from sitting at 0/5 forever without moving slow polling,
-    // QC, or stitching back into the browser request path.
+    // running (stale Inngest sync / wrong event key). Vertex jobs are already
+    // represented as a resumable DB state machine, so each status poll is
+    // allowed to advance exactly one small step: claim, submit, poll one LRO,
+    // materialize a completed clip, or submit the next chained shot. This keeps
+    // Studio from sitting at "rendering 0/5" forever when the worker is stale.
     const result = await advanceVertexRenderJob(id);
     if (result.failed) {
-      console.warn("[studio/video/render] inline Vertex start failed:", result.failed);
+      console.warn("[studio/video/render] inline Vertex advance failed:", result.failed);
     }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    console.warn("[studio/video/render] inline Vertex start threw:", reason);
+    console.warn("[studio/video/render] inline Vertex advance threw:", reason);
     await db.execute(sql`
       UPDATE studio_video_jobs
-      SET error = ${`inline starter failed (${reason.slice(0, 300)})`}, updated_at = now()
-      WHERE id = ${id}::uuid AND status = 'queued'
+      SET error = ${`inline Vertex advance failed (${reason.slice(0, 300)})`}, updated_at = now()
+      WHERE id = ${id}::uuid AND status IN ('queued', 'rendering_shots')
     `);
   }
 }
@@ -315,14 +317,15 @@ export async function GET(req: NextRequest) {
     let row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
-    await nudgeVertexWorker(row);
-    await startQueuedVertexInline(row);
+    await advanceVertexInline(row);
 
     result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done, shot_urls,
                                           final_url, duration_sec, error, created_at, updated_at
                                    FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
     row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+    await nudgeVertexWorker(row);
 
     let shotKeys: unknown = [];
     let finalKey: unknown = null;
