@@ -330,7 +330,7 @@ async function advanceVertexInline(row: Record<string, unknown>) {
   const model = typeof row.model === "string" ? row.model : "";
   const status = typeof row.status === "string" ? row.status : "";
   if (!isUuid(id) || !model.includes("(vertex)")) return;
-  if (status !== "queued" && status !== "rendering_shots") return;
+  if (status !== "queued" && status !== "rendering_shots" && status !== "stitching") return;
 
   try {
     // Durable worker delivery can be accepted while no consumer is actually
@@ -349,7 +349,7 @@ async function advanceVertexInline(row: Record<string, unknown>) {
     await db.execute(sql`
       UPDATE studio_video_jobs
       SET error = ${`inline Vertex advance failed (${reason.slice(0, 300)})`}, updated_at = now()
-      WHERE id = ${id}::uuid AND status IN ('queued', 'rendering_shots')
+      WHERE id = ${id}::uuid AND status IN ('queued', 'rendering_shots', 'stitching')
     `);
   }
 }
