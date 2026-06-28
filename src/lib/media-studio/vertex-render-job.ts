@@ -86,6 +86,20 @@ function packFrom(value: unknown): Pack {
   return {};
 }
 
+/**
+ * Build the per-shot prompt as a structured JSON object serialized to a
+ * string. Veo 3.1's parser treats top-level keys as typed slots (subject,
+ * action, camera, lighting, audio, continuity, negative_prompt, …), which
+ * produces much tighter shot-to-shot consistency than the same intent
+ * expressed as one long paragraph. The cinematic detail lives INSIDE the
+ * string values — pure schema with no prose underperforms.
+ *
+ * Critical slots for us:
+ *  - `audio.dialogue: ""`     → forces silent renders so ElevenLabs owns VO
+ *  - `on_screen_text.render`  → suppresses Veo's misspelled caption text
+ *  - `continuity.*`           → frame-to-frame lock across the 5 shots
+ *  - `negative_prompt`        → first-class slot, honored more strictly
+ */
 function shotPrompt(
   shot: Shot,
   index: number,
@@ -98,66 +112,136 @@ function shotPrompt(
   const openingShot = pack.shotList?.[0] ?? shot;
   const plannedPreviousCaption = index > 0 ? pack.burnedCaptions?.[index - 1]?.trim() : "";
   const currentCaption = pack.burnedCaptions?.[index]?.trim();
-  const phase = index === 0 ? "opening hook" : index === total - 1 ? "final payoff" : `continuation beat ${index + 1}`;
+  const phase = index === 0 ? "opening_hook" : index === total - 1 ? "final_payoff" : "continuation_beat";
   const obs = opts?.previousObservation;
-  // Prefer what was ACTUALLY said + shown over what we planned.
   const observedLastWords = obs?.lastWords?.trim();
   const observedLastAction = obs?.lastAction?.trim();
   const observedSetting = obs?.settingFingerprint?.trim();
-  const ultimateScript = pack.voiceoverScript?.trim();
-  const masterArc = (pack.shotList ?? [])
-    .map((s, i) => `  ${i + 1}/${total}${i === index ? " (THIS SEGMENT)" : ""}: ${s.description}`)
-    .join("\n");
-  const remainingBeats = (pack.shotList ?? [])
-    .slice(index + 1)
-    .map((s, i) => `  ${index + 2 + i}: ${s.description}`)
-    .join("\n");
-  const allCaptions = (pack.burnedCaptions ?? [])
-    .map((c, i) => `  ${i + 1}: "${(c ?? "").trim()}"`)
-    .join("\n");
-  return [
-    dreyvShotStylePreamble(),
-    "",
-    "MASCOT REFERENCE IMAGES ARE ATTACHED — copy the mascot from those images exactly. Match the violet owl body, the cream chest with the Dreyv logo mark on it (a rotated violet rounded-square glyph with an inner cutout — NOT a letter, NOT the letter 'D'), the violet ball cap also stamped with the same Dreyv logo mark, the cream face, the dark violet eyes, and the overall proportions. Do not invent a new mascot. Do not replace the logo with any letter. Do not omit the chest logo or the cap. Do not change the colors.",
-    "",
-    `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
-    "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",
-    ultimateScript ? `ULTIMATE SCRIPT (the complete ad's voiceover — your job is to advance it, never restart it, never repeat already-spoken lines): ${ultimateScript.slice(0, 1200)}` : "",
-    masterArc ? `MASTER STORYBOARD — the locked plan for the whole ad. Execute THIS SEGMENT'S beat exactly as written below. Do NOT improvise a different beat, do NOT swap in ideas from other segments, do NOT skip ahead, do NOT fall back to a generic Dreyv intro:\n${masterArc}` : "",
-    allCaptions ? `LOCKED VOICEOVER PER SEGMENT (segment ${index + 1} must speak segment ${index + 1}'s line, not any other):\n${allCaptions}` : "",
-    remainingBeats ? `Beats that come LATER — do not preview, tease, or jump to them in this segment:\n${remainingBeats}` : "",
-    observedSetting
-      ? `Setting lock — match this exact world observed in the previous segment: ${observedSetting}`
-      : `Locked setting from segment 1 — keep this exact world, location, lighting, time of day, wardrobe, props, lens language, and palette: ${openingShot.description}`,
-    "Continuity lock: identical mascot (solid violet #7c3aed owl per the MASCOT LOCK above), identical environment, identical camera language, identical lighting, identical palette as the previous segment.",
-    index === 0
-      ? "Start with a strong, calm opening motion and establish the cinematic world. Hold the frame clean — no abstract garnish."
-      : `You are receiving the exact final frame of segment ${index} as the first image. Begin from that same pose, framing, setting, lighting, and action. Do not restart the story, do not repeat the hook, and do not reintroduce Dreyv.`,
-    observedLastAction
-      ? `What the mascot and camera were ACTUALLY doing at the end of the previous segment (continue directly from this, do not rewind or reset): ${observedLastAction}`
-      : previousShot ? `Previous segment action that just finished — continue directly from its final pose, gesture, and camera movement, do not rewind: ${previousShot.description}` : "",
-    observedLastWords
-      ? `What was ACTUALLY just spoken in the previous segment (do NOT repeat any of these words; continue the sentence/thought from where it left off): "${observedLastWords}"`
-      : plannedPreviousCaption ? `What was just said in the previous segment (do NOT repeat it; continue the thought): "${plannedPreviousCaption}"` : "",
-    nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
-    pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
-    `LOCKED BEAT FOR THIS SEGMENT — render exactly this action and nothing else. Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
-    currentCaption ? `What is being said during this segment for pacing only (captions are burned by Dreyv after rendering; do NOT render any letters or subtitles inside the video): "${currentCaption}"` : "",
-    shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
-    pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
-    // Audio is post-produced by Dreyv with ElevenLabs; Veo's own voice track
-    // is unreliable and will be discarded. Keep the render visually clean —
-    // the mascot can mouth/gesture along but no spoken dialogue should be
-    // generated in the audio track and no caption letters in the frame.
-    "AUDIO RULE: Render this segment effectively SILENT — no spoken dialogue, no narration, no whispered words. Ambient room tone or subtle motion sound is fine. The mascot may MOUTH the line above to sync lips, but do not generate any spoken audio — Dreyv replaces the audio track in post.",
-    pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
-    pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
-    opts?.reshootNote ? `RESHOOT NOTE — the previous attempt at this segment failed QC for these reasons, fix them: ${opts.reshootNote}` : "",
-    "ON-SCRIPT RULE: continuity with the previous segment's final frame is mandatory, but the WHAT-HAPPENS in this segment must come from the LOCKED BEAT above and the MASTER STORYBOARD — not from improvisation. If the observed prior action seems to conflict with this segment's locked beat, smoothly transition the mascot's pose into executing the locked beat rather than abandoning it.",
-    index === total - 1
-      ? "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish."
-      : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
-  ].filter(Boolean).join("\n");
+
+  const masterStoryboard = (pack.shotList ?? []).map((s, i) => ({
+    segment: i + 1,
+    of: total,
+    is_this_segment: i === index,
+    beat: s.description,
+  }));
+  const lockedCaptionsBySegment = (pack.burnedCaptions ?? []).map((c, i) => ({
+    segment: i + 1,
+    spoken_line: (c ?? "").trim(),
+  }));
+
+  const promptObject = {
+    style: dreyvShotStylePreamble(),
+
+    shot: {
+      index: index + 1,
+      of: total,
+      phase,
+      duration_sec: 8,
+      aspect: "9:16",
+      resolution: "720p",
+      role: "one chronological segment of a single continuous Dreyv ad — NOT a standalone variant, remake, recap, or alternate take",
+    },
+
+    brand: {
+      name: "Dreyv",
+      pronunciation: "DRAVE",
+    },
+
+    mascot_lock: {
+      reference_images_attached: true,
+      instruction:
+        "Copy the mascot exactly from the attached reference images. Solid violet (#7c3aed) owl-fox body, cream chest, cream face, dark violet eyes. The Dreyv logo mark (a rotated violet rounded-square glyph with an inner cutout) is stamped on BOTH the cream chest and the front of the violet ball cap. The mark is a SYMBOL — never the letter 'D', never any letter, never text.",
+      forbidden: ["letter D on chest or cap", "missing cap", "missing chest mark", "color shift", "realistic fox or owl rendering", "fuchsia", "pink", "orange", "brown"],
+    },
+
+    subject: shot.description,
+    action: shot.description,
+
+    locked_beat_for_this_segment: {
+      shot_number: shot.n,
+      timing: shot.timing ?? null,
+      description: shot.description,
+      rule: "Render exactly this action and nothing else. Do not improvise, do not swap in ideas from other segments, do not skip ahead, do not fall back to a generic Dreyv intro.",
+      creative_intent: shot.toolPrompt ? shot.toolPrompt.slice(0, 700) : null,
+    },
+
+    master_storyboard: masterStoryboard,
+
+    continuity: index === 0
+      ? {
+          opening: true,
+          instruction: "Start with a strong, calm opening motion and establish the cinematic world. Hold the frame clean — no abstract garnish.",
+          locked_setting: openingShot.description,
+        }
+      : {
+          opening: false,
+          reference_images_are: "the last ~1s of frames from the previous segment — match mascot pose, wardrobe, set, lighting, camera framing, palette EXACTLY",
+          previous_segment_end_action: observedLastAction || previousShot?.description || "",
+          previous_segment_last_spoken_words: observedLastWords || plannedPreviousCaption || "",
+          locked_setting: observedSetting || openingShot.description,
+          instruction:
+            "Begin from the same pose, framing, setting, lighting, and action that ended the previous segment. Do not restart the story, do not repeat the hook, do not reintroduce Dreyv, do not repeat any words from the previous segment's spoken line. Continue the same sentence/thought from where it left off.",
+          rule_when_in_conflict:
+            "If the observed prior action seems to conflict with this segment's locked beat, smoothly transition the mascot's pose into executing the locked beat rather than abandoning it.",
+        },
+
+    leads_into_next_segment: nextShot
+      ? { next_beat: nextShot.description, instruction: "End mid-motion, not resolved, so the hard cut into the next segment feels intentional." }
+      : { final_payoff: true, instruction: "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish." },
+
+    audio: {
+      dialogue: "",
+      narration: "",
+      whispered_words: "",
+      reason: "Dreyv post-produces the voiceover with ElevenLabs and replaces the entire audio track. Render this segment effectively SILENT so the replacement is clean.",
+      mascot_lip_sync: currentCaption
+        ? `The mascot MAY mouth the following line silently to support lip-sync, but generate NO spoken audio: "${currentCaption}"`
+        : "The mascot may move its mouth subtly but generate NO spoken audio.",
+      ambience: "Subtle room tone or motion sound is fine.",
+      music: pack.soundSuggestion ?? null,
+    },
+
+    on_screen_text: {
+      render: false,
+      rule: "Do not render any letters, words, subtitles, captions, watermarks, UI text, signs, or written numbers inside the frame. Dreyv burns captions in post.",
+    },
+
+    locked_voiceover_per_segment: {
+      this_segment_speaks: currentCaption ?? "",
+      all_segments: lockedCaptionsBySegment,
+      rule: `Segment ${index + 1} must correspond to segment ${index + 1}'s spoken line — for pacing only. Do not preview, tease, or jump to later beats.`,
+    },
+
+    camera: {
+      framing: "match the previous segment's framing exactly",
+      movement: "continuous from the previous segment's motion",
+      lens_language: "match the previous segment",
+    },
+
+    lighting: {
+      key: "match the previous segment exactly",
+      palette: "violet-forward, premium tech-brand",
+    },
+
+    format: pack.formatLabel ?? null,
+    emotional_angle: pack.whyItWorks ?? null,
+
+    negative_prompt: [
+      "letters", "words", "captions", "subtitles", "watermarks", "UI text", "signage with readable text",
+      "spoken dialogue", "narration", "whispered words",
+      "floating particles", "glowing orbs", "lens flares", "abstract garnish",
+      "fuchsia", "pink", "gradients", "orange or brown mascot coloring",
+      "realistic fox", "realistic owl",
+      "letter D on chest", "letter D on cap",
+      "scene restart", "title card", "intro logo reveal mid-ad",
+    ],
+
+    reshoot_note: opts?.reshootNote
+      ? { reason: opts.reshootNote, instruction: "The previous attempt at this segment failed QC for the reason above. Fix it without restarting the ad." }
+      : null,
+  };
+
+  return JSON.stringify(promptObject, null, 2);
 }
 
 async function submitNextShotOperation(args: {
