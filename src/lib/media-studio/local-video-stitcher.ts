@@ -46,6 +46,28 @@ function runFfmpeg(args: string[], cwd: string): Promise<void> {
   });
 }
 
+/**
+ * The bundled ffmpeg-static binary is compiled WITHOUT libfreetype on some
+ * platforms, so the `drawtext` filter is missing. Probe once per process and
+ * cache. When absent, caption burn-in is silently skipped so the stitch still
+ * succeeds — captions just won't render on that deploy.
+ */
+let drawtextAvailable: boolean | null = null;
+async function hasDrawtextFilter(): Promise<boolean> {
+  if (drawtextAvailable !== null) return drawtextAvailable;
+  drawtextAvailable = await new Promise<boolean>((resolve) => {
+    const child = spawn(ffmpegPath(), ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "ignore"] });
+    let out = "";
+    child.stdout.on("data", (c) => { out += String(c); });
+    child.on("error", () => resolve(false));
+    child.on("close", () => resolve(/\bdrawtext\b/.test(out)));
+  });
+  if (!drawtextAvailable) {
+    console.warn("[stitcher] ffmpeg lacks drawtext filter — captions skipped");
+  }
+  return drawtextAvailable;
+}
+
 async function downloadShot(url: string, filePath: string, index: number): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Could not download shot ${index + 1} (${res.status})`);
@@ -127,7 +149,7 @@ function buildVideoFilter(opts: PostOptions): string {
 
 async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean, post: PostOptions) {
   let captionFile: string | undefined;
-  if (post.caption && post.caption.trim()) {
+  if (post.caption && post.caption.trim() && (await hasDrawtextFilter())) {
     captionFile = path.join(workdir, `caption-${path.basename(output, ".mp4")}.txt`);
     await writeFile(captionFile, wrapCaption(post.caption), "utf8");
   }
