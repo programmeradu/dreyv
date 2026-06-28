@@ -223,16 +223,16 @@ export function videoToolsPrompt(): string {
     rules,
     "",
     "Mascot:",
-    "  - Dreyv mascot is an orange owl-fox character with amber eyes and russet wing-tips.",
-    "  - Always describe the mascot explicitly in every per-tool prompt, even when seeding via I2V.",
-    "  - Always re-seed I2V from the ORIGINAL mascot PNG, never from a generated frame.",
-    "  - Lock lighting (soft indoor, warm 3200K) across all clips in the same video.",
+    "  - Dreyv mascot is the canonical solid-violet owl treasury sentinel with cream face/chest, dark-violet eyes, violet cap, and Dreyv logo marks on cap + chest.",
+    "  - Always describe the mascot explicitly in every per-tool prompt, even when reference images are attached.",
+    "  - Shot 1 uses canonical mascot references. Later shots continue from the previous shot's tail frames so the ad does not restart.",
+    "  - Lock lighting, set logic, camera language, and prop continuity across all clips in the same video.",
     "",
     "Voice / authenticity rules (so output doesn't look AI-cheap):",
     "  - Voiceover script must read like a real human talking, not narration.",
     "  - Use fragments. Vary sentence length. Start sentences with 'And' / 'But' if it sounds right.",
     "  - Specificity over hype — one real prompt example beats three abstract claims.",
-    "  - Captions ARE the content for 60% of viewers (sound off). Make text legible in frame 1.",
+    "  - Captions ARE the content for 60% of viewers (sound off). Dreyv burns captions in post; the video model must not render text.",
   ].join("\n");
 }
 

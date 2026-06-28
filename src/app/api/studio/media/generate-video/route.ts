@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           prompt,
           ``,
           `Target duration: ${body.durationSeconds ?? 15}s. Aspect: ${body.aspect ?? "9:16"}.`,
-          `Brand visuals: solid violet on white, abstract geometry, no stock people.`,
+          `Brand visuals: solid violet on white, clean physical product scenes, real device/desk props when useful, no floating abstract geometry, no stock people.`,
           `Hook line must stop the scroll in under 2 seconds.`,
         ].join("\n") },
       ],

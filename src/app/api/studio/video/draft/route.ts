@@ -151,6 +151,8 @@ export async function POST(req: NextRequest) {
     `OUTPUT REQUIREMENTS:`,
     `- Hook: 1 text card (≤8 words, hits in first 1.5s) + 1 spoken opener.`,
       `- Shot list: 3–6 shots that form ONE continuous ad: hook → setup → proof/demo → tension → payoff. These are sequential scenes, not variants of the same idea.`,
+      `- Each shot must advance the story with a new physical state/action, a clear prop/device/set change, and a camera angle that fits that beat. Do not output generic "mascot stands on clean background" shots.`,
+      `- Each shot description must be renderable as a literal scene: name the set, the prop/device, the mascot's body action, and the camera framing.`,
       `- Each shot must advance the story with a new visual state/action. Do not repeat the hook, restart the premise, or make alternate versions of the same scene.`,
       `- Each shot has timing, description, recommendedTool (use the tool id from the catalog: hedra | hailuo | kling | veo3-fast | wan22 | runway-gen4), and a toolPrompt phrased the way THAT tool expects.`,
     `  • Hedra prompts describe motion directives on top of an uploaded mascot PNG + audio. No scene generation.`,
@@ -178,6 +180,7 @@ export async function POST(req: NextRequest) {
     `- Never invent capabilities, partner names, or metrics not in the angle block.`,
     `- Never describe the mascot as orange, brown, red, or a fox. Dreyv is a SOLID violet (#7c3aed) owl-fox sentinel — keep that lock.`,
     `- Never let the scene fill with floating abstract elements, drifting particles, glowing orbs, holographic ribbons, fake floating dashboards, or any other "obvious AI video" tells. Keep the frame clean and cinematic.`,
+    `- Never use abstract geometry, decorative shapes, blank studio voids, or mascot-standing-idle filler. If the shot needs product context, put one real phone/laptop/desk prop in the physical scene.`,
     `- Don't pitch the dreyv.com app shell — pitch the developer surface (${DREYV_DEV_SURFACE.homepage}, ${DREYV_DEV_SURFACE.mcp}).`,
     `- Do not produce 5 variants of one prompt. The render system sends each shot to Veo separately, so every shot prompt must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
   ]
