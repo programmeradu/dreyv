@@ -44,14 +44,18 @@ async function renderVertexVeoShotWithMascot(prompt: string, firstFrameImage?: V
  * duration metadata after local ffmpeg stitching.
  */
 export type VideoProvider = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
+type ShotRenderer = (
+  prompt: string,
+  firstFrameImage?: VeoFirstFrameImage,
+) => Promise<{ url: string; key?: string }>;
 const PROVIDERS: Record<
   VideoProvider,
-  { render: (p: string) => Promise<{ url: string; key?: string }>; secondsPerShot: number; stitch: "local" | "none" }
+  { render: ShotRenderer; secondsPerShot: number; stitch: "local" | "none"; supportsChaining: boolean }
 > = {
-  "veo3-fal":    { render: renderVeo3FastShot,   secondsPerShot: 8, stitch: "local" },
-  "veo3-google": { render: renderGoogleVeo3Shot, secondsPerShot: 8, stitch: "local" },
-  "veo3-vertex": { render: renderVertexVeoShotWithMascot, secondsPerShot: 8, stitch: "local" },
-  "wan22-fal":   { render: renderWan22FastShot,  secondsPerShot: 5, stitch: "local" },
+  "veo3-fal":    { render: (p) => renderVeo3FastShot(p),   secondsPerShot: 8, stitch: "local", supportsChaining: false },
+  "veo3-google": { render: (p) => renderGoogleVeo3Shot(p), secondsPerShot: 8, stitch: "local", supportsChaining: false },
+  "veo3-vertex": { render: renderVertexVeoShotWithMascot,  secondsPerShot: 8, stitch: "local", supportsChaining: true },
+  "wan22-fal":   { render: (p) => renderWan22FastShot(p),  secondsPerShot: 5, stitch: "local", supportsChaining: false },
 };
 
 type Shot = {
