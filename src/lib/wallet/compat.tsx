@@ -18,6 +18,7 @@ import {
   useDisconnect,
   useModal,
   AddressType,
+  lightTheme,
 } from "@phantom/react-sdk";
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
@@ -89,7 +90,7 @@ export function PhantomCompatProvider({
   }, [appId]);
 
   return (
-    <PhantomProvider config={config} appName={appName} appIcon={appIcon}>
+    <PhantomProvider config={config} theme={lightTheme} appName={appName} appIcon={appIcon}>
       {children}
     </PhantomProvider>
   );
