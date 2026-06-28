@@ -1,38 +1,18 @@
 /**
- * Dreyv Video Stitcher Worker.
+ * Dreyv Video Stitcher Worker — plain Worker (no Container, no Docker).
  *
- * Thin reverse proxy in front of the ffmpeg container. The Worker exists to:
- *   1. Give the container a stable HTTPS endpoint.
- *   2. Pin one container instance per job (via Durable Object id) so a single
- *      stitch fully runs in one place.
- *   3. Pass through the Authorization bearer to the container.
+ * Forwards POST /stitch to a hosted ffmpeg server (Fly.io / Render / Railway)
+ * configured via the FFMPEG_HOST_URL secret. Adds the shared bearer so the
+ * ffmpeg host can authenticate the call.
  *
- * All real work happens inside container/server.mjs. See wrangler.toml.
+ * Deploy via Cloudflare API / `wrangler deploy` — no Docker required.
+ * The heavy ffmpeg work lives in workers/video-stitcher/container/server.mjs,
+ * which runs on Fly (see DEPLOY.md).
  */
-import { Container, getContainer } from "@cloudflare/containers";
-
-export class VideoStitcher extends Container<Env> {
-  defaultPort = 8080;
-  sleepAfter = "5m";
-
-  envVars = {
-    STITCHER_SECRET: this.env.STITCHER_SECRET ?? "",
-    R2_ACCOUNT_ID: this.env.R2_ACCOUNT_ID ?? "",
-    R2_BUCKET: this.env.R2_BUCKET ?? "",
-    R2_ACCESS_KEY_ID: this.env.R2_ACCESS_KEY_ID ?? "",
-    R2_SECRET_ACCESS_KEY: this.env.R2_SECRET_ACCESS_KEY ?? "",
-    R2_PUBLIC_BASE: this.env.R2_PUBLIC_BASE ?? "",
-  } as Record<string, string>;
-}
 
 export interface Env {
-  VIDEO_STITCHER: DurableObjectNamespace<VideoStitcher>;
   STITCHER_SECRET: string;
-  R2_ACCOUNT_ID: string;
-  R2_BUCKET: string;
-  R2_ACCESS_KEY_ID: string;
-  R2_SECRET_ACCESS_KEY: string;
-  R2_PUBLIC_BASE: string;
+  FFMPEG_HOST_URL: string; // e.g. https://dreyv-video-stitcher.fly.dev
 }
 
 export default {
@@ -44,34 +24,34 @@ export default {
         ok: true,
         service: "dreyv-video-stitcher",
         secretConfigured: Boolean(env.STITCHER_SECRET),
+        ffmpegHostConfigured: Boolean(env.FFMPEG_HOST_URL),
       });
     }
 
     if (url.pathname === "/stitch" && request.method === "POST") {
-      // Pin by jobId so retries hit the same container instance. Fallback to a
-      // random id if the caller didn't provide one (shouldn't happen).
-      let jobId = url.searchParams.get("jobId") ?? "";
-      let payload: ArrayBuffer | null = null;
-      if (!jobId) {
-        payload = await request.arrayBuffer();
-        try {
-          const parsed = JSON.parse(new TextDecoder().decode(payload));
-          jobId = String(parsed?.jobId ?? "");
-        } catch {
-          /* ignore */
-        }
+      if (!env.FFMPEG_HOST_URL) {
+        return Response.json({ ok: false, error: "FFMPEG_HOST_URL not configured" }, { status: 500 });
       }
-      const key = jobId || crypto.randomUUID();
-      const container = getContainer(env.VIDEO_STITCHER, key);
-      const forwarded = new Request("http://container/stitch", {
+      // Auth: caller must present the shared bearer; we re-sign with the same
+      // secret to the ffmpeg host (single source of truth).
+      const incoming = request.headers.get("Authorization") ?? "";
+      const expected = `Bearer ${env.STITCHER_SECRET}`;
+      if (!env.STITCHER_SECRET || incoming !== expected) {
+        return new Response("unauthorized", { status: 401 });
+      }
+
+      const target = `${env.FFMPEG_HOST_URL.replace(/\/+$/, "")}/stitch`;
+      const body = await request.arrayBuffer();
+      // No client-facing timeout here — Workers will keep the connection open
+      // while the Fly host streams its response (typically 1–10 min).
+      return fetch(target, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: request.headers.get("Authorization") ?? "",
+          Authorization: expected,
         },
-        body: payload ?? (await request.arrayBuffer()),
+        body,
       });
-      return container.fetch(forwarded);
     }
 
     return new Response("not found", { status: 404 });

@@ -1,24 +1,21 @@
-name: Deploy Video Stitcher (Cloudflare Container Worker)
+name: Deploy Video Stitcher (Cloudflare Worker)
 
-# Builds the ffmpeg container image on GitHub's runners (no local Docker needed)
-# and deploys to Cloudflare via wrangler. Triggers on changes to the worker
-# package, or manually via the Actions tab.
+# Plain Worker — no Docker, no Container. The ffmpeg host lives on Fly.io
+# (see workers/video-stitcher/DEPLOY.md) and the Worker just proxies to it.
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
-#   CLOUDFLARE_API_TOKEN     - token with Workers Scripts:Edit + Account:Containers:Edit
+#   CLOUDFLARE_API_TOKEN     - token with Workers Scripts:Edit
 #   CLOUDFLARE_ACCOUNT_ID    - your CF account id
-#   STITCHER_SECRET          - bearer the Vercel app sends (matches VIDEO_STITCHER_SECRET)
-#   R2_ACCOUNT_ID
-#   R2_BUCKET
-#   R2_ACCESS_KEY_ID
-#   R2_SECRET_ACCESS_KEY
-#   R2_PUBLIC_BASE           - public base URL for stitched output (optional, can be empty)
+#   STITCHER_SECRET          - shared bearer (matches VIDEO_STITCHER_SECRET on Vercel and Fly)
+#   FFMPEG_HOST_URL          - Fly app URL, e.g. https://dreyv-video-stitcher.fly.dev
 
 on:
   push:
     branches: [main]
     paths:
-      - "workers/video-stitcher/**"
+      - "workers/video-stitcher/src/**"
+      - "workers/video-stitcher/wrangler.toml"
+      - "workers/video-stitcher/package.json"
       - ".github/workflows/deploy-video-stitcher.yml"
   workflow_dispatch:
 
@@ -34,32 +31,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: workers/video-stitcher/package-lock.json
 
       - name: Install deps
         run: npm install
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Push container secrets
+      - name: Push Worker secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -e
-          put() {
-            echo "$2" | npx wrangler secret put "$1"
-          }
-          put STITCHER_SECRET       "${{ secrets.STITCHER_SECRET }}"
-          put R2_ACCOUNT_ID         "${{ secrets.R2_ACCOUNT_ID }}"
-          put R2_BUCKET             "${{ secrets.R2_BUCKET }}"
-          put R2_ACCESS_KEY_ID      "${{ secrets.R2_ACCESS_KEY_ID }}"
-          put R2_SECRET_ACCESS_KEY  "${{ secrets.R2_SECRET_ACCESS_KEY }}"
-          put R2_PUBLIC_BASE        "${{ secrets.R2_PUBLIC_BASE }}"
+          put() { echo "$2" | npx wrangler secret put "$1"; }
+          put STITCHER_SECRET "${{ secrets.STITCHER_SECRET }}"
+          put FFMPEG_HOST_URL "${{ secrets.FFMPEG_HOST_URL }}"
 
-      - name: Deploy Worker + Container
+      - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
