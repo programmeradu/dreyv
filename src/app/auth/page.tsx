@@ -644,7 +644,7 @@ function AuthPageContent() {
     }, [connected, signIn, openWalletModal]);
 
     // Social OAuth via Neon Auth
-    const handleSocialLogin = useCallback(async (provider: 'google' | 'discord') => {
+    const handleSocialLogin = useCallback(async (provider: 'google') => {
         try {
             setSocialLoading(provider);
             setOauthError(null);
@@ -667,6 +667,22 @@ function AuthPageContent() {
             addLog(`ERROR: OAUTH_FAILED [${provider.toUpperCase()}]`);
             setSocialLoading(null);
         }
+    }, [addLog]);
+
+    // One-click Phantom (social-style): selects the Phantom wallet adapter
+    // which triggers Phantom's connect → sign flow (no OAuth required).
+    const handlePhantomSocial = useCallback(() => {
+        try {
+            setOauthError(null);
+            addLog("INITIATING_PHANTOM_CONNECT");
+            select('Phantom' as any);
+            openWalletModal(true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setOauthError(msg);
+        }
+    // select/openWalletModal declared below via useWallet — safe via closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [addLog]);
 
     const { select } = useWallet();
