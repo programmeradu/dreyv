@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { pollVertexVeoOperation, submitVertexVeoOperation, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
+import { stitchShotsRemote, isRemoteStitcherConfigured } from "@/lib/media-studio/remote-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
@@ -544,7 +545,11 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_keys: shotKeys,
       });
 
-      const stitched = await stitchShotsLocally({
+      // Prefer the Cloudflare Container Worker so we're not bound by Vercel's
+      // 5-min lambda cap. Falls back to local ffmpeg only if the Worker isn't
+      // configured (dev / unconfigured envs).
+      const stitchFn = isRemoteStitcherConfigured() ? stitchShotsRemote : stitchShotsLocally;
+      const stitched = await stitchFn({
         jobId,
         shotUrls,
         shotDurationSec: 8,
