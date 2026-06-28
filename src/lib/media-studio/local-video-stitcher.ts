@@ -64,17 +64,24 @@ async function concatCopy(files: string[], listFile: string, outputFile: string,
   );
 }
 
-/** Escape text for ffmpeg drawtext. */
-function escapeDrawtext(s: string): string {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/:/g, "\\:")
-    .replace(/'/g, "\\'")
-    .replace(/%/g, "\\%");
+/** Hard-wrap a caption to ~maxChars per line on word boundaries. */
+function wrapCaption(text: string, maxChars = 26): string {
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur.length) { cur = w; continue; }
+    if (cur.length + 1 + w.length <= maxChars) cur += " " + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  // Cap at 3 lines so a runaway caption never covers the whole frame.
+  return lines.slice(0, 3).join("\n");
 }
 
 type PostOptions = {
   caption?: string;
+  captionFile?: string; // resolved by normalizeShot — path to a UTF-8 text file
   colorGrade?: boolean;
   upscaleTo1080?: boolean;
 };
@@ -88,28 +95,30 @@ function buildVideoFilter(opts: PostOptions): string {
     "fps=30",
   ];
   if (opts.colorGrade) {
-    // Subtle "premium" grade: lift shadows, gentle s-curve, +saturation,
-    // slight contrast. Tuned to keep the violet brand color punchy without
-    // looking like an Instagram filter.
     chain.push("curves=preset=increase_contrast");
     chain.push("eq=saturation=1.08:contrast=1.04:gamma=0.98");
   }
-  if (opts.caption && existsSync(FONT_PATH)) {
+  // textfile= reads the caption from disk, so we sidestep every drawtext
+  // escaping pitfall (commas, quotes, colons, percent signs, newlines that
+  // were previously silently breaking the filter and causing the stitcher to
+  // fall back to a no-caption, sometimes-silent re-encode).
+  if (opts.captionFile && existsSync(FONT_PATH)) {
     const fontfile = FONT_PATH.replace(/\\/g, "/").replace(/:/g, "\\:");
-    const text = escapeDrawtext(opts.caption);
+    const tf = opts.captionFile.replace(/\\/g, "/").replace(/:/g, "\\:");
     const fontsize = Math.round(target.w * 0.055);
-    // Bottom-third caption with rounded translucent box.
     chain.push(
       [
         "drawtext=",
         `fontfile='${fontfile}'`,
-        `:text='${text}'`,
+        `:textfile='${tf}'`,
+        `:reload=0`,
         `:fontcolor=white`,
         `:fontsize=${fontsize}`,
-        `:line_spacing=8`,
+        `:line_spacing=10`,
         `:box=1:boxcolor=black@0.55:boxborderw=28`,
         `:x=(w-text_w)/2`,
         `:y=h-(h*0.18)-text_h`,
+        `:fix_bounds=1`,
       ].join(""),
     );
   }
@@ -117,6 +126,11 @@ function buildVideoFilter(opts: PostOptions): string {
 }
 
 async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean, post: PostOptions) {
+  let captionFile: string | undefined;
+  if (post.caption && post.caption.trim()) {
+    captionFile = path.join(workdir, `caption-${path.basename(output, ".mp4")}.txt`);
+    await writeFile(captionFile, wrapCaption(post.caption), "utf8");
+  }
   await runFfmpeg(
     [
       "-hide_banner",
@@ -124,7 +138,7 @@ async function normalizeShot(input: string, output: string, workdir: string, kee
       "-i",
       input,
       "-vf",
-      buildVideoFilter(post),
+      buildVideoFilter({ ...post, captionFile }),
       "-c:v",
       "libx264",
       "-preset",

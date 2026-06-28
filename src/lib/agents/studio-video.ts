@@ -125,7 +125,7 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
 }
 
 export const studioVideoRender = inngest.createFunction(
-  { id: "studio-video-render", name: "Studio • render TikTok ad", concurrency: 2, retries: 1 },
+  { id: "studio-video-render", name: "Studio • render TikTok ad", concurrency: 2, retries: 0 },
   { event: "studio.video.render.requested" },
   async ({ event, step }) => {
     const { jobId, pack, provider: providerId } = event.data as {
