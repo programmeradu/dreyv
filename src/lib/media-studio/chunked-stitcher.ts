@@ -280,20 +280,43 @@ export async function concatSegments(args: {
     const mapArgs = narrationFile
       ? ["-map", videoPad > 0.05 ? "[vout]" : "[vcat]", "-map", `${n}:a:0`, "-af", `apad,atrim=0:${finalDuration},aresample=async=1:first_pts=0`]
       : ["-map", "[vcat]", "-map", "[scratcha]"];
-    await runFfmpeg(
-      [
-        "-hide_banner", "-y",
-        ...inputs,
-        "-filter_complex", filter,
-        ...mapArgs,
-        "-t", String(finalDuration),
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-        "-movflags", "+faststart",
-        outFile,
-      ],
-      workdir,
-    );
+    try {
+      await runFfmpeg(
+        [
+          "-hide_banner", "-y",
+          ...inputs,
+          "-filter_complex", filter,
+          ...mapArgs,
+          "-t", String(finalDuration),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+          "-movflags", "+faststart",
+          outFile,
+        ],
+        workdir,
+      );
+    } catch (err) {
+      if (narrationFile) throw err;
+      // Legacy recovery: some old normalized chunks were created with no audio
+      // stream. Keep the full visual timeline and attach silence rather than
+      // failing or trimming scenes.
+      console.warn("[stitcher] audio concat failed; retrying video-only with silent track:", err);
+      await runFfmpeg(
+        [
+          "-hide_banner", "-y",
+          ...inputs,
+          "-f", "lavfi", "-t", String(finalDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-filter_complex", `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]`,
+          "-map", "[vcat]", "-map", `${n}:a:0`,
+          "-t", String(finalDuration),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+          "-movflags", "+faststart",
+          outFile,
+        ],
+        workdir,
+      );
+    }
     const body = await readFile(outFile);
     const key = `studio/video/final-${args.jobId}-${Date.now()}.mp4`;
     await putR2Object({ key, body, mime: "video/mp4", filename: "dreyv-final-ad.mp4" });
