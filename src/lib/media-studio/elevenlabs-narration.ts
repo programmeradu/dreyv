@@ -18,9 +18,10 @@
  */
 import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
-// Voice ID locked for the Dreyv mascot. "Brian" (deep, warm, founder-casual)
-// matches the brand voice memo (calm, precise, never hypey).
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_DREYV_VOICE_ID || "nPczCjzI2devNBz1zQrb";
+// Voice ID locked for the Dreyv mascot. Default "Adam" (warm, energetic,
+// founder-narrator) — the previous "Brian" pick read flat and monotone for
+// short ad shots. Override per-deploy via ELEVENLABS_DREYV_VOICE_ID.
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_DREYV_VOICE_ID || "pNInz6obpgDQGcFmaJgB";
 const MODEL_ID = "eleven_turbo_v2_5";
 
 export function isElevenLabsConfigured(): boolean {
@@ -61,11 +62,13 @@ export async function synthesizeShotNarration(input: ShotNarrationInput): Promis
     text,
     model_id: MODEL_ID,
     voice_settings: {
-      stability: 0.55,
-      similarity_boost: 0.8,
-      style: 0.25,
+      // Lower stability + higher style = more expressive, less monotone.
+      // similarity_boost stays high so the locked voice still sounds like itself.
+      stability: 0.35,
+      similarity_boost: 0.85,
+      style: 0.55,
       use_speaker_boost: true,
-      speed: 1.0,
+      speed: 1.02,
     },
   };
   // Request stitching keeps prosody continuous across shots.
