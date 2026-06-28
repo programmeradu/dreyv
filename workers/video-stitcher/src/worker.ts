@@ -11,7 +11,7 @@
  */
 import { Container, getContainer } from "@cloudflare/containers";
 
-export class VideoStitcher extends Container {
+export class VideoStitcher extends Container<Env> {
   defaultPort = 8080;
   sleepAfter = "5m";
 
