@@ -248,9 +248,26 @@ export async function concatSegments(args: {
     const listFile = path.join(workdir, "concat.txt");
     await writeFile(listFile, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
     const outFile = path.join(workdir, "final.mp4");
-    // Stream copy — no re-encode, completes in seconds even for long videos.
+    // Re-encode the concat. Stream-copy (`-c copy`) silently truncates the
+    // output to the first segment's duration when segments have mismatched
+    // timebases / SPS-PPS / audio frame boundaries (the "final video is only
+    // 12s" bug). Re-encoding through the concat filter rebuilds one clean
+    // timeline. 5×8s of 720p/1080p fits well under the Vercel lambda cap.
+    const n = files.length;
+    const inputs: string[] = [];
+    for (const f of files) inputs.push("-i", f);
+    const filter = `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[v][a]`;
     await runFfmpeg(
-      ["-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-movflags", "+faststart", outFile],
+      [
+        "-hide_banner", "-y",
+        ...inputs,
+        "-filter_complex", filter,
+        "-map", "[v]", "-map", "[a]",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+        "-movflags", "+faststart",
+        outFile,
+      ],
       workdir,
     );
     const body = await readFile(outFile);
