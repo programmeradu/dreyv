@@ -651,6 +651,12 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                         : `${renderJob.shots_done}/${renderJob.shots_total} shots rendered · ${elapsedLabel}`}
                     </span>
                   )}
+                  <Link
+                    href={`/studio/video/${renderJob.id}/progress`}
+                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2.5 py-0.5 font-semibold text-violet-700 hover:border-violet-400"
+                  >
+                    Open progress view <ArrowUpRight className="h-3 w-3" />
+                  </Link>
                 </div>
                 {renderJob.status !== "done" && renderJob.status !== "failed" && (
                   <div className="rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
