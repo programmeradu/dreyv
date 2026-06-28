@@ -62,11 +62,13 @@ export async function synthesizeShotNarration(input: ShotNarrationInput): Promis
     text,
     model_id: MODEL_ID,
     voice_settings: {
-      stability: 0.55,
-      similarity_boost: 0.8,
-      style: 0.25,
+      // Lower stability + higher style = more expressive, less monotone.
+      // similarity_boost stays high so the locked voice still sounds like itself.
+      stability: 0.35,
+      similarity_boost: 0.85,
+      style: 0.55,
       use_speaker_boost: true,
-      speed: 1.0,
+      speed: 1.02,
     },
   };
   // Request stitching keeps prosody continuous across shots.
