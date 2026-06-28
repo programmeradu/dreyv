@@ -114,32 +114,6 @@ function videoFilter(opts: { caption?: string; captionFile?: string; colorGrade?
   return chain.join(",");
 }
 
-export type StitchSegment = { n: number; key: string };
-
-export async function normalizeSegment(args: {
-  jobId: string;
-  shotUrl: string;
-  index: number; // 0-based
-  caption?: string;
-  colorGrade?: boolean;
-  upscaleTo1080?: boolean;
-  /**
-   * Optional ElevenLabs narration MP3 URL (presigned R2 GET). When provided
-   * we drop Veo's native audio entirely and use this as the shot's audio
-   * track, padded/trimmed to the shot's video duration so concat stays clean.
-   */
-  narrationUrl?: string;
-  /** Target shot duration in seconds (used to pad/trim narration). */
-  shotDurationSec?: number;
-}): Promise<StitchSegment> {
-  if (!isR2Configured()) throw new Error("R2 must be configured for chunked stitching");
-  const workdir = await mkdtemp(path.join(tmpdir(), `dreyv-seg-${args.index}-`));
-  const duration = args.shotDurationSec ?? 8;
-  try {
-    const inFile = path.join(workdir, `shot.mp4`);
-    const outFile = path.join(workdir, `seg.mp4`);
-    const res = await fetch(args.shotUrl);
-    if (!res.ok) throw new Error(`Could not download shot ${args.index + 1} (${res.status})`);
 export type StitchSegment = { n: number; key: string; durationSec?: number };
 
 export async function normalizeSegment(args: {
