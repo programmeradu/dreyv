@@ -58,14 +58,12 @@ export const authClient = {
     },
     signIn: {
         async social(opts: { provider: string; callbackURL?: string }) {
-            // Neon Auth requires RELATIVE callback paths — absolute URLs are
-            // rejected with INVALID_CALLBACKURL. Strip the origin if present.
             const raw = opts.callbackURL || '/app';
             let callback = raw;
             if (raw.startsWith('http')) {
                 try { callback = new URL(raw).pathname + new URL(raw).search; } catch { callback = '/app'; }
             }
-            const errorCallback = '/auth';
+            const errorCallback = '/auth?oauth=error';
 
             const res = await fetch('/api/auth/sign-in/social', {
                 method: 'POST',
@@ -84,18 +82,22 @@ export const authClient = {
                 return;
             }
 
-            // Better Auth returns { url, redirect } when Content-Type is JSON
+            const location = res.headers.get('location');
+            if (location) {
+                window.location.href = location;
+                return;
+            }
+
             const data = await res.json().catch(() => null);
             const redirectUrl = data?.url || data?.redirect;
             if (redirectUrl) {
                 window.location.href = redirectUrl;
+                return;
             }
 
-            // If the proxy returned a 3xx with Location header
-            const location = res.headers.get('location');
-            if (location) {
-                window.location.href = location;
-            }
+            const message = data?.message || data?.error?.message || data?.error
+                || `Sign-in with ${opts.provider} is not configured. Enable the ${opts.provider} provider in the auth backend.`;
+            throw new Error(typeof message === 'string' ? message : `Failed to start ${opts.provider} sign-in`);
         },
     },
     async signOut() {
