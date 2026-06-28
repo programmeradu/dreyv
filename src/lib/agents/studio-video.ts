@@ -21,8 +21,9 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { renderVeo3FastShot, renderWan22FastShot } from "@/lib/media-studio/fal";
 import { renderGoogleVeo3Shot } from "@/lib/media-studio/google-veo";
-import { renderVertexVeoShot } from "@/lib/media-studio/google-vertex-veo";
+import { renderVertexVeoShot, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
+import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
 import { studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
@@ -30,10 +31,11 @@ import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 // Vertex Veo 3.1 accepts up to 3 asset reference images per generation. We
 // feed the canonical Dreyv mascot PNGs directly so the model copies the real
 // design (violet body, cream chest with the "D" mark, violet cap) instead of
-// inventing one from text.
-async function renderVertexVeoShotWithMascot(prompt: string) {
+// inventing one from text. When `firstFrameImage` is passed, Veo also chains
+// the new clip from the tail frame of the previous shot for seamless cuts.
+async function renderVertexVeoShotWithMascot(prompt: string, firstFrameImage?: VeoFirstFrameImage) {
   const referenceImages = await loadDreyvMascotReferences();
-  return renderVertexVeoShot(prompt, { referenceImages });
+  return renderVertexVeoShot(prompt, { referenceImages, firstFrameImage });
 }
 
 /**
