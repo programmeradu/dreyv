@@ -168,10 +168,15 @@ export async function submitVertexVeoOperation(
 
   const refs = (opts.referenceImages ?? []).slice(0, 3);
   const instance: Record<string, unknown> = { prompt };
-  if (refs.length) instance.referenceImages = refs;
-  // First-frame conditioning for seamless shot-to-shot continuity. Veo 3.1
-  // accepts `image` on the instance and generates a clip that starts from it.
-  if (opts.firstFrameImage) instance.image = opts.firstFrameImage;
+  // Veo 3.1 rejects requests that set both `image` (first-frame conditioning)
+  // and `referenceImages` (asset locks): "Image and reference images cannot be
+  // both set." When chaining shots, the first frame IS the mascot lock, so
+  // prefer first-frame and drop reference images for shots 2+.
+  if (opts.firstFrameImage) {
+    instance.image = opts.firstFrameImage;
+  } else if (refs.length) {
+    instance.referenceImages = refs;
+  }
 
   const submitBody = {
     instances: [instance],
