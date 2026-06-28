@@ -164,12 +164,27 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
     // Reusing key.id here would either silently skip the second charge
     // (free calls) or raise a constraint error and 500 the request.
     const callRef = `${key.id}:${t0}:${crypto.randomUUID()}`;
-    const charge = await chargeAgentBalance({
+    let charge = await chargeAgentBalance({
       userId: key.userId,
       amountMinor: priceMinor,
       reason: `capability:${cap.id}`,
       ref: callRef,
     });
+    // First-touch: a brand-new agent has $0 balance and would 402 on its
+    // very first call. Seed the one-time starter grant (idempotent) and
+    // retry the charge so the developer can prove the loop end-to-end
+    // without funding anything first.
+    if (!charge.ok && charge.reason === "insufficient") {
+      const seeded = await ensureStarterGrant(key.userId);
+      if (seeded.ok) {
+        charge = await chargeAgentBalance({
+          userId: key.userId,
+          amountMinor: priceMinor,
+          reason: `capability:${cap.id}`,
+          ref: `${callRef}:retry`,
+        });
+      }
+    }
     if (!charge.ok) {
       await recordUsage({
         keyId: key.id,
