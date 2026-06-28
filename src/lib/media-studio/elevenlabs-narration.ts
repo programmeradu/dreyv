@@ -3,18 +3,17 @@
  *
  * Why this exists:
  *   Veo's native audio track is unreliable — it drops words, goes silent, or
- *   produces phoneme soup. We override it entirely by generating per-shot
- *   narration with ElevenLabs (turbo v2.5) and muxing it onto the silent
- *   Veo render during the normalize pass.
+ *   produces phoneme soup. The production path now generates ONE master
+ *   full-script narration with ElevenLabs (turbo v2.5) and muxes it only at
+ *   final concat, so individual visual scenes keep their full duration.
  *
  * Continuity:
- *   Uses ElevenLabs request stitching (`previous_text` / `next_text`) so
- *   prosody flows across shots and the locked voice stays consistent.
+ *   Full-script generation keeps prosody continuous across the whole ad.
  *
  * Persistence:
- *   Each narration is uploaded to R2 under
- *     studio/video/narration/<jobId>/<shotIndex>.mp3
- *   so reshoots and lambda restarts can reuse it without re-paying ElevenLabs.
+ *   Master narration is uploaded to R2 under
+ *     studio/video/narration/<jobId>/full.mp3
+ *   so lambda restarts can reuse it without re-paying ElevenLabs.
  */
 import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
