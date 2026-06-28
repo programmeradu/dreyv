@@ -202,6 +202,93 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+type ShotProgress = {
+  n: number;
+  status: "queued" | "rendering" | "done" | "failed";
+  submittedAt?: string | null;
+  completedAt?: string | null;
+  reshootCount?: number;
+  url?: string | null;
+  observation?: {
+    ok: boolean;
+    issues: string[];
+    durationSec: number | null;
+    lastWords: string | null;
+    lastAction: string | null;
+    settingFingerprint: string | null;
+    needsReshoot: boolean;
+    metrics?: Record<string, unknown>;
+  } | null;
+};
+
+type StitchProgress = {
+  phase: "idle" | "normalizing" | "concat" | "done";
+  attempts: number;
+  segmentsDone: number;
+  segmentsTotal: number;
+  segments: Array<{ n: number; status: "pending" | "ready"; key?: string }>;
+  lastChunkAt?: string | null;
+  completedAt?: string | null;
+};
+
+function buildProgress(row: Record<string, unknown>, shotUrls: string[]): {
+  shots: ShotProgress[];
+  stitch: StitchProgress;
+  status: string;
+} | null {
+  const pack = (row.pack ?? {}) as { __renderState?: Record<string, unknown>; shotList?: unknown[] };
+  const renderState = (pack.__renderState ?? {}) as {
+    shotOperations?: Array<Record<string, unknown>>;
+    stitch?: Record<string, unknown>;
+  };
+  const totalShots = Math.max(
+    Array.isArray(pack.shotList) ? pack.shotList.length : 0,
+    Array.isArray(renderState.shotOperations) ? renderState.shotOperations.length : 0,
+    typeof row.shots_total === "number" ? row.shots_total : 0,
+  );
+  if (totalShots === 0) return null;
+
+  const ops = Array.isArray(renderState.shotOperations) ? renderState.shotOperations : [];
+  const shots: ShotProgress[] = [];
+  for (let i = 0; i < totalShots; i += 1) {
+    const op = ops[i] as Record<string, unknown> | undefined;
+    const url = (op?.url as string | undefined) ?? shotUrls[i] ?? null;
+    const status: ShotProgress["status"] = url ? "done" : op ? "rendering" : "queued";
+    shots.push({
+      n: i + 1,
+      status,
+      submittedAt: (op?.submittedAt as string | undefined) ?? null,
+      completedAt: (op?.completedAt as string | undefined) ?? null,
+      reshootCount: (op?.reshootCount as number | undefined) ?? 0,
+      url,
+      observation: (op?.observation as ShotProgress["observation"]) ?? null,
+    });
+  }
+  if (row.status === "failed") {
+    for (const s of shots) if (s.status !== "done") s.status = "failed";
+  }
+
+  const stitchRaw = renderState.stitch ?? {};
+  const segments = Array.isArray(stitchRaw.segments) ? (stitchRaw.segments as Array<{ n: number; key: string }>) : [];
+  const segMap = new Map(segments.map((s) => [s.n, s.key]));
+  const segmentEntries = Array.from({ length: totalShots }, (_v, i) => ({
+    n: i + 1,
+    status: segMap.has(i) ? ("ready" as const) : ("pending" as const),
+    key: segMap.get(i),
+  }));
+  const phase = (stitchRaw.phase as StitchProgress["phase"] | undefined) ?? "idle";
+  const stitch: StitchProgress = {
+    phase: row.status === "done" ? "done" : phase,
+    attempts: (stitchRaw.attempts as number | undefined) ?? 0,
+    segmentsDone: segments.length,
+    segmentsTotal: totalShots,
+    segments: segmentEntries,
+    lastChunkAt: (stitchRaw.lastChunkAt as string | undefined) ?? null,
+    completedAt: (stitchRaw.completedAt as string | undefined) ?? null,
+  };
+  return { shots, stitch, status: String(row.status ?? "") };
+}
+
 function dateMs(value: unknown): number | null {
   if (value instanceof Date) return value.getTime();
   if (typeof value !== "string" && typeof value !== "number") return null;
@@ -344,8 +431,9 @@ export async function GET(req: NextRequest) {
 
     const shotUrls = await refreshShotUrls(shotKeys, row.shot_urls);
     const finalUrl = await refreshFinalUrl(finalKey, row.final_url);
+    const progress = buildProgress(row, shotUrls);
     const { pack: _pack, ...safeRow } = row;
-    return NextResponse.json({ ...safeRow, shot_urls: shotUrls, final_url: finalUrl });
+    return NextResponse.json({ ...safeRow, shot_urls: shotUrls, final_url: finalUrl, progress });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

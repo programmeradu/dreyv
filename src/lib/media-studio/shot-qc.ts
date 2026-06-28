@@ -39,6 +39,16 @@ export type ShotObservation = {
   settingFingerprint: string | null;
   /** True when QC is structurally broken and the shot should be reshot. */
   needsReshoot: boolean;
+  /** Structural metrics surfaced to the UI progress panel. */
+  metrics?: {
+    width?: number | null;
+    height?: number | null;
+    blackSec?: number;
+    freezeSec?: number;
+    silenceSec?: number;
+    sceneChanges?: number;
+    audioMeanDb?: number | null;
+  };
 };
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1";
@@ -79,13 +89,41 @@ function parseFreezeSeconds(stderr: string): number {
   return total;
 }
 
+function parseSilenceSeconds(stderr: string): number {
+  let total = 0;
+  for (const m of stderr.matchAll(/silence_duration:\s*(\d+\.?\d*)/g)) total += Number(m[1]);
+  return total;
+}
+
+function parseSceneChanges(stderr: string): number {
+  // scdet emits "scene_score:NN" — count occurrences as a rough cut count.
+  let count = 0;
+  for (const _ of stderr.matchAll(/lavfi\.scd\.score:/g)) count += 1;
+  // Fallback: scdet stderr lines.
+  if (count === 0) {
+    for (const _ of stderr.matchAll(/scdet @ .*score:\s*\d/g)) count += 1;
+  }
+  return count;
+}
+
+function parseResolution(stderr: string): { width: number | null; height: number | null } {
+  const m = stderr.match(/Stream #\d+:\d+.*Video:.*?(\d{2,5})x(\d{2,5})/);
+  if (!m) return { width: null, height: null };
+  return { width: Number(m[1]), height: Number(m[2]) };
+}
+
+function parseAudioMeanDb(stderr: string): number | null {
+  const m = stderr.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
+  return m ? Number(m[1]) : null;
+}
+
 async function probe(inFile: string, cwd: string) {
   const stderr = await runFfmpeg(
     [
       "-hide_banner",
       "-i", inFile,
-      "-vf", "blackdetect=d=0.4:pix_th=0.1,freezedetect=n=-60dB:d=0.5",
-      "-af", "silencedetect=noise=-50dB:d=0.5",
+      "-vf", "blackdetect=d=0.4:pix_th=0.1,freezedetect=n=-60dB:d=0.5,scdet=threshold=10",
+      "-af", "silencedetect=noise=-50dB:d=0.5,volumedetect",
       "-f", "null", "-",
     ],
     cwd,
@@ -93,7 +131,11 @@ async function probe(inFile: string, cwd: string) {
   const duration = parseDuration(stderr);
   const blackSec = parseBlackSeconds(stderr);
   const freezeSec = parseFreezeSeconds(stderr);
-  return { duration, blackSec, freezeSec };
+  const silenceSec = parseSilenceSeconds(stderr);
+  const sceneChanges = parseSceneChanges(stderr);
+  const { width, height } = parseResolution(stderr);
+  const audioMeanDb = parseAudioMeanDb(stderr);
+  return { duration, blackSec, freezeSec, silenceSec, sceneChanges, width, height, audioMeanDb };
 }
 
 async function extractAudioMp3(inFile: string, cwd: string): Promise<Buffer | null> {
@@ -223,6 +265,23 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
       issues.push(`freeze ${probed.freezeSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
       needsReshoot = true;
     }
+    if (durationSec && probed.silenceSec > durationSec * 0.85) {
+      // Almost the entire 8s clip is silent — the model likely dropped audio.
+      issues.push(`silence ${probed.silenceSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
+    }
+    if (probed.audioMeanDb !== null && probed.audioMeanDb < -55) {
+      issues.push(`audio mean ${probed.audioMeanDb.toFixed(1)}dB (effectively silent)`);
+    }
+    // Detect "model recycled the same frame" — zero scene cuts AND high freeze.
+    if (durationSec && probed.sceneChanges === 0 && probed.freezeSec > durationSec * 0.3) {
+      issues.push(`no motion (0 scene changes, freeze ${probed.freezeSec.toFixed(1)}s)`);
+      needsReshoot = true;
+    }
+    // Veo should always return 9:16. Anything else means the wrong aspect leaked through.
+    if (probed.width && probed.height && probed.width > probed.height) {
+      issues.push(`wrong aspect ${probed.width}x${probed.height} (expected portrait 9:16)`);
+      needsReshoot = true;
+    }
 
     // 2 + 3 run in parallel — independent IO.
     const mid = durationSec ? (durationSec / 2).toFixed(2) : "1";
@@ -244,7 +303,24 @@ export async function observeShot(videoUrl: string): Promise<ShotObservation> {
     lastAction = vision.lastAction;
     settingFingerprint = vision.settingFingerprint;
 
-    return { ok: issues.length === 0, issues, durationSec, lastWords, lastAction, settingFingerprint, needsReshoot };
+    return {
+      ok: !needsReshoot && issues.length === 0,
+      issues,
+      durationSec,
+      lastWords,
+      lastAction,
+      settingFingerprint,
+      needsReshoot,
+      metrics: {
+        width: probed.width,
+        height: probed.height,
+        blackSec: probed.blackSec,
+        freezeSec: probed.freezeSec,
+        silenceSec: probed.silenceSec,
+        sceneChanges: probed.sceneChanges,
+        audioMeanDb: probed.audioMeanDb,
+      },
+    };
   } finally {
     await rm(work, { recursive: true, force: true });
   }
