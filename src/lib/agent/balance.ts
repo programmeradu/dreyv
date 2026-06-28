@@ -114,7 +114,7 @@ export async function ensureStarterGrant(userId: string): Promise<CreditResult> 
     ref: userId,
   });
 }
-}
+
 
 export type ChargeResult =
   | { ok: true; balance_after: bigint }
