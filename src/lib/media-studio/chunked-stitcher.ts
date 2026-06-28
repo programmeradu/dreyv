@@ -173,6 +173,9 @@ export async function normalizeSegment(args: {
     const tryRun = async (mode: "narration" | "veo" | "silent") => {
       const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile];
       if (mode === "narration" && narrationFile) ffmpegArgs.push("-i", narrationFile);
+      if (mode === "silent") {
+        ffmpegArgs.push("-f", "lavfi", "-t", String(segmentDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
+      }
       ffmpegArgs.push(
         "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
       );
@@ -184,13 +187,20 @@ export async function normalizeSegment(args: {
           "-map", "1:a:0",
           "-af", `apad,atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
         );
+      } else if (mode === "silent") {
+        // Even a silent fallback segment must carry an audio stream; the final
+        // concat graph expects every segment to expose [v:0][a:0].
+        ffmpegArgs.push(
+          "-map", "0:v:0",
+          "-map", "1:a:0",
+          "-af", `atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
+        );
       }
       ffmpegArgs.push(
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
         "-t", String(segmentDuration),
       );
-      if (mode === "silent") ffmpegArgs.push("-an");
-      else ffmpegArgs.push("-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2");
+      ffmpegArgs.push("-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2");
       ffmpegArgs.push("-movflags", "+faststart", outFile);
       await runFfmpeg(ffmpegArgs, workdir);
     };
