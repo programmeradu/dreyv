@@ -27,17 +27,42 @@ function ffmpegPath(): string {
   return process.env.FFMPEG_PATH || "ffmpeg";
 }
 
-function runFfmpeg(args: string[], cwd: string): Promise<void> {
+function runFfmpeg(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpegPath(), args, { cwd, stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    child.stderr.on("data", (c) => { stderr += String(c); if (stderr.length > 6000) stderr = stderr.slice(-6000); });
+    child.stderr.on("data", (c) => { stderr += String(c); if (stderr.length > 12000) stderr = stderr.slice(-12000); });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) resolve();
+      if (code === 0) resolve(stderr);
       else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-1200)}`));
     });
   });
+}
+
+/**
+ * Probe an audio/video file's duration in seconds by decoding it to null with
+ * ffmpeg. Avoids needing a separate ffprobe binary (ffmpeg-static ships only
+ * ffmpeg). Returns null if duration can't be parsed.
+ */
+async function probeDurationSec(file: string, cwd: string): Promise<number | null> {
+  try {
+    const stderr = await runFfmpeg(["-hide_banner", "-i", file, "-f", "null", "-"], cwd);
+    const matches = [...stderr.matchAll(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/g)];
+    if (matches.length) {
+      const m = matches[matches.length - 1];
+      const sec = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+      if (Number.isFinite(sec) && sec > 0) return sec;
+    }
+    const dm = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+    if (dm) {
+      const sec = Number(dm[1]) * 3600 + Number(dm[2]) * 60 + Number(dm[3]);
+      if (Number.isFinite(sec) && sec > 0) return sec;
+    }
+  } catch (err) {
+    console.warn(`[stitcher] probeDurationSec failed for ${file}:`, err);
+  }
+  return null;
 }
 
 let drawtextAvailable: boolean | null = null;
