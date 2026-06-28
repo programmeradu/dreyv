@@ -40,6 +40,14 @@ function runFfmpeg(args: string[], cwd: string): Promise<string> {
   });
 }
 
+async function runFfmpegOptional(args: string[], cwd: string): Promise<{ ok: true; stderr: string } | { ok: false; error: Error }> {
+  try {
+    return { ok: true, stderr: await runFfmpeg(args, cwd) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err : new Error(String(err)) };
+  }
+}
+
 /**
  * Probe an audio/video file's duration in seconds by decoding it to null with
  * ffmpeg. Avoids needing a separate ffprobe binary (ffmpeg-static ships only
@@ -114,6 +122,37 @@ function videoFilter(opts: { caption?: string; captionFile?: string; colorGrade?
   return chain.join(",");
 }
 
+function normalizeArgs(args: {
+  inFile: string;
+  outFile: string;
+  captionFile?: string;
+  colorGrade?: boolean;
+  upscaleTo1080?: boolean;
+  durationSec: number;
+  mode: "veo" | "silent";
+}): string[] {
+  const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", args.inFile];
+  if (args.mode === "silent") {
+    ffmpegArgs.push("-f", "lavfi", "-t", String(args.durationSec), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
+  }
+  ffmpegArgs.push(
+    "-vf", videoFilter({ captionFile: args.captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
+    "-map", "0:v:0",
+  );
+  if (args.mode === "silent") {
+    ffmpegArgs.push("-map", "1:a:0", "-af", `atrim=0:${args.durationSec},aresample=async=1:first_pts=0`);
+  } else {
+    ffmpegArgs.push("-map", "0:a:0?");
+  }
+  ffmpegArgs.push(
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+    "-t", String(args.durationSec),
+    "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+    "-movflags", "+faststart", args.outFile,
+  );
+  return ffmpegArgs;
+}
+
 export type StitchSegment = { n: number; key: string; durationSec?: number };
 
 export async function normalizeSegment(args: {
@@ -171,11 +210,32 @@ export async function normalizeSegment(args: {
     }
 
     const tryRun = async (mode: "narration" | "veo" | "silent") => {
+      if (mode === "veo") {
+        await runFfmpeg(normalizeArgs({
+          inFile,
+          outFile,
+          captionFile,
+          colorGrade: args.colorGrade,
+          upscaleTo1080: args.upscaleTo1080,
+          durationSec: segmentDuration,
+          mode: "veo",
+        }), workdir);
+        return;
+      }
+      if (mode === "silent") {
+        await runFfmpeg(normalizeArgs({
+          inFile,
+          outFile,
+          captionFile,
+          colorGrade: args.colorGrade,
+          upscaleTo1080: args.upscaleTo1080,
+          durationSec: segmentDuration,
+          mode: "silent",
+        }), workdir);
+        return;
+      }
       const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile];
       if (mode === "narration" && narrationFile) ffmpegArgs.push("-i", narrationFile);
-      if (mode === "silent") {
-        ffmpegArgs.push("-f", "lavfi", "-t", String(segmentDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
-      }
       ffmpegArgs.push(
         "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
       );
@@ -186,14 +246,6 @@ export async function normalizeSegment(args: {
           "-map", "0:v:0",
           "-map", "1:a:0",
           "-af", `apad,atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
-        );
-      } else if (mode === "silent") {
-        // Even a silent fallback segment must carry an audio stream; the final
-        // concat graph expects every segment to expose [v:0][a:0].
-        ffmpegArgs.push(
-          "-map", "0:v:0",
-          "-map", "1:a:0",
-          "-af", `atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
         );
       }
       ffmpegArgs.push(
@@ -206,14 +258,26 @@ export async function normalizeSegment(args: {
     };
 
     // Prefer ElevenLabs narration → fall back to Veo audio → fall back to silent.
+    let normalized = false;
     if (narrationFile) {
-      try { await tryRun("narration"); }
-      catch (err) {
-        console.warn(`[stitcher] narration mux failed for shot ${args.index + 1}, falling back to Veo audio:`, err);
-        try { await tryRun("veo"); } catch { await tryRun("silent"); }
+      const narrated = await runFfmpegOptional(await (async () => {
+        const narratedOut = path.join(workdir, `seg-narrated.mp4`);
+        const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile, "-i", narrationFile!, "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }), "-map", "0:v:0", "-map", "1:a:0", "-af", `apad,atrim=0:${segmentDuration},aresample=async=1:first_pts=0`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-t", String(segmentDuration), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", narratedOut];
+        return ffmpegArgs;
+      })(), workdir);
+      if (narrated.ok) {
+        await runFfmpeg(["-hide_banner", "-y", "-i", path.join(workdir, `seg-narrated.mp4`), "-c", "copy", outFile], workdir);
+        normalized = true;
+      } else {
+        console.warn(`[stitcher] narration mux failed for shot ${args.index + 1}, falling back to Veo/silent audio:`, narrated.error);
       }
-    } else {
-      try { await tryRun("veo"); } catch { await tryRun("silent"); }
+    }
+    if (!normalized) {
+      try { await tryRun("veo"); }
+      catch (err) {
+        console.warn(`[stitcher] Veo-audio normalize failed for shot ${args.index + 1}, retrying silent:`, err);
+        await tryRun("silent");
+      }
     }
 
     const body = await readFile(outFile);
@@ -296,7 +360,28 @@ export async function concatSegments(args: {
         workdir,
       );
     } catch (err) {
-      if (narrationFile) throw err;
+      if (narrationFile) {
+        console.warn("[stitcher] concat with master narration failed; retrying full visual concat with original/silent audio:", err);
+        await runFfmpeg(
+          [
+            "-hide_banner", "-y",
+            ...inputs,
+            "-filter_complex", `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`,
+            "-map", "[vcat]", "-map", "[scratcha]",
+            "-t", String(visualDuration),
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+            "-movflags", "+faststart",
+            outFile,
+          ],
+          workdir,
+        );
+        const body = await readFile(outFile);
+        const key = `studio/video/final-${args.jobId}-${Date.now()}.mp4`;
+        await putR2Object({ key, body, mime: "video/mp4", filename: "dreyv-final-ad.mp4" });
+        const url = await presignR2Get({ key, filename: "dreyv-final-ad.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
+        return { url, key, durationSec: visualDuration };
+      }
       // Legacy recovery: some old normalized chunks were created with no audio
       // stream. Keep the full visual timeline and attach silence rather than
       // failing or trimming scenes.
