@@ -4,8 +4,8 @@ import { pollVertexVeoOperation, submitVertexVeoOperation, type VeoFirstFrameIma
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
-import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
-import { extractAndCorrectLastFrame } from "@/lib/media-studio/mascot-correct-frame";
+import { loadDreyvMascotReferences, type VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+import { extractTailFramesAsRefs } from "@/lib/media-studio/extract-tail-frames";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import {
@@ -164,22 +164,22 @@ async function submitNextShotOperation(args: {
   shots: Shot[];
   pack: Pack;
   index: number;
-  firstFrameImage?: VeoFirstFrameImage;
+  continuityRefs?: VeoReferenceImage[];
   previousObservation?: ShotObservation;
   reshootNote?: string;
   reshootCount?: number;
 }): Promise<VertexShotOperation> {
-  const mascotRefs = await loadDreyvMascotReferences();
   const shot = args.shots[args.index];
+  // Shot 1: lock to canonical mascot poses. Shots 2+: lock to the last few
+  // frames of the previous shot so mascot + scene + camera carry forward
+  // without any Gemini repaint in the loop.
+  const refs = args.continuityRefs?.length ? args.continuityRefs : await loadDreyvMascotReferences();
   const op = await submitVertexVeoOperation(
     shotPrompt(shot, args.index, args.shots.length, args.pack, {
       previousObservation: args.previousObservation,
       reshootNote: args.reshootNote,
     }),
-    {
-      referenceImages: mascotRefs,
-      ...(args.firstFrameImage ? { firstFrameImage: args.firstFrameImage } : {}),
-    },
+    { referenceImages: refs },
   );
   return {
     n: shot.n ?? args.index + 1,
@@ -187,6 +187,14 @@ async function submitNextShotOperation(args: {
     submittedAt: new Date().toISOString(),
     ...(args.reshootCount ? { reshootCount: args.reshootCount } : {}),
   };
+}
+
+async function tailRefsFor(url: string | undefined): Promise<VeoReferenceImage[] | undefined> {
+  if (!url) return undefined;
+  return extractTailFramesAsRefs(url, 3).catch((err) => {
+    console.warn("[vertex-render-job] tail frame extraction failed, falling back to mascot refs:", err);
+    return undefined;
+  });
 }
 
 async function freshShotUrls(operations: VertexShotOperation[]): Promise<string[]> {
@@ -417,12 +425,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         }
 
         const previousShot = pendingIndex > 0 ? state.shotOperations[pendingIndex - 1] : null;
-        const firstFrameImage = previousShot?.url ? await extractAndCorrectLastFrame(previousShot.url).catch(() => undefined) : undefined;
+        const continuityRefs = await tailRefsFor(previousShot?.url);
         const replacement = await submitNextShotOperation({
           shots,
           pack,
           index: Math.max(0, Math.min(pendingIndex, shots.length - 1)),
-          firstFrameImage,
+          continuityRefs,
           previousObservation: previousShot?.observation,
           reshootNote: `The prior Vertex operation did not complete within ${Math.round(VERTEX_TIMEOUT_MS_PER_SHOT / 60000)} minutes; continue the same locked storyboard beat without restarting the ad.`,
           reshootCount: retryCount + 1,
@@ -475,12 +483,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         if (observation?.needsReshoot && reshootCount < 1) {
           const reshootIndex = pending.n - 1;
           const prevShot = reshootIndex > 0 ? state.shotOperations.find((o) => o.n === reshootIndex) : null;
-          const firstFrameImage = prevShot?.url ? await extractAndCorrectLastFrame(prevShot.url).catch(() => undefined) : undefined;
+          const continuityRefs = await tailRefsFor(prevShot?.url);
           const reshoot = await submitNextShotOperation({
             shots,
             pack,
             index: reshootIndex,
-            firstFrameImage,
+            continuityRefs,
             previousObservation: prevShot?.observation,
             reshootNote: observation.issues.join("; "),
             reshootCount: reshootCount + 1,
@@ -494,12 +502,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           pending.observation = undefined;
           pending.reshootCount = reshootCount + 1;
         } else if (completedCount < shots.length) {
-          const firstFrameImage = await extractAndCorrectLastFrame(poll.url);
+          const continuityRefs = await tailRefsFor(poll.url);
           const nextOperation = await submitNextShotOperation({
             shots,
             pack,
             index: completedCount,
-            firstFrameImage,
+            continuityRefs,
             previousObservation: observation,
           });
           state.shotOperations.push(nextOperation);
