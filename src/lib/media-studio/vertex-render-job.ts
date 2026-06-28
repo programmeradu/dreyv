@@ -483,12 +483,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         if (observation?.needsReshoot && reshootCount < 1) {
           const reshootIndex = pending.n - 1;
           const prevShot = reshootIndex > 0 ? state.shotOperations.find((o) => o.n === reshootIndex) : null;
-          const firstFrameImage = prevShot?.url ? await extractAndCorrectLastFrame(prevShot.url).catch(() => undefined) : undefined;
+          const continuityRefs = await tailRefsFor(prevShot?.url);
           const reshoot = await submitNextShotOperation({
             shots,
             pack,
             index: reshootIndex,
-            firstFrameImage,
+            continuityRefs,
             previousObservation: prevShot?.observation,
             reshootNote: observation.issues.join("; "),
             reshootCount: reshootCount + 1,
@@ -502,12 +502,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           pending.observation = undefined;
           pending.reshootCount = reshootCount + 1;
         } else if (completedCount < shots.length) {
-          const firstFrameImage = await extractAndCorrectLastFrame(poll.url);
+          const continuityRefs = await tailRefsFor(poll.url);
           const nextOperation = await submitNextShotOperation({
             shots,
             pack,
             index: completedCount,
-            firstFrameImage,
+            continuityRefs,
             previousObservation: observation,
           });
           state.shotOperations.push(nextOperation);
