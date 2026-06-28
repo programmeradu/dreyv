@@ -753,8 +753,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     // The Inngest worker loop nudges us until phase === "done".
     // ────────────────────────────────────────────────────────────────────────
     const stitchAttempts = state.stitch?.attempts ?? 0;
-    if (stitchAttempts >= 8) {
-      await markFailed(jobId, `Stitching failed after ${stitchAttempts} chunk attempts. Start a new render.`);
+    if (stitchAttempts >= 20) {
+      await markFailed(jobId, `Stitching paused after ${stitchAttempts} chunk attempts. Use Retry stitching to resume from the saved shot chunks; no new render is required.`);
       return { advanced: true, failed: "stitch_attempts_exhausted" };
     }
 
