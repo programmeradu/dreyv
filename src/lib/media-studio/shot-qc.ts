@@ -39,6 +39,16 @@ export type ShotObservation = {
   settingFingerprint: string | null;
   /** True when QC is structurally broken and the shot should be reshot. */
   needsReshoot: boolean;
+  /** Structural metrics surfaced to the UI progress panel. */
+  metrics?: {
+    width?: number | null;
+    height?: number | null;
+    blackSec?: number;
+    freezeSec?: number;
+    silenceSec?: number;
+    sceneChanges?: number;
+    audioMeanDb?: number | null;
+  };
 };
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1";
