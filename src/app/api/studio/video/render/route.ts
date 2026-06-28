@@ -172,6 +172,33 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function dateMs(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const n = new Date(value).getTime();
+  return Number.isFinite(n) ? n : null;
+}
+
+async function nudgeVertexWorker(row: Record<string, unknown>) {
+  if (!db) return;
+  const id = typeof row.id === "string" ? row.id : "";
+  const model = typeof row.model === "string" ? row.model : "";
+  const status = typeof row.status === "string" ? row.status : "";
+  if (!isUuid(id) || !model.includes("(vertex)") || status === "done" || status === "failed") return;
+
+  const updatedAt = dateMs(row.updated_at);
+  if (updatedAt !== null && Date.now() - updatedAt < 75_000) return;
+
+  // Back-compat for renders started before Vertex was moved fully into the
+  // durable worker. Mark updated first so repeated browser polls don't fan out
+  // duplicate resume events while the worker wakes up.
+  await db.execute(sql`UPDATE studio_video_jobs SET updated_at = now() WHERE id = ${id}::uuid`);
+  await publish({
+    name: "studio.video.render.requested",
+    data: { jobId: id, pack: row.pack, provider: "veo3-vertex" },
+  }).catch((err) => console.warn("[studio/video/render] vertex worker nudge failed:", err));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireTeamMember(req);
@@ -216,6 +243,8 @@ export async function GET(req: NextRequest) {
                                          FROM studio_video_jobs WHERE id = ${id}::uuid LIMIT 1`)) as unknown;
     let row = rowsFromResult(result)[0];
     if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+    await nudgeVertexWorker(row);
 
     let shotKeys: unknown = [];
     let finalKey: unknown = null;
