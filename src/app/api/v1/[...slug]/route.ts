@@ -24,7 +24,7 @@ import {
 } from "@/lib/api-keys/public-keys";
 import { checkPolicy } from "@/lib/api-keys/policy";
 import { CapabilityError } from "@/lib/capabilities/handlers";
-import { chargeAgentBalance, getAgentBalance, minorToUsd } from "@/lib/agent/balance";
+import { chargeAgentBalance, getAgentBalance, ensureStarterGrant, minorToUsd } from "@/lib/agent/balance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
