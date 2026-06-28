@@ -2,8 +2,8 @@ const PRODUCTION_PHANTOM_REDIRECT_URL = "https://dreyv.com/auth/callback";
 
 function readPublicEnv(name: string): string | undefined {
   const processValue =
-    typeof process !== "undefined"
-      ? (process.env as Record<string, string | undefined>)[name]
+    typeof process !== "undefined" && name === "NEXT_PUBLIC_PHANTOM_REDIRECT_URL"
+      ? process.env.NEXT_PUBLIC_PHANTOM_REDIRECT_URL
       : undefined;
   const viteValue = (import.meta as any)?.env?.[name];
   const value = processValue || viteValue;
