@@ -687,10 +687,14 @@ function AuthPageContent() {
         setSocialLoading(loadingKey);
         addLog(`INITIATING_PHANTOM_${provider.toUpperCase()}_LOGIN`);
 
-        const hasAppId =
-            typeof process !== "undefined" &&
-            typeof process.env.NEXT_PUBLIC_PHANTOM_APP_ID === "string" &&
-            process.env.NEXT_PUBLIC_PHANTOM_APP_ID.trim().length > 0;
+        const viteEnv = (import.meta as any).env;
+        const configuredAppId =
+            (typeof process !== "undefined" && typeof process.env.NEXT_PUBLIC_PHANTOM_APP_ID === "string"
+                ? process.env.NEXT_PUBLIC_PHANTOM_APP_ID
+                : undefined) ||
+            viteEnv?.VITE_PHANTOM_APP_ID ||
+            viteEnv?.NEXT_PUBLIC_PHANTOM_APP_ID;
+        const hasAppId = typeof configuredAppId === "string" && configuredAppId.trim().length > 0;
 
         if (!hasAppId) {
             const msg =
@@ -713,7 +717,7 @@ function AuthPageContent() {
                 /login\/start|400|unauthorized|origin|app[_ ]?id/i.test(raw);
             setOauthError(
                 looksLikeOriginIssue
-                    ? "Phantom rejected this domain. Add this origin to the Phantom app allowlist, then retry."
+                    ? `Phantom rejected this environment. Verify the Phantom app ID, enable ${provider}, and allow ${window.location.origin} plus ${window.location.origin}/auth/callback.`
                     : raw || `Phantom ${provider} sign-in failed.`
             );
             addLog("ERROR: PHANTOM_SOCIAL_FAILED");
