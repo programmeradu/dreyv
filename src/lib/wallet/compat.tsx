@@ -18,6 +18,7 @@ import {
   useDisconnect,
   useModal,
   AddressType,
+  lightTheme,
 } from "@phantom/react-sdk";
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "@/lib/contexts/NetworkContext";
@@ -71,6 +72,7 @@ export function PhantomCompatProvider({
     const baseConfig: Record<string, unknown> = {
       addressTypes: [AddressType.solana] as AddressType[],
       providers,
+      theme: lightTheme,
       authOptions: {
         redirectUrl:
           (typeof window !== "undefined" ? window.location.origin : "") +
