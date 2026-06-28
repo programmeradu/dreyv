@@ -149,7 +149,7 @@ function buildVideoFilter(opts: PostOptions): string {
 
 async function normalizeShot(input: string, output: string, workdir: string, keepAudio: boolean, post: PostOptions) {
   let captionFile: string | undefined;
-  if (post.caption && post.caption.trim()) {
+  if (post.caption && post.caption.trim() && (await hasDrawtextFilter())) {
     captionFile = path.join(workdir, `caption-${path.basename(output, ".mp4")}.txt`);
     await writeFile(captionFile, wrapCaption(post.caption), "utf8");
   }
