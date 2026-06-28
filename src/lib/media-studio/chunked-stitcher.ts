@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import ffmpegStaticPath from "ffmpeg-static";
-import { isR2Configured, putR2Object, presignR2Get, getR2Object } from "@/lib/agents/artifacts/r2-storage";
+import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
 const FONT_PATH = path.join(process.cwd(), "public", "fonts", "Manrope-SemiBold.ttf");
 
@@ -152,9 +152,10 @@ export async function concatSegments(args: {
     for (let i = 0; i < args.segments.length; i += 1) {
       const seg = args.segments[i];
       const local = path.join(workdir, `seg-${String(i + 1).padStart(2, "0")}.mp4`);
-      const body = await getR2Object(seg.key);
-      if (!body) throw new Error(`Missing segment ${seg.n + 1} (${seg.key})`);
-      await writeFile(local, body);
+      const signed = await presignR2Get({ key: seg.key, mime: "video/mp4", inline: true, ttlSeconds: 600 });
+      const res = await fetch(signed);
+      if (!res.ok) throw new Error(`Missing segment ${seg.n + 1} (${seg.key}) — fetch ${res.status}`);
+      await writeFile(local, Buffer.from(await res.arrayBuffer()));
       files.push(local);
     }
     const listFile = path.join(workdir, "concat.txt");
