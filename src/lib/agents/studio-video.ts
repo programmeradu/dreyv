@@ -98,6 +98,12 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
   const shotIndex = Math.max(0, (shot.n ?? 1) - 1);
   const previousShot = shotIndex > 0 ? pack.shotList[shotIndex - 1] : null;
   const nextShot = shotIndex < pack.shotList.length - 1 ? pack.shotList[shotIndex + 1] : null;
+  const openingShot = pack.shotList[0] ?? shot;
+  // Carry the previous shot's burned caption (what was just "said" on screen)
+  // and lock the setting from shot 1 so the model continues the dialogue beat
+  // and never re-establishes the world.
+  const previousCaption = previousShot ? pack.burnedCaptions?.[shotIndex - 1] : null;
+  const currentCaption = pack.burnedCaptions?.[shotIndex];
   return [
     dreyvShotStylePreamble(),
     "",
@@ -105,10 +111,13 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
     "",
     `9:16 vertical ad segment ${shot.n} of ${pack.shotList.length} for ONE continuous Dreyv ad, pronounced DRAVE.`,
     `This is not a variant, restart, recap, or alternate take. It must be the next chronological scene in the same ad.`,
-    previousShot ? `Previous scene context to continue from, not repeat: ${previousShot.description}` : `Opening scene: establish the cinematic world and motion hook — clean frame, no abstract garnish.`,
+    `Locked setting (do not re-establish, do not change location, lighting, time of day, props, or wardrobe): ${openingShot.description}`,
+    previousShot ? `Previous scene action that just finished — continue directly from its final pose, gesture, and camera motion, do not rewind: ${previousShot.description}` : `Opening scene: establish the cinematic world and motion hook — clean frame, no abstract garnish.`,
+    previousCaption ? `What was just said on screen in the previous segment (do NOT repeat it, continue the thought from where it ended): "${previousCaption}"` : null,
     `Current scene action: ${shot.description}`,
+    currentCaption ? `What is being said on screen during this segment (for lip/timing/beat — text is burned in post, do NOT render letters): "${currentCaption}"` : null,
     nextShot ? `End with motion that hands off into this next scene: ${nextShot.description}` : `Final scene: resolve into a clean product payoff without text.`,
-    `Continuity lock: identical mascot, identical environment, identical lighting, identical camera language across all segments.`,
+    `Continuity lock: identical mascot, identical environment, identical lighting, identical camera language, identical wardrobe and props across all segments. No cut-to-black, no scene reset, no title cards.`,
     `Creative intent, without rendering written text: ${shot.toolPrompt.slice(0, 700)}`,
   ]
     .filter(Boolean)
