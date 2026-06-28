@@ -5,10 +5,9 @@
  * imports from here so the mascot, palette, camera, and "clean cinematic"
  * rules stay locked across the entire pipeline.
  *
- * Why a separate file: previously the draft route described the mascot as
- * an "orange owl-fox with russet wing-tips" while the brand mascot is
- * SOLID violet `#7c3aed`. That single stale line is what made every render
- * come back as a brown/orange fox. Centralising it eliminates that drift.
+ * Why a separate file: all draft and render prompts must inherit the same
+ * canonical SOLID violet `#7c3aed` mascot, clean-frame, and physical-scene
+ * rules. Centralising them eliminates prompt drift.
  */
 
 export const DREYV_MASCOT_DESCRIPTION =
