@@ -705,9 +705,10 @@ function AuthPageContent() {
             return;
         }
 
+        const phantomRedirectUrl = getPhantomRedirectUrl();
+        const phantomOrigin = getPhantomPortalOrigin();
+
         try {
-            const phantomRedirectUrl = getPhantomRedirectUrl();
-            const phantomOrigin = getPhantomPortalOrigin();
             sessionStorage.setItem("dreyv_post_auth_redirect", postAuthRedirect);
             sessionStorage.setItem("dreyv_phantom_social_pending", provider);
             await phantomConnect({ provider });
@@ -719,7 +720,7 @@ function AuthPageContent() {
                 /login\/start|400|unauthorized|origin|app[_ ]?id/i.test(raw);
             setOauthError(
                 looksLikeOriginIssue
-                    ? `Phantom rejected the hosted login request. There are no scopes to enable in Phantom Portal; set Allowed Origin to ${getPhantomPortalOrigin()} and Redirect URL to ${getPhantomRedirectUrl()} exactly for this app ID.`
+                    ? `Phantom rejected the hosted login request. There are no scopes to enable in Phantom Portal; set Allowed Origin to ${phantomOrigin} and Redirect URL to ${phantomRedirectUrl} exactly for this app ID.`
                     : raw || `Phantom ${provider} sign-in failed.`
             );
             addLog("ERROR: PHANTOM_SOCIAL_FAILED");
