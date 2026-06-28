@@ -16,6 +16,15 @@ export const USDC_DECIMALS = 6;
 export const TOPUP_MIN_USD = 5;
 export const TOPUP_MAX_USD = 10_000;
 
+/**
+ * Starter grant — every new agent gets a free trial allowance so the very
+ * first capability call doesn't 402 on a 0 balance. $0.25 = 250 calls at
+ * the default $0.001/call price. Idempotent via (reason, ref) unique idx.
+ */
+export const STARTER_GRANT_USD = 0.25;
+export const STARTER_GRANT_MINOR = BigInt(Math.round(STARTER_GRANT_USD * 1_000_000));
+
+
 export type BalanceRow = {
   balance_minor: bigint;
   currency: string;
