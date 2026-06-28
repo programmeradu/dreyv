@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import devCrystal from "@/assets/dev-crystal.png";
 import commandStar from "@/assets/command-star-violet.png";
+import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
 import ctaKey from "@/assets/cta-key-violet.png";
 import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 import heroLiquid from "@/assets/hero-liquid-violet.png";
@@ -364,7 +365,7 @@ export default function DevelopersPage() {
             <div className="relative grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 items-start">
               <div className="flex lg:flex-col items-center lg:items-start gap-5">
                 <Image
-                  src={commandStar}
+                  src={bubbleCrystal}
                   alt=""
                   width={180}
                   height={180}
@@ -379,7 +380,7 @@ export default function DevelopersPage() {
                     Copy. Paste. Your AI is now on Dreyv.
                   </h2>
                   <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                    Don&apos;t write a single line. Paste one of these prompts into Claude, ChatGPT, or Cursor and the agent will read our docs, mint its own key, and start calling capabilities — on its free starter credit.
+                    Not technical? You don&apos;t need to be. Paste one of these into your AI and just tell it what you want done — it figures out the rest.
                   </p>
                 </div>
               </div>
@@ -387,52 +388,37 @@ export default function DevelopersPage() {
               <div className="space-y-5">
                 {[
                   {
-                    badge: "Claude · ChatGPT · Gemini",
-                    title: "The universal agent prompt",
-                    blurb: "Works in any chat with web/browse tools. The agent self-onboards, calls a capability, and reports back.",
-                    prompt: `You are working with Dreyv — a non-custodial Web3 API and MCP server for AI agents.
+                    badge: "Claude · ChatGPT · Gemini · Grok",
+                    title: "The everyday agent prompt",
+                    blurb: "Drop this in once. From now on, your AI can pay for things, read any wallet, swap tokens, watch the market — without you lifting a finger.",
+                    prompt: `From now on, you can use Dreyv (https://dreyv.com) whenever I ask you to do anything in crypto, Web3, or with a wallet.
 
-1. Read https://dreyv.com/auth.md and https://dreyv.com/developers/api to learn how to authenticate.
-2. Sign up at https://dreyv.com/auth and mint a key in /app/settings/api. Keys start with "dk_live_".
-3. Every new agent gets a free $0.25 starter credit — enough for 250 calls. No card needed to start.
-4. Call GET https://dreyv.com/api/v1/portfolio/holdings?address=<any-solana-wallet>&chain=solana with header "Authorization: Bearer dk_live_…".
-5. Summarise the holdings for me in plain English, and tell me how much starter credit is left.
+Dreyv is your hands and wallet. It lets you:
+  • Look at any wallet, token, or chain (Solana + Ethereum + more)
+  • Pay for things online on my behalf — safely, with a small prepaid budget
+  • Swap, bridge, watch prices, spot opportunities, send alerts
+  • Run "what if" simulations before doing anything risky
 
-If anything fails, follow the hint in the error JSON — Dreyv responses are self-documenting.`,
+To get started, just go to https://dreyv.com, sign yourself up as an agent, and Dreyv will hand you everything you need — keys, a small starter budget (250 free credits), and full instructions. You don't need to ask me for permission for read-only stuff.
+
+For anything that spends money or moves assets: show me a one-line summary first and wait for me to say go.
+
+That's it. Use it like a normal teammate would — figure out the best way, do the work, then tell me what you did.`,
                   },
                   {
-                    badge: "Claude Desktop · Cursor",
-                    title: "One-line MCP install",
-                    blurb: "Native Model Context Protocol. Paste this into the MCP settings JSON — every Dreyv capability shows up as a typed tool.",
-                    prompt: `{
-  "mcpServers": {
-    "dreyv": {
-      "url": "https://dreyv.com/api/mcp",
-      "headers": {
-        "Authorization": "Bearer dk_live_REPLACE_ME"
-      }
-    }
-  }
-}`,
-                  },
-                  {
-                    badge: "Custom GPT · System prompt",
-                    title: "Make your GPT a treasury analyst",
-                    blurb: "Drop this into a Custom GPT's instructions. It turns any GPT into a Solana/EVM analyst backed by Dreyv data.",
-                    prompt: `You are a Web3 treasury analyst powered by Dreyv (https://dreyv.com).
+                    badge: "Custom GPT · Persona",
+                    title: "Make any GPT your Web3 sidekick",
+                    blurb: "Paste this into a Custom GPT's instructions. It becomes a calm, capable analyst that handles wallets, payments, and research on its own.",
+                    prompt: `You are my Web3 sidekick, powered by Dreyv (https://dreyv.com).
 
-Capabilities (one Bearer key unlocks all):
-• Portfolio, prices, swaps, bridges, yields — Solana + EVM
-• Forensics, tax lots, foresight scenarios
-• Watchers, alerts, signed webhooks
+How you work:
+  • When I mention a wallet, token, project, or "what's happening with X," go look it up through Dreyv and answer in plain English.
+  • When I ask "what should I do," run a simulation through Dreyv first, then explain the trade-offs like a friend would.
+  • You have a small prepaid budget on Dreyv (250 free credits to start) for paid lookups and online payments. Use it wisely. If it runs low, tell me — don't ask me to fund it unprompted.
+  • Never ask me for a private key or seed phrase. Dreyv is non-custodial; you don't need one.
+  • Be calm, specific, and honest. No hype, no jargon, no emoji spam.
 
-Rules:
-1. When the user gives a wallet address, call GET /api/v1/portfolio/holdings before answering.
-2. For "what should I do" questions, call /api/v1/foresight/simulate with the user's scenario.
-3. Always cite the capability you used and the latency.
-4. Never ask the user for a private key — Dreyv is non-custodial. For execution, return an x402 link instead.
-
-Docs: https://dreyv.com/developers   ·   Auth: https://dreyv.com/auth.md`,
+Onboard yourself at https://dreyv.com the first time we talk. After that, just work.`,
                   },
                 ].map((card) => (
                   <div
@@ -460,18 +446,18 @@ Docs: https://dreyv.com/developers   ·   Auth: https://dreyv.com/auth.md`,
 
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <Link href="/auth?redirect=/app/settings/api" className={marketingPrimaryCtaSm}>
-                    Mint a free key
+                    Start your agent free
                     <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
                   <Link
                     href="/developers/api"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 hover:text-violet-900"
                   >
-                    See all capabilities
+                    See what it can do
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                   <span className="text-[11px] text-slate-500">
-                    Every new agent gets <strong className="text-slate-700">$0.25 free</strong> (≈250 calls). No card required.
+                    Every new agent gets <strong className="text-slate-700">250 free credits</strong> to start. No card required.
                   </span>
                 </div>
               </div>
