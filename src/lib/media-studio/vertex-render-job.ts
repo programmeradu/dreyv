@@ -6,6 +6,7 @@ import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
+import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
 type Shot = {
   n: number;
@@ -117,6 +118,29 @@ async function submitNextShotOperation(args: {
     operationName: op.operationName,
     submittedAt: new Date().toISOString(),
   };
+}
+
+async function freshShotUrls(operations: VertexShotOperation[]): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < operations.length; i += 1) {
+    const op = operations[i];
+    if (op.key) {
+      try {
+        urls.push(await presignR2Get({
+          key: op.key,
+          filename: `shot-${i + 1}.mp4`,
+          mime: "video/mp4",
+          inline: true,
+          ttlSeconds: 3600,
+        }));
+        continue;
+      } catch {
+        // Fall back to the operation URL if re-signing is unavailable.
+      }
+    }
+    if (op.url) urls.push(op.url);
+  }
+  return urls;
 }
 
 function usableShots(pack: Pack): Shot[] {
@@ -338,7 +362,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       return { advanced: true };
     }
 
-    const shotUrls = state.shotOperations.map((op) => op.url).filter((url): url is string => Boolean(url));
+    const shotUrls = await freshShotUrls(state.shotOperations);
     const shotKeys = state.shotOperations.map((op) => op.key).filter((key): key is string => Boolean(key));
 
     if (shotUrls.length <= 1) {
