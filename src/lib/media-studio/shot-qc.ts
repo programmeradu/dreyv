@@ -233,7 +233,40 @@ async function describeFrames(frames: Array<{ png: Buffer; label: string }>): Pr
   }
 }
 
-export async function observeShot(videoUrl: string): Promise<ShotObservation> {
+function normalizeWords(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+function jaccardOverlap(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const A = new Set(a), B = new Set(b);
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter += 1;
+  return inter / new Set([...A, ...B]).size;
+}
+
+/**
+ * Cheap gibberish heuristic: high ratio of tokens that have no vowels, are
+ * single letters, or are long random consonant clusters → transcription of
+ * Veo audio that's actually mumbled / non-English / phoneme soup.
+ */
+function gibberishRatio(words: string[]): number {
+  if (!words.length) return 0;
+  let bad = 0;
+  for (const w of words) {
+    const hasVowel = /[aeiouy]/.test(w);
+    const longConsonants = /[bcdfghjklmnpqrstvwxz]{5,}/.test(w);
+    if (!hasVowel && w.length > 2) bad += 1;
+    else if (longConsonants) bad += 1;
+    else if (w.length === 1 && !"ai".includes(w)) bad += 1;
+  }
+  return bad / words.length;
+}
+
+export async function observeShot(
+  videoUrl: string,
+  opts?: { expectedNarration?: string | null },
+): Promise<ShotObservation> {
   const work = await mkdtemp(path.join(tmpdir(), "dreyv-qc-"));
   const issues: string[] = [];
   let needsReshoot = false;
