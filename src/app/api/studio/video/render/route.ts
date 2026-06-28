@@ -288,6 +288,8 @@ function buildProgress(row: Record<string, unknown>, shotUrls: string[]): {
   };
   return { shots, stitch, status: String(row.status ?? "") };
 }
+
+function dateMs(value: unknown): number | null {
   if (value instanceof Date) return value.getTime();
   if (typeof value !== "string" && typeof value !== "number") return null;
   const n = new Date(value).getTime();
