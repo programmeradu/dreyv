@@ -164,8 +164,8 @@ export default function ProgressView({ jobId }: { jobId: string }) {
         <section className="mt-8">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Per-shot render & QA</h2>
           <ol className="mt-3 space-y-3">
-            {(progress?.shots ?? Array.from({ length: job?.shots_total ?? 0 }, (_v, i) => ({
-              n: i + 1, status: "queued" as const,
+            {(progress?.shots ?? Array.from({ length: job?.shots_total ?? 0 }, (_v, i): ShotProgress => ({
+              n: i + 1, status: "queued",
             }))).map((s) => (
               <li key={s.n} className="rounded-3xl border border-violet-100 bg-white p-5">
                 <div className="flex items-center justify-between gap-4">
