@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import devCrystal from "@/assets/dev-crystal.png";
 import commandStar from "@/assets/command-star-violet.png";
+import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
 import ctaKey from "@/assets/cta-key-violet.png";
 import atlasOrbital from "@/assets/atlas-orbital-violet.png";
 import heroLiquid from "@/assets/hero-liquid-violet.png";
