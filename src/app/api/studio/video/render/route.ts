@@ -223,10 +223,17 @@ async function nudgeVertexWorker(row: Record<string, unknown>) {
   if (updatedAt !== null && Date.now() - updatedAt < throttleMs) return;
 
   await db.execute(sql`UPDATE studio_video_jobs SET updated_at = now() WHERE id = ${id}::uuid`);
-  await publish({
+  const delivered = await publish({
     name: "studio.video.render.requested",
     data: { jobId: id, pack: row.pack, provider: "veo3-vertex" },
-  }).catch((err) => console.warn("[studio/video/render] vertex worker nudge failed:", err));
+  }).catch((err) => ({ delivered: false, reason: err instanceof Error ? err.message : String(err) }));
+
+  if (!delivered.delivered) {
+    const note = `worker nudge undelivered (${delivered.reason ?? "unknown"}) — visit /api/inngest once to re-sync, then refresh.`;
+    console.warn("[studio/video/render]", note);
+    await db.execute(sql`UPDATE studio_video_jobs SET error = ${note}, updated_at = now()
+                         WHERE id = ${id}::uuid AND status = 'queued'`);
+  }
 }
 
 export async function GET(req: NextRequest) {
