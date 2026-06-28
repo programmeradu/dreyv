@@ -56,6 +56,7 @@ type VertexShotOperation = {
 
 const VERTEX_TIMEOUT_MS_PER_SHOT = 15 * 60 * 1000;
 const STALE_SUBMISSION_MS = 2 * 60 * 1000;
+const STITCH_TIMEOUT_MS = 12 * 60 * 1000;
 
 function packFrom(value: unknown): Pack {
   if (value && typeof value === "object") return value as Pack;
@@ -241,7 +242,12 @@ async function savePack(jobId: string, pack: Pack, patch: Record<string, unknown
     if (jsonbCols.has(col)) return sql`${sql.identifier(col)} = ${JSON.stringify(value)}::jsonb`;
     return sql`${sql.identifier(col)} = ${value as never}`;
   });
-  await db.execute(sql`UPDATE studio_video_jobs SET ${sql.join(sets, sql`, `)}, updated_at = now() WHERE id = ${jobId}::uuid`);
+  await db.execute(sql`
+    UPDATE studio_video_jobs
+    SET ${sql.join(sets, sql`, `)}, updated_at = now()
+    WHERE id = ${jobId}::uuid
+      AND status <> 'failed'
+  `);
 }
 
 async function saveFinal(args: {
@@ -270,6 +276,7 @@ async function saveFinal(args: {
           error = NULL,
           updated_at = now()
       WHERE id = ${args.jobId}::uuid
+        AND status <> 'failed'
     `);
     return;
   }
@@ -285,6 +292,7 @@ async function saveFinal(args: {
         error = NULL,
         updated_at = now()
     WHERE id = ${args.jobId}::uuid
+      AND status <> 'failed'
   `);
 }
 
@@ -459,8 +467,21 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       return { advanced: true };
     }
 
+    const stitchSubmittedAt = dateMs(state.stitch?.submittedAt);
+    if (state.stitch && !state.stitch.completedAt && stitchSubmittedAt !== null && Date.now() - stitchSubmittedAt < STITCH_TIMEOUT_MS) {
+      return { advanced: false };
+    }
+
     if (!state.stitch?.completedAt) {
-      await savePack(jobId, { ...pack, __renderState: state }, {
+      const stitchStartedAt = new Date().toISOString();
+      const stitchingState: VertexRenderState = {
+        ...state,
+        stitch: {
+          submittedAt: stitchStartedAt,
+          durationSec: shotUrls.length * 8,
+        },
+      };
+      await savePack(jobId, { ...pack, __renderState: stitchingState }, {
         status: "stitching",
         shots_total: shotUrls.length,
         shots_done: shotUrls.length,
@@ -478,9 +499,9 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       const nextPack: Pack = {
         ...pack,
         __renderState: {
-          ...state,
+          ...stitchingState,
           stitch: {
-            submittedAt: new Date().toISOString(),
+            submittedAt: stitchStartedAt,
             completedAt: new Date().toISOString(),
             durationSec: stitched.durationSec,
             ...(stitched.key ? { finalKey: stitched.key } : {}),

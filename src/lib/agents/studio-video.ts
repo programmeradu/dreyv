@@ -91,7 +91,10 @@ async function setJob(id: string, patch: Record<string, unknown>) {
   });
   const setExpr = sql.join(sets, sql`, `);
   await db.execute(
-    sql`UPDATE studio_video_jobs SET ${setExpr}, updated_at = now() WHERE id = ${id}::uuid`,
+    sql`UPDATE studio_video_jobs
+        SET ${setExpr}, updated_at = now()
+        WHERE id = ${id}::uuid
+          AND status <> 'failed'`,
   );
 }
 

@@ -5,6 +5,8 @@
  *                          selected renderer in the durable worker.
  *   GET   ?id=<uuid>     → returns the row so the UI can poll progress
  *                          and surface the final mp4 url + per-shot urls.
+ *   DELETE ?id=<uuid>    → abandons a stuck in-progress render so Studio can
+ *                          immediately start a fresh job.
  *
  * Status checks must stay cheap. The durable worker advances Vertex operations,
  * runs QC, and stitches the finished shots so browser polling never 504s.
@@ -26,6 +28,33 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[studio/video/render] POST failed:", err);
+    return NextResponse.json({ error: msg.slice(0, 500) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await requireTeamMember(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
+
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id || !isUuid(id)) return NextResponse.json({ error: "Invalid render job id" }, { status: 400 });
+
+    const result = (await db.execute(sql`
+      UPDATE studio_video_jobs
+      SET status = 'failed',
+          error = 'Manually abandoned from Studio so a fresh render could be started.',
+          updated_at = now()
+      WHERE id = ${id}::uuid
+        AND status NOT IN ('done', 'failed')
+      RETURNING id, status, error, updated_at
+    `)) as unknown;
+    const row = rowsFromResult(result)[0];
+    return NextResponse.json({ ok: true, abandoned: Boolean(row), job: row ?? null });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[studio/video/render] DELETE failed:", err);
     return NextResponse.json({ error: msg.slice(0, 500) }, { status: 500 });
   }
 }
