@@ -1,10 +1,11 @@
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
-import { pollVertexVeoOperation, submitVertexVeoOperation } from "@/lib/media-studio/google-vertex-veo";
+import { pollVertexVeoOperation, submitVertexVeoOperation, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
+import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
 
 type Shot = {
   n: number;
@@ -63,6 +64,9 @@ function packFrom(value: unknown): Pack {
 function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): string {
   const previousShot = index > 0 ? pack.shotList?.[index - 1] : null;
   const nextShot = index < total - 1 ? pack.shotList?.[index + 1] : null;
+  const openingShot = pack.shotList?.[0] ?? shot;
+  const previousCaption = index > 0 ? pack.burnedCaptions?.[index - 1]?.trim() : "";
+  const currentCaption = pack.burnedCaptions?.[index]?.trim();
   const phase = index === 0 ? "opening hook" : index === total - 1 ? "final payoff" : `continuation beat ${index + 1}`;
   return [
     dreyvShotStylePreamble(),
@@ -71,14 +75,17 @@ function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): strin
     "",
     `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
     "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",
-    "Continuity lock: identical mascot (solid violet #7c3aed owl-fox per the MASCOT LOCK above), identical environment, identical camera language, identical lighting, identical palette as the previous segment.",
+    `Locked setting from segment 1 — keep this exact world, location, lighting, time of day, wardrobe, props, lens language, and palette: ${openingShot.description}`,
+    "Continuity lock: identical mascot (solid violet #7c3aed owl per the MASCOT LOCK above), identical environment, identical camera language, identical lighting, identical palette as the previous segment.",
     index === 0
       ? "Start with a strong, calm opening motion and establish the cinematic world. Hold the frame clean — no abstract garnish."
-      : `Begin as if the viewer has just watched segment ${index}. Do not restart the story, do not repeat the hook, and do not reintroduce Dreyv.`,
-    previousShot ? `Previous segment context to continue from, not repeat: ${previousShot.description}` : "",
+      : `You are receiving the exact final frame of segment ${index} as the first image. Begin from that same pose, framing, setting, lighting, and action. Do not restart the story, do not repeat the hook, and do not reintroduce Dreyv.`,
+    previousShot ? `Previous segment action that just finished — continue directly from its final pose, gesture, and camera movement, do not rewind: ${previousShot.description}` : "",
+    previousCaption ? `What was just said in the previous segment (do NOT repeat it; continue the thought): "${previousCaption}"` : "",
     nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
     pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
     `Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
+    currentCaption ? `What is being said during this segment for pacing only (captions are burned by Dreyv after rendering; do NOT render any letters or subtitles inside the video): "${currentCaption}"` : "",
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
     pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
     pack.voiceoverScript ? `Full ad voiceover context for story continuity only, not captions: ${pack.voiceoverScript.slice(0, 900)}` : "",
@@ -88,6 +95,28 @@ function shotPrompt(shot: Shot, index: number, total: number, pack: Pack): strin
       ? "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish."
       : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
   ].filter(Boolean).join("\n");
+}
+
+async function submitNextShotOperation(args: {
+  shots: Shot[];
+  pack: Pack;
+  index: number;
+  firstFrameImage?: VeoFirstFrameImage;
+}): Promise<VertexShotOperation> {
+  const mascotRefs = await loadDreyvMascotReferences();
+  const shot = args.shots[args.index];
+  const op = await submitVertexVeoOperation(
+    shotPrompt(shot, args.index, args.shots.length, args.pack),
+    {
+      referenceImages: mascotRefs,
+      ...(args.firstFrameImage ? { firstFrameImage: args.firstFrameImage } : {}),
+    },
+  );
+  return {
+    n: shot.n ?? args.index + 1,
+    operationName: op.operationName,
+    submittedAt: new Date().toISOString(),
+  };
 }
 
 function usableShots(pack: Pack): Shot[] {
@@ -243,23 +272,14 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         return { advanced: false };
       }
 
-      const submittedAt = new Date().toISOString();
-      const mascotRefs = await loadDreyvMascotReferences();
-      const operations: VertexShotOperation[] = [];
-      for (let i = 0; i < shots.length; i += 1) {
-        const op = await submitVertexVeoOperation(
-          shotPrompt(shots[i], i, shots.length, pack),
-          { referenceImages: mascotRefs },
-        );
-        operations.push({ n: shots[i].n ?? i + 1, operationName: op.operationName, submittedAt });
-      }
+      const firstOperation = await submitNextShotOperation({ shots, pack, index: 0 });
       const nextPack: Pack = {
         ...pack,
         __renderState: {
           provider: "veo3-vertex",
           mode: "stitched_ad",
-          submittedAt,
-          shotOperations: operations,
+          submittedAt: firstOperation.submittedAt,
+          shotOperations: [firstOperation],
         },
       };
       await savePack(jobId, nextPack, {
@@ -288,6 +308,18 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         pending.url = poll.url;
         pending.key = poll.key;
         pending.completedAt = new Date().toISOString();
+
+        const completedCount = state.shotOperations.filter((op) => Boolean(op.url)).length;
+        if (completedCount < shots.length) {
+          const firstFrameImage = await extractLastFramePng(poll.url);
+          const nextOperation = await submitNextShotOperation({
+            shots,
+            pack,
+            index: completedCount,
+            firstFrameImage,
+          });
+          state.shotOperations.push(nextOperation);
+        }
       }
       const shotUrls = state.shotOperations.map((op) => op.url).filter((url): url is string => Boolean(url));
       const shotKeys = state.shotOperations.map((op) => op.key).filter((key): key is string => Boolean(key));
@@ -333,7 +365,14 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         shot_urls: shotUrls,
         shot_keys: shotKeys,
       });
-      const stitched = await stitchShotsLocally({ jobId, shotUrls, shotDurationSec: 8 });
+      const stitched = await stitchShotsLocally({
+        jobId,
+        shotUrls,
+        shotDurationSec: 8,
+        captions: pack.burnedCaptions,
+        colorGrade: true,
+        upscaleTo1080: true,
+      });
       const nextPack: Pack = {
         ...pack,
         __renderState: {
