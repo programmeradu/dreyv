@@ -2,8 +2,7 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { pollVertexVeoOperation, submitVertexVeoOperation, type VeoFirstFrameImage } from "@/lib/media-studio/google-vertex-veo";
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
-import { stitchShotsLocally } from "@/lib/media-studio/local-video-stitcher";
-import { stitchShotsRemote, isRemoteStitcherConfigured } from "@/lib/media-studio/remote-video-stitcher";
+import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
 import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
@@ -42,6 +41,9 @@ type VertexRenderState = {
     durationSec: number;
     finalKey?: string;
     attempts?: number;
+    phase?: "normalizing" | "concat" | "done";
+    segments?: StitchSegment[]; // normalized per-shot segments on R2
+    lastChunkAt?: string;       // when the most recent chunk finished
   };
 };
 
@@ -513,74 +515,110 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       return { advanced: true };
     }
 
-    const stitchSubmittedAt = dateMs(state.stitch?.submittedAt);
+    // ────────────────────────────────────────────────────────────────────────
+    // Chunked stitching — Vercel lambdas cap at 5 min, so we never stitch the
+    // whole video in one invocation. Each advance() does AT MOST one chunk:
+    //   • normalize shot N (re-encode + caption burn + grade + upscale) → R2
+    //   • once every shot has a segment, concat-copy them into the final MP4
+    // The Inngest worker loop nudges us until phase === "done".
+    // ────────────────────────────────────────────────────────────────────────
     const stitchAttempts = state.stitch?.attempts ?? 0;
-    if (state.stitch && !state.stitch.completedAt && stitchSubmittedAt !== null && Date.now() - stitchSubmittedAt < STITCH_TIMEOUT_MS) {
-      return { advanced: false };
+    if (stitchAttempts >= 8) {
+      await markFailed(jobId, `Stitching failed after ${stitchAttempts} chunk attempts. Start a new render.`);
+      return { advanced: true, failed: "stitch_attempts_exhausted" };
     }
 
-    // If a previous stitch attempt timed out (lambda died mid-encode), give it
-    // exactly one more shot. After 2 attempts, mark the job failed so the UI
-    // can clear and the user can start fresh — otherwise we loop forever.
-    if (state.stitch && !state.stitch.completedAt && stitchAttempts >= 2) {
-      await markFailed(jobId, `Stitching exceeded function timeout after ${stitchAttempts} attempts. Start a new render.`);
-      return { advanced: true, failed: "stitch_timeout" };
-    }
+    const existingSegments = state.stitch?.segments ?? [];
+    const nextIndex = shotUrls.findIndex((_, i) => !existingSegments.some((s) => s.n === i));
 
-    if (!state.stitch?.completedAt) {
-      const stitchStartedAt = new Date().toISOString();
-      const stitchingState: VertexRenderState = {
-        ...state,
-        stitch: {
-          submittedAt: stitchStartedAt,
-          durationSec: shotUrls.length * 8,
-          attempts: stitchAttempts + 1,
-        },
+    // Phase 1 — normalize the next missing segment.
+    if (nextIndex !== -1) {
+      const stitchBase = state.stitch ?? {
+        submittedAt: new Date().toISOString(),
+        durationSec: shotUrls.length * 8,
       };
-      await savePack(jobId, { ...pack, __renderState: stitchingState }, {
-        status: "stitching",
-        shots_total: shotUrls.length,
-        shots_done: shotUrls.length,
-        shot_urls: shotUrls,
-        shot_keys: shotKeys,
-      });
-
-      // Prefer the Cloudflare Container Worker so we're not bound by Vercel's
-      // 5-min lambda cap. Falls back to local ffmpeg only if the Worker isn't
-      // configured (dev / unconfigured envs).
-      const stitchFn = isRemoteStitcherConfigured() ? stitchShotsRemote : stitchShotsLocally;
-      const stitched = await stitchFn({
-        jobId,
-        shotUrls,
-        shotDurationSec: 8,
-        captions: pack.burnedCaptions,
-        colorGrade: true,
-        upscaleTo1080: true,
-      });
-      const nextPack: Pack = {
-        ...pack,
-        __renderState: {
-          ...stitchingState,
+      try {
+        const segment = await normalizeSegment({
+          jobId,
+          shotUrl: shotUrls[nextIndex],
+          index: nextIndex,
+          caption: pack.burnedCaptions?.[nextIndex],
+          colorGrade: true,
+          upscaleTo1080: true,
+        });
+        const segments = [...existingSegments, segment].sort((a, b) => a.n - b.n);
+        const nextState: VertexRenderState = {
+          ...state,
           stitch: {
-            submittedAt: stitchStartedAt,
-            completedAt: new Date().toISOString(),
-            durationSec: stitched.durationSec,
-            ...(stitched.key ? { finalKey: stitched.key } : {}),
+            ...stitchBase,
+            attempts: stitchAttempts + 1,
+            phase: "normalizing",
+            segments,
+            lastChunkAt: new Date().toISOString(),
           },
-          completedAt: new Date().toISOString(),
-        },
-      };
-      await saveFinal({
-        jobId,
-        pack: nextPack,
-        finalUrl: stitched.url,
-        ...(stitched.key ? { finalKey: stitched.key } : {}),
-        shotUrls,
-        shotKeys,
-        durationSec: stitched.durationSec,
-      });
-      return { advanced: true };
+        };
+        await savePack(jobId, { ...pack, __renderState: nextState }, {
+          status: "stitching",
+          shots_total: shotUrls.length,
+          shots_done: shotUrls.length,
+          shot_urls: shotUrls,
+          shot_keys: shotKeys,
+        });
+        return { advanced: true };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const nextState: VertexRenderState = {
+          ...state,
+          stitch: { ...stitchBase, attempts: stitchAttempts + 1, phase: "normalizing", segments: existingSegments },
+        };
+        await savePack(jobId, { ...pack, __renderState: nextState }, { status: "stitching" });
+        throw new Error(`normalizeSegment[${nextIndex}] failed: ${message}`);
+      }
     }
+
+    // Phase 2 — every segment present, concat-copy into the final MP4.
+    const stitchBase = state.stitch ?? {
+      submittedAt: new Date().toISOString(),
+      durationSec: shotUrls.length * 8,
+    };
+    const concatState: VertexRenderState = {
+      ...state,
+      stitch: { ...stitchBase, attempts: stitchAttempts + 1, phase: "concat", segments: existingSegments },
+    };
+    await savePack(jobId, { ...pack, __renderState: concatState }, { status: "stitching" });
+
+    const stitched = await concatSegments({
+      jobId,
+      segments: existingSegments,
+      durationSec: shotUrls.length * 8,
+    });
+    const nextPack: Pack = {
+      ...pack,
+      __renderState: {
+        ...concatState,
+        stitch: {
+          ...stitchBase,
+          attempts: stitchAttempts + 1,
+          phase: "done",
+          segments: existingSegments,
+          completedAt: new Date().toISOString(),
+          durationSec: stitched.durationSec,
+          finalKey: stitched.key,
+        },
+        completedAt: new Date().toISOString(),
+      },
+    };
+    await saveFinal({
+      jobId,
+      pack: nextPack,
+      finalUrl: stitched.url,
+      finalKey: stitched.key,
+      shotUrls,
+      shotKeys,
+      durationSec: stitched.durationSec,
+    });
+    return { advanced: true };
+  }
 
     return { advanced: false };
   } catch (err) {
