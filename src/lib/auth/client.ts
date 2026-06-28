@@ -20,6 +20,34 @@ interface AuthSession {
     error: { message: string } | null;
 }
 
+function appOrigin() {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
+    return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || '';
+}
+
+function absoluteAppUrl(pathOrUrl: string, fallbackPath: string) {
+    const origin = appOrigin();
+    const raw = pathOrUrl || fallbackPath;
+
+    try {
+        if (raw.startsWith('http://') || raw.startsWith('https://')) {
+            const url = new URL(raw);
+            const currentOrigin = origin ? new URL(origin).origin : url.origin;
+            // OAuth callbacks must return to the current app origin. If a
+            // caller passes our own absolute URL, normalize it against the
+            // runtime origin so previews and production both work correctly.
+            return `${currentOrigin}${url.pathname}${url.search}${url.hash}`;
+        }
+    } catch {
+        // Fall through to the safe fallback below.
+    }
+
+    if (!origin) return fallbackPath;
+    return new URL(raw.startsWith('/') ? raw : fallbackPath, origin).toString();
+}
+
 export const authClient = {
     async getSession(): Promise<AuthSession> {
         try {
@@ -58,19 +86,12 @@ export const authClient = {
     },
     signIn: {
         async social(opts: { provider: string; callbackURL?: string }) {
-            const raw = opts.callbackURL || '/app';
-            let callbackPath = raw;
-            if (raw.startsWith('http')) {
-                try {
-                    const u = new URL(raw);
-                    callbackPath = u.pathname + u.search;
-                } catch { callbackPath = '/app'; }
-            }
-            // Better Auth rejects absolute URLs not in its trustedOrigins
-            // ("Invalid callbackURL" 403). Send a relative path; the proxy's
-            // Location rewriter routes the final redirect back to our origin.
-            const callback = callbackPath;
-            const errorCallback = '/auth?oauth=error';
+            // Neon Auth runs on its own host. Relative callbackURL values are
+            // resolved against that host and strand users on
+            // neonauth.../auth?oauth=complete (404). Always send a full app
+            // URL; the origin must be present in Neon Auth trusted domains.
+            const callback = absoluteAppUrl(opts.callbackURL || '/app', '/app');
+            const errorCallback = absoluteAppUrl('/auth?oauth=error', '/auth?oauth=error');
 
 
             const res = await fetch('/api/auth/sign-in/social', {
@@ -103,7 +124,10 @@ export const authClient = {
                 return;
             }
 
-            const message = data?.message || data?.error?.message || data?.error
+            const rawMessage = data?.message || data?.error?.message || data?.error;
+            const message = data?.code === 'INVALID_CALLBACKURL' || rawMessage === 'Invalid callbackURL'
+                ? `Google sign-in is missing this app origin in Neon Auth trusted domains: ${appOrigin() || 'current app origin'}. Add it, then retry.`
+                : rawMessage
                 || `Sign-in with ${opts.provider} is not configured. Enable the ${opts.provider} provider in the auth backend.`;
             throw new Error(typeof message === 'string' ? message : `Failed to start ${opts.provider} sign-in`);
         },
