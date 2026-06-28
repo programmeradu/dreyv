@@ -120,13 +120,14 @@ function shotPrompt(
       : plannedPreviousCaption ? `What was just said in the previous segment (do NOT repeat it; continue the thought): "${plannedPreviousCaption}"` : "",
     nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
     pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
-    `Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
+    `LOCKED BEAT FOR THIS SEGMENT — render exactly this action and nothing else. Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
     currentCaption ? `What is being said during this segment for pacing only (captions are burned by Dreyv after rendering; do NOT render any letters or subtitles inside the video): "${currentCaption}"` : "",
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
     pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
     pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
     pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
     opts?.reshootNote ? `RESHOOT NOTE — the previous attempt at this segment failed QC for these reasons, fix them: ${opts.reshootNote}` : "",
+    "ON-SCRIPT RULE: continuity with the previous segment's final frame is mandatory, but the WHAT-HAPPENS in this segment must come from the LOCKED BEAT above and the MASTER STORYBOARD — not from improvisation. If the observed prior action seems to conflict with this segment's locked beat, smoothly transition the mascot's pose into executing the locked beat rather than abandoning it.",
     index === total - 1
       ? "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish."
       : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
