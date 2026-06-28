@@ -379,6 +379,49 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
 
     const pending = state.shotOperations.find((op) => !op.url);
     if (pending) {
+      const pendingIndex = state.shotOperations.findIndex((op) => op === pending);
+      const pendingSubmittedAt = dateMs(pending.submittedAt);
+      const pendingAgeMs = pendingSubmittedAt === null ? 0 : Date.now() - pendingSubmittedAt;
+      if (pendingSubmittedAt !== null && pendingAgeMs > VERTEX_TIMEOUT_MS_PER_SHOT) {
+        const retryCount = pending.reshootCount ?? 0;
+        if (retryCount >= 1) {
+          const message = `Vertex shot ${pendingIndex + 1} timed out twice after ${Math.round(VERTEX_TIMEOUT_MS_PER_SHOT / 60000)} minutes. Start a new render; the cloud operation stopped responding.`;
+          await markFailed(jobId, message);
+          return { advanced: true, failed: message };
+        }
+
+        const previousShot = pendingIndex > 0 ? state.shotOperations[pendingIndex - 1] : null;
+        const firstFrameImage = previousShot?.url ? await extractLastFramePng(previousShot.url).catch(() => undefined) : undefined;
+        const replacement = await submitNextShotOperation({
+          shots,
+          pack,
+          index: Math.max(0, Math.min(pendingIndex, shots.length - 1)),
+          firstFrameImage,
+          previousObservation: previousShot?.observation,
+          reshootNote: `The prior Vertex operation did not complete within ${Math.round(VERTEX_TIMEOUT_MS_PER_SHOT / 60000)} minutes; continue the same locked storyboard beat without restarting the ad.`,
+          reshootCount: retryCount + 1,
+        });
+        pending.operationName = replacement.operationName;
+        pending.submittedAt = replacement.submittedAt;
+        pending.completedAt = undefined;
+        pending.url = undefined;
+        pending.key = undefined;
+        pending.observation = undefined;
+        pending.reshootCount = retryCount + 1;
+
+        const shotUrls = state.shotOperations.map((op) => op.url).filter((url): url is string => Boolean(url));
+        const shotKeys = state.shotOperations.map((op) => op.key).filter((key): key is string => Boolean(key));
+        await savePack(jobId, { ...pack, __renderState: { ...state, shotOperations: state.shotOperations } }, {
+          status: "rendering_shots",
+          shots_total: shots.length,
+          shots_done: shotUrls.length,
+          shot_urls: shotUrls,
+          shot_keys: shotKeys,
+          error: `Shot ${pendingIndex + 1} cloud operation stalled; resubmitted once.`,
+        });
+        return { advanced: true };
+      }
+
       const poll = await pollVertexVeoOperation(pending.operationName);
       if (poll.done) {
         pending.url = poll.url;
