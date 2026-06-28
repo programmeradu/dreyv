@@ -5,7 +5,7 @@ import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studi
 import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences } from "@/lib/media-studio/mascot-references";
-import { extractLastFramePng } from "@/lib/media-studio/extract-last-frame";
+import { extractAndCorrectLastFrame } from "@/lib/media-studio/mascot-correct-frame";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import {
@@ -417,7 +417,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         }
 
         const previousShot = pendingIndex > 0 ? state.shotOperations[pendingIndex - 1] : null;
-        const firstFrameImage = previousShot?.url ? await extractLastFramePng(previousShot.url).catch(() => undefined) : undefined;
+        const firstFrameImage = previousShot?.url ? await extractAndCorrectLastFrame(previousShot.url).catch(() => undefined) : undefined;
         const replacement = await submitNextShotOperation({
           shots,
           pack,
@@ -475,7 +475,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         if (observation?.needsReshoot && reshootCount < 1) {
           const reshootIndex = pending.n - 1;
           const prevShot = reshootIndex > 0 ? state.shotOperations.find((o) => o.n === reshootIndex) : null;
-          const firstFrameImage = prevShot?.url ? await extractLastFramePng(prevShot.url).catch(() => undefined) : undefined;
+          const firstFrameImage = prevShot?.url ? await extractAndCorrectLastFrame(prevShot.url).catch(() => undefined) : undefined;
           const reshoot = await submitNextShotOperation({
             shots,
             pack,
@@ -494,7 +494,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           pending.observation = undefined;
           pending.reshootCount = reshootCount + 1;
         } else if (completedCount < shots.length) {
-          const firstFrameImage = await extractLastFramePng(poll.url);
+          const firstFrameImage = await extractAndCorrectLastFrame(poll.url);
           const nextOperation = await submitNextShotOperation({
             shots,
             pack,
