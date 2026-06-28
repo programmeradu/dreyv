@@ -142,8 +142,8 @@ export const studioVideoRender = inngest.createFunction(
       // from the exact same image — invisible cuts, locked mascot/scene/light.
       let nextFirstFrame: VeoFirstFrameImage | undefined = undefined;
       for (const shot of shots) {
-        const firstFrame = provider.supportsChaining ? nextFirstFrame : undefined;
-        const result = await step.run(`shot-${shot.n}`, async () => {
+        const firstFrame: VeoFirstFrameImage | undefined = provider.supportsChaining ? nextFirstFrame : undefined;
+        const result: { url: string; key?: string } = await step.run(`shot-${shot.n}`, async (): Promise<{ url: string; key?: string }> => {
           return provider.render(buildShotPrompt(shot, pack), firstFrame);
         });
         shotUrls.push(result.url);
@@ -155,7 +155,7 @@ export const studioVideoRender = inngest.createFunction(
         });
         // Only extract a tail frame if there's another shot to chain into.
         if (provider.supportsChaining && shotUrls.length < shots.length) {
-          nextFirstFrame = await step.run(`tail-${shot.n}`, () => extractLastFramePng(result.url));
+          nextFirstFrame = await step.run(`tail-${shot.n}`, async (): Promise<VeoFirstFrameImage> => extractLastFramePng(result.url));
         }
       }
 
