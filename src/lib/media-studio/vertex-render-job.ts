@@ -618,9 +618,6 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       durationSec: stitched.durationSec,
     });
     return { advanced: true };
-  }
-
-    return { advanced: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await markFailed(jobId, message);
