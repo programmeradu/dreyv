@@ -436,7 +436,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         // QC + observation pass: probe with ffmpeg, transcribe audio (Lovable
         // STT), describe last action + setting via Gemini Flash. Feeds the
         // next shot's prompt with what was ACTUALLY said and shown.
-        const observation = await observeShot(poll.url).catch((err) => {
+        const expectedNarration = pack.burnedCaptions?.[pending.n - 1] ?? null;
+        const observation = await observeShot(poll.url, { expectedNarration }).catch((err) => {
           console.warn("[vertex-render-job] QC failed (non-fatal):", err);
           return undefined;
         });
