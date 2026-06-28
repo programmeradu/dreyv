@@ -344,8 +344,9 @@ export async function GET(req: NextRequest) {
 
     const shotUrls = await refreshShotUrls(shotKeys, row.shot_urls);
     const finalUrl = await refreshFinalUrl(finalKey, row.final_url);
+    const progress = buildProgress(row, shotUrls);
     const { pack: _pack, ...safeRow } = row;
-    return NextResponse.json({ ...safeRow, shot_urls: shotUrls, final_url: finalUrl });
+    return NextResponse.json({ ...safeRow, shot_urls: shotUrls, final_url: finalUrl, progress });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
