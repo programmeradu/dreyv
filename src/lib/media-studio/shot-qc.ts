@@ -338,6 +338,40 @@ export async function observeShot(
     lastAction = vision.lastAction;
     settingFingerprint = vision.settingFingerprint;
 
+    // 4. Narration validation — compare what was actually said against the
+    // locked caption for this shot. Catches the two failure modes operators
+    // keep hitting: "mascot says 3 words then 7s of silence" and "mascot
+    // mumbles gibberish that isn't the scripted line".
+    const expected = opts?.expectedNarration?.trim() || "";
+    const expectedWords = expected ? normalizeWords(expected) : [];
+    const spokenWords = transcript ? normalizeWords(transcript) : [];
+
+    if (expectedWords.length >= 4) {
+      // Expected at least ~4 words of VO but got <40% of them.
+      if (spokenWords.length < Math.max(3, Math.floor(expectedWords.length * 0.4))) {
+        issues.push(`spoke ${spokenWords.length}/${expectedWords.length} expected words ("${transcript ?? ""}")`);
+        needsReshoot = true;
+      } else {
+        const overlap = jaccardOverlap(expectedWords, spokenWords);
+        if (overlap < 0.2) {
+          issues.push(`transcript drifted from script (overlap ${(overlap * 100).toFixed(0)}%): "${transcript ?? ""}"`);
+          needsReshoot = true;
+        }
+      }
+    } else if (spokenWords.length >= 3) {
+      // No expected line but we still got speech — guard against pure gibberish.
+      const ratio = gibberishRatio(spokenWords);
+      if (ratio > 0.5) {
+        issues.push(`gibberish transcript (${(ratio * 100).toFixed(0)}% non-words): "${transcript ?? ""}"`);
+        needsReshoot = true;
+      }
+    }
+
+    if (spokenWords.length >= 4 && gibberishRatio(spokenWords) > 0.55) {
+      issues.push(`audio sounds non-English / phonetic soup: "${transcript ?? ""}"`);
+      needsReshoot = true;
+    }
+
     return {
       ok: !needsReshoot && issues.length === 0,
       issues,
