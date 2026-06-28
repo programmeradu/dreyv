@@ -248,11 +248,13 @@ export async function concatSegments(args: {
     const listFile = path.join(workdir, "concat.txt");
     await writeFile(listFile, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
     let narrationFile: string | undefined;
+    let narrationDuration: number | null = null;
     if (args.narrationUrl) {
       const r = await fetch(args.narrationUrl);
       if (!r.ok) throw new Error(`Could not download master narration (${r.status})`);
       narrationFile = path.join(workdir, "master-narration.mp3");
       await writeFile(narrationFile, Buffer.from(await r.arrayBuffer()));
+      narrationDuration = await probeDurationSec(narrationFile, workdir);
     }
 
     const outFile = path.join(workdir, "final.mp4");
@@ -265,13 +267,18 @@ export async function concatSegments(args: {
     const inputs: string[] = [];
     for (const f of files) inputs.push("-i", f);
     if (narrationFile) inputs.push("-i", narrationFile);
-    const filter = narrationFile
-      ? `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]`
-      : `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`;
     const measured = args.segments.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
-    const finalDuration = measured > 0 ? Math.round(measured * 100) / 100 : args.durationSec;
+    const visualDuration = measured > 0 ? Math.round(measured * 100) / 100 : args.durationSec;
+    // Never cut the visuals, and never cut the full-script narration. If the
+    // voiceover runs slightly longer than the stitched scenes, extend only the
+    // final frame instead of trimming words off the ad's message.
+    const finalDuration = Math.round(Math.max(visualDuration, narrationDuration ?? 0) * 100) / 100;
+    const videoPad = Math.max(0, Math.round((finalDuration - visualDuration) * 100) / 100);
+    const filter = narrationFile
+      ? `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]${videoPad > 0.05 ? `;[vcat]tpad=stop_mode=clone:stop_duration=${videoPad}[vout]` : ""}`
+      : `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`;
     const mapArgs = narrationFile
-      ? ["-map", "[vcat]", "-map", `${n}:a:0`, "-af", `apad,atrim=0:${finalDuration},aresample=async=1:first_pts=0`]
+      ? ["-map", videoPad > 0.05 ? "[vout]" : "[vcat]", "-map", `${n}:a:0`, "-af", `apad,atrim=0:${finalDuration},aresample=async=1:first_pts=0`]
       : ["-map", "[vcat]", "-map", "[scratcha]"];
     await runFfmpeg(
       [
