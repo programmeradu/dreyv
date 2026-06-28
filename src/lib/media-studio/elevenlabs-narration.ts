@@ -3,18 +3,17 @@
  *
  * Why this exists:
  *   Veo's native audio track is unreliable — it drops words, goes silent, or
- *   produces phoneme soup. We override it entirely by generating per-shot
- *   narration with ElevenLabs (turbo v2.5) and muxing it onto the silent
- *   Veo render during the normalize pass.
+ *   produces phoneme soup. The production path now generates ONE master
+ *   full-script narration with ElevenLabs (turbo v2.5) and muxes it only at
+ *   final concat, so individual visual scenes keep their full duration.
  *
  * Continuity:
- *   Uses ElevenLabs request stitching (`previous_text` / `next_text`) so
- *   prosody flows across shots and the locked voice stays consistent.
+ *   Full-script generation keeps prosody continuous across the whole ad.
  *
  * Persistence:
- *   Each narration is uploaded to R2 under
- *     studio/video/narration/<jobId>/<shotIndex>.mp3
- *   so reshoots and lambda restarts can reuse it without re-paying ElevenLabs.
+ *   Master narration is uploaded to R2 under
+ *     studio/video/narration/<jobId>/full.mp3
+ *   so lambda restarts can reuse it without re-paying ElevenLabs.
  */
 import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
@@ -25,6 +24,8 @@ const DEFAULT_VOICE_ID = process.env.ELEVENLABS_DREYV_VOICE_ID || "pNInz6obpgDQG
 const MODEL_ID = "eleven_turbo_v2_5";
 
 export function isElevenLabsConfigured(): boolean {
+  const mode = process.env.MEDIA_STUDIO_ELEVENLABS_MODE?.trim().toLowerCase();
+  if (mode === "off" || mode === "disabled" || mode === "false") return false;
   return Boolean(process.env.ELEVENLABS_API_KEY);
 }
 
@@ -44,6 +45,34 @@ export type ShotNarrationResult = {
   bytes: number;
 };
 
+export type FullNarrationInput = {
+  jobId: string;
+  text: string;
+  voiceId?: string;
+};
+
+export type FullNarrationResult = {
+  key: string;
+  url: string;
+  bytes: number;
+};
+
+function narrationRequestBody(text: string): Record<string, unknown> {
+  return {
+    text,
+    model_id: MODEL_ID,
+    voice_settings: {
+      // Expressive enough for ads, but not so unstable that the same Dreyv
+      // voice changes line-to-line. Full-script generation now handles flow.
+      stability: 0.42,
+      similarity_boost: 0.86,
+      style: 0.48,
+      use_speaker_boost: true,
+      speed: 1.02,
+    },
+  };
+}
+
 /**
  * Synthesize one shot's narration to MP3 and persist to R2.
  * Throws on any error — the caller decides whether to fall back to Veo audio.
@@ -58,19 +87,7 @@ export async function synthesizeShotNarration(input: ShotNarrationInput): Promis
   const voiceId = input.voiceId || DEFAULT_VOICE_ID;
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
 
-  const body: Record<string, unknown> = {
-    text,
-    model_id: MODEL_ID,
-    voice_settings: {
-      // Lower stability + higher style = more expressive, less monotone.
-      // similarity_boost stays high so the locked voice still sounds like itself.
-      stability: 0.35,
-      similarity_boost: 0.85,
-      style: 0.55,
-      use_speaker_boost: true,
-      speed: 1.02,
-    },
-  };
+  const body = narrationRequestBody(text);
   // Request stitching keeps prosody continuous across shots.
   if (input.previousText?.trim()) body.previous_text = input.previousText.trim().slice(-600);
   if (input.nextText?.trim()) body.next_text = input.nextText.trim().slice(0, 600);
@@ -95,6 +112,46 @@ export async function synthesizeShotNarration(input: ShotNarrationInput): Promis
   await putR2Object({ key, body: audio, mime: "audio/mpeg", filename: `narration-${input.index + 1}.mp3` });
   const signed = await presignR2Get({ key, filename: `narration-${input.index + 1}.mp3`, mime: "audio/mpeg", inline: true, ttlSeconds: 3600 });
   return { index: input.index, key, url: signed, bytes: audio.length };
+}
+
+/**
+ * Synthesize the complete ad narration in one request.
+ *
+ * This is the production path. Per-shot TTS caused exactly the failure the
+ * studio saw: each 8s video got cut down to a one-sentence voice clip, then
+ * the final ad collapsed to ~10–12s and lost the full story. A single master
+ * narration preserves the whole script, keeps prosody coherent, and lets the
+ * stitcher preserve every visual segment untouched.
+ */
+export async function synthesizeFullNarration(input: FullNarrationInput): Promise<FullNarrationResult> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY missing — cannot synthesize narration");
+  if (!isR2Configured()) throw new Error("R2 must be configured to persist narration");
+  const text = input.text.replace(/\s+/g, " ").trim();
+  if (!text) throw new Error("Full narration script is empty");
+
+  const voiceId = input.voiceId || DEFAULT_VOICE_ID;
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "audio/mpeg",
+    },
+    body: JSON.stringify(narrationRequestBody(text)),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`ElevenLabs full TTS ${res.status}: ${errText.slice(0, 400)}`);
+  }
+  const audio = Buffer.from(await res.arrayBuffer());
+  if (audio.length < 500) throw new Error(`ElevenLabs returned suspiciously small full narration (${audio.length} bytes)`);
+
+  const key = `studio/video/narration/${input.jobId}/full.mp3`;
+  await putR2Object({ key, body: audio, mime: "audio/mpeg", filename: "full-narration.mp3" });
+  const signed = await presignR2Get({ key, filename: "full-narration.mp3", mime: "audio/mpeg", inline: true, ttlSeconds: 3600 });
+  return { key, url: signed, bytes: audio.length };
 }
 
 /**

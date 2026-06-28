@@ -11,8 +11,7 @@ import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 import {
   isElevenLabsConfigured,
-  narrationContextFor,
-  synthesizeShotNarration,
+  synthesizeFullNarration,
 } from "@/lib/media-studio/elevenlabs-narration";
 
 type Shot = {
@@ -51,12 +50,21 @@ type VertexRenderState = {
     segments?: StitchSegment[]; // normalized per-shot segments on R2
     lastChunkAt?: string;       // when the most recent chunk finished
     narrations?: NarrationEntry[]; // ElevenLabs TTS progress per shot
+    masterNarration?: MasterNarrationEntry;
   };
 };
 
 export type NarrationEntry = {
   n: number;
   status: "synthesizing" | "ready" | "skipped" | "failed" | "muxed";
+  bytes?: number;
+  reason?: string;
+  updatedAt: string;
+};
+
+export type MasterNarrationEntry = {
+  status: "synthesizing" | "ready" | "skipped" | "failed" | "muxed";
+  key?: string;
   bytes?: number;
   reason?: string;
   updatedAt: string;
@@ -113,6 +121,7 @@ function shotPrompt(
   const openingShot = pack.shotList?.[0] ?? shot;
   const plannedPreviousCaption = index > 0 ? pack.burnedCaptions?.[index - 1]?.trim() : "";
   const currentCaption = pack.burnedCaptions?.[index]?.trim();
+  const useExternalNarration = isElevenLabsConfigured();
   const phase = index === 0 ? "opening_hook" : index === total - 1 ? "final_payoff" : "continuation_beat";
   const obs = opts?.previousObservation;
   const observedLastWords = obs?.lastWords?.trim();
@@ -191,13 +200,15 @@ function shotPrompt(
       : { final_payoff: true, instruction: "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish." },
 
     audio: {
-      dialogue: "",
-      narration: "",
+      dialogue: currentCaption ?? "",
+      narration: currentCaption ?? "",
       whispered_words: "",
-      reason: "Dreyv post-produces the voiceover with ElevenLabs and replaces the entire audio track. Render this segment effectively SILENT so the replacement is clean.",
+      reason: useExternalNarration
+        ? "Dreyv replaces the final ad audio with one full-script ElevenLabs narration track in post. If this model generates speech anyway, it must speak ONLY this segment's exact line so the raw clip remains usable as fallback."
+        : "Generate the native voice track for this segment using ONLY this segment's exact line. No extra words, no phoneme soup, no invented dialogue.",
       mascot_lip_sync: currentCaption
-        ? `The mascot MAY mouth the following line silently to support lip-sync, but generate NO spoken audio: "${currentCaption}"`
-        : "The mascot may move its mouth subtly but generate NO spoken audio.",
+        ? `The mascot should mouth this exact line naturally: "${currentCaption}"`
+        : "The mascot may move its mouth subtly but should not invent words.",
       ambience: "Subtle room tone or motion sound is fine.",
       music: pack.soundSuggestion ?? null,
     },
@@ -229,7 +240,7 @@ function shotPrompt(
 
     negative_prompt: [
       "letters", "words", "captions", "subtitles", "watermarks", "UI text", "signage with readable text",
-      "spoken dialogue", "narration", "whispered words",
+      "invented dialogue", "wrong narration", "whispered words", "gibberish speech", "phoneme soup",
       "floating particles", "glowing orbs", "lens flares", "abstract garnish",
       "fuchsia", "pink", "gradients", "orange or brown mascot coloring",
       "realistic fox", "realistic owl",
@@ -243,6 +254,29 @@ function shotPrompt(
   };
 
   return JSON.stringify(promptObject, null, 2);
+}
+
+function fullNarrationText(pack: Pack): string {
+  const script = pack.voiceoverScript?.replace(/\s+/g, " ").trim();
+  if (script) return script;
+  return (pack.burnedCaptions ?? [])
+    .map((caption) => caption?.replace(/\s+/g, " ").trim())
+    .filter((caption): caption is string => Boolean(caption))
+    .join(" ");
+}
+
+async function narrationUrlFromEntry(entry: MasterNarrationEntry | undefined): Promise<string | undefined> {
+  if (!entry?.key) return undefined;
+  return presignR2Get({
+    key: entry.key,
+    filename: "full-narration.mp3",
+    mime: "audio/mpeg",
+    inline: true,
+    ttlSeconds: 3600,
+  }).catch((err) => {
+    console.warn("[vertex-render-job] full narration presign failed:", err);
+    return undefined;
+  });
 }
 
 async function submitNextShotOperation(args: {
@@ -562,7 +596,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         const expectedNarration = pack.burnedCaptions?.[pending.n - 1] ?? null;
         // ElevenLabs overrides Veo's audio during normalize — don't reshoot
         // the video for Veo's gibberish audio when it'll be replaced anyway.
-        const ignoreAudio = Boolean(process.env.ELEVENLABS_API_KEY);
+        const ignoreAudio = isElevenLabsConfigured();
         const observation = await observeShot(poll.url, { expectedNarration, ignoreAudio }).catch((err) => {
 
           console.warn("[vertex-render-job] QC failed (non-fatal):", err);
@@ -666,65 +700,53 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         durationSec: shotUrls.length * 8,
       };
       const existingNarrations = stitchBase.narrations ?? [];
-      const upsertNarration = (entry: NarrationEntry): NarrationEntry[] => {
-        const others = existingNarrations.filter((x) => x.n !== entry.n);
-        return [...others, entry].sort((a, b) => a.n - b.n);
-      };
-      const persistNarrations = async (narrations: NarrationEntry[]) => {
-        existingNarrations.splice(0, existingNarrations.length, ...narrations);
+      const persistMasterNarration = async (masterNarration: MasterNarrationEntry) => {
         await savePack(
           jobId,
           {
             ...pack,
             __renderState: {
               ...state,
-              stitch: { ...stitchBase, narrations, phase: "normalizing" },
+              stitch: { ...stitchBase, masterNarration, phase: "normalizing" },
             },
           },
           { status: "stitching" },
         );
       };
       try {
-        // Synthesize ElevenLabs narration for this shot so the stitcher can
-        // mux it in. Falls back to Veo's native audio if ElevenLabs is not
-        // configured or the request fails. Narration state is persisted at
-        // each step so the progress UI can show synthesizing → ready → muxed.
-        let narrationUrl: string | undefined;
-        const captions = pack.burnedCaptions ?? [];
-        const narrationText = captions[nextIndex]?.trim();
-        if (isElevenLabsConfigured() && narrationText) {
-          await persistNarrations(
-            upsertNarration({ n: nextIndex, status: "synthesizing", updatedAt: new Date().toISOString() }),
-          );
+        // Correct audio architecture: synthesize ONE full-script narration for
+        // the whole ad, then mux it during final concat. Per-shot TTS is what
+        // made good 8s visuals shrink to one-sentence chunks.
+        let masterNarration = stitchBase.masterNarration;
+        const narrationText = fullNarrationText(pack);
+        if (isElevenLabsConfigured() && narrationText && !masterNarration?.key && masterNarration?.status !== "failed") {
+          masterNarration = { status: "synthesizing", updatedAt: new Date().toISOString() };
+          await persistMasterNarration(masterNarration);
           try {
-            const ctx = narrationContextFor(captions, nextIndex);
-            const narration = await synthesizeShotNarration({
+            const narration = await synthesizeFullNarration({
               jobId,
-              index: nextIndex,
               text: narrationText,
-              previousText: ctx.previousText,
-              nextText: ctx.nextText,
             });
-            narrationUrl = narration.url;
-            await persistNarrations(
-              upsertNarration({ n: nextIndex, status: "ready", bytes: narration.bytes, updatedAt: new Date().toISOString() }),
-            );
+            masterNarration = {
+              status: "ready",
+              key: narration.key,
+              bytes: narration.bytes,
+              updatedAt: new Date().toISOString(),
+            };
+            await persistMasterNarration(masterNarration);
           } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
-            console.warn(`[vertex-render-job] ElevenLabs narration failed for shot ${nextIndex + 1} (using Veo audio):`, err);
-            await persistNarrations(
-              upsertNarration({ n: nextIndex, status: "failed", reason: reason.slice(0, 200), updatedAt: new Date().toISOString() }),
-            );
+            console.warn("[vertex-render-job] ElevenLabs full narration failed (using Veo audio):", err);
+            masterNarration = { status: "failed", reason: reason.slice(0, 200), updatedAt: new Date().toISOString() };
+            await persistMasterNarration(masterNarration);
           }
-        } else {
-          await persistNarrations(
-            upsertNarration({
-              n: nextIndex,
-              status: "skipped",
-              reason: !isElevenLabsConfigured() ? "ELEVENLABS_API_KEY missing" : "no caption text",
-              updatedAt: new Date().toISOString(),
-            }),
-          );
+        } else if (!masterNarration) {
+          masterNarration = {
+            status: "skipped",
+            reason: !isElevenLabsConfigured() ? "ElevenLabs disabled or missing" : "no voiceover script",
+            updatedAt: new Date().toISOString(),
+          };
+          await persistMasterNarration(masterNarration);
         }
         const segment = await normalizeSegment({
           jobId,
@@ -733,13 +755,9 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           caption: pack.burnedCaptions?.[nextIndex],
           colorGrade: false,
           upscaleTo1080: true,
-          narrationUrl,
           shotDurationSec: 8,
         });
         const segments = [...existingSegments, segment].sort((a, b) => a.n - b.n);
-        const finalNarrations = narrationUrl
-          ? upsertNarration({ n: nextIndex, status: "muxed", updatedAt: new Date().toISOString() })
-          : existingNarrations;
         const nextState: VertexRenderState = {
           ...state,
           stitch: {
@@ -747,7 +765,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
             attempts: stitchAttempts + 1,
             phase: "normalizing",
             segments,
-            narrations: finalNarrations,
+            narrations: existingNarrations,
+            masterNarration,
             lastChunkAt: new Date().toISOString(),
           },
         };
@@ -769,6 +788,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
             phase: "normalizing",
             segments: existingSegments,
             narrations: existingNarrations,
+            masterNarration: stitchBase.masterNarration,
           },
         };
         await savePack(jobId, { ...pack, __renderState: nextState }, { status: "stitching" });
@@ -777,21 +797,55 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     }
 
     // Phase 2 — every segment present, concat-copy into the final MP4.
-    const stitchBase = state.stitch ?? {
+    let stitchBase = state.stitch ?? {
       submittedAt: new Date().toISOString(),
       durationSec: shotUrls.length * 8,
     };
+    // Recovery path for jobs that normalized all segments before the new
+    // master-narration pipeline existed: create the full-script track here so
+    // final concat still gets the complete message instead of legacy per-shot
+    // fragments or raw Veo gibberish.
+    if (!stitchBase.masterNarration || stitchBase.masterNarration.status === "synthesizing") {
+      const narrationText = fullNarrationText(pack);
+      let masterNarration: MasterNarrationEntry;
+      if (isElevenLabsConfigured() && narrationText) {
+        masterNarration = { status: "synthesizing", updatedAt: new Date().toISOString() };
+        await savePack(jobId, { ...pack, __renderState: { ...state, stitch: { ...stitchBase, masterNarration } } }, { status: "stitching" });
+        try {
+          const narration = await synthesizeFullNarration({ jobId, text: narrationText });
+          masterNarration = { status: "ready", key: narration.key, bytes: narration.bytes, updatedAt: new Date().toISOString() };
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          console.warn("[vertex-render-job] ElevenLabs full narration failed before concat (using Veo audio):", err);
+          masterNarration = { status: "failed", reason: reason.slice(0, 200), updatedAt: new Date().toISOString() };
+        }
+      } else {
+        masterNarration = {
+          status: "skipped",
+          reason: !isElevenLabsConfigured() ? "ElevenLabs disabled or missing" : "no voiceover script",
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      stitchBase = { ...stitchBase, masterNarration };
+      await savePack(jobId, { ...pack, __renderState: { ...state, stitch: stitchBase } }, { status: "stitching" });
+    }
     const concatState: VertexRenderState = {
       ...state,
       stitch: { ...stitchBase, attempts: stitchAttempts + 1, phase: "concat", segments: existingSegments },
     };
     await savePack(jobId, { ...pack, __renderState: concatState }, { status: "stitching" });
 
+    const narrationUrl = await narrationUrlFromEntry(stitchBase.masterNarration);
+
     const stitched = await concatSegments({
       jobId,
       segments: existingSegments,
       durationSec: shotUrls.length * 8,
+      narrationUrl,
     });
+    const masterNarration = stitchBase.masterNarration?.key
+      ? { ...stitchBase.masterNarration, status: "muxed" as const, updatedAt: new Date().toISOString() }
+      : stitchBase.masterNarration;
     const nextPack: Pack = {
       ...pack,
       __renderState: {
@@ -801,6 +855,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           attempts: stitchAttempts + 1,
           phase: "done",
           segments: existingSegments,
+          masterNarration,
           completedAt: new Date().toISOString(),
           durationSec: stitched.durationSec,
           finalKey: stitched.key,

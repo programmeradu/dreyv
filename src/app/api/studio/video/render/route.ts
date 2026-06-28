@@ -229,13 +229,22 @@ type NarrationProgress = {
   updatedAt?: string;
 };
 
+type MasterNarrationProgress = {
+  status: "synthesizing" | "ready" | "skipped" | "failed" | "muxed";
+  key?: string;
+  bytes?: number;
+  reason?: string;
+  updatedAt?: string;
+};
+
 type StitchProgress = {
   phase: "idle" | "normalizing" | "concat" | "done";
   attempts: number;
   segmentsDone: number;
   segmentsTotal: number;
-  segments: Array<{ n: number; status: "pending" | "ready"; key?: string }>;
+  segments: Array<{ n: number; status: "pending" | "ready"; key?: string; durationSec?: number }>;
   narrations: NarrationProgress[];
+  masterNarration?: MasterNarrationProgress | null;
   lastChunkAt?: string | null;
   completedAt?: string | null;
 };
@@ -278,12 +287,14 @@ function buildProgress(row: Record<string, unknown>, shotUrls: string[]): {
   }
 
   const stitchRaw = renderState.stitch ?? {};
-  const segments = Array.isArray(stitchRaw.segments) ? (stitchRaw.segments as Array<{ n: number; key: string }>) : [];
+  const segments = Array.isArray(stitchRaw.segments) ? (stitchRaw.segments as Array<{ n: number; key: string; durationSec?: number }>) : [];
   const segMap = new Map(segments.map((s) => [s.n, s.key]));
+  const segDurationMap = new Map(segments.map((s) => [s.n, s.durationSec]));
   const segmentEntries = Array.from({ length: totalShots }, (_v, i) => ({
     n: i + 1,
     status: segMap.has(i) ? ("ready" as const) : ("pending" as const),
     key: segMap.get(i),
+    durationSec: segDurationMap.get(i),
   }));
   const phase = (stitchRaw.phase as StitchProgress["phase"] | undefined) ?? "idle";
   const narrations = Array.isArray(stitchRaw.narrations)
@@ -296,6 +307,7 @@ function buildProgress(row: Record<string, unknown>, shotUrls: string[]): {
     segmentsTotal: totalShots,
     segments: segmentEntries,
     narrations,
+    masterNarration: (stitchRaw.masterNarration as MasterNarrationProgress | undefined) ?? null,
     lastChunkAt: (stitchRaw.lastChunkAt as string | undefined) ?? null,
     completedAt: (stitchRaw.completedAt as string | undefined) ?? null,
   };

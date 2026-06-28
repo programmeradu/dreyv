@@ -4,10 +4,10 @@
  * Vercel lambdas cap at 5 min, so we never re-encode N shots in a single
  * invocation. Instead each call does ONE of:
  *   - normalizeSegment(): download shot N, normalize/grade/upscale/caption-burn,
- *     upload the segment to R2. Single 8s shot fits well under the lambda cap
- *     even with CRF19 + 1080x1920 + drawtext.
- *   - concatSegments(): download every normalized segment, run `ffmpeg -c copy`
- *     (no re-encode, just container concat), upload the final MP4.
+ *     upload the segment to R2. Single 8s shot fits well under the lambda cap.
+ *   - concatSegments(): download every normalized segment, rebuild one clean
+ *     timeline, optionally replace the full ad audio with a master narration,
+ *     upload the final MP4.
  *
  * The caller (vertex-render-job) persists segment keys between invocations
  * and the Inngest worker loop nudges the job until every chunk is done.
@@ -124,11 +124,9 @@ export async function normalizeSegment(args: {
   colorGrade?: boolean;
   upscaleTo1080?: boolean;
   /**
-   * Optional ElevenLabs narration MP3 URL (presigned R2 GET). When provided
-   * we drop Veo's native audio entirely and use this as the shot's audio
-   * track. We also probe its duration and trim the Veo video to match so the
-   * mascot stops moving exactly when the narration ends — no pad-silence tail,
-   * no mid-word cut.
+    * Legacy per-shot narration URL. Kept only as a fallback for old jobs.
+    * New jobs use a single master narration in concatSegments() so individual
+    * shots are NEVER shortened to match one short sentence.
    */
   narrationUrl?: string;
   /** Veo render's nominal length in seconds (upper bound, default 8). */
@@ -160,19 +158,11 @@ export async function normalizeSegment(args: {
       }
     }
 
-    // Duration matching: derive the final segment length from the narration
-    // audio (clamped to [2.5s, maxDuration]) so mouth motion stops exactly
-    // when the voice does. Without narration we keep the Veo nominal length.
-    let segmentDuration = maxDuration;
-    if (narrationFile) {
-      const probed = await probeDurationSec(narrationFile, workdir);
-      if (probed && probed > 0) {
-        // 120ms tail so the audio doesn't cut on the final consonant and the
-        // crossfade-on-concat (if any) has room. Cap at the Veo render length.
-        const target = Math.min(maxDuration, Math.max(2.5, probed + 0.12));
-        segmentDuration = Math.round(target * 100) / 100;
-      }
-    }
+    // Production rule: preserve the FULL generated visual clip. Do not trim a
+    // good Veo shot down to the duration of a short narration sentence. That
+    // was the root cause of 5×8s ads collapsing to ~10–12s after stitching.
+    const probedShotDuration = await probeDurationSec(inFile, workdir);
+    const segmentDuration = Math.round((probedShotDuration || maxDuration) * 100) / 100;
 
     let captionFile: string | undefined;
     if (args.caption && args.caption.trim() && (await hasDrawtextFilter())) {
@@ -183,25 +173,34 @@ export async function normalizeSegment(args: {
     const tryRun = async (mode: "narration" | "veo" | "silent") => {
       const ffmpegArgs: string[] = ["-hide_banner", "-y", "-i", inFile];
       if (mode === "narration" && narrationFile) ffmpegArgs.push("-i", narrationFile);
+      if (mode === "silent") {
+        ffmpegArgs.push("-f", "lavfi", "-t", String(segmentDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
+      }
       ffmpegArgs.push(
         "-vf", videoFilter({ caption: args.caption, captionFile, colorGrade: args.colorGrade, upscaleTo1080: args.upscaleTo1080 }),
       );
       if (mode === "narration" && narrationFile) {
-        // apad keeps the audio track exactly segmentDuration long even if
-        // narration is fractionally shorter; atrim caps it on the off chance
-        // the probe under-read by a few ms.
+        // Legacy fallback only. Keep the segment full-length and pad the
+        // sentence if it is shorter; never shorten the picture to match audio.
         ffmpegArgs.push(
           "-map", "0:v:0",
           "-map", "1:a:0",
           "-af", `apad,atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
+        );
+      } else if (mode === "silent") {
+        // Even a silent fallback segment must carry an audio stream; the final
+        // concat graph expects every segment to expose [v:0][a:0].
+        ffmpegArgs.push(
+          "-map", "0:v:0",
+          "-map", "1:a:0",
+          "-af", `atrim=0:${segmentDuration},aresample=async=1:first_pts=0`,
         );
       }
       ffmpegArgs.push(
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
         "-t", String(segmentDuration),
       );
-      if (mode === "silent") ffmpegArgs.push("-an");
-      else ffmpegArgs.push("-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2");
+      ffmpegArgs.push("-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2");
       ffmpegArgs.push("-movflags", "+faststart", outFile);
       await runFfmpeg(ffmpegArgs, workdir);
     };
@@ -230,6 +229,7 @@ export async function concatSegments(args: {
   jobId: string;
   segments: StitchSegment[]; // expected pre-sorted by n
   durationSec: number;
+  narrationUrl?: string;
 }): Promise<{ url: string; key: string; durationSec: number }> {
   if (!isR2Configured()) throw new Error("R2 must be configured for chunked stitching");
   if (args.segments.length < 2) throw new Error("At least two segments required to concat");
@@ -247,6 +247,16 @@ export async function concatSegments(args: {
     }
     const listFile = path.join(workdir, "concat.txt");
     await writeFile(listFile, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
+    let narrationFile: string | undefined;
+    let narrationDuration: number | null = null;
+    if (args.narrationUrl) {
+      const r = await fetch(args.narrationUrl);
+      if (!r.ok) throw new Error(`Could not download master narration (${r.status})`);
+      narrationFile = path.join(workdir, "master-narration.mp3");
+      await writeFile(narrationFile, Buffer.from(await r.arrayBuffer()));
+      narrationDuration = await probeDurationSec(narrationFile, workdir);
+    }
+
     const outFile = path.join(workdir, "final.mp4");
     // Re-encode the concat. Stream-copy (`-c copy`) silently truncates the
     // output to the first segment's duration when segments have mismatched
@@ -256,28 +266,61 @@ export async function concatSegments(args: {
     const n = files.length;
     const inputs: string[] = [];
     for (const f of files) inputs.push("-i", f);
-    const filter = `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[v][a]`;
-    await runFfmpeg(
-      [
-        "-hide_banner", "-y",
-        ...inputs,
-        "-filter_complex", filter,
-        "-map", "[v]", "-map", "[a]",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-        "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-        "-movflags", "+faststart",
-        outFile,
-      ],
-      workdir,
-    );
+    if (narrationFile) inputs.push("-i", narrationFile);
+    const measured = args.segments.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
+    const visualDuration = measured > 0 ? Math.round(measured * 100) / 100 : args.durationSec;
+    // Never cut the visuals, and never cut the full-script narration. If the
+    // voiceover runs slightly longer than the stitched scenes, extend only the
+    // final frame instead of trimming words off the ad's message.
+    const finalDuration = Math.round(Math.max(visualDuration, narrationDuration ?? 0) * 100) / 100;
+    const videoPad = Math.max(0, Math.round((finalDuration - visualDuration) * 100) / 100);
+    const filter = narrationFile
+      ? `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]${videoPad > 0.05 ? `;[vcat]tpad=stop_mode=clone:stop_duration=${videoPad}[vout]` : ""}`
+      : `${files.map((_, i) => `[${i}:v:0][${i}:a:0]`).join("")}concat=n=${n}:v=1:a=1[vcat][scratcha]`;
+    const mapArgs = narrationFile
+      ? ["-map", videoPad > 0.05 ? "[vout]" : "[vcat]", "-map", `${n}:a:0`, "-af", `apad,atrim=0:${finalDuration},aresample=async=1:first_pts=0`]
+      : ["-map", "[vcat]", "-map", "[scratcha]"];
+    try {
+      await runFfmpeg(
+        [
+          "-hide_banner", "-y",
+          ...inputs,
+          "-filter_complex", filter,
+          ...mapArgs,
+          "-t", String(finalDuration),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+          "-movflags", "+faststart",
+          outFile,
+        ],
+        workdir,
+      );
+    } catch (err) {
+      if (narrationFile) throw err;
+      // Legacy recovery: some old normalized chunks were created with no audio
+      // stream. Keep the full visual timeline and attach silence rather than
+      // failing or trimming scenes.
+      console.warn("[stitcher] audio concat failed; retrying video-only with silent track:", err);
+      await runFfmpeg(
+        [
+          "-hide_banner", "-y",
+          ...inputs,
+          "-f", "lavfi", "-t", String(finalDuration), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-filter_complex", `${files.map((_, i) => `[${i}:v:0]`).join("")}concat=n=${n}:v=1:a=0[vcat]`,
+          "-map", "[vcat]", "-map", `${n}:a:0`,
+          "-t", String(finalDuration),
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+          "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+          "-movflags", "+faststart",
+          outFile,
+        ],
+        workdir,
+      );
+    }
     const body = await readFile(outFile);
     const key = `studio/video/final-${args.jobId}-${Date.now()}.mp4`;
     await putR2Object({ key, body, mime: "video/mp4", filename: "dreyv-final-ad.mp4" });
     const url = await presignR2Get({ key, filename: "dreyv-final-ad.mp4", mime: "video/mp4", inline: true, ttlSeconds: 3600 });
-    // Prefer the sum of measured segment durations (more accurate post duration-match)
-    // and fall back to the caller-supplied nominal if not available.
-    const measured = args.segments.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
-    const finalDuration = measured > 0 ? Math.round(measured * 100) / 100 : args.durationSec;
     return { url, key, durationSec: finalDuration };
   } finally {
     await rm(workdir, { recursive: true, force: true });
