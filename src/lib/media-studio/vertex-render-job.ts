@@ -40,8 +40,10 @@ type VertexRenderState = {
     completedAt?: string;
     durationSec: number;
     finalKey?: string;
+    attempts?: number;
   };
 };
+
 
 type VertexShotOperation = {
   n: number;
