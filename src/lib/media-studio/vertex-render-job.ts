@@ -363,14 +363,48 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         pending.key = poll.key;
         pending.completedAt = new Date().toISOString();
 
+        // QC + observation pass: probe with ffmpeg, transcribe audio (Lovable
+        // STT), describe last action + setting via Gemini Flash. Feeds the
+        // next shot's prompt with what was ACTUALLY said and shown.
+        const observation = await observeShot(poll.url).catch((err) => {
+          console.warn("[vertex-render-job] QC failed (non-fatal):", err);
+          return undefined;
+        });
+        if (observation) pending.observation = observation;
+
         const completedCount = state.shotOperations.filter((op) => Boolean(op.url)).length;
-        if (completedCount < shots.length) {
+        const reshootCount = pending.reshootCount ?? 0;
+
+        // Reshoot once when QC flags the clip as structurally broken.
+        if (observation?.needsReshoot && reshootCount < 1) {
+          const reshootIndex = pending.n - 1;
+          const prevShot = reshootIndex > 0 ? state.shotOperations.find((o) => o.n === reshootIndex) : null;
+          const firstFrameImage = prevShot?.url ? await extractLastFramePng(prevShot.url).catch(() => undefined) : undefined;
+          const reshoot = await submitNextShotOperation({
+            shots,
+            pack,
+            index: reshootIndex,
+            firstFrameImage,
+            previousObservation: prevShot?.observation,
+            reshootNote: observation.issues.join("; "),
+            reshootCount: reshootCount + 1,
+          });
+          // Replace the broken op so the loop polls the reshoot, not the broken one.
+          pending.url = undefined;
+          pending.key = undefined;
+          pending.operationName = reshoot.operationName;
+          pending.submittedAt = reshoot.submittedAt;
+          pending.completedAt = undefined;
+          pending.observation = undefined;
+          pending.reshootCount = reshootCount + 1;
+        } else if (completedCount < shots.length) {
           const firstFrameImage = await extractLastFramePng(poll.url);
           const nextOperation = await submitNextShotOperation({
             shots,
             pack,
             index: completedCount,
             firstFrameImage,
+            previousObservation: observation,
           });
           state.shotOperations.push(nextOperation);
         }
