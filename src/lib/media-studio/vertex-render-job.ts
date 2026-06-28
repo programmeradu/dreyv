@@ -53,6 +53,15 @@ type VertexRenderState = {
   };
 };
 
+export type NarrationEntry = {
+  n: number;
+  status: "synthesizing" | "ready" | "skipped" | "failed" | "muxed";
+  bytes?: number;
+  reason?: string;
+  updatedAt: string;
+};
+
+
 
 type VertexShotOperation = {
   n: number;
