@@ -797,10 +797,38 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     }
 
     // Phase 2 — every segment present, concat-copy into the final MP4.
-    const stitchBase = state.stitch ?? {
+    let stitchBase = state.stitch ?? {
       submittedAt: new Date().toISOString(),
       durationSec: shotUrls.length * 8,
     };
+    // Recovery path for jobs that normalized all segments before the new
+    // master-narration pipeline existed: create the full-script track here so
+    // final concat still gets the complete message instead of legacy per-shot
+    // fragments or raw Veo gibberish.
+    if (!stitchBase.masterNarration) {
+      const narrationText = fullNarrationText(pack);
+      let masterNarration: MasterNarrationEntry;
+      if (isElevenLabsConfigured() && narrationText) {
+        masterNarration = { status: "synthesizing", updatedAt: new Date().toISOString() };
+        await savePack(jobId, { ...pack, __renderState: { ...state, stitch: { ...stitchBase, masterNarration } } }, { status: "stitching" });
+        try {
+          const narration = await synthesizeFullNarration({ jobId, text: narrationText });
+          masterNarration = { status: "ready", key: narration.key, bytes: narration.bytes, updatedAt: new Date().toISOString() };
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          console.warn("[vertex-render-job] ElevenLabs full narration failed before concat (using Veo audio):", err);
+          masterNarration = { status: "failed", reason: reason.slice(0, 200), updatedAt: new Date().toISOString() };
+        }
+      } else {
+        masterNarration = {
+          status: "skipped",
+          reason: !isElevenLabsConfigured() ? "ElevenLabs disabled or missing" : "no voiceover script",
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      stitchBase = { ...stitchBase, masterNarration };
+      await savePack(jobId, { ...pack, __renderState: { ...state, stitch: stitchBase } }, { status: "stitching" });
+    }
     const concatState: VertexRenderState = {
       ...state,
       stitch: { ...stitchBase, attempts: stitchAttempts + 1, phase: "concat", segments: existingSegments },
