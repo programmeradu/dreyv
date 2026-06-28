@@ -5,6 +5,7 @@ import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studi
 import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences, type VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+import { resolvePropRefsForShot } from "@/lib/media-studio/prop-references";
 import { extractTailFramesAsRefs } from "@/lib/media-studio/extract-tail-frames";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
@@ -257,7 +258,16 @@ async function submitNextShotOperation(args: {
   // Shot 1: lock to canonical mascot poses. Shots 2+: lock to the last few
   // frames of the previous shot so mascot + scene + camera carry forward
   // without any Gemini repaint in the loop.
-  const refs = args.continuityRefs?.length ? args.continuityRefs : await loadDreyvMascotReferences();
+  let refs = args.continuityRefs?.length ? args.continuityRefs : await loadDreyvMascotReferences();
+  // On shot 1 (no continuity refs yet) blend in real prop/set anchors when the
+  // beat calls for a phone/laptop/desk — Veo caps refs at 3 so we swap the
+  // tail mascot poses for props rather than appending.
+  if (!args.continuityRefs?.length) {
+    const propRefs = await resolvePropRefsForShot(shot.description ?? "");
+    if (propRefs.length) {
+      refs = [...refs.slice(0, Math.max(1, 3 - propRefs.length)), ...propRefs].slice(0, 3);
+    }
+  }
   const op = await submitVertexVeoOperation(
     shotPrompt(shot, args.index, args.shots.length, args.pack, {
       previousObservation: args.previousObservation,
