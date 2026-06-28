@@ -239,12 +239,14 @@ export async function GET(req: NextRequest) {
 
     // List mode — recent jobs for the dashboard's "Recent renders" panel.
     if (!id) {
-      const result = (await db.execute(sql`SELECT id, status, model, shots_total, shots_done,
-                                                  final_url, duration_sec, error, created_at
+      const result = (await db.execute(sql`SELECT id, status, model, pack, shots_total, shots_done,
+                                                  final_url, duration_sec, error, created_at, updated_at
                                            FROM studio_video_jobs
                                            ORDER BY created_at DESC
                                            LIMIT 20`)) as unknown;
       const rows = rowsFromResult(result);
+      // Auto-resume any queued / in-flight Vertex jobs surfaced in the list.
+      await Promise.all(rows.map((r) => nudgeVertexWorker(r).catch(() => {})));
       let finalKeys = new Map<string, unknown>();
       if (await studioVideoR2ColumnsAvailable()) {
         try {
