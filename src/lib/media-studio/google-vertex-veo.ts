@@ -174,9 +174,9 @@ export async function submitVertexVeoOperation(
   // lock — the upstream pipeline runs every tail frame through a Gemini
   // nano-banana mascot-correction pass that repaints the mascot back to
   // canon while preserving the exact pose/camera/lighting/composition. So
-  // when a firstFrameImage is supplied we prefer it (frame-perfect handoff
-  // with the mascot already locked) and only fall back to referenceImages
-  // for shot 1, where there is no previous frame to chain from.
+  // when a firstFrameImage is supplied we prefer it for frame-perfect handoff
+  // and only fall back to referenceImages for shot 1, where there is no
+  // previous frame to chain from.
   if (opts.firstFrameImage) {
     instance.image = opts.firstFrameImage;
   } else if (refs.length) {
