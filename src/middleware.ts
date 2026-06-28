@@ -434,6 +434,10 @@ export async function middleware(request: NextRequest) {
     // ─── Skip public routes ─────────────────────────────────────────
     const publicPaths = [
         '/api/auth',
+        // Auth UI + Phantom embedded/social OAuth callback must stay public;
+        // otherwise `/auth/callback?...` gets intercepted by the app gate before
+        // the Phantom SDK can resume the pending redirect session.
+        '/auth',
         '/api/health',
         // Self-authenticated by x-admin-key in the route handler so DB fixes can run even when app auth is broken.
         '/api/admin/migrations/run',
@@ -448,7 +452,7 @@ export async function middleware(request: NextRequest) {
         '/r/',
     ];
 
-    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/auth', '/app-rebuilding', '/studio'];
+    const publicPages = ['/', '/marketplace', '/pricing', '/atlas', '/docs', '/about', '/app-rebuilding', '/studio'];
 
     if (
         publicPaths.some((p) => pathname.startsWith(p)) ||

@@ -670,19 +670,22 @@ function AuthPageContent() {
         }
     }, [addLog]);
 
-    // One-click Phantom (social-style): selects the Phantom wallet adapter
-    // which triggers Phantom's connect → sign flow (no OAuth required).
     const { connect: phantomConnect } = useConnect();
 
-    // Phantom *social* sign-in: uses Phantom's embedded wallet (passkey/Phantom Login).
+    type PhantomSocialProvider = "google" | "apple";
+
+    // Phantom embedded social sign-in: Google / Apple create or recover the
+    // user's Phantom embedded wallet, then the existing SIWS hook verifies it.
     // This hits Phantom's hosted endpoint (/login/start) and requires:
     //   1. NEXT_PUBLIC_PHANTOM_APP_ID to be set, AND
     //   2. window.location.origin to be whitelisted for that appId in the
     //      Phantom Developer Dashboard.
     // A 400 from /login/start means one of those two prerequisites is missing.
-    const handlePhantomSocial = useCallback(async () => {
+    const handlePhantomSocial = useCallback(async (provider: PhantomSocialProvider) => {
+        const loadingKey = `phantom-${provider}`;
         setOauthError(null);
-        addLog("INITIATING_PHANTOM_SOCIAL");
+        setSocialLoading(loadingKey);
+        addLog(`INITIATING_PHANTOM_${provider.toUpperCase()}_LOGIN`);
 
         const hasAppId =
             typeof process !== "undefined" &&
@@ -691,28 +694,33 @@ function AuthPageContent() {
 
         if (!hasAppId) {
             const msg =
-                "Phantom social sign-in isn't configured for this environment yet (missing app ID). Use a wallet, Google, or email instead.";
+                "Phantom social sign-in isn't configured for this environment yet (missing app ID). Use wallet sign-in or Google instead.";
             setOauthError(msg);
             addLog("ERROR: PHANTOM_SOCIAL_NOT_CONFIGURED");
+            setSocialLoading(null);
             return;
         }
 
         try {
-            await phantomConnect({ provider: "phantom" });
-            addLog("PHANTOM_SOCIAL_CONNECTED");
+            sessionStorage.setItem("dreyv_post_auth_redirect", postAuthRedirect);
+            sessionStorage.setItem("dreyv_phantom_social_pending", provider);
+            await phantomConnect({ provider });
+            addLog(`PHANTOM_${provider.toUpperCase()}_CONNECTED`);
         } catch (err) {
             const raw = err instanceof Error ? err.message : String(err);
-            console.error("[Phantom social] connect error:", raw);
+            console.error(`[Phantom ${provider}] connect error:`, raw);
             const looksLikeOriginIssue =
                 /login\/start|400|unauthorized|origin|app[_ ]?id/i.test(raw);
             setOauthError(
                 looksLikeOriginIssue
-                    ? "Phantom rejected this domain. The current origin needs to be whitelisted for the Phantom app ID, or sign in with a wallet / Google instead."
-                    : raw || "Phantom sign-in failed."
+                    ? "Phantom rejected this domain. Add this origin to the Phantom app allowlist, then retry."
+                    : raw || `Phantom ${provider} sign-in failed.`
             );
             addLog("ERROR: PHANTOM_SOCIAL_FAILED");
+            sessionStorage.removeItem("dreyv_phantom_social_pending");
+            setSocialLoading(null);
         }
-    }, [addLog, phantomConnect]);
+    }, [addLog, phantomConnect, postAuthRedirect]);
 
     const { select } = useWallet();
 
@@ -720,16 +728,19 @@ function AuthPageContent() {
         const lower = cmd.toLowerCase();
         addLog(`COMMAND_RECEIVED: "${cmd}"`);
 
+        // Match Phantom embedded social intent before generic wallet intent.
+        if (lower.includes('phantom') && lower.includes('apple')) handlePhantomSocial('apple');
+        else if (lower.includes('phantom') && lower.includes('google')) handlePhantomSocial('google');
+        else if (lower.includes('apple')) handlePhantomSocial('apple');
+        else if (lower.includes('google')) handleSocialLogin('google');
+
         // Match wallets
-        if (lower.includes('phantom')) select('Phantom' as any);
+        else if (lower.includes('phantom')) select('Phantom' as any);
         else if (lower.includes('solflare')) select('Solflare' as any);
         else if (lower.includes('walletconnect')) select('WalletConnect' as any);
-
-        // Match socials
-        else if (lower.includes('google')) handleSocialLogin('google');
         // If nothing matches explicitly, trigger wallet modal
         else openWalletModal(true);
-    }, [select, handleSocialLogin, openWalletModal]);
+    }, [select, handleSocialLogin, handlePhantomSocial, openWalletModal]);
 
     return (
         <div className="relative h-svh max-h-svh overflow-x-hidden overflow-y-hidden font-manrope text-slate-900 lg:h-dvh lg:max-h-dvh">
@@ -856,9 +867,10 @@ function AuthPageContent() {
                                             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-violet-200/60 to-transparent" />
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                             <SocialButton name="Google" domain="google.com" onClick={() => handleSocialLogin('google')} loading={socialLoading === 'google'} />
-                                            <SocialButton name="Phantom" domain="phantom.app" onClick={handlePhantomSocial} loading={false} />
+                                            <SocialButton name="Phantom Google" domain="phantom.app" onClick={() => handlePhantomSocial('google')} loading={socialLoading === 'phantom-google'} />
+                                            <SocialButton name="Phantom Apple" domain="apple.com" onClick={() => handlePhantomSocial('apple')} loading={socialLoading === 'phantom-apple'} />
                                         </div>
 
                                         <AuthCommandBar onExecute={handleCommand} />
