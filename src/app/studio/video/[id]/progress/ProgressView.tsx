@@ -266,6 +266,59 @@ export default function ProgressView({ jobId }: { jobId: string }) {
           </div>
         </section>
 
+        {/* ElevenLabs narration per shot */}
+        <section className="mt-10">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            ElevenLabs narration
+          </h2>
+          <p className="mt-2 text-xs text-slate-500">
+            Per-shot voiceover (Brian, eleven_turbo_v2_5) synthesized with request stitching, then muxed onto the silent Veo render during normalization.
+          </p>
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {Array.from({ length: progress?.stitch.segmentsTotal ?? job?.shots_total ?? 0 }, (_v, i) => {
+              const entry = progress?.stitch.narrations.find((nn) => nn.n === i);
+              const status = entry?.status ?? "queued";
+              const palette: Record<string, string> = {
+                queued: "border-violet-100 bg-white text-slate-500",
+                synthesizing: "border-violet-200 bg-violet-50 text-violet-700",
+                ready: "border-violet-200 bg-violet-50 text-violet-700",
+                muxed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+                skipped: "border-slate-200 bg-slate-50 text-slate-600",
+                failed: "border-rose-200 bg-rose-50 text-rose-700",
+              };
+              const label: Record<string, string> = {
+                queued: "queued",
+                synthesizing: "synthesizing…",
+                ready: "TTS ready",
+                muxed: "muxed → segment",
+                skipped: entry?.reason ?? "skipped (Veo audio)",
+                failed: entry?.reason ?? "failed → Veo audio",
+              };
+              const Icon = status === "skipped" || status === "failed" ? MicOff : Mic2;
+              const spinning = status === "synthesizing";
+              return (
+                <li
+                  key={i}
+                  className={`rounded-2xl border px-3 py-3 text-xs font-semibold ${palette[status]}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {spinning ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5" />
+                    )}
+                    Shot {i + 1}
+                  </div>
+                  <div className="mt-1 text-[10px] font-normal opacity-80">
+                    {label[status]}
+                    {entry?.bytes ? ` · ${(entry.bytes / 1024).toFixed(0)} KB` : ""}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
         {/* Final */}
         {job?.final_url ? (
           <section className="mt-10 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-6">
