@@ -84,6 +84,16 @@ function shotPrompt(
   const observedLastAction = obs?.lastAction?.trim();
   const observedSetting = obs?.settingFingerprint?.trim();
   const ultimateScript = pack.voiceoverScript?.trim();
+  const masterArc = (pack.shotList ?? [])
+    .map((s, i) => `  ${i + 1}/${total}${i === index ? " (THIS SEGMENT)" : ""}: ${s.description}`)
+    .join("\n");
+  const remainingBeats = (pack.shotList ?? [])
+    .slice(index + 1)
+    .map((s, i) => `  ${index + 2 + i}: ${s.description}`)
+    .join("\n");
+  const allCaptions = (pack.burnedCaptions ?? [])
+    .map((c, i) => `  ${i + 1}: "${(c ?? "").trim()}"`)
+    .join("\n");
   return [
     dreyvShotStylePreamble(),
     "",
@@ -92,6 +102,9 @@ function shotPrompt(
     `Create ONLY segment ${index + 1} of ${total} (${phase}) for one continuous vertical 9:16 Dreyv ad, pronounced DRAVE.`,
     "Duration: exactly 8 seconds. This is not a standalone variant, remake, recap, or alternate take. It must be the next chronological beat in the same ad.",
     ultimateScript ? `ULTIMATE SCRIPT (the complete ad's voiceover — your job is to advance it, never restart it, never repeat already-spoken lines): ${ultimateScript.slice(0, 1200)}` : "",
+    masterArc ? `MASTER STORYBOARD — the locked plan for the whole ad. Execute THIS SEGMENT'S beat exactly as written below. Do NOT improvise a different beat, do NOT swap in ideas from other segments, do NOT skip ahead, do NOT fall back to a generic Dreyv intro:\n${masterArc}` : "",
+    allCaptions ? `LOCKED VOICEOVER PER SEGMENT (segment ${index + 1} must speak segment ${index + 1}'s line, not any other):\n${allCaptions}` : "",
+    remainingBeats ? `Beats that come LATER — do not preview, tease, or jump to them in this segment:\n${remainingBeats}` : "",
     observedSetting
       ? `Setting lock — match this exact world observed in the previous segment: ${observedSetting}`
       : `Locked setting from segment 1 — keep this exact world, location, lighting, time of day, wardrobe, props, lens language, and palette: ${openingShot.description}`,
@@ -107,13 +120,14 @@ function shotPrompt(
       : plannedPreviousCaption ? `What was just said in the previous segment (do NOT repeat it; continue the thought): "${plannedPreviousCaption}"` : "",
     nextShot ? `Leave the final motion ready to flow into this next segment: ${nextShot.description}` : "",
     pack.formatLabel ? `Format: ${pack.formatLabel}.` : "",
-    `Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
+    `LOCKED BEAT FOR THIS SEGMENT — render exactly this action and nothing else. Shot ${shot.n}${shot.timing ? ` (${shot.timing})` : ""}: ${shot.description}`,
     currentCaption ? `What is being said during this segment for pacing only (captions are burned by Dreyv after rendering; do NOT render any letters or subtitles inside the video): "${currentCaption}"` : "",
     shot.toolPrompt ? `Creative intent, without rendering its written text: ${shot.toolPrompt.slice(0, 700)}` : "",
     pack.hook?.spokenLine && index === 0 ? `Voiceover idea for audio only, not on-screen text: ${pack.hook.spokenLine}` : "",
     pack.soundSuggestion ? `Music / sound: ${pack.soundSuggestion}` : "",
     pack.whyItWorks ? `Emotional angle: ${pack.whyItWorks}` : "",
     opts?.reshootNote ? `RESHOOT NOTE — the previous attempt at this segment failed QC for these reasons, fix them: ${opts.reshootNote}` : "",
+    "ON-SCRIPT RULE: continuity with the previous segment's final frame is mandatory, but the WHAT-HAPPENS in this segment must come from the LOCKED BEAT above and the MASTER STORYBOARD — not from improvisation. If the observed prior action seems to conflict with this segment's locked beat, smoothly transition the mascot's pose into executing the locked beat rather than abandoning it.",
     index === total - 1
       ? "End with a clean product payoff using mascot and physical product motion only — no text reveal, no abstract flourish."
       : "End mid-motion, not resolved, so a hard cut to the next segment feels intentional.",
