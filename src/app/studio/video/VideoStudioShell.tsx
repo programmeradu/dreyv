@@ -105,6 +105,8 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     final_url: string | null;
     duration_sec: number | null;
     error: string | null;
+    created_at?: string;
+    updated_at?: string;
   };
   const [renderJob, setRenderJob] = React.useState<RenderJob | null>(null);
   const [renderStarting, setRenderStarting] = React.useState(false);
@@ -128,36 +130,67 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     ? `Renders all ${pack?.shotList.length ?? 0} sequential Vertex shots, avoids AI-burned text, then stitches locally into one MP4.`
     : `Renders all ${pack?.shotList.length ?? 0} shots, then stitches the final MP4.`;
 
-  const startRender = React.useCallback(async () => {
+  const submitRender = React.useCallback(async () => {
     if (!pack) return;
     setRenderError(null);
+    const res = await fetch("/api/studio/video/render", {
+      method: "POST",
+      headers: studioJsonHeaders(),
+      body: JSON.stringify({ pack, provider: providerId }),
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+    const nowIso = new Date().toISOString();
+    setRenderJob({
+      id: j.jobId,
+      status: j.warning ? "failed" : "queued",
+      shots_total: pack.shotList.length,
+      shots_done: 0,
+      shot_urls: [],
+      final_url: null,
+      duration_sec: null,
+      error: j.warning ?? null,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+    setRenderStartedAt(Date.now());
+    try { localStorage.setItem("studio.video.activeJobId", j.jobId); } catch {}
+  }, [pack, providerId]);
+
+  const startRender = React.useCallback(async () => {
     setRenderStarting(true);
     try {
-      const res = await fetch("/api/studio/video/render", {
-        method: "POST",
-        headers: studioJsonHeaders(),
-        body: JSON.stringify({ pack, provider: providerId }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      setRenderJob({
-        id: j.jobId,
-        status: j.warning ? "failed" : "queued",
-        shots_total: pack.shotList.length,
-        shots_done: 0,
-        shot_urls: [],
-        final_url: null,
-        duration_sec: null,
-        error: j.warning ?? null,
-      });
-      setRenderStartedAt(Date.now());
-      try { localStorage.setItem("studio.video.activeJobId", j.jobId); } catch {}
+      await submitRender();
     } catch (e) {
       setRenderError(e instanceof Error ? e.message : String(e));
     } finally {
       setRenderStarting(false);
     }
-  }, [pack, providerId]);
+  }, [submitRender]);
+
+  const startNewRender = React.useCallback(async () => {
+    const currentId = renderJob?.id;
+    setRenderStarting(true);
+    setRenderError(null);
+    try {
+      if (currentId && renderJob.status !== "done" && renderJob.status !== "failed") {
+        const res = await fetch(`/api/studio/video/render?id=${currentId}`, {
+          method: "DELETE",
+          headers: studioAuthHeaders(),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j?.error || `Could not abandon old render (HTTP ${res.status})`);
+      }
+      try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
+      setRenderJob(null);
+      setRenderStartedAt(null);
+      await submitRender();
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenderStarting(false);
+    }
+  }, [renderJob, submitRender]);
 
   // Rehydrate the active job after a refresh so long renders survive reloads.
   React.useEffect(() => {
@@ -180,8 +213,10 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
             final_url: j.final_url ?? null,
             duration_sec: j.duration_sec ?? null,
             error: j.error ?? null,
+            created_at: j.created_at,
+            updated_at: j.updated_at,
           });
-          setRenderStartedAt(new Date(j.updated_at ?? j.created_at ?? Date.now()).getTime());
+          setRenderStartedAt(new Date(j.created_at ?? j.updated_at ?? Date.now()).getTime());
         } else if (!cancelled && r.status === 404) {
           try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
         } else if (!cancelled && !r.ok) {
@@ -252,6 +287,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const elapsedSeconds = renderStartedAt ? Math.max(0, Math.floor((renderNow - renderStartedAt) / 1000)) : 0;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const isVertexRender = providerId === "veo3-vertex" || Boolean(renderJob?.model?.includes("vertex"));
+  const hasActiveRender = renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed";
 
   React.useEffect(() => {
     if (isUnlocked && !trends) void loadTrends();
@@ -553,7 +589,7 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                         key={p.id}
                         type="button"
                         onClick={() => setProviderId(p.id)}
-                        disabled={renderStarting || (renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed")}
+                        disabled={renderStarting || hasActiveRender}
                         className={
                           "rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 " +
                           (active
@@ -567,20 +603,33 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                   })}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={startRender}
-                disabled={renderStarting || (renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed")}
-                className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {renderStarting
-                  ? "Submitting…"
-                  : renderJob && renderJob.status !== "done" && renderJob.status !== "failed"
-                    ? "Rendering…"
-                    : renderJob?.status === "done"
-                      ? "Re-render full ad"
-                      : "Render full ad"}
-              </button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[210px]">
+                <button
+                  type="button"
+                  onClick={startRender}
+                  disabled={renderStarting || hasActiveRender}
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {renderStarting
+                    ? "Submitting…"
+                    : hasActiveRender
+                      ? "Rendering…"
+                      : renderJob?.status === "done"
+                        ? "Re-render full ad"
+                        : "Render full ad"}
+                </button>
+                {hasActiveRender && (
+                  <button
+                    type="button"
+                    onClick={startNewRender}
+                    disabled={renderStarting}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Start new render
+                  </button>
+                )}
+              </div>
             </div>
 
             {renderError && (
@@ -608,6 +657,11 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
                     {isVertexRender
                       ? "Submitted to Vertex. Each shot is prompted as the next scene in one ad, then Dreyv stitches the finished clips locally into one MP4. Captions are intentionally kept out of Veo to avoid misspellings."
                       : "Background render is active. The page can refresh safely; the session will recover from the saved job."}
+                    {renderJob.status === "stitching" && elapsedSeconds > 8 * 60 && (
+                      <span className="mt-1 block font-semibold text-violet-700">
+                        Stitching is taking longer than normal. You can start a new render without waiting for this job to finish.
+                      </span>
+                    )}
                   </div>
                 )}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
