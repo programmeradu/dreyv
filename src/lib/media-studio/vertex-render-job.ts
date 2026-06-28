@@ -549,6 +549,27 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         durationSec: shotUrls.length * 8,
       };
       try {
+        // Synthesize ElevenLabs narration for this shot so the stitcher can
+        // mux it in. Falls back to Veo's native audio if ElevenLabs is not
+        // configured or the request fails.
+        let narrationUrl: string | undefined;
+        const captions = pack.burnedCaptions ?? [];
+        const narrationText = captions[nextIndex]?.trim();
+        if (isElevenLabsConfigured() && narrationText) {
+          try {
+            const ctx = narrationContextFor(captions, nextIndex);
+            const narration = await synthesizeShotNarration({
+              jobId,
+              index: nextIndex,
+              text: narrationText,
+              previousText: ctx.previousText,
+              nextText: ctx.nextText,
+            });
+            narrationUrl = narration.url;
+          } catch (err) {
+            console.warn(`[vertex-render-job] ElevenLabs narration failed for shot ${nextIndex + 1} (using Veo audio):`, err);
+          }
+        }
         const segment = await normalizeSegment({
           jobId,
           shotUrl: shotUrls[nextIndex],
@@ -556,6 +577,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           caption: pack.burnedCaptions?.[nextIndex],
           colorGrade: true,
           upscaleTo1080: true,
+          narrationUrl,
+          shotDurationSec: 8,
         });
         const segments = [...existingSegments, segment].sort((a, b) => a.n - b.n);
         const nextState: VertexRenderState = {
