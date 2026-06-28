@@ -300,15 +300,16 @@ export async function observeShot(
       issues.push(`freeze ${probed.freezeSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
       needsReshoot = true;
     }
-    if (durationSec && probed.silenceSec > durationSec * 0.6) {
+    if (!ignoreAudio && durationSec && probed.silenceSec > durationSec * 0.6) {
       // More than 60% of the clip is silent — Veo dropped most of the VO.
       issues.push(`silence ${probed.silenceSec.toFixed(1)}s of ${durationSec.toFixed(1)}s`);
       needsReshoot = true;
     }
-    if (probed.audioMeanDb !== null && probed.audioMeanDb < -50) {
+    if (!ignoreAudio && probed.audioMeanDb !== null && probed.audioMeanDb < -50) {
       issues.push(`audio mean ${probed.audioMeanDb.toFixed(1)}dB (effectively silent)`);
       needsReshoot = true;
     }
+
     // Detect "model recycled the same frame" — zero scene cuts AND high freeze.
     if (durationSec && probed.sceneChanges === 0 && probed.freezeSec > durationSec * 0.3) {
       issues.push(`no motion (0 scene changes, freeze ${probed.freezeSec.toFixed(1)}s)`);
