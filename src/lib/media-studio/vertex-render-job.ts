@@ -49,6 +49,7 @@ type VertexRenderState = {
     phase?: "normalizing" | "concat" | "done";
     segments?: StitchSegment[]; // normalized per-shot segments on R2
     lastChunkAt?: string;       // when the most recent chunk finished
+    narrations?: NarrationEntry[]; // ElevenLabs TTS progress per shot
   };
 };
 
