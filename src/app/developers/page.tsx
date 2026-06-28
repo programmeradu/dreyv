@@ -355,7 +355,131 @@ export default function DevelopersPage() {
           </div>
         </section>
 
-        {/* Pillars */}
+        {/* No-code prompt kit — drop-in prompts for non-technical users */}
+        <section id="prompt-kit" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16 scroll-mt-24">
+          <div className="relative overflow-hidden rounded-[28px] border border-violet-200/80 bg-white/85 backdrop-blur p-7 md:p-10 shadow-[0_30px_80px_-32px_rgba(124,58,237,0.22)]">
+            <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-violet-300/25 blur-[100px]" aria-hidden="true" />
+            <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-violet-400/15 blur-[110px]" aria-hidden="true" />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 items-start">
+              <div className="flex lg:flex-col items-center lg:items-start gap-5">
+                <Image
+                  src={commandStar}
+                  alt=""
+                  width={180}
+                  height={180}
+                  loading="lazy"
+                  className="h-32 w-32 lg:h-44 lg:w-44 drop-shadow-[0_18px_40px_rgba(124,58,237,0.35)]"
+                />
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700">
+                    <DreyvStar className="h-3 w-3" /> No code · No setup
+                  </div>
+                  <h2 className="mt-3 text-2xl md:text-[28px] font-semibold tracking-tight text-slate-900 leading-tight">
+                    Copy. Paste. Your AI is now on Dreyv.
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                    Don&apos;t write a single line. Paste one of these prompts into Claude, ChatGPT, or Cursor and the agent will read our docs, mint its own key, and start calling capabilities — on its free starter credit.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                {[
+                  {
+                    badge: "Claude · ChatGPT · Gemini",
+                    title: "The universal agent prompt",
+                    blurb: "Works in any chat with web/browse tools. The agent self-onboards, calls a capability, and reports back.",
+                    prompt: `You are working with Dreyv — a non-custodial Web3 API and MCP server for AI agents.
+
+1. Read https://dreyv.com/auth.md and https://dreyv.com/developers/api to learn how to authenticate.
+2. Sign up at https://dreyv.com/auth and mint a key in /app/settings/api. Keys start with "dk_live_".
+3. Every new agent gets a free $0.25 starter credit — enough for 250 calls. No card needed to start.
+4. Call GET https://dreyv.com/api/v1/portfolio/holdings?address=<any-solana-wallet>&chain=solana with header "Authorization: Bearer dk_live_…".
+5. Summarise the holdings for me in plain English, and tell me how much starter credit is left.
+
+If anything fails, follow the hint in the error JSON — Dreyv responses are self-documenting.`,
+                  },
+                  {
+                    badge: "Claude Desktop · Cursor",
+                    title: "One-line MCP install",
+                    blurb: "Native Model Context Protocol. Paste this into the MCP settings JSON — every Dreyv capability shows up as a typed tool.",
+                    prompt: `{
+  "mcpServers": {
+    "dreyv": {
+      "url": "https://dreyv.com/api/mcp",
+      "headers": {
+        "Authorization": "Bearer dk_live_REPLACE_ME"
+      }
+    }
+  }
+}`,
+                  },
+                  {
+                    badge: "Custom GPT · System prompt",
+                    title: "Make your GPT a treasury analyst",
+                    blurb: "Drop this into a Custom GPT's instructions. It turns any GPT into a Solana/EVM analyst backed by Dreyv data.",
+                    prompt: `You are a Web3 treasury analyst powered by Dreyv (https://dreyv.com).
+
+Capabilities (one Bearer key unlocks all):
+• Portfolio, prices, swaps, bridges, yields — Solana + EVM
+• Forensics, tax lots, foresight scenarios
+• Watchers, alerts, signed webhooks
+
+Rules:
+1. When the user gives a wallet address, call GET /api/v1/portfolio/holdings before answering.
+2. For "what should I do" questions, call /api/v1/foresight/simulate with the user's scenario.
+3. Always cite the capability you used and the latency.
+4. Never ask the user for a private key — Dreyv is non-custodial. For execution, return an x402 link instead.
+
+Docs: https://dreyv.com/developers   ·   Auth: https://dreyv.com/auth.md`,
+                  },
+                ].map((card) => (
+                  <div
+                    key={card.title}
+                    className="group rounded-2xl border border-violet-100 bg-white p-5 md:p-6 hover:border-violet-300 hover:shadow-[0_18px_50px_-22px_rgba(124,58,237,0.25)] transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700 mb-1.5">
+                          {card.badge}
+                        </div>
+                        <h3 className="text-base md:text-lg font-semibold text-slate-900 leading-snug">
+                          {card.title}
+                        </h3>
+                        <p className="mt-1 text-[13px] text-slate-600 leading-relaxed max-w-2xl">
+                          {card.blurb}
+                        </p>
+                      </div>
+                    </div>
+                    <CodeBlock language="prompt" wrap dense>
+                      {card.prompt}
+                    </CodeBlock>
+                  </div>
+                ))}
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Link href="/auth?redirect=/app/settings/api" className={marketingPrimaryCtaSm}>
+                    Mint a free key
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <Link
+                    href="/developers/api"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 hover:text-violet-900"
+                  >
+                    See all capabilities
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <span className="text-[11px] text-slate-500">
+                    Every new agent gets <strong className="text-slate-700">$0.25 free</strong> (≈250 calls). No card required.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10 items-start">
             <div className="lg:sticky lg:top-24">
