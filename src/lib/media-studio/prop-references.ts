@@ -31,9 +31,6 @@ const PROP_RULES: PropRule[] = [
   { keywords: ["cafe", "coffee shop", "barista", "espresso"], file: "public/mascot/screens/set-cafe.png" },
   { keywords: ["rooftop", "skyline", "city view", "golden hour", "sunset terrace"], file: "public/mascot/screens/set-rooftop.png" },
   { keywords: ["desk", "workspace", "office", "studio room", "set"], file: "public/mascot/screens/set-desk-environment.png" },
-  // Brand props
-  { keywords: ["coin", "token", "crystal", "asset orb"], file: "public/mascot/screens/prop-crystal-coin.png" },
-  { keywords: ["abstract", "intro graphic", "brand wash", "transition", "ribbon"], file: "public/mascot/screens/brand-abstract-violet.png" },
 ];
 
 const cache = new Map<string, VeoReferenceImage | null>();
