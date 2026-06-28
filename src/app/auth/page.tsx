@@ -829,7 +829,7 @@ function AuthPageContent() {
 
                                         <div className="grid grid-cols-2 gap-2">
                                             <SocialButton name="Google" domain="google.com" onClick={() => handleSocialLogin('google')} loading={socialLoading === 'google'} />
-                                            <SocialButton name="Discord" domain="discord.com" onClick={() => handleSocialLogin('discord')} loading={socialLoading === 'discord'} />
+                                            <SocialButton name="Phantom" domain="phantom.app" onClick={handlePhantomSocial} loading={false} />
                                         </div>
 
                                         <AuthCommandBar onExecute={handleCommand} />
