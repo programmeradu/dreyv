@@ -138,9 +138,13 @@ export const studioVideoRender = inngest.createFunction(
 
       const shotUrls: string[] = [];
       const shotKeys: (string | null)[] = [];
+      // Carries the tail frame of the previous shot so the next shot starts
+      // from the exact same image — invisible cuts, locked mascot/scene/light.
+      let nextFirstFrame: VeoFirstFrameImage | undefined = undefined;
       for (const shot of shots) {
+        const firstFrame = provider.supportsChaining ? nextFirstFrame : undefined;
         const result = await step.run(`shot-${shot.n}`, async () => {
-          return provider.render(buildShotPrompt(shot, pack));
+          return provider.render(buildShotPrompt(shot, pack), firstFrame);
         });
         shotUrls.push(result.url);
         shotKeys.push(result.key ?? null);
@@ -149,6 +153,10 @@ export const studioVideoRender = inngest.createFunction(
           shot_urls: shotUrls,
           shot_keys: shotKeys,
         });
+        // Only extract a tail frame if there's another shot to chain into.
+        if (provider.supportsChaining && shotUrls.length < shots.length) {
+          nextFirstFrame = await step.run(`tail-${shot.n}`, () => extractLastFramePng(result.url));
+        }
       }
 
       // Stitching happens inside Dreyv with the bundled ffmpeg binary. fal may
