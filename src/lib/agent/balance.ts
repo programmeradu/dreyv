@@ -100,6 +100,22 @@ export async function creditAgentBalance(args: {
   }
 }
 
+/**
+ * Seed a one-time free starter grant for a new agent. Idempotent — the
+ * ledger's UNIQUE(reason, ref) means a second call returns { ok:false,
+ * reason:"duplicate" } without crediting twice. Callers should treat
+ * "duplicate" as "already granted, no balance change" and move on.
+ */
+export async function ensureStarterGrant(userId: string): Promise<CreditResult> {
+  return creditAgentBalance({
+    userId,
+    amountMinor: STARTER_GRANT_MINOR,
+    reason: "starter_grant",
+    ref: userId,
+  });
+}
+}
+
 export type ChargeResult =
   | { ok: true; balance_after: bigint }
   | { ok: false; reason: "insufficient"; balance_minor: bigint; required_minor: bigint };
