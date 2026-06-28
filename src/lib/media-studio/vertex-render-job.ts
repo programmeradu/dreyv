@@ -50,7 +50,7 @@ type VertexShotOperation = {
   key?: string;
 };
 
-const VERTEX_TIMEOUT_MS = 15 * 60 * 1000;
+const VERTEX_TIMEOUT_MS_PER_SHOT = 15 * 60 * 1000;
 const STALE_SUBMISSION_MS = 2 * 60 * 1000;
 
 function packFrom(value: unknown): Pack {
@@ -295,8 +295,9 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       .map((op) => dateMs(op.submittedAt))
       .filter((ms): ms is number => ms !== null)
       .sort((a, b) => a - b)[0] ?? Date.now();
-    if (Date.now() - firstSubmittedAt > VERTEX_TIMEOUT_MS) {
-      const message = "Vertex render timed out after 15 minutes. Start a new render; the old cloud operation stopped responding.";
+    const timeoutMs = Math.max(1, shots.length) * VERTEX_TIMEOUT_MS_PER_SHOT;
+    if (Date.now() - firstSubmittedAt > timeoutMs) {
+      const message = `Vertex render timed out after ${Math.round(timeoutMs / 60000)} minutes. Start a new render; the old cloud operation stopped responding.`;
       await markFailed(jobId, message);
       return { advanced: true, failed: message };
     }
@@ -329,7 +330,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
       };
       await savePack(jobId, nextPack, {
         status: "rendering_shots",
-        shots_total: state.shotOperations.length,
+        shots_total: shots.length,
         shots_done: shotUrls.length,
         shot_urls: shotUrls,
         shot_keys: shotKeys,
