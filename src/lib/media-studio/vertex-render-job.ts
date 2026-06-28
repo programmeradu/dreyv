@@ -5,6 +5,7 @@ import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studi
 import { normalizeSegment, concatSegments, type StitchSegment } from "@/lib/media-studio/chunked-stitcher";
 import { dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
 import { loadDreyvMascotReferences, type VeoReferenceImage } from "@/lib/media-studio/mascot-references";
+import { resolvePropRefsForShot } from "@/lib/media-studio/prop-references";
 import { extractTailFramesAsRefs } from "@/lib/media-studio/extract-tail-frames";
 import { observeShot, type ShotObservation } from "@/lib/media-studio/shot-qc";
 import { presignR2Get } from "@/lib/agents/artifacts/r2-storage";
