@@ -50,6 +50,8 @@ type VertexShotOperation = {
   completedAt?: string;
   url?: string;
   key?: string;
+  observation?: ShotObservation;
+  reshootCount?: number;
 };
 
 const VERTEX_TIMEOUT_MS_PER_SHOT = 15 * 60 * 1000;
