@@ -242,7 +242,12 @@ async function savePack(jobId: string, pack: Pack, patch: Record<string, unknown
     if (jsonbCols.has(col)) return sql`${sql.identifier(col)} = ${JSON.stringify(value)}::jsonb`;
     return sql`${sql.identifier(col)} = ${value as never}`;
   });
-  await db.execute(sql`UPDATE studio_video_jobs SET ${sql.join(sets, sql`, `)}, updated_at = now() WHERE id = ${jobId}::uuid`);
+  await db.execute(sql`
+    UPDATE studio_video_jobs
+    SET ${sql.join(sets, sql`, `)}, updated_at = now()
+    WHERE id = ${jobId}::uuid
+      AND status <> 'failed'
+  `);
 }
 
 async function saveFinal(args: {
