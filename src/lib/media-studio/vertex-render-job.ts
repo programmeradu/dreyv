@@ -20,6 +20,7 @@ type Shot = {
   description: string;
   toolPrompt: string;
   recommendedTool?: string;
+  mascotInShot?: boolean;
 };
 
 type Pack = {
@@ -127,6 +128,11 @@ function shotPrompt(
   const observedLastWords = obs?.lastWords?.trim();
   const observedLastAction = obs?.lastAction?.trim();
   const observedSetting = obs?.settingFingerprint?.trim();
+  const shotText = [shot.description, shot.toolPrompt].filter(Boolean).join("\n");
+  const setHint = inferSetHint(shotText);
+  const propHint = inferPropHint(shotText);
+  const cameraHint = inferCameraHint(shotText, index);
+  const motionHint = inferMotionHint(shotText, index, total);
 
   const masterStoryboard = (pack.shotList ?? []).map((s, i) => ({
     segment: i + 1,
@@ -164,8 +170,22 @@ function shotPrompt(
       forbidden: ["letter D on chest or cap", "missing cap", "missing chest mark", "color shift", "realistic fox or owl rendering", "fuchsia", "pink", "orange", "brown"],
     },
 
-    subject: shot.description,
-    action: shot.description,
+    subject: {
+      primary: shot.mascotInShot === false ? "Dreyv product surface and physical device props" : "canonical Dreyv mascot plus the physical prop/device required by this beat",
+      rule: "The subject must change behavior per the locked beat. Do not output a generic mascot idle pose.",
+    },
+    action: {
+      locked: shot.description,
+      specific_motion: motionHint,
+      rule: "The mascot/device must visibly perform this action during the 8 seconds. Standing still on a blank background is a failed render.",
+    },
+
+    physical_scene: {
+      set: setHint,
+      props: propHint,
+      background_rule: "Use a calm physical set with surfaces and depth. No blank empty white void. No decorative abstract elements.",
+      screen_rule: "If a phone/laptop appears, it is a real object in the scene. Its screen may show simple non-readable interface shapes only; no floating UI and no text.",
+    },
 
     locked_beat_for_this_segment: {
       shot_number: shot.n,
@@ -180,17 +200,17 @@ function shotPrompt(
     continuity: index === 0
       ? {
           opening: true,
-          instruction: "Start with a strong, calm opening motion and establish the cinematic world. Hold the frame clean — no abstract garnish.",
-          locked_setting: openingShot.description,
+          instruction: "Start with a strong, calm opening motion and establish the cinematic world through a real set, prop, and action. Hold the frame clean — no abstract garnish, no blank mascot-on-white idle shot.",
+          locked_setting: setHint,
         }
       : {
           opening: false,
           reference_images_are: "the last ~1s of frames from the previous segment — match mascot pose, wardrobe, set, lighting, camera framing, palette EXACTLY",
           previous_segment_end_action: observedLastAction || previousShot?.description || "",
           previous_segment_last_spoken_words: observedLastWords || plannedPreviousCaption || "",
-          locked_setting: observedSetting || openingShot.description,
+          locked_setting: observedSetting || setHint || openingShot.description,
           instruction:
-            "Begin from the same pose, framing, setting, lighting, and action that ended the previous segment. Do not restart the story, do not repeat the hook, do not reintroduce Dreyv, do not repeat any words from the previous segment's spoken line. Continue the same sentence/thought from where it left off.",
+            "Begin from the same pose, framing, setting, lighting, and action that ended the previous segment, then visibly progress into this segment's locked action. Do not restart the story, do not repeat the hook, do not reintroduce Dreyv, do not repeat any words from the previous segment's spoken line. Continue the same sentence/thought from where it left off.",
           rule_when_in_conflict:
             "If the observed prior action seems to conflict with this segment's locked beat, smoothly transition the mascot's pose into executing the locked beat rather than abandoning it.",
         },
@@ -225,9 +245,10 @@ function shotPrompt(
     },
 
     camera: {
-      framing: "match the previous segment's framing exactly",
-      movement: "continuous from the previous segment's motion",
-      lens_language: "match the previous segment",
+      framing: cameraHint,
+      movement: index === 0 ? motionHint : `start continuous from previous tail frames, then ${motionHint}`,
+      lens_language: "cinematic 35mm/50mm language; change framing only when the locked beat requires an insert, over-shoulder, push-in, or reveal",
+      rule: "Camera must serve the selected angle/format and shot action. Do not default every segment to the same centered full-body mascot frame.",
     },
 
     lighting: {
@@ -242,6 +263,7 @@ function shotPrompt(
       "letters", "words", "captions", "subtitles", "watermarks", "UI text", "signage with readable text",
       "invented dialogue", "wrong narration", "whispered words", "gibberish speech", "phoneme soup",
       "floating particles", "glowing orbs", "lens flares", "abstract garnish",
+      "blank background", "empty white void", "standing idle", "mascot standing still", "same shot again",
       "fuchsia", "pink", "gradients", "orange or brown mascot coloring",
       "realistic fox", "realistic owl",
       "letter D on chest", "letter D on cap",
@@ -254,6 +276,52 @@ function shotPrompt(
   };
 
   return JSON.stringify(promptObject, null, 2);
+}
+
+function inferSetHint(text: string): string {
+  const t = text.toLowerCase();
+  if (/rooftop|skyline|terrace|city/.test(t)) return "minimal rooftop terrace with distant soft city skyline, real floor surface, no floating graphics";
+  if (/cafe|coffee|espresso|barista/.test(t)) return "quiet premium cafe table set with one cup and a phone or laptop, clean background depth";
+  if (/night|late|lamp|evening/.test(t)) return "minimal night desk setup with warm desk lamp, off-white wall, real tabletop, subtle violet practical accent";
+  if (/phone|mobile|wallet|phantom|app|screen|tap|swipe/.test(t)) return "premium desk or hand-held phone setup, real phone in frame, off-white wall and clean tabletop";
+  if (/laptop|cursor|claude|mcp|api|developer|terminal|dashboard|command/.test(t)) return "premium developer desk with one open laptop, off-white wall, clean tabletop, subtle violet object accent";
+  if (/pay|invoice|bill|checkout|usdc|card/.test(t)) return "minimal checkout desk scene with a real phone and small receipt/card prop, clean tabletop, no text";
+  return "premium physical studio corner with off-white wall, real tabletop, one simple prop related to the beat, and visible depth";
+}
+
+function inferPropHint(text: string): string[] {
+  const t = text.toLowerCase();
+  const props = new Set<string>();
+  if (/phone|mobile|wallet|phantom|tap|swipe|address/.test(t)) props.add("real phone");
+  if (/laptop|cursor|claude|mcp|api|developer|terminal|dashboard|command/.test(t)) props.add("real laptop");
+  if (/pay|invoice|bill|checkout|usdc|card|credit/.test(t)) props.add("small card or receipt prop with no readable text");
+  if (/yield|risk|rug|token|wallet|portfolio|chart|analytics/.test(t)) props.add("single device screen with non-readable chart shapes");
+  if (/coffee|cafe|late|night/.test(t)) props.add("small cup or desk lamp");
+  if (!props.size) props.add("one simple physical prop tied to the scene action");
+  return [...props].slice(0, 3);
+}
+
+function inferCameraHint(text: string, index: number): string {
+  const t = text.toLowerCase();
+  if (/phone|tap|swipe|screen|wallet|checkout/.test(t)) return "over-shoulder or close insert angle on a real phone, mascot partly visible performing the action";
+  if (/laptop|cursor|claude|mcp|api|terminal|dashboard/.test(t)) return "three-quarter desk angle with laptop foreground and mascot beside it, slow push-in";
+  if (/reaction|surprise|caught|rug|risk/.test(t)) return "medium close-up on mascot reaction, slight push-in, physical prop still visible";
+  if (/payoff|final|cta|reveal|result/.test(t)) return "clean hero three-quarter frame with mascot and device/result prop, slow resolved dolly";
+  return index === 0
+    ? "three-quarter establishing frame, mascot off-center with the key prop already visible"
+    : "continued three-quarter frame from previous shot with a motivated insert or push-in for the new beat";
+}
+
+function inferMotionHint(text: string, index: number, total: number): string {
+  const t = text.toLowerCase();
+  if (/tap|swipe|scroll|paste|enter|click/.test(t)) return "mascot actively taps, swipes, or points at the physical device while the camera slowly pushes in";
+  if (/pay|checkout|bill|invoice|usdc|card/.test(t)) return "mascot confirms a payment gesture on the device, then glances up calmly as the camera moves from device insert to mascot";
+  if (/rug|risk|warning|caught|security/.test(t)) return "mascot leans toward the device, notices the risk, and makes one clear cautionary gesture";
+  if (/yield|rank|compare|portfolio|wallet|analytics/.test(t)) return "mascot compares one clean screen result, points once, then shifts gaze to the viewer";
+  if (/mcp|api|developer|cursor|claude|agent/.test(t)) return "mascot works beside a laptop, gestures from the screen to the viewer, with small natural body movement";
+  if (index === 0) return "mascot enters or turns into the scene and immediately begins the first beat's action";
+  if (index === total - 1) return "mascot completes the final payoff gesture and settles without a text reveal";
+  return "mascot continues from the prior pose into one new visible action for this beat";
 }
 
 function fullNarrationText(pack: Pack): string {
@@ -685,8 +753,8 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
     // The Inngest worker loop nudges us until phase === "done".
     // ────────────────────────────────────────────────────────────────────────
     const stitchAttempts = state.stitch?.attempts ?? 0;
-    if (stitchAttempts >= 8) {
-      await markFailed(jobId, `Stitching failed after ${stitchAttempts} chunk attempts. Start a new render.`);
+    if (stitchAttempts >= 20) {
+      await markFailed(jobId, `Stitching paused after ${stitchAttempts} chunk attempts. Use Retry stitching to resume from the saved shot chunks; no new render is required.`);
       return { advanced: true, failed: "stitch_attempts_exhausted" };
     }
 
@@ -791,8 +859,11 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
             masterNarration: stitchBase.masterNarration,
           },
         };
-        await savePack(jobId, { ...pack, __renderState: nextState }, { status: "stitching" });
-        throw new Error(`normalizeSegment[${nextIndex}] failed: ${message}`);
+        await savePack(jobId, { ...pack, __renderState: nextState }, {
+          status: "stitching",
+          error: `normalizeSegment[${nextIndex + 1}] failed; will retry on next poll (${message.slice(0, 260)})`,
+        });
+        return { advanced: true };
       }
     }
 
@@ -837,12 +908,22 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
 
     const narrationUrl = await narrationUrlFromEntry(stitchBase.masterNarration);
 
-    const stitched = await concatSegments({
-      jobId,
-      segments: existingSegments,
-      durationSec: shotUrls.length * 8,
-      narrationUrl,
-    });
+    let stitched: { url: string; key: string; durationSec: number };
+    try {
+      stitched = await concatSegments({
+        jobId,
+        segments: existingSegments,
+        durationSec: shotUrls.length * 8,
+        narrationUrl,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await savePack(jobId, { ...pack, __renderState: concatState }, {
+        status: "stitching",
+        error: `concat failed; will retry on next poll (${message.slice(0, 260)})`,
+      });
+      return { advanced: true };
+    }
     const masterNarration = stitchBase.masterNarration?.key
       ? { ...stitchBase.masterNarration, status: "muxed" as const, updatedAt: new Date().toISOString() }
       : stitchBase.masterNarration;

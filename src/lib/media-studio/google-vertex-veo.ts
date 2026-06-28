@@ -170,13 +170,10 @@ export async function submitVertexVeoOperation(
   const instance: Record<string, unknown> = { prompt };
   // Veo 3.1 rejects requests that set BOTH `image` (first-frame conditioning)
   // and `referenceImages` (asset/mascot lock): "Image and reference images
-  // cannot be both set." When chaining shots, the first frame IS the mascot
-  // lock — the upstream pipeline runs every tail frame through a Gemini
-  // nano-banana mascot-correction pass that repaints the mascot back to
-  // canon while preserving the exact pose/camera/lighting/composition. So
-  // when a firstFrameImage is supplied we prefer it (frame-perfect handoff
-  // with the mascot already locked) and only fall back to referenceImages
-  // for shot 1, where there is no previous frame to chain from.
+  // cannot be both set." When chaining shots, the previous tail frame is the
+  // continuity lock. We therefore use `image` only for frame-perfect handoff
+  // and fall back to `referenceImages` for shot 1, where there is no previous
+  // frame to chain from.
   if (opts.firstFrameImage) {
     instance.image = opts.firstFrameImage;
   } else if (refs.length) {

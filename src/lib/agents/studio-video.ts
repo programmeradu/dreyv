@@ -136,6 +136,8 @@ function buildShotPrompt(shot: Shot, pack: Pack): string {
     previousShot ? `Previous scene action that just finished — continue directly from its final pose, gesture, and camera motion, do not rewind: ${previousShot.description}` : `Opening scene: establish the cinematic world and motion hook — clean frame, no abstract garnish.`,
     previousCaption ? `What was just said on screen in the previous segment (do NOT repeat it, continue the thought from where it ended): "${previousCaption}"` : null,
     `Current scene action: ${shot.description}`,
+    `Physical scene requirement: use a real desk / phone / laptop / studio-corner prop that fits this beat. Never render the mascot standing idle on a blank background.`,
+    `Camera requirement: choose a beat-specific frame (over-shoulder device insert, three-quarter desk angle, medium reaction, or hero payoff). Do not reuse the same centered full-body mascot shot for every segment.`,
     currentCaption ? `What is being said on screen during this segment (for lip/timing/beat — text is burned in post, do NOT render letters): "${currentCaption}"` : null,
     nextShot ? `End with motion that hands off into this next scene: ${nextShot.description}` : `Final scene: resolve into a clean product payoff without text.`,
     `Continuity lock: identical mascot, identical environment, identical lighting, identical camera language, identical wardrobe and props across all segments. No cut-to-black, no scene reset, no title cards.`,
@@ -227,7 +229,7 @@ export const studioVideoRender = inngest.createFunction(
             // from `pack.burnedCaptions` (one per shot) so the model never has
             // to render legible text itself.
             captions: pack.burnedCaptions,
-            colorGrade: true,
+            colorGrade: false,
             upscaleTo1080: true,
           }),
         );
