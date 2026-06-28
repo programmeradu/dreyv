@@ -58,7 +58,6 @@ export const authClient = {
     },
     signIn: {
         async social(opts: { provider: string; callbackURL?: string }) {
-            const origin = typeof window !== 'undefined' ? window.location.origin : '';
             const raw = opts.callbackURL || '/app';
             let callbackPath = raw;
             if (raw.startsWith('http')) {
@@ -67,12 +66,11 @@ export const authClient = {
                     callbackPath = u.pathname + u.search;
                 } catch { callbackPath = '/app'; }
             }
-            // Neon Auth resolves callbackURL against ITS OWN origin if given a
-            // relative path, which lands the browser on the Neon host and
-            // produces a 404 like `/auth?oauth=complete&neon_auth_session_verifier=...`.
-            // Always send absolute URLs on OUR origin.
-            const callback = `${origin}${callbackPath}`;
-            const errorCallback = `${origin}/auth?oauth=error`;
+            // Better Auth rejects absolute URLs not in its trustedOrigins
+            // ("Invalid callbackURL" 403). Send a relative path; the proxy's
+            // Location rewriter routes the final redirect back to our origin.
+            const callback = callbackPath;
+            const errorCallback = '/auth?oauth=error';
 
 
             const res = await fetch('/api/auth/sign-in/social', {
