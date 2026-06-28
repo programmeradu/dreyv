@@ -425,12 +425,12 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         }
 
         const previousShot = pendingIndex > 0 ? state.shotOperations[pendingIndex - 1] : null;
-        const firstFrameImage = previousShot?.url ? await extractAndCorrectLastFrame(previousShot.url).catch(() => undefined) : undefined;
+        const continuityRefs = await tailRefsFor(previousShot?.url);
         const replacement = await submitNextShotOperation({
           shots,
           pack,
           index: Math.max(0, Math.min(pendingIndex, shots.length - 1)),
-          firstFrameImage,
+          continuityRefs,
           previousObservation: previousShot?.observation,
           reshootNote: `The prior Vertex operation did not complete within ${Math.round(VERTEX_TIMEOUT_MS_PER_SHOT / 60000)} minutes; continue the same locked storyboard beat without restarting the ad.`,
           reshootCount: retryCount + 1,
