@@ -563,14 +563,37 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         submittedAt: new Date().toISOString(),
         durationSec: shotUrls.length * 8,
       };
+      const existingNarrations = stitchBase.narrations ?? [];
+      const upsertNarration = (entry: NarrationEntry): NarrationEntry[] => {
+        const others = existingNarrations.filter((x) => x.n !== entry.n);
+        return [...others, entry].sort((a, b) => a.n - b.n);
+      };
+      const persistNarrations = async (narrations: NarrationEntry[]) => {
+        existingNarrations.splice(0, existingNarrations.length, ...narrations);
+        await savePack(
+          jobId,
+          {
+            ...pack,
+            __renderState: {
+              ...state,
+              stitch: { ...stitchBase, narrations, phase: "normalizing" },
+            },
+          },
+          { status: "stitching" },
+        );
+      };
       try {
         // Synthesize ElevenLabs narration for this shot so the stitcher can
         // mux it in. Falls back to Veo's native audio if ElevenLabs is not
-        // configured or the request fails.
+        // configured or the request fails. Narration state is persisted at
+        // each step so the progress UI can show synthesizing → ready → muxed.
         let narrationUrl: string | undefined;
         const captions = pack.burnedCaptions ?? [];
         const narrationText = captions[nextIndex]?.trim();
         if (isElevenLabsConfigured() && narrationText) {
+          await persistNarrations(
+            upsertNarration({ n: nextIndex, status: "synthesizing", updatedAt: new Date().toISOString() }),
+          );
           try {
             const ctx = narrationContextFor(captions, nextIndex);
             const narration = await synthesizeShotNarration({
@@ -581,9 +604,25 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
               nextText: ctx.nextText,
             });
             narrationUrl = narration.url;
+            await persistNarrations(
+              upsertNarration({ n: nextIndex, status: "ready", bytes: narration.bytes, updatedAt: new Date().toISOString() }),
+            );
           } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
             console.warn(`[vertex-render-job] ElevenLabs narration failed for shot ${nextIndex + 1} (using Veo audio):`, err);
+            await persistNarrations(
+              upsertNarration({ n: nextIndex, status: "failed", reason: reason.slice(0, 200), updatedAt: new Date().toISOString() }),
+            );
           }
+        } else {
+          await persistNarrations(
+            upsertNarration({
+              n: nextIndex,
+              status: "skipped",
+              reason: !isElevenLabsConfigured() ? "ELEVENLABS_API_KEY missing" : "no caption text",
+              updatedAt: new Date().toISOString(),
+            }),
+          );
         }
         const segment = await normalizeSegment({
           jobId,
@@ -596,6 +635,9 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
           shotDurationSec: 8,
         });
         const segments = [...existingSegments, segment].sort((a, b) => a.n - b.n);
+        const finalNarrations = narrationUrl
+          ? upsertNarration({ n: nextIndex, status: "muxed", updatedAt: new Date().toISOString() })
+          : existingNarrations;
         const nextState: VertexRenderState = {
           ...state,
           stitch: {
@@ -603,6 +645,7 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
             attempts: stitchAttempts + 1,
             phase: "normalizing",
             segments,
+            narrations: finalNarrations,
             lastChunkAt: new Date().toISOString(),
           },
         };
@@ -618,7 +661,13 @@ export async function advanceVertexRenderJob(jobId: string): Promise<{ advanced:
         const message = err instanceof Error ? err.message : String(err);
         const nextState: VertexRenderState = {
           ...state,
-          stitch: { ...stitchBase, attempts: stitchAttempts + 1, phase: "normalizing", segments: existingSegments },
+          stitch: {
+            ...stitchBase,
+            attempts: stitchAttempts + 1,
+            phase: "normalizing",
+            segments: existingSegments,
+            narrations: existingNarrations,
+          },
         };
         await savePack(jobId, { ...pack, __renderState: nextState }, { status: "stitching" });
         throw new Error(`normalizeSegment[${nextIndex}] failed: ${message}`);
