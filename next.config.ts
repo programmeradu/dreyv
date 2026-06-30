@@ -118,13 +118,18 @@ const nextConfig: NextConfig = {
     // Prevent drizzle-orm circular init error in client bundles.
     // Server actions use "use server" but drizzle-orm's ESM star-exports
     // can leak into client chunks and fail with TDZ errors.
+    // MetaMask SDK imports this React Native–only package on both server and
+    // client bundle paths; stub it everywhere so webpack resolves.
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@react-native-async-storage/async-storage': false,
+    };
+    // Prevent drizzle-orm circular init error in client bundles.
     if (!isServer) {
-      config.resolve = config.resolve || {};
       config.resolve.alias = {
         ...config.resolve.alias,
         'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
-        // MetaMask SDK imports this React Native–only package; stub it for web.
-        '@react-native-async-storage/async-storage': false,
       };
       // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
       // eth-json-rpc-filters, etc. transitively reference node:* modules).
