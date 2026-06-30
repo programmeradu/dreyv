@@ -152,6 +152,20 @@ export default function AdminMonitoringRoom() {
                         <span className="hidden sm:inline-flex text-[10px] font-mono text-slate-500">
                             Last ping {lastRefresh?.toLocaleTimeString() || "…"}
                         </span>
+                        <a
+                            href="/app/admin/activity"
+                            className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2 text-[11px] font-semibold text-violet-700 hover:border-violet-400 transition-colors"
+                        >
+                            <Activity size={13} />
+                            Activity
+                        </a>
+                        <a
+                            href="/app/admin/traces"
+                            className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-700 hover:border-violet-400 hover:text-violet-700 transition-colors"
+                        >
+                            <Activity size={13} className="text-violet-600" />
+                            Traces
+                        </a>
                         <button
                             onClick={() => { setLoading(true); fetchMetrics(); }}
                             className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-700 hover:border-violet-400 hover:text-violet-700 transition-colors"
