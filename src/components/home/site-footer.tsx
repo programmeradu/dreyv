@@ -51,9 +51,9 @@ const developerLinks = [
 ];
 
 const companyLinks = [
-  { label: "About", href: "/#content" },
+  { label: "About", href: "/about" },
   { label: "Documentation", href: "/developers/docs" },
-  { label: "Contact", href: "/#contact" },
+  { label: "Contact", href: "mailto:hello@dreyv.com" },
 ];
 
 const legalLinks = [
