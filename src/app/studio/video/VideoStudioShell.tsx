@@ -2,12 +2,26 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Loader2, Copy, Check, ArrowUpRight, RefreshCw, Video as VideoIcon } from "lucide-react";
+import {
+  Loader2,
+  Copy,
+  Check,
+  ArrowUpRight,
+  RefreshCw,
+  Video as VideoIcon,
+  Wand2,
+  Gauge,
+  Plug,
+  ChevronLeft,
+} from "lucide-react";
 import StudioPasswordGate from "../StudioPasswordGate";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { studioJsonHeaders, studioAuthHeaders } from "@/lib/media-studio/client-auth";
 import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
-import { VIDEO_ANGLES } from "@/lib/media-studio/video-tools";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types — mirror server contracts
+// ─────────────────────────────────────────────────────────────────────────────
 
 type Shot = {
   n: number;
@@ -31,35 +45,77 @@ type Pack = {
   whyItWorks: string;
 };
 
-type Trends = {
-  source: "firecrawl" | "tikapi" | "bundled";
-  sounds: { name: string; usageNote?: string }[];
-  hashtags: { tag: string; note?: string }[];
-  formats: { id: string; label: string; note: string }[];
-  fetchedAt: string;
-  note?: string;
+type Direction = {
+  id: string;
+  formatName: string;
+  oneLiner: string;
+  emotionalCore: string;
+  durationSec: number;
+  shotCount: number;
+  whyItFitsTikTok: string;
+  whyItCouldFlop: string;
+  targetComment: string;
+  exampleOpener: string;
+  evidenceRefsUsed: string[];
 };
 
-const FORMATS = [
-  { id: "pov", label: "POV Immersion (15–30s)" },
-  { id: "til", label: "Today Years Old / TIL (15–20s)" },
-  { id: "skit", label: "Skit / Micro-Comedy (15–20s)" },
-  { id: "explainer", label: "Talking-Head Explainer (30–45s)" },
-  { id: "trend-remix", label: "Trend Remix (15–30s)" },
-  { id: "meme-overlay", label: "Meme Overlay / Text-driven (10–20s)" },
-  { id: "before-after", label: "Before / After (15–30s)" },
-  { id: "tutorial", label: "Tutorial (30–60s)" },
-];
+type HookVariant = {
+  id: string;
+  textCard: string;
+  spokenLine: string;
+  visualCue: string;
+  scrollStop: number;
+  concreteness: number;
+  watchThrough: number;
+  originality: number;
+  total: number;
+  critique: string;
+};
 
-const TOOLS = [
-  { id: "", label: "Let model pick" },
-  { id: "hedra", label: "Hedra (mascot lip-sync)" },
-  { id: "hailuo", label: "Hailuo / MiniMax ($7.99/mo)" },
-  { id: "kling", label: "Kling 3.0" },
-  { id: "veo3-fast", label: "Veo 3 Fast ($0.15/sec)" },
-  { id: "wan22", label: "Wan 2.2 (self-hosted free)" },
-  { id: "runway-gen4", label: "Runway Gen-4 Reference" },
-];
+type EvidenceItem = {
+  id: string;
+  kind: "capability" | "route" | "screenshot" | "wallet" | "metric";
+  label: string;
+  detail: string;
+  pointer?: string;
+};
+
+type TikTokDigest = {
+  videoCount: number;
+  totals: { views: number; likes: number; comments: number; shares: number };
+  ratios: { likeRate: number; commentRate: number; shareRate: number; avgWatchThrough: number };
+  topVideos: Array<{ videoId: string; caption: string | null; viewCount: number; likeCount: number; fullWatchRate: number | null; shareUrl: string | null }>;
+  worstVideos: Array<{ videoId: string; caption: string | null; viewCount: number; likeCount: number; fullWatchRate: number | null; shareUrl: string | null }>;
+  narrative: string;
+};
+
+type TikTokState = {
+  connected: boolean;
+  rowCount: number;
+  digest: TikTokDigest;
+};
+
+type RenderJob = {
+  id: string;
+  status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
+  model?: string | null;
+  shots_total: number;
+  shots_done: number;
+  shot_urls: string[];
+  final_url: string | null;
+  duration_sec: number | null;
+  error: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type ProviderId = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
+
+type Step = "intent" | "direction" | "hook" | "pack";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = React.useState(false);
@@ -79,57 +135,203 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
   );
 }
 
+function ScorePill({ label, value }: { label: string; value: number }) {
+  const tone =
+    value >= 8 ? "bg-emerald-100 text-emerald-800" :
+    value >= 6 ? "bg-violet-100 text-violet-800" :
+    value >= 4 ? "bg-amber-100 text-amber-800" :
+    "bg-rose-100 text-rose-800";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}>
+      <span className="opacity-70">{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </span>
+  );
+}
+
+const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
+  { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)", secs: 8, usdPerSec: 0.35, note: "Full multi-shot render · local stitch · no burned text" },
+  { id: "veo3-fal", label: "Veo 3 Fast · fal.ai", secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
+  { id: "veo3-google", label: "Veo 3 · Google direct", secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
+  { id: "wan22-fal", label: "Wan 2.2 Fast · budget", secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
+];
+
+const STEP_LABELS: Array<{ id: Step; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: "intent", label: "Intent", icon: Wand2 },
+  { id: "direction", label: "Direction", icon: DreyvStar as unknown as React.ComponentType<{ className?: string }> },
+  { id: "hook", label: "Hook foundry", icon: Gauge },
+  { id: "pack", label: "Production pack", icon: VideoIcon },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
   const [isUnlocked, setIsUnlocked] = React.useState(unlocked);
-  const [formatId, setFormatId] = React.useState("explainer");
-  const [angle, setAngle] = React.useState<string>(VIDEO_ANGLES[0].id);
-  const [customAngle, setCustomAngle] = React.useState("");
+
+  // Wizard state
+  const [step, setStep] = React.useState<Step>("intent");
+  const [intent, setIntent] = React.useState("");
+  const [audience, setAudience] = React.useState("");
+  const [walletAddress, setWalletAddress] = React.useState("");
   const [primaryTool, setPrimaryTool] = React.useState("");
   const [trendingSound, setTrendingSound] = React.useState("");
-  const [audience, setAudience] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+
+  // Intelligence outputs
+  const [directions, setDirections] = React.useState<Direction[] | null>(null);
+  const [chosenDirection, setChosenDirection] = React.useState<Direction | null>(null);
+  const [evidence, setEvidence] = React.useState<EvidenceItem[]>([]);
+  const [hooks, setHooks] = React.useState<HookVariant[] | null>(null);
+  const [chosenHook, setChosenHook] = React.useState<HookVariant | null>(null);
   const [pack, setPack] = React.useState<Pack | null>(null);
 
-  const [trends, setTrends] = React.useState<Trends | null>(null);
-  const [trendsLoading, setTrendsLoading] = React.useState(false);
+  // TikTok loop
+  const [tiktok, setTiktok] = React.useState<TikTokState | null>(null);
+  const [tiktokBusy, setTiktokBusy] = React.useState(false);
+  const [tiktokError, setTiktokError] = React.useState<string | null>(null);
 
-  // ---- Video render job pipeline --------------------------------------
-  type RenderJob = {
-    id: string;
-    status: "queued" | "rendering_shots" | "stitching" | "done" | "failed";
-    model?: string | null;
-    shots_total: number;
-    shots_done: number;
-    shot_urls: string[];
-    final_url: string | null;
-    duration_sec: number | null;
-    error: string | null;
-    created_at?: string;
-    updated_at?: string;
-  };
+  // Loading flags
+  const [busy, setBusy] = React.useState<null | "directions" | "hooks" | "pack">(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Render job
+  const [providerId, setProviderId] = React.useState<ProviderId>("veo3-vertex");
+  const provider = PROVIDERS.find((p) => p.id === providerId)!;
   const [renderJob, setRenderJob] = React.useState<RenderJob | null>(null);
   const [renderStarting, setRenderStarting] = React.useState(false);
   const [renderError, setRenderError] = React.useState<string | null>(null);
   const [renderStartedAt, setRenderStartedAt] = React.useState<number | null>(null);
   const [renderNow, setRenderNow] = React.useState(Date.now());
 
-  // Provider catalogue mirrors the server-side allowlist. `secs` and `usdPerSec`
-  // are used purely to surface an estimated cost in the UI.
-  type ProviderId = "veo3-fal" | "veo3-google" | "veo3-vertex" | "wan22-fal";
-  const PROVIDERS: Array<{ id: ProviderId; label: string; secs: number; usdPerSec: number; note: string }> = [
-    { id: "veo3-vertex", label: "Veo 3.1 · Vertex (GCP)",     secs: 8, usdPerSec: 0.35, note: "Full multi-shot render · local stitch · no burned text" },
-    { id: "veo3-fal",    label: "Veo 3 Fast · fal.ai",        secs: 8, usdPerSec: 0.40, note: "Best quality · native synced audio" },
-    { id: "veo3-google", label: "Veo 3 · Google direct",      secs: 8, usdPerSec: 0.35, note: "Uses your GEMINI_API_KEY" },
-    { id: "wan22-fal",   label: "Wan 2.2 Fast · budget",      secs: 5, usdPerSec: 0.05, note: "16× cheaper · no audio" },
-  ];
-  const [providerId, setProviderId] = React.useState<ProviderId>("veo3-vertex");
-  const provider = PROVIDERS.find((p) => p.id === providerId)!;
   const estimatedRenderSeconds = (pack?.shotList.length ?? 1) * provider.secs;
   const renderModeCopy = providerId === "veo3-vertex"
     ? `Renders all ${pack?.shotList.length ?? 0} sequential Vertex shots, avoids AI-burned text, then stitches locally into one MP4.`
     : `Renders all ${pack?.shotList.length ?? 0} shots, then stitches the final MP4.`;
 
+  // ── Load TikTok state on mount ────────────────────────────────────────
+  React.useEffect(() => {
+    if (!isUnlocked) return;
+    (async () => {
+      try {
+        const r = await fetch("/api/studio/video/tiktok", { headers: studioAuthHeaders() });
+        if (r.ok) setTiktok(await r.json());
+      } catch {}
+    })();
+  }, [isUnlocked]);
+
+  const syncTikTok = React.useCallback(async () => {
+    setTiktokBusy(true);
+    setTiktokError(null);
+    try {
+      const r = await fetch("/api/studio/video/tiktok", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({}),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setTiktok({ connected: true, rowCount: j.digest?.videoCount ?? 0, digest: j.digest });
+    } catch (e) {
+      setTiktokError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTiktokBusy(false);
+    }
+  }, []);
+
+  // ── Stage transitions ──────────────────────────────────────────────────
+  const generateDirections = React.useCallback(async () => {
+    setBusy("directions");
+    setError(null);
+    setDirections(null);
+    setChosenDirection(null);
+    setHooks(null);
+    setChosenHook(null);
+    setPack(null);
+    try {
+      const r = await fetch("/api/studio/video/directions", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({
+          intent: intent.trim(),
+          audience: audience.trim() || undefined,
+          walletAddress: walletAddress.trim() || undefined,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setDirections(j.directions as Direction[]);
+      setEvidence((j.evidence as EvidenceItem[]) ?? []);
+      setStep("direction");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }, [intent, audience, walletAddress]);
+
+  const generateHooks = React.useCallback(async (direction: Direction) => {
+    setBusy("hooks");
+    setError(null);
+    setChosenDirection(direction);
+    setHooks(null);
+    setChosenHook(null);
+    setPack(null);
+    try {
+      const r = await fetch("/api/studio/video/hooks", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({
+          intent: intent.trim(),
+          direction,
+          walletAddress: walletAddress.trim() || undefined,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      const list = j.hooks as HookVariant[];
+      setHooks(list);
+      // Pre-select top scorer
+      if (list.length > 0) setChosenHook(list[0]);
+      setStep("hook");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }, [intent, walletAddress]);
+
+  const generatePack = React.useCallback(async () => {
+    if (!chosenDirection || !chosenHook) return;
+    setBusy("pack");
+    setError(null);
+    setPack(null);
+    try {
+      const r = await fetch("/api/studio/video/draft", {
+        method: "POST",
+        headers: studioJsonHeaders(),
+        body: JSON.stringify({
+          intent: intent.trim(),
+          direction: chosenDirection,
+          hook: chosenHook,
+          walletAddress: walletAddress.trim() || undefined,
+          primaryTool: primaryTool || undefined,
+          trendingSound: trendingSound || undefined,
+          audience: audience.trim() || undefined,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setPack(j as Pack);
+      setStep("pack");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }, [chosenDirection, chosenHook, intent, audience, walletAddress, primaryTool, trendingSound]);
+
+  // ── Render pipeline (unchanged from prior version) ────────────────────
   const submitRender = React.useCallback(async () => {
     if (!pack) return;
     setRenderError(null);
@@ -159,13 +361,9 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
 
   const startRender = React.useCallback(async () => {
     setRenderStarting(true);
-    try {
-      await submitRender();
-    } catch (e) {
-      setRenderError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRenderStarting(false);
-    }
+    try { await submitRender(); }
+    catch (e) { setRenderError(e instanceof Error ? e.message : String(e)); }
+    finally { setRenderStarting(false); }
   }, [submitRender]);
 
   const startNewRender = React.useCallback(async () => {
@@ -173,26 +371,18 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     setRenderStarting(true);
     setRenderError(null);
     try {
-      if (currentId && renderJob.status !== "done" && renderJob.status !== "failed") {
-        const res = await fetch(`/api/studio/video/render?id=${currentId}`, {
-          method: "DELETE",
-          headers: studioAuthHeaders(),
-        });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(j?.error || `Could not abandon old render (HTTP ${res.status})`);
+      if (currentId && renderJob && renderJob.status !== "done" && renderJob.status !== "failed") {
+        await fetch(`/api/studio/video/render?id=${currentId}`, { method: "DELETE", headers: studioAuthHeaders() });
       }
       try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
       setRenderJob(null);
       setRenderStartedAt(null);
       await submitRender();
-    } catch (e) {
-      setRenderError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRenderStarting(false);
-    }
+    } catch (e) { setRenderError(e instanceof Error ? e.message : String(e)); }
+    finally { setRenderStarting(false); }
   }, [renderJob, submitRender]);
 
-  // Rehydrate the active job after a refresh so long renders survive reloads.
+  // Recover active job
   React.useEffect(() => {
     let cancelled = false;
     let stored: string | null = null;
@@ -219,15 +409,12 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
           setRenderStartedAt(new Date(j.created_at ?? j.updated_at ?? Date.now()).getTime());
         } else if (!cancelled && r.status === 404) {
           try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
-        } else if (!cancelled && !r.ok) {
-          setRenderError(j?.error || `Could not recover render session (HTTP ${r.status})`);
         }
       } catch {}
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // Clear the saved job id once it lands in a terminal state.
   React.useEffect(() => {
     if (renderJob && (renderJob.status === "done" || renderJob.status === "failed")) {
       try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
@@ -240,7 +427,6 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
     return () => clearInterval(handle);
   }, [renderJob?.id, renderJob?.status]);
 
-  // Poll job until terminal.
   React.useEffect(() => {
     if (!renderJob || renderJob.status === "done" || renderJob.status === "failed") return;
     const id = renderJob.id;
@@ -251,85 +437,31 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
         const r = await fetch(`/api/studio/video/render?id=${id}`, { headers: studioAuthHeaders() });
         const j = await r.json();
         if (!cancelled && r.ok) setRenderJob((prev) => (prev && prev.id === id ? { ...prev, ...j } : prev));
-        else if (!cancelled && r.status === 404) {
-          try { localStorage.removeItem("studio.video.activeJobId"); } catch {}
-          setRenderJob(null);
-          setRenderError("That render session is no longer available. Start a new render to continue.");
-        } else if (!cancelled && !r.ok) {
-          setRenderError(j?.error || `Render polling failed (HTTP ${r.status})`);
-        }
-      } catch {
-        if (!cancelled) setRenderError("Render status check failed. I’ll keep retrying automatically.");
-      } finally {
+      } catch {} finally {
         if (!cancelled) handle = setTimeout(tick, 5000);
       }
     };
     handle = setTimeout(tick, 1000);
-    return () => {
-      cancelled = true;
-      if (handle) clearTimeout(handle);
-    };
+    return () => { cancelled = true; if (handle) clearTimeout(handle); };
   }, [renderJob]);
-
-  const loadTrends = React.useCallback(async () => {
-    setTrendsLoading(true);
-    try {
-      const r = await fetch("/api/studio/video/trends", { headers: studioAuthHeaders() });
-      const j = await r.json();
-      if (r.ok) setTrends(j as Trends);
-    } catch {
-      // silent — bundled fallback is always rendered
-    } finally {
-      setTrendsLoading(false);
-    }
-  }, []);
 
   const elapsedSeconds = renderStartedAt ? Math.max(0, Math.floor((renderNow - renderStartedAt) / 1000)) : 0;
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const isVertexRender = providerId === "veo3-vertex" || Boolean(renderJob?.model?.includes("vertex"));
   const hasActiveRender = renderJob !== null && renderJob.status !== "done" && renderJob.status !== "failed";
 
-  React.useEffect(() => {
-    if (isUnlocked && !trends) void loadTrends();
-  }, [isUnlocked, trends, loadTrends]);
-
   if (!isUnlocked) return <StudioPasswordGate onUnlocked={() => setIsUnlocked(true)} />;
 
-  async function generate(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setPack(null);
-    try {
-      const r = await fetch("/api/studio/video/draft", {
-        method: "POST",
-        headers: studioJsonHeaders(),
-        body: JSON.stringify({
-          formatId,
-          angle,
-          customAngle: angle === "custom" ? customAngle : undefined,
-          primaryTool: primaryTool || undefined,
-          trendingSound: trendingSound || undefined,
-          audience: audience || undefined,
-        }),
-      });
-      const j = await r.json();
-      if (!r.ok) setError(j.error || "Failed to generate");
-      else setPack(j as Pack);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const stepIndex = STEP_LABELS.findIndex((s) => s.id === step);
 
+  // ─────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white font-manrope text-slate-900">
       <header className="sticky top-0 z-20 border-b border-violet-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <VideoIcon className="h-4 w-4 text-violet-700" />
-            <span className="text-sm font-semibold">Dreyv Studio · TikTok video packs</span>
+            <span className="text-sm font-semibold">Dreyv Studio · TikTok intelligence</span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <Link href="/studio" className="hover:text-violet-700">Media</Link>
@@ -342,39 +474,179 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
         </div>
       </header>
 
-      <section className="border-b border-violet-100 bg-violet-50/40">
-        <div className="mx-auto max-w-7xl px-6 py-10">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Generate a TikTok pack for the Dreyv mascot</h1>
-              <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                One generation = a full production plan: hook, shot list with per-tool prompts (Hedra · Hailuo · Kling · Veo 3 · Wan 2.2), voiceover, burned captions, hashtags, sound, posting window, mascot consistency notes. Nothing renders or posts automatically — you paste the prompts into the tools you have access to.
+      {/* TikTok performance banner — drives the learning loop */}
+      <section className="border-b border-violet-100 bg-gradient-to-r from-violet-50/80 to-white">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-violet-600 p-2 text-white">
+                <Plug className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                  Performance loop {tiktok?.connected ? "· connected" : "· not connected"}
+                </div>
+                <div className="mt-0.5 text-sm text-slate-700">
+                  {tiktok && tiktok.rowCount > 0
+                    ? tiktok.digest.narrative
+                    : tiktok?.connected
+                      ? "TikTok is linked. Click Sync to pull your last 20 videos so every direction + hook is informed by what actually worked."
+                      : "Link the TikTok connector so the studio learns from what's actually working on your account. Until then it works blind."}
+                </div>
+                {tiktokError && (
+                  <div className="mt-1 text-xs text-rose-700">{tiktokError}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {tiktok?.connected && (
+                <button
+                  type="button"
+                  onClick={syncTikTok}
+                  disabled={tiktokBusy}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:border-violet-400 disabled:opacity-50"
+                >
+                  {tiktokBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Sync last 20
+                </button>
+              )}
+              {!tiktok?.connected && (
+                <span className="text-[11px] text-slate-500">
+                  Link TikTok in workspace → Connectors, then refresh.
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stepper */}
+      <section className="border-b border-violet-100 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-6 py-3">
+          {STEP_LABELS.map((s, i) => {
+            const active = s.id === step;
+            const done = i < stepIndex;
+            const Icon = s.icon;
+            return (
+              <React.Fragment key={s.id}>
+                <div
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    active
+                      ? "border-violet-600 bg-violet-600 text-white"
+                      : done
+                        ? "border-violet-200 bg-violet-50 text-violet-700"
+                        : "border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{s.label}</span>
+                </div>
+                {i < STEP_LABELS.length - 1 && <div className="h-px w-6 bg-slate-200" />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Stage content */}
+      <section className="mx-auto max-w-7xl px-6 py-8">
+        {error && (
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        )}
+
+        {/* ───────────── STEP 1 — INTENT ───────────── */}
+        {step === "intent" && (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <div className="rounded-3xl border border-violet-100 bg-white p-6">
+              <h1 className="text-2xl font-bold tracking-tight">What's this video actually about?</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                One sentence is enough. The studio will invent three different creative directions for you — no preset formats, no fill-in-the-blank templates.
               </p>
+
+              <label className="mt-5 block">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Intent</span>
+                <textarea
+                  value={intent}
+                  onChange={(e) => setIntent(e.target.value)}
+                  rows={4}
+                  placeholder="e.g. show what happens when an AI agent tries to drain a treasury and dreyv catches it in 200ms"
+                  className="mt-1.5 w-full resize-y rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
+                />
+              </label>
+
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Audience (optional)</span>
+                  <input
+                    value={audience}
+                    onChange={(e) => setAudience(e.target.value)}
+                    placeholder="solo devs trying MCP, treasury ops on Solana, etc."
+                    className="mt-1.5 w-full rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Real wallet to cite (optional)</span>
+                  <input
+                    value={walletAddress}
+                    onChange={(e) => setWalletAddress(e.target.value)}
+                    placeholder="paste a Solana address — opens live evidence"
+                    className="mt-1.5 w-full rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-mono focus:border-violet-500 focus:outline-none"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Primary tool (optional)</span>
+                  <select
+                    value={primaryTool}
+                    onChange={(e) => setPrimaryTool(e.target.value)}
+                    className="mt-1.5 w-full rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none"
+                  >
+                    <option value="">Let the model pick</option>
+                    <option value="hedra">Hedra (mascot lip-sync)</option>
+                    <option value="hailuo">Hailuo / MiniMax ($7.99/mo)</option>
+                    <option value="kling">Kling 3.0</option>
+                    <option value="veo3-fast">Veo 3 Fast ($0.15/sec)</option>
+                    <option value="wan22">Wan 2.2 (self-hosted free)</option>
+                    <option value="runway-gen4">Runway Gen-4 Reference</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Trending sound (optional)</span>
+                  <input
+                    value={trendingSound}
+                    onChange={(e) => setTrendingSound(e.target.value)}
+                    placeholder="e.g. suspense-rising-into-reveal loop"
+                    className="mt-1.5 w-full rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={generateDirections}
+                disabled={busy !== null || intent.trim().length < 4}
+                className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {busy === "directions" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {busy === "directions" ? "Inventing 3 directions…" : "Generate 3 directions"}
+              </button>
             </div>
 
-            {/* Cinematic Lock panel — shows what the pipeline is enforcing on every render. */}
-            <aside className="rounded-3xl border border-violet-200 bg-white p-5 shadow-[0_30px_60px_-40px_rgba(124,58,237,0.45)]">
-              <div className="flex items-center gap-3">
-                <div className="relative h-14 w-14 shrink-0 rounded-2xl bg-violet-50 ring-1 ring-violet-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/mascot/dreyv-greet.png"
-                    alt="Dreyv mascot reference"
-                    className="absolute inset-1 h-12 w-12 object-contain"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Cinematic lock</div>
-                  <div className="truncate text-sm font-semibold text-slate-900">Hollywood pipeline · v2</div>
-                </div>
-              </div>
-              <ul className="mt-4 space-y-2 text-[12px] leading-relaxed text-slate-700">
+            <aside className="rounded-3xl border border-violet-200 bg-white p-6 shadow-[0_30px_60px_-40px_rgba(124,58,237,0.45)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">How this differs</div>
+              <div className="mt-1 text-base font-semibold text-slate-900">Intelligent, not template-driven</div>
+              <ul className="mt-4 space-y-3 text-[13px] leading-relaxed text-slate-700">
                 {[
-                  ["Mascot", "Solid violet #7c3aed Dreyv — no orange / brown / fox drift"],
-                  ["Style bible", "Pixar/Apple-keynote polish, single calm set per scene"],
-                  ["Clean frame", "No floating particles, orbs, fake dashboards or AI noise"],
-                  ["Continuity", "Same camera, lighting, palette across every segment"],
-                  ["Text", "Composited in post — model never spells on-screen"],
+                  ["Direction Generator", "Invents 3 fresh formats for your intent — no POV / TIL / skit dropdown."],
+                  ["Hook Foundry", "Generates 10 hooks and an internal critic scores each on scroll-stop, concreteness, watch-through, and originality."],
+                  ["Evidence-grounded", "Every factual claim must map to a real capability, route, screenshot, or wallet — no invented metrics."],
+                  ["Learns from your account", tiktok && tiktok.rowCount > 0
+                    ? `Last ${tiktok.rowCount} TikToks are feeding the planner.`
+                    : "Connect TikTok to feed the planner with what's actually working."],
                 ].map(([k, v]) => (
                   <li key={k} className="flex items-start gap-2">
                     <DreyvStar className="mt-[3px] h-2.5 w-2.5 shrink-0 text-violet-600" />
@@ -386,471 +658,462 @@ export default function VideoStudioShell({ unlocked }: { unlocked: boolean }) {
               </ul>
             </aside>
           </div>
+        )}
 
-
-          <form onSubmit={generate} className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Format archetype</span>
-              <select
-                value={formatId}
-                onChange={(e) => setFormatId(e.target.value)}
-                className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
+        {/* ───────────── STEP 2 — DIRECTION ───────────── */}
+        {step === "direction" && directions && (
+          <div>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStep("intent")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900"
               >
-                {FORMATS.map((f) => (
-                  <option key={f.id} value={f.id}>{f.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1.5 md:col-span-2">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Angle</span>
-              <select
-                value={angle}
-                onChange={(e) => setAngle(e.target.value)}
-                className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
+                <ChevronLeft className="h-3 w-3" /> Back to intent
+              </button>
+              <button
+                type="button"
+                onClick={generateDirections}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:border-violet-400 disabled:opacity-50"
               >
-                {VIDEO_ANGLES.map((a) => (
-                  <option key={a.id} value={a.id}>{a.label}</option>
-                ))}
-                <option value="custom">Custom angle…</option>
-              </select>
-              {angle !== "custom" && (() => {
-                const a = VIDEO_ANGLES.find((x) => x.id === angle);
-                if (!a) return null;
+                {busy === "directions" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Reroll directions
+              </button>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight">Pick a direction</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Each is genuinely different in shape — length, energy, voice. The studio will not let you carry forward without a chosen direction.
+            </p>
+
+            <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+              {directions.map((d) => {
+                const active = chosenDirection?.id === d.id;
                 return (
-                  <div className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-2 text-[12px] leading-relaxed text-slate-700">
-                    <div className="text-slate-900">{a.teaser}</div>
-                    <div className="mt-1 text-[11px] text-violet-700">
-                      Hook ideas: {a.hookIdeas.map((h) => `“${h}”`).join(" · ")}
+                  <div
+                    key={d.id}
+                    className={`flex h-full flex-col rounded-3xl border bg-white p-5 transition ${
+                      active ? "border-violet-600 ring-2 ring-violet-200" : "border-violet-100 hover:border-violet-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-violet-700">
+                        {d.durationSec}s · {d.shotCount} shots
+                      </div>
+                      {active && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                          <Check className="h-3 w-3" /> chosen
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="mt-3 text-lg font-bold leading-tight text-slate-900">{d.formatName}</h3>
+                    <p className="mt-1 text-sm text-slate-700">{d.oneLiner}</p>
+
+                    <div className="mt-4 space-y-3 text-[13px] leading-relaxed text-slate-700">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Emotional core</div>
+                        <div className="mt-0.5">{d.emotionalCore}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Example opener</div>
+                        <div className="mt-0.5 italic">“{d.exampleOpener}”</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Why it could land</div>
+                        <div className="mt-0.5">{d.whyItFitsTikTok}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-rose-700">Risk</div>
+                        <div className="mt-0.5 text-slate-600">{d.whyItCouldFlop}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Target comment</div>
+                        <div className="mt-0.5 text-slate-600">“{d.targetComment}”</div>
+                      </div>
+                      {d.evidenceRefsUsed.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Evidence used</div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {d.evidenceRefsUsed.map((id) => {
+                              const ev = evidence.find((e) => e.id === id);
+                              return (
+                                <span key={id} className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                                  {ev?.label ?? id}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-auto pt-5">
+                      <button
+                        type="button"
+                        onClick={() => generateHooks(d)}
+                        disabled={busy !== null}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                      >
+                        {busy === "hooks" && active ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                        Use this direction
+                      </button>
                     </div>
                   </div>
                 );
-              })()}
-            </label>
+              })}
+            </div>
+          </div>
+        )}
 
-
-            {angle === "custom" && (
-              <label className="flex flex-col gap-1.5 md:col-span-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Custom angle</span>
-                <textarea
-                  value={customAngle}
-                  onChange={(e) => setCustomAngle(e.target.value)}
-                  rows={2}
-                  placeholder="What is this video actually about? Reference the specific capability or moment."
-                  className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
-                />
-              </label>
-            )}
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Primary tool (optional)</span>
-              <select
-                value={primaryTool}
-                onChange={(e) => setPrimaryTool(e.target.value)}
-                className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
-              >
-                {TOOLS.map((t) => (
-                  <option key={t.id || "auto"} value={t.id}>{t.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Trending sound (optional)</span>
-              <input
-                value={trendingSound}
-                onChange={(e) => setTrendingSound(e.target.value)}
-                list="dreyv-trending-sounds"
-                placeholder="e.g. 'Aesthetic chill lo-fi loop' — pick from trends panel"
-                className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
-              />
-              <datalist id="dreyv-trending-sounds">
-                {trends?.sounds.map((s) => (
-                  <option key={s.name} value={s.name}>{s.usageNote}</option>
-                ))}
-              </datalist>
-            </label>
-
-            <label className="flex flex-col gap-1.5 md:col-span-2">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Audience focus (optional)</span>
-              <input
-                value={audience}
-                onChange={(e) => setAudience(e.target.value)}
-                placeholder="e.g. solo devs trying MCP for the first time, treasury operators on Solana"
-                className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-sm focus:border-violet-500 focus:outline-none"
-              />
-            </label>
-
-            <div className="md:col-span-2">
+        {/* ───────────── STEP 3 — HOOK FOUNDRY ───────────── */}
+        {step === "hook" && hooks && chosenDirection && (
+          <div>
+            <div className="mb-4 flex items-center justify-between gap-3">
               <button
-                type="submit"
-                disabled={loading || (angle === "custom" && !customAngle.trim())}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                type="button"
+                onClick={() => setStep("direction")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
-                {loading ? "Generating pack…" : "Generate video pack"}
+                <ChevronLeft className="h-3 w-3" /> Back to directions
+              </button>
+              <button
+                type="button"
+                onClick={() => generateHooks(chosenDirection)}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:border-violet-400 disabled:opacity-50"
+              >
+                {busy === "hooks" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Reroll 10 hooks
               </button>
             </div>
-          </form>
 
-          {error && (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+            <div className="rounded-3xl border border-violet-100 bg-violet-50/40 p-5">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Chosen direction</div>
+              <div className="mt-1 text-base font-bold text-slate-900">{chosenDirection.formatName}</div>
+              <div className="text-sm text-slate-700">{chosenDirection.oneLiner}</div>
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* Trends panel */}
-      <section className="border-b border-violet-100">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Trending signals</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Source: <strong>{trends?.source ?? "—"}</strong>
-                {trends?.note && <> · {trends.note}</>}
-                {trends?.fetchedAt && <> · {new Date(trends.fetchedAt).toLocaleString()}</>}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={loadTrends}
-              disabled={trendsLoading}
-              className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-semibold text-violet-700 hover:border-violet-400 disabled:opacity-50"
-            >
-              {trendsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              Refresh
-            </button>
-          </div>
-          {trends && (
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-violet-100 bg-white p-4">
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Sounds</h3>
-                <ul className="mt-2 space-y-1.5 text-sm">
-                  {trends.sounds.map((s) => (
-                    <li key={s.name} className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium text-slate-800">{s.name}</div>
-                        {s.usageNote && <div className="text-xs text-slate-500">{s.usageNote}</div>}
+            <h2 className="mt-6 text-2xl font-bold tracking-tight">Hook foundry · 10 variants, critic-scored</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Scores are 0–10 each. The critic was told to score harshly — most hooks land in 3–6, only 1–2 should hit 8+. Top scorer is pre-selected.
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {hooks.map((h, i) => {
+                const active = chosenHook?.id === h.id;
+                return (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => setChosenHook(h)}
+                    className={`flex flex-col gap-3 rounded-3xl border bg-white p-5 text-left transition ${
+                      active ? "border-violet-600 ring-2 ring-violet-200" : "border-violet-100 hover:border-violet-300"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-white">#{i + 1}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-600 px-2.5 py-0.5 text-xs font-bold text-white">
+                          <Gauge className="h-3 w-3" /> {h.total.toFixed(1)}
+                        </span>
+                        {active && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                            <Check className="h-3 w-3" /> selected
+                          </span>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setTrendingSound(s.name)}
-                        className="rounded-full border border-violet-200 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:border-violet-400"
-                      >
-                        Use
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-violet-100 bg-white p-4">
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Hashtags</h3>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {trends.hashtags.map((h) => (
-                    <span key={h.tag} className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">
-                      {h.tag}
-                      {h.note && <span className="ml-1 text-[10px] text-slate-500">· {h.note}</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <ScorePill label="stop" value={h.scrollStop} />
+                        <ScorePill label="concrete" value={h.concreteness} />
+                        <ScorePill label="watch" value={h.watchThrough} />
+                        <ScorePill label="orig" value={h.originality} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Text card (1.5s)</div>
+                      <div className="mt-0.5 text-base font-bold text-slate-900">{h.textCard}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Spoken opener</div>
+                      <div className="mt-0.5 text-sm text-slate-800">{h.spokenLine}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-700">Visual cue</div>
+                      <div className="mt-0.5 text-sm text-slate-700">{h.visualCue}</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-[12px] leading-relaxed text-slate-600">
+                      <span className="font-semibold text-slate-800">Critic:</span> {h.critique}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </div>
-      </section>
 
-      {pack && (
-        <section className="mx-auto max-w-7xl px-6 py-10">
-          <div className="mb-6 flex items-baseline justify-between gap-4">
-            <h2 className="text-2xl font-bold tracking-tight">{pack.formatLabel}</h2>
-            <span className="text-xs text-slate-500">{pack.whyItWorks}</span>
-          </div>
-
-          {/* RENDER BAR — Dreyv makes its own ad. Pick a video provider. */}
-          <div className="mb-6 rounded-3xl border border-violet-200 bg-violet-50/60 p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
-                  Auto-render · {provider.label}
-                </div>
-                <div className="mt-1 text-sm text-slate-700">
-                  {renderModeCopy}
-                  {' '}~${(estimatedRenderSeconds * provider.usdPerSec).toFixed(2)} estimated cost. {provider.note}.
-                </div>
-
-                {/* Provider segmented control */}
-                <div className="mt-3 inline-flex flex-wrap gap-1.5 rounded-2xl border border-violet-200 bg-white p-1">
-                  {PROVIDERS.map((p) => {
-                    const active = p.id === providerId;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setProviderId(p.id)}
-                        disabled={renderStarting || hasActiveRender}
-                        className={
-                          "rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 " +
-                          (active
-                            ? "bg-violet-600 text-white"
-                            : "text-slate-700 hover:bg-violet-50")
-                        }
-                      >
-                        {p.label}
-                      </button>
-                    );
-                  })}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-violet-200 bg-white p-5">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Locked hook</div>
+                <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                  {chosenHook ? `“${chosenHook.textCard}” → “${chosenHook.spokenLine}”` : "Pick a hook above."}
                 </div>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[210px]">
-                <button
-                  type="button"
-                  onClick={startRender}
-                  disabled={renderStarting || hasActiveRender}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {renderStarting
-                    ? "Submitting…"
-                    : hasActiveRender
-                      ? "Rendering…"
-                      : renderJob?.status === "done"
-                        ? "Re-render full ad"
-                        : "Render full ad"}
-                </button>
-                {hasActiveRender && (
+              <button
+                type="button"
+                onClick={generatePack}
+                disabled={busy !== null || !chosenHook}
+                className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {busy === "pack" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                {busy === "pack" ? "Building grounded pack…" : "Build production pack"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ───────────── STEP 4 — PACK + RENDER ───────────── */}
+        {step === "pack" && pack && (
+          <>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStep("hook")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900"
+              >
+                <ChevronLeft className="h-3 w-3" /> Back to hooks
+              </button>
+              <button
+                type="button"
+                onClick={generatePack}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 hover:border-violet-400 disabled:opacity-50"
+              >
+                {busy === "pack" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Rebuild pack
+              </button>
+            </div>
+
+            <div className="mb-6 flex items-baseline justify-between gap-4">
+              <h2 className="text-2xl font-bold tracking-tight">{pack.formatLabel}</h2>
+              <span className="text-xs text-slate-500">{pack.whyItWorks}</span>
+            </div>
+
+            {/* RENDER BAR */}
+            <div className="mb-6 rounded-3xl border border-violet-200 bg-violet-50/60 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
+                    Auto-render · {provider.label}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">
+                    {renderModeCopy}{' '}~${(estimatedRenderSeconds * provider.usdPerSec).toFixed(2)} estimated cost. {provider.note}.
+                  </div>
+                  <div className="mt-3 inline-flex flex-wrap gap-1.5 rounded-2xl border border-violet-200 bg-white p-1">
+                    {PROVIDERS.map((p) => {
+                      const active = p.id === providerId;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setProviderId(p.id)}
+                          disabled={renderStarting || hasActiveRender}
+                          className={
+                            "rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 " +
+                            (active ? "bg-violet-600 text-white" : "text-slate-700 hover:bg-violet-50")
+                          }
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[210px]">
                   <button
                     type="button"
-                    onClick={startNewRender}
-                    disabled={renderStarting}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={startRender}
+                    disabled={renderStarting || hasActiveRender}
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    Start new render
+                    {renderStarting ? "Submitting…" : hasActiveRender ? "Rendering…" : renderJob?.status === "done" ? "Re-render full ad" : "Render full ad"}
                   </button>
-                )}
-              </div>
-            </div>
-
-            {renderError && (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                {renderError}
-              </div>
-            )}
-
-            {renderJob && (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="rounded-full bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-white">
-                    {renderJob.status}
-                  </span>
-                  {renderJob.status !== "done" && renderJob.status !== "failed" && (
-                    <span className="text-slate-600">
-                      {isVertexRender
-                        ? `${renderJob.shots_done}/${renderJob.shots_total} Vertex shots rendered · ${elapsedLabel}`
-                        : `${renderJob.shots_done}/${renderJob.shots_total} shots rendered · ${elapsedLabel}`}
-                    </span>
+                  {hasActiveRender && (
+                    <button
+                      type="button"
+                      onClick={startNewRender}
+                      disabled={renderStarting}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Start new render
+                    </button>
                   )}
-                  <Link
-                    href={`/studio/video/${renderJob.id}/progress`}
-                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2.5 py-0.5 font-semibold text-violet-700 hover:border-violet-400"
-                  >
-                    Open progress view <ArrowUpRight className="h-3 w-3" />
-                  </Link>
                 </div>
-                {renderJob.status !== "done" && renderJob.status !== "failed" && (
-                  <div className="rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
-                    {isVertexRender
-                      ? "Submitted to Vertex. Each shot is prompted as the next scene in one ad, then Dreyv stitches the finished clips locally into one MP4. Captions are intentionally kept out of Veo to avoid misspellings."
-                      : "Background render is active. The page can refresh safely; the session will recover from the saved job."}
-                    {renderJob.status === "stitching" && elapsedSeconds > 8 * 60 && (
-                      <span className="mt-1 block font-semibold text-violet-700">
-                        Stitching is taking longer than normal. You can start a new render without waiting for this job to finish.
+              </div>
+
+              {renderError && (
+                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {renderError}
+                </div>
+              )}
+
+              {renderJob && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="rounded-full bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-white">{renderJob.status}</span>
+                    {renderJob.status !== "done" && renderJob.status !== "failed" && (
+                      <span className="text-slate-600">
+                        {isVertexRender
+                          ? `${renderJob.shots_done}/${renderJob.shots_total} Vertex shots rendered · ${elapsedLabel}`
+                          : `${renderJob.shots_done}/${renderJob.shots_total} shots rendered · ${elapsedLabel}`}
                       </span>
                     )}
+                    <Link
+                      href={`/studio/video/${renderJob.id}/progress`}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2.5 py-0.5 font-semibold text-violet-700 hover:border-violet-400"
+                    >
+                      Open progress view <ArrowUpRight className="h-3 w-3" />
+                    </Link>
                   </div>
-                )}
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-violet-600 transition-all"
-                    style={{
-                      width:
-                        renderJob.status === "done"
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-violet-600 transition-all"
+                      style={{
+                        width: renderJob.status === "done"
                           ? "100%"
                           : renderJob.status === "stitching"
                             ? "92%"
                             : `${(renderJob.shots_done / Math.max(1, renderJob.shots_total)) * (isVertexRender ? 82 : 85)}%`,
-                    }}
-                  />
-                </div>
-                {renderJob.error && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    {renderJob.error}
-                  </div>
-                )}
-                {renderJob.shot_urls && renderJob.shot_urls.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-                    {renderJob.shot_urls.map((u, i) => (
-                      <a
-                        key={i}
-                        href={u}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block overflow-hidden rounded-xl border border-violet-100 bg-black"
-                      >
-                        <video src={u} className="aspect-[9/16] w-full object-cover" muted playsInline />
-                        <div className="px-2 py-1 text-[10px] text-slate-500">Shot {i + 1}</div>
-                      </a>
-                    ))}
-                  </div>
-                )}
-                {renderJob.final_url && (
-                  <div className="rounded-2xl border border-violet-200 bg-white p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">
-                        Final ad · {renderJob.duration_sec}s
-                      </div>
-                      <a
-                        href={renderJob.final_url}
-                        download
-                        className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline"
-                      >
-                        Download MP4 ↓
-                      </a>
-                    </div>
-                    <video
-                      src={renderJob.final_url}
-                      className="aspect-[9/16] w-full max-w-xs rounded-xl bg-black"
-                      controls
-                      playsInline
+                      }}
                     />
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
-            <div className="space-y-6">
-              {/* HOOK */}
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Hook (first 1.5s)</h3>
-                  <CopyButton text={`${pack.hook.textCard}\n\n${pack.hook.spokenLine}`} />
-                </div>
-                <div className="rounded-2xl bg-violet-50 px-4 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Text card</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-900">{pack.hook.textCard}</div>
-                </div>
-                <div className="mt-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Spoken opener</div>
-                  <div className="mt-1 text-sm text-slate-800">{pack.hook.spokenLine}</div>
-                </div>
-              </div>
-
-              {/* SHOT LIST */}
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-violet-700">Shot list & per-tool prompts</h3>
-                <ol className="space-y-4">
-                  {pack.shotList.map((shot) => (
-                    <li key={shot.n} className="rounded-2xl border border-slate-200 p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="rounded-full bg-violet-600 px-2 py-0.5 font-semibold text-white">Shot {shot.n}</span>
-                          <span className="font-mono text-slate-500">{shot.timing}</span>
-                          <span className="rounded-full border border-violet-200 px-2 py-0.5 font-semibold text-violet-700">{shot.recommendedTool}</span>
-                          {shot.mascotInShot && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Mascot in shot</span>
-                          )}
-                        </div>
+                  {renderJob.error && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{renderJob.error}</div>
+                  )}
+                  {renderJob.shot_urls && renderJob.shot_urls.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                      {renderJob.shot_urls.map((u, i) => (
+                        <a key={i} href={u} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-violet-100 bg-black">
+                          <video src={u} className="aspect-[9/16] w-full object-cover" muted playsInline />
+                          <div className="px-2 py-1 text-[10px] text-slate-500">Shot {i + 1}</div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {renderJob.final_url && (
+                    <div className="rounded-2xl border border-violet-200 bg-white p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-700">Final ad · {renderJob.duration_sec}s</div>
+                        <a href={renderJob.final_url} download className="text-xs font-semibold text-violet-700 underline-offset-2 hover:underline">Download MP4 ↓</a>
                       </div>
-                      <p className="mt-2 text-sm text-slate-800">{shot.description}</p>
-                      <div className="mt-3 rounded-xl bg-slate-900 p-3">
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                            Paste into {shot.recommendedTool}
-                          </span>
-                          <CopyButton text={shot.toolPrompt} />
-                        </div>
-                        <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-slate-100">{shot.toolPrompt}</pre>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {/* VOICEOVER */}
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Voiceover script (ElevenLabs → Hedra)</h3>
-                  <CopyButton text={pack.voiceoverScript} />
+                      <video src={renderJob.final_url} className="aspect-[9/16] w-full max-w-xs rounded-xl bg-black" controls playsInline />
+                    </div>
+                  )}
                 </div>
-                <pre className="whitespace-pre-wrap font-manrope text-sm leading-6 text-slate-800">{pack.voiceoverScript}</pre>
-              </div>
-
-              {/* CAPTIONS */}
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Burned captions (CapCut)</h3>
-                  <CopyButton text={pack.burnedCaptions.join("\n")} />
-                </div>
-                <ol className="space-y-1.5 text-sm text-slate-800">
-                  {pack.burnedCaptions.map((c, i) => (
-                    <li key={i} className="rounded-lg bg-slate-50 px-3 py-2"><span className="mr-2 text-slate-400">{i + 1}.</span>{c}</li>
-                  ))}
-                </ol>
-              </div>
+              )}
             </div>
 
-            <aside className="space-y-6">
-              <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-6">
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Posting window</h3>
-                <p className="mt-2 text-sm text-slate-800">{pack.postingWindow}</p>
-              </div>
-
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Sound</h3>
-                <p className="mt-2 text-sm text-slate-800">{pack.soundSuggestion}</p>
-              </div>
-
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Hashtags</h3>
-                  <CopyButton text={pack.hashtags.join(" ")} />
+            {/* PACK GRID */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Hook (first 1.5s)</h3>
+                    <CopyButton text={`${pack.hook.textCard}\n\n${pack.hook.spokenLine}`} />
+                  </div>
+                  <div className="rounded-2xl bg-violet-50 px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Text card</div>
+                    <div className="mt-1 text-lg font-semibold text-slate-900">{pack.hook.textCard}</div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Spoken opener</div>
+                    <div className="mt-1 text-sm text-slate-800">{pack.hook.spokenLine}</div>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {pack.hashtags.map((h, i) => (
-                    <span key={i} className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">{h}</span>
-                  ))}
+
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-violet-700">Shot list & per-tool prompts</h3>
+                  <ol className="space-y-4">
+                    {pack.shotList.map((shot) => (
+                      <li key={shot.n} className="rounded-2xl border border-slate-200 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="rounded-full bg-violet-600 px-2 py-0.5 font-semibold text-white">Shot {shot.n}</span>
+                            <span className="font-mono text-slate-500">{shot.timing}</span>
+                            <span className="rounded-full border border-violet-200 px-2 py-0.5 font-semibold text-violet-700">{shot.recommendedTool}</span>
+                            {shot.mascotInShot && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Mascot in shot</span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-800">{shot.description}</p>
+                        <div className="mt-3 rounded-xl bg-slate-900 p-3">
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Paste into {shot.recommendedTool}</span>
+                            <CopyButton text={shot.toolPrompt} />
+                          </div>
+                          <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-slate-100">{shot.toolPrompt}</pre>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Voiceover script (ElevenLabs → Hedra)</h3>
+                    <CopyButton text={pack.voiceoverScript} />
+                  </div>
+                  <pre className="whitespace-pre-wrap font-manrope text-sm leading-6 text-slate-800">{pack.voiceoverScript}</pre>
+                </div>
+
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Burned captions (CapCut)</h3>
+                    <CopyButton text={pack.burnedCaptions.join("\n")} />
+                  </div>
+                  <ol className="space-y-1.5 text-sm text-slate-800">
+                    {pack.burnedCaptions.map((c, i) => (
+                      <li key={i} className="rounded-lg bg-slate-50 px-3 py-2"><span className="mr-2 text-slate-400">{i + 1}.</span>{c}</li>
+                    ))}
+                  </ol>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-violet-100 bg-white p-6">
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Mascot consistency notes</h3>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                  {pack.mascotNotes.map((n, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <DreyvStar size={10} />
-                      <span>{n}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="rounded-3xl border border-violet-100 bg-white p-6 text-xs text-slate-500">
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Reminders</h3>
-                <ul className="mt-3 space-y-1.5">
-                  <li>· Always re-seed I2V from the original mascot PNG, never a generated frame.</li>
-                  <li>· Lock lighting: soft indoor warm 3200K across every shot.</li>
-                  <li>· Burn captions in CapCut — 60% of TikTok plays muted.</li>
-                  <li>· First 1.5s decides whether the algorithm advances you.</li>
-                  <li>· Post from your phone (TikTok deboosts API posts for organic).</li>
-                </ul>
-              </div>
-            </aside>
-          </div>
-        </section>
-      )}
+              <aside className="space-y-6">
+                <div className="rounded-3xl border border-violet-100 bg-violet-50/60 p-6">
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Posting window</h3>
+                  <p className="mt-2 text-sm text-slate-800">{pack.postingWindow}</p>
+                </div>
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Sound</h3>
+                  <p className="mt-2 text-sm text-slate-800">{pack.soundSuggestion}</p>
+                </div>
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Hashtags</h3>
+                    <CopyButton text={pack.hashtags.join(" ")} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pack.hashtags.map((h, i) => (
+                      <span key={i} className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">{h}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-3xl border border-violet-100 bg-white p-6">
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-violet-700">Mascot consistency notes</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                    {pack.mascotNotes.map((n, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <DreyvStar size={10} />
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
