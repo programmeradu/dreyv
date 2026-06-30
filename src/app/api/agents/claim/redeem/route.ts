@@ -168,6 +168,13 @@ export async function POST(req: NextRequest) {
 
   // Reassign rows. Drizzle/Neon-http doesn't expose a transaction here; we do
   // sequential updates and mark the jti redeemed on success.
+  //
+  // NOTE: we intentionally do NOT rewrite agent_balance_ledger.user_id. Those
+  // rows store a historical balance_after snapshot that only makes sense in
+  // the agent's own running total — re-attributing them to the customer would
+  // make the customer's ledger display nonsensical (the prior cause of the
+  // "+4.9M → 4.9M" merge artefact). The single merge marker row below is the
+  // tamper-evident link between the two histories.
   await db
     .update(publicApiKeys)
     .set({ userId: me.id })
@@ -180,10 +187,6 @@ export async function POST(req: NextRequest) {
     .update(agentPayments)
     .set({ userId: me.id })
     .where(eq(agentPayments.userId, agentUserId));
-  await db
-    .update(agentBalanceLedger)
-    .set({ userId: me.id })
-    .where(eq(agentBalanceLedger.userId, agentUserId));
 
   if (agentWallet && !customerWallet) {
     await db
@@ -192,7 +195,11 @@ export async function POST(req: NextRequest) {
       .where(eq(agentWallets.userId, agentUserId));
   }
 
-  // Merge balance: write the combined total onto the customer row, drop the agent row.
+  // Merge balance: write the combined total onto the customer row, zero out
+  // the agent row (do NOT delete — the merge pointer below redirects all
+  // future reads/charges from the agent's still-valid dk_live_ keys onto the
+  // customer row, and deleting would let getAgentBalance silently re-create
+  // a phantom 0-row).
   if (customerBal) {
     await db
       .update(agentBalances)
@@ -206,10 +213,15 @@ export async function POST(req: NextRequest) {
     });
   }
   if (agentBal) {
-    await db.delete(agentBalances).where(eq(agentBalances.userId, agentUserId));
+    await db
+      .update(agentBalances)
+      .set({ balanceMinor: "0", updatedAt: new Date() })
+      .where(eq(agentBalances.userId, agentUserId));
   }
 
-  // Ledger marker on the customer's history.
+  // Ledger marker on the customer's history. delta = funds transferred in;
+  // balance_after = customer's new running total. Only insert when there was
+  // something to transfer (zero-delta merges would just be noise).
   if (agentMinor > BigInt(0)) {
     await db.insert(agentBalanceLedger).values({
       userId: me.id,
@@ -218,15 +230,25 @@ export async function POST(req: NextRequest) {
       reason: "agent_claim_merge",
       ref: agentUserId,
     });
+    // Mirror -delta row on the agent's ledger so its own history balances to 0.
+    await db.insert(agentBalanceLedger).values({
+      userId: agentUserId,
+      deltaMinor: (-agentMinor).toString(),
+      balanceAfter: "0",
+      reason: "agent_claim_merge_out",
+      ref: me.id,
+    });
   }
 
   // Soft-delete the agent shell: rename wallet_address so the synthetic row
-  // can't be re-claimed and so its unique index is freed for future agents.
+  // can't be re-claimed, free its unique index for future agents, and install
+  // the merge pointer so balance.ts reads/charges resolve to the customer.
   await db
     .update(users)
     .set({
       walletAddress: `claimed:${agentUserId}`,
       displayName: `${agent.displayName ?? "Agent"} (claimed)`,
+      mergedIntoUserId: me.id,
     })
     .where(eq(users.id, agentUserId));
 

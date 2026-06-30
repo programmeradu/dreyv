@@ -42,11 +42,34 @@ export function minorToUsd(minor: bigint): string {
   return frac ? `${whole}.${frac}` : `${whole}.00`;
 }
 
+/**
+ * If `userId` is an absorbed agent, resolve to the surviving customer's user id
+ * by following users.merged_into_user_id. Walks the chain (max 8 hops to avoid
+ * any pathological cycle) so chained merges still settle on the live owner.
+ */
+export async function resolveBalanceOwner(userId: string): Promise<string> {
+  if (!db) throw new Error("db_unavailable");
+  let current = userId;
+  for (let i = 0; i < 8; i++) {
+    const rows = await db.execute(sql`
+      SELECT merged_into_user_id::text AS next
+        FROM users
+       WHERE id = ${current}::uuid
+       LIMIT 1
+    `);
+    const r = (rows as unknown as { rows: Array<{ next: string | null }> }).rows[0];
+    if (!r || !r.next) return current;
+    current = r.next;
+  }
+  return current;
+}
+
 export async function getAgentBalance(userId: string): Promise<BalanceRow> {
   if (!db) throw new Error("db_unavailable");
+  const owner = await resolveBalanceOwner(userId);
   // Upsert-on-read so the row always exists.
   const rows = await db.execute(sql`
-    INSERT INTO agent_balances (user_id) VALUES (${userId}::uuid)
+    INSERT INTO agent_balances (user_id) VALUES (${owner}::uuid)
     ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
     RETURNING balance_minor, currency, updated_at
   `);
@@ -73,19 +96,20 @@ export async function creditAgentBalance(args: {
 }): Promise<CreditResult> {
   if (!db) throw new Error("db_unavailable");
   if (args.amountMinor <= BigInt(0)) throw new Error("invalid_amount");
+  const owner = await resolveBalanceOwner(args.userId);
 
   try {
     const result = await db.execute(sql`
       WITH upd AS (
         INSERT INTO agent_balances (user_id, balance_minor, updated_at)
-        VALUES (${args.userId}::uuid, ${args.amountMinor.toString()}::bigint, now())
+        VALUES (${owner}::uuid, ${args.amountMinor.toString()}::bigint, now())
         ON CONFLICT (user_id) DO UPDATE
           SET balance_minor = agent_balances.balance_minor + EXCLUDED.balance_minor,
               updated_at    = now()
         RETURNING balance_minor
       )
       INSERT INTO agent_balance_ledger (user_id, delta_minor, balance_after, reason, ref)
-      SELECT ${args.userId}::uuid, ${args.amountMinor.toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
+      SELECT ${owner}::uuid, ${args.amountMinor.toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
       FROM upd
       RETURNING balance_after
     `);
@@ -133,6 +157,7 @@ export async function chargeAgentBalance(args: {
 }): Promise<ChargeResult> {
   if (!db) throw new Error("db_unavailable");
   if (args.amountMinor <= BigInt(0)) throw new Error("invalid_amount");
+  const owner = await resolveBalanceOwner(args.userId);
 
   try {
     const result = await db.execute(sql`
@@ -140,11 +165,11 @@ export async function chargeAgentBalance(args: {
         UPDATE agent_balances
            SET balance_minor = balance_minor - ${args.amountMinor.toString()}::bigint,
                updated_at = now()
-         WHERE user_id = ${args.userId}::uuid
+         WHERE user_id = ${owner}::uuid
          RETURNING balance_minor
       )
       INSERT INTO agent_balance_ledger (user_id, delta_minor, balance_after, reason, ref)
-      SELECT ${args.userId}::uuid, ${(-args.amountMinor).toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
+      SELECT ${owner}::uuid, ${(-args.amountMinor).toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
       FROM upd
       RETURNING balance_after
     `);
