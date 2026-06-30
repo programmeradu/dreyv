@@ -1,12 +1,12 @@
 const PRODUCTION_PHANTOM_REDIRECT_URL = "https://dreyv.com/auth/callback";
 
 function readPublicEnv(name: string): string | undefined {
-  const processValue =
-    typeof process !== "undefined" && name === "NEXT_PUBLIC_PHANTOM_REDIRECT_URL"
+  // Next.js inlines `process.env.NEXT_PUBLIC_*` at build time. Avoid `import.meta`
+  // because webpack flags dynamic `import.meta` access as a critical dependency.
+  const value =
+    name === "NEXT_PUBLIC_PHANTOM_REDIRECT_URL"
       ? process.env.NEXT_PUBLIC_PHANTOM_REDIRECT_URL
       : undefined;
-  const viteValue = (import.meta as any)?.env?.[name];
-  const value = processValue || viteValue;
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
