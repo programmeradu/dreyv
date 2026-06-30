@@ -48,9 +48,9 @@ export const metadata: Metadata = {
     "crypto treasury operations",
     "intent-driven treasury",
   ],
-  authors: [{ name: "StaUniverse", url: "https://stauniverse.tech" }],
-  creator: "StaUniverse",
-  publisher: "StaUniverse",
+  authors: [{ name: "dreyv", url: "https://dreyv.com" }],
+  creator: "dreyv",
+  publisher: "dreyv",
   formatDetection: {
     email: false,
     address: false,

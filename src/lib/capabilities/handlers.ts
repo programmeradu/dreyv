@@ -4060,9 +4060,9 @@ const _PRIVACY_KINDS = ["export", "delete", "rectify", "restrict"] as const;
 type PrivacyKindY = (typeof _PRIVACY_KINDS)[number];
 
 const _RETENTION_POLICY_Y = {
-  controller: "StaUniverse Ltd (trading as Dreyv)",
+  controller: "dreyv",
   contact: "privacy@dreyv.com",
-  jurisdiction: "Ghana / EU (GDPR adequacy via SCCs)",
+  jurisdiction: "Cyprus / EU (GDPR)",
   statutoryResponseDays: 30,
   lawfulBases: ["contract", "legitimate_interest", "consent"],
   tables: [

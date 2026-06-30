@@ -38,11 +38,13 @@ export function buildRootJsonLd(): Record<string, unknown> {
           "@type": "ImageObject",
           url: logoUrl,
         },
-        parentOrganization: {
-          "@type": "Organization",
-          name: "StaUniverse",
-          url: "https://stauniverse.tech",
+        foundingDate: "2025",
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Nicosia",
+          addressCountry: "CY",
         },
+        email: "hello@dreyv.com",
         description:
           "dreyv is the AI-powered, non-custodial treasury command layer for Solana teams: plain-language intent, simulation before signing, human-readable impact for approvers, and multisig-native workflows (e.g. Squads). dreyv atlas is the Solana intelligence surface inside the product.",
       },

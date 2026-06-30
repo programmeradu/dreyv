@@ -31,7 +31,7 @@ dreyv replaces the 8+ disconnected tools treasury teams juggle (wallets, DEX agg
 
 ## Brand
 - Name: **dreyv** (pronounced "DRAVE")
-- Parent: StaUniverse — https://stauniverse.tech
+- Company: dreyv (independent) — founded 2025, headquartered in Nicosia, Cyprus
 - Production: https://dreyv.com
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
 
