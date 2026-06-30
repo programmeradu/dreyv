@@ -157,7 +157,7 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 ## 10. Brand & legal
 
 - Brand: **dreyv** (pronounced "DRAVE"). Domains: dreyv.com, dreyv.app, dreyv.finance.
-- Parent: StaUniverse (founded 2025). https://stauniverse.tech
+- Company: dreyv (independent) — founded 2025, headquartered in Nicosia, Cyprus.
 - Primary deployment: https://dreyv.com (Vercel).
 - Legal: `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/refunds`.
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
