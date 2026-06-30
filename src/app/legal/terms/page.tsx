@@ -58,7 +58,7 @@ export default function TermsPage() {
         <h2>7. Intellectual property</h2>
         <p>
           The Service, including all code, design, and documentation, is the intellectual property of
-          StaUniverse and its licensors. Mini-apps created by users remain the intellectual property of their creators.
+          dreyv and its licensors. Mini-apps created by users remain the intellectual property of their creators.
         </p>
 
         <h2>8. Termination</h2>
