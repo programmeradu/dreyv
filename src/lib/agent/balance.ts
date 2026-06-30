@@ -157,6 +157,7 @@ export async function chargeAgentBalance(args: {
 }): Promise<ChargeResult> {
   if (!db) throw new Error("db_unavailable");
   if (args.amountMinor <= BigInt(0)) throw new Error("invalid_amount");
+  const owner = await resolveBalanceOwner(args.userId);
 
   try {
     const result = await db.execute(sql`
@@ -164,11 +165,11 @@ export async function chargeAgentBalance(args: {
         UPDATE agent_balances
            SET balance_minor = balance_minor - ${args.amountMinor.toString()}::bigint,
                updated_at = now()
-         WHERE user_id = ${args.userId}::uuid
+         WHERE user_id = ${owner}::uuid
          RETURNING balance_minor
       )
       INSERT INTO agent_balance_ledger (user_id, delta_minor, balance_after, reason, ref)
-      SELECT ${args.userId}::uuid, ${(-args.amountMinor).toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
+      SELECT ${owner}::uuid, ${(-args.amountMinor).toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
       FROM upd
       RETURNING balance_after
     `);
