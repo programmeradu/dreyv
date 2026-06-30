@@ -96,19 +96,20 @@ export async function creditAgentBalance(args: {
 }): Promise<CreditResult> {
   if (!db) throw new Error("db_unavailable");
   if (args.amountMinor <= BigInt(0)) throw new Error("invalid_amount");
+  const owner = await resolveBalanceOwner(args.userId);
 
   try {
     const result = await db.execute(sql`
       WITH upd AS (
         INSERT INTO agent_balances (user_id, balance_minor, updated_at)
-        VALUES (${args.userId}::uuid, ${args.amountMinor.toString()}::bigint, now())
+        VALUES (${owner}::uuid, ${args.amountMinor.toString()}::bigint, now())
         ON CONFLICT (user_id) DO UPDATE
           SET balance_minor = agent_balances.balance_minor + EXCLUDED.balance_minor,
               updated_at    = now()
         RETURNING balance_minor
       )
       INSERT INTO agent_balance_ledger (user_id, delta_minor, balance_after, reason, ref)
-      SELECT ${args.userId}::uuid, ${args.amountMinor.toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
+      SELECT ${owner}::uuid, ${args.amountMinor.toString()}::bigint, balance_minor, ${args.reason}, ${args.ref}
       FROM upd
       RETURNING balance_after
     `);
