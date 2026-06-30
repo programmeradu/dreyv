@@ -38,6 +38,10 @@ export const users = pgTable('users', {
   onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
   organizationName: text('organization_name'),
   supabaseUserId: text('supabase_user_id').unique(), // Supabase Auth uid
+  // If this user is an agent that's been absorbed into a customer account
+  // (via /api/agents/claim/redeem), points at the surviving customer row.
+  // Balance reads/writes for the absorbed agent follow this pointer.
+  mergedIntoUserId: uuid('merged_into_user_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   lastLoginAt: timestamp('last_login_at').defaultNow().notNull(),
 }, (table) => ({
