@@ -1,19 +1,14 @@
 /**
  * POST /api/studio/video/draft
  *
- * Generates a full TikTok video production pack for the Dreyv mascot.
+ * Stage 3 of the smart Video Studio. Given a chosen creative `direction` and
+ * a chosen `hook` (both from the intelligence layer), produce the rest of
+ * the production pack: shot list, voiceover, captions, hashtags, sound,
+ * posting window, mascot notes.
  *
- * Body: {
- *   formatId: VideoFormatId,         // pov | til | skit | explainer | trend-remix | meme-overlay | before-after | tutorial
- *   angle: string,                    // hero hook id from DREYV_DEV_SURFACE OR "custom"
- *   customAngle?: string,
- *   primaryTool?: VideoToolId,        // forces a primary tool; otherwise model picks best fit
- *   trendingSound?: string,           // sound name from /trends endpoint (optional)
- *   audience?: string,
- * }
- *
- * Returns a per-shot generation pack: hook, shot list, per-tool prompts,
- * voiceover script, captions, hashtags, posting window, mascot notes.
+ * Back-compat: legacy `formatId` / `angle` callers still work — when those
+ * are supplied without `direction` we fall back to the original archetype-
+ * based prompt path.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,6 +17,13 @@ import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
 import { videoToolsPrompt, VIDEO_FORMATS, VIDEO_TOOLS, VIDEO_ANGLES } from "@/lib/media-studio/video-tools";
 import { chatJson } from "@/lib/media-studio/ai";
 import { DREYV_MASCOT_DESCRIPTION, dreyvShotStylePreamble } from "@/lib/media-studio/style-bible";
+import {
+  buildEvidenceIndex,
+  summarizeTikTokPerformance,
+  type Direction,
+  type HookVariant,
+} from "@/lib/media-studio/intelligence";
+import { loadTikTokRows } from "@/lib/media-studio/tiktok-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -79,7 +81,7 @@ const SCHEMA = {
         items: { type: "string" },
         description: "Consistency notes — which mascot reference to seed each tool with, lighting lock, etc.",
       },
-      whyItWorks: { type: "string", description: "2–3 sentences referencing the viral rules / format archetype." },
+      whyItWorks: { type: "string", description: "2–3 sentences referencing the direction + the data signal we leaned on." },
     },
     required: [
       "formatLabel",
@@ -98,24 +100,134 @@ const SCHEMA = {
 
 const HERO_HOOKS = DREYV_DEV_SURFACE.heroHooks;
 
+type Body = {
+  // New intelligent path
+  intent?: string;
+  direction?: Direction;
+  hook?: HookVariant;
+  walletAddress?: string;
+  primaryTool?: string;
+  trendingSound?: string;
+  audience?: string;
+  // Legacy path
+  formatId?: string;
+  angle?: string;
+  customAngle?: string;
+};
+
 export async function POST(req: NextRequest) {
   const gate = await requireTeamMember(req);
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-  let body: {
-    formatId?: string;
-    angle?: string;
-    customAngle?: string;
-    primaryTool?: string;
-    trendingSound?: string;
-    audience?: string;
-  };
+  let body: Body;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  const primary = body.primaryTool && VIDEO_TOOLS.find((t) => t.id === body.primaryTool);
+
+  // ── INTELLIGENT PATH ────────────────────────────────────────────────────
+  if (body.direction && body.hook) {
+    const evidence = buildEvidenceIndex({ walletAddress: body.walletAddress ?? null });
+    const allowedEvidence = evidence.filter((e) =>
+      body.direction!.evidenceRefsUsed.includes(e.id) || e.kind === "capability" || e.kind === "metric",
+    );
+    const rows = await loadTikTokRows().catch(() => []);
+    const digest = rows.length > 0 ? summarizeTikTokPerformance(rows) : null;
+
+    const userPrompt = [
+      `Build the full production pack for a TikTok video. The format, length, and hook are LOCKED — your job is to render the rest beautifully and grounded in real evidence.`,
+      ``,
+      `INTENT (what the video is about): ${body.intent ?? ""}`,
+      ``,
+      `DIRECTION (locked):`,
+      `  Format name: ${body.direction.formatName}`,
+      `  Pitch: ${body.direction.oneLiner}`,
+      `  Emotional core: ${body.direction.emotionalCore}`,
+      `  Duration: ${body.direction.durationSec}s, ${body.direction.shotCount} shots`,
+      `  Target comment: ${body.direction.targetComment}`,
+      ``,
+      `HOOK (locked — use these EXACT lines as the first text card + opener):`,
+      `  Text card: ${body.hook.textCard}`,
+      `  Spoken opener: ${body.hook.spokenLine}`,
+      `  Visual cue: ${body.hook.visualCue}`,
+      ``,
+      `EVIDENCE — every factual claim in the script MUST map to one of these. If you can't back a claim, drop it:`,
+      allowedEvidence.map((e) => `  - [${e.id}] (${e.kind}) ${e.label} — ${e.detail}${e.pointer ? `  ⟶ ${e.pointer}` : ""}`).join("\n"),
+      ``,
+      digest ? `OUR TIKTOK PERFORMANCE SO FAR (use as priors, do NOT mention on camera):\n${digest.narrative}` : `(No TikTok data connected yet.)`,
+      ``,
+      primary
+        ? `PRIMARY TOOL: ${primary.label}. Prefer it for as many shots as the format allows.`
+        : `Pick the best free / low-cost tool for each shot from the catalog. Bias toward Hedra (mascot lip-sync) + Hailuo (B-roll).`,
+      body.trendingSound ? `TRENDING SOUND: "${body.trendingSound}". Match its pacing.` : `Suggest a sound or use 'original VO'.`,
+      body.audience ? `AUDIENCE: ${body.audience}.` : null,
+      ``,
+      `OUTPUT REQUIREMENTS:`,
+      `- Use the locked hook verbatim in the 'hook' field — do not rewrite it.`,
+      `- Shot list: ${body.direction.shotCount} sequential shots that form ONE continuous ad: hook → setup → proof/demo → tension → payoff. Each shot is a new physical state with a new prop, set, or camera angle. No filler "mascot stands on clean background" shots.`,
+      `- Each shot must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
+      `- Per-shot toolPrompt phrased the way THAT tool expects:`,
+      `  • Hedra: motion directive on top of uploaded mascot PNG + audio. No scene generation.`,
+      `  • Hailuo / Wan 2.2 / Kling: short dense visual description, 9:16, specify mascot explicitly.`,
+      `  • Veo 3 Fast: 5-layer formula [camera/lens] + [lighting/time] + [subject + precise action] + [camera motion] + [mood/sound], 8s max.`,
+      `  • Runway Gen-4: cinematic motion trajectories, reference-image friendly.`,
+      `- Voiceover: human thinking out loud. Fragments, varied length. Never "Hi everyone, today…".`,
+      `- Burned captions: 4–10 short caption cards for mute viewers. Sentence case. No emoji.`,
+      `- Hashtags: 5–8 niche + 3 generic. Bias the niche tags toward what worked on our account per the digest above (if available).`,
+      `- Sound suggestion: name a trending sound type or "original VO".`,
+      `- Posting window in UTC with 1-line reason.`,
+      `- Mascot notes: 3–5 bullets on which reference PNG to seed each tool with, lighting lock, camera distance.`,
+      `- whyItWorks: tie it back to the direction's emotional core + the strongest data signal we used.`,
+      ``,
+      `MASCOT (use verbatim wherever the mascot appears in a toolPrompt):`,
+      DREYV_MASCOT_DESCRIPTION,
+      ``,
+      `CINEMATIC STYLE preamble for every video-model toolPrompt:`,
+      dreyvShotStylePreamble(),
+      ``,
+      `HARD DON'TS:`,
+      `- No emoji in voiceover, captions, or text card.`,
+      `- No greetings or AI-narrator phrasing.`,
+      `- Never invent capabilities, partner names, or metrics not in the evidence block.`,
+      `- Never describe the mascot as orange, brown, red, or a fox. Solid violet #7c3aed.`,
+      `- No floating particles, orbs, holograms, fake dashboards. Clean cinematic frames.`,
+      `- No abstract geometry, blank studio voids, or mascot-standing-idle filler.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      const result = await chatJson<Record<string, unknown>>({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are dreyv's TikTok video producer. The creative direction and hook were locked by an earlier intelligence pass. Your job is to ground the rest of the pack in real evidence and produce shot prompts that match the locked format exactly.\n\n" +
+              videoToolsPrompt(),
+          },
+          { role: "user", content: userPrompt },
+        ],
+        schema: SCHEMA,
+        temperature: 0.85,
+      });
+      // Force the locked hook through unchanged in case the model rewrote it.
+      (result as { hook: { textCard: string; spokenLine: string } }).hook = {
+        textCard: body.hook.textCard,
+        spokenLine: body.hook.spokenLine,
+      };
+      (result as { formatLabel: string }).formatLabel = body.direction.formatName;
+      return NextResponse.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Generation failed";
+      console.error("[video/draft] intelligent path failed:", message, err);
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+  }
+
+  // ── LEGACY PATH (kept for back-compat) ──────────────────────────────────
   const format = VIDEO_FORMATS.find((f) => f.id === body.formatId) ?? VIDEO_FORMATS[0];
   const angleId = body.angle ?? VIDEO_ANGLES[0].id;
   const videoAngle = VIDEO_ANGLES.find((a) => a.id === angleId);
@@ -129,8 +241,6 @@ export async function POST(req: NextRequest) {
       ? `${legacyHook.title}\nCapabilities: ${legacyHook.caps}\nSafety: ${legacyHook.safety}`
       : `${VIDEO_ANGLES[0].label}\nTeaser: ${VIDEO_ANGLES[0].teaser}`;
 
-  const primary = body.primaryTool && VIDEO_TOOLS.find((t) => t.id === body.primaryTool);
-
   const userPrompt = [
     `Generate a complete TikTok video production pack for the Dreyv mascot.`,
     ``,
@@ -143,46 +253,16 @@ export async function POST(req: NextRequest) {
     angleText,
     ``,
     primary
-      ? `PRIMARY TOOL the team has access to: ${primary.label}. Prefer it for as many shots as the format allows. Use other tools only when the primary genuinely can't do that shot type.`
-      : `Pick the best free / low-cost tool for each shot from the catalog. Bias toward Hedra (mascot lip-sync) + Hailuo (B-roll) since they're the team's $23/mo stack.`,
-    body.trendingSound ? `TRENDING SOUND to build around: "${body.trendingSound}". Match its pacing.` : `No trending sound forced — suggest one or use original VO.`,
+      ? `PRIMARY TOOL: ${primary.label}.`
+      : `Pick the best low-cost tool for each shot.`,
+    body.trendingSound ? `TRENDING SOUND: "${body.trendingSound}".` : null,
     body.audience ? `Audience: ${body.audience}.` : null,
     ``,
-    `OUTPUT REQUIREMENTS:`,
-    `- Hook: 1 text card (≤8 words, hits in first 1.5s) + 1 spoken opener.`,
-      `- Shot list: 3–6 shots that form ONE continuous ad: hook → setup → proof/demo → tension → payoff. These are sequential scenes, not variants of the same idea.`,
-      `- Each shot must advance the story with a new physical state/action, a clear prop/device/set change, and a camera angle that fits that beat. Do not output generic "mascot stands on clean background" shots.`,
-      `- Each shot description must be renderable as a literal scene: name the set, the prop/device, the mascot's body action, and the camera framing.`,
-      `- Each shot must advance the story with a new visual state/action. Do not repeat the hook, restart the premise, or make alternate versions of the same scene.`,
-      `- Each shot has timing, description, recommendedTool (use the tool id from the catalog: hedra | hailuo | kling | veo3-fast | wan22 | runway-gen4), and a toolPrompt phrased the way THAT tool expects.`,
-    `  • Hedra prompts describe motion directives on top of an uploaded mascot PNG + audio. No scene generation.`,
-    `  • Hailuo / Wan 2.2 / Kling prompts: short dense visual descriptions, 9:16, specify mascot explicitly even with I2V.`,
-    `  • Veo 3 Fast prompts: 5-layer formula [camera/lens] + [lighting/time] + [subject + precise action] + [camera motion] + [mood/sound], 8s max.`,
-    `  • Runway Gen-4: cinematic motion trajectories, reference-image friendly.`,
-    `- Voiceover script: written like a human thinking out loud. Fragments, varied length. NOT "Hi everyone, today we're going to talk about". Lead with the thing.`,
-    `- Burned captions: 4–10 short caption cards that drive the story for mute viewers. Sentence case. No emoji.`,
-    `- Hashtags: 5–8 niche (crypto / agents / dev-tools / claude / mcp / solana / treasury depending on angle) + 3 generic (#fyp #viral or #foryou).`,
-    `- Sound suggestion: name a trending sound type or "original VO".`,
-    `- Posting window in UTC with a 1-line reason.`,
-    `- Mascot notes: 3–5 bullets on which reference PNG to seed each tool with, lighting lock, camera distance discipline.`,
-    `- whyItWorks: cite the format archetype + one viral rule it leans on.`,
-    ``,
-    ``,
-    `MASCOT (use this description verbatim wherever the mascot appears in a toolPrompt):`,
+    `MASCOT (verbatim):`,
     DREYV_MASCOT_DESCRIPTION,
     ``,
-    `CINEMATIC STYLE — every toolPrompt for a video model (Veo / Wan / Kling / Runway) must include this preamble before its scene-specific text so all shots share the same look, mascot, and clean-frame rules:`,
+    `CINEMATIC STYLE preamble:`,
     dreyvShotStylePreamble(),
-    ``,
-    `HARD DON'TS:`,
-    `- No emoji in voiceover, captions, or text card.`,
-    `- No "Hey TikTok!", "In this video we'll…", or any classic AI-narrator phrasing.`,
-    `- Never invent capabilities, partner names, or metrics not in the angle block.`,
-    `- Never describe the mascot as orange, brown, red, or a fox. Dreyv is a SOLID violet (#7c3aed) owl-fox sentinel — keep that lock.`,
-    `- Never let the scene fill with floating abstract elements, drifting particles, glowing orbs, holographic ribbons, fake floating dashboards, or any other "obvious AI video" tells. Keep the frame clean and cinematic.`,
-    `- Never use abstract geometry, decorative shapes, blank studio voids, or mascot-standing-idle filler. If the shot needs product context, put one real phone/laptop/desk prop in the physical scene.`,
-    `- Don't pitch the dreyv.com app shell — pitch the developer surface (${DREYV_DEV_SURFACE.homepage}, ${DREYV_DEV_SURFACE.mcp}).`,
-    `- Do not produce 5 variants of one prompt. The render system sends each shot to Veo separately, so every shot prompt must explicitly say what changed since the previous shot and what it hands off to the next shot.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -190,12 +270,7 @@ export async function POST(req: NextRequest) {
   try {
     const result = await chatJson({
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a TikTok video producer ghost-writing for a bootstrapped founder. You know the 18 viral format archetypes cold and you know which low-cost AI video tool fits each shot. Output reads like a human production plan, not AI slop. Voice over polish.\n\n" +
-            videoToolsPrompt(),
-        },
+        { role: "system", content: "You are a TikTok video producer.\n\n" + videoToolsPrompt() },
         { role: "user", content: userPrompt },
       ],
       schema: SCHEMA,
@@ -204,7 +279,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed";
-    console.error("[video/draft] AI call failed:", message, err);
+    console.error("[video/draft] legacy path failed:", message, err);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
