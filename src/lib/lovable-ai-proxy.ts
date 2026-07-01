@@ -38,11 +38,25 @@ function getProxyUrl(): string | null {
  * gracefully — never throws.
  */
 export async function lovableAi(opts: CallOptions): Promise<any | null> {
+  // 1) Primary: Lovable AI via edge proxy
+  const primary = await callLovableProxy(opts);
+  if (primary !== null) return primary;
+
+  // 2) Fallback: Gemini direct (Google AI Studio)
+  const gem = await callGeminiDirect(opts);
+  if (gem !== null) return gem;
+
+  // 3) Fallback: Groq (OpenAI-compatible)
+  const groq = await callGroqDirect(opts);
+  if (groq !== null) return groq;
+
+  return null;
+}
+
+async function callLovableProxy(opts: CallOptions): Promise<any | null> {
   const url = getProxyUrl();
   const auth = process.env.LOVABLE_SUPABASE_ANON_KEY?.trim();
-  if (!url || !auth) {
-    return null;
-  }
+  if (!url || !auth) return null;
   try {
     const r = await fetch(url, {
       method: "POST",
@@ -68,22 +82,97 @@ export async function lovableAi(opts: CallOptions): Promise<any | null> {
       return null;
     }
     const j = await r.json();
-    if (opts.tools) {
-      const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-      if (!args) return null;
-      try { return JSON.parse(args); } catch { return null; }
-    }
-    if (opts.response_format) {
-      const txt = j?.choices?.[0]?.message?.content;
-      if (!txt) return null;
-      try { return JSON.parse(txt); } catch { return null; }
-    }
-    return j?.choices?.[0]?.message?.content ?? null;
+    return extractOpenAIStyle(j, opts);
   } catch (e) {
     console.warn("[lovable-ai-proxy] error", (e as Error)?.message);
     return null;
   }
 }
+
+async function callGeminiDirect(opts: CallOptions): Promise<any | null> {
+  const key = process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_AI_API_KEY?.trim();
+  if (!key) return null;
+  try {
+    // Use OpenAI-compatible endpoint so tools/response_format shape matches.
+    const model = (opts.model || "google/gemini-2.5-flash").replace(/^google\//, "");
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: opts.messages,
+        stream: false,
+        ...(opts.tools ? { tools: opts.tools } : {}),
+        ...(opts.tool_choice ? { tool_choice: opts.tool_choice } : {}),
+        ...(opts.response_format ? { response_format: opts.response_format } : {}),
+        ...(typeof opts.temperature === "number" ? { temperature: opts.temperature } : {}),
+      }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 12_000),
+    });
+    if (!r.ok) {
+      console.warn("[lovable-ai-proxy:gemini-fb] non-ok", r.status);
+      return null;
+    }
+    return extractOpenAIStyle(await r.json(), opts);
+  } catch (e) {
+    console.warn("[lovable-ai-proxy:gemini-fb] error", (e as Error)?.message);
+    return null;
+  }
+}
+
+async function callGroqDirect(opts: CallOptions): Promise<any | null> {
+  const key = process.env.GROQ_API_KEY?.trim();
+  if (!key) return null;
+  try {
+    // Map Gemini-style ids to a Groq default.
+    const model = /gemini|google\//i.test(opts.model || "")
+      ? "llama-3.3-70b-versatile"
+      : (opts.model || "llama-3.3-70b-versatile");
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: opts.messages,
+        stream: false,
+        ...(opts.tools ? { tools: opts.tools } : {}),
+        ...(opts.tool_choice ? { tool_choice: opts.tool_choice } : {}),
+        ...(opts.response_format ? { response_format: opts.response_format } : {}),
+        ...(typeof opts.temperature === "number" ? { temperature: opts.temperature } : {}),
+      }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 12_000),
+    });
+    if (!r.ok) {
+      console.warn("[lovable-ai-proxy:groq-fb] non-ok", r.status);
+      return null;
+    }
+    return extractOpenAIStyle(await r.json(), opts);
+  } catch (e) {
+    console.warn("[lovable-ai-proxy:groq-fb] error", (e as Error)?.message);
+    return null;
+  }
+}
+
+function extractOpenAIStyle(j: any, opts: CallOptions): any | null {
+  if (opts.tools) {
+    const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) return null;
+    try { return JSON.parse(args); } catch { return null; }
+  }
+  if (opts.response_format) {
+    const txt = j?.choices?.[0]?.message?.content;
+    if (!txt) return null;
+    try { return JSON.parse(txt); } catch { return null; }
+  }
+  return j?.choices?.[0]?.message?.content ?? null;
+}
+
 
 /** Convenience: structured-JSON call with a function tool schema. */
 export async function lovableJson(system: string, user: string, schema?: any): Promise<any | null> {
