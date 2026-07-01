@@ -704,7 +704,7 @@ export async function POST(req: Request) {
         if (name !== "groq/llama-3.3-70b-versatile") {
           console.log(`[Command API] Using fallback model: ${name}`);
         }
-        return new Response(finalStream, {
+        return new Response(stripHallucinatedToolEnvelopes(finalStream), {
           headers: response.headers,
           status: response.status,
         });
