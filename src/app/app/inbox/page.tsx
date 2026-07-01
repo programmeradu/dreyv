@@ -761,9 +761,8 @@ export default function InboxPage() {
                       const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
                       const expanded = expandedRow === a.id;
                       return (
-                        <>
-                          <tr
-                            key={a.id}
+                        <Fragment key={a.id}>
+                            <tr
                             className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
                             onClick={() => toggleRow(a.id)}
                           >
@@ -857,9 +856,8 @@ export default function InboxPage() {
                       const expanded = expandedRow === t.id;
                       const meta = classifyPlan([t.kind]);
                       return (
-                        <>
-                          <tr
-                            key={t.id}
+                        <Fragment key={t.id}>
+                            <tr
                             className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
                             onClick={() => toggleRow(t.id)}
                           >
@@ -984,9 +982,8 @@ export default function InboxPage() {
                                 ? "bg-slate-200 text-slate-700"
                                 : "bg-violet-100 text-violet-700";
                           return (
-                            <>
-                              <tr
-                                key={a.id}
+                            <Fragment key={a.id}>
+                            <tr
                                 className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
                                 onClick={() => toggleRow(a.id)}
                               >
@@ -1084,9 +1081,8 @@ export default function InboxPage() {
                           const meta = classifyPlan(capIds);
                           const expanded = expandedRow === p.id;
                           return (
-                            <>
-                              <tr
-                                key={p.id}
+                            <Fragment key={p.id}>
+                            <tr
                                 className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
                                 onClick={() => toggleRow(p.id)}
                               >
