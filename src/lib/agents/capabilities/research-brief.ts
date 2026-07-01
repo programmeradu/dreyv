@@ -31,6 +31,37 @@ interface BriefStructured {
   summary: string;
   insights: string[];
   suggestions: Array<{ title: string; detail: string; cta: string }>;
+  synthesized: boolean;
+}
+
+/**
+ * Strip common web-scrape boilerplate (nav, cookie banners, "Skip to content",
+ * markdown link syntax, source markers we inject upstream, etc.) so the LLM
+ * gets a signal-dense slice and the fallback preview never shows nav junk.
+ */
+function sanitizeScrape(md: string): string {
+  if (!md) return "";
+  let text = md
+    // Drop our own upstream source markers so they don't appear in the brief
+    .replace(/SOURCE_[A-Z]+\s*\([^)]*\):\s*https?:\/\/\S+/gi, "")
+    .replace(/\[(tavily|jina|firecrawl|perplexity)\][^\n]*/gi, "")
+    .replace(/^S\s*O\s*U\s*R\s*C\s*E\s*S.*$/gim, "")
+    // Markdown links / images -> plain text
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    // Common site chrome
+    .replace(/^.*(skip to content|toggle navigation|sign in|sign up|cookie|subscribe to our newsletter|appearance settings|navigation menu).*$/gim, "")
+    .replace(/^\s*[*#>\-]+\s*$/gm, "")
+    // Collapse whitespace
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // Drop leading short chrome lines until we hit a substantive paragraph
+  const lines = text.split("\n");
+  while (lines.length && lines[0].trim().length < 40) lines.shift();
+  text = lines.join("\n").trim();
+  return text;
 }
 
 async function synthesizeBrief(args: {
@@ -38,14 +69,17 @@ async function synthesizeBrief(args: {
   rawMarkdown: string;
   walletSummary: string;
 }): Promise<BriefStructured> {
+  const clean = sanitizeScrape(args.rawMarkdown);
   const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!lovableKey) {
+  if (!lovableKey || !clean) {
     return {
-      summary: args.rawMarkdown.slice(0, 600) || `Research collected for ${args.protocol}.`,
+      summary: `Research on ${args.protocol} was collected but the synthesis model was not available, so no executive summary was written. Sources are listed below — open them directly, or retry once LOVABLE_API_KEY is configured.`,
       insights: [],
       suggestions: [],
+      synthesized: false,
     };
   }
+
 
   const sys = `You are Dreyv, a Solana treasury copilot.
 You just researched the protocol "${args.protocol}". Given the raw research
