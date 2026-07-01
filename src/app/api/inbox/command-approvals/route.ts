@@ -72,6 +72,13 @@ interface ExtraSigner {
  */
 export type BundleStrategy = "sequential" | "atomic";
 
+interface ReadResult {
+  capabilityId: string;
+  sideEffects: string;
+  summary?: string;
+  output: unknown;
+}
+
 interface SigningEnvelope {
   serializedTransactions: string[];
   /** Per-tx ephemeral signers (e.g. Squads createKey). Index-aligned with serializedTransactions. */
@@ -83,6 +90,10 @@ interface SigningEnvelope {
   atomicCapabilityIds: string[];
   builtAt: number;
   buildErrors: string[];
+  /** Outputs from read-only / sim / meta steps so the UI can render the
+   *  approved plan's actual deliverable (briefings, projections, summaries)
+   *  instead of silently discarding them. */
+  readResults: ReadResult[];
 }
 
 /**
