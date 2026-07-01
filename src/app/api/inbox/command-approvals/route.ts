@@ -141,6 +141,7 @@ async function buildSigningEnvelope(
   const capabilityIds: string[] = [];
   const atomicCapabilityIds: string[] = [];
   const buildErrors: string[] = [];
+  const readResults: ReadResult[] = [];
   let operation = "Approved plan";
   let bundleStrategy: BundleStrategy = "sequential";
 
@@ -150,13 +151,30 @@ async function buildSigningEnvelope(
       buildErrors.push(`Unknown capability: ${planStep.capabilityId}`);
       continue;
     }
-    if (cap.sideEffects !== "write") {
-      continue;
-    }
     try {
       const parsed = cap.inputSchema.parse(planStep.input);
       const out = (await cap.execute(parsed, ctx)) as Record<string, unknown> | undefined;
       capabilityIds.push(cap.id);
+
+      // Non-write steps (read/sim/meta): capture the output so the UI can
+      // render the actual deliverable (briefing, projection, summary).
+      if (cap.sideEffects !== "write") {
+        const summary =
+          out && typeof out === "object"
+            ? (typeof (out as any).summary === "string" && (out as any).summary) ||
+              (typeof (out as any).narrative === "string" && (out as any).narrative) ||
+              (typeof (out as any).message === "string" && (out as any).message) ||
+              undefined
+            : undefined;
+        readResults.push({
+          capabilityId: cap.id,
+          sideEffects: cap.sideEffects,
+          summary: summary || undefined,
+          output: out ?? null,
+        });
+        continue;
+      }
+
       let stepWantsAtomic = ATOMIC_BUNDLE_CAPABILITY_IDS.has(cap.id);
       if (out && typeof out === "object") {
         const txs = (out as { serializedTransactions?: unknown }).serializedTransactions;
@@ -175,7 +193,6 @@ async function buildSigningEnvelope(
           for (const t of txs) {
             if (typeof t === "string") {
               serialized.push(t);
-              // Apply this step's extra signers to every tx the step produced.
               extraSigners.push(stepSigners);
             }
           }
@@ -192,9 +209,6 @@ async function buildSigningEnvelope(
     }
   }
 
-  // Jito bundles cap at 5 transactions. If a capability requested atomic but
-  // the resulting envelope has more than 5 txs, we fall back to sequential
-  // and surface a build error so the UI can warn the user.
   if (bundleStrategy === "atomic" && serialized.length > 5) {
     buildErrors.push(
       `bundle_too_large_for_atomic: ${serialized.length} txs > 5 (Jito limit). Falling back to sequential.`,
@@ -211,6 +225,7 @@ async function buildSigningEnvelope(
     atomicCapabilityIds,
     builtAt: Date.now(),
     buildErrors,
+    readResults,
   };
 }
 
