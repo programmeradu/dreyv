@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, Fragment } from "react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
@@ -34,13 +34,16 @@ import {
   Trash2,
   RefreshCw,
   ChevronRight,
+  ChevronDown,
+  Inbox as InboxIcon,
+  CheckCircle2,
+  Radio,
+  Bot,
+  Eye,
 } from "lucide-react";
-// glyphBrand removed — header no longer shows the brand crystal
-import glyphAgent from "@/assets/notif/glyph-agent.png";
-import glyphSecurity from "@/assets/notif/glyph-security.png";
-import glyphPurchase from "@/assets/notif/glyph-purchase.png";
-import glyphSystem from "@/assets/notif/glyph-system.png";
 import { useDeclareFocus } from "@/lib/commandbar/focus-context";
+import { classifyPlan, formatUsd, relTime } from "./_components/kind";
+import { DeliverableView, type DeliverablePayload } from "./_components/DeliverableView";
 
 type TxInstruction = {
   op: string;
@@ -589,23 +592,51 @@ export default function InboxPage() {
     };
   }, [tab]);
 
-  const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const toggleRow = (id: string) =>
+    setExpandedRow((cur) => (cur === id ? null : id));
+
+  const TABS: { key: TabKey; label: string; count: number; Icon: typeof InboxIcon }[] = [
     {
       key: "pending",
       label: "Pending",
       count: txProposals.length + commandApprovals.length,
-      glyph: glyphPurchase,
+      Icon: InboxIcon,
     },
-    { key: "completed", label: "Completed", count: completed.length, glyph: glyphSystem },
-    { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
-    { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
-    { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
+    { key: "completed", label: "Completed", count: completed.length, Icon: CheckCircle2 },
+    { key: "proposals", label: "Proposals", count: proposals.length, Icon: Radio },
+    { key: "subagents", label: "Sub-agents", count: subagents.length, Icon: Bot },
+    { key: "watchers", label: "Watchers", count: watchers.length, Icon: Eye },
   ];
 
   const sectionEmpty = (msg: string) => (
-    <div className="rounded-xl border border-dashed border-violet-100 bg-white/60 px-5 py-8 text-center text-[12.5px] text-neutral-500">
+    <div className="rounded-xl border border-dashed border-violet-100 bg-white px-5 py-10 text-center text-[12.5px] text-neutral-500">
       {msg}
     </div>
+  );
+
+  // ── Compact table primitives ─────────────────────────────────────────
+  const TableShell = ({ children }: { children: React.ReactNode }) => (
+    <div className="overflow-hidden rounded-xl border border-violet-100 bg-white">
+      <table className="w-full table-fixed text-left text-[12.5px]">{children}</table>
+    </div>
+  );
+
+  const Th = ({ children, className = "" }: { children?: React.ReactNode; className?: string }) => (
+    <th
+      className={`px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400 ${className}`}
+    >
+      {children}
+    </th>
+  );
+
+  const KindPill = ({ meta }: { meta: ReturnType<typeof classifyPlan> }) => (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full ${meta.bgClass} px-2 py-0.5 text-[10.5px] font-semibold ${meta.textClass}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
+      {meta.label}
+    </span>
   );
 
   return (
@@ -658,18 +689,18 @@ export default function InboxPage() {
       </div>
 
       <div className="flex-1 md:overflow-y-auto scrollbar-thin">
-        <section className="mx-auto max-w-4xl px-4 sm:px-6 pt-6 pb-4">
-          {/* Subtitle */}
+        <section className="mx-auto max-w-5xl px-4 sm:px-6 pt-6 pb-4">
           <p className="text-[12.5px] text-muted-foreground mb-4">
             {wallet
               ? `Scoped to ${wallet.slice(0, 4)}…${wallet.slice(-4)} — connect a different wallet to switch.`
               : "Workspace-wide view. Connect a wallet to scope to your treasury."}
           </p>
 
-          {/* ─── Tab nav ────────────────────────────────── */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin border-b border-violet-100 pb-0">
+          {/* Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin border-b border-violet-100">
             {TABS.map((t) => {
               const active = tab === t.key;
+              const Icon = t.Icon;
               return (
                 <button
                   key={t.key}
@@ -680,19 +711,11 @@ export default function InboxPage() {
                       : "text-neutral-600 hover:bg-violet-50 hover:text-violet-700"
                   }`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={typeof t.glyph === "string" ? t.glyph : (t.glyph as any).src}
-                    alt=""
-                    aria-hidden
-                    className={`size-4 object-contain ${active ? "" : "opacity-80"}`}
-                  />
+                  <Icon className="h-3.5 w-3.5" />
                   {t.label}
                   <span
                     className={`text-[10.5px] font-bold leading-none rounded-full px-1.5 py-px tabular-nums ${
-                      active
-                        ? "bg-white/20 text-white"
-                        : "bg-neutral-100 text-neutral-500"
+                      active ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-500"
                     }`}
                   >
                     {t.count}
@@ -703,456 +726,636 @@ export default function InboxPage() {
           </div>
         </section>
 
-      {/* ─── Active tab content ─────────────────────────── */}
-      <section className="mx-auto max-w-4xl px-6 pb-16 space-y-3">
-        {tab === "pending" && (
-          <>
-            {/* Router-queued plans (DACS HITL) — chat surfaces these as "queued for approval" */}
-            {commandApprovals.map((a) => {
-              const value = a.estimatedValueUsd != null ? Number(a.estimatedValueUsd) : null;
-              const risk = a.riskScore != null ? Number(a.riskScore) : null;
-              const stepCount = a.plan?.steps?.length ?? 0;
-              const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
-              return (
-                <article
-                  key={a.id}
-                  className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
-                      plan
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2">
-                        <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
-                          {title}
-                        </h4>
-                        <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
-                          {stepCount} step{stepCount === 1 ? "" : "s"}
-                          {risk != null ? ` · risk ${risk.toFixed(2)}` : ""}
-                          {value != null ? ` · ~$${value.toLocaleString()}` : ""}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-neutral-500">
-                        queued {new Date(a.createdAt).toLocaleTimeString()}
-                        {a.expiresAt
-                          ? ` · expires ${new Date(a.expiresAt).toLocaleTimeString()}`
-                          : ""}
-                      </div>
-                      <div className="mt-2 rounded-md border border-violet-100 bg-violet-50/50 px-3 py-2 text-[11px] text-violet-900">
-                        {a.reason}
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          disabled={busyId === a.id}
-                          onClick={() => actApproval(a.id, "approved")}
-                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
-                        >
-                          <Check className="h-3.5 w-3.5" /> Approve
-                        </button>
-                        <button
-                          disabled={busyId === a.id}
-                          onClick={() => actApproval(a.id, "rejected")}
-                          className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
-                        >
-                          <X className="h-3.5 w-3.5" /> Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-
-            {txProposals.length === 0 && commandApprovals.length === 0
-              ? sectionEmpty(
-                  "No transactions queued. High-confidence proposals (≥75%) auto-queue here for your approval — nothing signs without you.",
+        <section className="mx-auto max-w-5xl px-4 sm:px-6 pb-16 space-y-3">
+          {/* ─── PENDING ───────────────────────────────── */}
+          {tab === "pending" && (
+            <>
+              {commandApprovals.length + txProposals.length === 0 ? (
+                sectionEmpty(
+                  "Nothing waiting. High-confidence plans (≥75%) queue here for your approval — nothing signs without you.",
                 )
-              : txProposals.map((t) => (
-                  <article
-                    key={t.id}
-                    className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="inline-flex h-6 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
-                        {t.kind}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-2">
-                          <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
-                            {t.summary}
-                          </h4>
-                          <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
-                            {t.routing} · risk {t.riskLevel}
-                            {t.estimatedFeeSol
-                              ? ` · ~◎${Number(t.estimatedFeeSol).toFixed(6)}`
-                              : ""}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-[11px] text-neutral-500">
-                          queued {new Date(t.createdAt).toLocaleTimeString()}
-                          {t.expiresAt
-                            ? ` · expires ${new Date(t.expiresAt).toLocaleTimeString()}`
-                            : ""}
-                        </div>
-                        {t.errorMessage && (
-                          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                            {t.errorMessage}
-                          </div>
-                        )}
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            disabled={busyId === t.id}
-                            onClick={() => actTx(t.id, "approve")}
-                            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
+              ) : (
+                <TableShell>
+                  <colgroup>
+                    <col className="w-[92px]" />
+                    <col />
+                    <col className="w-[160px]" />
+                    <col className="w-[90px]" />
+                    <col className="w-[220px]" />
+                  </colgroup>
+                  <thead className="bg-violet-50/40 border-b border-violet-100">
+                    <tr>
+                      <Th>Kind</Th>
+                      <Th>Title</Th>
+                      <Th className="text-right">Meta</Th>
+                      <Th className="text-right">Age</Th>
+                      <Th className="text-right pr-3">Actions</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-violet-50">
+                    {commandApprovals.map((a) => {
+                      const capIds = (a.plan?.steps ?? []).map((s) => s.capabilityId);
+                      const meta = classifyPlan(capIds);
+                      const value = a.estimatedValueUsd != null ? Number(a.estimatedValueUsd) : null;
+                      const risk = a.riskScore != null ? Number(a.riskScore) : null;
+                      const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
+                      const expanded = expandedRow === a.id;
+                      return (
+                        <Fragment key={a.id}>
+                            <tr
+                            className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
+                            onClick={() => toggleRow(a.id)}
                           >
-                            <Check className="h-3.5 w-3.5" /> Approve
-                          </button>
-                          <button
-                            disabled={busyId === t.id}
-                            onClick={() => actTx(t.id, "reject")}
-                            className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
-                          >
-                            <X className="h-3.5 w-3.5" /> Reject
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-          </>
-        )}
-
-        {tab === "completed" && (
-          <>
-            {loadingCompleted && completed.length === 0
-              ? sectionEmpty("Loading…")
-              : completed.length === 0
-                ? sectionEmpty(
-                    "Nothing here yet. Approved briefings, projections, and executed plans will show up here with their results.",
-                  )
-                : completed.map((a) => {
-                    const decision = (a as any).decision as
-                      | { signingEnvelope?: { readResults?: Array<{ capabilityId: string; sideEffects: string; summary?: string; output: unknown }>; operation?: string; buildErrors?: string[] } }
-                      | null;
-                    const env = decision?.signingEnvelope;
-                    const readResults = env?.readResults ?? [];
-                    const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
-                    const expanded = expandedCompleted.has(a.id);
-                    const statusColor =
-                      a.status === "executed"
-                        ? "bg-emerald-600"
-                        : a.status === "rejected"
-                          ? "bg-slate-500"
-                          : "bg-violet-600";
-                    return (
-                      <article
-                        key={a.id}
-                        className="rounded-xl border border-violet-100 bg-white p-4"
-                      >
-                        <div className="flex items-start gap-3">
-                          <span
-                            className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-white ${statusColor}`}
-                          >
-                            {a.status}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-2">
-                              <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
-                                {title}
-                              </h4>
-                              <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
-                                {new Date(a.createdAt).toLocaleString()}
-                              </span>
-                            </div>
-                            {(a as any).resolutionNote && (
-                              <p className="mt-1.5 text-[12px] text-neutral-700 leading-relaxed">
-                                {(a as any).resolutionNote}
-                              </p>
-                            )}
-                            {readResults.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                {readResults.map((r, i) => (
-                                  <div
-                                    key={i}
-                                    className="rounded-md border border-violet-100 bg-violet-50/40 px-3 py-2"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="font-mono text-[11px] font-semibold text-violet-700">
-                                        {r.capabilityId}
-                                      </span>
-                                      <span className="text-[10px] uppercase tracking-wider text-neutral-400">
-                                        {r.sideEffects}
-                                      </span>
+                            <td className="px-3 py-2.5 align-top">
+                              <KindPill meta={meta} />
+                            </td>
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="flex items-start gap-1.5">
+                                {expanded ? (
+                                  <ChevronDown className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5 text-neutral-300 mt-0.5 shrink-0 group-hover:text-violet-500" />
+                                )}
+                                <span className="text-[12.5px] font-medium text-neutral-900 line-clamp-2">
+                                  {title}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-500 tabular-nums">
+                              {capIds.length} step{capIds.length === 1 ? "" : "s"}
+                              {risk != null && <> · risk {risk.toFixed(2)}</>}
+                              {formatUsd(value) && <> · {formatUsd(value)}</>}
+                            </td>
+                            <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-400 tabular-nums">
+                              {relTime(a.createdAt)}
+                            </td>
+                            <td className="px-3 py-2.5 align-top pr-3" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  disabled={busyId === a.id}
+                                  onClick={() => actApproval(a.id, "approved")}
+                                  className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                                >
+                                  {busyId === a.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                  {meta.actionLabel}
+                                </button>
+                                <button
+                                  disabled={busyId === a.id}
+                                  onClick={() => actApproval(a.id, "rejected")}
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {expanded && (
+                            <tr key={a.id + "-x"} className="bg-violet-50/20">
+                              <td colSpan={5} className="px-4 py-3">
+                                <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+                                  <div>
+                                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                                      Why this needs approval
                                     </div>
-                                    {r.summary && (
-                                      <p className="mt-1 text-[12px] text-neutral-800 leading-relaxed whitespace-pre-wrap">
-                                        {r.summary}
+                                    <div className="rounded-md border border-violet-100 bg-white px-3 py-2 text-[12px] text-neutral-800">
+                                      {a.reason}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                                      Plan steps
+                                    </div>
+                                    <ol className="space-y-1 rounded-md border border-violet-100 bg-white px-3 py-2 text-[11.5px] text-neutral-700">
+                                      {capIds.length === 0 && <li className="text-neutral-400">No steps declared.</li>}
+                                      {capIds.map((c, i) => (
+                                        <li key={i} className="flex items-start gap-2">
+                                          <span className="w-4 text-neutral-400 tabular-nums">{i + 1}.</span>
+                                          <span className="font-mono text-violet-700">{c}</span>
+                                        </li>
+                                      ))}
+                                    </ol>
+                                  </div>
+                                </div>
+                                {a.expiresAt && (
+                                  <div className="mt-2 text-[10.5px] text-neutral-400">
+                                    Expires {new Date(a.expiresAt).toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+
+                    {txProposals.map((t) => {
+                      const expanded = expandedRow === t.id;
+                      const meta = classifyPlan([t.kind]);
+                      return (
+                        <Fragment key={t.id}>
+                            <tr
+                            className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
+                            onClick={() => toggleRow(t.id)}
+                          >
+                            <td className="px-3 py-2.5 align-top">
+                              <KindPill meta={meta} />
+                            </td>
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="flex items-start gap-1.5">
+                                {expanded ? (
+                                  <ChevronDown className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5 text-neutral-300 mt-0.5 shrink-0 group-hover:text-violet-500" />
+                                )}
+                                <span className="text-[12.5px] font-medium text-neutral-900 line-clamp-2">
+                                  {t.summary}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-500 tabular-nums">
+                              {t.routing} · risk {t.riskLevel}
+                              {t.estimatedFeeSol && <> · ◎{Number(t.estimatedFeeSol).toFixed(6)}</>}
+                            </td>
+                            <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-400 tabular-nums">
+                              {relTime(t.createdAt)}
+                            </td>
+                            <td className="px-3 py-2.5 align-top pr-3" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  disabled={busyId === t.id}
+                                  onClick={() => actTx(t.id, "approve")}
+                                  className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                                >
+                                  {busyId === t.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                  Sign
+                                </button>
+                                <button
+                                  disabled={busyId === t.id}
+                                  onClick={() => actTx(t.id, "reject")}
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {expanded && (
+                            <tr className="bg-violet-50/20">
+                              <td colSpan={5} className="px-4 py-3">
+                                {t.errorMessage && (
+                                  <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                                    {t.errorMessage}
+                                  </div>
+                                )}
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+                                  Instructions
+                                </div>
+                                <pre className="max-h-56 overflow-auto rounded-md border border-violet-100 bg-white px-3 py-2 text-[10.5px] leading-snug text-neutral-700">
+                                  {JSON.stringify(t.instructions ?? [], null, 2)}
+                                </pre>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </TableShell>
+              )}
+            </>
+          )}
+
+          {/* ─── COMPLETED ─────────────────────────────── */}
+          {tab === "completed" && (
+            <>
+              {loadingCompleted && completed.length === 0
+                ? sectionEmpty("Loading…")
+                : completed.length === 0
+                  ? sectionEmpty(
+                      "Nothing here yet. Approved briefings, reports, and executed trades will appear here with their deliverables.",
+                    )
+                  : (
+                    <TableShell>
+                      <colgroup>
+                        <col className="w-[92px]" />
+                        <col />
+                        <col className="w-[100px]" />
+                        <col className="w-[100px]" />
+                        <col className="w-[80px]" />
+                      </colgroup>
+                      <thead className="bg-violet-50/40 border-b border-violet-100">
+                        <tr>
+                          <Th>Kind</Th>
+                          <Th>Title</Th>
+                          <Th className="text-right">Status</Th>
+                          <Th className="text-right">When</Th>
+                          <Th className="text-right pr-3">View</Th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-violet-50">
+                        {completed.map((a) => {
+                          const capIds = (a.plan?.steps ?? []).map((s) => s.capabilityId);
+                          const meta = classifyPlan(capIds);
+                          const decision = (a as any).decision as
+                            | { signingEnvelope?: DeliverablePayload; signature?: string }
+                            | null;
+                          const payload: DeliverablePayload = {
+                            ...(decision?.signingEnvelope ?? {}),
+                            signature: decision?.signature ?? (a as any).signature ?? null,
+                          };
+                          const resultCount =
+                            (payload.readResults?.length ?? 0) + (payload.signature ? 1 : 0);
+                          const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
+                          const expanded = expandedRow === a.id;
+                          const statusChip =
+                            a.status === "executed"
+                              ? "bg-violet-600 text-white"
+                              : a.status === "rejected"
+                                ? "bg-slate-200 text-slate-700"
+                                : "bg-violet-100 text-violet-700";
+                          return (
+                            <Fragment key={a.id}>
+                            <tr
+                                className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
+                                onClick={() => toggleRow(a.id)}
+                              >
+                                <td className="px-3 py-2.5 align-top">
+                                  <KindPill meta={meta} />
+                                </td>
+                                <td className="px-3 py-2.5 align-top">
+                                  <div className="flex items-start gap-1.5">
+                                    {expanded ? (
+                                      <ChevronDown className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-3.5 w-3.5 text-neutral-300 mt-0.5 shrink-0 group-hover:text-violet-500" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="text-[12.5px] font-medium text-neutral-900 line-clamp-2">
+                                        {title}
+                                      </div>
+                                      {resultCount > 0 && (
+                                        <div className="mt-0.5 text-[10.5px] text-neutral-500">
+                                          {resultCount} deliverable{resultCount === 1 ? "" : "s"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5 align-top text-right">
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusChip}`}>
+                                    {a.status}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-400 tabular-nums">
+                                  {relTime(a.createdAt)}
+                                </td>
+                                <td className="px-3 py-2.5 align-top pr-3 text-right">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleRow(a.id);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-50"
+                                  >
+                                    {expanded ? "Hide" : "Open"}
+                                  </button>
+                                </td>
+                              </tr>
+                              {expanded && (
+                                <tr className="bg-violet-50/20">
+                                  <td colSpan={5} className="px-4 py-3">
+                                    {(a as any).resolutionNote && (
+                                      <p className="mb-2 text-[12px] text-neutral-700">
+                                        {(a as any).resolutionNote}
                                       </p>
                                     )}
-                                  </div>
-                                ))}
-                                <button
-                                  onClick={() =>
-                                    setExpandedCompleted((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(a.id)) next.delete(a.id);
-                                      else next.add(a.id);
-                                      return next;
-                                    })
-                                  }
-                                  className="text-[11px] font-semibold text-violet-700 hover:underline"
-                                >
-                                  {expanded ? "Hide raw output" : "Show raw output"}
-                                </button>
-                                {expanded && (
-                                  <pre className="mt-1 overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[10.5px] leading-snug text-neutral-700">
-                                    {JSON.stringify(
-                                      readResults.map((r) => ({ id: r.capabilityId, output: r.output })),
-                                      null,
-                                      2,
-                                    )}
-                                  </pre>
-                                )}
-                              </div>
-                            )}
-                            {env?.buildErrors && env.buildErrors.length > 0 && (
-                              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                                {env.buildErrors.join(" · ")}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-          </>
-        )}
+                                    <DeliverableView payload={payload} />
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </TableShell>
+                  )}
+            </>
+          )}
 
-        {tab === "proposals" && (
-          <>
-            {loading && proposals.length === 0
-              ? sectionEmpty("Loading…")
-              : proposals.length === 0
-                ? sectionEmpty(
-                    "No open items. The fabric is watching — anything escalated will land here.",
-                  )
-                : proposals.map((p) => (
-                    <article
-                      key={p.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4 transition hover:border-violet-300"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-white ${
-                            p.kind === "proposal" ? "bg-violet-600" : "bg-amber-500"
-                          }`}
-                        >
-                          {p.kind}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2">
-                            <h3 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
-                              {p.title}
-                            </h3>
-                            <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
-                              conf {Number(p.confidence).toFixed(2)} · {p.horizon} · {p.model}
+          {/* ─── PROPOSALS ─────────────────────────────── */}
+          {tab === "proposals" && (
+            <>
+              {loading && proposals.length === 0
+                ? sectionEmpty("Loading…")
+                : proposals.length === 0
+                  ? sectionEmpty("No open items. The fabric is watching — anything escalated will land here.")
+                  : (
+                    <TableShell>
+                      <colgroup>
+                        <col className="w-[92px]" />
+                        <col />
+                        <col className="w-[180px]" />
+                        <col className="w-[90px]" />
+                        <col className="w-[180px]" />
+                      </colgroup>
+                      <thead className="bg-violet-50/40 border-b border-violet-100">
+                        <tr>
+                          <Th>Kind</Th>
+                          <Th>Thesis</Th>
+                          <Th className="text-right">Confidence</Th>
+                          <Th className="text-right">Age</Th>
+                          <Th className="text-right pr-3">Actions</Th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-violet-50">
+                        {proposals.map((p) => {
+                          const capIds = (p.actions ?? []).map((a) => a.op);
+                          const meta = classifyPlan(capIds);
+                          const expanded = expandedRow === p.id;
+                          return (
+                            <Fragment key={p.id}>
+                            <tr
+                                className="group hover:bg-violet-50/40 transition-colors cursor-pointer"
+                                onClick={() => toggleRow(p.id)}
+                              >
+                                <td className="px-3 py-2.5 align-top">
+                                  <KindPill meta={meta} />
+                                </td>
+                                <td className="px-3 py-2.5 align-top">
+                                  <div className="flex items-start gap-1.5">
+                                    {expanded ? (
+                                      <ChevronDown className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-3.5 w-3.5 text-neutral-300 mt-0.5 shrink-0 group-hover:text-violet-500" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="text-[12.5px] font-semibold text-neutral-900 line-clamp-1">
+                                        {p.title}
+                                      </div>
+                                      <div className="mt-0.5 text-[11.5px] text-neutral-600 line-clamp-2">
+                                        {p.thesis}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-500 tabular-nums">
+                                  {Number(p.confidence).toFixed(2)} · {p.horizon}
+                                </td>
+                                <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-400 tabular-nums">
+                                  {relTime(p.createdAt)}
+                                </td>
+                                <td className="px-3 py-2.5 align-top pr-3" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      disabled={busyId === p.id}
+                                      onClick={() => act(p.id, "acted")}
+                                      className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                                    >
+                                      <Check className="h-3 w-3" /> Acted
+                                    </button>
+                                    <button
+                                      disabled={busyId === p.id}
+                                      onClick={() => act(p.id, "dismissed")}
+                                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                      <X className="h-3 w-3" /> Dismiss
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expanded && (
+                                <tr className="bg-violet-50/20">
+                                  <td colSpan={5} className="px-4 py-3 space-y-2">
+                                    {p.actions?.length > 0 && (
+                                      <div>
+                                        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                                          Suggested actions
+                                        </div>
+                                        <ul className="space-y-1">
+                                          {p.actions.map((ac, i) => (
+                                            <li
+                                              key={i}
+                                              className="flex items-start gap-2 rounded-md border border-violet-100 bg-white px-2.5 py-1.5 text-[11.5px] text-neutral-700"
+                                            >
+                                              <span className="font-mono font-semibold text-violet-700">{ac.op}</span>
+                                              {ac.rationale && <span className="text-neutral-500">— {ac.rationale}</span>}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {p.riskNotes?.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {p.riskNotes.map((r, i) => (
+                                          <span
+                                            key={i}
+                                            className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10.5px] text-amber-700"
+                                          >
+                                            {r}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </TableShell>
+                  )}
+            </>
+          )}
+
+          {/* ─── SUB-AGENTS ────────────────────────────── */}
+          {tab === "subagents" && (
+            <>
+              {subagents.length === 0
+                ? sectionEmpty("No sub-agents spawned yet. The reflector spawns them from high-confidence deep proposals.")
+                : (
+                  <TableShell>
+                    <colgroup>
+                      <col className="w-[120px]" />
+                      <col />
+                      <col className="w-[220px]" />
+                      <col className="w-[140px]" />
+                    </colgroup>
+                    <thead className="bg-violet-50/40 border-b border-violet-100">
+                      <tr>
+                        <Th>Parent</Th>
+                        <Th>Name / Goal</Th>
+                        <Th>Capabilities</Th>
+                        <Th className="text-right pr-3">TTL</Th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-violet-50">
+                      {subagents.map((s) => (
+                        <tr key={s.id} className="hover:bg-violet-50/40 transition-colors">
+                          <td className="px-3 py-2.5 align-top">
+                            <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10.5px] font-semibold text-violet-700">
+                              {s.parent}
                             </span>
-                          </div>
-                          <p className="mt-1 text-[12.5px] text-neutral-600 leading-snug">
-                            {p.thesis}
-                          </p>
-                          {p.actions?.length > 0 && (
-                            <ul className="mt-2.5 space-y-1">
-                              {p.actions.slice(0, 3).map((a, i) => (
-                                <li
-                                  key={i}
-                                  className="flex items-start gap-2 rounded-md border border-violet-100 bg-violet-50/40 px-2.5 py-1.5 text-[11.5px] text-neutral-700"
-                                >
-                                  <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" />
-                                  <span>
-                                    <span className="font-mono font-semibold text-violet-700">
-                                      {a.op}
-                                    </span>
-                                    {a.rationale ? (
-                                      <span className="text-neutral-500"> — {a.rationale}</span>
-                                    ) : null}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {p.riskNotes?.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {p.riskNotes.slice(0, 4).map((r, i) => (
+                          </td>
+                          <td className="px-3 py-2.5 align-top">
+                            <div className="text-[12.5px] font-semibold text-neutral-900">{s.name}</div>
+                            <div className="mt-0.5 text-[11.5px] text-neutral-600 line-clamp-2">{s.goal}</div>
+                          </td>
+                          <td className="px-3 py-2.5 align-top">
+                            <div className="flex flex-wrap gap-1">
+                              {s.capabilities?.slice(0, 4).map((c) => (
                                 <span
-                                  key={i}
-                                  className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10.5px] text-amber-700"
+                                  key={c}
+                                  className="rounded-md border border-violet-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-violet-700"
                                 >
-                                  {r}
+                                  {c}
                                 </span>
                               ))}
+                              {s.capabilities?.length > 4 && (
+                                <span className="text-[10px] text-neutral-400">
+                                  +{s.capabilities.length - 4}
+                                </span>
+                              )}
                             </div>
-                          )}
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              disabled={busyId === p.id}
-                              onClick={() => act(p.id, "acted")}
-                              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
-                            >
-                              <Check className="h-3.5 w-3.5" /> Mark acted
-                            </button>
-                            <button
-                              disabled={busyId === p.id}
-                              onClick={() => act(p.id, "dismissed")}
-                              className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-60"
-                            >
-                              <X className="h-3.5 w-3.5" /> Dismiss
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-          </>
-        )}
+                          </td>
+                          <td className="px-3 py-2.5 align-top pr-3 text-right text-[11px] text-neutral-500 tabular-nums">
+                            {s.ttlMinutes}m
+                            <div className="text-[10px] text-neutral-400">
+                              exp {relTime(s.expiresAt)}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </TableShell>
+                )}
+            </>
+          )}
 
-        {tab === "subagents" && (
-          <>
-            {subagents.length === 0
-              ? sectionEmpty(
-                  "No sub-agents spawned yet. The reflector spawns them from high-confidence deep proposals.",
-                )
-              : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {subagents.map((s) => (
-                    <article
-                      key={s.id}
-                      className="rounded-xl border border-violet-100 bg-white p-4"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
-                          {s.parent}
-                        </span>
-                        <h4 className="text-[13px] font-semibold text-neutral-900 truncate">
-                          {s.name}
-                        </h4>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-[12px] text-neutral-600 leading-snug">
-                        {s.goal}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {s.capabilities?.map((c) => (
-                          <span
-                            key={c}
-                            className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] text-violet-700"
-                          >
+          {/* ─── WATCHERS ──────────────────────────────── */}
+          {tab === "watchers" && (
+            <>
+              {!wallet ? (
+                sectionEmpty("Connect a wallet to manage treasury watchers.")
+              ) : (
+                <div className="space-y-3">
+                  <form
+                    onSubmit={addWatcher}
+                    className="flex flex-wrap items-end gap-2 rounded-xl border border-violet-100 bg-white p-3"
+                  >
+                    <div className="flex flex-col">
+                      <label className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        Chain
+                      </label>
+                      <select
+                        value={chain}
+                        onChange={(e) => setChain(e.target.value)}
+                        className="h-8 rounded-md border border-violet-200 bg-white px-2 text-[12px]"
+                      >
+                        {CHAINS.map((c) => (
+                          <option key={c} value={c}>
                             {c}
-                          </span>
+                          </option>
                         ))}
-                      </div>
-                      <div className="mt-2 text-[10.5px] text-neutral-400">
-                        TTL {s.ttlMinutes}m · expires {new Date(s.expiresAt).toLocaleString()}
-                      </div>
-                    </article>
-                  ))}
+                      </select>
+                    </div>
+                    <div className="flex min-w-[220px] flex-1 flex-col">
+                      <label className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        Address
+                      </label>
+                      <Input
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="0x… or Solana pubkey"
+                        className="h-8 border-violet-200 text-[12px]"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        Label
+                      </label>
+                      <Input
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        placeholder="optional"
+                        className="h-8 border-violet-200 text-[12px]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={adding || !address}
+                      className="inline-flex h-8 items-center gap-1 rounded-md bg-violet-600 px-3 text-[11.5px] font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                    >
+                      <Plus className="h-3 w-3" /> Watch
+                    </button>
+                  </form>
+
+                  {watchers.length === 0 ? (
+                    sectionEmpty("No watchers yet. Add a wallet or contract above to start monitoring.")
+                  ) : (
+                    <TableShell>
+                      <colgroup>
+                        <col className="w-[80px]" />
+                        <col />
+                        <col className="w-[180px]" />
+                        <col className="w-[50px]" />
+                      </colgroup>
+                      <thead className="bg-violet-50/40 border-b border-violet-100">
+                        <tr>
+                          <Th>Chain</Th>
+                          <Th>Address / Label</Th>
+                          <Th className="text-right">Last scan</Th>
+                          <Th className="pr-3" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-violet-50">
+                        {watchers.map((w) => (
+                          <tr key={w.id} className="hover:bg-violet-50/40">
+                            <td className="px-3 py-2 align-middle">
+                              <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10.5px] font-semibold text-violet-700">
+                                {w.chain}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 align-middle">
+                              <div className="font-mono text-[11.5px] text-neutral-800">
+                                {w.address.slice(0, 8)}…{w.address.slice(-6)}
+                              </div>
+                              {w.label && (
+                                <div className="text-[10.5px] text-neutral-500">{w.label}</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 align-middle text-right text-[10.5px] text-neutral-400 tabular-nums">
+                              {w.lastScanAt ? relTime(w.lastScanAt) : "never"}
+                            </td>
+                            <td className="px-3 py-2 align-middle pr-3 text-right">
+                              <button
+                                onClick={() => removeWatcher(w.id)}
+                                className="rounded-md p-1 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                aria-label="Remove watcher"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </TableShell>
+                  )}
                 </div>
               )}
-          </>
-        )}
-
-        {tab === "watchers" && (
-          <>
-            {!wallet ? (
-              sectionEmpty("Connect a wallet to manage treasury watchers.")
-            ) : (
-              <div className="rounded-xl border border-violet-100 bg-white p-4">
-                <form onSubmit={addWatcher} className="flex flex-wrap items-end gap-2">
-                  <div className="flex flex-col">
-                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
-                      Chain
-                    </label>
-                    <select
-                      value={chain}
-                      onChange={(e) => setChain(e.target.value)}
-                      className="h-9 rounded-md border border-violet-200 bg-white px-2 text-[12.5px]"
-                    >
-                      {CHAINS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex min-w-[220px] flex-1 flex-col">
-                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
-                      Address
-                    </label>
-                    <Input
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="0x… or Solana pubkey"
-                      className="h-9 border-violet-200 text-[12.5px]"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500">
-                      Label
-                    </label>
-                    <Input
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                      placeholder="optional"
-                      className="h-9 border-violet-200 text-[12.5px]"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={adding || !address}
-                    className="inline-flex h-9 items-center gap-1 rounded-lg bg-violet-600 px-3 text-[12px] font-semibold text-white hover:bg-violet-700 transition-colors disabled:opacity-60"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Watch
-                  </button>
-                </form>
-
-                {watchers.length > 0 && (
-                  <ul className="mt-3 divide-y divide-violet-100">
-                    {watchers.map((w) => (
-                      <li
-                        key={w.id}
-                        className="flex items-center gap-3 py-2 text-[12.5px]"
-                      >
-                        <span className="inline-flex h-5 items-center rounded-full bg-violet-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
-                          {w.chain}
-                        </span>
-                        <span className="font-mono text-[11px] text-neutral-700">
-                          {w.address.slice(0, 6)}…{w.address.slice(-6)}
-                        </span>
-                        {w.label && (
-                          <span className="text-neutral-500 truncate">— {w.label}</span>
-                        )}
-                        <span className="ml-auto text-[10.5px] text-neutral-400 shrink-0">
-                          {w.lastScanAt
-                            ? `last scan ${new Date(w.lastScanAt).toLocaleTimeString()}`
-                            : "never scanned"}
-                        </span>
-                        <button
-                          onClick={() => removeWatcher(w.id)}
-                          className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                          aria-label="Remove watcher"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </section>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
 }
+
