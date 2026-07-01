@@ -344,24 +344,35 @@ export default function InboxPage() {
       if (!res.ok) throw new Error("approval_patch_failed");
       const json = (await res.json()) as {
         ok: boolean;
+        approval?: any;
         signingEnvelope?: {
           serializedTransactions: string[];
           extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
           operation: string;
           buildErrors: string[];
           bundleStrategy?: "sequential" | "atomic";
+          readResults?: Array<{
+            capabilityId: string;
+            sideEffects: string;
+            summary?: string;
+            output: unknown;
+          }>;
         } | null;
       };
 
-      // Reject path or approve-with-no-write-steps → just clear from list.
+      // Reject → clear from pending; the row moves to Completed as 'rejected'.
       if (status === "rejected") {
         setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
         toast.success("Rejected");
+        await refresh();
         return;
       }
 
       const env = json.signingEnvelope;
       const bundleStrategy = env?.bundleStrategy ?? "sequential";
+      // Read-only plan / nothing to sign → server already marked as executed
+      // and persisted readResults. Move the row to the Completed tab and
+      // show the user the deliverable instead of silently dropping it.
       if (!env || env.serializedTransactions.length === 0) {
         setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
         if (env?.buildErrors?.length) {
@@ -369,10 +380,19 @@ export default function InboxPage() {
             description: env.buildErrors[0].slice(0, 200),
           });
         } else {
-          toast.success("Approved — read-only plan executed");
+          const resultCount = env?.readResults?.length ?? 0;
+          toast.success("Delivered", {
+            description:
+              resultCount > 0
+                ? `${resultCount} result${resultCount === 1 ? "" : "s"} — see Completed`
+                : "See Completed tab",
+          });
         }
+        await refresh();
+        setTab("completed");
         return;
       }
+
 
       // We have transactions to sign. Walk them through the connected wallet.
       if (!signTransaction && !signAllTransactions) {
@@ -544,8 +564,30 @@ export default function InboxPage() {
     }
   };
 
-  type TabKey = "pending" | "proposals" | "subagents" | "watchers";
+  type TabKey = "pending" | "completed" | "proposals" | "subagents" | "watchers";
   const [tab, setTab] = useState<TabKey>("pending");
+  const [completed, setCompleted] = useState<CommandApproval[]>([]);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+  const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (tab !== "completed") return;
+    let cancelled = false;
+    setLoadingCompleted(true);
+    fetch(`/api/inbox/command-approvals?status=approved,executed,rejected`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        setCompleted(j?.approvals ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingCompleted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
     {
@@ -554,6 +596,7 @@ export default function InboxPage() {
       count: txProposals.length + commandApprovals.length,
       glyph: glyphPurchase,
     },
+    { key: "completed", label: "Completed", count: completed.length, glyph: glyphSystem },
     { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
     { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
     { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
@@ -777,6 +820,112 @@ export default function InboxPage() {
                     </div>
                   </article>
                 ))}
+          </>
+        )}
+
+        {tab === "completed" && (
+          <>
+            {loadingCompleted && completed.length === 0
+              ? sectionEmpty("Loading…")
+              : completed.length === 0
+                ? sectionEmpty(
+                    "Nothing here yet. Approved briefings, projections, and executed plans will show up here with their results.",
+                  )
+                : completed.map((a) => {
+                    const decision = (a as any).decision as
+                      | { signingEnvelope?: { readResults?: Array<{ capabilityId: string; sideEffects: string; summary?: string; output: unknown }>; operation?: string; buildErrors?: string[] } }
+                      | null;
+                    const env = decision?.signingEnvelope;
+                    const readResults = env?.readResults ?? [];
+                    const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
+                    const expanded = expandedCompleted.has(a.id);
+                    const statusColor =
+                      a.status === "executed"
+                        ? "bg-emerald-600"
+                        : a.status === "rejected"
+                          ? "bg-slate-500"
+                          : "bg-violet-600";
+                    return (
+                      <article
+                        key={a.id}
+                        className="rounded-xl border border-violet-100 bg-white p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-white ${statusColor}`}
+                          >
+                            {a.status}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start gap-2">
+                              <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
+                                {title}
+                              </h4>
+                              <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
+                                {new Date(a.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            {(a as any).resolutionNote && (
+                              <p className="mt-1.5 text-[12px] text-neutral-700 leading-relaxed">
+                                {(a as any).resolutionNote}
+                              </p>
+                            )}
+                            {readResults.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {readResults.map((r, i) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-md border border-violet-100 bg-violet-50/40 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-mono text-[11px] font-semibold text-violet-700">
+                                        {r.capabilityId}
+                                      </span>
+                                      <span className="text-[10px] uppercase tracking-wider text-neutral-400">
+                                        {r.sideEffects}
+                                      </span>
+                                    </div>
+                                    {r.summary && (
+                                      <p className="mt-1 text-[12px] text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                                        {r.summary}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                                <button
+                                  onClick={() =>
+                                    setExpandedCompleted((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(a.id)) next.delete(a.id);
+                                      else next.add(a.id);
+                                      return next;
+                                    })
+                                  }
+                                  className="text-[11px] font-semibold text-violet-700 hover:underline"
+                                >
+                                  {expanded ? "Hide raw output" : "Show raw output"}
+                                </button>
+                                {expanded && (
+                                  <pre className="mt-1 overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[10.5px] leading-snug text-neutral-700">
+                                    {JSON.stringify(
+                                      readResults.map((r) => ({ id: r.capabilityId, output: r.output })),
+                                      null,
+                                      2,
+                                    )}
+                                  </pre>
+                                )}
+                              </div>
+                            )}
+                            {env?.buildErrors && env.buildErrors.length > 0 && (
+                              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                                {env.buildErrors.join(" · ")}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
           </>
         )}
 

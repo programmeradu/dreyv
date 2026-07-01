@@ -31,14 +31,17 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: true, approvals: [], reason: "db_unavailable" });
   const url = new URL(req.url);
-  const status = url.searchParams.get("status") ?? "pending";
-  // Always scope to the authenticated user's wallet, regardless of any
-  // ?wallet= query (which may come from a different connected wallet than
-  // the JWT cookie's wallet — e.g. user reconnected with another adapter).
+  // Accept ?status=pending (default) or ?status=approved,executed
+  const statusParam = url.searchParams.get("status") ?? "pending";
+  const statuses = statusParam.split(",").map((s) => s.trim()).filter(Boolean);
   const wallet = user.walletAddress;
 
   try {
-    const where = and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet));
+    const { inArray } = await import("drizzle-orm");
+    const where = and(
+      inArray(commandApprovals.status, statuses),
+      eq(commandApprovals.walletAddress, wallet),
+    );
     const rows = await db
       .select()
       .from(commandApprovals)
@@ -72,6 +75,13 @@ interface ExtraSigner {
  */
 export type BundleStrategy = "sequential" | "atomic";
 
+interface ReadResult {
+  capabilityId: string;
+  sideEffects: string;
+  summary?: string;
+  output: unknown;
+}
+
 interface SigningEnvelope {
   serializedTransactions: string[];
   /** Per-tx ephemeral signers (e.g. Squads createKey). Index-aligned with serializedTransactions. */
@@ -83,6 +93,10 @@ interface SigningEnvelope {
   atomicCapabilityIds: string[];
   builtAt: number;
   buildErrors: string[];
+  /** Outputs from read-only / sim / meta steps so the UI can render the
+   *  approved plan's actual deliverable (briefings, projections, summaries)
+   *  instead of silently discarding them. */
+  readResults: ReadResult[];
 }
 
 /**
@@ -130,6 +144,7 @@ async function buildSigningEnvelope(
   const capabilityIds: string[] = [];
   const atomicCapabilityIds: string[] = [];
   const buildErrors: string[] = [];
+  const readResults: ReadResult[] = [];
   let operation = "Approved plan";
   let bundleStrategy: BundleStrategy = "sequential";
 
@@ -139,13 +154,30 @@ async function buildSigningEnvelope(
       buildErrors.push(`Unknown capability: ${planStep.capabilityId}`);
       continue;
     }
-    if (cap.sideEffects !== "write") {
-      continue;
-    }
     try {
       const parsed = cap.inputSchema.parse(planStep.input);
       const out = (await cap.execute(parsed, ctx)) as Record<string, unknown> | undefined;
       capabilityIds.push(cap.id);
+
+      // Non-write steps (read/sim/meta): capture the output so the UI can
+      // render the actual deliverable (briefing, projection, summary).
+      if (cap.sideEffects !== "write") {
+        const summary =
+          out && typeof out === "object"
+            ? (typeof (out as any).summary === "string" && (out as any).summary) ||
+              (typeof (out as any).narrative === "string" && (out as any).narrative) ||
+              (typeof (out as any).message === "string" && (out as any).message) ||
+              undefined
+            : undefined;
+        readResults.push({
+          capabilityId: cap.id,
+          sideEffects: cap.sideEffects,
+          summary: summary || undefined,
+          output: out ?? null,
+        });
+        continue;
+      }
+
       let stepWantsAtomic = ATOMIC_BUNDLE_CAPABILITY_IDS.has(cap.id);
       if (out && typeof out === "object") {
         const txs = (out as { serializedTransactions?: unknown }).serializedTransactions;
@@ -164,7 +196,6 @@ async function buildSigningEnvelope(
           for (const t of txs) {
             if (typeof t === "string") {
               serialized.push(t);
-              // Apply this step's extra signers to every tx the step produced.
               extraSigners.push(stepSigners);
             }
           }
@@ -181,9 +212,6 @@ async function buildSigningEnvelope(
     }
   }
 
-  // Jito bundles cap at 5 transactions. If a capability requested atomic but
-  // the resulting envelope has more than 5 txs, we fall back to sequential
-  // and surface a build error so the UI can warn the user.
   if (bundleStrategy === "atomic" && serialized.length > 5) {
     buildErrors.push(
       `bundle_too_large_for_atomic: ${serialized.length} txs > 5 (Jito limit). Falling back to sequential.`,
@@ -200,6 +228,7 @@ async function buildSigningEnvelope(
     atomicCapabilityIds,
     builtAt: Date.now(),
     buildErrors,
+    readResults,
   };
 }
 
@@ -232,6 +261,7 @@ export async function PATCH(req: NextRequest) {
     let envelope: SigningEnvelope | null = null;
     let nextDecision = existing.decision as RouteDecision & { signingEnvelope?: SigningEnvelope };
     let resolutionNote = body.note ?? null;
+    let effectiveStatus: "approved" | "rejected" | "executed" = body.status;
 
     if (body.status === "approved") {
       try {
@@ -243,6 +273,23 @@ export async function PATCH(req: NextRequest) {
         if (envelope.buildErrors.length > 0 && envelope.serializedTransactions.length === 0) {
           resolutionNote =
             resolutionNote ?? `Build failed: ${envelope.buildErrors.join("; ").slice(0, 380)}`;
+        }
+        // Read-only plan (briefing / projection / summary): no txs to sign,
+        // no build errors → mark executed so it lands in the Completed tab
+        // with its readResults instead of vanishing.
+        if (
+          envelope.serializedTransactions.length === 0 &&
+          envelope.buildErrors.length === 0
+        ) {
+          effectiveStatus = "executed";
+          const firstSummary = envelope.readResults.find((r) => r.summary)?.summary;
+          resolutionNote =
+            resolutionNote ??
+            (firstSummary
+              ? firstSummary.slice(0, 380)
+              : `Delivered ${envelope.readResults.length} read-only result${
+                  envelope.readResults.length === 1 ? "" : "s"
+                }.`);
         }
       } catch (e: any) {
         console.warn("[inbox:command-approvals] envelope build failed", e?.message);
@@ -257,7 +304,7 @@ export async function PATCH(req: NextRequest) {
     const [row] = await db
       .update(commandApprovals)
       .set({
-        status: body.status,
+        status: effectiveStatus,
         resolvedAt: new Date(),
         resolutionNote,
         decision: nextDecision as unknown as Record<string, unknown>,
