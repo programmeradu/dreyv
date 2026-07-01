@@ -149,11 +149,11 @@ async function runDebug(topic: string) {
   await Promise.all(urls.map(async (url) => {
     let md = "";
     let provider = "cloudflare-browser";
-    try { md = (await cfMarkdown({ url })) || ""; } catch { md = ""; }
+    try { md = coerceString(await cfMarkdown({ url })); } catch { md = ""; }
     if (md.length < 400) {
       const [f, j] = await Promise.allSettled([firecrawl.scrape(url), jina.readUrl(url)]);
-      const fMd = f.status === "fulfilled" ? f.value : "";
-      const jMd = j.status === "fulfilled" ? j.value : "";
+      const fMd = f.status === "fulfilled" ? coerceString(f.value) : "";
+      const jMd = j.status === "fulfilled" ? coerceString(j.value) : "";
       if (fMd.length > md.length) { md = fMd; provider = "firecrawl"; }
       if (jMd.length > md.length) { md = jMd; provider = "jina"; }
     }
