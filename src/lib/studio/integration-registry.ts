@@ -134,7 +134,7 @@ export function suggestIntegrations(prompt: string): IntegrationDef[] {
 
 /**
  * Detect protocol-like words the registry doesn't know about.
- * These trigger Firecrawl/Perplexity research.
+ * These trigger the studio research pipeline (Tavily → Firecrawl+Jina → CF Browser → Lovable AI).
  */
 export function detectUnknownProtocols(prompt: string): string[] {
   const known = new Set(
