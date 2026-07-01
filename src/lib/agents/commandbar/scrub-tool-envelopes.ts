@@ -209,9 +209,9 @@ export function stripHallucinatedToolEnvelopes(
 }
 
 function rewriteSseLine(line: string, perId: Map<string, BufState>): string[] {
-    if (!line.startsWith("data:")) return line;
+    if (!line.startsWith("data:")) return [line];
     const payload = line.slice(5).trimStart();
-    if (!payload || payload === "[DONE]") return line;
+    if (!payload || payload === "[DONE]") return [line];
     let obj: any;
     try {
         obj = JSON.parse(payload);
