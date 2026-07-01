@@ -344,11 +344,14 @@ const draft_yield_route = defineCapability({
   description:
     "Draft or arm a yield route (token → venue at a risk band). For 'activates when idle stables land', create status='armed' so the watcher can queue a policy-gated deposit when funds arrive.",
   inputSchema: z.object({
-    token: z.string().default("USDC"),
-    venue: z.string().min(1).describe("e.g. 'Marinade', 'Kamino USDC', 'JitoSOL'"),
-    riskBand: z.enum(["conservative", "balanced", "aggressive"]).default("conservative"),
-    targetAmount: z.number().nonnegative().default(0),
-    minApyBps: z.number().int().min(0).max(50000).optional(),
+    token: z.string().default("USDC").describe("Token symbol only, e.g. 'USDC', 'SOL'. For pair positions like 'SOL-USDC' pass the deposit token."),
+    venue: z.string().min(1).describe("e.g. 'Marinade', 'Kamino USDC', 'JitoSOL', 'Orca'"),
+    riskBand: z.enum(["conservative", "balanced", "aggressive"]).default("conservative")
+      .describe("Map 'higher risk'/'high'→'aggressive', 'medium'/'moderate'→'balanced', 'low'/'safe'→'conservative'."),
+    targetAmount: z.coerce.number().nonnegative().default(0)
+      .describe("Numeric token amount. If unknown or user says 'available balance', OMIT this field (defaults to 0 → uses idle balance)."),
+    minApyBps: z.coerce.number().int().min(0).max(50000).optional()
+      .describe("Minimum APY in basis points (integer). 80.85% APY = 8085."),
     notes: z.string().max(280).optional(),
   }),
   sideEffects: "meta",
