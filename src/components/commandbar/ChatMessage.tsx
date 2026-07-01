@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import type { UIMessage } from "ai";
 import { ToolCard } from "@/components/commandbar/ToolCard";
 import { ThinkingBlock } from "@/components/commandbar/ThinkingBlock";
+import { stripHallucinatedToolEnvelopeText } from "@/lib/agents/commandbar/scrub-tool-envelopes";
 
 class MarkdownErrorBoundary extends React.Component<
   { fallback: React.ReactNode; children: React.ReactNode },
@@ -230,7 +231,9 @@ function extractChips(text: string): { body: string; chips: string[] } {
 
 export function ChatMessage({ message, tokenLogos, onSign, isStreaming = false, onChipClick }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const rawText = getTextContent(message);
+  const rawText = isUser
+    ? getTextContent(message)
+    : stripHallucinatedToolEnvelopeText(getTextContent(message));
   const { body: textContent, chips } = extractChips(rawText);
   const reasoningContent = getReasoningContent(message);
   const toolParts = getToolParts(message);
