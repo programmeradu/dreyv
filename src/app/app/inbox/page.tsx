@@ -344,24 +344,35 @@ export default function InboxPage() {
       if (!res.ok) throw new Error("approval_patch_failed");
       const json = (await res.json()) as {
         ok: boolean;
+        approval?: any;
         signingEnvelope?: {
           serializedTransactions: string[];
           extraSigners?: Array<Array<{ publicKey: string; secretKeyBase64: string }>>;
           operation: string;
           buildErrors: string[];
           bundleStrategy?: "sequential" | "atomic";
+          readResults?: Array<{
+            capabilityId: string;
+            sideEffects: string;
+            summary?: string;
+            output: unknown;
+          }>;
         } | null;
       };
 
-      // Reject path or approve-with-no-write-steps → just clear from list.
+      // Reject → clear from pending; the row moves to Completed as 'rejected'.
       if (status === "rejected") {
         setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
         toast.success("Rejected");
+        await refresh();
         return;
       }
 
       const env = json.signingEnvelope;
       const bundleStrategy = env?.bundleStrategy ?? "sequential";
+      // Read-only plan / nothing to sign → server already marked as executed
+      // and persisted readResults. Move the row to the Completed tab and
+      // show the user the deliverable instead of silently dropping it.
       if (!env || env.serializedTransactions.length === 0) {
         setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
         if (env?.buildErrors?.length) {
@@ -369,10 +380,19 @@ export default function InboxPage() {
             description: env.buildErrors[0].slice(0, 200),
           });
         } else {
-          toast.success("Approved — read-only plan executed");
+          const resultCount = env?.readResults?.length ?? 0;
+          toast.success("Delivered", {
+            description:
+              resultCount > 0
+                ? `${resultCount} result${resultCount === 1 ? "" : "s"} — see Completed`
+                : "See Completed tab",
+          });
         }
+        await refresh();
+        setTab("completed");
         return;
       }
+
 
       // We have transactions to sign. Walk them through the connected wallet.
       if (!signTransaction && !signAllTransactions) {
