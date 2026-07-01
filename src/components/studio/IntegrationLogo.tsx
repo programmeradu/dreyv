@@ -25,7 +25,7 @@ const KNOWN_DOMAINS: Record<string, string> = {
   google: "google.com",
   gemini: "ai.google.dev",
   "google gemini": "ai.google.dev",
-  perplexity: "perplexity.ai",
+  
   firecrawl: "firecrawl.dev",
   tavily: "tavily.com",
   twilio: "twilio.com",

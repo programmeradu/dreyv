@@ -254,7 +254,7 @@ const protocol_research_brief = defineCapability({
         insights: [],
         sources: [],
         error: "RESEARCH_UNAVAILABLE",
-        message: `Couldn't gather research for "${protocol}" — research providers (Tavily / Firecrawl / Perplexity) are not configured or returned nothing. Add the API keys or try again later.`,
+        message: `Couldn't gather research for "${protocol}" — research providers (Tavily / Firecrawl / Jina / Cloudflare Browser) are not configured or returned nothing. Add the API keys or try again later.`,
       };
     }
 

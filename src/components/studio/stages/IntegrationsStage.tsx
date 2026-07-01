@@ -66,7 +66,7 @@ export function IntegrationsStage({ integrations, unknownProtocols, isLoading, o
           <FlaskConical size={14} className="text-primary mt-0.5 shrink-0" />
           <div className="text-xs text-foreground">
             <span className="font-semibold text-primary">Researching: </span>
-            {unknownProtocols.join(", ")} — Firecrawl + Perplexity will fetch SDK docs before build.
+            {unknownProtocols.join(", ")} — Tavily + Firecrawl + Jina + Cloudflare Browser will fetch SDK docs before build.
           </div>
         </div>
       )}
