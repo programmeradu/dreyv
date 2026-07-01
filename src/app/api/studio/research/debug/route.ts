@@ -110,18 +110,12 @@ async function runDebug(topic: string) {
   const collectiveSources: Array<{ url: string; provider: string; chars: number }> = [];
   const collectiveChunks: string[] = [];
 
-  const urls = (tav.value || []).slice(0, 3).map((r) => r.url);
-  for (const url of urls) {
-    // CF first
+  const urls = (tav.value || []).slice(0, 2).map((r) => r.url);
+  await Promise.all(urls.map(async (url) => {
     let md = "";
     let provider = "cloudflare-browser";
-    try {
-      md = (await cfMarkdown({ url })) || "";
-    } catch {
-      md = "";
-    }
+    try { md = (await cfMarkdown({ url })) || ""; } catch { md = ""; }
     if (md.length < 400) {
-      // fall back to firecrawl, then jina
       const [f, j] = await Promise.allSettled([firecrawl.scrape(url), jina.readUrl(url)]);
       const fMd = f.status === "fulfilled" ? f.value : "";
       const jMd = j.status === "fulfilled" ? j.value : "";
@@ -132,17 +126,23 @@ async function runDebug(topic: string) {
       collectiveSources.push({ url, provider, chars: md.length });
       collectiveChunks.push(`## Source (${provider}): ${url}\n\n${md.slice(0, 4000)}`);
     }
-  }
+  }));
 
-  const synth = await lovableAi({
-    model: "google/gemini-2.5-flash",
-    messages: [
-      { role: "system", content: `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${topic}" covering: main SDK packages, key TypeScript signatures with imports, one minimal usage example, and any gotchas. If notes are insufficient, say so plainly — never fabricate.` },
-      { role: "user", content: `Topic: ${topic}\n\nNOTES:\n${collectiveChunks.join("\n\n---\n\n").slice(0, 14000)}` },
-    ],
-    temperature: 0.15,
-    timeoutMs: 45_000,
-  });
+  let synth: unknown = null;
+  let synthError: string | undefined;
+  try {
+    synth = await lovableAi({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${topic}" covering: main SDK packages, key TypeScript signatures with imports, one minimal usage example, and any gotchas. If notes are insufficient, say so plainly — never fabricate.` },
+        { role: "user", content: `Topic: ${topic}\n\nNOTES:\n${collectiveChunks.join("\n\n---\n\n").slice(0, 14000)}` },
+      ],
+      temperature: 0.15,
+      timeoutMs: 30_000,
+    });
+  } catch (e) {
+    synthError = (e as Error)?.message || String(e);
+  }
   const collectiveMs = Date.now() - t0;
 
   return NextResponse.json({
@@ -160,6 +160,7 @@ async function runDebug(topic: string) {
       synthesisOk: typeof synth === "string" && synth.length > 100,
       synthesisChars: typeof synth === "string" ? synth.length : 0,
       synthesis: typeof synth === "string" ? synth : null,
+      synthError,
     },
   });
 }
