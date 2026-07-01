@@ -778,7 +778,10 @@ export async function POST(req: Request) {
           const response = result.toUIMessageStreamResponse();
           if (response.body) {
             console.log(`[Command API] Recovery succeeded via ${name} (no tools).`);
-            return response;
+            return new Response(stripHallucinatedToolEnvelopes(response.body), {
+              headers: response.headers,
+              status: response.status,
+            });
           }
         } catch (err) {
           console.warn(`[Command API] Recovery ${name} failed: ${(err as Error)?.message?.slice(0, 200)}`);
