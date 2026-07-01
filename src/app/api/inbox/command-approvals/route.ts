@@ -31,14 +31,17 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: true, approvals: [], reason: "db_unavailable" });
   const url = new URL(req.url);
-  const status = url.searchParams.get("status") ?? "pending";
-  // Always scope to the authenticated user's wallet, regardless of any
-  // ?wallet= query (which may come from a different connected wallet than
-  // the JWT cookie's wallet — e.g. user reconnected with another adapter).
+  // Accept ?status=pending (default) or ?status=approved,executed
+  const statusParam = url.searchParams.get("status") ?? "pending";
+  const statuses = statusParam.split(",").map((s) => s.trim()).filter(Boolean);
   const wallet = user.walletAddress;
 
   try {
-    const where = and(eq(commandApprovals.status, status), eq(commandApprovals.walletAddress, wallet));
+    const { inArray } = await import("drizzle-orm");
+    const where = and(
+      inArray(commandApprovals.status, statuses),
+      eq(commandApprovals.walletAddress, wallet),
+    );
     const rows = await db
       .select()
       .from(commandApprovals)
