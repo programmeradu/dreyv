@@ -1,15 +1,105 @@
+/**
+ * POST /api/studio/research — Unified 4-gun research pipeline.
+ *
+ * Flow:
+ *   1. Tavily          → discover top URLs for the query.
+ *   2. Firecrawl + Jina (parallel) → scrape the top sources to markdown.
+ *   3. Cloudflare Browser Rendering → fallback for JS-heavy pages when both
+ *      Firecrawl and Jina return thin content.
+ *   4. Lovable AI (Gemini) → synthesize a signal-dense SDK brief.
+ *
+ * Persists the merged brief to knowledgeEntries as "studio_research".
+ * Never invents; if every provider is unavailable it says so plainly.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
+import { TavilyClient } from "@/lib/tavily";
+import { JinaClient } from "@/lib/jina";
+import { FirecrawlClient } from "@/lib/firecrawl";
+import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+export const maxDuration = 60;
 
-/**
- * Studio research route — given an unknown protocol, fetch docs via Firecrawl
- * (search + scrape) and SDK shape via Perplexity (sonar-pro). Persists to
- * the knowledgeEntries table with source: "studio_research".
- *
- * Both providers are optional — the route returns whatever it could gather.
- */
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const THIN = 400; // chars — below this we consider a scrape "thin" and fall back
+
+interface ScrapeChunk {
+  url: string;
+  provider: "firecrawl" | "jina" | "cf-browser";
+  markdown: string;
+}
+
+function stripChrome(md: string): string {
+  if (!md) return "";
+  return md
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/^.*(skip to content|toggle navigation|cookie|subscribe to our newsletter|appearance settings|navigation menu).*$/gim, "")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function scrapeOne(url: string, firecrawl: FirecrawlClient, jina: JinaClient): Promise<ScrapeChunk> {
+  const [fc, jn] = await Promise.allSettled([firecrawl.scrape(url), jina.readUrl(url)]);
+  const fcMd = fc.status === "fulfilled" ? stripChrome(fc.value) : "";
+  const jnMd = jn.status === "fulfilled" ? stripChrome(jn.value) : "";
+  // Prefer the longer of the two — different providers win on different sites
+  const winner = fcMd.length >= jnMd.length
+    ? { provider: "firecrawl" as const, markdown: fcMd }
+    : { provider: "jina" as const, markdown: jnMd };
+
+  if (winner.markdown.length >= THIN) return { url, ...winner };
+
+  // Fallback: CF Browser Rendering for JS-heavy pages
+  try {
+    const cf = stripChrome(await cfMarkdown({ url }));
+    if (cf.length > winner.markdown.length) return { url, provider: "cf-browser", markdown: cf };
+  } catch (err) {
+    console.warn("[research] CF fallback failed for", url, err);
+  }
+  return { url, ...winner };
+}
+
+async function synthesize(protocol: string, prompt: string, chunks: ScrapeChunk[]): Promise<string> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (!lovableKey || !chunks.length) return "";
+
+  const corpus = chunks
+    .map((c) => `## Source (${c.provider}): ${c.url}\n\n${c.markdown.slice(0, 4000)}`)
+    .join("\n\n---\n\n")
+    .slice(0, 14000);
+
+  const sys = `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${protocol}" covering: (1) main JS/TS SDK package(s), (2) 2-3 key TypeScript function signatures with imports, (3) one minimal usage example, (4) any gotchas. If notes are insufficient, say so plainly — never fabricate signatures or package names.`;
+
+  try {
+    const res = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: `Protocol: ${protocol}\nIntent: ${prompt.slice(0, 300)}\n\nNOTES:\n${corpus}` },
+        ],
+        max_tokens: 900,
+        temperature: 0.15,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("[research] synth failed:", res.status);
+      return "";
+    }
+    const d = await res.json();
+    return (d?.choices?.[0]?.message?.content || "").trim();
+  } catch (err) {
+    console.warn("[research] synth error:", err);
+    return "";
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: { protocol?: string; prompt?: string };
   try {
@@ -20,128 +110,81 @@ export async function POST(req: NextRequest) {
 
   const protocol = (body.protocol || "").trim();
   const prompt = (body.prompt || "").trim();
-  if (!protocol) {
-    return NextResponse.json({ error: "Missing protocol" }, { status: 400 });
+  if (!protocol) return NextResponse.json({ error: "Missing protocol" }, { status: 400 });
+
+  const tavilyKey = process.env.TAVILY_API_KEY || "";
+  const firecrawlKey = process.env.FIRECRAWL_API_KEY || "";
+  const jinaKey = process.env.JINA_API_KEY || "";
+
+  const tavily = new TavilyClient(tavilyKey);
+  const firecrawl = new FirecrawlClient(firecrawlKey);
+  const jina = new JinaClient(jinaKey);
+
+  // 1. Discovery
+  const providersUsed: string[] = [];
+  let discovered: Array<{ url: string; title: string }> = [];
+  if (tavilyKey) {
+    try {
+      const hits = await tavily.search(`${protocol} solana sdk documentation typescript`, "advanced");
+      discovered = hits.slice(0, 3).map((h) => ({ url: h.url, title: h.title }));
+      if (discovered.length) providersUsed.push("tavily");
+    } catch (err) {
+      console.warn("[research] tavily failed:", err);
+    }
   }
 
-  const sources: Array<{ url: string; source: "firecrawl" | "perplexity" | "lovable_ai" }> = [];
-  let docsMarkdown = "";
-  let sdkShape = "";
-
-  // ─── Firecrawl: scrape protocol docs ──────────────────────────────
-  const firecrawlKey = process.env.FIRECRAWL_API_KEY;
-  if (firecrawlKey) {
+  // If Tavily gave us nothing, try Firecrawl's own search as a discovery fallback
+  if (!discovered.length && firecrawlKey) {
     try {
-      const searchRes = await fetch("https://api.firecrawl.dev/v2/search", {
+      const r = await fetch("https://api.firecrawl.dev/v2/search", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${firecrawlKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: `${protocol} solana sdk documentation api`,
-          limit: 2,
-          scrapeOptions: { formats: ["markdown"] },
-        }),
+        headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: `${protocol} solana sdk documentation`, limit: 3 }),
       });
-      if (searchRes.ok) {
-        const sd = await searchRes.json();
-        const results = sd?.data || sd?.web?.results || [];
-        for (const r of results.slice(0, 2)) {
-          const md = r.markdown || r.content || "";
-          if (md) {
-            docsMarkdown += `\n\n## From ${r.url || protocol}\n\n${md.slice(0, 4000)}`;
-            sources.push({ url: r.url || "", source: "firecrawl" });
-          }
-        }
+      if (r.ok) {
+        const d = await r.json();
+        const results = d?.data || d?.web?.results || [];
+        discovered = results
+          .slice(0, 3)
+          .map((x: Record<string, unknown>) => ({ url: String(x.url || ""), title: String(x.title || protocol) }))
+          .filter((x: { url: string }) => x.url);
+        if (discovered.length) providersUsed.push("firecrawl-search");
       }
     } catch (err) {
-      console.warn("[research] firecrawl failed:", err);
+      console.warn("[research] firecrawl search failed:", err);
     }
   }
 
-  // ─── Perplexity: SDK shape + code examples (optional) ────────────
-  const perplexityKey = process.env.PERPLEXITY_API_KEY;
-  if (perplexityKey) {
-    try {
-      const ppRes = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${perplexityKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "sonar-pro",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a Solana SDK expert. Given a protocol name, return a concise markdown summary: (1) main JS/TS SDK package name, (2) 1-2 key TypeScript function signatures with imports, (3) one minimal usage example. No fluff.",
-            },
-            { role: "user", content: `Protocol: ${protocol}\nUser intent: ${prompt.slice(0, 300)}` },
-          ],
-          max_tokens: 600,
-          temperature: 0.1,
-        }),
-      });
-      if (ppRes.ok) {
-        const pd = await ppRes.json();
-        sdkShape = pd?.choices?.[0]?.message?.content || "";
-        const citations: string[] = pd?.citations || [];
-        for (const c of citations.slice(0, 3)) {
-          sources.push({ url: c, source: "perplexity" });
-        }
-      }
-    } catch (err) {
-      console.warn("[research] perplexity failed:", err);
-    }
-  }
-
-  // ─── Fallback: Lovable AI synthesis if no external sources ────────
-  if (!docsMarkdown && !sdkShape) {
-    const lovableKey = process.env.LOVABLE_API_KEY;
-    if (lovableKey) {
-      try {
-        const res = await fetch(LOVABLE_AI_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a Solana SDK expert. Provide a concise markdown brief on the named protocol: SDK package, key TypeScript signatures, one short usage snippet. If you don't know, say so plainly — do not fabricate.",
-              },
-              { role: "user", content: `Protocol: ${protocol}\nIntent: ${prompt.slice(0, 300)}` },
-            ],
-            max_tokens: 600,
-            temperature: 0.2,
-          }),
-        });
-        if (res.ok) {
-          const d = await res.json();
-          sdkShape = d?.choices?.[0]?.message?.content || "";
-          if (sdkShape) sources.push({ url: "lovable-ai-gateway", source: "lovable_ai" });
-        }
-      } catch (err) {
-        console.warn("[research] lovable_ai fallback failed:", err);
+  // 2 + 3. Scrape (Firecrawl+Jina in parallel, CF fallback) for each URL
+  const chunks: ScrapeChunk[] = [];
+  if (discovered.length && (firecrawlKey || jinaKey)) {
+    const results = await Promise.allSettled(
+      discovered.map((d) => scrapeOne(d.url, firecrawl, jina))
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.markdown) {
+        chunks.push(r.value);
+        if (!providersUsed.includes(r.value.provider)) providersUsed.push(r.value.provider);
       }
     }
   }
 
-  const combined = [docsMarkdown.trim(), sdkShape.trim()].filter(Boolean).join("\n\n---\n\n");
+  // 4. Synthesis
+  const synthesized = await synthesize(protocol, prompt, chunks);
+  if (synthesized) providersUsed.push("lovable-ai");
 
-  // Persist to knowledge memory (best-effort)
+  const combined = synthesized ||
+    (chunks.length
+      ? `Research notes gathered but synthesis was unavailable. Raw sources:\n\n${chunks.map((c) => `- ${c.url}`).join("\n")}`
+      : "");
+
+  // Persist (best-effort)
   if (combined) {
     try {
       await knowledgeMemory.store({
         source: "studio_research",
         title: `Studio research: ${protocol}`,
-        summary: sdkShape.slice(0, 500),
+        summary: combined.slice(0, 500),
         content: combined,
         tags: ["studio", "research", protocol.toLowerCase()],
       });
@@ -153,7 +196,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     protocol,
     markdown: combined,
-    sources,
+    sources: chunks.map((c) => ({ url: c.url, source: c.provider })),
+    providersUsed,
     hasResearch: combined.length > 0,
   });
 }
