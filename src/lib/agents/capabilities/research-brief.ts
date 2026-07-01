@@ -31,6 +31,37 @@ interface BriefStructured {
   summary: string;
   insights: string[];
   suggestions: Array<{ title: string; detail: string; cta: string }>;
+  synthesized: boolean;
+}
+
+/**
+ * Strip common web-scrape boilerplate (nav, cookie banners, "Skip to content",
+ * markdown link syntax, source markers we inject upstream, etc.) so the LLM
+ * gets a signal-dense slice and the fallback preview never shows nav junk.
+ */
+function sanitizeScrape(md: string): string {
+  if (!md) return "";
+  let text = md
+    // Drop our own upstream source markers so they don't appear in the brief
+    .replace(/SOURCE_[A-Z]+\s*\([^)]*\):\s*https?:\/\/\S+/gi, "")
+    .replace(/\[(tavily|jina|firecrawl|perplexity)\][^\n]*/gi, "")
+    .replace(/^S\s*O\s*U\s*R\s*C\s*E\s*S.*$/gim, "")
+    // Markdown links / images -> plain text
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    // Common site chrome
+    .replace(/^.*(skip to content|toggle navigation|sign in|sign up|cookie|subscribe to our newsletter|appearance settings|navigation menu).*$/gim, "")
+    .replace(/^\s*[*#>\-]+\s*$/gm, "")
+    // Collapse whitespace
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // Drop leading short chrome lines until we hit a substantive paragraph
+  const lines = text.split("\n");
+  while (lines.length && lines[0].trim().length < 40) lines.shift();
+  text = lines.join("\n").trim();
+  return text;
 }
 
 async function synthesizeBrief(args: {
@@ -38,14 +69,17 @@ async function synthesizeBrief(args: {
   rawMarkdown: string;
   walletSummary: string;
 }): Promise<BriefStructured> {
+  const clean = sanitizeScrape(args.rawMarkdown);
   const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!lovableKey) {
+  if (!lovableKey || !clean) {
     return {
-      summary: args.rawMarkdown.slice(0, 600) || `Research collected for ${args.protocol}.`,
+      summary: `Research on ${args.protocol} was collected but the synthesis model was not available, so no executive summary was written. Sources are listed below — open them directly, or retry once LOVABLE_API_KEY is configured.`,
       insights: [],
       suggestions: [],
+      synthesized: false,
     };
   }
+
 
   const sys = `You are Dreyv, a Solana treasury copilot.
 You just researched the protocol "${args.protocol}". Given the raw research
@@ -55,7 +89,14 @@ when possible. NEVER invent figures the user did not provide. If the snapshot
 is empty, suggestions may reference what the protocol enables generically but
 must say "once your wallet is connected" rather than hallucinating amounts.`;
 
-  const user = `RESEARCH NOTES:\n${args.rawMarkdown.slice(0, 8000)}\n\nUSER TREASURY SNAPSHOT:\n${args.walletSummary}`;
+  const user = `RESEARCH NOTES (sanitized):\n${clean.slice(0, 8000)}\n\nUSER TREASURY SNAPSHOT:\n${args.walletSummary}`;
+
+  const failure = (why: string): BriefStructured => ({
+    summary: `Research on ${args.protocol} was collected, but the synthesis model ${why}. Sources are listed below — open them directly, or retry in a moment.`,
+    insights: [],
+    suggestions: [],
+    synthesized: false,
+  });
 
   try {
     const res = await fetch(LOVABLE_AI_URL, {
@@ -79,7 +120,7 @@ must say "once your wallet is connected" rather than hallucinating amounts.`;
               parameters: {
                 type: "object",
                 properties: {
-                  summary: { type: "string", description: "2-4 sentence executive summary." },
+                  summary: { type: "string", description: "2-4 sentence executive summary in your own words. Never quote raw scraped text." },
                   insights: {
                     type: "array",
                     items: { type: "string" },
@@ -114,24 +155,32 @@ must say "once your wallet is connected" rather than hallucinating amounts.`;
     });
     if (!res.ok) {
       console.warn("[research_brief] LLM synthesis failed:", res.status);
-      return { summary: args.rawMarkdown.slice(0, 600), insights: [], suggestions: [] };
+      return failure(`returned HTTP ${res.status}`);
     }
     const data = await res.json();
     const call = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = call?.function?.arguments;
     if (typeof argsStr === "string") {
-      const parsed = JSON.parse(argsStr) as BriefStructured;
+      const parsed = JSON.parse(argsStr) as Partial<BriefStructured>;
+      const summary = (parsed.summary ?? "").trim();
+      // Reject summaries that are obviously raw scrape leaking through
+      const looksLikeScrape =
+        /skip to content|toggle navigation|sign in|appearance settings|SOURCE_[A-Z]+\s*\(/i.test(summary);
+      if (!summary || looksLikeScrape) return failure("did not return a clean summary");
       return {
-        summary: parsed.summary || args.rawMarkdown.slice(0, 600),
+        summary,
         insights: Array.isArray(parsed.insights) ? parsed.insights.slice(0, 5) : [],
         suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : [],
+        synthesized: true,
       };
     }
+    return failure("did not emit a tool call");
   } catch (err) {
     console.warn("[research_brief] synth error:", err);
+    return failure("threw an error");
   }
-  return { summary: args.rawMarkdown.slice(0, 600), insights: [], suggestions: [] };
 }
+
 
 function summarizeWallet(ctx: {
   walletAddress: string | null;
