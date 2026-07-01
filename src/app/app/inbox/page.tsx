@@ -823,6 +823,112 @@ export default function InboxPage() {
           </>
         )}
 
+        {tab === "completed" && (
+          <>
+            {loadingCompleted && completed.length === 0
+              ? sectionEmpty("Loading…")
+              : completed.length === 0
+                ? sectionEmpty(
+                    "Nothing here yet. Approved briefings, projections, and executed plans will show up here with their results.",
+                  )
+                : completed.map((a) => {
+                    const decision = (a as any).decision as
+                      | { signingEnvelope?: { readResults?: Array<{ capabilityId: string; sideEffects: string; summary?: string; output: unknown }>; operation?: string; buildErrors?: string[] } }
+                      | null;
+                    const env = decision?.signingEnvelope;
+                    const readResults = env?.readResults ?? [];
+                    const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
+                    const expanded = expandedCompleted.has(a.id);
+                    const statusColor =
+                      a.status === "executed"
+                        ? "bg-emerald-600"
+                        : a.status === "rejected"
+                          ? "bg-slate-500"
+                          : "bg-violet-600";
+                    return (
+                      <article
+                        key={a.id}
+                        className="rounded-xl border border-violet-100 bg-white p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-white ${statusColor}`}
+                          >
+                            {a.status}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start gap-2">
+                              <h4 className="text-[13.5px] font-semibold text-neutral-900 leading-snug flex-1">
+                                {title}
+                              </h4>
+                              <span className="shrink-0 text-[10.5px] text-neutral-400 tabular-nums pt-0.5">
+                                {new Date(a.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            {(a as any).resolutionNote && (
+                              <p className="mt-1.5 text-[12px] text-neutral-700 leading-relaxed">
+                                {(a as any).resolutionNote}
+                              </p>
+                            )}
+                            {readResults.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {readResults.map((r, i) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-md border border-violet-100 bg-violet-50/40 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-mono text-[11px] font-semibold text-violet-700">
+                                        {r.capabilityId}
+                                      </span>
+                                      <span className="text-[10px] uppercase tracking-wider text-neutral-400">
+                                        {r.sideEffects}
+                                      </span>
+                                    </div>
+                                    {r.summary && (
+                                      <p className="mt-1 text-[12px] text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                                        {r.summary}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                                <button
+                                  onClick={() =>
+                                    setExpandedCompleted((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(a.id)) next.delete(a.id);
+                                      else next.add(a.id);
+                                      return next;
+                                    })
+                                  }
+                                  className="text-[11px] font-semibold text-violet-700 hover:underline"
+                                >
+                                  {expanded ? "Hide raw output" : "Show raw output"}
+                                </button>
+                                {expanded && (
+                                  <pre className="mt-1 overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 text-[10.5px] leading-snug text-neutral-700">
+                                    {JSON.stringify(
+                                      readResults.map((r) => ({ id: r.capabilityId, output: r.output })),
+                                      null,
+                                      2,
+                                    )}
+                                  </pre>
+                                )}
+                              </div>
+                            )}
+                            {env?.buildErrors && env.buildErrors.length > 0 && (
+                              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                                {env.buildErrors.join(" · ")}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+          </>
+        )}
+
         {tab === "proposals" && (
           <>
             {loading && proposals.length === 0
