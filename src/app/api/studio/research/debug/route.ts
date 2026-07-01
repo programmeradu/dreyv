@@ -96,9 +96,9 @@ async function runDebug(topic: string) {
 
   // 2, 3, 4 individual — hit the same URL with each scraper
   const [jn, fc, cf] = await Promise.all([
-    topUrl ? time(() => jina.readUrl(topUrl)) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
-    topUrl ? time(() => firecrawl.scrape(topUrl)) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
-    topUrl ? time(() => cfMarkdown({ url: topUrl })) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await jina.readUrl(topUrl))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await firecrawl.scrape(topUrl))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await cfMarkdown({ url: topUrl }))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
   ]);
 
   const jinaResult: GunResult = {
