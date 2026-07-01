@@ -4,6 +4,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { estimateCompatibilityBudget } from "@/lib/llm/model-compatibility";
 import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilities/legacy-shim";
 import { buildCommandBarSystemPrompt, STRICT_GROUNDING_ADDENDUM } from "@/lib/agents/commandbar/system-prompt";
+import { stripHallucinatedToolEnvelopes } from "@/lib/agents/commandbar/scrub-tool-envelopes";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
 import {
@@ -703,7 +704,7 @@ export async function POST(req: Request) {
         if (name !== "groq/llama-3.3-70b-versatile") {
           console.log(`[Command API] Using fallback model: ${name}`);
         }
-        return new Response(finalStream, {
+        return new Response(stripHallucinatedToolEnvelopes(finalStream), {
           headers: response.headers,
           status: response.status,
         });
@@ -777,7 +778,10 @@ export async function POST(req: Request) {
           const response = result.toUIMessageStreamResponse();
           if (response.body) {
             console.log(`[Command API] Recovery succeeded via ${name} (no tools).`);
-            return response;
+            return new Response(stripHallucinatedToolEnvelopes(response.body), {
+              headers: response.headers,
+              status: response.status,
+            });
           }
         } catch (err) {
           console.warn(`[Command API] Recovery ${name} failed: ${(err as Error)?.message?.slice(0, 200)}`);
