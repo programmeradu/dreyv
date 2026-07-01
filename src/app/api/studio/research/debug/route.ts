@@ -44,12 +44,34 @@ async function time<T>(fn: () => Promise<T>): Promise<{ value: T | null; ms: num
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const topic = String(body.topic || "").trim() || "Jupiter swap SDK on Solana";
-  return runDebug(topic);
+  return safeRun(topic);
 }
 
 export async function GET(req: NextRequest) {
   const topic = req.nextUrl.searchParams.get("topic")?.trim() || "Jupiter swap SDK on Solana";
-  return runDebug(topic);
+  return safeRun(topic);
+}
+
+async function safeRun(topic: string) {
+  try {
+    return await runDebug(topic);
+  } catch (e) {
+    return NextResponse.json({
+      topic,
+      fatal: true,
+      error: (e as Error)?.message || String(e),
+      stack: (e as Error)?.stack?.split("\n").slice(0, 8).join("\n"),
+      env: {
+        TAVILY: !!process.env.TAVILY_API_KEY,
+        JINA: !!process.env.JINA_API_KEY,
+        FIRECRAWL: !!process.env.FIRECRAWL_API_KEY,
+        CF_TOKEN: !!process.env.CLOUDFLARE_API_TOKEN,
+        CF_ACCOUNT: !!process.env.CLOUDFLARE_ACCOUNT_ID,
+        LOVABLE_PROXY: !!process.env.LOVABLE_AI_PROXY_URL || !!process.env.LOVABLE_SUPABASE_URL,
+        LOVABLE_ANON: !!process.env.LOVABLE_SUPABASE_ANON_KEY,
+      },
+    }, { status: 200 });
+  }
 }
 
 async function runDebug(topic: string) {
