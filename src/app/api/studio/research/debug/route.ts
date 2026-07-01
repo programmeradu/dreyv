@@ -128,15 +128,21 @@ async function runDebug(topic: string) {
     }
   }));
 
-  const synth = await lovableAi({
-    model: "google/gemini-2.5-flash",
-    messages: [
-      { role: "system", content: `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${topic}" covering: main SDK packages, key TypeScript signatures with imports, one minimal usage example, and any gotchas. If notes are insufficient, say so plainly — never fabricate.` },
-      { role: "user", content: `Topic: ${topic}\n\nNOTES:\n${collectiveChunks.join("\n\n---\n\n").slice(0, 14000)}` },
-    ],
-    temperature: 0.15,
-    timeoutMs: 45_000,
-  });
+  let synth: unknown = null;
+  let synthError: string | undefined;
+  try {
+    synth = await lovableAi({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${topic}" covering: main SDK packages, key TypeScript signatures with imports, one minimal usage example, and any gotchas. If notes are insufficient, say so plainly — never fabricate.` },
+        { role: "user", content: `Topic: ${topic}\n\nNOTES:\n${collectiveChunks.join("\n\n---\n\n").slice(0, 14000)}` },
+      ],
+      temperature: 0.15,
+      timeoutMs: 30_000,
+    });
+  } catch (e) {
+    synthError = (e as Error)?.message || String(e);
+  }
   const collectiveMs = Date.now() - t0;
 
   return NextResponse.json({
