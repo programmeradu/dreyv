@@ -34,13 +34,16 @@ import {
   Trash2,
   RefreshCw,
   ChevronRight,
+  ChevronDown,
+  Inbox as InboxIcon,
+  CheckCircle2,
+  Radio,
+  Bot,
+  Eye,
 } from "lucide-react";
-// glyphBrand removed — header no longer shows the brand crystal
-import glyphAgent from "@/assets/notif/glyph-agent.png";
-import glyphSecurity from "@/assets/notif/glyph-security.png";
-import glyphPurchase from "@/assets/notif/glyph-purchase.png";
-import glyphSystem from "@/assets/notif/glyph-system.png";
 import { useDeclareFocus } from "@/lib/commandbar/focus-context";
+import { classifyPlan, formatUsd, relTime } from "./_components/kind";
+import { DeliverableView, type DeliverablePayload } from "./_components/DeliverableView";
 
 type TxInstruction = {
   op: string;
