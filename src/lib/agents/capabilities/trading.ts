@@ -29,20 +29,22 @@ import { estimateUsdValue } from "./usd-pricing";
 // implementations with different descriptions. We keep both ids for prompt
 // compatibility, but they share one body.
 // ─────────────────────────────────────────────────────────────────────────────
-const swapInputSchema = z.object({
+const swapInputSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, unknown>;
+  return {
+    ...r,
+    inputToken: r.inputToken ?? r.input_token ?? r.from ?? r.fromToken ?? r.sellToken ?? r.inMint ?? r.inputMint,
+    outputToken: r.outputToken ?? r.output_token ?? r.to ?? r.toToken ?? r.buyToken ?? r.outMint ?? r.outputMint,
+    amount: r.amount ?? r.qty ?? r.quantity ?? r.size,
+  };
+}, z.object({
   inputToken: z.string().describe("Token symbol OR mint address to swap FROM"),
   outputToken: z.string().describe("Token symbol OR mint address to swap TO"),
-  amount: z.number().describe("Amount of inputToken to swap"),
-  slippage: z
-    .number()
-    .optional()
-    .default(0.5)
-    .describe("Slippage tolerance %"),
-  acknowledgeRisk: z
-    .boolean()
-    .optional()
-    .describe("Set true to proceed past medium/high safety warnings on unverified tokens"),
-});
+  amount: z.coerce.number().describe("Amount of inputToken to swap (numeric)"),
+  slippage: z.coerce.number().optional().default(0.5).describe("Slippage tolerance %"),
+  acknowledgeRisk: z.boolean().optional().describe("Set true to proceed past medium/high safety warnings on unverified tokens"),
+}));
 
 async function runSwap(
   toolId: "swap" | "execute_swap",
