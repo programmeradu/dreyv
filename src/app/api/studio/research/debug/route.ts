@@ -31,6 +31,19 @@ type GunResult = {
   error?: string;
 };
 
+function coerceString(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (typeof o.result === "string") return o.result;
+    if (typeof o.markdown === "string") return o.markdown;
+    if (typeof o.content === "string") return o.content;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
 async function time<T>(fn: () => Promise<T>): Promise<{ value: T | null; ms: number; error?: string }> {
   const t0 = Date.now();
   try {
@@ -96,9 +109,9 @@ async function runDebug(topic: string) {
 
   // 2, 3, 4 individual — hit the same URL with each scraper
   const [jn, fc, cf] = await Promise.all([
-    topUrl ? time(() => jina.readUrl(topUrl)) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
-    topUrl ? time(() => firecrawl.scrape(topUrl)) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
-    topUrl ? time(() => cfMarkdown({ url: topUrl })) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await jina.readUrl(topUrl))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await firecrawl.scrape(topUrl))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
+    topUrl ? time(async () => coerceString(await cfMarkdown({ url: topUrl }))) : Promise.resolve({ value: "" as string, ms: 0, error: "no url" }),
   ]);
 
   const jinaResult: GunResult = {
@@ -136,11 +149,11 @@ async function runDebug(topic: string) {
   await Promise.all(urls.map(async (url) => {
     let md = "";
     let provider = "cloudflare-browser";
-    try { md = (await cfMarkdown({ url })) || ""; } catch { md = ""; }
+    try { md = coerceString(await cfMarkdown({ url })); } catch { md = ""; }
     if (md.length < 400) {
       const [f, j] = await Promise.allSettled([firecrawl.scrape(url), jina.readUrl(url)]);
-      const fMd = f.status === "fulfilled" ? f.value : "";
-      const jMd = j.status === "fulfilled" ? j.value : "";
+      const fMd = f.status === "fulfilled" ? coerceString(f.value) : "";
+      const jMd = j.status === "fulfilled" ? coerceString(j.value) : "";
       if (fMd.length > md.length) { md = fMd; provider = "firecrawl"; }
       if (jMd.length > md.length) { md = jMd; provider = "jina"; }
     }
