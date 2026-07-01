@@ -100,17 +100,22 @@ const yield_deposit = defineCapability({
   id: "yield_deposit",
   domain: "yield",
   description: "Deposit tokens into a yield-generating vault/protocol.",
-  inputSchema: z.object({
+  inputSchema: z.preprocess((raw) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const r = raw as Record<string, unknown>;
+    return {
+      ...r,
+      token: r.token ?? r.asset ?? r.symbol ?? r.inputToken,
+      amount: r.amount ?? r.qty ?? r.quantity ?? r.size ?? 0,
+      protocol: r.protocol ?? r.provider ?? r.venue ?? r.platform ?? "all",
+    };
+  }, z.object({
     token: z.string().describe("Token to deposit"),
-    amount: z
-      .number()
-      .describe(
-        "Amount to deposit. Use 0 if the amount is 'the rest' or naturally calculated from a previous step.",
-      ),
-    protocol: z
-      .string()
-      .describe("Protocol (kamino, meteora, marinade, raydium)"),
-  }),
+    amount: z.coerce.number().default(0).describe(
+      "Amount to deposit. Use 0 if the amount is 'the rest' or naturally calculated from a previous step.",
+    ),
+    protocol: z.string().default("all").describe("Protocol (kamino, meteora, marinade, raydium, jupiter, or 'all')"),
+  })),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "medium",
@@ -476,18 +481,42 @@ const rebalance = defineCapability({
   domain: "yield",
   description:
     "Rebalance treasury portfolio to target allocations. If targetAllocations is omitted or empty, auto-analyzes portfolio and generates smart diversification targets.",
-  inputSchema: z.object({
+  inputSchema: z.preprocess((raw) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const r = raw as Record<string, unknown>;
+    let ta: unknown = r.targetAllocations ?? r.targets ?? r.allocations ?? r.allocation;
+    // Coerce object form { SOL: 50, USDC: "50%" } → [{ token, percentage }]
+    if (ta && typeof ta === "object" && !Array.isArray(ta)) {
+      ta = Object.entries(ta as Record<string, unknown>).map(([token, v]) => {
+        const num = typeof v === "number" ? v : parseFloat(String(v).replace("%", "").trim());
+        return { token, percentage: Number.isFinite(num) ? num : 0 };
+      });
+    }
+    // Coerce array of [token, pct] tuples or {symbol,pct}
+    if (Array.isArray(ta)) {
+      ta = ta.map((e: unknown) => {
+        if (Array.isArray(e)) return { token: String(e[0]), percentage: Number(e[1]) || 0 };
+        if (e && typeof e === "object") {
+          const o = e as Record<string, unknown>;
+          const pct = o.percentage ?? o.pct ?? o.percent ?? o.allocation ?? o.weight ?? o.share;
+          const num = typeof pct === "number" ? pct : parseFloat(String(pct ?? "").replace("%", "").trim());
+          return {
+            token: String(o.token ?? o.symbol ?? o.asset ?? ""),
+            percentage: Number.isFinite(num) ? num : 0,
+          };
+        }
+        return e;
+      });
+    }
+    return { ...r, targetAllocations: ta ?? [] };
+  }, z.object({
     targetAllocations: z
-      .array(z.object({ token: z.string(), percentage: z.number() }))
+      .array(z.object({ token: z.string(), percentage: z.coerce.number() }))
       .optional()
       .default([])
-      .describe("Target portfolio split. Leave empty for smart auto-rebalance."),
-    tolerance: z
-      .number()
-      .optional()
-      .default(5)
-      .describe("Tolerance % before rebalance triggers"),
-  }),
+      .describe("Target portfolio split as array. Leave empty for smart auto-rebalance."),
+    tolerance: z.coerce.number().optional().default(5).describe("Tolerance % before rebalance triggers"),
+  })),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "high",
