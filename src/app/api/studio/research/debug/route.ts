@@ -31,6 +31,19 @@ type GunResult = {
   error?: string;
 };
 
+function coerceString(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (typeof o.result === "string") return o.result;
+    if (typeof o.markdown === "string") return o.markdown;
+    if (typeof o.content === "string") return o.content;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
 async function time<T>(fn: () => Promise<T>): Promise<{ value: T | null; ms: number; error?: string }> {
   const t0 = Date.now();
   try {
