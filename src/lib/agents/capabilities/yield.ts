@@ -100,17 +100,22 @@ const yield_deposit = defineCapability({
   id: "yield_deposit",
   domain: "yield",
   description: "Deposit tokens into a yield-generating vault/protocol.",
-  inputSchema: z.object({
+  inputSchema: z.preprocess((raw) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const r = raw as Record<string, unknown>;
+    return {
+      ...r,
+      token: r.token ?? r.asset ?? r.symbol ?? r.inputToken,
+      amount: r.amount ?? r.qty ?? r.quantity ?? r.size ?? 0,
+      protocol: r.protocol ?? r.provider ?? r.venue ?? r.platform ?? "all",
+    };
+  }, z.object({
     token: z.string().describe("Token to deposit"),
-    amount: z
-      .number()
-      .describe(
-        "Amount to deposit. Use 0 if the amount is 'the rest' or naturally calculated from a previous step.",
-      ),
-    protocol: z
-      .string()
-      .describe("Protocol (kamino, meteora, marinade, raydium)"),
-  }),
+    amount: z.coerce.number().default(0).describe(
+      "Amount to deposit. Use 0 if the amount is 'the rest' or naturally calculated from a previous step.",
+    ),
+    protocol: z.string().default("all").describe("Protocol (kamino, meteora, marinade, raydium, jupiter, or 'all')"),
+  })),
   sideEffects: "write",
   requiredAuth: "wallet",
   sensitivity: "medium",
