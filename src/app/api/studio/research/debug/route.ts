@@ -160,6 +160,7 @@ async function runDebug(topic: string) {
       synthesisOk: typeof synth === "string" && synth.length > 100,
       synthesisChars: typeof synth === "string" ? synth.length : 0,
       synthesis: typeof synth === "string" ? synth : null,
+      synthError,
     },
   });
 }
