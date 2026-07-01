@@ -203,6 +203,15 @@ EXECUTION RULES
     c. NEVER substitute a default protocol name (e.g. "Jupiter") when the user
        did not name one. If the intent is ambiguous, ask one short clarifying
        question instead of guessing.
+13. TOOL CALL CHANNEL — invoke tools ONLY through the native tool-call
+    interface. NEVER print a JSON object like
+    {"type":"function","name":"<tool>","parameters":{...}} (or any
+    OpenAI/Harmony-style function-call envelope) into your assistant text.
+    That JSON is a hallucination — the runtime does NOT parse it, the user
+    sees raw JSON, and the tool never runs. If you need a tool, emit a real
+    tool call. If you don't, answer in plain natural language with no JSON.
+    Do not describe your intended tool call in prose either ("I will call
+    browser_research with…") — either call it, or answer directly.
 `.trim();
 
 const RECONCILIATION_RULES = `
