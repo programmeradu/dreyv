@@ -1,0 +1,44 @@
+{
+  "name": "@dreyv/x402-client",
+  "version": "0.1.0",
+  "description": "Drop-in buyer SDK for x402 (HTTP 402 Payment Required). Give any agent a wallet, a budget, and an audit trail — pay any x402-protected URL on the open web via a Dreyv prepaid balance or custodial Solana wallet.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "x402",
+    "agents",
+    "ai-agents",
+    "payments",
+    "stablecoin",
+    "usdc",
+    "solana",
+    "cloudflare",
+    "dreyv",
+    "http-402",
+    "agentic-payments"
+  ],
+  "license": "MIT",
+  "homepage": "https://dreyv.com/x402",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/programmeradu/keystone-treasury-os.git",
+    "directory": "packages/x402-client"
+  }
+}
