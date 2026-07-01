@@ -601,7 +601,18 @@ export async function middleware(request: NextRequest) {
     const isApiRoute = pathname.startsWith('/api/');
     const isAuthed = isApiRoute ? isAuthenticatedForApi : isAuthenticatedForPages;
 
-    if (protectedPaths.some((p) => pathname.startsWith(p)) && !isAuthed) {
+    // Dev-only token bypass for research endpoints. Enables curl smoke tests
+    // without a session. Requires DEV_RESEARCH_TOKEN env + matching header.
+    const devResearchToken = process.env.DEV_RESEARCH_TOKEN;
+    const isResearchRoute =
+        pathname === '/api/studio/research' || pathname === '/api/agent/knowledge';
+    const hasDevBypass =
+        !!devResearchToken &&
+        isResearchRoute &&
+        request.headers.get('x-dreyv-dev-token') === devResearchToken;
+
+    if (protectedPaths.some((p) => pathname.startsWith(p)) && !isAuthed && !hasDevBypass) {
+
         if (isApiRoute) {
             return withSeoHeaders(
                 NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 }),
