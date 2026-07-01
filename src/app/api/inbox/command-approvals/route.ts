@@ -261,6 +261,7 @@ export async function PATCH(req: NextRequest) {
     let envelope: SigningEnvelope | null = null;
     let nextDecision = existing.decision as RouteDecision & { signingEnvelope?: SigningEnvelope };
     let resolutionNote = body.note ?? null;
+    let effectiveStatus: "approved" | "rejected" | "executed" = body.status;
 
     if (body.status === "approved") {
       try {
@@ -272,6 +273,23 @@ export async function PATCH(req: NextRequest) {
         if (envelope.buildErrors.length > 0 && envelope.serializedTransactions.length === 0) {
           resolutionNote =
             resolutionNote ?? `Build failed: ${envelope.buildErrors.join("; ").slice(0, 380)}`;
+        }
+        // Read-only plan (briefing / projection / summary): no txs to sign,
+        // no build errors → mark executed so it lands in the Completed tab
+        // with its readResults instead of vanishing.
+        if (
+          envelope.serializedTransactions.length === 0 &&
+          envelope.buildErrors.length === 0
+        ) {
+          effectiveStatus = "executed";
+          const firstSummary = envelope.readResults.find((r) => r.summary)?.summary;
+          resolutionNote =
+            resolutionNote ??
+            (firstSummary
+              ? firstSummary.slice(0, 380)
+              : `Delivered ${envelope.readResults.length} read-only result${
+                  envelope.readResults.length === 1 ? "" : "s"
+                }.`);
         }
       } catch (e: any) {
         console.warn("[inbox:command-approvals] envelope build failed", e?.message);
@@ -286,7 +304,7 @@ export async function PATCH(req: NextRequest) {
     const [row] = await db
       .update(commandApprovals)
       .set({
-        status: body.status,
+        status: effectiveStatus,
         resolvedAt: new Date(),
         resolutionNote,
         decision: nextDecision as unknown as Record<string, unknown>,
