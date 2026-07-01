@@ -4,6 +4,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { estimateCompatibilityBudget } from "@/lib/llm/model-compatibility";
 import { buildLegacyTools, buildCapabilityContext } from "@/lib/agents/capabilities/legacy-shim";
 import { buildCommandBarSystemPrompt, STRICT_GROUNDING_ADDENDUM } from "@/lib/agents/commandbar/system-prompt";
+import { stripHallucinatedToolEnvelopes } from "@/lib/agents/commandbar/scrub-tool-envelopes";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
 import {
