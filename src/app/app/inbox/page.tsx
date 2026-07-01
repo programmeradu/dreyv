@@ -564,8 +564,30 @@ export default function InboxPage() {
     }
   };
 
-  type TabKey = "pending" | "proposals" | "subagents" | "watchers";
+  type TabKey = "pending" | "completed" | "proposals" | "subagents" | "watchers";
   const [tab, setTab] = useState<TabKey>("pending");
+  const [completed, setCompleted] = useState<CommandApproval[]>([]);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+  const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (tab !== "completed") return;
+    let cancelled = false;
+    setLoadingCompleted(true);
+    fetch(`/api/inbox/command-approvals?status=approved,executed,rejected`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        setCompleted(j?.approvals ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingCompleted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   const TABS: { key: TabKey; label: string; count: number; glyph: any }[] = [
     {
@@ -574,6 +596,7 @@ export default function InboxPage() {
       count: txProposals.length + commandApprovals.length,
       glyph: glyphPurchase,
     },
+    { key: "completed", label: "Completed", count: completed.length, glyph: glyphSystem },
     { key: "proposals", label: "Proposals", count: proposals.length, glyph: glyphSecurity },
     { key: "subagents", label: "Sub-agents", count: subagents.length, glyph: glyphAgent },
     { key: "watchers", label: "Watchers", count: watchers.length, glyph: glyphSystem },
