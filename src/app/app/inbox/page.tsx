@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, Fragment } from "react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CollaborativeHeader } from "@/components/CollaborativeHeader";
 import { WalletButton } from "@/components/WalletButton";
