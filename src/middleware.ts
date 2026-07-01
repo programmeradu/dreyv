@@ -605,7 +605,9 @@ export async function middleware(request: NextRequest) {
     // without a session. Requires DEV_RESEARCH_TOKEN env + matching header.
     const devResearchToken = process.env.DEV_RESEARCH_TOKEN;
     const isResearchRoute =
-        pathname === '/api/studio/research' || pathname === '/api/agent/knowledge';
+        pathname === '/api/studio/research' ||
+        pathname === '/api/studio/research/debug' ||
+        pathname === '/api/agent/knowledge';
     const hasDevBypass =
         !!devResearchToken &&
         isResearchRoute &&

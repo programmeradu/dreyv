@@ -17,11 +17,12 @@ import { TavilyClient } from "@/lib/tavily";
 import { JinaClient } from "@/lib/jina";
 import { FirecrawlClient } from "@/lib/firecrawl";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
+import { lovableAi } from "@/lib/lovable-ai-proxy";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 
 export const maxDuration = 60;
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// Lovable AI is routed via the Supabase `lovable-ai-proxy` edge function; see src/lib/lovable-ai-proxy.ts
 const THIN = 400; // chars — below this we consider a scrape "thin" and fall back
 
 interface ScrapeChunk {
@@ -64,8 +65,7 @@ async function scrapeOne(url: string, firecrawl: FirecrawlClient, jina: JinaClie
 }
 
 async function synthesize(protocol: string, prompt: string, chunks: ScrapeChunk[]): Promise<string> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!lovableKey || !chunks.length) return "";
+  if (!chunks.length) return "";
 
   const corpus = chunks
     .map((c) => `## Source (${c.provider}): ${c.url}\n\n${c.markdown.slice(0, 4000)}`)
@@ -75,25 +75,16 @@ async function synthesize(protocol: string, prompt: string, chunks: ScrapeChunk[
   const sys = `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${protocol}" covering: (1) main JS/TS SDK package(s), (2) 2-3 key TypeScript function signatures with imports, (3) one minimal usage example, (4) any gotchas. If notes are insufficient, say so plainly — never fabricate signatures or package names.`;
 
   try {
-    const res = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: `Protocol: ${protocol}\nIntent: ${prompt.slice(0, 300)}\n\nNOTES:\n${corpus}` },
-        ],
-        max_tokens: 900,
-        temperature: 0.15,
-      }),
+    const out = await lovableAi({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: `Protocol: ${protocol}\nIntent: ${prompt.slice(0, 300)}\n\nNOTES:\n${corpus}` },
+      ],
+      temperature: 0.15,
+      timeoutMs: 45_000,
     });
-    if (!res.ok) {
-      console.warn("[research] synth failed:", res.status);
-      return "";
-    }
-    const d = await res.json();
-    return (d?.choices?.[0]?.message?.content || "").trim();
+    return typeof out === "string" ? out.trim() : "";
   } catch (err) {
     console.warn("[research] synth error:", err);
     return "";
