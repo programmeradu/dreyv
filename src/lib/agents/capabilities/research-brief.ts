@@ -2,7 +2,7 @@
  * Phase 7B — Protocol research brief capability.
  *
  * What it does:
- *   1. Researches a named protocol via Firecrawl + Perplexity + Lovable AI
+ *   1. Researches a named protocol via Tavily + Firecrawl + Jina + CF Browser
  *      fallback (re-uses the existing `/api/studio/research` infrastructure
  *      via direct module call to keep it side-effect free).
  *   2. Asks Lovable AI to extract a structured executive summary, 3-5 key
