@@ -110,18 +110,12 @@ async function runDebug(topic: string) {
   const collectiveSources: Array<{ url: string; provider: string; chars: number }> = [];
   const collectiveChunks: string[] = [];
 
-  const urls = (tav.value || []).slice(0, 3).map((r) => r.url);
-  for (const url of urls) {
-    // CF first
+  const urls = (tav.value || []).slice(0, 2).map((r) => r.url);
+  await Promise.all(urls.map(async (url) => {
     let md = "";
     let provider = "cloudflare-browser";
-    try {
-      md = (await cfMarkdown({ url })) || "";
-    } catch {
-      md = "";
-    }
+    try { md = (await cfMarkdown({ url })) || ""; } catch { md = ""; }
     if (md.length < 400) {
-      // fall back to firecrawl, then jina
       const [f, j] = await Promise.allSettled([firecrawl.scrape(url), jina.readUrl(url)]);
       const fMd = f.status === "fulfilled" ? f.value : "";
       const jMd = j.status === "fulfilled" ? j.value : "";
@@ -132,7 +126,7 @@ async function runDebug(topic: string) {
       collectiveSources.push({ url, provider, chars: md.length });
       collectiveChunks.push(`## Source (${provider}): ${url}\n\n${md.slice(0, 4000)}`);
     }
-  }
+  }));
 
   const synth = await lovableAi({
     model: "google/gemini-2.5-flash",
