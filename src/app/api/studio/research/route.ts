@@ -22,7 +22,7 @@ import { knowledgeMemory } from "@/lib/knowledge-memory";
 
 export const maxDuration = 60;
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// Lovable AI is routed via the Supabase `lovable-ai-proxy` edge function; see src/lib/lovable-ai-proxy.ts
 const THIN = 400; // chars — below this we consider a scrape "thin" and fall back
 
 interface ScrapeChunk {
