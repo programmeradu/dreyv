@@ -184,8 +184,14 @@ export async function POST(req: NextRequest) {
         currency: "USDC",
         topup_url: `${origin}/api/agents/balance/topup`,
       },
+      starter_grant: {
+        granted: starterGranted,
+        amount_usd: STARTER_GRANT_USD,
+        note: `One-time free trial — ~${Math.floor(STARTER_GRANT_USD / 0.001)} capability calls at the default $0.001/call.`,
+      },
       notice:
         "Store client_secret and api_key now — they are shown only once. " +
+        "You've been credited a free starter grant so your first calls won't 402. " +
         "Upgrade tier via POST /api/acp/checkout. Top up prepaid balance via POST /api/agents/balance/topup. " +
         "Mint scoped keys via POST /api/keys.",
     },
