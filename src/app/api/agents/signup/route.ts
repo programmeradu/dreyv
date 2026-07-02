@@ -147,6 +147,14 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     walletError = err instanceof Error ? err.message : "wallet_provision_failed";
   }
+  // Seed the one-time starter grant so the agent's first paid call doesn't 402.
+  let starterGranted = false;
+  try {
+    const g = await ensureStarterGrant(userId);
+    starterGranted = g.ok !== false && g.reason !== "duplicate";
+  } catch {
+    /* non-fatal — surfaces via balance below */
+  }
   let balanceMinor = BigInt(0);
   try {
     const b = await getAgentBalance(userId);
