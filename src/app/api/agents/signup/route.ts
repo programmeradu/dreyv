@@ -31,7 +31,7 @@ import { users, agentSignupAudit } from "@/db/schema";
 import { registerClient } from "@/lib/oauth/clients";
 import { mintPublicKey } from "@/lib/api-keys/public-keys";
 import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
-import { getAgentBalance, minorToUsd } from "@/lib/agent/balance";
+import { getAgentBalance, minorToUsd, ensureStarterGrant, STARTER_GRANT_USD } from "@/lib/agent/balance";
 import { getSiteOrigin } from "@/lib/seo/site";
 import type { OAuthScope } from "@/lib/oauth/scopes";
 
