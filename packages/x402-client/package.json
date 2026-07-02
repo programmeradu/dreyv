@@ -12,7 +12,12 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -23,6 +28,7 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "esbuild": "^0.25.10",
     "tsup": "^8.3.5",
     "typescript": "^5.8.0"
   },
@@ -43,7 +49,14 @@
   "homepage": "https://dreyv.com/x402",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/programmeradu/keystone-treasury-os.git",
+    "url": "git+https://github.com/programmeradu/dreyv.git",
     "directory": "packages/x402-client"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "bugs": {
+    "url": "https://github.com/programmeradu/dreyv/issues"
   }
 }

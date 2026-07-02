@@ -12,9 +12,16 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -28,9 +35,12 @@
     "@ai-sdk/mcp": "*"
   },
   "peerDependenciesMeta": {
-    "@ai-sdk/mcp": { "optional": true }
+    "@ai-sdk/mcp": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "esbuild": "^0.25.10",
     "tsup": "^8.3.5",
     "typescript": "^5.8.0"
   },
@@ -48,11 +58,11 @@
   "license": "MIT",
   "homepage": "https://dreyv.com/developers/mcp",
   "bugs": {
-    "url": "https://github.com/programmeradu/keystone-treasury-os/issues"
+    "url": "https://github.com/programmeradu/dreyv/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/programmeradu/keystone-treasury-os.git",
+    "url": "git+https://github.com/programmeradu/dreyv.git",
     "directory": "packages/mcp"
   }
 }

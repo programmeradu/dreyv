@@ -1,0 +1,10 @@
+name: dreyv
+description: Give your agent a wallet, a budget, and 300+ real Web3 treasury capabilities — behind one Bearer key.
+author: Dreyv
+homepage: https://dreyv.com/developers/mcp
+mcp:
+  url: https://dreyv.com/api/mcp/manifest
+  transport: http
+  auth:
+    type: bearer
+    prefix: dk_live_
