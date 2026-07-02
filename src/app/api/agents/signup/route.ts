@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
   let starterGranted = false;
   try {
     const g = await ensureStarterGrant(userId);
-    starterGranted = g.ok !== false && g.reason !== "duplicate";
+    starterGranted = g.ok === true;
   } catch {
     /* non-fatal — surfaces via balance below */
   }
