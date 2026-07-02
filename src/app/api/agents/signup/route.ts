@@ -31,7 +31,7 @@ import { users, agentSignupAudit } from "@/db/schema";
 import { registerClient } from "@/lib/oauth/clients";
 import { mintPublicKey } from "@/lib/api-keys/public-keys";
 import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
-import { getAgentBalance, minorToUsd } from "@/lib/agent/balance";
+import { getAgentBalance, minorToUsd, ensureStarterGrant, STARTER_GRANT_USD } from "@/lib/agent/balance";
 import { getSiteOrigin } from "@/lib/seo/site";
 import type { OAuthScope } from "@/lib/oauth/scopes";
 
@@ -147,6 +147,14 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     walletError = err instanceof Error ? err.message : "wallet_provision_failed";
   }
+  // Seed the one-time starter grant so the agent's first paid call doesn't 402.
+  let starterGranted = false;
+  try {
+    const g = await ensureStarterGrant(userId);
+    starterGranted = g.ok === true;
+  } catch {
+    /* non-fatal — surfaces via balance below */
+  }
   let balanceMinor = BigInt(0);
   try {
     const b = await getAgentBalance(userId);
@@ -176,8 +184,14 @@ export async function POST(req: NextRequest) {
         currency: "USDC",
         topup_url: `${origin}/api/agents/balance/topup`,
       },
+      starter_grant: {
+        granted: starterGranted,
+        amount_usd: STARTER_GRANT_USD,
+        note: `One-time free trial — ~${Math.floor(STARTER_GRANT_USD / 0.001)} capability calls at the default $0.001/call.`,
+      },
       notice:
         "Store client_secret and api_key now — they are shown only once. " +
+        "You've been credited a free starter grant so your first calls won't 402. " +
         "Upgrade tier via POST /api/acp/checkout. Top up prepaid balance via POST /api/agents/balance/topup. " +
         "Mint scoped keys via POST /api/keys.",
     },
