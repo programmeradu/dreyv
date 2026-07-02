@@ -171,8 +171,15 @@ function main() {
 
     // 1. Read types.ts — extract all exported interfaces/types
     if (!fs.existsSync(TYPES_FILE)) {
-        console.error(`❌ types.ts not found at: ${TYPES_FILE}`);
-        process.exit(1);
+        console.warn(`⚠️  SDK sources not found at ${TYPES_FILE} — skipping Monaco type codegen (packages/sdk was archived).`);
+        // Emit an empty stub so downstream imports still resolve.
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+        fs.writeFileSync(
+            OUTPUT_FILE,
+            `// AUTO-GENERATED STUB — packages/sdk archived.\nexport const KEYSTONE_SDK_TYPES = "";\n`,
+            "utf-8"
+        );
+        return;
     }
 
     const coreDeclarations = extractExportedDeclarations(TYPES_FILE);
