@@ -1,0 +1,58 @@
+{
+  "name": "@dreyv/mcp",
+  "version": "0.1.0",
+  "description": "Official client helper for the Dreyv MCP server. One import, one Bearer key — your agent gets 300+ Web3 treasury capabilities over Streamable HTTP.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@ai-sdk/mcp": "*"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/mcp": { "optional": true }
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "dreyv",
+    "mcp",
+    "model-context-protocol",
+    "agents",
+    "ai-agents",
+    "solana",
+    "treasury",
+    "web3",
+    "streamable-http"
+  ],
+  "license": "MIT",
+  "homepage": "https://dreyv.com/developers/mcp",
+  "bugs": {
+    "url": "https://github.com/programmeradu/keystone-treasury-os/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/programmeradu/keystone-treasury-os.git",
+    "directory": "packages/mcp"
+  }
+}
