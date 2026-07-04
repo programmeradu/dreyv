@@ -236,8 +236,12 @@ async function executeBot(bot: any): Promise<{ success: boolean; error?: string 
     const duration = Date.now() - startTime;
     console.log(`[Bot ${bot.id}] Execution successful in ${duration}ms`);
 
-    // Phase 2 TODO: Send notification email
-    // await sendExecutionNotification(bot, executionResult);
+    await sendExecutionNotification(bot, {
+      kind: "success",
+      txSignature: executionResult.txSignature,
+      receivedAmount: executionResult.outAmount / Math.pow(10, 9),
+      price: executionResult.price,
+    });
 
     return { success: true };
 
@@ -285,7 +289,7 @@ async function recordFailedExecution(bot: any, errorMessage: string) {
 
     if (shouldPause) {
       console.warn(`[Bot ${bot.id}] Paused after ${newFailedAttempts} failures`);
-      // Phase 2 TODO: Send notification email
+      await sendExecutionNotification(bot, { kind: "failure", error: errorMessage, paused: true });
     }
   } catch (error) {
     console.error(`[Bot ${bot.id}] Failed to record execution failure:`, error);
