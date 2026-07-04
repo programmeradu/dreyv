@@ -169,7 +169,7 @@ export function StatusOwnerClient() {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
-              placeholder="Live operational status for Acme's public surfaces."
+              placeholder="Live operational status for your public surfaces."
               className="mt-1 w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-400"
             />
           </label>
