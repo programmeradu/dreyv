@@ -51,6 +51,7 @@ export function ObservabilityClient() {
   const [openTrace, setOpenTrace] = useState<string | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [capabilityMissing, setCapabilityMissing] = useState(false);
   const [verify, setVerify] = useState<{ ok: boolean; checked: number; firstBadAt?: string } | null>(null);
   const [verifying, setVerifying] = useState(false);
 
@@ -64,8 +65,14 @@ export function ObservabilityClient() {
         const a = await runCapability<{ entries: AuditEntry[] }>("audit.list", { limit: 100 });
         setAudit(a.entries ?? []);
       }
+      setCapabilityMissing(false);
     } catch (e) {
-      toast.error(`Load failed: ${(e as Error).message}`);
+      const msg = (e as Error).message || "";
+      if (/not.?(registered|found)|capability_failed|404/i.test(msg)) {
+        setCapabilityMissing(true);
+      } else {
+        toast.error(`Load failed: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
