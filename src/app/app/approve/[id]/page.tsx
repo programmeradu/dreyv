@@ -130,10 +130,11 @@ export default function ApproveActionCodePage({
               pattern="\d{6}"
               maxLength={6}
               required
+              autoComplete="one-time-code"
+              aria-label="6-digit approval code"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               className="mt-1 block w-full rounded-md border bg-background px-3 py-2 font-mono text-lg tracking-[0.4em]"
-              placeholder="000000"
             />
           </label>
           {error && <p className="text-sm text-destructive">{error}</p>}

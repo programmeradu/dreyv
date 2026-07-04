@@ -11,19 +11,16 @@ interface ActivityTickerProps {
 export function ActivityTicker({ apps }: ActivityTickerProps) {
     if (!apps || apps.length === 0) return null;
 
+    // Only surface a real, honest event per app: it was published to the
+    // marketplace. No cycled fake "installed / audited" verbs — those imply
+    // events (installs, audits) that we haven't actually observed.
     const items = apps.slice(0, 12).map((app, i) => {
-        const variants: { crystal: CrystalName; text: string }[] = [
-            { crystal: "installed", text: `installed ${app.name}` },
-            { crystal: "publish", text: `published ${app.name}` },
-            { crystal: "security", text: `audited ${app.name}` },
-        ];
-        const v = variants[i % variants.length];
         const wallet = app.creatorWallet || "";
         return {
             key: `${app.id}-${i}`,
-            crystal: v.crystal,
-            who: `${wallet.slice(0, 4)}…${wallet.slice(-4)}`,
-            text: v.text,
+            crystal: "publish" as CrystalName,
+            who: wallet ? `${wallet.slice(0, 4)}…${wallet.slice(-4)}` : "someone",
+            text: `published ${app.name}`,
         };
     });
 

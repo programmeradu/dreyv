@@ -135,12 +135,11 @@ function AnalyticsPageInner({
       : null;
 
   const trend = useMemo(() => {
+    // Only render a real series. Never synthesize points from a single value —
+    // fake sparklines mislead users and violate the no-demo-figures rule.
     if (displayValueSeries.length >= 2) return displayValueSeries.map((p: any) => p.value);
-    if (typeof displayVaultValue === "number" && displayVaultValue > 0) {
-      return [displayVaultValue * 0.985, displayVaultValue * 0.99, displayVaultValue, displayVaultValue * 1.005, displayVaultValue];
-    }
     return [];
-  }, [displayValueSeries, displayVaultValue]);
+  }, [displayValueSeries]);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-white font-manrope text-slate-900">

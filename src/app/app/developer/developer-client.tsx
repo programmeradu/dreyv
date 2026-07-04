@@ -13,7 +13,7 @@
  *   - flat rounded-3xl cards, violet-100/200 borders
  *   - own scroll container (parent <main> uses md:overflow-hidden)
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ApiKeysView } from "@/components/settings/ApiKeysView";
 import { WebhooksPanel } from "./webhooks-panel";
@@ -61,14 +61,42 @@ const MANIFESTS = [
   },
 ];
 
-const QUICK_FACTS: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: string }[] = [
-  { icon: Terminal, label: "Capabilities", value: "323 tools" },
-  { icon: Gauge, label: "Rate limit", value: "120 req / min" },
-  { icon: ShieldCheck, label: "Auth", value: "Bearer + HMAC" },
-];
-
 export function DeveloperHubClient() {
   const [tab, setTab] = useState<Tab>("keys");
+  const [facts, setFacts] = useState<{ capabilities: number | null; rateLimit: number | null }>({
+    capabilities: null,
+    rateLimit: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    // Real capability count from the public manifest; real rate limit from the current key.
+    fetch("/api/mcp/manifest", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j) return;
+        const n = Array.isArray(j?.tools) ? j.tools.length : Array.isArray(j?.capabilities) ? j.capabilities.length : null;
+        setFacts((f) => ({ ...f, capabilities: n }));
+      })
+      .catch(() => {});
+    fetch("/api/keys", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return;
+        const rpm = Array.isArray(j?.keys) && j.keys.length ? Math.max(...j.keys.map((k: any) => k.rateLimitRpm ?? 0)) : null;
+        setFacts((f) => ({ ...f, rateLimit: rpm && rpm > 0 ? rpm : null }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const quickFacts: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: string }[] = [
+    { icon: Terminal, label: "Capabilities", value: facts.capabilities == null ? "—" : `${facts.capabilities} tools` },
+    { icon: Gauge, label: "Rate limit", value: facts.rateLimit == null ? "—" : `${facts.rateLimit} req / min` },
+    { icon: ShieldCheck, label: "Auth", value: "Bearer + HMAC" },
+  ];
 
   return (
     <div className="relative h-full overflow-y-auto bg-white font-manrope text-slate-900">
@@ -102,7 +130,7 @@ export function DeveloperHubClient() {
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {QUICK_FACTS.map((f) => (
+            {quickFacts.map((f) => (
               <div
                 key={f.label}
                 className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white/90 px-4 py-3 backdrop-blur"

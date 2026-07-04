@@ -149,7 +149,7 @@ export function StatusOwnerClient() {
               autoFocus
               value={form.slug}
               onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase() }))}
-              placeholder="acme-api"
+              placeholder="my-api"
               className="mt-1 w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none focus:border-violet-400"
             />
           </label>
@@ -159,7 +159,7 @@ export function StatusOwnerClient() {
               required
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="Acme API Status"
+              placeholder="My API Status"
               className="mt-1 w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-400"
             />
           </label>
@@ -169,7 +169,7 @@ export function StatusOwnerClient() {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
-              placeholder="Live operational status for Acme's public surfaces."
+              placeholder="Live operational status for your public surfaces."
               className="mt-1 w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-400"
             />
           </label>

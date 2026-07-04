@@ -27,6 +27,8 @@ import { toast } from "@/lib/toast-notifications";
 import { billingStatusPath } from "@/lib/billing-endpoints";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
+import { TIER_META } from "@/lib/billing/tiers";
+
 interface AppStats {
   appsCreated: number;
   appsListed: number;
@@ -34,42 +36,6 @@ interface AppStats {
   totalSpentSol: number;
   totalEarnedSol: number;
 }
-
-const TIER_META: Record<string, { label: string; price: string; features: string[]; cta: string | null }> = {
-  free: {
-    label: "Base",
-    price: "$0 / mo",
-    features: [
-      "Up to 5 agent personas",
-      "Marketplace publishing",
-      "On-chain payments (Solana)",
-      "Persistent notification history",
-    ],
-    cta: "Upgrade to Mini",
-  },
-  mini: {
-    label: "Mini",
-    price: "$49 / mo",
-    features: [
-      "Up to 25 agent personas",
-      "Priority MCP throughput",
-      "Squads multisig escalation",
-      "Webhook + Telegram + Slack",
-    ],
-    cta: "Upgrade to Max",
-  },
-  max: {
-    label: "Max",
-    price: "$199 / mo",
-    features: [
-      "Unlimited agent personas",
-      "Dedicated specialist fabric",
-      "Premium support SLA",
-      "Early access to new capabilities",
-    ],
-    cta: null,
-  },
-};
 
 async function loadStatsFromDb(wallet: string): Promise<AppStats> {
   try {
@@ -141,7 +107,7 @@ export const BillingView = () => {
     fetchStatus();
   }, [publicKey]);
 
-  const meta = TIER_META[tier] ?? TIER_META.free;
+  const meta = TIER_META[tier as keyof typeof TIER_META] ?? TIER_META.free;
   const isPaid = tier !== "free";
 
   const purchaseNotifs = useMemo(
@@ -219,7 +185,7 @@ export const BillingView = () => {
             </div>
 
             <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2.5">
-              {meta.features.map((f) => (
+              {meta.features.map((f: string) => (
                 <li key={f} className="flex items-start gap-2 text-[12.5px] text-slate-700">
                   <CheckCircle2 size={14} className="text-violet-600 mt-0.5 shrink-0" />
                   <span>{f}</span>

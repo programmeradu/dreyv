@@ -67,6 +67,7 @@ export function WorkflowsClient() {
   const [wfs, setWfs] = useState<WfRow[]>([]);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [capabilityMissing, setCapabilityMissing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [dagText, setDagText] = useState(SAMPLE_DAG);
   const [creating, setCreating] = useState(false);
@@ -82,8 +83,14 @@ export function WorkflowsClient() {
       ]);
       setWfs(w.workflows ?? []);
       setRuns(r.runs ?? []);
+      setCapabilityMissing(false);
     } catch (e) {
-      toast.error(`Load failed: ${(e as Error).message}`);
+      const msg = (e as Error).message || "";
+      if (/not.?(registered|found)|capability_failed|404/i.test(msg)) {
+        setCapabilityMissing(true);
+      } else {
+        toast.error(`Load failed: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -154,10 +161,21 @@ export function WorkflowsClient() {
             Chain capabilities into typed DAGs. Same registry that powers REST + MCP — runs are auditable, dry-runnable, and topologically validated.
           </p>
         </div>
-        <button onClick={() => setShowCreate((v) => !v)} className={marketingPrimaryCtaSm}>
+        <button onClick={() => setShowCreate((v) => !v)} disabled={capabilityMissing} className={`${marketingPrimaryCtaSm} disabled:opacity-40`}>
           <Plus size={14} /> {showCreate ? "Cancel" : "New workflow"}
         </button>
       </header>
+
+      {capabilityMissing && (
+        <div className="mb-8 rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <AlertCircle size={20} className="mx-auto text-amber-600 mb-2" />
+          <h2 className="text-sm font-semibold text-amber-900">Workflow engine not enabled on this workspace</h2>
+          <p className="mt-1 text-xs text-amber-800 max-w-md mx-auto">
+            The <code className="font-mono">workflows.*</code> capabilities aren&apos;t registered for your account.
+            Contact your workspace admin or upgrade to enable Pillar AV.
+          </p>
+        </div>
+      )}
 
       {showCreate && (
         <div className="rounded-3xl border border-violet-200 bg-white p-6 mb-8">

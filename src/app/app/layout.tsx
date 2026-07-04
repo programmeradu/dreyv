@@ -19,7 +19,7 @@ import { CommandBar } from "@/components/CommandBar";
 import { VaultStatusBar } from "@/components/VaultStatusBar";
 import { useAppEvent } from "@/lib/events";
 import { ThemeProvider, useTheme } from "@/lib/contexts/ThemeContext";
-import { Sun, Moon, ShoppingBag, Library, LogOut, Menu } from "lucide-react";
+import { Sun, Moon, ShoppingBag, Library, LogOut, Menu, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -38,6 +38,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const { profile } = useProfile();
+    const isAdmin = profile?.role === "admin";
 
     // Close the mobile drawer on route change
     useEffect(() => {
@@ -72,6 +74,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <NavButton icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} />
             <NavButton icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} />
             <NavButton icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} />
+            {isAdmin && (
+                <NavButton icon={ShieldCheck} label="Admin" href="/app/admin" active={pathname?.startsWith("/app/admin")} />
+            )}
         </>
     );
 
@@ -157,6 +162,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                         <MobileNavRow icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} onNavigate={() => setMobileNavOpen(false)} />
+                                        {isAdmin && (
+                                            <MobileNavRow icon={ShieldCheck} label="Admin" href="/app/admin" active={pathname?.startsWith("/app/admin")} onNavigate={() => setMobileNavOpen(false)} />
+                                        )}
                                     </nav>
                                     <div className="px-3 py-2.5 border-t border-violet-100 flex items-center justify-between gap-2 bg-white">
                                         <TooltipProvider>
