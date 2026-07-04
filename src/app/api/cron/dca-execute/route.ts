@@ -6,6 +6,7 @@ import { executeSwapWithSigning, getJupiterQuote, validateDelegation } from "@/l
 import { decryptKeypair } from "@/lib/keypair-envelope";
 import bs58 from "bs58";
 import { Keypair } from "@solana/web3.js";
+import { sendExecutionNotification, getSplTokenBalance } from "@/lib/dca/notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes max execution time
@@ -107,17 +108,19 @@ async function executeBot(bot: any): Promise<{ success: boolean; error?: string 
       throw new Error("Database not available");
     }
 
-    // Phase 2 TODO: Validate wallet balance
-    // const balance = await checkBalance(bot.walletAddress, bot.paymentTokenMint);
-    // if (balance < bot.amountUsd) {
-    //   await pauseBot(bot.id, "Insufficient balance");
-    //   return { success: false, error: "Insufficient balance" };
-    // }
-
-    // Get Jupiter quote
+    // Real wallet balance check — abort before hitting Jupiter if underfunded.
     const USDC_DECIMALS = 6;
     const amountInSmallestUnit = Math.floor(bot.amountUsd * Math.pow(10, USDC_DECIMALS));
     const slippageBps = Math.floor((bot.maxSlippage || 0.5) * 100);
+
+    const balance = await getSplTokenBalance(bot.walletAddress, bot.paymentTokenMint);
+    if (balance !== null && balance < BigInt(amountInSmallestUnit)) {
+      const msg = `Insufficient balance: have ${balance}, need ${amountInSmallestUnit} (raw units)`;
+      console.warn(`[Bot ${bot.id}] ${msg}`);
+      await recordFailedExecution(bot, msg);
+      await sendExecutionNotification(bot, { kind: "failure", error: msg });
+      return { success: false, error: "Insufficient balance" };
+    }
 
     // Validate delegation before proceeding
     console.log(`[Bot ${bot.id}] Validating delegation...`);
