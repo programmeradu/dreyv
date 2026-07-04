@@ -67,6 +67,7 @@ export function WorkflowsClient() {
   const [wfs, setWfs] = useState<WfRow[]>([]);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [capabilityMissing, setCapabilityMissing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [dagText, setDagText] = useState(SAMPLE_DAG);
   const [creating, setCreating] = useState(false);
@@ -82,8 +83,14 @@ export function WorkflowsClient() {
       ]);
       setWfs(w.workflows ?? []);
       setRuns(r.runs ?? []);
+      setCapabilityMissing(false);
     } catch (e) {
-      toast.error(`Load failed: ${(e as Error).message}`);
+      const msg = (e as Error).message || "";
+      if (/not.?(registered|found)|capability_failed|404/i.test(msg)) {
+        setCapabilityMissing(true);
+      } else {
+        toast.error(`Load failed: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
