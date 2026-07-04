@@ -27,6 +27,8 @@ import { toast } from "@/lib/toast-notifications";
 import { billingStatusPath } from "@/lib/billing-endpoints";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
+import { TIER_META } from "@/lib/billing/tiers";
+
 interface AppStats {
   appsCreated: number;
   appsListed: number;
@@ -34,42 +36,6 @@ interface AppStats {
   totalSpentSol: number;
   totalEarnedSol: number;
 }
-
-const TIER_META: Record<string, { label: string; price: string; features: string[]; cta: string | null }> = {
-  free: {
-    label: "Base",
-    price: "$0 / mo",
-    features: [
-      "Up to 5 agent personas",
-      "Marketplace publishing",
-      "On-chain payments (Solana)",
-      "Persistent notification history",
-    ],
-    cta: "Upgrade to Mini",
-  },
-  mini: {
-    label: "Mini",
-    price: "$49 / mo",
-    features: [
-      "Up to 25 agent personas",
-      "Priority MCP throughput",
-      "Squads multisig escalation",
-      "Webhook + Telegram + Slack",
-    ],
-    cta: "Upgrade to Max",
-  },
-  max: {
-    label: "Max",
-    price: "$199 / mo",
-    features: [
-      "Unlimited agent personas",
-      "Dedicated specialist fabric",
-      "Premium support SLA",
-      "Early access to new capabilities",
-    ],
-    cta: null,
-  },
-};
 
 async function loadStatsFromDb(wallet: string): Promise<AppStats> {
   try {
