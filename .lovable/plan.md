@@ -1,107 +1,49 @@
-## Why the current studio feels generic
+# /app Audit Remediation Plan (19 items)
 
-- 8 fixed formats × fixed beat timings × fixed shot counts → every output is a fill-in-the-blank.
-- Single LLM pass writes hook + script + shots in one go, no critique, no alternatives.
-- No grounding: no real product surface, no real wallet/numbers, no signal from what's actually worked on your TikTok.
-- Trend data is a bundled list from months ago.
+Ordered by blast radius. Each phase is independently shippable.
 
-## What we're building
+## Phase 1 — Critical: stop lying to users (4)
 
-A 4-stage engine that **invents** the format, **competes** the hook, **grounds** every claim in real dreyv evidence, and **learns** from your actual TikTok performance.
+1. **`api/agentic/history`** — replace stub with real query against `agent_executions` (or nearest existing table). If no table exists yet, DELETE the route and remove callers rather than return fake `[]`. Per `no-api-fallbacks` constraint.
+2. **`/app/developer` L65–66** — replace hardcoded `"323 tools" / "120 req/min"` with values from `/api/v1/capabilities` count + the actual rate-limit config (`RATE_LIMIT_RPM` or key's `rateLimitRpm`). Skeleton while loading.
+3. **`/app/status` + `/app/status/[id]`** — swap all `acme*` / `example.com` / `ops@acme.com` placeholders for neutral copy (`"my-api"`, `"My API Status"`, `"alerts@yourcompany.com"`, `"https://…"`).
+4. **`/app/approve/[id]` L136** — remove `placeholder="000000"`; use empty placeholder + `aria-label="6-digit approval code"`.
 
-### Stage 1 — Direction Generator (replaces format dropdown)
+## Phase 2 — Major: complete or gate silently-broken features (8)
 
-Input: free-text intent (`"show how dreyv catches a bad trade"`) + optional audience.
+5. **`api/studio/marketplace/register`** — either (a) implement the Turnkey/wallet-signed `initialize_app` tx, or (b) return HTTP 501 with clear message and mark the UI button "Coming soon" until (a) lands. No fake `status: "pending"`.
+6. **`/app/studio/media`** — fix `redirect("/studio")` → `redirect("/app/studio/media/…")` real target, or delete the redirect page and render `MediaStudioClient` directly.
+7. **`/app/inbox` dispatchInstruction** — for `stake|unstake|deposit_yield|withdraw|rebalance`: build the real tx via existing Jupiter/Marinade/Streamflow helpers, OR reject with a clear toast ("Not yet supported — approve from mobile") instead of silently writing a memo.
+8. **`cron/dca-execute` L110/236/285** — add pre-swap SOL/USDC balance check (abort with ledger entry if insufficient); wire Resend emails for success + failure using existing `EMAIL_FROM` and templates.
+9. **`/app/workflows`** — add graceful "capability unavailable" empty state when `runCapability("workflows.list")` errors with `capability_not_registered`; add a nav entry under Studio.
+10. **`/app/observability`** — same treatment: capability-unavailable empty state; add nav entry (admin-only if scoped).
+11. **`/app/admin/**`** — add an "Admin" nav item in `src/app/app/layout.tsx` visible only when `user.role === "admin"`; fix the corrupted `href=n` in `admin/activity/page.tsx`.
+12. **`/app/agents/claim`** — verify `/claim` exists; if not, either build it or redirect to `/app/agents` with a toast explaining the flow.
 
-Model: `google/gemini-3-flash-preview` via Lovable AI Gateway, structured output.
+## Phase 3 — Hygiene: remove debug/duplicate surfaces (3)
 
-Output: **3 distinct creative directions**, each with:
-- Format invented from scratch (not from the 8-format list) — name, why it fits TikTok 2026, target watch-through
-- Angle / emotional core
-- Duration recommendation (model-decided, not preset)
-- Risk level + why it could flop
-- One-line "if this works, here's the comment we'll see"
+13. **`/app/_mobile-scroll-test`** — delete the folder (or gate behind `process.env.NODE_ENV !== "production"`).
+14. **`/app/test-error`** — delete (error boundary is already tested by real errors).
+15. **`/app/billing` vs `Settings → Billing`** — pick canonical: keep `/app/billing` as the full page, make the Settings tab a link to it (or vice versa). Update all internal links.
 
-UI: 3 cards, user picks one. No more format dropdown.
+## Phase 4 — Polish: honest empty states (4)
 
-### Stage 2 — Hook Foundry (NEW)
-
-For the chosen direction, generate **10 hook variants** (first 1.5s + first spoken line + on-screen text), then a **critic pass** that scores each on:
-- Scroll-stop strength (pattern interrupt, curiosity gap, stakes)
-- Concreteness (does it have a real number / wallet / name?)
-- Watch-through prediction (will they wait for beat 2?)
-- Originality vs current crypto/AI TikTok tropes
-
-Surface all 10 with scores; auto-select the winner, let user override.
-
-### Stage 3 — Evidence Grounding (NEW)
-
-Before script generation, the planner pulls **real dreyv evidence** the video can cite:
-- Live capability list from `src/lib/capabilities/handlers.ts`
-- Real screenshots from `/app/analytics`, `/atlas`, `/case` (existing route assets)
-- Real public case data from `/case/[address]` (already shipped)
-- Founder's own wallet activity (opt-in, paste address)
-
-Any factual claim in the script ("dreyv flagged a $12k drift") MUST reference one of these evidence items or the critic rejects it. Kills the generic "AI treasury" tropes.
-
-### Stage 4 — Performance Loop (TikTok connector)
-
-Wire up the existing **TikTok connector** (already available via `standard_connectors`):
-
-- New edge function `tiktok-performance` pulls last 20 videos: views, likes, comments, shares, average_watch_time, full_video_watched_rate.
-- Cached in `studio_video_performance` table (new migration).
-- Direction Generator + Hook Foundry receive a compact "what's working / what's flopping" digest as system context — e.g. "Your top video used a wallet-address hook; your bottom 3 opened with mascot exposition. Avoid mascot-first openers."
-
-User opt-in flow: button on studio "Connect TikTok for smart suggestions" → standard_connectors flow.
-
-## Files
-
-**New:**
-- `src/app/api/studio/video/directions/route.ts` — Stage 1
-- `src/app/api/studio/video/hooks/route.ts` — Stage 2
-- `src/app/api/studio/video/evidence/route.ts` — Stage 3 evidence index
-- `src/app/api/studio/video/tiktok-performance/route.ts` — Stage 4 sync
-- `src/lib/media-studio/direction-generator.ts`
-- `src/lib/media-studio/hook-foundry.ts`
-- `src/lib/media-studio/evidence-index.ts`
-- `src/lib/media-studio/tiktok-insights.ts`
-- `db-migrations/0057_studio_video_performance.sql`
-- `src/app/studio/video/DirectionPicker.tsx`
-- `src/app/studio/video/HookFoundry.tsx`
-- `src/app/studio/video/TikTokInsightsBanner.tsx`
-
-**Modified:**
-- `src/app/studio/video/VideoStudioShell.tsx` — replace format dropdown with intent input → directions → hooks → pack flow
-- `src/app/api/studio/video/route.ts` — accept chosen direction + chosen hook + evidence refs instead of formatId
-- `src/lib/media-studio/ai.ts` — pass evidence + tiktok digest into pack prompt; enforce evidence-citation rule
-
-**Deprecated (kept for back-compat, not used in new flow):**
-- `VIDEO_FORMATS`, `VIDEO_ANGLES` arrays in `video-tools.ts` — moved to "starter inspiration" the model *may* consider, not constraints.
-
-## TikTok connector setup
-
-I'll use the standard `tiktok` connector. User flow:
-1. Studio shows "Connect TikTok" banner.
-2. Clicking calls `standard_connectors--connect` for `tiktok`.
-3. After connection, `tiktok-performance` route pulls `/v2/video/list/` with full metrics fields.
-4. Performance digest is regenerated nightly via existing Inngest cron.
-
-## What this means for the user
-
-- Type `"show what happens when an agent burns USDC"` → see 3 invented formats → pick one → see 10 hooks ranked by a critic → pick one → get a pack that cites real screenshots and references your top-performing past hook style.
-- No more "Today Years Old" template when the topic doesn't fit one.
-- After a week of posting, the studio knows your audience and writes for *them*, not for generic TikTok.
-
-## Out of scope (intentional)
-
-- Not rebuilding the rendering pipeline (ffmpeg/Veo) — that already works.
-- Not changing the style bible visual constraints — those keep mascot consistency, which is still right.
-- Not auto-posting to TikTok — read-only analytics for now.
+16. **`/app/analytics` trend fallback** — when `displayValueSeries.length < 2`, render "Not enough history yet — check back after your next snapshot" instead of a synthetic 5-point sparkline.
+17. **`/app` `TreasuryBubbles`** — replace hardcoded SOL/USDC/JUP/BONK/JTO with a "Connect wallet to see holdings" state; when connected but empty, show "No tokens detected".
+18. **`ActivityTicker`** — either fetch real events from `agent_deliverables`/marketplace install log, or hide the ticker until an events source exists. No index-cycled fake verbs.
+19. **`/app/run/[appId]`** — when `project == null` after load, render `notFound()` (Next.js 404) with a link back to `/app/marketplace`.
+20. **`settings/BillingView` TIER_META** — move tier feature lists to `src/lib/billing/tiers.ts` (single source of truth already used by `/pricing`) and import in both places.
 
 ## Technical notes
 
-- All model calls go through `lovable-ai-proxy` edge function (per project rule — Lovable AI is never called from Vercel directly).
-- Structured outputs use Zod schemas kept small to avoid Gemini's "too many states" limit.
-- Critic pass uses `gemini-3.5-flash` (faster, cheaper) since it scores rather than creates.
-- TikTok analytics route guarded by `requireTeamMember` like other studio routes.
-- New migration includes GRANTs per project rules.
+- Nav changes go in `src/app/app/layout.tsx` L64–76 — respect existing ordering (Dashboard, Studio, Marketplace, Library, Treasury, Analytics, Team, Settings).
+- Any new "capability unavailable" empty state should use a shared `<CapabilityGate capability="…">` component (create in `src/components/app/CapabilityGate.tsx`) to avoid copy-paste.
+- All copy edits follow the Dreyv voice memory (calm, precise, no emoji, no "revolutionize").
+- Do NOT introduce new stubs; per `no-api-fallbacks`, a missing capability must surface a real error, not a placebo response.
+
+## Verification per phase
+
+- Phase 1: grep for `acme|example\.com|323 tools|000000` under `src/app` → zero hits.
+- Phase 2: manually exercise each route in Playwright, confirm no silent-success toasts on unimplemented paths.
+- Phase 3: `rg "_mobile-scroll-test|test-error"` → zero hits.
+- Phase 4: load `/app` with no wallet + `/app/analytics` with empty vault; screenshot both.
