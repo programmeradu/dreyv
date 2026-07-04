@@ -238,7 +238,7 @@ async function executeBot(bot: any): Promise<{ success: boolean; error?: string 
 
     await sendExecutionNotification(bot, {
       kind: "success",
-      txSignature: executionResult.txSignature,
+      txSignature: executionResult.txSignature ?? "",
       receivedAmount: executionResult.outAmount / Math.pow(10, 9),
       price: executionResult.price,
     });
