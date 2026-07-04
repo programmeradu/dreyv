@@ -444,7 +444,7 @@ export function StatusPageManageClient({ pageId }: { pageId: string }) {
             </select>
             <input
               required
-              placeholder={sForm.channel === "email" ? "alerts@yourcompany.com" : "https://your-webhook-url"}sForm.channel === "email" ? "ops@acme.com" : "https://example.com/hooks/status"}
+              placeholder={sForm.channel === "email" ? "alerts@yourcompany.com" : "https://your-webhook-url"}
               value={sForm.target}
               onChange={(e) => setSForm((f) => ({ ...f, target: e.target.value }))}
               className="rounded-xl border border-violet-200 px-3 py-2 text-sm"
