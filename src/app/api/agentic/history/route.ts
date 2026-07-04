@@ -2,10 +2,13 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { agentExecutions } from "@/db/schema";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 /**
  * GET /api/agentic/history?userPublicKey=...&limit=20&offset=0
- * Get execution history for a user
+ * Real execution history from agent_executions, scoped to the caller's wallet.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -15,46 +18,55 @@ export async function GET(request: NextRequest) {
     const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
 
     if (!userPublicKey) {
-      return NextResponse.json(
-        { error: "Missing userPublicKey parameter" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing userPublicKey parameter" }, { status: 400 });
+    }
+    if (!db) {
+      return NextResponse.json({ error: "database_unavailable" }, { status: 503 });
     }
 
-    // In a production system, this would:
-    // 1. Query the database for execution history filtered by userPublicKey
-    // 2. Apply pagination (limit, offset)
-    // 3. Sort by timestamp descending
-    // 4. Include execution status, strategy type, result summary
+    const where = eq(agentExecutions.walletAddress, userPublicKey);
 
-    // For now, return empty history structure
+    const [countRow] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(agentExecutions)
+      .where(where);
+
+    const rows = await db
+      .select({
+        executionId: agentExecutions.id,
+        strategy: agentExecutions.strategy,
+        status: agentExecutions.status,
+        progress: agentExecutions.progress,
+        input: agentExecutions.input,
+        result: agentExecutions.result,
+        error: agentExecutions.error,
+        transactionSignature: agentExecutions.transactionSignature,
+        createdAt: agentExecutions.createdAt,
+        startedAt: agentExecutions.startedAt,
+        completedAt: agentExecutions.completedAt,
+        durationMs: agentExecutions.duration,
+      })
+      .from(agentExecutions)
+      .where(where)
+      .orderBy(desc(agentExecutions.createdAt))
+      .limit(limit)
+      .offset(offset);
+
     return NextResponse.json(
       {
         userPublicKey,
-        total: 0,
+        total: countRow?.n ?? 0,
         limit,
         offset,
-        executions: []
-        // Example structure:
-        // {
-        //   executionId: "exec_...",
-        //   strategy: "swap_token",
-        //   status: "SUCCESS",
-        //   input: { ... },
-        //   result: { ... },
-        //   progress: 100,
-        //   createdAt: timestamp,
-        //   completedAt: timestamp,
-        //   durationMs: number
-        // }
+        executions: rows,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error: any) {
-    console.error("History retrieval error:", error);
+    console.error("[agentic/history] Error:", error);
     return NextResponse.json(
-      { error: error.message || "History retrieval failed" },
-      { status: 500 }
+      { error: error?.message || "History retrieval failed" },
+      { status: 500 },
     );
   }
 }
