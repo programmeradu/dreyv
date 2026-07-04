@@ -221,7 +221,7 @@ export function WebhooksPanel() {
               type="url"
               value={form.targetUrl}
               onChange={(e) => setForm((f) => ({ ...f, targetUrl: e.target.value }))}
-              placeholder="https://example.com/hooks/dreyv"
+              placeholder="https://your-app.com/hooks/dreyv"
               className="mt-1 w-full rounded-xl border border-violet-200 px-3 py-2 text-sm font-mono"
             />
           </label>

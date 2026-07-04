@@ -248,10 +248,13 @@ export default function InboxPage() {
         return executor.executeTransfer({ recipient, token, amount });
       }
       default:
-        // For stake/unstake/deposit_yield/withdraw/rebalance — no client builder yet.
-        // Fall back to a memo-only proposal so the action is recorded on-chain via multisig
-        // or surfaced for manual handling.
-        return executor.createProposal(`${ix.op}: ${JSON.stringify(p).slice(0, 160)}`);
+        // stake / unstake / deposit_yield / withdraw / rebalance are not yet
+        // wired to real client-side tx builders. Surface a clear error instead
+        // of silently writing a memo-only proposal that looks like it worked.
+        return {
+          success: false,
+          error: `Client tx builder for "${ix.op}" is not implemented yet. Approve from the multisig UI or wait for the next release.`,
+        };
     }
   };
 
