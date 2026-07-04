@@ -210,6 +210,17 @@ function TreasuryBubbles({ tokens }: { tokens: any[] }) {
     { right: 36, bottom: 28, size: 18, delay: 0.2 },
   ];
 
+  if (items.length === 0) {
+    return (
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -bottom-8 -right-8 h-28 w-28 rounded-full bg-gradient-to-tl from-violet-100 to-transparent" />
+        <div className="absolute bottom-3 right-3 rounded-full border border-violet-200 bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-violet-700 shadow-sm">
+          Connect wallet
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* Jar curve — soft violet wash hugging bottom-right */}
