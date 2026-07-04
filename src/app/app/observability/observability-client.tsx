@@ -141,7 +141,15 @@ export function ObservabilityClient() {
         ))}
       </div>
 
-      {loading ? (
+      {capabilityMissing ? (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
+          <AlertCircle size={20} className="mx-auto text-amber-600 mb-2" />
+          <p className="text-sm font-semibold text-amber-900">Observability not enabled on this workspace</p>
+          <p className="mt-1 text-xs text-amber-800 max-w-md mx-auto">
+            The <code className="font-mono">obs.*</code> and <code className="font-mono">audit.*</code> capabilities aren&apos;t registered for your account.
+          </p>
+        </div>
+      ) : loading ? (
         <div className="rounded-3xl border border-violet-100 bg-white p-10 text-center text-sm text-slate-500">
           <Loader2 size={16} className="inline animate-spin mr-2" />
           Loading…
