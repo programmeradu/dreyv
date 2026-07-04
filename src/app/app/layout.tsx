@@ -162,6 +162,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                         <MobileNavRow icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Settings} label="Settings" href="/app/settings" active={pathname === "/app/settings"} onNavigate={() => setMobileNavOpen(false)} />
+                                        {isAdmin && (
+                                            <MobileNavRow icon={ShieldCheck} label="Admin" href="/app/admin" active={pathname?.startsWith("/app/admin")} onNavigate={() => setMobileNavOpen(false)} />
+                                        )}
                                     </nav>
                                     <div className="px-3 py-2.5 border-t border-violet-100 flex items-center justify-between gap-2 bg-white">
                                         <TooltipProvider>
