@@ -130,7 +130,7 @@ export function DeveloperHubClient() {
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {QUICK_FACTS.map((f) => (
+            {quickFacts.map((f) => (
               <div
                 key={f.label}
                 className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white/90 px-4 py-3 backdrop-blur"
