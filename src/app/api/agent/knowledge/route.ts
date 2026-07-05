@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { knowledgeBase } from "@/lib/knowledge";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
+import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
 
 export const maxDuration = 60;
 
