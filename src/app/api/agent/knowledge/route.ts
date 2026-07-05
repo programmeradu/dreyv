@@ -36,6 +36,9 @@ function findDocRoots(query: string): string[] {
 }
 
 export async function POST(req: NextRequest) {
+    // Expensive route (fans out to Tavily/Jina/Firecrawl/CF). Hard IP cap.
+    const limited = publicRateLimitOrResponse(req, { bucket: "agent-knowledge", max: 10, windowMs: 60_000 });
+    if (limited) return limited;
     try {
         const { query } = await req.json();
         if (!query) {
