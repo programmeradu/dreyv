@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { knowledgeBase } from "@/lib/knowledge";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
+import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
 
 export const maxDuration = 60;
 
@@ -35,6 +36,9 @@ function findDocRoots(query: string): string[] {
 }
 
 export async function POST(req: NextRequest) {
+    // Expensive route (fans out to Tavily/Jina/Firecrawl/CF). Hard IP cap.
+    const limited = publicRateLimitOrResponse(req, { bucket: "agent-knowledge", max: 10, windowMs: 60_000 });
+    if (limited) return limited;
     try {
         const { query } = await req.json();
         if (!query) {

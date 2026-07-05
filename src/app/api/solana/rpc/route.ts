@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // not a billable user action like Atlas tx lookups.)
 const ipHits = new Map<string, { count: number; windowStart: number }>();
 const IP_WINDOW_MS = 60_000; // 1 minute
-const IP_MAX = 600;          // 600 RPC calls / IP / minute (10/s)
+const IP_MAX = 120;          // 120 RPC calls / IP / minute (2/s) — tightened after bot spike
 
 function checkIpBurst(req: NextRequest): { allowed: boolean; retryAfterSec: number } {
   const ip =
