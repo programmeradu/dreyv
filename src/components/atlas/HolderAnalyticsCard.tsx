@@ -49,6 +49,12 @@ export function HolderAnalyticsCard({
             </Button>
           </div>
           {holderError && <Alert variant="destructive"><AlertDescription>{holderError}</AlertDescription></Alert>}
+          {mintInput.trim().length >= 32 && (
+            <div className="flex items-center gap-2 text-[11px] opacity-80">
+              <span>Contract risk:</span>
+              <TokenRiskBadge mint={mintInput.trim()} />
+            </div>
+          )}
           {(moralisStats || dasCount != null) &&
             <div className="space-y-3">
               {/* Moralis Stats */}
