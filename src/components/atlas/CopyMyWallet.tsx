@@ -11,6 +11,7 @@ import { Loader2, Copy, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { IconWalletCopy } from "@/components/ui/icons";
 import { isValidSolanaAddress, formatCurrency } from "@/lib/atlas-utils";
+import { WalletRiskBadge } from "@/components/webacy/WalletRiskBadge";
 
 interface TokenHolding {
   token: string;
