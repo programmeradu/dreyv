@@ -23,3 +23,4 @@ Brand mascot = **Dreyv** (owl-fox sentinel, solid violet) — same name as the b
 - [Lovable AI routing](mem://constraints/lovable-ai-routing) — All Lovable AI calls go through a Supabase edge function; never migrate existing providers, only add.
 - [Dreyv mascot](mem://design/mascot) — Owl-fox treasury sentinel, 4-pose set, palette + usage rules.
 - [Founding 200](mem://features/founding-200) — First 200 signups get Mini-equivalent access free; tracked on users table; live ribbon on /pricing.
+- [Webacy grant](mem://reference/webacy-grant) — DD.xyz grant application submitted; Webacy Pro promo `AINSIDER1872` (3 months free); planned integration surfaces + architecture.
