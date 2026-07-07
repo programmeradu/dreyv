@@ -29,10 +29,16 @@ export function WalletSigningDialog({
   approval,
   tx,
   isLoading = false,
+  webacy = null,
   onApprove,
   onReject
 }: WalletSigningDialogProps) {
+  const [confirmedHighRisk, setConfirmedHighRisk] = useState(false);
   if (!isOpen) return null;
+
+  const webacyFlagged = webacy?.addresses.filter((a) => a.level === "high" || a.level === "medium") ?? [];
+  const requiresTwoTap = webacy?.worst === "high";
+  const signDisabled = isLoading || (requiresTwoTap && !confirmedHighRisk);
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
