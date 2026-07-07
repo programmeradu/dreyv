@@ -100,7 +100,8 @@ function maxRisk(a: RiskLevel, b: RiskLevel): RiskLevel {
 export function evaluate(
   report: FirewallReport | null,
   simResult: SimulationResult | null,
-  policy: FirewallPolicy = DEFAULT_POLICY
+  policy: FirewallPolicy = DEFAULT_POLICY,
+  webacy: WebacyAddressSummary | null = null
 ): PolicyEvaluation {
   const violations: string[] = [];
   let risk: RiskLevel = "low";
