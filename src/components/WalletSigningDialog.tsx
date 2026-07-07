@@ -3,15 +3,19 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, Zap, Lock, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Zap, Lock, Loader2, ShieldAlert } from "lucide-react";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import type { ApprovalRequest } from "@/lib/wallet/transaction-executor";
+import { RiskChip } from "@/components/webacy/RiskChip";
+import type { RiskScore, RiskLevel } from "@/lib/webacy/types";
 
 interface WalletSigningDialogProps {
   isOpen: boolean;
   approval: ApprovalRequest;
   tx?: Transaction | VersionedTransaction;
   isLoading?: boolean;
+  /** Optional Webacy pre-sign summary for programs/destinations in this tx. */
+  webacy?: { worst: RiskLevel; addresses: RiskScore[] } | null;
   onApprove: () => void;
   onReject: () => void;
 }
