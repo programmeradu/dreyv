@@ -59,7 +59,7 @@ export const DEFAULT_POLICY: FirewallPolicy = {
   ]),
   requireSimulation: true,
   requireBalanceDiff: true,
-  maxAddressRisk: "high",
+  maxAddressRisk: "medium",
 };
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
