@@ -68,7 +68,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const evaluation = evaluate(report, simResult, DEFAULT_POLICY);
+    // ─── Webacy address risk fan-out (Simulation Firewall) ─────────
+    // Extract every program + writable account from the serialized tx and
+    // score them in parallel. Fail-open: if Webacy is disabled or errors,
+    // we simply skip the check — policy only blocks on returned `high`.
+    let webacySummary: Awaited<ReturnType<typeof buildWebacySummary>> = null;
+    if (serializedTx && isWebacyEnabled()) {
+      try {
+        webacySummary = await buildWebacySummary(serializedTx);
+      } catch (err) {
+        console.warn("[firewall/check] webacy fan-out failed:", err);
+      }
+    }
+
+    const evaluation = evaluate(report, simResult, DEFAULT_POLICY, webacySummary);
 
     if (!evaluation.passed) {
       return NextResponse.json(
@@ -78,6 +91,7 @@ export async function POST(req: NextRequest) {
           violations: evaluation.violations,
           report,
           simResult,
+          webacy: webacySummary,
         },
         { status: 400 }
       );
@@ -88,6 +102,7 @@ export async function POST(req: NextRequest) {
       riskLevel: evaluation.riskLevel,
       report,
       simResult,
+      webacy: webacySummary,
       evaluation,
     });
   } catch (err) {
