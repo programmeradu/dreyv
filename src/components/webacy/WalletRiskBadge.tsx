@@ -46,9 +46,10 @@ export function WalletRiskBadge({
         });
         const data = await res.json().catch(() => null);
         if (cancelled) return;
-        const first = Array.isArray(data?.scores) ? data.scores[0] : data?.score;
+        const scoresMap = data?.scores && typeof data.scores === "object" ? (data.scores as Record<string, RiskScore>) : null;
+        const first = scoresMap ? scoresMap[address] ?? Object.values(scoresMap)[0] : null;
         if (first) {
-          setScore(first as RiskScore);
+          setScore(first);
           setStatus("ready");
         } else {
           setStatus("error");
