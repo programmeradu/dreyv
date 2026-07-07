@@ -2,11 +2,15 @@
 
 /**
  * Build + send an SPL Token `revoke` transaction for a specific mint owned
- * by `owner`. Finds the owner's associated token account for the mint via
- * `getTokenAccountsByOwner`, then submits `createRevokeInstruction`.
+ * by `owner`. Finds the owner's token account for the mint (Token or
+ * Token-2022) via `getParsedTokenAccountsByOwner`, then submits a Revoke
+ * instruction (opcode 5, no data).
  *
- * Returns the tx signature on success. Throws on any failure — the caller
- * is expected to show the error in the UI.
+ * We build the instruction by hand rather than importing
+ * `createRevokeInstruction` from `@solana/spl-token` because that named
+ * export doesn't resolve cleanly through this project's TS bundler
+ * resolution — the same reason `src/lib/squads.ts` hardcodes
+ * `TOKEN_2022_PROGRAM_ID` locally.
  */
 
 import {
@@ -15,8 +19,30 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { createRevokeInstruction, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import type { WalletAdapterShape } from "@/lib/wallet/compat";
+
+// Program IDs (constant; safe to hardcode).
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+/**
+ * SPL Token instruction 5 = Revoke.
+ * Layout: 1 byte opcode, no arguments. Keys: [account (w), owner (s)].
+ */
+function buildRevokeInstruction(
+  account: PublicKey,
+  owner: PublicKey,
+  programId: PublicKey
+): TransactionInstruction {
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: account, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
+    ],
+    data: Buffer.from([5]),
+  });
+}
 
 export interface RevokeArgs {
   wallet: WalletAdapterShape;
@@ -30,31 +56,26 @@ export async function revokeApproval({ wallet, connection, owner, mint }: Revoke
 
   const mintPk = new PublicKey(mint);
 
-  // Look under both classic Token Program and Token-2022; whichever owns
-  // the account is what we build the revoke against.
   const [classic, t22] = await Promise.all([
-    connection.getParsedTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_PROGRAM_ID }).catch(() => ({ value: [] })),
-    connection.getParsedTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_2022_PROGRAM_ID }).catch(() => ({ value: [] })),
+    connection
+      .getParsedTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_PROGRAM_ID })
+      .catch(() => ({ value: [] as Array<{ pubkey: PublicKey }> })),
+    connection
+      .getParsedTokenAccountsByOwner(owner, { mint: mintPk, programId: TOKEN_2022_PROGRAM_ID })
+      .catch(() => ({ value: [] as Array<{ pubkey: PublicKey }> })),
   ]);
 
-  const found =
-    classic.value[0]
-      ? { account: classic.value[0].pubkey, programId: TOKEN_PROGRAM_ID }
-      : t22.value[0]
-      ? { account: t22.value[0].pubkey, programId: TOKEN_2022_PROGRAM_ID }
-      : null;
+  const found = classic.value[0]
+    ? { account: classic.value[0].pubkey, programId: TOKEN_PROGRAM_ID }
+    : t22.value[0]
+    ? { account: t22.value[0].pubkey, programId: TOKEN_2022_PROGRAM_ID }
+    : null;
 
   if (!found) {
     throw new Error(`No token account found for mint ${mint} — nothing to revoke.`);
   }
 
-  const ix: TransactionInstruction = createRevokeInstruction(
-    found.account,
-    owner,
-    [],
-    found.programId
-  );
-
+  const ix = buildRevokeInstruction(found.account, owner, found.programId);
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   const tx = new Transaction({ feePayer: owner, blockhash, lastValidBlockHeight }).add(ix);
 
