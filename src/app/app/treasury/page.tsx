@@ -35,6 +35,7 @@ import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
 import { EvmWatchersPanel } from "@/components/treasury/EvmWatchersPanel";
 import { SovereignHero, type HeroHolding } from "@/components/treasury/SovereignHero";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TreasuryExposureCard } from "@/components/webacy/TreasuryExposureCard";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
