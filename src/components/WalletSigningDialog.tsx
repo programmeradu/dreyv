@@ -106,6 +106,46 @@ export function WalletSigningDialog({
             </div>
           </div>
 
+          {/* Webacy pre-sign risk band */}
+          {webacy && webacy.addresses.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-violet-300" />
+                  Address risk (Webacy)
+                </h3>
+                <RiskChip level={webacy.worst} size="md" />
+              </div>
+              <div className="px-4 py-3 rounded bg-slate-800 border border-slate-700 space-y-2 text-sm">
+                {webacyFlagged.length === 0 ? (
+                  <p className="text-slate-300">
+                    Scored {webacy.addresses.length} program/destination addresses — none flagged.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {webacyFlagged.slice(0, 5).map((a) => (
+                      <li key={a.subject} className="flex items-start gap-2">
+                        <RiskChip level={a.level} showLabel={false} />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-xs text-slate-300 break-all">{a.subject}</div>
+                          {a.flags.length > 0 && (
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {a.flags.slice(0, 3).join(" · ").replace(/_/g, " ")}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-700/60">
+                  Risk data by Webacy
+                </p>
+              </div>
+            </div>
+          )}
+
+
           {/* Risk Warning */}
           {approval.riskLevel !== "low" && (
             <div className={`space-y-2 px-4 py-3 rounded border ${getRiskColor(approval.riskLevel)}`}>
