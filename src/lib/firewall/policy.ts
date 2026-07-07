@@ -36,9 +36,10 @@ export interface FirewallPolicy {
   /** When true, the simulation MUST return real pre/post balance diffs. */
   requireBalanceDiff: true;
   /**
-   * Max acceptable Webacy address risk across every program/destination
-   * touched by the transaction. Only enforced when a `WebacyAddressSummary`
-   * is supplied to `evaluate`/`enforce`. Default: block on "high".
+   * Highest Webacy address risk that is still ALLOWED to sign. Anything
+   * strictly above this level is blocked. Only enforced when a
+   * `WebacyAddressSummary` is supplied. Default: allow up to "medium"
+   * (block on "high").
    */
   maxAddressRisk: "safe" | "medium" | "high";
 }
