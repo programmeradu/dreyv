@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, AlertTriangle, CheckCircle2, XCircle, Rocket, Search } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { IconTokenAuditor, IconHolderAnalytics } from "@/components/ui/icons";
+import { TokenRiskBadge } from "@/components/webacy/TokenRiskBadge";
 
 /* ------------------------------------------------------------------ */
 /*  Props coming from atlas-client for holder analytics               */
