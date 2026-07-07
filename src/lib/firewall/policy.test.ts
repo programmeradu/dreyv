@@ -122,6 +122,34 @@ describe("FirewallPolicy.enforce", () => {
   });
 });
 
+describe("FirewallPolicy.evaluate — Webacy address risk", () => {
+  it("blocks when a `high` address is present", () => {
+    const res = evaluate(cleanQuote(), cleanSim(), DEFAULT_POLICY, {
+      worst: "high",
+      addresses: [
+        { level: "high", numeric: 92, flags: ["honeypot"], subject: "Prog111", source: "webacy" },
+        { level: "safe", numeric: 5, flags: [], subject: "Prog222", source: "webacy" },
+      ],
+    });
+    expect(res.passed).toBe(false);
+    expect(res.violations.some((v) => v.includes("Webacy"))).toBe(true);
+  });
+
+  it("passes but warns on `medium` addresses under default policy", () => {
+    const res = evaluate(cleanQuote(), cleanSim(), DEFAULT_POLICY, {
+      worst: "medium",
+      addresses: [{ level: "medium", numeric: 45, flags: [], subject: "Prog333", source: "webacy" }],
+    });
+    expect(res.passed).toBe(true);
+    expect(res.riskLevel).toBe("medium");
+  });
+
+  it("ignores empty / unknown webacy summaries", () => {
+    const res = evaluate(cleanQuote(), cleanSim(), DEFAULT_POLICY, { worst: "unknown", addresses: [] });
+    expect(res.passed).toBe(true);
+  });
+});
+
 describe("FirewallPolicy.enforceProgramAllowlist", () => {
   it("throws when a blocked program is referenced", () => {
     const policy = { ...DEFAULT_POLICY, blockedPrograms: new Set(["BadProgram111111111111111111111111111111111"]) };

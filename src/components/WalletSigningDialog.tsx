@@ -3,15 +3,19 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, Zap, Lock, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Zap, Lock, Loader2, ShieldAlert } from "lucide-react";
 import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import type { ApprovalRequest } from "@/lib/wallet/transaction-executor";
+import { RiskChip } from "@/components/webacy/RiskChip";
+import type { RiskScore, RiskLevel } from "@/lib/webacy/types";
 
 interface WalletSigningDialogProps {
   isOpen: boolean;
   approval: ApprovalRequest;
   tx?: Transaction | VersionedTransaction;
   isLoading?: boolean;
+  /** Optional Webacy pre-sign summary for programs/destinations in this tx. */
+  webacy?: { worst: RiskLevel; addresses: RiskScore[] } | null;
   onApprove: () => void;
   onReject: () => void;
 }
@@ -25,10 +29,16 @@ export function WalletSigningDialog({
   approval,
   tx,
   isLoading = false,
+  webacy = null,
   onApprove,
   onReject
 }: WalletSigningDialogProps) {
+  const [confirmedHighRisk, setConfirmedHighRisk] = useState(false);
   if (!isOpen) return null;
+
+  const webacyFlagged = webacy?.addresses.filter((a) => a.level === "high" || a.level === "medium") ?? [];
+  const requiresTwoTap = webacy?.worst === "high";
+  const signDisabled = isLoading || (requiresTwoTap && !confirmedHighRisk);
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -95,6 +105,46 @@ export function WalletSigningDialog({
               </div>
             </div>
           </div>
+
+          {/* Webacy pre-sign risk band */}
+          {webacy && webacy.addresses.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-violet-300" />
+                  Address risk (Webacy)
+                </h3>
+                <RiskChip level={webacy.worst} size="md" />
+              </div>
+              <div className="px-4 py-3 rounded bg-slate-800 border border-slate-700 space-y-2 text-sm">
+                {webacyFlagged.length === 0 ? (
+                  <p className="text-slate-300">
+                    Scored {webacy.addresses.length} program/destination addresses — none flagged.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {webacyFlagged.slice(0, 5).map((a) => (
+                      <li key={a.subject} className="flex items-start gap-2">
+                        <RiskChip level={a.level} showLabel={false} />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-xs text-slate-300 break-all">{a.subject}</div>
+                          {a.flags.length > 0 && (
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {a.flags.slice(0, 3).join(" · ").replace(/_/g, " ")}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-700/60">
+                  Risk data by Webacy
+                </p>
+              </div>
+            </div>
+          )}
+
 
           {/* Risk Warning */}
           {approval.riskLevel !== "low" && (
@@ -176,32 +226,52 @@ export function WalletSigningDialog({
         </CardContent>
 
         {/* Footer with Actions */}
-        <div className="border-t border-slate-700 p-6 flex gap-3 justify-end">
-          <Button
-            variant="outline"
-            onClick={onReject}
-            disabled={isLoading}
-            className="border-slate-600 text-slate-300 hover:bg-slate-800"
-          >
-            Reject
-          </Button>
-          <Button
-            onClick={onApprove}
-            disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Signing...
-              </>
-            ) : (
-              <>
-                <Lock className="w-4 h-4 mr-2" />
-                Approve & Sign
-              </>
-            )}
-          </Button>
+        <div className="border-t border-slate-700 p-6 space-y-3">
+          {requiresTwoTap && (
+            <label className="flex items-start gap-2 text-xs text-rose-200 bg-rose-950/40 border border-rose-800/60 rounded px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={confirmedHighRisk}
+                onChange={(e) => setConfirmedHighRisk(e.target.checked)}
+                className="mt-0.5 accent-rose-500"
+              />
+              <span>
+                Webacy flagged at least one address as <strong>high risk</strong>. I have reviewed the
+                flags above and understand this transaction may be unsafe.
+              </span>
+            </label>
+          )}
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={onReject}
+              disabled={isLoading}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+            >
+              Reject
+            </Button>
+            <Button
+              onClick={onApprove}
+              disabled={signDisabled}
+              className={
+                requiresTwoTap
+                  ? "bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Signing...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 mr-2" />
+                  {requiresTwoTap ? "Sign anyway" : "Approve & Sign"}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

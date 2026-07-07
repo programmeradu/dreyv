@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SimulationFirewall } from "@/lib/studio/simulation-firewall";
 import { DEFAULT_POLICY, FirewallBlockedError, evaluate } from "@/lib/firewall/policy";
+import { scoreAddresses, worstOfMap, isWebacyEnabled } from "@/lib/webacy/service";
+import { VersionedTransaction } from "@solana/web3.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,7 +68,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const evaluation = evaluate(report, simResult, DEFAULT_POLICY);
+    // ─── Webacy address risk fan-out (Simulation Firewall) ─────────
+    // Extract every program + writable account from the serialized tx and
+    // score them in parallel. Fail-open: if Webacy is disabled or errors,
+    // we simply skip the check — policy only blocks on returned `high`.
+    let webacySummary: Awaited<ReturnType<typeof buildWebacySummary>> = null;
+    if (serializedTx && isWebacyEnabled()) {
+      try {
+        webacySummary = await buildWebacySummary(serializedTx);
+      } catch (err) {
+        console.warn("[firewall/check] webacy fan-out failed:", err);
+      }
+    }
+
+    const evaluation = evaluate(report, simResult, DEFAULT_POLICY, webacySummary);
 
     if (!evaluation.passed) {
       return NextResponse.json(
@@ -76,6 +91,7 @@ export async function POST(req: NextRequest) {
           violations: evaluation.violations,
           report,
           simResult,
+          webacy: webacySummary,
         },
         { status: 400 }
       );
@@ -86,6 +102,7 @@ export async function POST(req: NextRequest) {
       riskLevel: evaluation.riskLevel,
       report,
       simResult,
+      webacy: webacySummary,
       evaluation,
     });
   } catch (err) {
@@ -98,4 +115,40 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ passed: false, error: message }, { status: 500 });
   }
+}
+
+/**
+ * Deserialize a base64 VersionedTransaction, extract every program +
+ * writable account, and score them with Webacy in parallel. Returns
+ * `null` when we can't extract anything usable — never throws.
+ */
+async function buildWebacySummary(serializedTxBase64: string) {
+  const raw = Buffer.from(serializedTxBase64, "base64");
+  const tx = VersionedTransaction.deserialize(new Uint8Array(raw));
+  const msg = tx.message;
+  const keys = msg.staticAccountKeys.map((k) => k.toBase58());
+
+  const programIdxs = new Set<number>();
+  for (const ix of msg.compiledInstructions) programIdxs.add(ix.programIdIndex);
+
+  // Writable accounts (destinations we actually mutate).
+  const writable = new Set<string>();
+  const numRequiredSignatures = msg.header.numRequiredSignatures;
+  const numReadonlySigned = msg.header.numReadonlySignedAccounts;
+  const numReadonlyUnsigned = msg.header.numReadonlyUnsignedAccounts;
+  const signedWritable = numRequiredSignatures - numReadonlySigned;
+  const totalStatic = keys.length;
+  const unsignedWritable = totalStatic - numRequiredSignatures - numReadonlyUnsigned;
+  for (let i = 0; i < signedWritable; i++) writable.add(keys[i]!);
+  for (let i = numRequiredSignatures; i < numRequiredSignatures + unsignedWritable; i++) writable.add(keys[i]!);
+
+  const programIds = Array.from(programIdxs).map((i) => keys[i]!).filter(Boolean);
+  const subjects = Array.from(new Set([...programIds, ...writable]));
+  if (subjects.length === 0) return null;
+
+  const scores = await scoreAddresses(subjects, "sol");
+  return {
+    worst: worstOfMap(scores),
+    addresses: Array.from(scores.values()),
+  };
 }
