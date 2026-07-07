@@ -226,32 +226,52 @@ export function WalletSigningDialog({
         </CardContent>
 
         {/* Footer with Actions */}
-        <div className="border-t border-slate-700 p-6 flex gap-3 justify-end">
-          <Button
-            variant="outline"
-            onClick={onReject}
-            disabled={isLoading}
-            className="border-slate-600 text-slate-300 hover:bg-slate-800"
-          >
-            Reject
-          </Button>
-          <Button
-            onClick={onApprove}
-            disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Signing...
-              </>
-            ) : (
-              <>
-                <Lock className="w-4 h-4 mr-2" />
-                Approve & Sign
-              </>
-            )}
-          </Button>
+        <div className="border-t border-slate-700 p-6 space-y-3">
+          {requiresTwoTap && (
+            <label className="flex items-start gap-2 text-xs text-rose-200 bg-rose-950/40 border border-rose-800/60 rounded px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={confirmedHighRisk}
+                onChange={(e) => setConfirmedHighRisk(e.target.checked)}
+                className="mt-0.5 accent-rose-500"
+              />
+              <span>
+                Webacy flagged at least one address as <strong>high risk</strong>. I have reviewed the
+                flags above and understand this transaction may be unsafe.
+              </span>
+            </label>
+          )}
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={onReject}
+              disabled={isLoading}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+            >
+              Reject
+            </Button>
+            <Button
+              onClick={onApprove}
+              disabled={signDisabled}
+              className={
+                requiresTwoTap
+                  ? "bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Signing...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 mr-2" />
+                  {requiresTwoTap ? "Sign anyway" : "Approve & Sign"}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
     </div>
