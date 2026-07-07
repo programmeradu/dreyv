@@ -35,6 +35,7 @@ import { WatcherCanvasBridge } from "@/components/treasury/WatcherCanvasBridge";
 import { EvmWatchersPanel } from "@/components/treasury/EvmWatchersPanel";
 import { SovereignHero, type HeroHolding } from "@/components/treasury/SovereignHero";
 import { DreyvStar } from "@/components/studio/DreyvStar";
+import { TreasuryExposureCard } from "@/components/webacy/TreasuryExposureCard";
 
 const SYMBOL_LABELS: Record<string, string> = {
   SOL: "Solana",
@@ -160,6 +161,13 @@ export default function TreasuryPage() {
       <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
         <TreasuryCommandDock />
       </section>
+
+      {/* WEBACY EXPOSURE — counterparty + contract risk across holdings */}
+      {activeVault && (
+        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+          <TreasuryExposureCard wallet={activeVault} />
+        </section>
+      )}
 
       {/* CROSS-CHAIN WATCHERS — moved out of the deleted /app/opportunities */}
       <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">

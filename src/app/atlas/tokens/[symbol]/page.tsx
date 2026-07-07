@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { BuildersInThisSpace } from "@/components/atlas/BuildersInThisSpace";
+import { TokenRiskBadge } from "@/components/webacy/TokenRiskBadge";
 import {
   ATLAS_TOKENS,
   getAtlasToken,
@@ -136,9 +137,10 @@ export default async function AtlasTokenPage({
             {token.tagline}
           </p>
           {token.mint && (
-            <p className="mt-4 text-[11px] text-white/35 font-mono break-all">
-              mint: {token.mint}
-            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <p className="text-[11px] text-white/35 font-mono break-all">mint: {token.mint}</p>
+              <TokenRiskBadge mint={token.mint} />
+            </div>
           )}
         </header>
 
