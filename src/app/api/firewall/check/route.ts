@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SimulationFirewall } from "@/lib/studio/simulation-firewall";
 import { DEFAULT_POLICY, FirewallBlockedError, evaluate } from "@/lib/firewall/policy";
+import { scoreAddresses, worstOfMap, isWebacyEnabled } from "@/lib/webacy/service";
+import { VersionedTransaction } from "@solana/web3.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
