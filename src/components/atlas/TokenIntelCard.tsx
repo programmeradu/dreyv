@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, AlertTriangle, CheckCircle2, XCircle, Rocket, Search } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { IconTokenAuditor, IconHolderAnalytics } from "@/components/ui/icons";
+import { TokenRiskBadge } from "@/components/webacy/TokenRiskBadge";
 
 /* ------------------------------------------------------------------ */
 /*  Props coming from atlas-client for holder analytics               */
@@ -166,6 +167,10 @@ export function TokenIntelCard({
                     {rugResult.ageInDays != null && (
                       <div className="mt-1 opacity-80">Token age: {rugResult.ageInDays} days</div>
                     )}
+                    <div className="mt-3 flex items-center gap-2 border-t border-current/10 pt-3 text-[11px] opacity-90">
+                      <span>Cross-check:</span>
+                      <TokenRiskBadge mint={mintInput.trim()} />
+                    </div>
                   </div>
 
                   {/* Security Checks */}

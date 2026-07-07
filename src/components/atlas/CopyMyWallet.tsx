@@ -11,6 +11,7 @@ import { Loader2, Copy, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "@/lib/toast-notifications";
 import { IconWalletCopy } from "@/components/ui/icons";
 import { isValidSolanaAddress, formatCurrency } from "@/lib/atlas-utils";
+import { WalletRiskBadge } from "@/components/webacy/WalletRiskBadge";
 
 interface TokenHolding {
   token: string;
@@ -250,7 +251,10 @@ export function CopyMyWallet() {
             <div className="space-y-3">
               {/* Total Value */}
               <div className="rounded-md">
-                <div className="text-xs opacity-70 mb-1">Total Portfolio Value</div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <div className="text-xs opacity-70">Total Portfolio Value</div>
+                  <WalletRiskBadge address={walletAddress.trim()} hideWhileLoading />
+                </div>
                 <div className="text-2xl font-bold font-mono">
                   {formatCurrency(portfolio.totalValue)}
                 </div>
