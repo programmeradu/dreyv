@@ -162,6 +162,13 @@ export default function TreasuryPage() {
         <TreasuryCommandDock />
       </section>
 
+      {/* WEBACY EXPOSURE — counterparty + contract risk across holdings */}
+      {activeVault && (
+        <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+          <TreasuryExposureCard wallet={activeVault} />
+        </section>
+      )}
+
       {/* CROSS-CHAIN WATCHERS — moved out of the deleted /app/opportunities */}
       <section className="relative z-10 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
         <EvmWatchersPanel />
