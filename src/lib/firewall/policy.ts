@@ -157,6 +157,28 @@ export function evaluate(
     risk = maxRisk(risk, simResult.riskLevel);
   }
 
+  // ─── Webacy address risk (Simulation Firewall pre-sign) ───────────
+  if (webacy && webacy.addresses.length > 0) {
+    const rank = (l: "safe" | "medium" | "high") => (l === "safe" ? 0 : l === "medium" ? 1 : 2);
+    const capRank = rank(policy.maxAddressRisk);
+    const flagged = webacy.addresses.filter(
+      (a) => a.level === "medium" || a.level === "high"
+    );
+    const worstRank = webacy.worst === "high" ? 2 : webacy.worst === "medium" ? 1 : 0;
+    if (worstRank > capRank) {
+      const top = flagged
+        .filter((a) => (policy.maxAddressRisk === "medium" ? true : a.level === "high"))
+        .slice(0, 3)
+        .map((a) => `${a.subject.slice(0, 8)}… (${a.flags.slice(0, 2).join(", ") || a.level})`)
+        .join("; ");
+      violations.push(`Webacy flagged risky addresses in this tx: ${top}`);
+      risk = maxRisk(risk, "high");
+    } else if (flagged.length > 0) {
+      // In-band warning surface — never blocks by itself, just raises the risk band.
+      risk = maxRisk(risk, "medium");
+    }
+  }
+
   const passed = violations.length === 0;
   return { passed, violations, riskLevel: risk };
 }
