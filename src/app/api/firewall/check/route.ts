@@ -116,3 +116,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ passed: false, error: message }, { status: 500 });
   }
 }
+
+/**
+ * Deserialize a base64 VersionedTransaction, extract every program +
+ * writable account, and score them with Webacy in parallel. Returns
+ * `null` when we can't extract anything usable — never throws.
+ */
+async function buildWebacySummary(serializedTxBase64: string) {
+  const raw = Buffer.from(serializedTxBase64, "base64");
+  const tx = VersionedTransaction.deserialize(new Uint8Array(raw));
+  const msg = tx.message;
+  const keys = msg.staticAccountKeys.map((k) => k.toBase58());
+
+  const programIdxs = new Set<number>();
+  for (const ix of msg.compiledInstructions) programIdxs.add(ix.programIdIndex);
+
+  // Writable accounts (destinations we actually mutate).
+  const writable = new Set<string>();
+  const numRequiredSignatures = msg.header.numRequiredSignatures;
+  const numReadonlySigned = msg.header.numReadonlySignedAccounts;
+  const numReadonlyUnsigned = msg.header.numReadonlyUnsignedAccounts;
+  const signedWritable = numRequiredSignatures - numReadonlySigned;
+  const totalStatic = keys.length;
+  const unsignedWritable = totalStatic - numRequiredSignatures - numReadonlyUnsigned;
+  for (let i = 0; i < signedWritable; i++) writable.add(keys[i]!);
+  for (let i = numRequiredSignatures; i < numRequiredSignatures + unsignedWritable; i++) writable.add(keys[i]!);
+
+  const programIds = Array.from(programIdxs).map((i) => keys[i]!).filter(Boolean);
+  const subjects = Array.from(new Set([...programIds, ...writable]));
+  if (subjects.length === 0) return null;
+
+  const scores = await scoreAddresses(subjects, "sol");
+  return {
+    worst: worstOfMap(scores),
+    addresses: Array.from(scores.values()),
+  };
+}
