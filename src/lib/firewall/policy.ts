@@ -189,9 +189,10 @@ export function evaluate(
 export function enforce(
   report: FirewallReport | null,
   simResult: SimulationResult | null,
-  policy: FirewallPolicy = DEFAULT_POLICY
+  policy: FirewallPolicy = DEFAULT_POLICY,
+  webacy: WebacyAddressSummary | null = null
 ): PolicyEvaluation {
-  const result = evaluate(report, simResult, policy);
+  const result = evaluate(report, simResult, policy, webacy);
   if (!result.passed) {
     throw new FirewallBlockedError(
       `Firewall blocked: ${result.violations.join("; ")}`,
