@@ -167,6 +167,10 @@ export function TokenIntelCard({
                     {rugResult.ageInDays != null && (
                       <div className="mt-1 opacity-80">Token age: {rugResult.ageInDays} days</div>
                     )}
+                    <div className="mt-3 flex items-center gap-2 border-t border-current/10 pt-3 text-[11px] opacity-90">
+                      <span>Cross-check:</span>
+                      <TokenRiskBadge mint={mintInput.trim()} />
+                    </div>
                   </div>
 
                   {/* Security Checks */}
