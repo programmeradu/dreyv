@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/home/site-header";
 import { SiteFooter } from "@/components/home/site-footer";
 import { BuildersInThisSpace } from "@/components/atlas/BuildersInThisSpace";
+import { TokenRiskBadge } from "@/components/webacy/TokenRiskBadge";
 import {
   ATLAS_TOKENS,
   getAtlasToken,
