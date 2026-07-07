@@ -8,6 +8,17 @@
  */
 
 import type { FirewallReport, SimulationResult } from "@/lib/studio/simulation-firewall";
+import type { RiskLevel as WebacyRiskLevel, RiskScore as WebacyRiskScore } from "@/lib/webacy/types";
+
+/**
+ * Optional Webacy address-risk summary supplied to the firewall.
+ * When omitted, no address-risk check is enforced (fail-open on read).
+ * When supplied with a level >= policy.maxAddressRisk the tx is blocked.
+ */
+export interface WebacyAddressSummary {
+  worst: WebacyRiskLevel;
+  addresses: WebacyRiskScore[];
+}
 
 export interface FirewallPolicy {
   /** Max acceptable price impact, in percent (e.g. 1.0 = 1%). */
