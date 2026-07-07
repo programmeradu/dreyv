@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 import { IconHolderAnalytics } from "@/components/ui/icons";
+import { TokenRiskBadge } from "@/components/webacy/TokenRiskBadge";
 
 interface HolderAnalyticsCardProps {
   mintInput: string;
