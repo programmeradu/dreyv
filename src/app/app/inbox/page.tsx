@@ -287,7 +287,7 @@ export default function InboxPage() {
       const tx = txProposals.find((t) => t.id === id);
       if (!tx) return;
 
-      const txWebacy = txWebacyRisk(t);
+      const txWebacy = txWebacyRisk(tx);
       if (txWebacy?.worst === "high" && riskAckId !== id) {
         setRiskAckId(id);
         toast.warning("Webacy flagged this transaction as high risk", {
@@ -400,6 +400,7 @@ export default function InboxPage() {
           operation: string;
           buildErrors: string[];
           bundleStrategy?: "sequential" | "atomic";
+          webacyTxRisk?: WebacyTxRisk;
           readResults?: Array<{
             capabilityId: string;
             sideEffects: string;
