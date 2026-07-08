@@ -44,6 +44,8 @@ import {
 import { useDeclareFocus } from "@/lib/commandbar/focus-context";
 import { classifyPlan, formatUsd, relTime } from "./_components/kind";
 import { DeliverableView, type DeliverablePayload } from "./_components/DeliverableView";
+import { RiskChip } from "@/components/webacy/RiskChip";
+import type { RiskLevel, RiskScore } from "@/lib/webacy/types";
 
 type TxInstruction = {
   op: string;
@@ -99,6 +101,16 @@ type CommandApproval = {
   expiresAt: string | null;
   intent: { rawText?: string; goal?: string } | null;
   plan: { rationale?: string; steps?: Array<{ capabilityId: string }> } | null;
+  decision?: {
+    signingEnvelope?: {
+      webacyTxRisk?: WebacyTxRisk;
+    };
+  } | null;
+};
+
+type WebacyTxRisk = {
+  worst: RiskLevel;
+  scores: RiskScore[];
 };
 
 type TxProposal = {
@@ -116,6 +128,10 @@ type TxProposal = {
   expiresAt: string | null;
   unsignedTx?: string | null;
   instructions?: TxInstruction[] | null;
+  meta?: {
+    webacyTxRisk?: RiskScore;
+    webacyAddressRisk?: WebacyTxRisk;
+  } | null;
 };
 
 const CHAINS = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"] as const;
@@ -133,6 +149,7 @@ export default function InboxPage() {
   const [commandApprovals, setCommandApprovals] = useState<CommandApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [riskAckId, setRiskAckId] = useState<string | null>(null);
 
   useDeclareFocus(
     { scope: "inbox.queue", label: "Agent inbox", data: { wallet, proposals: proposals.length, txProposals: txProposals.length, commandApprovals: commandApprovals.length, watchers: watchers.length, subagents: subagents.length } },
@@ -216,7 +233,7 @@ export default function InboxPage() {
   const patchTx = async (
     id: string,
     action: "approve" | "reject" | "submitted" | "confirmed" | "failed",
-    extra: { signature?: string; errorMessage?: string } = {}
+    extra: { signature?: string; errorMessage?: string; webacyRiskAccepted?: boolean } = {}
   ) => {
     return fetch("/api/inbox/tx-proposals", {
       method: "PATCH",
@@ -270,13 +287,29 @@ export default function InboxPage() {
       const tx = txProposals.find((t) => t.id === id);
       if (!tx) return;
 
+      const txWebacy = txWebacyRisk(t);
+      if (txWebacy?.worst === "high" && riskAckId !== id) {
+        setRiskAckId(id);
+        toast.warning("Webacy flagged this transaction as high risk", {
+          description: "Review the reasons, then press Sign anyway if you still want to continue.",
+        });
+        return;
+      }
+
       if (!executor.isWalletConnected && !executor.isMultisig) {
         toast.error("Connect a wallet to approve transactions");
         return;
       }
 
       // 1) Mark approved server-side (intent recorded before signing)
-      await patchTx(id, "approve");
+      const approvalRes = await patchTx(id, "approve", { webacyRiskAccepted: riskAckId === id });
+      if (approvalRes.status === 409) {
+        setRiskAckId(id);
+        toast.warning("Webacy confirmation required", {
+          description: "Press Sign anyway to approve this high-risk transaction.",
+        });
+        return;
+      }
 
       // 2) Build/sign/submit on the wallet side
       let result: { success: boolean; signature?: string; proposalKey?: string; error?: string };
@@ -308,6 +341,7 @@ export default function InboxPage() {
           if (verdict.confirmed) {
             await patchTx(id, "confirmed", { signature: sig });
             toast.success(`Confirmed ${sig!.slice(0, 8)}…`);
+            setRiskAckId(null);
             setTxProposals((prev) => prev.filter((t) => t.id !== id));
           } else {
             await patchTx(id, "failed", {
@@ -321,6 +355,7 @@ export default function InboxPage() {
           // Multisig proposal — no signature to poll, treat submission as terminal
           await patchTx(id, "confirmed", { signature: sig });
           toast.success(`Multisig proposal ${sig ? `${sig.slice(0, 8)}…` : "queued"}`);
+          setRiskAckId(null);
           setTxProposals((prev) => prev.filter((t) => t.id !== id));
         }
       } else {
@@ -345,8 +380,16 @@ export default function InboxPage() {
       const res = await fetch("/api/inbox/command-approvals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ id, status, webacyRiskAccepted: riskAckId === id }),
       });
+      if (res.status === 409) {
+        setRiskAckId(id);
+        const json = await res.json().catch(() => ({}));
+        toast.warning("Webacy flagged this signing envelope as high risk", {
+          description: json?.message ?? "Press Sign anyway to approve it explicitly.",
+        });
+        return;
+      }
       if (!res.ok) throw new Error("approval_patch_failed");
       const json = (await res.json()) as {
         ok: boolean;
@@ -375,6 +418,11 @@ export default function InboxPage() {
       }
 
       const env = json.signingEnvelope;
+      if (env?.webacyTxRisk?.worst === "medium") {
+        toast.warning("Webacy marked this signing envelope as caution", {
+          description: "No block applied, but review the transaction prompt carefully.",
+        });
+      }
       const bundleStrategy = env?.bundleStrategy ?? "sequential";
       // Read-only plan / nothing to sign → server already marked as executed
       // and persisted readResults. Move the row to the Completed tab and
@@ -555,6 +603,7 @@ export default function InboxPage() {
         body: JSON.stringify({ id, status: "executed", signature: sigs[0] }),
       });
       setCommandApprovals((prev) => prev.filter((a) => a.id !== id));
+      setRiskAckId(null);
       toast.success(`${env.operation} signed & sent`, {
         description: `${sigs.length} tx · ${sigs[0].slice(0, 12)}…`,
       });
@@ -641,6 +690,23 @@ export default function InboxPage() {
       {meta.label}
     </span>
   );
+
+  const txWebacyRisk = (t: TxProposal): WebacyTxRisk | null => {
+    const txScore = t.meta?.webacyTxRisk;
+    const addressRisk = t.meta?.webacyAddressRisk;
+    if (txScore?.level === "high" || addressRisk?.worst === "high") {
+      return { worst: "high", scores: [txScore, ...(addressRisk?.scores ?? [])].filter(Boolean) as RiskScore[] };
+    }
+    if (txScore?.level === "medium" || addressRisk?.worst === "medium") {
+      return { worst: "medium", scores: [txScore, ...(addressRisk?.scores ?? [])].filter(Boolean) as RiskScore[] };
+    }
+    if (txScore) return { worst: txScore.level, scores: [txScore] };
+    if (addressRisk) return addressRisk;
+    return null;
+  };
+
+  const riskReasons = (risk: WebacyTxRisk | null) =>
+    risk?.scores.flatMap((s) => s.flags.map((flag) => flag.replace(/_/g, " "))).slice(0, 4) ?? [];
 
   return (
     <div className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden md:h-screen md:overflow-hidden bg-white text-slate-900 relative font-[Manrope,sans-serif]">
@@ -761,6 +827,7 @@ export default function InboxPage() {
                       const meta = classifyPlan(capIds);
                       const value = a.estimatedValueUsd != null ? Number(a.estimatedValueUsd) : null;
                       const risk = a.riskScore != null ? Number(a.riskScore) : null;
+                      const webacyRisk = a.decision?.signingEnvelope?.webacyTxRisk ?? null;
                       const title = a.intent?.goal || a.intent?.rawText || a.plan?.rationale || a.reason;
                       const expanded = expandedRow === a.id;
                       return (
@@ -785,7 +852,8 @@ export default function InboxPage() {
                               </div>
                             </td>
                             <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-500 tabular-nums">
-                              {capIds.length} step{capIds.length === 1 ? "" : "s"}
+                              <span>{capIds.length} step{capIds.length === 1 ? "" : "s"}</span>
+                              {webacyRisk && <span className="ml-1 inline-flex"><RiskChip level={webacyRisk.worst} size="sm" /></span>}
                               {risk != null && <> · risk {risk.toFixed(2)}</>}
                               {formatUsd(value) && <> · {formatUsd(value)}</>}
                             </td>
@@ -804,7 +872,7 @@ export default function InboxPage() {
                                   ) : (
                                     <Check className="h-3 w-3" />
                                   )}
-                                  {meta.actionLabel}
+                                  {riskAckId === a.id ? "Sign anyway" : meta.actionLabel}
                                 </button>
                                 <button
                                   disabled={busyId === a.id}
@@ -858,6 +926,8 @@ export default function InboxPage() {
                     {txProposals.map((t) => {
                       const expanded = expandedRow === t.id;
                       const meta = classifyPlan([t.kind]);
+                      const webacyRisk = txWebacyRisk(t);
+                      const reasons = riskReasons(webacyRisk);
                       return (
                         <Fragment key={t.id}>
                             <tr
@@ -880,7 +950,8 @@ export default function InboxPage() {
                               </div>
                             </td>
                             <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-500 tabular-nums">
-                              {t.routing} · risk {t.riskLevel}
+                              <span>{t.routing} · risk {t.riskLevel}</span>
+                              {webacyRisk && <span className="ml-1 inline-flex"><RiskChip level={webacyRisk.worst} size="sm" /></span>}
                               {t.estimatedFeeSol && <> · ◎{Number(t.estimatedFeeSol).toFixed(6)}</>}
                             </td>
                             <td className="px-3 py-2.5 align-top text-right text-[11px] text-neutral-400 tabular-nums">
@@ -898,7 +969,7 @@ export default function InboxPage() {
                                   ) : (
                                     <Check className="h-3 w-3" />
                                   )}
-                                  Sign
+                                  {riskAckId === t.id ? "Sign anyway" : "Sign"}
                                 </button>
                                 <button
                                   disabled={busyId === t.id}
@@ -921,6 +992,17 @@ export default function InboxPage() {
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
                                   Instructions
                                 </div>
+                                {webacyRisk && (
+                                  <div className="mb-2 rounded-md border border-violet-100 bg-white px-3 py-2">
+                                    <div className="mb-1 flex items-center justify-between gap-2">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Webacy risk</span>
+                                      <RiskChip level={webacyRisk.worst} size="sm" />
+                                    </div>
+                                    <div className="text-[11.5px] text-neutral-600">
+                                      {reasons.length > 0 ? reasons.join(" · ") : "No provider flags returned for this transaction."}
+                                    </div>
+                                  </div>
+                                )}
                                 <pre className="max-h-56 overflow-auto rounded-md border border-violet-100 bg-white px-3 py-2 text-[10.5px] leading-snug text-neutral-700">
                                   {JSON.stringify(t.instructions ?? [], null, 2)}
                                 </pre>

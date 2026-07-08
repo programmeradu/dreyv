@@ -298,6 +298,7 @@ export async function updateTxProposalStatus(
     status: "queued" | "approved" | "submitted" | "confirmed" | "failed" | "rejected" | "expired";
     signature?: string | null;
     errorMessage?: string | null;
+    metaPatch?: Record<string, unknown>;
   },
 ): Promise<boolean> {
   if (!db) return false;
@@ -306,6 +307,10 @@ export async function updateTxProposalStatus(
     const set: Record<string, unknown> = { status: patch.status, updatedAt: now };
     if (patch.signature !== undefined) set.signature = patch.signature;
     if (patch.errorMessage !== undefined) set.errorMessage = patch.errorMessage;
+    if (patch.metaPatch) {
+      const rows = await db.select({ meta: agentTxProposals.meta }).from(agentTxProposals).where(eq(agentTxProposals.id, id)).limit(1);
+      set.meta = { ...((rows[0]?.meta as Record<string, unknown> | null) ?? {}), ...patch.metaPatch };
+    }
     if (patch.status === "approved") set.approvedAt = now;
     if (patch.status === "submitted") set.submittedAt = now;
     if (patch.status === "confirmed") set.confirmedAt = now;
