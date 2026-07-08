@@ -115,12 +115,18 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 font-inter-label"
         >
-          <a href="/waitlist" className={marketingPrimaryCtaSm}>
-            <span className="relative font-semibold tracking-wide">Join the waitlist</span>
+          <a href="/auth?redirect=/app" className={marketingPrimaryCtaSm}>
+            <span className="relative font-semibold tracking-wide">Start free</span>
             <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
           </a>
           <a href="#demo" className={marketingGhostLink}>
             or try a command &darr;
+          </a>
+          <a
+            href="/waitlist"
+            className="text-xs font-medium text-slate-500 hover:text-violet-700 transition-colors"
+          >
+            Prefer a guided cohort? Join the waitlist →
           </a>
         </motion.div>
 
