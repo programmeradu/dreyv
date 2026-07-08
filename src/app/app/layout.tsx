@@ -32,6 +32,7 @@ import { CanvasProvider } from "@/lib/canvas/CanvasContext";
 import { CommandFocusProvider } from "@/lib/commandbar/focus-context";
 import { useAgentPushStream } from "@/lib/commandbar/use-agent-push-stream";
 import { AgentProvider } from "@/lib/contexts/AgentContext";
+import { useBuilderSurfaceVisible } from "@/lib/hooks/useBuilderSurface";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const { theme } = useTheme();
@@ -40,6 +41,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const { profile } = useProfile();
     const isAdmin = profile?.role === "admin";
+    const showBuilderSurface = useBuilderSurfaceVisible(isAdmin);
 
     // Close the mobile drawer on route change
     useEffect(() => {
@@ -66,9 +68,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     const navItems = (
         <>
             <NavButton icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} />
-            <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} />
-            <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
-            <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
+            {showBuilderSurface && (
+                <>
+                    <NavButton icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} />
+                    <NavButton icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} />
+                    <NavButton icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} />
+                </>
+            )}
             <NavButton icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} />
             
             <NavButton icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} />
@@ -155,9 +161,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                                     </div>
                                     <nav className="flex-1 min-h-0 overflow-hidden px-2 py-2 flex flex-col gap-0.5">
                                         <MobileNavRow icon={LayoutGrid} label="Dashboard" href="/app" active={pathname === "/app"} onNavigate={() => setMobileNavOpen(false)} />
-                                        <MobileNavRow icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} onNavigate={() => setMobileNavOpen(false)} />
-                                        <MobileNavRow icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} onNavigate={() => setMobileNavOpen(false)} />
-                                        <MobileNavRow icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} onNavigate={() => setMobileNavOpen(false)} />
+                                        {showBuilderSurface && (
+                                            <>
+                                                <MobileNavRow icon={ArchitectIcon} label="Studio" href="/app/studio" active={pathname?.startsWith("/app/studio")} onNavigate={() => setMobileNavOpen(false)} />
+                                                <MobileNavRow icon={ShoppingBag} label="Marketplace" href="/app/marketplace" active={pathname?.startsWith("/app/marketplace")} onNavigate={() => setMobileNavOpen(false)} />
+                                                <MobileNavRow icon={Library} label="Library" href="/app/library" active={pathname?.startsWith("/app/library")} onNavigate={() => setMobileNavOpen(false)} />
+                                            </>
+                                        )}
                                         <MobileNavRow icon={WalletCards} label="Treasury" href="/app/treasury" active={pathname === "/app/treasury"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={PieChart} label="Analytics" href="/app/analytics" active={pathname === "/app/analytics"} onNavigate={() => setMobileNavOpen(false)} />
                                         <MobileNavRow icon={Users} label="Team" href="/app/team" active={pathname === "/app/team"} onNavigate={() => setMobileNavOpen(false)} />
