@@ -20,6 +20,8 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { capabilityRegistry } from "@/lib/agents/capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "@/lib/agents/capabilities/types";
 import type { Plan, RouteDecision } from "@/lib/agents/dacs/types";
+import { scoreTransaction } from "@/lib/webacy/service";
+import type { RiskLevel, RiskScore } from "@/lib/webacy/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,6 +99,18 @@ interface SigningEnvelope {
    *  approved plan's actual deliverable (briefings, projections, summaries)
    *  instead of silently discarding them. */
   readResults: ReadResult[];
+  webacyTxRisk?: {
+    worst: RiskLevel;
+    scores: RiskScore[];
+  };
+}
+
+function worstWebacy(scores: RiskScore[]): RiskLevel {
+  if (scores.some((s) => s.level === "high")) return "high";
+  if (scores.some((s) => s.level === "medium")) return "medium";
+  if (scores.some((s) => s.level === "safe")) return "safe";
+  if (scores.some((s) => s.level === "safest")) return "safest";
+  return "unknown";
 }
 
 /**
@@ -219,6 +233,10 @@ async function buildSigningEnvelope(
     bundleStrategy = "sequential";
   }
 
+  const webacyScores = serialized.length > 0
+    ? await Promise.all(serialized.map((serializedTx) => scoreTransaction({ chain: "sol", serializedTx, signer: walletAddress ?? undefined })))
+    : [];
+
   return {
     serializedTransactions: serialized,
     extraSigners,
@@ -229,6 +247,7 @@ async function buildSigningEnvelope(
     builtAt: Date.now(),
     buildErrors,
     readResults,
+    webacyTxRisk: webacyScores.length > 0 ? { worst: worstWebacy(webacyScores), scores: webacyScores } : undefined,
   };
 }
 
@@ -236,7 +255,7 @@ export async function PATCH(req: NextRequest) {
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   if (!db) return NextResponse.json({ ok: false, error: "db_unavailable" }, { status: 503 });
-  let body: { id?: string; status?: "approved" | "rejected" | "executed"; note?: string; signature?: string };
+  let body: { id?: string; status?: "approved" | "rejected" | "executed"; note?: string; signature?: string; webacyRiskAccepted?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -273,6 +292,17 @@ export async function PATCH(req: NextRequest) {
         if (envelope.buildErrors.length > 0 && envelope.serializedTransactions.length === 0) {
           resolutionNote =
             resolutionNote ?? `Build failed: ${envelope.buildErrors.join("; ").slice(0, 380)}`;
+        }
+        if (envelope.webacyTxRisk?.worst === "high" && !body.webacyRiskAccepted) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "webacy_high_risk_confirmation_required",
+              message: "Webacy flagged this signing envelope as high risk. Confirm once more to approve.",
+              signingEnvelope: envelope,
+            },
+            { status: 409 },
+          );
         }
         // Read-only plan (briefing / projection / summary): no txs to sign,
         // no build errors → mark executed so it lands in the Completed tab

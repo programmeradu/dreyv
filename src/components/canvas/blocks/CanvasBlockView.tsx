@@ -1959,6 +1959,10 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
   };
 
   const resolveApproval = async (id: string, action: "approve" | "reject") => {
+    if (action === "approve") {
+      window.location.href = "/app/inbox";
+      return;
+    }
     setBusyId(id);
     try {
       await fetch("/api/dacs/approvals", {
@@ -2070,11 +2074,10 @@ function PolicyApprovalsBlock({ block }: { block: CanvasBlock }) {
                         </div>
                       </div>
                       <div className="flex shrink-0 gap-1">
-                        <button
-                          onClick={() => resolveApproval(a.id, "approve")}
-                          disabled={busyId === a.id}
+                        <Link
+                          href="/app/inbox"
                           className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-                        >Approve</button>
+                        >Review</Link>
                         <button
                           onClick={() => resolveApproval(a.id, "reject")}
                           disabled={busyId === a.id}
