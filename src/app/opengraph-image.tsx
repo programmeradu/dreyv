@@ -1,6 +1,6 @@
 import { OG_SIZE, OG_CONTENT_TYPE, renderOgCard, resolveCrystalUrl } from "./_og/template";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export const alt =
   "dreyv — AI treasury workspace for Solana teams (non-custodial)";

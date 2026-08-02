@@ -30,11 +30,13 @@ export function ProposalThread({ vaultAddress, transactionIndex }: Props) {
 
     // Read the comments list for this proposal (snapshot; re-renders on change).
     const comments = useStorage((root) => {
-        const map = root.proposalThreads;
+        const map = root.proposalThreads as unknown;
         if (!map) return [];
-        const list = map.get(key);
-        return list ?? [];
+        if (map instanceof Map) return (map.get(key) as ProposalComment[] | undefined) ?? [];
+        const rec = map as Record<string, ProposalComment[] | undefined>;
+        return rec[key] ?? [];
     }) as ProposalComment[] | null;
+
 
     const addComment = useMutation(({ storage }, text: string) => {
         const map = storage.get("proposalThreads");
