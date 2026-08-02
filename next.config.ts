@@ -143,6 +143,7 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {
         ...config.resolve.alias,
         'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
+        '@x402/evm': false,
       };
       // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
       // eth-json-rpc-filters, etc. transitively reference node:* modules).
