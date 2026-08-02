@@ -31,6 +31,14 @@ const nextConfig: NextConfig = {
       "node_modules/ffmpeg-static/**/*",
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/dns-aid/zone.txt",
+        destination: "/.well-known/dns-aid-zone.txt",
+      },
+    ];
+  },
   async redirects() {
     return [
       {
