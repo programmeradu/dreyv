@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
   outputFileTracingRoot: __dirname,
   outputFileTracingExcludes: {
     "/api/admin/migrations/run": [
