@@ -14,7 +14,6 @@
  * [Phase 1] — SDK Type Codegen Pipeline
  */
 
-import * as ts from "typescript";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -26,6 +25,8 @@ const TYPES_FILE = path.join(SDK_SRC, "types.ts");
 const HOOKS_DIR = path.join(SDK_SRC, "hooks");
 const OUTPUT_DIR = path.join(ROOT, "src", "generated");
 const OUTPUT_FILE = path.join(OUTPUT_DIR, "keystone-sdk-types.ts");
+
+let ts: any;
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ function main() {
         return;
     }
 
+    ts = require("typescript");
     const coreDeclarations = extractExportedDeclarations(TYPES_FILE);
     console.log(`  📄 types.ts: ${coreDeclarations.length} declarations`);
 
