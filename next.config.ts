@@ -120,6 +120,8 @@ const nextConfig: NextConfig = {
     'drizzle-orm',
     '@neondatabase/serverless',
     'ffmpeg-static',
+    '@coinbase/cdp-sdk',
+    '@base-org/account',
   ],
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
