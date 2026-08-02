@@ -123,6 +123,15 @@ const nextConfig: NextConfig = {
     '@coinbase/cdp-sdk',
     '@base-org/account',
   ],
+  turbopack: {
+    resolveAlias: {
+      "@react-native-async-storage/async-storage": "./src/lib/empty-module.js",
+      "@x402/svm/exact/client": "./src/lib/empty-module.js",
+      "@x402/svm": "./src/lib/empty-module.js",
+      "@x402/core/client": "./src/lib/empty-module.js",
+      "@x402/core": "./src/lib/empty-module.js",
+    },
+  },
   webpack: (config, { isServer }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
     if (process.env.NEXT_DISABLE_WEBPACK_CACHE) {
@@ -137,7 +146,15 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@react-native-async-storage/async-storage': false,
+      // Optional x402 Solana deps that @coinbase/cdp-sdk lazily imports but
+      // that we never install. Without these stubs the bundler fails with
+      // "Can't resolve '@x402/svm/exact/client'".
+      '@x402/svm/exact/client': false,
+      '@x402/svm': false,
+      '@x402/core/client': false,
+      '@x402/core': false,
     };
+
     // Prevent drizzle-orm circular init error in client bundles.
     if (!isServer) {
       config.resolve.alias = {

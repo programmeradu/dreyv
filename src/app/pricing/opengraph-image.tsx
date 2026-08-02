@@ -1,6 +1,6 @@
 import { OG_SIZE, OG_CONTENT_TYPE, renderOgCard, resolveCrystalUrl } from "../_og/template";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const alt = "dreyv pricing — Free, Mini $49/mo, Max $199/mo";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

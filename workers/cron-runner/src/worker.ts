@@ -7,7 +7,7 @@
  * on Vercel.
  *
  * Each cron expression in wrangler.toml's `[triggers] crons = [...]` maps to
- * one Vercel route. The dispatch table below is the single source of truth —
+ * one Next.js cron route. The dispatch table below is the single source of truth —
  * if you change a schedule, change it in BOTH this map AND wrangler.toml.
  *
  * Auth: every Vercel /api/cron/* route already calls verifyCron(), which
@@ -23,9 +23,18 @@ export interface Env {
 
 // cron expression → Vercel cron route. Keep in sync with wrangler.toml.
 const ROUTES: Record<string, string> = {
+  // Sub-daily heartbeats
   "*/15 * * * *": "/api/cron/anomaly-alerts",
   "15 * * * *": "/api/cron/agent-insights",
   "30 * * * *": "/api/cron/opportunities",
+  // Daily / weekly / monthly jobs (migrated off Vercel Cron)
+  "0 14 * * 1": "/api/cron/weekly-digest",
+  "0 14 1 * *": "/api/cron/monthly-report",
+  "30 14 * * 1": "/api/cron/vault-commands",
+  "0 15 * * *": "/api/cron/approval-nudges",
+  "0 16 * * 3": "/api/cron/upgrade-nudges",
+  "0 17 * * *": "/api/cron/reengagement",
+  "0 13 * * *": "/api/cron/onboarding-drip",
 };
 
 async function dispatch(cron: string, env: Env): Promise<void> {

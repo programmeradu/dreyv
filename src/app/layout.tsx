@@ -185,8 +185,6 @@ export default function RootLayout({
         <VisualEditsMessenger />
         <ToastContainer />
         <CookieBanner />
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );

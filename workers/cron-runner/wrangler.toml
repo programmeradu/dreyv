@@ -11,9 +11,16 @@ compatibility_flags = ["nodejs_compat"]
 # Vercel Hobby cron limit:   once per day (Pro lifts this).
 [triggers]
 crons = [
-  "*/15 * * * *",  # → /api/cron/anomaly-alerts   (every 15 min)
-  "15 * * * *",    # → /api/cron/agent-insights   (every hour at :15)
-  "30 * * * *"     # → /api/cron/opportunities    (every hour at :30)
+  "*/15 * * * *", # → /api/cron/anomaly-alerts   (every 15 min)
+  "15 * * * *",   # → /api/cron/agent-insights   (hourly :15)
+  "30 * * * *",   # → /api/cron/opportunities    (hourly :30)
+  "0 13 * * *",   # → /api/cron/onboarding-drip  (daily)
+  "0 15 * * *",   # → /api/cron/approval-nudges  (daily)
+  "0 17 * * *",   # → /api/cron/reengagement     (daily)
+  "0 16 * * 3",   # → /api/cron/upgrade-nudges   (weekly, Wed)
+  "0 14 * * 1",   # → /api/cron/weekly-digest    (weekly, Mon)
+  "30 14 * * 1",  # → /api/cron/vault-commands   (weekly, Mon)
+  "0 14 1 * *"    # → /api/cron/monthly-report   (monthly)
 ]
 
 [vars]
