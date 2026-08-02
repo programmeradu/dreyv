@@ -16,6 +16,8 @@
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 next build",
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
+    "deploy:cron": "wrangler deploy --config workers/cron-runner/wrangler.toml",
+    "deploy:treasury": "wrangler deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
     "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\""
   },
