@@ -19,7 +19,8 @@
     "deploy:cron": "wrangler deploy --config workers/cron-runner/wrangler.toml",
     "deploy:treasury": "wrangler deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
-    "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\""
+    "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\"",
+    "deploy:cf": "opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.27",
@@ -89,8 +90,6 @@
     "@types/bn.js": "^5.2.0",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
     "@webcontainer/api": "^1.6.4",
     "ai": "^6.0.145",
     "archiver": "^7.0.1",
