@@ -1,9 +1,13 @@
-; DNS-AID (DNS for AI Discovery) zone fragment for dreyv.com
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-static";
+
+const ZONE_TEXT = `; DNS-AID (DNS for AI Discovery) zone fragment for dreyv.com
 ; Spec: https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/
 ;
 ; Each capability is published as a pair:
 ;   SVCB — transport (alpn, port) per RFC 9460 registered SvcParamKeys
-;   TXT  — endpoint=<path> companion (since `endpoint` is not a registered
+;   TXT  — endpoint=<path> companion (since \`endpoint\` is not a registered
 ;          SvcParamKey, Cloudflare and other validating resolvers reject it
 ;          inside SVCB; we carry it alongside instead).
 ;
@@ -34,3 +38,14 @@ _oauth._agents   3600 IN TXT  "endpoint=/.well-known/openid-configuration"
 ; x402 payment capability
 _x402._agents    3600 IN SVCB 1 dreyv.com. ( alpn="h2,http/1.1" port=443 )
 _x402._agents    3600 IN TXT  "endpoint=/.well-known/x402"
+`;
+
+export function GET() {
+  return new NextResponse(ZONE_TEXT, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
