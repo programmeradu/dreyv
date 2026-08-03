@@ -1,0 +1,14 @@
+{
+  "name": "@dreyv/x402-stub",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./index.mjs",
+    "./exact/client": "./index.mjs",
+    "./exact/svm/client": "./index.mjs",
+    "./*": "./index.mjs"
+  }
+}
