@@ -152,8 +152,6 @@ const nextConfig: NextConfig = {
       '@x402/svm': false,
       '@x402/core/client': false,
       '@x402/core': false,
-      'uncrypto': false,
-      'isows': false,
     };
 
     // Prevent drizzle-orm circular init error in client bundles.
@@ -162,6 +160,11 @@ const nextConfig: NextConfig = {
         ...config.resolve.alias,
         'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
         '@x402/evm': false,
+        // uncrypto + isows only needed server-side (crypto/WebSocket polyfills).
+        // Alias to false in client bundles only — keep server-side so Next.js
+        // file tracing includes the actual package files for OpenNext/esbuild.
+        'uncrypto': false,
+        'isows': false,
       };
       // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
       // eth-json-rpc-filters, etc. transitively reference node:* modules).
@@ -195,5 +198,7 @@ const nextConfig: NextConfig = {
     return config;
   },
 };
+
+import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
 
 export default nextConfig;

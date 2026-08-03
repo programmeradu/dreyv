@@ -12,13 +12,14 @@
     "dev": "next dev --turbopack",
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
-    "build:cf": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build",
+    "build:cf": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build",
     "preview:cf": "opennextjs-cloudflare preview",
     "start": "next start",
-    "deploy:cron": "wrangler deploy --config workers/cron-runner/wrangler.toml",
-    "deploy:treasury": "wrangler deploy --config workers/treasury-agent/wrangler.toml",
+    "deploy:cron": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/cron-runner/wrangler.toml",
+    "deploy:treasury": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
     "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\"",
+    "postinstall": "node scripts/patch-deps.mjs",
     "deploy:cf": "bun run build:cf && opennextjs-cloudflare deploy"
   },
   "dependencies": {
@@ -152,6 +153,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@cloudflare/workerd-windows-64": "1.20260730.1",
     "@eslint/eslintrc": "^3.3.1",
     "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4",
@@ -169,6 +171,7 @@
     "@x402/evm": "^2.20.0",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.3",
+    "esbuild": "0.25.4",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.5.12",
     "pino-pretty": "^13.1.2",
