@@ -10,7 +10,6 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "paddle:seed-catalog": "npx tsx scripts/paddle-seed-catalog.ts",
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:cf": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build",

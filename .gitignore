@@ -58,7 +58,11 @@ scripts/seed-mini-apps.mjs
 
 # build artifacts
 build-output.txt
+build*.log
 .open-next/
+.wrangler/
+.cf-secrets.json
+.dev.vars
 
 # firecrawl cache
 .firecrawl/
