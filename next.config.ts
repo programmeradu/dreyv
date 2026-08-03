@@ -119,12 +119,37 @@ const nextConfig: NextConfig = {
     // allowedDevOrigins: ['192.168.227.1:3000'],
   },
   serverExternalPackages: [
+    // DB / infra
     'drizzle-orm',
     '@neondatabase/serverless',
-    'ffmpeg-static',
+    // Heavy Solana stack — each is 1-5 MiB bundled
+    '@solana/web3.js',
+    '@solana/spl-token',
+    '@sqds/multisig',
+    '@coral-xyz/anchor',
+    '@solana-program/token',
+    '@solana-program/system',
+    '@solana/kit',
+    'helius-sdk',
+    // EVM stack
+    'viem',
+    'ethers',
+    'wagmi',
+    '@wagmi/core',
+    // Coinbase / Base
+    '@coinbase/coinbase-sdk',
+    '@coinbase/cdp-sdk',
     '@base-org/account',
+    // Crypto polyfills
     'uncrypto',
     'isows',
+    // AI SDKs (large but needed server-side — externalize to avoid double-bundling)
+    'ai',
+    '@ai-sdk/groq',
+    '@ai-sdk/openai',
+    '@ai-sdk/anthropic',
+    // Studio / PDF (huge, client-only at runtime)
+    'ffmpeg-static',
     '@babel/standalone',
     '@react-pdf/renderer',
     'jspdf',
