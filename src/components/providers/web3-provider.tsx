@@ -1,11 +1,13 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { mainnet, base, arbitrum, polygon, bsc } from "viem/chains";
+import dynamic from "next/dynamic";
+const OnchainKitProvider = dynamic(() => import("@coinbase/onchainkit").then(mod => mod.OnchainKitProvider), { ssr: false });
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { OnchainKitProvider } from "@coinbase/onchainkit";
-import "@coinbase/onchainkit/styles.css";
+// OnchainKitProvider will be dynamically imported above
+
 // RainbowKit
 import "@rainbow-me/rainbowkit/styles.css";
 import { RainbowKitProvider, getDefaultConfig, lightTheme } from "@rainbow-me/rainbowkit";
@@ -49,6 +51,11 @@ const rkTheme = lightTheme({
 
 export function Web3Providers({ children }: { children: ReactNode }) {
   const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
+  useEffect(() => {
+    if (apiKey) {
+      import("@coinbase/onchainkit/styles.css");
+    }
+  }, [apiKey]);
 
   // RainbowKit's ConnectButton / transaction hooks require RainbowKitProvider on
   // every route — not only when WalletConnect projectId is set (local dev often omits it).

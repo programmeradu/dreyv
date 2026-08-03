@@ -9,8 +9,7 @@
  *   OpenZeppelin (every USDC/USDT we ship) ignore extra calldata, so the
  *   transfer succeeds and the memo is recoverable from `tx.input`.
  */
-import { createPublicClient, http, type Hex, type Log } from "viem";
-import { base, arbitrum, polygon, bsc } from "viem/chains";
+type Hex = `0x${string}`;
 import type { CryptoChain } from "./crypto-config";
 
 interface VerifyParams {
@@ -29,7 +28,6 @@ interface VerifyResult {
     actualMinor?: bigint;
 }
 
-const CHAIN_MAP = { base, arbitrum, polygon, bsc } as const;
 const CHAIN_ID = { base: 8453, arbitrum: 42161, polygon: 137, bsc: 56 } as const;
 
 interface EtherscanTx { to: string; input: string; }
@@ -38,7 +36,7 @@ interface EtherscanReceipt {
     logs: Array<{ address: string; topics: string[]; data: string }>;
 }
 
-async function etherscanFetch<T>(chain: keyof typeof CHAIN_MAP, action: string, txHash: string): Promise<T | null> {
+async function etherscanFetch<T>(chain: keyof typeof CHAIN_ID, action: string, txHash: string): Promise<T | null> {
     const key = process.env.ETHERSCAN_API_KEY;
     if (!key) return null;
     const url = `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID[chain]}&module=proxy&action=${action}&txhash=${txHash}&apikey=${key}`;
@@ -50,7 +48,7 @@ async function etherscanFetch<T>(chain: keyof typeof CHAIN_MAP, action: string, 
     } catch { return null; }
 }
 
-async function fetchViaEtherscan(chain: keyof typeof CHAIN_MAP, txHash: string) {
+async function fetchViaEtherscan(chain: keyof typeof CHAIN_ID, txHash: string) {
     const [tx, receipt] = await Promise.all([
         etherscanFetch<EtherscanTx>(chain, "eth_getTransactionByHash", txHash),
         etherscanFetch<EtherscanReceipt>(chain, "eth_getTransactionReceipt", txHash),
@@ -62,9 +60,18 @@ async function fetchViaEtherscan(chain: keyof typeof CHAIN_MAP, txHash: string) 
 /** keccak256("Transfer(address,address,uint256)") */
 const TRANSFER_TOPIC: Hex = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-function clientFor(chain: keyof typeof CHAIN_MAP) {
+async function rpcFetch<T>(chain: keyof typeof CHAIN_ID, method: string, params: any[]): Promise<T> {
     const url = process.env[`${chain.toUpperCase()}_RPC_URL`];
-    return createPublicClient({ chain: CHAIN_MAP[chain], transport: http(url) });
+    if (!url) throw new Error("Missing RPC URL");
+    const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+    });
+    if (!r.ok) throw new Error("RPC fetch failed");
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message);
+    return j.result as T;
 }
 
 function pad32(addr: string): string {
@@ -92,18 +99,17 @@ export async function verifyEvmPayment(p: VerifyParams): Promise<VerifyResult> {
         receiptStatus = es.receipt.status === "0x1" ? "success" : "reverted";
         logs = es.receipt.logs.map(l => ({ address: l.address, topics: l.topics, data: l.data }));
     } else {
-        // Fallback to viem + public RPC.
+        // Fallback to public RPC via fetch.
         try {
-            const client = clientFor(p.chain);
             const [tx, receipt] = await Promise.all([
-                client.getTransaction({ hash: p.txHash as Hex }),
-                client.getTransactionReceipt({ hash: p.txHash as Hex }),
+                rpcFetch<any>(p.chain, "eth_getTransactionByHash", [p.txHash]),
+                rpcFetch<any>(p.chain, "eth_getTransactionReceipt", [p.txHash]),
             ]);
             if (!tx || !receipt) return { ok: false, reason: "tx_not_found" };
             txTo = tx.to ?? undefined;
             txInput = tx.input as string;
-            receiptStatus = receipt.status;
-            logs = receipt.logs.map((l: Log) => ({ address: l.address, topics: l.topics as string[], data: l.data as string }));
+            receiptStatus = receipt.status === "0x1" ? "success" : "reverted";
+            logs = receipt.logs.map((l: any) => ({ address: l.address, topics: l.topics, data: l.data }));
         } catch (err) {
             return { ok: false, reason: `rpc_error: ${(err as Error).message}` };
         }

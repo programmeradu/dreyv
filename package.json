@@ -12,8 +12,8 @@
     "dev": "next dev --turbopack",
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
-    "build:cf": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=4096 opennextjs-cloudflare build",
-    "preview:cf": "opennextjs-cloudflare preview",
+    "build:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js build",
+    "preview:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
     "start": "next start",
     "deploy:cron": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/cron-runner/wrangler.toml",
     "deploy:treasury": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/treasury-agent/wrangler.toml",
@@ -149,7 +149,7 @@
     "wagmi": "2",
     "ws": "^8.18.3",
     "zod": "^3.25.76",
-    "zod-to-json-schema": "^3.25.2",
+    "@dotenvx/dotenvx": "^2.0.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -171,6 +171,7 @@
     "@x402/evm": "^2.20.0",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.3",
+    "duplexer": "^0.1.2",
     "esbuild": "0.25.4",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.5.12",

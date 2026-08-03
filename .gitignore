@@ -69,3 +69,4 @@ build*.log
 
 # research & strategy docs (private) — only top-level /docs, not nested route dirs
 /docs/
+packages/*/node_modules/.bin/
