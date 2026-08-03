@@ -20,7 +20,7 @@
     "deploy:treasury": "wrangler deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
     "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\"",
-    "deploy:cf": "opennextjs-cloudflare deploy"
+    "deploy:cf": "bun run build:cf && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.27",
