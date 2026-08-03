@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
       "node_modules/ffmpeg-static/**/*",
       "node_modules/@swc/core/**/*",
       "node_modules/esbuild/**/*",
+      "node_modules/@babel/standalone/**/*",
+      "node_modules/@codesandbox/sandpack-react/**/*",
+      "node_modules/@monaco-editor/react/**/*",
     ],
     "/api/admin/migrations/run": [
       "node_modules/**",
@@ -122,6 +125,13 @@ const nextConfig: NextConfig = {
     '@base-org/account',
     'uncrypto',
     'isows',
+    '@babel/standalone',
+    '@react-pdf/renderer',
+    'jspdf',
+    'jspdf-autotable',
+    'archiver',
+    '@codesandbox/sandpack-react',
+    '@monaco-editor/react',
   ],
   turbopack: {
     resolveAlias: {
@@ -146,6 +156,13 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       'ffmpeg-static': require.resolve('./src/lib/empty-module.js'),
+      // Heavy Studio/PDF packages — only used client-side or in Node.js API
+      // routes. Stub them out so they are never inlined into the CF Worker.
+      '@babel/standalone': require.resolve('./src/lib/empty-module.js'),
+      '@react-pdf/renderer': require.resolve('./src/lib/empty-module.js'),
+      'jspdf': require.resolve('./src/lib/empty-module.js'),
+      'jspdf-autotable': require.resolve('./src/lib/empty-module.js'),
+      'archiver': require.resolve('./src/lib/empty-module.js'),
       '@react-native-async-storage/async-storage': false,
       // Optional x402 Solana deps that @coinbase/cdp-sdk lazily imports but
       // that we never install. Without these stubs the bundler fails with
