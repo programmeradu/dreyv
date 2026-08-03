@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   outputFileTracingRoot: __dirname,
   outputFileTracingExcludes: {
+    "/*": [
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/@swc/core/**/*",
+      "node_modules/esbuild/**/*",
+    ],
     "/api/admin/migrations/run": [
       "node_modules/**",
       ".next/**",
@@ -23,12 +28,6 @@ const nextConfig: NextConfig = {
     "/api/admin/migrations/run": [
       "db-migrations/**/*.sql",
       "migrations/sql/**/*.sql",
-    ],
-    "/api/studio/video/render": [
-      "node_modules/ffmpeg-static/**/*",
-    ],
-    "/api/inngest": [
-      "node_modules/ffmpeg-static/**/*",
     ],
   },
   async rewrites() {
@@ -146,6 +145,7 @@ const nextConfig: NextConfig = {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
+      'ffmpeg-static': require.resolve('./src/lib/empty-module.js'),
       '@react-native-async-storage/async-storage': false,
       // Optional x402 Solana deps that @coinbase/cdp-sdk lazily imports but
       // that we never install. Without these stubs the bundler fails with

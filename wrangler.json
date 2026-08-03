@@ -2,14 +2,30 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dreyv",
   "main": ".open-next/worker.js",
-  "compatibility_date": "2025-05-01",
+  "compatibility_date": "2026-01-15",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
   ],
+  "minify": true,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "dreyv"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "dreyv-opennext-cache"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
   },
   "routes": [
     { "pattern": "dreyv.com", "custom_domain": true },
