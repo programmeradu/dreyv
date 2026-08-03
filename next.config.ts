@@ -121,6 +121,8 @@ const nextConfig: NextConfig = {
     '@neondatabase/serverless',
     'ffmpeg-static',
     '@base-org/account',
+    'uncrypto',
+    'isows',
   ],
   turbopack: {
     resolveAlias: {
