@@ -31,6 +31,7 @@
     "@babel/standalone": "^7.28.5",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@coinbase/onchainkit": "^1.0.3",
+    "@dotenvx/dotenvx": "^2.0.0",
     "@hookform/resolvers": "^3.10.0",
     "@keystone-os/cli": "^0.1.0",
     "@libsql/client": "^0.15.15",
@@ -149,7 +150,7 @@
     "wagmi": "2",
     "ws": "^8.18.3",
     "zod": "^3.25.76",
-    "@dotenvx/dotenvx": "^2.0.0",
+    "zod-to-json-schema": "^3.25.2",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
