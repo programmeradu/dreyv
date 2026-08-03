@@ -120,7 +120,6 @@ const nextConfig: NextConfig = {
     'drizzle-orm',
     '@neondatabase/serverless',
     'ffmpeg-static',
-    '@coinbase/cdp-sdk',
     '@base-org/account',
   ],
   turbopack: {
@@ -153,6 +152,8 @@ const nextConfig: NextConfig = {
       '@x402/svm': false,
       '@x402/core/client': false,
       '@x402/core': false,
+      'uncrypto': false,
+      'isows': false,
     };
 
     // Prevent drizzle-orm circular init error in client bundles.
