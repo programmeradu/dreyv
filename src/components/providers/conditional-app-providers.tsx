@@ -1,7 +1,12 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Web3Providers } from "@/components/providers/web3-provider";
+import dynamic from "next/dynamic";
+
+const Web3Providers = dynamic(
+  () => import("@/components/providers/web3-provider").then((mod) => mod.Web3Providers),
+  { ssr: false }
+);
 
 export function ConditionalAppProviders({ children }: { children: ReactNode }) {
   return <Web3Providers>{children}</Web3Providers>;
