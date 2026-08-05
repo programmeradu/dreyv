@@ -273,6 +273,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
+// Disabled for standard Next.js self-hosted preview (Emergent). This is only
+// needed when developing/building for Cloudflare Workers via @opennextjs/cloudflare.
+// import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());
 
 export default nextConfig;
