@@ -39,8 +39,20 @@ const HEAVY_EXTERNALS = [
   "archiver",
   "@codesandbox/sandpack-react",
   "@monaco-editor/react",
-  // OG image generation (large WASM binaries)
-  "@vercel/og",
+  "@webcontainer/api",
+  // Syntax highlighting (can be large with language grammars)
+  "react-syntax-highlighter",
+  // Charting libraries - removed due to transpilePackages conflict
+  // "recharts",
+  // Animation libraries
+  "framer-motion",
+  // Animation libraries
+  "embla-carousel-react",
+  // Icons
+  "react-icons",
+  "lucide-react",
+  // OG image generation (large WASM binaries) - stubbed in next.config instead
+  // "@vercel/og",
 ];
 
 export default defineCloudflareConfig({

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import Editor from "@monaco-editor/react";
+import dynamic from "next/dynamic";
+
+const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 import { KEYSTONE_SDK_TYPES } from "@/generated/keystone-sdk-types";
 

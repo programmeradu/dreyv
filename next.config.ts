@@ -158,8 +158,16 @@ const nextConfig: NextConfig = {
     'archiver',
     '@codesandbox/sandpack-react',
     '@monaco-editor/react',
-    // OG image generation (large WASM binaries)
-    '@vercel/og',
+    '@webcontainer/api',
+    'react-syntax-highlighter',
+    // Remove these from external packages due to transpilePackages conflict
+    // 'recharts',
+    // 'framer-motion',
+    // 'embla-carousel-react',
+    // 'react-icons',
+    // 'lucide-react',
+    // OG image generation (large WASM binaries) - stubbed instead of externalized
+    // '@vercel/og',
   ],
   turbopack: {
     resolveAlias: {
@@ -168,6 +176,19 @@ const nextConfig: NextConfig = {
       "@x402/svm": "./src/lib/empty-module.js",
       "@x402/core/client": "./src/lib/empty-module.js",
       "@x402/core": "./src/lib/empty-module.js",
+      // Heavy packages to stub for Cloudflare Workers
+      "@vercel/og": "./src/lib/empty-module.js",
+      "@codesandbox/sandpack-react": "./src/lib/empty-module.js",
+      "@monaco-editor/react": "./src/lib/empty-module.js",
+      "@babel/standalone": "./src/lib/empty-module.js",
+      "@react-pdf/renderer": "./src/lib/empty-module.js",
+      "jspdf": "./src/lib/empty-module.js",
+      "jspdf-autotable": "./src/lib/empty-module.js",
+      "archiver": "./src/lib/empty-module.js",
+      "ffmpeg-static": "./src/lib/empty-module.js",
+      "react-syntax-highlighter": "./src/lib/empty-module.js",
+      "@webcontainer/api": "./src/lib/empty-module.js",
+      // "recharts": "./src/lib/empty-module.js",
     },
   },
   webpack: (config, { isServer }) => {
@@ -191,6 +212,12 @@ const nextConfig: NextConfig = {
       'jspdf': require.resolve('./src/lib/empty-module.js'),
       'jspdf-autotable': require.resolve('./src/lib/empty-module.js'),
       'archiver': require.resolve('./src/lib/empty-module.js'),
+      '@vercel/og': require.resolve('./src/lib/empty-module.js'),
+      '@codesandbox/sandpack-react': require.resolve('./src/lib/empty-module.js'),
+      '@monaco-editor/react': require.resolve('./src/lib/empty-module.js'),
+      'react-syntax-highlighter': require.resolve('./src/lib/empty-module.js'),
+      '@webcontainer/api': require.resolve('./src/lib/empty-module.js'),
+      // 'recharts': require.resolve('./src/lib/empty-module.js'),
       '@react-native-async-storage/async-storage': false,
       // Optional x402 Solana deps that @coinbase/cdp-sdk lazily imports but
       // that we never install. Without these stubs the bundler fails with
