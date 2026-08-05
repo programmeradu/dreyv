@@ -39,6 +39,8 @@ const HEAVY_EXTERNALS = [
   "archiver",
   "@codesandbox/sandpack-react",
   "@monaco-editor/react",
+  // OG image generation (large WASM binaries)
+  "@vercel/og",
 ];
 
 export default defineCloudflareConfig({

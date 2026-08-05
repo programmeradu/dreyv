@@ -157,6 +157,8 @@ const nextConfig: NextConfig = {
     'archiver',
     '@codesandbox/sandpack-react',
     '@monaco-editor/react',
+    // OG image generation (large WASM binaries)
+    '@vercel/og',
   ],
   turbopack: {
     resolveAlias: {
