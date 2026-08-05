@@ -131,11 +131,12 @@ const nextConfig: NextConfig = {
     '@solana-program/system',
     '@solana/kit',
     'helius-sdk',
-    // EVM stack
-    'viem',
+    // NOTE: `viem`, `wagmi` and `@wagmi/core` must NOT be externalized.
+    // Externalizing them makes the SSR runtime `require()` them through Node,
+    // which pulls in a second React module instance and crashes prerender with
+    // "Cannot read properties of null (reading 'useRef')".
     'ethers',
-    'wagmi',
-    '@wagmi/core',
+
     // Coinbase / Base
     '@coinbase/coinbase-sdk',
     '@coinbase/cdp-sdk',
