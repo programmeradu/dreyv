@@ -12,15 +12,15 @@
     "dev": "next dev --turbopack",
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
-    "build:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js build",
-    "preview:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
+    "build:cf": "opennextjs-cloudflare build",
+    "preview:cf": "opennextjs-cloudflare preview",
     "start": "next start",
     "deploy:cron": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/cron-runner/wrangler.toml",
     "deploy:treasury": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
     "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\"",
     "postinstall": "node scripts/patch-deps.mjs",
-    "deploy:cf": "bun run build:cf && opennextjs-cloudflare deploy"
+    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.27",
