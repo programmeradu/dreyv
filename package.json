@@ -14,7 +14,7 @@
     "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NODE_OPTIONS=--max-old-space-size=4096 npx next build",
     "build:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js build",
     "preview:cf": "node node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
-    "start": "next start",
+    "start": "next dev -p 3000 -H 0.0.0.0",
     "deploy:cron": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/cron-runner/wrangler.toml",
     "deploy:treasury": "node node_modules/wrangler/bin/wrangler.js deploy --config workers/treasury-agent/wrangler.toml",
     "lint": "next lint",
