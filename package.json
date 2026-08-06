@@ -13,8 +13,8 @@
     "generate:types": "npx tsx scripts/generate-sdk-types.ts",
     "paddle:seed-catalog": "npx tsx scripts/paddle-seed-catalog.ts",
     "prebuild": "npm run generate:types",
-    "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=8192 next build",
-    "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=8192 next build",
+    "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=6144 next build",
+    "build:dev": "cross-env NEXT_TELEMETRY_DISABLED=1 NEXT_PRIVATE_BUILD_WORKER_COUNT=1 NEXT_DISABLE_WEBPACK_CACHE=1 NODE_OPTIONS=--max-old-space-size=6144 next build",
     "start": "next start",
     "lint": "next lint",
     "hooks:install": "node -e \"const fs=require('node:fs');fs.mkdirSync('.git/hooks',{recursive:true});fs.writeFileSync('.git/hooks/pre-push','#!/bin/sh\\nnode scripts/pre-push-scan.mjs\\n');fs.chmodSync('.git/hooks/pre-push',0o755);console.log('pre-push hook installed');\""
