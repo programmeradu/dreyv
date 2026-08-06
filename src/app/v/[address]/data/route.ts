@@ -10,6 +10,7 @@ import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { detectAddressKind } from "@/lib/explorer/chain";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ address: string }> }) {
     const { address } = await params;
