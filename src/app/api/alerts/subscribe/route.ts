@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
 import { checkRouteLimit } from '@/lib/rate-limit-middleware';
 import { sendGasAlertVerificationEmail } from '@/lib/email-service';
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {

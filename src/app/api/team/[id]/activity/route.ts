@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { teamActivityLog, teamMembers, users } from '@/db/schema';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
+export const runtime = "edge";
 
 /**
  * GET /api/team/[id]/activity

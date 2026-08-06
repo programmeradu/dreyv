@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+export const runtime = "edge";
 
 // Deterministic simulator stub
 // - Accepts { steps: Array<{ id?: string; type: string; params?: any }> }

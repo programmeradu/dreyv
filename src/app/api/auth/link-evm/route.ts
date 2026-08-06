@@ -13,6 +13,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { EVM_ENABLED } from '@/lib/feature-flags';
+export const runtime = "edge";
 
 const HEX_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 

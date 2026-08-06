@@ -13,7 +13,7 @@ import { db } from "@/db";
 import { dacsHandoffs } from "@/db/schema";
 import { and, desc, eq, gt } from "drizzle-orm";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const POLL_MS = 1500;

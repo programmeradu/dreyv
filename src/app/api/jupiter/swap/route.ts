@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+export const runtime = "edge";
 
 // Proxies to Jupiter v6 swap build endpoint to construct a signed-by-program transaction
 // Docs: https://station.jup.ag/docs/apis/swap-api

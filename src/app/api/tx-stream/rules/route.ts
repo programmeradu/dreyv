@@ -9,7 +9,7 @@ import { txCategoryRules } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RuleBody = z.object({

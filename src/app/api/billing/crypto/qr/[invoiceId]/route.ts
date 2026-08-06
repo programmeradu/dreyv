@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { tokenFor, type CryptoAsset, type CryptoChain } from "@/lib/billing/crypto-config";
 import { buildSolanaPayUrl } from "@/lib/billing/crypto-invoice";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const VIOLET = "#7c3aed"; // aurora-violet

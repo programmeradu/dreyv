@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerClient } from "@/lib/oauth/clients";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { StrategyType } from "@/lib/agents/types";
 import { PublicKey } from "@solana/web3.js";
+export const runtime = "edge";
 
 // Global coordinator instance
 let coordinator: ExecutionCoordinator | null = null;

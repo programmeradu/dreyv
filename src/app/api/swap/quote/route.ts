@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 
 // Run on Node runtime and avoid static caching for external quotes
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // Basic per-chain symbol -> address map for common pairs

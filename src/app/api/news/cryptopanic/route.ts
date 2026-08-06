@@ -15,7 +15,7 @@
 
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 type NewsItem = { title: string; url: string; source: string; publishedAt: string };
 

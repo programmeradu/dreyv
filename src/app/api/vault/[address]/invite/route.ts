@@ -4,6 +4,7 @@ import { vaults, teams, teamMembers, teamInvitations, teamActivityLog } from "@/
 import { getAuthUser } from "@/lib/auth-utils";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
+export const runtime = "edge";
 
 /**
  * POST /api/vault/:address/invite

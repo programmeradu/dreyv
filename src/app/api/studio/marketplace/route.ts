@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { miniApps } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
+export const runtime = "edge";
 
 const APP_FIELDS = {
   id: miniApps.id,

@@ -25,7 +25,7 @@ import { db } from "@/db";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { minorToUsd } from "@/lib/agent/balance";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const MAX_LIMIT = 200;

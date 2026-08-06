@@ -12,6 +12,7 @@ import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { getEnhancedTransactions, type EnhancedTx } from "@/lib/explorer/helius-tx";
 import { lookupSolanaLabel } from "@/lib/explorer/labels";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

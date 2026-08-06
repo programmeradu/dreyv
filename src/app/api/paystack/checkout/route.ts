@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { isValidBillingEmail } from "@/lib/billing-email";
 import {
+export const runtime = "edge";
     getPaystackSecret,
     paystackInitializeTransaction,
     planCodeForTier,

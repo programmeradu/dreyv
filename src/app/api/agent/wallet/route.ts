@@ -15,7 +15,7 @@ import { tokenFor, receivingAddressFor } from "@/lib/billing/crypto-config";
 import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 import { getAgentBalance, minorToUsd } from "@/lib/agent/balance";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

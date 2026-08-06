@@ -5,7 +5,7 @@ import { jwtVerify } from "jose";
 import { transactionCache, dcaExecutions, purchases } from "@/db/schema";
 import jsPDF from "jspdf";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getAdminToken(req: NextRequest) {

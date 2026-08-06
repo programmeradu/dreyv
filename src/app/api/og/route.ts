@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { screenshot } from "@/lib/cloudflare/cf-browser";
+export const runtime = "edge";
 
 function buildOgHtml(app: { name: string; description: string; creator: string; price?: string; category?: string }): string {
     return `<!DOCTYPE html>

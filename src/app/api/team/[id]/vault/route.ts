@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { teams, teamMembers, teamActivityLog } from '@/db/schema';
 import { getAuthUser } from '@/lib/auth-utils';
 import { and, eq } from 'drizzle-orm';
+export const runtime = "edge";
 
 /**
  * PATCH /api/team/[id]/vault

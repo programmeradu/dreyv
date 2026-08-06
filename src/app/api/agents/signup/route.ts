@@ -36,7 +36,7 @@ import { getSiteOrigin } from "@/lib/seo/site";
 import type { OAuthScope } from "@/lib/oauth/scopes";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const DEFAULT_AGENT_API_SCOPES = [
   "read:portfolio",

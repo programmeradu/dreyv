@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
+export const runtime = "edge";
     screenshot,
     pdf,
     jsonExtract,

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { Connection, PublicKey, Transaction, clusterApiUrl } from "@solana/web3.js";
 import { Marinade, MarinadeConfig } from "@marinade.finance/marinade-ts-sdk";
 import BN from "bn.js";
+export const runtime = "edge";
 
 // Build an unsigned legacy Transaction for staking SOL to mSOL via Marinade.
 // Client will sign and send using wallet-adapter.

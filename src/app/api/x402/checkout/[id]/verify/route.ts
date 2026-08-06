@@ -17,7 +17,7 @@ import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
 import { getSku } from "@/lib/agent/skus";
 import { verifySolanaPayment } from "@/lib/billing/crypto-verify-solana";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const Body = z.object({

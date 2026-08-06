@@ -4,6 +4,7 @@ import { users, runs, teamMembers } from '@/db/schema';
 import { eq, and, gte, sql } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { getTierConfig, usagePercent } from '@/lib/tier-config';
+export const runtime = "edge";
 
 /**
  * GET /api/user/usage

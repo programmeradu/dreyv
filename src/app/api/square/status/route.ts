@@ -4,6 +4,7 @@ import { createSquareClient, reconcileSquareTierForUser } from "@/lib/square";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+export const runtime = "edge";
 
 /**
  * GET /api/square/status

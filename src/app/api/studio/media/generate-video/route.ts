@@ -15,7 +15,7 @@ import { chatJson } from "@/lib/media-studio/ai";
 import { db } from "@/db";
 import { mediaStudioAssets } from "@/db/schema";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const maxDuration = 60;
 
 function persistedUserId(id: string) {

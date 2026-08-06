@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const runtime = "edge";
 
 export async function GET(req: Request, { params }: { params: Promise<{ address: string }> }) {
   const { address } = await params;

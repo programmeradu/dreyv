@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectAddressKind } from "@/lib/explorer/chain";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

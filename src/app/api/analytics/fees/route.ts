@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
+export const runtime = "edge";
 
 /**
  * /api/analytics/fees — Extract fee and cost data from transaction history

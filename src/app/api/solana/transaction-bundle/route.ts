@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

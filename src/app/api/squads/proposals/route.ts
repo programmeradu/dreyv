@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SquadsClient } from "@/lib/squads";
 import { Connection } from "@solana/web3.js";
+export const runtime = "edge";
 
 /**
  * GET /api/squads/proposals?vault=<address>

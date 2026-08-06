@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { vertexHealthCheck } from "@/lib/media-studio/google-vertex-veo";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta";

@@ -6,6 +6,7 @@ import { getUserWallets } from '@/lib/email-aggregations';
 import { db } from '@/db';
 import { treasuryEvents } from '@/db/schema';
 import { and, gte, inArray, sql } from 'drizzle-orm';
+export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

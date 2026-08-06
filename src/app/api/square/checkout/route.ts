@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { isValidBillingEmail } from "@/lib/billing-email";
 import { createSquareClient, squareCreateSubscriptionCheckoutUrl, squareEnsureCustomer } from "@/lib/square";
+export const runtime = "edge";
 
 /**
  * POST /api/square/checkout

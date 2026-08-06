@@ -12,7 +12,7 @@ import { publishDreyvEvent } from "@/lib/agents/bus";
 import type { Chain, ChainEvent } from "@/lib/datafeeds/normalize";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const NETWORK_TO_CHAIN: Record<string, Chain> = {
   ETH_MAINNET: "ethereum",

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // SSRF defense: strict allowlist of RPC host suffixes that callers may target

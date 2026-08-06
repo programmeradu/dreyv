@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { screenshot, jsonExtract } from "@/lib/cloudflare/cf-browser";
+export const runtime = "edge";
 
 interface TestResult {
     passed: boolean;

@@ -10,7 +10,7 @@ import { db } from '@/db';
 import { dcaBots } from '@/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 
-export const runtime = 'nodejs';
+export const runtime = "edge";
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {

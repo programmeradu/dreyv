@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, waitlistEntries } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const INVITE_ALLOW_COOKIE = "dreyv-invite-allow";
 const INVITE_ALLOW_MAX_AGE = 60 * 60 * 24 * 90; // 90 days

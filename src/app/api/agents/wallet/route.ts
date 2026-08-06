@@ -20,7 +20,7 @@ import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { getOrCreateAgentWallet, getWalletBalances } from "@/lib/agent/wallet";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

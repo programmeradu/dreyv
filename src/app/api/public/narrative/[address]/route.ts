@@ -3,6 +3,7 @@ import { buildFeaturePack } from "@/lib/explorer/feature-pack";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { getSiteOrigin } from "@/lib/seo/site";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

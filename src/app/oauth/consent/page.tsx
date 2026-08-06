@@ -15,6 +15,7 @@ import { PENDING_REQUEST_COOKIE, readPendingRequest } from "@/lib/oauth/pending-
 
 export const dynamic = "force-dynamic";
 
+export const runtime = "edge";
 export default async function ConsentPage() {
   const jar = await cookies();
   const pending = await readPendingRequest(jar.get(PENDING_REQUEST_COOKIE)?.value);

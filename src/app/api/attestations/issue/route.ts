@@ -3,7 +3,7 @@ import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getIssuerInfo, issueAttestation } from "@/lib/attestations/issuer";
 import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /**

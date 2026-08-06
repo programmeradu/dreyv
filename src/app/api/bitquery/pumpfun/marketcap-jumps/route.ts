@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import WebSocket from "ws";
 
-export const runtime = "nodejs"; // Node runtime required for ws client
+export const runtime = "edge"; // Node runtime required for ws client
 
 // Bitquery GraphQL WS endpoint
 const BITQUERY_WS = "wss://streaming.bitquery.io/eap";

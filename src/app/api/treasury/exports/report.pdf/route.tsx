@@ -23,7 +23,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RANGE_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };

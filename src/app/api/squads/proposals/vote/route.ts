@@ -11,7 +11,7 @@ import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { SquadsClient } from "@/lib/squads";
 import { z } from "zod";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const Body = z.object({

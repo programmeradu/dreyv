@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { mintActionCode } from "@/lib/agent/action-codes";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const MAX_INTENT_LEN = 64;

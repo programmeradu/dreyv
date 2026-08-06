@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getCodeStatus } from "@/lib/agent/action-codes";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(

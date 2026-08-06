@@ -5,6 +5,7 @@ import { eq, and, lte, desc } from "drizzle-orm";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { encryptKeypair } from "@/lib/keypair-envelope";
+export const runtime = "edge";
 
 async function getUserId(walletAddress: string): Promise<string | null> {
   if (!walletAddress || walletAddress.length < 32 || walletAddress.length > 44) {

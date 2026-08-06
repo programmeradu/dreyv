@@ -19,7 +19,7 @@ import {
 import { sql, desc } from "drizzle-orm";
 import { jwtVerify } from "jose";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getAdminToken(req: NextRequest) {

@@ -9,7 +9,7 @@ import { publicApiKeys } from "@/db/schema";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

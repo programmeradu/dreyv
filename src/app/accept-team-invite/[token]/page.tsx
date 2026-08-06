@@ -25,6 +25,7 @@ import {
 
 type Status = "needs-wallet" | "accepting" | "success" | "error";
 
+export const runtime = "edge";
 export default function AcceptTeamInvitePage() {
   const params = useParams<{ token: string }>();
   const router = useRouter();

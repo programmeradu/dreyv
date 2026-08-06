@@ -1,4 +1,5 @@
 import {
+export const runtime = "edge";
   ACTIONS_CORS_HEADERS,
   ActionGetResponse,
   ActionPostRequest,

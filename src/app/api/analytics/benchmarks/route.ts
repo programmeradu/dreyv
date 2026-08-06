@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
 /**
  * /api/analytics/benchmarks — Fetch benchmark price series for comparison

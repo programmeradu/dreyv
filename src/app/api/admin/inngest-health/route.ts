@@ -15,7 +15,7 @@ import { headers } from "next/headers";
 import { db } from "@/db";
 import { jwtVerify } from "jose";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getAdminToken(req: NextRequest) {

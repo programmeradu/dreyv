@@ -20,7 +20,7 @@ import {
     redeemReceipt,
 } from "@/lib/agent/receipts";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

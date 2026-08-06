@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { learnClicks } from '@/db/schema';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {

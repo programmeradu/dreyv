@@ -5,6 +5,7 @@ import { SquadsClient } from '@/lib/squads';
 import { Connection } from '@solana/web3.js';
 import { getAuthUser } from '@/lib/auth-utils';
 import { and, asc, desc, eq, inArray, sql as sqlOp } from 'drizzle-orm';
+export const runtime = "edge";
 
 /**
  * Squads proposal mirror sync.

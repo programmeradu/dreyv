@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
 // Real implementation placeholder: no mocks. Returns empty results until real providers are integrated.
 export async function GET(req: NextRequest) {

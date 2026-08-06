@@ -12,7 +12,7 @@ import { neon } from "@neondatabase/serverless";
  * already-managed secret rather than introducing a new one). Returns 401
  * otherwise. POST only.
  */
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const STATEMENTS: string[] = [

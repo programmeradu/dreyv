@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
 import { VIDEO_FORMATS } from "@/lib/media-studio/video-tools";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const maxDuration = 30;
 
 const BUNDLED_SOUNDS = [

@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { auth } from '@/lib/auth/server';
 import { claimFoundingSlot } from '@/lib/founding/claim';
+export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
     try {

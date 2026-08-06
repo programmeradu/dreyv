@@ -31,7 +31,7 @@ import { buildPaymentOptions } from "@/lib/agent/payment-options";
 import { getOrCreateAgentWallet } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RECEIVER = process.env.X402_PAY_TO?.trim() || "0x0000000000000000000000000000000000000000";

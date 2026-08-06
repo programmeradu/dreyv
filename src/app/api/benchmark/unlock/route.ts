@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const COOKIE = "dreyv-benchmark-allow";
 const MAX_AGE = 60 * 60 * 8; // 8 hours

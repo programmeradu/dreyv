@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { resolvePublicJwks } from "@/lib/oauth/keys";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function GET() {
   try {

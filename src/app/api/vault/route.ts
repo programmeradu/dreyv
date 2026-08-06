@@ -4,6 +4,7 @@ import { vaults, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 import { errors } from "@/lib/api-error";
+export const runtime = "edge";
 
 // Tier limits for vault creation
 const TIER_VAULT_LIMITS: Record<string, number> = {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import archiver from "archiver";
 import { Readable, PassThrough } from "node:stream";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic"; // Always generate fresh zip
 

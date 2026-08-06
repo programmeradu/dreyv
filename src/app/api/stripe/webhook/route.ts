@@ -16,7 +16,7 @@ import crypto from "node:crypto";
  *   customer.subscription.deleted
  *   invoice.payment_failed
  */
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 type Tier = "free" | "mini" | "max";

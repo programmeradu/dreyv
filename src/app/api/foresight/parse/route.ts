@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import OpenAI from "openai";
+export const runtime = "edge";
 
 /**
  * /api/foresight/parse  —  LLM-powered prompt → simulation variables

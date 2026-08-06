@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
+export const runtime = "edge";
 export default function RunPage() {
     const params = useParams();
     const appId = params.appId as string;

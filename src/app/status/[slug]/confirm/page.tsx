@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const runtime = "edge";
 export default async function ConfirmPage({
   params,
   searchParams,

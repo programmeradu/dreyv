@@ -14,6 +14,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
     try {

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users, emailPreferences } from '@/db/schema';
 import { eq, isNotNull } from 'drizzle-orm';
 import {
+export const runtime = "edge";
   sendOnboardingDay1Email,
   sendOnboardingDay3Email,
   sendOnboardingDay7Email,

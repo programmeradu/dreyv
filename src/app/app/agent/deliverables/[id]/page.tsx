@@ -130,6 +130,7 @@ function fmtAbsDate(iso: string | null): string {
     return new Date(iso).toLocaleString();
 }
 
+export const runtime = "edge";
 export default function DeliverableViewPage({
     params,
 }: {

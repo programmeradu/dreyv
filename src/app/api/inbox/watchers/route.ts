@@ -19,7 +19,7 @@ import {
   type WatcherChain,
 } from "@/lib/agents/brains/watchers";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const VALID_CHAINS: WatcherChain[] = ["solana", "ethereum", "base", "arbitrum", "polygon", "bsc"];

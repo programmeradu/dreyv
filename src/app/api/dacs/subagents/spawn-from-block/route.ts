@@ -22,7 +22,7 @@ import { z } from "zod";
 import { spawnSubagent } from "@/lib/agents/dacs/subagent-store";
 import type { Intent, Plan } from "@/lib/agents/dacs/types";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({

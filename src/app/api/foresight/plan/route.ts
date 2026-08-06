@@ -18,7 +18,7 @@ import { getAuthUser } from "@/lib/auth-utils";
  * surface a clarify card.
  */
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface PlanBody {

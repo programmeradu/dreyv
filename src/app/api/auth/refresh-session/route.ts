@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
+export const runtime = "edge";
 
 const COOKIE_NAME = 'keystone-siws-session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
