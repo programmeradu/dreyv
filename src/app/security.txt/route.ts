@@ -4,4 +4,5 @@
  * still probe the root, so we mirror the same body here.
  */
 export const runtime = "edge";
-export { GET, dynamic } from "../.well-known/security.txt/route";
+export const dynamic = "force-static";
+export { GET } from "../.well-known/security.txt/route";

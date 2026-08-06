@@ -42,8 +42,6 @@ export async function generateMetadata({
   };
 }
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
 export default async function AtlasProtocolPage({
   params,
 }: {
