@@ -4,12 +4,13 @@ import { db } from '@/db';
 import { users, emailPreferences } from '@/db/schema';
 import { eq, isNotNull } from 'drizzle-orm';
 import {
-export const runtime = "edge";
   sendOnboardingDay1Email,
   sendOnboardingDay3Email,
   sendOnboardingDay7Email,
 } from '@/lib/email-service';
 import { stampSent } from '@/lib/email-eligibility';
+
+export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

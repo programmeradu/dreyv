@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
-export const runtime = "edge";
     getPaystackSecret,
     paystackTierForCustomer,
     paystackVerifyTransaction,
@@ -16,6 +15,8 @@ export const runtime = "edge";
  *   Optional ?reference=… — verifies the transaction and reconciles tier.
  *   Without reference, looks up customer by email and returns highest active subscription tier.
  */
+
+export const runtime = "edge";
 export async function GET(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

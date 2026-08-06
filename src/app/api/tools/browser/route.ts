@@ -16,7 +16,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
-export const runtime = "edge";
     screenshot,
     pdf,
     jsonExtract,
@@ -28,6 +27,8 @@ export const runtime = "edge";
     getCrawlStatus,
     cancelCrawl,
 } from "@/lib/cloudflare/cf-browser";
+
+export const runtime = "edge";
 
 export const maxDuration = 60;
 

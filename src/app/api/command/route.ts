@@ -8,12 +8,13 @@ import { stripHallucinatedToolEnvelopes } from "@/lib/agents/commandbar/scrub-to
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
 import {
-export const runtime = "edge";
   summarizePendingProposals,
   summarizeActiveAlerts,
   summarizeActivePolicy,
   summarizeRecentActions,
 } from "@/lib/agents/capabilities/app-control";
+
+export const runtime = "edge";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,

@@ -11,7 +11,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
-export const runtime = "edge";
     getOrCreateSession,
     saveConversation,
     clearSession,
@@ -19,6 +18,8 @@ export const runtime = "edge";
     type AtlasMessage,
 } from "@/lib/atlas-session";
 import { getAuthUser } from "@/lib/auth-utils";
+
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

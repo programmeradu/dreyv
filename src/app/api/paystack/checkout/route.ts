@@ -5,7 +5,6 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { isValidBillingEmail } from "@/lib/billing-email";
 import {
-export const runtime = "edge";
     getPaystackSecret,
     paystackInitializeTransaction,
     planCodeForTier,
@@ -17,6 +16,8 @@ export const runtime = "edge";
  * Body: { tier: "mini" | "max" }
  * Returns: { url } — Paystack hosted checkout (authorization_url)
  */
+
+export const runtime = "edge";
 export async function POST(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

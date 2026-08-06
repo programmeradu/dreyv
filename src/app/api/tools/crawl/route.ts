@@ -13,13 +13,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
-export const runtime = "edge";
     startCrawl,
     getCrawlStatus,
     cancelCrawl,
     type CrawlRecordStatus,
     type CrawlStartOptions,
 } from "@/lib/cloudflare/cf-browser";
+
+export const runtime = "edge";
 
 export const maxDuration = 60;
 
