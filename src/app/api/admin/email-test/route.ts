@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+export const runtime = "edge";
   sendWelcomeEmail,
   sendTeamInviteEmail,
   sendNotificationEmail,

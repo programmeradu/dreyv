@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
+export const runtime = "edge";
 
 interface ApprovalRequest {
   executionId: string;

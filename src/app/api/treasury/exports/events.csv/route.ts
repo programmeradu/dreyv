@@ -10,7 +10,7 @@ import { treasuryEvents } from "@/db/schema";
 import { and, eq, gte, desc } from "drizzle-orm";
 import { buildCsv } from "@/lib/agents/artifacts/csv";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RANGE_MS: Record<string, number | null> = {

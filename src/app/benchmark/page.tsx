@@ -27,6 +27,7 @@ async function isUnlocked(): Promise<boolean> {
   }
 }
 
+export const runtime = "edge";
 export default async function BenchmarkPage() {
   const unlocked = await isUnlocked();
   return (

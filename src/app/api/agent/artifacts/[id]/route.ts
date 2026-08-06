@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { agentArtifacts } from "@/db/schema";
 import { presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /**

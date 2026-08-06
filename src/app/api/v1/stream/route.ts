@@ -18,7 +18,7 @@ import { and, eq, gt, inArray } from "drizzle-orm";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { ALL_WEBHOOK_EVENTS } from "@/lib/webhooks/dispatcher";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

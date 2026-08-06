@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { teams, teamMembers, teamInvitations, teamActivityLog, vaults } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { eq, and } from "drizzle-orm";
+export const runtime = "edge";
 
 /**
  * POST /api/vault/accept-invite { token }

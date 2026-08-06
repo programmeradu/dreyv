@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     robots: { index: false, follow: false },
 };
 
+export const runtime = "edge";
 export default async function X402PaymentSuccessPage({
     searchParams,
 }: {

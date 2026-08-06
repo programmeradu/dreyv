@@ -19,6 +19,7 @@ import { JinaClient } from "@/lib/jina";
 import { FirecrawlClient } from "@/lib/firecrawl";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
 import { lovableAi } from "@/lib/lovable-ai-proxy";
+export const runtime = "edge";
 
 export const maxDuration = 60;
 

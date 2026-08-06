@@ -20,7 +20,7 @@ import { presignR2Get, isR2Configured } from "@/lib/agents/artifacts/r2-storage"
 import { rowsFromResult, studioVideoR2ColumnsAvailable } from "@/lib/media-studio/studio-video-schema";
 import { advanceVertexRenderJob } from "@/lib/media-studio/vertex-render-job";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {

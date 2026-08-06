@@ -40,7 +40,7 @@ import { tokenFor } from "@/lib/billing/crypto-config";
 import { createDeliverable } from "@/lib/agent/deliverables";
 import { resolvePrimaryTreasuryWallet } from "@/lib/agent/wallet-resolver";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

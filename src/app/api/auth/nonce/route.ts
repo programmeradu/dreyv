@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'node:crypto';
+export const runtime = "edge";
 
 /**
  * GET /api/auth/nonce

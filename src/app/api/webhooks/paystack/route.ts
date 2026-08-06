@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
+export const runtime = "edge";
     getPaystackSecret,
     paystackTierForCustomer,
     tierForPlanCode,

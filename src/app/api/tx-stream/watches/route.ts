@@ -13,7 +13,7 @@ import { txWatchedWallets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const PostBody = z.object({

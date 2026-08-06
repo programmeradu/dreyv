@@ -14,7 +14,7 @@ import { getOrCreateAgentWallet, sweepHostedWallet } from "@/lib/agent/wallet";
 import { getOrCreateColdWallet } from "@/lib/agent/cold-wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {

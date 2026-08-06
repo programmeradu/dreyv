@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
 export async function POST(_request: NextRequest) {
   return NextResponse.json(

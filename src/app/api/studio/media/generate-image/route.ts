@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const maxDuration = 60;
 
 const FALLBACK_NOTICE =

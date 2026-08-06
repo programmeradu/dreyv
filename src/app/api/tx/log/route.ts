@@ -4,7 +4,7 @@ import { transactionCache, agentExecutions, protocolFees } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { TREASURY_WALLET } from "@/lib/commandbar/protocol-fee";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface ProtocolFeePayload {

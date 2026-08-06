@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildProviderChain, callWithFallback, parseLLMResponse } from "@/lib/studio/ai-provider";
 import { STUDIO_SYSTEM_PROMPT } from "@/lib/studio/system-prompt";
 import { buildWeb3Context } from "@/lib/studio/web3-context";
+export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   try {

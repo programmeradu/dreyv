@@ -13,7 +13,7 @@ import { lovableJson } from "@/lib/lovable-ai-proxy";
  * No auth, no wallet writes. Pure intent → structured tool call.
  */
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 

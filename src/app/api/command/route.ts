@@ -8,6 +8,7 @@ import { stripHallucinatedToolEnvelopes } from "@/lib/agents/commandbar/scrub-to
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 import { summarizeYieldRoutesForLLM } from "@/lib/agents/capabilities/yield-routes";
 import {
+export const runtime = "edge";
   summarizePendingProposals,
   summarizeActiveAlerts,
   summarizeActivePolicy,

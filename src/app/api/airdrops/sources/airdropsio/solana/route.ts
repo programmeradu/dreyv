@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import * as cheerio from "cheerio";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

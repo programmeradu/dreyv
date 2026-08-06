@@ -3,6 +3,7 @@ import { verifyCron } from '@/lib/cron-auth';
 import { getEligibleUsers, stampSent } from '@/lib/email-eligibility';
 import { sendApprovalNudgeEmail } from '@/lib/email-service';
 import { getPendingApprovals } from '@/lib/email-aggregations';
+export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

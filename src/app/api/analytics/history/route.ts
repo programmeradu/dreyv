@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+export const runtime = "edge";
 
 /**
  * /api/analytics/history — Reconstruct real historical portfolio value timeline

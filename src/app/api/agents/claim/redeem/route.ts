@@ -36,7 +36,7 @@ import { eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 function secret() {
   const s = process.env.JWT_SECRET;

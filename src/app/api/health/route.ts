@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql } from "drizzle-orm";
+export const runtime = "edge";
 
 /**
  * GET /api/health

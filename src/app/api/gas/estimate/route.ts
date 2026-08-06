@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // Helper: hex <-> number (wei) and gwei conversions

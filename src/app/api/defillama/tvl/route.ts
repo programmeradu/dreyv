@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const runtime = "edge";
 
 // Lightweight prompt parsers
 function extractChain(prompt: string): string | null {

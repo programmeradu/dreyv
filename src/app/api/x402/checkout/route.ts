@@ -33,7 +33,7 @@ import {
     stripeIsAvailable,
 } from "@/lib/agent/rails";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const Body = z.object({

@@ -4,6 +4,7 @@ import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { PublicKey } from "@solana/web3.js";
 import { db } from "@/db";
 import { agentExecutions } from "@/db/schema";
+export const runtime = "edge";
 
 const COMMON_MINTS: Record<string, string> = {
   SOL: "So11111111111111111111111111111111111111112",

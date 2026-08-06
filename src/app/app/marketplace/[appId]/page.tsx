@@ -40,6 +40,7 @@ async function checkIfInstalled(appId: string, walletAddress: string): Promise<s
     }
 }
 
+export const runtime = "edge";
 export default function AppDetailPage() {
     const params = useParams();
     const appId = params.appId as string;

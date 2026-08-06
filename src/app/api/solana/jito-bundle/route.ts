@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bs58 from "bs58";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

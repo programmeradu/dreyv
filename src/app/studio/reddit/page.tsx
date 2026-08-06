@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const runtime = "edge";
 export default async function Page() {
   const pass = (await cookies()).get(STUDIO_PASS_COOKIE)?.value;
   return <RedditStudioShell unlocked={pass === STUDIO_PASS_VALUE} />;

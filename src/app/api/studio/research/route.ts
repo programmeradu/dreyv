@@ -19,6 +19,7 @@ import { FirecrawlClient } from "@/lib/firecrawl";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
 import { lovableAi } from "@/lib/lovable-ai-proxy";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
+export const runtime = "edge";
 
 export const maxDuration = 60;
 

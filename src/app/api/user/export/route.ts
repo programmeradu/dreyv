@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, vaults, dcaBots, teamMembers, purchases, runs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
+export const runtime = "edge";
 
 /**
  * GET /api/user/export

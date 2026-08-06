@@ -14,6 +14,7 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { verifySolanaPayment } from "@/lib/billing/crypto-verify-solana";
 import { verifyEvmPayment } from "@/lib/billing/crypto-verify-evm";
 import { EVM_ENABLED } from "@/lib/feature-flags";
+export const runtime = "edge";
 
 const Body = z.object({
     invoiceId: z.string().uuid(),

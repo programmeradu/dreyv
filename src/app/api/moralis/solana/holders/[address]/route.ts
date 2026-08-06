@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
 // GET /api/moralis/solana/holders/[address]?limit=100&cursor=<cursor>
 // Note: Despite the path name, this implementation prefers Helius DAS (getAssetsByOwner)

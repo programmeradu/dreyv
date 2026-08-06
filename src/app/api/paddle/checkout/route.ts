@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { getPaddleApiBase, paddleRequestHeaders } from "@/lib/paddle";
+export const runtime = "edge";
 
 /**
  * POST /api/paddle/checkout

@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function DELETE(
   req: NextRequest,

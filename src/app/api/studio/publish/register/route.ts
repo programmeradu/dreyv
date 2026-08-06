@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { developerTokens } from "@/db/schema";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 import { eq, and } from "drizzle-orm";
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {

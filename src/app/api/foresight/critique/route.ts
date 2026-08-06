@@ -14,7 +14,7 @@ import { getAuthUser } from "@/lib/auth-utils";
  * follow-ups (we render them as chips under the result).
  */
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface CritiqueBody {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { load } from "cheerio";
 import { getSiteOrigin } from "@/lib/seo/site";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /**

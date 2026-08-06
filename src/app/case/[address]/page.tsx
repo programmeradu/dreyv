@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ address: 
   };
 }
 
+export const runtime = "edge";
 export default async function CaseStudyPage({ params }: { params: Promise<{ address: string }> }) {
   const { address } = await params;
   if (!isValidSolanaAddress(address)) notFound();

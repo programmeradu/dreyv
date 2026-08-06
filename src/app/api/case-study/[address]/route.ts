@@ -11,6 +11,7 @@ import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { buildCaseStudy } from "@/lib/case-study/builder";
 import { findFeatured } from "@/lib/case-study/featured";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

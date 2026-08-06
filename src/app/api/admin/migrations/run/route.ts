@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const ROOTS = ["db-migrations", "migrations/sql"];

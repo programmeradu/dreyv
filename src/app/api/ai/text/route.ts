@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import Groq from "groq-sdk";
+export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   try {

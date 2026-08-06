@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { studioRuns } from "@/db/schema";
 import { randomBytes } from "crypto";
 import { jwtVerify } from "jose";
+export const runtime = "edge";
 
 function shortId(): string {
   const chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

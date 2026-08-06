@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { buildProviderChain, streamProvider, parseLLMResponse } from "@/lib/studio/ai-provider";
 import { STUDIO_SYSTEM_PROMPT } from "@/lib/studio/system-prompt";
 import { buildWeb3Context } from "@/lib/studio/web3-context";
+export const runtime = "edge";
 
 /**
  * POST /api/studio/generate-stream

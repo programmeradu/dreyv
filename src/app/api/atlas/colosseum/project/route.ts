@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { getColosseumProject, isColosseumConfigured } from "@/lib/colosseum/client";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

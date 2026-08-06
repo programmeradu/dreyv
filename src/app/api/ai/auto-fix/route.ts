@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildProviderChain, callWithFallback, parseLLMResponse } from "@/lib/studio/ai-provider";
 import { AUTO_FIX_SYSTEM_PROMPT } from "@/lib/studio/system-prompt";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
+export const runtime = "edge";
 
 /**
  * POST /api/ai/auto-fix

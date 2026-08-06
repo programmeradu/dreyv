@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const runtime = "edge";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const pass = (await cookies()).get(STUDIO_PASS_COOKIE)?.value;

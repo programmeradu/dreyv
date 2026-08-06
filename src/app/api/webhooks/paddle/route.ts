@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { subscriptionToTier, verifyPaddleWebhookSignature } from "@/lib/paddle";
+export const runtime = "edge";
 
 const SUBSCRIPTION_EVENTS = new Set([
     "subscription.created",

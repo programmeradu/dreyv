@@ -75,6 +75,7 @@ async function fetchApps(search: Search) {
   });
 }
 
+export const runtime = "edge";
 export default async function MarketplacePage({
   searchParams,
 }: {

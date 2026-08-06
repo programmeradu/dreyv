@@ -8,7 +8,7 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { sendWaitlistInviteEmail } from "@/lib/email-service";
 import { INVITE_EXPIRY_DAYS } from "@/lib/waitlist/constants";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 async function isAdmin(userId: string): Promise<boolean> {
   if (!db) return false;

@@ -14,6 +14,7 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+export const runtime = "edge";
 
 const execAsync = promisify(exec);
 

@@ -28,7 +28,7 @@ import { verifyX402Payment, type X402Requirements } from "@/lib/agent/x402-verif
 import { getSiteOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const TIER_PRICE_USDC_ATOMIC: Record<Exclude<Tier, "free">, string> = {
   mini: "49000000", // $49.00 USDC = 49 * 1e6

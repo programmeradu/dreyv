@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Manage status page — Dreyv",
 };
 
+export const runtime = "edge";
 export default async function StatusManagePage({
   params,
 }: {

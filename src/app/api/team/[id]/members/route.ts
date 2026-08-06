@@ -5,6 +5,7 @@ import { eq, and, ne } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { hasMinRole, isValidRole } from '@/lib/rbac';
 import type { TeamRole } from '@/lib/rbac';
+export const runtime = "edge";
 
 /**
  * GET /api/team/[id]/members

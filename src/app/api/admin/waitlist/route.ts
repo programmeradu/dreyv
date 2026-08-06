@@ -5,7 +5,7 @@ import { waitlistEntries, users } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 async function isAdmin(userId: string): Promise<boolean> {
   if (!db) return false;

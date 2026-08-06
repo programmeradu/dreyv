@@ -4,6 +4,7 @@ import { learnInputs, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
 import { jwtVerify } from 'jose';
+export const runtime = "edge";
 
 const SIWS_COOKIE = 'keystone-siws-session';
 

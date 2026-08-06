@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { agentApiKeys } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function DELETE(
     req: NextRequest,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildFeaturePack } from "@/lib/explorer/feature-pack";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

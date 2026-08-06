@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AssetKind, Channel } from "@/lib/media-studio/brand";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const STUDIO_PASS_USER_ID = "00000000-0000-4000-8000-000000000001";
 

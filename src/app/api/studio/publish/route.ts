@@ -14,6 +14,7 @@ import { db } from "@/db";
 import { miniApps, developerTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
+export const runtime = "edge";
 
 /**
  * Verify a developer bearer token from the Authorization header.

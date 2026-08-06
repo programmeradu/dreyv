@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
 // ─── Global Allowlist (Tier 1) ──────────────────────────────────────
 // Domains available to ALL Mini-Apps by default. Curated by Keystone team.

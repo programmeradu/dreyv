@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { alerts } from '@/db/schema';
 import { eq, and, lt, or, isNull } from 'drizzle-orm';
 import { sendGasAlertEmail } from '@/lib/email-service';
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   // Auth: require Vercel cron header OR Bearer token matching CRON_SECRET.

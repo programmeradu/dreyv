@@ -13,7 +13,7 @@ import { requireTeamMember } from "@/lib/media-studio/access";
 import { buildEvidenceIndex, generateDirections, summarizeTikTokPerformance } from "@/lib/media-studio/intelligence";
 import { loadTikTokRows } from "@/lib/media-studio/tiktok-store";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {

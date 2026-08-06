@@ -10,7 +10,7 @@ import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getWalletCaps, setWalletCaps, getSpendLast24hMinor, type WalletCaps } from "@/lib/agent/caps";
 import { consumeApprovedCode } from "@/lib/agent/action-codes";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function serialise(c: WalletCaps) {

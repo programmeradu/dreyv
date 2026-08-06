@@ -7,7 +7,7 @@ import { getClient, verifyClientSecret } from "@/lib/oauth/clients";
 import { introspectToken } from "@/lib/oauth/tokens";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
