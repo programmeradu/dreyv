@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
-export const runtime = "edge";
     resolveTier,
     getAllLimitsForTier,
     type Tier,
@@ -16,6 +15,8 @@ export const runtime = "edge";
 import { db } from "@/db";
 import { rateLimits, users } from "@/db/schema";
 import { eq, and, gte } from "drizzle-orm";
+
+export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

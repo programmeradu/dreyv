@@ -103,8 +103,13 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
+    // Cloudflare Pages build containers cap out around 8 GB; these two flags
+    // drop peak heap substantially on a ~150-route app by freeing webpack
+    // module graph memory between compilations and sharding the type work.
+    webpackMemoryOptimizations: true,
     // allowedDevOrigins: ['192.168.227.1:3000'],
   },
+
   serverExternalPackages: [
     'drizzle-orm',
     '@neondatabase/serverless',

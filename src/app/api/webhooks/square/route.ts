@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
-export const runtime = "edge";
     createSquareClient,
     reconcileSquareTierForUser,
     squareResolveUserIdFromCustomerId,
@@ -15,6 +14,8 @@ export const runtime = "edge";
  * POST /api/webhooks/square
  * Validates HMAC per Square docs, then re-runs subscription reconciliation per affected customer.
  */
+
+export const runtime = "edge";
 export async function POST(req: NextRequest) {
     if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-export const runtime = "edge";
   sendWelcomeEmail,
   sendTeamInviteEmail,
   sendNotificationEmail,
@@ -22,6 +21,8 @@ export const runtime = "edge";
   sendOnboardingDay3Email,
   sendOnboardingDay7Email,
 } from '@/lib/email-service';
+
+export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

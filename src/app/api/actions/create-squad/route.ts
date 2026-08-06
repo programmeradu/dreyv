@@ -1,5 +1,4 @@
 import {
-export const runtime = "edge";
   ACTIONS_CORS_HEADERS,
   ActionGetResponse,
   ActionPostRequest,
@@ -14,6 +13,8 @@ import {
   clusterApiUrl,
 } from "@solana/web3.js";
 import { SquadsClient } from "@/lib/squads";
+
+export const runtime = "edge";
 
 const CONNECTION = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("mainnet-beta"));
 
