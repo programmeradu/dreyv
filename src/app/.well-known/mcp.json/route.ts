@@ -5,10 +5,11 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpToolCount } from "@/lib/mcp/server";
+import { getRequestOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 export function GET(req: NextRequest) {
-  const origin = new URL(req.url).origin;
+  const origin = getRequestOrigin(req);
   return NextResponse.json(
     {
       name: "dreyv",

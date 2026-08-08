@@ -1,14 +1,5 @@
 /**
- * Canonical site URL for metadata, sitemaps, JSON-LD, and OG tags.
- *
- * IMPORTANT: Always returns the canonical production host (dreyv.com) —
- * never a Vercel preview URL or alternate domain — so sitemaps, robots,
- * canonical link tags, and JSON-LD all consolidate SEO signals on one
- * host. Middleware 308-redirects dreyv.app / dreyv.finance / www.* here.
- *
- * Do NOT fall back to VERCEL_URL — it changes per deployment and pollutes
- * canonical URLs. Override only via explicit NEXT_PUBLIC_APP_URL when you
- * genuinely need a different canonical (e.g. a fork on a separate domain).
+ * Canonical site URL for metadata, sitemaps, JSON-LD, OG tags, and protocol manifests.
  */
 export const DEFAULT_SITE_URL = "https://dreyv.com";
 
@@ -25,6 +16,20 @@ export function getSiteUrl(): URL {
 
 export function getSiteOrigin(): string {
   return getSiteUrl().origin;
+}
+
+/**
+ * Returns canonical public origin for API/MCP responses, avoiding internal 0.0.0.0:8080 Docker container host leakage.
+ */
+export function getRequestOrigin(req?: Request): string {
+  if (req) {
+    const fHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const fProto = req.headers.get("x-forwarded-proto") || "https";
+    if (fHost && !fHost.includes("0.0.0.0") && !fHost.includes("127.0.0.1") && !fHost.includes("localhost")) {
+      return `${fProto}://${fHost}`;
+    }
+  }
+  return getSiteOrigin();
 }
 
 /** Extra Organization.sameAs URLs (GitHub, X, LinkedIn, etc.) — comma- or newline-separated. */

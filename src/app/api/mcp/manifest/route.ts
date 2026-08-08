@@ -5,11 +5,12 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpManifest } from "@/lib/mcp/server";
+import { getRequestOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
 export function GET(req: NextRequest) {
-  const origin = new URL(req.url).origin;
+  const origin = getRequestOrigin(req);
   const manifest = getMcpManifest(origin);
   return NextResponse.json(manifest, {
     headers: {
