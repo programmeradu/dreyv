@@ -37,7 +37,7 @@ export const db: DrizzleSchemaDb = new Proxy({} as any, {
     if (!instance) {
       return undefined;
     }
-    const val = (instance as any)[prop];
+    const val = Reflect.get(instance, prop, instance);
     return typeof val === 'function' ? val.bind(instance) : val;
   },
 });
