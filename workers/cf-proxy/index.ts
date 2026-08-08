@@ -3,7 +3,7 @@
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
  * passes edge runtime secrets to container at startup and on every request,
- * and proxies traffic to DO container TCP port.
+ * and proxies traffic directly to DO container TCP port using pure HTTP string URLs.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -42,8 +42,8 @@ export default {
         }
       }
 
-      // Format pure HTTP URL for DO stub to avoid workerd C++ HTTPS error
-      const httpUrl = `http://localhost${url.pathname}${url.search}`;
+      // Format pure HTTP URL string for DO stub to avoid workerd C++ HTTPS error
+      const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.set("x-forwarded-proto", "https");
@@ -70,12 +70,10 @@ export default {
         (init as any).duplex = "half";
       }
 
-      const proxyReq = new Request(httpUrl, init);
-
-      // Versioned ID forces Cloudflare to instantiate a fresh Durable Object & boot the new container image
+      // Pass string URL directly to stub.fetch to prevent V8 Request HTTPS inheritance
       const id = env.NEXT_APP.idFromName("dreyv_container_v4");
       const stub = env.NEXT_APP.get(id);
-      return await stub.fetch(proxyReq);
+      return await stub.fetch(httpUrl, init);
     } catch (err: any) {
       console.error("CF Proxy main fetch error:", err);
       return new Response(`Proxy Worker Error: ${err?.stack || err?.message || String(err)}`, {
@@ -119,9 +117,9 @@ export class NextAppContainer extends DurableObject {
 
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
 
-      // Format pure HTTP URL for container TCP port (http://localhost:8080/path)
+      // Format pure HTTP URL string for container TCP port (http://127.0.0.1:8080/path)
       const url = new URL(request.url);
-      const httpUrl = `http://localhost:8080${url.pathname}${url.search}`;
+      const httpUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
       containerHeaders.delete("x-container-env");
@@ -142,9 +140,8 @@ export class NextAppContainer extends DurableObject {
         (init as any).duplex = "half";
       }
 
-      const containerReq = new Request(httpUrl, init);
-
-      return await target.fetch(containerReq);
+      // Pass string URL directly to target.fetch to prevent V8 Request HTTPS inheritance
+      return await target.fetch(httpUrl, init);
     } catch (err: any) {
       console.error("NextAppContainer fetch error:", err);
       return new Response(`Container Proxy Error: ${err?.stack || err?.message || String(err)}`, {
