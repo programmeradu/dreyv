@@ -3,7 +3,7 @@
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
  * passes edge runtime secrets to container via request headers,
- * and proxies traffic directly to DO container TCP port using pure HTTP string URLs.
+ * and proxies traffic directly to DO container TCP port using pure HTTP string URLs and headers.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -32,11 +32,11 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Format pure HTTP URL string for DO stub to avoid workerd C++ HTTPS error
+      // Format pure HTTP URL string for DO stub
       const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
-      proxyHeaders.set("x-forwarded-proto", "https");
+      proxyHeaders.set("x-forwarded-proto", "http");
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
@@ -103,9 +103,7 @@ export class NextAppContainer extends DurableObject {
       const httpUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
-      if (!containerHeaders.has("x-forwarded-proto")) {
-        containerHeaders.set("x-forwarded-proto", "https");
-      }
+      containerHeaders.set("x-forwarded-proto", "http");
       if (!containerHeaders.has("x-forwarded-host")) {
         containerHeaders.set("x-forwarded-host", "dreyv.com");
       }
