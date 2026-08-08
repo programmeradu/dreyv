@@ -2,11 +2,12 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
- * and proxies non-redirect requests to the Next.js container binding over HTTP.
+ * and proxies non-redirect requests to the Next.js container binding over HTTP with runtime secrets.
  */
 
 export interface Env {
   NEXT_APP: DurableObjectNamespace;
+  [key: string]: any;
 }
 
 export default {
@@ -42,7 +43,7 @@ export default {
 };
 
 export class NextAppContainer {
-  constructor(private readonly state: DurableObjectState) {}
+  constructor(private readonly state: DurableObjectState, private readonly env: Record<string, any>) {}
 
   async fetch(request: Request): Promise<Response> {
     try {
@@ -53,7 +54,16 @@ export class NextAppContainer {
 
       if (!container.running) {
         try {
-          await container.start({ enableInternet: true });
+          // Pass Worker runtime secrets down to container process.env
+          const containerEnv: Record<string, string> = {};
+          if (this.env) {
+            for (const [k, v] of Object.entries(this.env)) {
+              if (typeof v === "string" && k !== "NEXT_APP") {
+                containerEnv[k] = v;
+              }
+            }
+          }
+          await container.start({ enableInternet: true, env: containerEnv });
         } catch (startErr: any) {
           const msg = String(startErr?.message || startErr);
           if (!msg.includes("already running")) {
