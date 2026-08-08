@@ -41,7 +41,8 @@ async function loadMascotRefPartsForGemini() {
   const out: Array<{ inlineData: { mimeType: string; data: string } }> = [];
   for (const rel of MASCOT_FILES) {
     try {
-      const buf = await fs.readFile(path.join(process.cwd(), rel));
+      const root = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+      const buf = await fs.readFile(path.join(root, rel));
       out.push({ inlineData: { mimeType: "image/png", data: buf.toString("base64") } });
     } catch {
       // skip

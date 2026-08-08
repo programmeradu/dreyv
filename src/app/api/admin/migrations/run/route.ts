@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
-import { readdir, readFile } from "node:fs/promises";
-import path from "node:path";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -32,19 +30,23 @@ function authorized(req: NextRequest): boolean {
 
 async function listFiles() {
   const out: { root: string; file: string; path: string; bytes: number }[] = [];
-  for (const root of ROOTS) {
-    const abs = path.join(process.cwd(), root);
-    let entries: string[] = [];
-    try {
-      entries = await readdir(abs);
-    } catch {
-      continue;
+  try {
+    const fs = await import("node:fs/promises").catch(() => null);
+    const pathModule = await import("node:path").catch(() => null);
+    if (!fs || !pathModule) return out;
+    for (const root of ROOTS) {
+      const cwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+      const abs = pathModule.join(cwd, root);
+      let entries: string[] = [];
+      try { entries = await fs.readdir(abs); } catch { continue; }
+      for (const f of entries) {
+        if (!f.endsWith(".sql")) continue;
+        const buf = await fs.readFile(pathModule.join(abs, f));
+        out.push({ root, file: f, path: `${root}/${f}`, bytes: buf.byteLength });
+      }
     }
-    for (const f of entries) {
-      if (!f.endsWith(".sql")) continue;
-      const buf = await readFile(path.join(abs, f));
-      out.push({ root, file: f, path: `${root}/${f}`, bytes: buf.byteLength });
-    }
+  } catch {
+    // Edge fallback
   }
   return out.sort((a, b) => a.path.localeCompare(b.path));
 }
@@ -179,7 +181,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "only .sql files" }, { status: 400 });
     }
     try {
-      source = await readFile(path.join(process.cwd(), rel), "utf8");
+      const fs = await import("node:fs/promises");
+      const pathModule = await import("node:path");
+      const cwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+      source = await fs.readFile(pathModule.join(cwd, rel), "utf8");
       label = rel;
     } catch (err) {
       return NextResponse.json(

@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+// @ts-expect-error - Webpack module resolved at build time by Next.js
+import webpack from "webpack";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: __dirname,
@@ -115,32 +117,41 @@ const nextConfig: NextConfig = {
     '@neondatabase/serverless',
     'ffmpeg-static',
   ],
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, nextRuntime }) => {
     // Disable persistent cache when disk is constrained (e.g. Vercel build)
     if (process.env.NEXT_DISABLE_WEBPACK_CACHE) {
       config.cache = false;
     }
-    // Prevent drizzle-orm circular init error in client bundles.
-    // Server actions use "use server" but drizzle-orm's ESM star-exports
-    // can leak into client chunks and fail with TDZ errors.
-    // MetaMask SDK imports this React Native–only package on both server and
-    // client bundle paths; stub it everywhere so webpack resolves.
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
       '@react-native-async-storage/async-storage': false,
     };
-    // Prevent drizzle-orm circular init error in client bundles.
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
-      };
-      // Node builtin fallbacks for browser bundles (Coinbase Wallet SDK,
-      // eth-json-rpc-filters, etc. transitively reference node:* modules).
-      config.resolve.fallback = {
-        ...(config.resolve.fallback || {}),
+    
+    // Apply Node builtin fallbacks to browser bundles AND edge server bundles
+    if (!isServer || nextRuntime === 'edge') {
+      if (!isServer) {
+        config.resolve.alias = {
+          ...config.resolve.alias,
+          'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
+        };
+      }
+      
+      // Handle node: URI imports in Webpack Edge compilation
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:/, (resource: { request: string }) => {
+          resource.request = resource.request.replace(/^node:/, "");
+        })
+      );
+
+      const pathStub = require.resolve('./src/lib/path-stub.js');
+      const osStub = require.resolve('./src/lib/os-stub.js');
+
+      // Node builtin fallbacks for Edge/Browser
+      const nodeStubs = {
         fs: false,
+        'fs/promises': false,
         net: false,
         tls: false,
         crypto: false,
@@ -148,22 +159,24 @@ const nextConfig: NextConfig = {
         http: false,
         https: false,
         zlib: false,
-        os: false,
-        path: false,
+        os: osStub,
+        'node:os': osStub,
+        path: pathStub,
+        'node:path': pathStub,
         child_process: false,
         worker_threads: false,
+        process: false,
       };
-      // Some libs import `node:*` prefix — normalize to bare specifiers
-      // so the fallbacks above (and webpack's own resolution) apply.
-      config.plugins = config.plugins || [];
-    }
-    if (!isServer && process.env.VISUAL_EDITS_ENABLED) {
-      // Disabled to prevent restart loop - enable only when needed
-      // config.module.rules.push({
-      //   test: /\.(jsx?|tsx?)$/,
-      //   exclude: /node_modules/,
-      //   use: [{ loader: "./component-tagger-loader.js" }],
-      // });
+
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        ...nodeStubs,
+      };
+
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        ...nodeStubs,
+      };
     }
     return config;
   },

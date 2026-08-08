@@ -45,8 +45,9 @@ const INK = "#0f172a";
 const MUTED = "#64748b";
 const LINE = "#ede9fe";
 
-const LOGO_PATH = path.join(process.cwd(), "public", "dreyv-mark-violet.png");
-const MASCOT_PATH = path.join(process.cwd(), "public", "mascot", "dreyv-greet.png");
+const safeCwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+const LOGO_PATH = path.join(safeCwd, "public", "dreyv-mark-violet.png");
+const MASCOT_PATH = path.join(safeCwd, "public", "mascot", "dreyv-greet.png");
 
 const styles = StyleSheet.create({
   page: { padding: 36, paddingBottom: 56, fontSize: 10, color: INK, fontFamily: "Helvetica" },

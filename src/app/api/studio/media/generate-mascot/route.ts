@@ -11,8 +11,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import type { Channel } from "@/lib/media-studio/brand";
 
 export const runtime = "edge";
@@ -44,20 +42,26 @@ function fallbackPreviewUrl(title: string | undefined, aspect: string | undefine
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-async function loadMascotReference(pose: Pose): Promise<{ buffer: Buffer; mime: string }> {
+async function loadMascotReference(pose: Pose, req: NextRequest): Promise<{ buffer: Buffer; mime: string }> {
   const filename = `dreyv-${pose}.png`;
-  // Try public/ first (works on Vercel build), fall back to src/assets in dev.
-  const candidates = [
-    path.join(process.cwd(), "public", "mascot", filename),
-    path.join(process.cwd(), "src", "assets", "mascot", filename),
-  ];
-  for (const p of candidates) {
-    try {
-      const buffer = await fs.readFile(p);
-      return { buffer, mime: "image/png" };
-    } catch {
-      // try next
+  try {
+    const origin = new URL(req.url).origin;
+    const res = await fetch(`${origin}/mascot/${filename}`);
+    if (res.ok) {
+      const arrayBuf = await res.arrayBuffer();
+      return { buffer: Buffer.from(arrayBuf), mime: "image/png" };
     }
+  } catch {
+    // Fall back to production CDN domain if relative fetch fails
+  }
+  try {
+    const res = await fetch(`https://dreyv.com/mascot/${filename}`);
+    if (res.ok) {
+      const arrayBuf = await res.arrayBuffer();
+      return { buffer: Buffer.from(arrayBuf), mime: "image/png" };
+    }
+  } catch {
+    // Fall through to error
   }
   throw new Error(`Mascot reference not found for pose "${pose}"`);
 }
@@ -121,7 +125,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const reference = await loadMascotReference(pose);
+    const reference = await loadMascotReference(pose, req);
     const fullPrompt = mascotPrompt(pose, scene, body.aspect);
     const { buffer, mime } = await generateImage({
       prompt: fullPrompt,

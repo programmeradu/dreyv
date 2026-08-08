@@ -38,7 +38,8 @@ const cache = new Map<string, VeoReferenceImage | null>();
 async function loadProp(file: string): Promise<VeoReferenceImage | null> {
   if (cache.has(file)) return cache.get(file)!;
   try {
-    const buf = await fs.readFile(path.join(process.cwd(), file));
+    const root = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+    const buf = await fs.readFile(path.join(root, file));
     const ref: VeoReferenceImage = {
       image: { bytesBase64Encoded: buf.toString("base64"), mimeType: "image/png" },
       referenceType: "asset",

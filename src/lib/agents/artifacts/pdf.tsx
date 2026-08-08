@@ -23,7 +23,8 @@ import {
 // Helvetica glyph-fragmentation bug on uppercase strings.
 // Use filesystem paths, not file:// URLs: @react-pdf/font treats file:// as a
 // fetchable URL, which fails in Node/Next and drops research artifact creation.
-const FONTS_DIR = path.join(process.cwd(), "src/lib/agents/artifacts/fonts");
+const safeCwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+const FONTS_DIR = path.join(safeCwd, "src/lib/agents/artifacts/fonts");
 const fontPath = (name: string) => path.join(FONTS_DIR, name);
 try {
     Font.register({

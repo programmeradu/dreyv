@@ -9,14 +9,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 export const runtime = "edge";
 
-const execAsync = promisify(exec);
+async function getExecAsync() {
+  const childProcess = await import("node:child_process").catch(() => null);
+  if (!childProcess?.exec) return null;
+  const util = await import("node:util");
+  return util.promisify(childProcess.exec);
+}
 
 interface CompileRequest {
     files: Record<string, string>; // filename -> Rust source code
@@ -44,8 +46,15 @@ async function compileLocal(
     files: Record<string, string>,
     programName: string
 ): Promise<CompileResult> {
+    const fs = await import("node:fs").catch(() => null);
+    const execAsync = await getExecAsync();
+    if (!fs || !execAsync) {
+        return { ok: false, error: "Local Anchor build is not supported on Cloudflare Pages Edge runtime. Please set useCloud: true." };
+    }
+
     // Create a temporary Anchor project
-    const tmpDir = path.join(process.cwd(), ".keystone", "contracts", `build_${Date.now()}`);
+    const safeCwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+    const tmpDir = path.join(safeCwd, ".keystone", "contracts", `build_${Date.now()}`);
     const srcDir = path.join(tmpDir, "programs", programName, "src");
 
     try {

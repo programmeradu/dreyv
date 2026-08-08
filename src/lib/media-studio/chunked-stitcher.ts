@@ -20,7 +20,8 @@ import { spawn } from "node:child_process";
 import ffmpegStaticPath from "ffmpeg-static";
 import { isR2Configured, putR2Object, presignR2Get } from "@/lib/agents/artifacts/r2-storage";
 
-const FONT_PATH = path.join(process.cwd(), "public", "fonts", "Manrope-SemiBold.ttf");
+const safeCwd = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
+const FONT_PATH = path.join(safeCwd, "public", "fonts", "Manrope-SemiBold.ttf");
 
 function ffmpegPath(): string {
   if (ffmpegStaticPath && existsSync(ffmpegStaticPath)) return ffmpegStaticPath;

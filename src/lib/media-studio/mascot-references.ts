@@ -28,7 +28,7 @@ const TTL_MS = 10 * 60 * 1000;
 
 export async function loadDreyvMascotReferences(): Promise<VeoReferenceImage[]> {
   if (cached && Date.now() - cachedAt < TTL_MS) return cached;
-  const root = process.cwd();
+  const root = process.env.NEXT_RUNTIME === "edge" ? "." : (typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".");
   const out: VeoReferenceImage[] = [];
   for (const rel of MASCOT_FILES) {
     try {
