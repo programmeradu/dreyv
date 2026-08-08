@@ -33,6 +33,11 @@
     }
   ],
   "routes": [
-    { "pattern": "dreyv.com", "custom_domain": true }
+    { "pattern": "dreyv.com", "custom_domain": true },
+    { "pattern": "www.dreyv.com", "custom_domain": true },
+    { "pattern": "dreyv.app", "custom_domain": true },
+    { "pattern": "www.dreyv.app", "custom_domain": true },
+    { "pattern": "dreyv.finance", "custom_domain": true },
+    { "pattern": "www.dreyv.finance", "custom_domain": true }
   ]
 }

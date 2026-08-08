@@ -1,7 +1,8 @@
 /**
  * Cloudflare Containers proxy Worker.
  *
- * Receives incoming HTTP requests and proxies them to the Next.js container binding over HTTP.
+ * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
+ * and proxies non-redirect requests to the Next.js container binding over HTTP.
  */
 
 export interface Env {
@@ -11,6 +12,22 @@ export interface Env {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
+      const url = new URL(request.url);
+      const host = url.hostname.toLowerCase();
+
+      // Canonical 301 redirects to https://dreyv.com at edge speed
+      if (
+        host === "www.dreyv.com" ||
+        host === "dreyv.app" ||
+        host === "www.dreyv.app" ||
+        host === "dreyv.finance" ||
+        host === "www.dreyv.finance"
+      ) {
+        url.hostname = "dreyv.com";
+        url.protocol = "https:";
+        return Response.redirect(url.toString(), 301);
+      }
+
       const id = env.NEXT_APP.idFromName("next-app");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(request);
@@ -46,7 +63,7 @@ export class NextAppContainer {
       }
 
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
-      
+
       // Cloudflare Container TCP sockets expect http:// requests, not https://
       const url = new URL(request.url);
       url.protocol = "http:";
