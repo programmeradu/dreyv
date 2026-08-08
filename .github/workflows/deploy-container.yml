@@ -27,9 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Deploy to Cloudflare Containers
+      - name: Deploy to Cloudflare Containers (Worker + Docker Container Image)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy workers/cf-proxy/index.ts
+          command: deploy
