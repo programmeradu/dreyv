@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/og?appId=xxx — Dynamic Open Graph image for marketplace listings.
  *

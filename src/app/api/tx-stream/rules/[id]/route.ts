@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Phase 7B — Update / delete a single category rule. Owner-scoped.
  */

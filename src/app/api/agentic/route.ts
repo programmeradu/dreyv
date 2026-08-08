@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { ExecutionCoordinator } from "@/lib/agents/coordinator";
 import { StrategyType } from "@/lib/agents/types";

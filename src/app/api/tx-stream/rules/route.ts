@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Phase 7B — CRUD for tx_category_rules.
  * Owner-scoped to caller's wallet. GET lists, POST creates.

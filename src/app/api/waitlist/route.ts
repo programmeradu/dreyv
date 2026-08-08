@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";

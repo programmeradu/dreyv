@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/agents/balance/ledger — paginated balance ledger history.
  *

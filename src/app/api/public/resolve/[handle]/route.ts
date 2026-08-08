@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { detectAddressKind } from "@/lib/explorer/chain";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";

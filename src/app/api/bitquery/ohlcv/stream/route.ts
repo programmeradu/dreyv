@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest } from "next/server";
 
 // Simple SSE stream that emits synthetic OHLCV candles by polling our existing price proxy

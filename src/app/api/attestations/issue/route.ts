@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getIssuerInfo, issueAttestation } from "@/lib/attestations/issuer";

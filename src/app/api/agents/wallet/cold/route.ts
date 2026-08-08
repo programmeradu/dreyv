@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/agents/wallet/cold — return (and lazily provision) the user's
  * COLD agent wallet address. High-trust counterpart to the hot wallet.

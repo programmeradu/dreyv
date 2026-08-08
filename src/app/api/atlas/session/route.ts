@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Atlas Session API — Wallet-Based Session Recovery
  *

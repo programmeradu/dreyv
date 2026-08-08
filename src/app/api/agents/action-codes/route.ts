@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/agents/action-codes — agent mints a one-time human approval code.
  *

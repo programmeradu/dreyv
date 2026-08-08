@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/agents/claim/redeem — signed-in human absorbs an agent into their account.
  *

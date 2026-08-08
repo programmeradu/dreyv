@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/treasury/exports/report.pdf?wallet=…&range=30d
  *

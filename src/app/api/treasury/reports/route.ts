@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/treasury/reports — on-demand treasury reports + shareable links.
  *

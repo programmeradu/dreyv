@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Phase 8 — Observability traces API.
  *

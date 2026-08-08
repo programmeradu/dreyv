@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/billing/crypto/checkout
  * Body: { tier: "mini" | "max", chain: "solana", asset: "usdc" | "usdt" | "sol" }

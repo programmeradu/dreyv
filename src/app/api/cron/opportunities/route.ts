@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCron } from '@/lib/cron-auth';
 import { getEligibleUsers, stampSent } from '@/lib/email-eligibility';

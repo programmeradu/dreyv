@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { walletApprovals } from "@/lib/webacy/service";
 import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";

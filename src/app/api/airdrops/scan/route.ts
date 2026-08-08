@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
 // Real implementation placeholder: no mocks. Returns empty results until real providers are integrated.

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * DACS Phase 2 — HITL approval queue endpoints.
  *

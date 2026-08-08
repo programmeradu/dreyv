@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { getPaymasterInfo } from "@/lib/paymaster/kora";
 import { getSiteOrigin } from "@/lib/seo/site";

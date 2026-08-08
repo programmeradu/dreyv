@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { SignJWT } from "jose";

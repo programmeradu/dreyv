@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Inngest serve endpoint.
  *

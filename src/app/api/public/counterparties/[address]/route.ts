@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnhancedTransactions } from "@/lib/explorer/helius-tx";
 import { lookupSolanaLabel, shortAddress } from "@/lib/explorer/labels";

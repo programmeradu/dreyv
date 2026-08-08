@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/oauth/register — Dynamic Client Registration (RFC 7591).
  *

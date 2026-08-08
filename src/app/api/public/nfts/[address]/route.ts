@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";

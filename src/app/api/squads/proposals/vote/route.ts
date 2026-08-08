@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/squads/proposals/vote
  * Body: { multisig, transactionIndex, action: "Approve"|"Reject"|"Execute", member }

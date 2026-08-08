@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMember } from "@/lib/media-studio/access";
 import { brandSystemPrompt } from "@/lib/media-studio/brand";

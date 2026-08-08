@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/studio/extract-data — AI-powered structured data extraction.
  *

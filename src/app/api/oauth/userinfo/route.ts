@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/oauth/userinfo — OIDC UserInfo. Requires Bearer access token with
  * `openid` scope.

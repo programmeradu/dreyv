@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/oauth/token — RFC 6749 §3.2 + extensions.
  *

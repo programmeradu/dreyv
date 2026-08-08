@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/keys/:id/rotate — atomically revoke and re-issue, preserving
  * label / scopes / rpm. Returns the new full key ONCE.

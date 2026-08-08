@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnhancedTransactions } from "@/lib/explorer/helius-tx";
 import { getCurrentPricesUsd, getSolUsdPrice } from "@/lib/explorer/jupiter-price";

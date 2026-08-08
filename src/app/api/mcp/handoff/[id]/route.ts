@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET  /api/mcp/handoff/[id]       → returns the staged tx + meta for the mobile signer UI
  * POST /api/mcp/handoff/[id]       → { signature } records that the user signed + broadcast

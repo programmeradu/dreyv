@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest } from "next/server";
 import { Connection, PublicKey, Transaction, clusterApiUrl } from "@solana/web3.js";
 import { Marinade, MarinadeConfig } from "@marinade.finance/marinade-ts-sdk";

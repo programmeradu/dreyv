@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/moralis/solana/holders/[address]?limit=100&cursor=<cursor>

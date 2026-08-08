@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Phase 7 — SSE realtime push channel.
  *

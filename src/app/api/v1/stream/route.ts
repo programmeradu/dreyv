@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Phase 5 — Server-sent events stream for the API-key owner.
  *

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/owner/run — authenticated capability dispatcher for owner UIs.
  *

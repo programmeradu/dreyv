@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/treasury/invoices — invoice inbox per vault.
  *

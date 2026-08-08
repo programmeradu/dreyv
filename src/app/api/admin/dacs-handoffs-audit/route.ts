@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * DACS Phase 5.3 — Admin handoffs audit.
  *

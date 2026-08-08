@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/solana/network-health
  *

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/agent/deliverables/[id]/resend
  *   Re-fires the post-payment email for a `ready` deliverable owned by

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Treasury watcher management API.
  *   GET    /api/inbox/watchers?wallet=<connected wallet>  → list watchers for that user

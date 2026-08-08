@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { teams, teamMembers, teamActivityLog, users } from '@/db/schema';

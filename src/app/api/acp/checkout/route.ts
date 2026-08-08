@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/acp/checkout — ACP "checkout" capability.
  *

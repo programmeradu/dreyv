@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/studio/video/render
  *

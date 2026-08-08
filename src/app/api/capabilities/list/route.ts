@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/capabilities/list — returns a typed summary of every capability in
  * the registry. Drives the Canvas Capability Palette (⌘K).

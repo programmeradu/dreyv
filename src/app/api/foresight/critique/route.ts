@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR } from "@/lib/foresight/simulation-ir";
 import { getAuthUser } from "@/lib/auth-utils";

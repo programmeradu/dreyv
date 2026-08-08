@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/oauth/revoke — RFC 7009. Accepts access or refresh tokens.
  * Per spec, returns 200 even when the token is unknown.

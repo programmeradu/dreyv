@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/studio/export-pdf — Generate PDF from mini-app output.
  *

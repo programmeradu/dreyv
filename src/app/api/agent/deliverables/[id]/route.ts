@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/agent/deliverables/[id]
  *   Returns the full deliverable record + joined agent-key label and tx hash.

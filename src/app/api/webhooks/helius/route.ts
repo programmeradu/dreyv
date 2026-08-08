@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Helius webhook receiver.
  *  - Verifies optional `Authorization` header against `HELIUS_WEBHOOK_AUTH`.

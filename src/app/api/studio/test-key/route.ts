@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/studio/test-key — Test an API key against the selected provider.
  *

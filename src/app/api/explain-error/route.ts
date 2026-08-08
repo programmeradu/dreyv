@@ -1,3 +1,4 @@
+export const runtime = "edge";
 // Friendly error explanation endpoint — calls the LLM error-explainer
 // when our static classifier doesn't have a mapping. Used by ToolError
 // for the "unknown" bucket.

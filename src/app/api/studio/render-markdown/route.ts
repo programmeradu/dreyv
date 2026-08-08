@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/studio/render-markdown — Convert any URL to clean markdown.
  *

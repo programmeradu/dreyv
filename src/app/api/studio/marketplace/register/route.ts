@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/studio/marketplace/register — Register app on-chain (KeystoneMarket).
  *

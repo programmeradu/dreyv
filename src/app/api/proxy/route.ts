@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Keystone Proxy Gate — /api/proxy
  * 

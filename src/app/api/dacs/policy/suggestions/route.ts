@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * DACS Phase 3b — Pending policy suggestions endpoint.
  *

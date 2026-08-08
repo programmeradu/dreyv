@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Alchemy Notify webhook receiver.
  *  - Verifies `X-Alchemy-Signature` HMAC SHA-256 against ALCHEMY_WEBHOOK_SIGNING_KEY.

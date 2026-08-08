@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/agents/wallet/promote — sweep the HOT agent wallet into the
  * COLD wallet. Reduces blast radius if an agent key leaks: only the

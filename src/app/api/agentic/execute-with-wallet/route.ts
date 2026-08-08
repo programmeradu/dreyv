@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Enhanced Agent Execution API with Wallet Integration
  * POST /api/agentic/execute-with-wallet

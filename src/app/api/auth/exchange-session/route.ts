@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
 import { neon } from '@neondatabase/serverless';

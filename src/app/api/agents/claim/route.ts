@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/agents/claim — agent requests a single-use claim token.
  *

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/mcp — Streamable HTTP MCP transport.
  *

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/public/status/[slug]/subscribe
  * Anon-callable email subscribe endpoint for a published status page.

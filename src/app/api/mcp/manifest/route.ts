@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/mcp/manifest — public, unauthenticated catalog of every MCP tool
  * exposed at /api/mcp. Used by /developers/mcp, agent directories, and the

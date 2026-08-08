@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/x402/checkout/[id]
  * Poll the status of an agent payment. Returns pending / paid / expired.

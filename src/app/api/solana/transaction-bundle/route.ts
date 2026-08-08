@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/oauth/device — RFC 8628 device authorization request.
  * Public clients may call this without auth; we still require a valid client_id.

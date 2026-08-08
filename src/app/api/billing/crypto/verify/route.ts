@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/billing/crypto/verify
  * Body: { invoiceId: string, signature: string }

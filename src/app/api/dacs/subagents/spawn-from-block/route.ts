@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/dacs/subagents/spawn-from-block
  *

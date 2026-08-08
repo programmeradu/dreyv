@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { buildFeaturePack } from "@/lib/explorer/feature-pack";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * SSE runner: streams per-(scenario × provider) results back to the client
  * as they finish. Each provider call for a scenario runs in parallel; the

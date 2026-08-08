@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { eq } from "drizzle-orm";

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/oauth/introspect — RFC 7662.
  * Requires authenticated client (confidential or DCR registration_access_token).

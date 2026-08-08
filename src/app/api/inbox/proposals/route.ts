@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET  /api/inbox/proposals?wallet=<connected wallet> — list open proposals/alerts.
  *      When `wallet` is provided we resolve it to a user_id and return only

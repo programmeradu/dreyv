@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { resolveAddressPositions, fetchCurrentApys } from "@/lib/lab/positions";
 import { fetchManyHistories } from "@/lib/lab/prices";

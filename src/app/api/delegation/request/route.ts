@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Request Token Delegation
  * POST /api/delegation/request

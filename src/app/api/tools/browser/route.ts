@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * Cloudflare Browser Rendering API — Exposes CF Browser endpoints.
  *

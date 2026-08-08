@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET  /api/oauth/authorize — validate request, log in if needed, then either
  *                             auto-approve (saved consent) or 302 → /oauth/consent.

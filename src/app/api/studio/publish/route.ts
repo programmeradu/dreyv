@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * POST /api/studio/publish — Register Mini-App to marketplace (Hot Path).
  * Receives: name, description, code, creatorWallet, arweaveTxId, codeHash, securityScore.

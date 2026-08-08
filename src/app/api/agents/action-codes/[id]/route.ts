@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET /api/agents/action-codes/:id — agent polls for approval status.
  * Owner-scoped (only the user/key that minted the code may read it).

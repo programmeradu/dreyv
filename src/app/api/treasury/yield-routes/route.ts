@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * /api/treasury/yield-routes — policy-bounded yield routing per vault.
  *

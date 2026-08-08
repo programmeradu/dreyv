@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * GET    /api/studio/media/assets       — list current team member's assets
  * POST   /api/studio/media/assets       — save a copy/storyboard variant the team kept

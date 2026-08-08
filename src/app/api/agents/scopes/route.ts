@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * PATCH /api/agents/scopes — agent updates the scopes on its own dk_live_ key.
  *

@@ -1,3 +1,4 @@
+export const runtime = "edge";
 /**
  * DACS Phase 4 — Sub-agent endpoints.
  *
