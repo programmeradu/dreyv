@@ -10,21 +10,39 @@ export interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const id = env.NEXT_APP.idFromName("next-app");
-    return env.NEXT_APP.get(id).fetch(request);
+    try {
+      const id = env.NEXT_APP.idFromName("next-app");
+      const stub = env.NEXT_APP.get(id);
+      return await stub.fetch(request);
+    } catch (err: any) {
+      console.error("CF Proxy main fetch error:", err);
+      return new Response(`Proxy Worker Error: ${err?.stack || err?.message || String(err)}`, {
+        status: 500,
+        headers: { "content-type": "text/plain" },
+      });
+    }
   },
 };
 
 export class NextAppContainer {
   constructor(private readonly state: DurableObjectState) {}
 
-  fetch(request: Request): Promise<Response> {
-    const container = this.state.container;
-    if (!container) {
-      return Promise.resolve(new Response("Container binding not available", { status: 500 }));
-    }
+  async fetch(request: Request): Promise<Response> {
+    try {
+      const container = (this.state as any).container;
+      if (!container) {
+        return new Response("Container binding not available on Durable Object state", { status: 500 });
+      }
 
-    container.start({ enableInternet: true });
-    return container.getTcpPort(8080).fetch(request);
+      await container.start({ enableInternet: true });
+      const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
+      return await target.fetch(request);
+    } catch (err: any) {
+      console.error("NextAppContainer fetch error:", err);
+      return new Response(`Container Proxy Error: ${err?.stack || err?.message || String(err)}`, {
+        status: 500,
+        headers: { "content-type": "text/plain" },
+      });
+    }
   }
 }
