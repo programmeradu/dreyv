@@ -37,7 +37,7 @@ export default {
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.delete("cf-visitor");
-      proxyHeaders.set("x-forwarded-proto", "https");
+      proxyHeaders.set("x-forwarded-proto", "http");
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
@@ -104,9 +104,7 @@ export class NextAppContainer extends DurableObject {
 
       const containerHeaders = new Headers(request.headers);
       containerHeaders.delete("cf-visitor");
-      if (!containerHeaders.has("x-forwarded-proto")) {
-        containerHeaders.set("x-forwarded-proto", "https");
-      }
+      containerHeaders.set("x-forwarded-proto", "http");
       if (!containerHeaders.has("x-forwarded-host")) {
         containerHeaders.set("x-forwarded-host", "dreyv.com");
       }
