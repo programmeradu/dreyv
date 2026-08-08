@@ -3,7 +3,7 @@
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
  * passes edge runtime secrets to container via request headers,
- * and proxies traffic directly to DO container using official Cloudflare Containers localhost URL format.
+ * and proxies traffic directly to DO container TCP port using pure HTTP localhost string URLs and headers.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -32,7 +32,7 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Format canonical http://localhost URL for DO stub
+      // Format canonical http://localhost URL string for DO stub
       const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
@@ -96,7 +96,9 @@ export class NextAppContainer extends DurableObject {
         }
       }
 
-      // Format canonical http://localhost URL for Cloudflare Containers proxy
+      const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
+
+      // Format canonical http://localhost URL string for container TCP port
       const url = new URL(request.url);
       const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
@@ -119,11 +121,11 @@ export class NextAppContainer extends DurableObject {
         (init as any).duplex = "half";
       }
 
-      // Poll container until Next.js server.js completes cold start
+      // Poll container TCP port 8080 until Next.js server.js completes cold start
       let lastErr: any = null;
       for (let attempt = 0; attempt < 15; attempt++) {
         try {
-          return await container.fetch(httpUrl, init);
+          return await target.fetch(httpUrl, init);
         } catch (fetchErr: any) {
           lastErr = fetchErr;
           const msg = String(fetchErr?.message || fetchErr);
