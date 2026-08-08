@@ -1,10 +1,11 @@
 /**
  * Cloudflare Containers proxy Worker.
  *
- * Routes traffic from edge to Next.js running inside a Durable Object container on TCP port 8080.
- * All internal container fetches MUST use http:// — Cloudflare Containers' TCP binding
- * throws "Connecting to a container using HTTPS is not currently supported" if any HTTPS
- * indicator is present in the URL or headers sent to getTcpPort().fetch().
+ * CRITICAL: getTcpPort(8080).fetch() throws "Connecting to a container using HTTPS is not
+ * currently supported" if ANY V8 C++ internal slot from the original edge https:// request
+ * propagates into the fetch call — even via a plain object `init`. The only safe pattern is
+ * a completely sterile `new Request(http://..., {...})` where NOTHING references the original
+ * request object. headers must be rebuilt from scratch, body streamed directly.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -33,38 +34,37 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Build forwarding headers — strip cf-visitor so the container TCP layer
-      // never sees {"scheme":"https"} and strip x-forwarded-proto override risk
-      const proxyHeaders = new Headers();
-      for (const [k, v] of request.headers) {
-        const lk = k.toLowerCase();
-        if (lk === "cf-visitor") continue; // strips {"scheme":"https"}
-        proxyHeaders.set(k, v);
-      }
-      proxyHeaders.set("host", "dreyv.com");
-      proxyHeaders.set("x-forwarded-host", host);
-      // Tell Next.js the original external scheme was HTTPS (for redirects, cookies, etc.)
-      // This header is read by Next.js app code only — not by the Cloudflare TCP port binding
-      proxyHeaders.set("x-forwarded-proto", "https");
+      // Build a sterile http:// URL for the DO stub — no https:// references
+      const targetUrl = `http://dreyv.com${url.pathname}${url.search}`;
+
+      // Sterile headers — iterate cleanly, no spread from original request
+      const cleanHeaders = new Headers();
+      request.headers.forEach((value, key) => {
+        const lk = key.toLowerCase();
+        if (lk === "cf-visitor") return; // {"scheme":"https"} — must be stripped
+        cleanHeaders.set(key, value);
+      });
+      cleanHeaders.set("x-forwarded-host", host);
+      cleanHeaders.set("x-forwarded-proto", "https"); // for Next.js app logic only
 
       if (env.DATABASE_URL) {
-        proxyHeaders.set("x-dreyv-database-url", String(env.DATABASE_URL));
+        cleanHeaders.set("x-dreyv-database-url", String(env.DATABASE_URL));
       }
       if (env.JWT_SECRET) {
-        proxyHeaders.set("x-dreyv-jwt-secret", String(env.JWT_SECRET));
+        cleanHeaders.set("x-dreyv-jwt-secret", String(env.JWT_SECRET));
       }
 
-      const init: RequestInit = { method: request.method, headers: proxyHeaders };
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        init.body = request.body;
-        (init as any).duplex = "half";
-      }
+      // Sterile Request — DO NOT use new Request(request, overrides); that carries C++ TLS slots
+      const sterileRequest = new Request(targetUrl, {
+        method: request.method,
+        headers: cleanHeaders,
+        body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+        redirect: "manual",
+      });
 
-      // Pass a plain http:// URL string — the DO stub routes this to NextAppContainer.fetch
-      const httpUrl = `http://dreyv.com${url.pathname}${url.search}`;
       const id = env.NEXT_APP.idFromName("dreyv_container_v8");
       const stub = env.NEXT_APP.get(id);
-      return await stub.fetch(httpUrl, init);
+      return await stub.fetch(sterileRequest);
     } catch (err: any) {
       console.error("CF Proxy main fetch error:", err);
       return new Response(`Proxy Worker Error: ${err?.stack || err?.message || String(err)}`, {
@@ -95,37 +95,39 @@ export class NextAppContainer extends DurableObject {
         }
       }
 
-      // getTcpPort(8080) binding — MUST receive a pure http:// URL with NO https indicators
-      // in either the URL string or headers. The C++ layer throws if it detects HTTPS.
       const target = container.getTcpPort(8080);
 
       const reqUrl = new URL(request.url);
-      // Force http:// scheme in the target URL
+      // Pure http:// target URL — no https:// anywhere
       const targetUrl = `http://127.0.0.1:8080${reqUrl.pathname}${reqUrl.search}`;
 
-      // Build minimal headers — strip EVERYTHING that could signal HTTPS to the C++ binding
-      const containerHeaders = new Headers();
-      for (const [k, v] of request.headers) {
-        const lk = k.toLowerCase();
-        if (lk === "cf-visitor") continue;        // {"scheme":"https"} — triggers HTTPS check
-        if (lk === "x-forwarded-proto") continue; // will set explicitly to "http" below
-        containerHeaders.set(k, v);
-      }
-      containerHeaders.set("x-forwarded-proto", "http"); // MUST be http for getTcpPort binding
-      containerHeaders.set("x-forwarded-host", "dreyv.com");
-      containerHeaders.set("host", "127.0.0.1:8080");
+      // Sterile headers rebuilt from scratch — do NOT spread or reference request.headers directly
+      const cleanHeaders = new Headers();
+      request.headers.forEach((value, key) => {
+        const lk = key.toLowerCase();
+        if (lk === "cf-visitor") return;        // strips {"scheme":"https"}
+        if (lk === "x-forwarded-proto") return; // will be set explicitly to "http" below
+        if (lk === "host") return;              // will be set explicitly below
+        cleanHeaders.set(key, value);
+      });
+      // MUST be "http" — getTcpPort C++ binding throws if this is "https"
+      cleanHeaders.set("x-forwarded-proto", "http");
+      cleanHeaders.set("x-forwarded-host", "dreyv.com");
+      cleanHeaders.set("host", "127.0.0.1:8080");
 
-      const fetchInit: RequestInit = { method: request.method, headers: containerHeaders };
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        fetchInit.body = request.body;
-        (fetchInit as any).duplex = "half";
-      }
+      // Sterile Request — construct entirely from primitives with no reference to original request
+      const sterileRequest = new Request(targetUrl, {
+        method: request.method,
+        headers: cleanHeaders,
+        body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+        redirect: "manual",
+      });
 
-      // Retry loop to handle cold-start delay while server.js initialises on port 8080
+      // Retry loop for cold-start — server.js takes a few seconds to open port 8080
       let lastErr: any = null;
       for (let attempt = 0; attempt < 15; attempt++) {
         try {
-          return await target.fetch(targetUrl, fetchInit);
+          return await target.fetch(sterileRequest.clone());
         } catch (fetchErr: any) {
           lastErr = fetchErr;
           const msg = String(fetchErr?.message || fetchErr);
