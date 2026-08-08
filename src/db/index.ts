@@ -16,11 +16,14 @@ let _cachedUrl: string | null = null;
  */
 function sanitizeNeonHttpUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
-  return rawUrl
-    .replace(/['"\r\n]/g, '')
-    .trim()
-    .replace(/([?&])channel_binding=[^&]*&?/g, '$1')
-    .replace(/\?$/, '');
+  const clean = rawUrl.replace(/['"\r\n]/g, '').trim();
+  try {
+    const u = new URL(clean);
+    u.searchParams.delete('channel_binding');
+    return u.toString();
+  } catch {
+    return clean.replace(/[?&]channel_binding=[^&]*/g, '').replace(/[?&]$/, '');
+  }
 }
 
 /**
