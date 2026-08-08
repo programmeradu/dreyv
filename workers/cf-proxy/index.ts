@@ -2,7 +2,8 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
- * forwards Worker runtime secrets to the container, and proxies non-redirect requests over HTTP.
+ * rewrites internal protocol to http:// for container DO binding compatibility,
+ * and passes x-forwarded-proto/x-forwarded-host to Next.js.
  */
 
 export interface Env {
@@ -41,8 +42,13 @@ export default {
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.set("x-container-env", JSON.stringify(secrets));
+      proxyHeaders.set("x-forwarded-proto", "https");
+      proxyHeaders.set("x-forwarded-host", host);
 
-      const proxyReq = new Request(request.url, {
+      // Cloudflare Containers internal Durable Object bindings require http:// protocol
+      url.protocol = "http:";
+
+      const proxyReq = new Request(url.toString(), {
         method: request.method,
         headers: proxyHeaders,
         body: request.body,
@@ -96,6 +102,9 @@ export class NextAppContainer {
       // Clean internal header before passing to container
       const containerHeaders = new Headers(request.headers);
       containerHeaders.delete("x-container-env");
+      if (!containerHeaders.has("x-forwarded-proto")) {
+        containerHeaders.set("x-forwarded-proto", "https");
+      }
 
       // Cloudflare Container TCP sockets expect http:// requests, not https://
       const url = new URL(request.url);
