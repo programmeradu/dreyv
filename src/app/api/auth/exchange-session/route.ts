@@ -9,8 +9,9 @@ const COOKIE_NAME = 'keystone-siws-session';
 const OAUTH_STATE_COOKIE = 'keystone-oauth-state';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
+function getJwtSecret(req?: NextRequest) {
+    const headerSecret = req?.headers.get('x-dreyv-jwt-secret');
+    const secret = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
     return new TextEncoder().encode(secret);
 }
 
@@ -20,13 +21,13 @@ function getJwtSecret() {
  * Called before OAuth to set a signed state cookie that proves the user
  * initiated the flow from our app.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     const stateToken = await new SignJWT({ purpose: 'oauth-state' })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('10m')
         .setIssuer('keystone-treasury-os')
-        .sign(getJwtSecret());
+        .sign(getJwtSecret(request));
 
     const response = NextResponse.json({ state: 'ready' });
     response.cookies.set(OAUTH_STATE_COOKIE, stateToken, {
@@ -47,8 +48,10 @@ export async function GET() {
  */
 async function findOAuthUser(
     initiatedAt: number,
+    request: NextRequest,
 ): Promise<{ id: string; email: string; name: string } | null> {
-    const url = process.env.DATABASE_URL?.replace(/['"\r\n]/g, '').trim();
+    const headerUrl = request.headers.get('x-dreyv-database-url');
+    const url = (headerUrl || process.env.DATABASE_URL)?.replace(/['"\r\n]/g, '').trim();
     if (!url) return null;
 
     const sql = neon(url);
@@ -135,7 +138,7 @@ export async function POST(request: NextRequest) {
         // validates a real OAuth session was just created, so missing cookie is not fatal.
         if (stateCookie) {
             try {
-                const payload = await jwtVerify(stateCookie, getJwtSecret(), {
+                const payload = await jwtVerify(stateCookie, getJwtSecret(request), {
                     issuer: 'keystone-treasury-os',
                 });
                 initiatedAt = (payload.payload.iat as number) || initiatedAt;
@@ -169,7 +172,7 @@ export async function POST(request: NextRequest) {
 
         // ── Strategy 2: Query Better Auth DB tables ─────────────────────
         if (!user) {
-            user = await findOAuthUser(initiatedAt);
+            user = await findOAuthUser(initiatedAt, request);
             if (user) console.log('[Exchange Session] Strategy 2 (database) succeeded');
         }
 
@@ -231,7 +234,7 @@ export async function POST(request: NextRequest) {
             .setIssuedAt()
             .setExpirationTime(`${SESSION_MAX_AGE}s`)
             .setIssuer('keystone-treasury-os')
-            .sign(getJwtSecret());
+            .sign(getJwtSecret(request));
 
         const response = NextResponse.json({
             user: {
