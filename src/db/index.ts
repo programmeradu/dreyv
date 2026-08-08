@@ -10,11 +10,25 @@ let _cachedDb: DrizzleDb | null = null;
 let _cachedUrl: string | null = null;
 
 /**
+ * Clean connection URL for Neon HTTP serverless driver.
+ * Strips TCP-only PostgreSQL parameters (e.g. channel_binding=require) that cause
+ * query failures when executed over Neon HTTPS fetch proxy.
+ */
+function sanitizeNeonHttpUrl(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+  return rawUrl
+    .replace(/['"\r\n]/g, '')
+    .trim()
+    .replace(/([?&])channel_binding=[^&]*&?/g, '$1')
+    .replace(/\?$/, '');
+}
+
+/**
  * Creates or retrieves the cached Drizzle ORM instance for Neon Postgres.
  * Always returns a valid Drizzle client with `.select()`, `.insert()`, `.update()`, and `.query`.
  */
 export function getDb(): DrizzleDb {
-  const envUrl = process.env.DATABASE_URL?.replace(/['"\r\n]/g, '').trim();
+  const envUrl = sanitizeNeonHttpUrl(process.env.DATABASE_URL || '');
   const url = envUrl || FALLBACK_URL;
 
   if (_cachedDb && _cachedUrl === url) {
@@ -47,6 +61,7 @@ export type Database = typeof db;
  * Used for AI sandbox isolation — ephemeral database clones.
  */
 export function createBranchDb(branchConnectionUrl: string) {
-  const sql = neon(branchConnectionUrl);
+  const sanitizedUrl = sanitizeNeonHttpUrl(branchConnectionUrl);
+  const sql = neon(sanitizedUrl);
   return drizzle(sql, { schema });
 }
