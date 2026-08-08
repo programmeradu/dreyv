@@ -40,8 +40,9 @@ function hasNeonAuthCookieHint(request: NextRequest): boolean {
     });
 }
 
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
+function getJwtSecret(request: NextRequest) {
+    const headerSecret = request.headers.get('x-dreyv-jwt-secret');
+    const secret = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
     return new TextEncoder().encode(secret);
 }
 
@@ -50,7 +51,7 @@ async function getSiwsPayload(request: NextRequest): Promise<SiwsPayload | null>
     if (!token) return null;
 
     try {
-        const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
+        const { payload } = await jwtVerify(token, getJwtSecret(request), { issuer: 'keystone-treasury-os' });
         return payload as SiwsPayload;
     } catch {
         return null;
