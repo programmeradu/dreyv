@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Per-user public Dreyv API key management.
  *

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest } from "next/server";
 
 const COINGECKO_BASE = "https://api.coingecko.com/api/v3";

@@ -20,7 +20,6 @@ type Status = {
   expires_at: string;
 };
 
-export const runtime = "edge";
 export default function ApproveActionCodePage({
   params,
 }: {

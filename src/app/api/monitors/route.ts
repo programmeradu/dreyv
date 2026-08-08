@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/monitors — create a price/balance/apy monitor for a wallet.
  * Used by onboarding seed flow and the inbox watcher form.

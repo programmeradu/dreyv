@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/agents/wallet — agent-facing view of the custodial Solana
  * wallet that funds autonomous on-chain payments.

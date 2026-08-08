@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * DELETE /api/keys/:id — revoke (hard-delete) a key the caller owns.
  */

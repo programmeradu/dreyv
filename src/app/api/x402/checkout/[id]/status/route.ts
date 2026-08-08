@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/x402/checkout/[id]/status
  * Public, unauthenticated status probe used by the browser success/cancel

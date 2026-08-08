@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/treasury/watcher-events?wallet=…&since=<iso>
  *

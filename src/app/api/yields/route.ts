@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextResponse } from "next/server";
 
 // GET /api/yields?asset=USDC&chain=ethereum

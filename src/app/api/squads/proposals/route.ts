@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { SquadsClient } from "@/lib/squads";
 import { Connection } from "@solana/web3.js";

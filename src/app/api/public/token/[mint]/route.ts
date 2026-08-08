@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentPricesUsd } from "@/lib/explorer/jupiter-price";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";

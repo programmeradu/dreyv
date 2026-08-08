@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/compile-contract — Compile Solana/Anchor programs.
  *

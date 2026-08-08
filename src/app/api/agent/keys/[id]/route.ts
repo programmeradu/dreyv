@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * DELETE /api/agent/keys/[id] — hard-delete an agent API key.
  * Revoked keys are gone from the ledger to keep the settings view quiet.

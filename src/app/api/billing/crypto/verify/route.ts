@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/billing/crypto/verify
  * Body: { invoiceId: string, signature: string }
@@ -12,8 +11,6 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { cryptoInvoices, users } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
-import { verifySolanaPayment } from "@/lib/billing/crypto-verify-solana";
-import { verifyEvmPayment } from "@/lib/billing/crypto-verify-evm";
 import { EVM_ENABLED } from "@/lib/feature-flags";
 
 const Body = z.object({
@@ -51,14 +48,14 @@ export async function POST(req: NextRequest) {
     }
 
     const result = invoice.chain === "solana"
-        ? await verifySolanaPayment({
+        ? await (await import("@/lib/billing/crypto-verify-solana")).verifySolanaPayment({
             signature: parsed.data.signature,
             receivingAddress: invoice.receivingAddress,
             mint: invoice.contractAddress, // null for SOL
             expectedMinor: BigInt(invoice.amountMinor),
             memo: invoice.memo,
         })
-        : await verifyEvmPayment({
+        : await (await import("@/lib/billing/crypto-verify-evm")).verifyEvmPayment({
             chain: invoice.chain as "base" | "arbitrum" | "polygon" | "bsc",
             txHash: parsed.data.signature,
             receivingAddress: invoice.receivingAddress,

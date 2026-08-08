@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { ATLAS_TOOL_MANIFEST } from "@/lib/atlas-tool-manifest";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";

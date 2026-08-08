@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/agents/discover — AEP-style capability discovery (#7).
  *

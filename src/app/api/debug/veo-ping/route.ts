@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Quick health-check for the Gemini Veo 3 path.
  *   GET /api/debug/veo-ping            -> verifies key + Veo model is listed

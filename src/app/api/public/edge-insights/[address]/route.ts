@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Dreyv Edge Insights — the differentiator API for /v/[address].
  *

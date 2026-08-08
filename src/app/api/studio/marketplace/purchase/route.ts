@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/marketplace/purchase — Record a purchase in the database.
  * SECURITY: Verifies transaction on-chain before recording purchase.

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { resolveAddressPositions } from "@/lib/lab/positions";
 import { runStress } from "@/lib/lab/engine";

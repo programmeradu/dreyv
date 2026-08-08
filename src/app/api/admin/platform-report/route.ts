@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
@@ -254,106 +253,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (format === "pdf") {
-            const { default: jsPDF } = await import("jspdf");
-            const doc = new jsPDF({ unit: "pt", format: "a4" });
-            const W = doc.internal.pageSize.getWidth();
-            let y = 56;
-            const usd = (n: number) =>
-                "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(20);
-            doc.setTextColor(124, 58, 237);
-            doc.text("Dreyv", 48, y);
-            doc.setTextColor(15, 23, 42);
-            doc.setFontSize(14);
-            doc.text("Platform Transaction & Volume Report", 48, y + 22);
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(100, 116, 139);
-            doc.text(
-                `Window: last ${rangeDays} days  ·  Generated ${new Date(report.generatedAt).toUTCString()}`,
-                48,
-                y + 40,
-            );
-            y += 70;
-
-            const section = (title: string) => {
-                if (y > 760) {
-                    doc.addPage();
-                    y = 56;
-                }
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(11);
-                doc.setTextColor(15, 23, 42);
-                doc.text(title.toUpperCase(), 48, y);
-                doc.setDrawColor(221, 214, 254);
-                doc.line(48, y + 4, W - 48, y + 4);
-                y += 18;
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(10);
-                doc.setTextColor(51, 65, 85);
-            };
-            const row = (cells: string[], widths: number[]) => {
-                if (y > 790) {
-                    doc.addPage();
-                    y = 56;
-                }
-                let x = 48;
-                for (let i = 0; i < cells.length; i++) {
-                    doc.text(cells[i], x, y, { maxWidth: widths[i] - 4 });
-                    x += widths[i];
-                }
-                y += 14;
-            };
-
-            section("Headline totals");
-            row(["Stream", "Count", "Volume", "Fees"], [200, 100, 120, 100]);
-            row(
-                ["On-chain (Solana)", String(report.totals.onchain.count), usd(report.totals.onchain.volume), usd(report.totals.onchain.fees ?? 0)],
-                [200, 100, 120, 100],
-            );
-            row(["DCA executions", String(report.totals.dca.count), usd(report.totals.dca.volume), "—"], [200, 100, 120, 100]);
-            row(
-                ["Marketplace purchases", String(report.totals.marketplace.count), usd(report.totals.marketplace.volume), usd(report.totals.marketplace.fees ?? 0)],
-                [200, 100, 120, 100],
-            );
-            doc.setFont("helvetica", "bold");
-            row(["TOTAL", String(report.totals.allTxCount), usd(report.totals.allVolumeUsd), usd(report.totals.allFeesUsd)], [200, 100, 120, 100]);
-            doc.setFont("helvetica", "normal");
-            y += 8;
-
-            section("Volume by type");
-            row(["Type", "Count", "Volume"], [200, 120, 140]);
-            for (const r of report.byType) row([r.type, String(r.count), usd(r.volume)], [200, 120, 140]);
-            y += 8;
-
-            section("Volume by chain");
-            row(["Chain", "Count", "Volume"], [200, 120, 140]);
-            for (const r of report.byChain) row([r.chain, String(r.count), usd(r.volume)], [200, 120, 140]);
-            y += 8;
-
-            section("Top routing destinations (programs)");
-            row(["Program", "Count", "Volume"], [260, 100, 140]);
-            for (const r of report.byRouting) row([r.label, String(r.count), usd(r.volume)], [260, 100, 140]);
-            y += 8;
-
-            section("Monthly time series");
-            row(["Month", "On-chain Tx", "On-chain Vol", "DCA Tx", "DCA Vol", "Mkt Tx", "Mkt Vol"], [60, 70, 80, 60, 70, 60, 80]);
-            for (const m of report.monthly)
-                row(
-                    [m.month, String(m.tx), usd(m.txVol), String(m.dca), usd(m.dcaVol), String(m.mp), usd(m.mpVol)],
-                    [60, 70, 80, 60, 70, 60, 80],
-                );
-
-            const pdfBytes = doc.output("arraybuffer");
-            return new Response(pdfBytes, {
-                headers: {
-                    "Content-Type": "application/pdf",
-                    "Content-Disposition": `attachment; filename="dreyv-platform-report-${rangeDays}d.pdf"`,
-                    "Cache-Control": "no-store",
-                },
-            });
+            return NextResponse.json({ error: "pdf_format_deprecated", hint: "Use format=csv for report downloads." }, { status: 400 });
         }
 
         return NextResponse.json(report);

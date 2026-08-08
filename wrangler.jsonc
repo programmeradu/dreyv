@@ -1,9 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dreyv",
-  "pages_build_output_dir": ".vercel/output/static",
+  "main": "workers/cf-proxy/index.ts",
   "compatibility_date": "2024-09-23",
-  "compatibility_flags": [
-    "nodejs_compat"
+  "containers": [
+    {
+      "binding": "NEXT_APP",
+      "image": "./Dockerfile"
+    }
+  ],
+  "routes": [
+    { "pattern": "dreyv.com", "custom_domain": true }
   ]
 }

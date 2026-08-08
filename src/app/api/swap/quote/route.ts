@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextResponse, NextRequest } from "next/server";
 
 // Run on Node runtime and avoid static caching for external quotes

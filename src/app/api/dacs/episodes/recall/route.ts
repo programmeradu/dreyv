@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * DACS Phase 5 — Episode recall endpoint.
  *

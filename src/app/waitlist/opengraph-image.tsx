@@ -1,6 +1,5 @@
 import { OG_SIZE, OG_CONTENT_TYPE, renderOgCard, resolveCrystalUrl } from "../_og/template";
 
-export const runtime = "edge";
 export const alt = "Join the dreyv design-partner waitlist";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

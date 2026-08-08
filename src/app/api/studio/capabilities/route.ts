@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/studio/capabilities — Reports what the Studio can actually do
  * given the current server environment. Used by the header to disable

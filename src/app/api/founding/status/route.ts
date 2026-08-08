@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { FOUNDING_CAP, getFoundingClaimedCount } from "@/lib/founding/claim";
 

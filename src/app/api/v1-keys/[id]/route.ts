@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * DELETE /api/v1-keys/:id — hard-delete a public API key.
  *

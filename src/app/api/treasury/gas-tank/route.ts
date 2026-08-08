@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/treasury/gas-tank — auto-top-up watcher per vault.
  *

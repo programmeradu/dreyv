@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/admin/activity — unified activity feed for the admin Activity page.
  *

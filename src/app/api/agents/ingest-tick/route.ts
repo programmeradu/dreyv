@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/agents/ingest-tick — endpoint the Cloudflare DO sub-agents call back
  * into when their alarm fires. The DO posts its tick context here, and we

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/studio/publish/auth — Issue a challenge nonce for wallet-signature auth.
  *

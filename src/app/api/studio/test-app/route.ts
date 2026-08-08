@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/test-app — Automated smoke test for mini-apps.
  *

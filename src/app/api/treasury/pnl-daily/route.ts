@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/treasury/pnl-daily?wallet=…&range=7d|30d|90d
  *

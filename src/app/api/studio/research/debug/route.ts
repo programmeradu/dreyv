@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET/POST /api/studio/research/debug?topic=...
  *

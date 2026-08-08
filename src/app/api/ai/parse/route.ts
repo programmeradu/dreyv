@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest } from "next/server";
 
 // Solana-native NLP parser for Strategy Lab

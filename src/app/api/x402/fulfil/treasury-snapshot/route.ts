@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/x402/fulfil/treasury-snapshot?wallet=<addr>
  *

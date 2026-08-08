@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Phase 7B — CRUD for tx_watched_wallets.
  *

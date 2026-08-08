@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/atlas/colosseum/builders?q=...&limit=8
  *

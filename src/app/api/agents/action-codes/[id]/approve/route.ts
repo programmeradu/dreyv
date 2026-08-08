@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/agents/action-codes/:id/approve — human approves (or rejects)
  * an outstanding action code. SESSION auth — must be signed in via SIWS or

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/studio/marketplace — List published Mini-Apps, or fetch a single app by ID.
  * PATCH /api/studio/marketplace — Delist an app (set isPublished=false).

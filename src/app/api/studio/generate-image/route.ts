@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/generate-image — Generate images via Cloudflare Workers AI.
  *

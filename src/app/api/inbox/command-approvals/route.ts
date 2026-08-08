@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET   /api/inbox/command-approvals?wallet=&status=pending
  * PATCH /api/inbox/command-approvals  { id, status: 'approved'|'rejected', note? }

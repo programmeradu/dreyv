@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";

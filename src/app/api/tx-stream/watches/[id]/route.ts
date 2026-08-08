@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Phase 7B — Update / delete a single watched wallet.
  * Owner-scoped: only the caller can mutate their watches.

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { Liveblocks } from "@liveblocks/node";
 import { jwtVerify } from "jose";

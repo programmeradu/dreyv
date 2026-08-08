@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
-// @ts-expect-error - Webpack module resolved at build time by Next.js
-import webpack from "webpack";
 
 const nextConfig: NextConfig = {
+  // Standalone output for Docker / Cloudflare Containers deployment
+  output: "standalone",
+
   outputFileTracingRoot: __dirname,
   outputFileTracingExcludes: {
     "/api/admin/migrations/run": [
@@ -43,19 +44,12 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
-    // Top-level Studio document: use `credentialless` so cross-origin
-    // resources without CORP headers (Stripe, dicebear avatars, third-party
-    // images, RPCs) still load while keeping crossOriginIsolated=true. A
-    // credentialless parent can embed a require-corp child iframe — that
-    // combo is what WebContainers needs.
     const coiParentHeaders = [
       { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Permissions-Policy", value: "cross-origin-isolated=(self)" },
       { key: "Cache-Control", value: "no-store, max-age=0" },
     ];
-    // Hidden wc-host iframe: WebContainer's worker requires strict
-    // `require-corp` to transfer SharedArrayBuffer reliably.
     const coiHostHeaders = [
       { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
@@ -64,35 +58,16 @@ const nextConfig: NextConfig = {
       { key: "Cache-Control", value: "no-store, max-age=0" },
     ];
     return [
-      {
-        source: "/app/studio",
-        headers: coiParentHeaders,
-      },
-      {
-        source: "/app/studio/wc-host",
-        headers: coiHostHeaders,
-      },
-      {
-        source: "/app/studio/wc-host/:path*",
-        headers: coiHostHeaders,
-      },
-
+      { source: "/app/studio", headers: coiParentHeaders },
+      { source: "/app/studio/wc-host", headers: coiHostHeaders },
+      { source: "/app/studio/wc-host/:path*", headers: coiHostHeaders },
       {
         source: "/:path*",
         headers: [
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          // Allow Phantom embedded wallet iframe (Track A of Phantom SDK migration)
-          // + WebContainer preview iframe (webcontainer-api.io) used by /app/studio.
-          // frame-ancestors 'self' provides modern clickjacking protection alongside X-Frame-Options.
           {
             key: "Content-Security-Policy",
             value: "frame-ancestors 'self'; frame-src 'self' https://*.phantom.app https://connect.phantom.app https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://stackblitz.com https://*.stackblitz.com https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com;",
@@ -105,20 +80,14 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    // Cloudflare Pages build containers cap out around 8 GB; these two flags
-    // drop peak heap substantially on a ~150-route app by freeing webpack
-    // module graph memory between compilations and sharding the type work.
     webpackMemoryOptimizations: true,
-    // allowedDevOrigins: ['192.168.227.1:3000'],
   },
-
   serverExternalPackages: [
     'drizzle-orm',
     '@neondatabase/serverless',
     'ffmpeg-static',
   ],
-  webpack: (config, { isServer, nextRuntime }) => {
-    // Disable persistent cache when disk is constrained (e.g. Vercel build)
+  webpack: (config, { isServer }) => {
     if (process.env.NEXT_DISABLE_WEBPACK_CACHE) {
       config.cache = false;
     }
@@ -127,57 +96,15 @@ const nextConfig: NextConfig = {
       ...config.resolve.alias,
       '@react-native-async-storage/async-storage': false,
     };
-    
-    // Apply Node builtin fallbacks to browser bundles AND edge server bundles
-    if (!isServer || nextRuntime === 'edge') {
-      if (!isServer) {
-        config.resolve.alias = {
-          ...config.resolve.alias,
-          'drizzle-orm': require.resolve('./src/lib/drizzle-client-stub.js'),
-        };
-      }
-      
-      // Handle node: URI imports in Webpack Edge compilation
-      config.plugins = config.plugins || [];
-      config.plugins.push(
-        new webpack.NormalModuleReplacementPlugin(/^node:/, (resource: { request: string }) => {
-          resource.request = resource.request.replace(/^node:/, "");
-        })
-      );
 
-      const pathStub = require.resolve('./src/lib/path-stub.js');
-      const osStub = require.resolve('./src/lib/os-stub.js');
-
-      // Node builtin fallbacks for Edge/Browser
-      const nodeStubs = {
-        fs: false,
-        'fs/promises': false,
-        net: false,
-        tls: false,
-        crypto: false,
-        stream: false,
-        http: false,
-        https: false,
-        zlib: false,
-        os: osStub,
-        'node:os': osStub,
-        path: pathStub,
-        'node:path': pathStub,
-        child_process: false,
-        worker_threads: false,
-        process: false,
-      };
-
+    // Client-side only: stub drizzle-orm to prevent server code leaking to browser bundles
+    if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
-        ...nodeStubs,
-      };
-
-      config.resolve.fallback = {
-        ...(config.resolve.fallback || {}),
-        ...nodeStubs,
+        'drizzle-orm': false,
       };
     }
+
     return config;
   },
 };

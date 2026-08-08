@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Risk & Hygiene — sophisticated, multi-category wallet risk profile.
  *

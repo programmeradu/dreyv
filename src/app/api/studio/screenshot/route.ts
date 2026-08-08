@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/screenshot — Capture mini-app screenshots for marketplace cards.
  *

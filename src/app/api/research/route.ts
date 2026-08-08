@@ -1,4 +1,3 @@
-export const runtime = "edge";
 ﻿import { streamText, tool } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { z } from "zod";

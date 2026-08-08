@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * One-click DNS-AID publisher for dreyv.com on Cloudflare.
  *

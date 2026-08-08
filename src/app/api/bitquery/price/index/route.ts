@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
 // Proxy Bitquery Price Index (Tokens/Currencies/Pairs) over HTTP POST

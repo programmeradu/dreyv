@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST   /api/auth/link-evm  → persist a connected EVM wallet on the current user
  * DELETE /api/auth/link-evm  → unlink the EVM wallet from the current user

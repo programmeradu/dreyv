@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Check Delegation Status
  * GET /api/delegation/status?wallet=<address>

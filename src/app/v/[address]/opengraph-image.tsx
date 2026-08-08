@@ -8,7 +8,6 @@
 import { ImageResponse } from "next/og";
 import { getSiteOrigin } from "@/lib/seo/site";
 
-export const runtime = "edge";
 export const alt = "Dreyv smart wallet explorer";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

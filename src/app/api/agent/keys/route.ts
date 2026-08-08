@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Agent API key management.
  *   GET  /api/agent/keys           — list user's keys (hashes hidden)

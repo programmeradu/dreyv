@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/agents/balance/topup — fund the agent's prepaid balance.
  *

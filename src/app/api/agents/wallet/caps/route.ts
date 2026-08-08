@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET  /api/agents/wallet/caps — read current per-user spend caps + 24h spend.
  * PATCH /api/agents/wallet/caps — tighten caps. Loosening (raising any cap)

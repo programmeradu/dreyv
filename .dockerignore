@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.env*
+!.env.production
+*.md
+.vercel
+.open-next
+scripts
+contracts
+programs
+mini-apps
+packages
+supabase
+workers
+.dockerignore
+Dockerfile

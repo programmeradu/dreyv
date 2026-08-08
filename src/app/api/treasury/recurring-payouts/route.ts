@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/treasury/recurring-payouts — payroll/grant schedules per vault.
  *

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * DELETE /api/studio/media/assets/[id]
  * Removes an asset row owned by the current team member. Does NOT delete

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/tier — Returns the user's current tier and all rate limit status.
  * 

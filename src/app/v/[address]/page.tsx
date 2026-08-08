@@ -19,8 +19,6 @@ import { detectAddressKind } from "@/lib/explorer/chain";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "edge";
-
 export async function generateMetadata({ params }: { params: Promise<{ address: string }> }): Promise<Metadata> {
     const { address } = await params;
     const base = getSiteOrigin();

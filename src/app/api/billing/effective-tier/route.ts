@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/billing/effective-tier
  *

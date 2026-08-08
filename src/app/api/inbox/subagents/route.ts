@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/inbox/subagents?wallet=<connected wallet> — list active sub-agents.
  * Wallet-scoped when `wallet` is provided, otherwise workspace-wide.

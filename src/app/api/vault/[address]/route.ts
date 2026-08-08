@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/vault/[address] — Per-vault management.
  *

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/keys — programmatic API-key management for agents.
  *

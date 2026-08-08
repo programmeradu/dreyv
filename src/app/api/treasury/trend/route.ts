@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/treasury/trend?symbols=SOL,USDC&weights=0.7,0.3&range=7d
  *

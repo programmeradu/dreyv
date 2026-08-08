@@ -53,7 +53,6 @@ async function approveDeviceCode(formData: FormData) {
   }
 }
 
-export const runtime = "edge";
 export default async function DevicePage({
   searchParams,
 }: {

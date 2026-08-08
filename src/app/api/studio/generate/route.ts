@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { buildProviderChain, callWithFallback, parseLLMResponse } from "@/lib/studio/ai-provider";
 import { STUDIO_SYSTEM_PROMPT } from "@/lib/studio/system-prompt";

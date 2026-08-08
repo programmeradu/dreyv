@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET  /api/studio/video/tiktok            → returns cached rows + digest
  * POST /api/studio/video/tiktok            → syncs the last N videos via the

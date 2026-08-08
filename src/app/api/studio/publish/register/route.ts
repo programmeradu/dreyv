@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/publish/register — Register a developer wallet for CLI publish.
  *

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import Groq from "groq-sdk";

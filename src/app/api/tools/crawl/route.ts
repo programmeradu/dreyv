@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Cloudflare Browser Rendering /crawl — async multi-page crawl.
  *

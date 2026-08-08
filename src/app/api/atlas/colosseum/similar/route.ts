@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/atlas/colosseum/similar?slug=...&limit=6
  *

@@ -18,8 +18,6 @@ import { getSiteOrigin } from "@/lib/seo/site";
 import { CAPABILITIES, type PublicCapability } from "@/lib/capabilities/registry";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
-
 // One JSON Schema per capability, cached at module init. The spec rebuilds
 // at most once per cold start; we don't pay per request.
 function buildInputSchema(cap: PublicCapability): Record<string, unknown> {

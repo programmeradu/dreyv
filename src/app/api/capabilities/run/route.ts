@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/capabilities/run — executes a single read/meta capability and
  * returns the result. Side-effecting capabilities (write/sim) are blocked

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { runSimulationIR, type SimulationIR, type IRProjectionResult } from "@/lib/foresight/simulation-ir";
 import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";

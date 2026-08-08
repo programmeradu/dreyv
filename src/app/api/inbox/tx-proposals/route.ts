@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET   /api/inbox/tx-proposals?wallet=&status=queued — list HITL tx proposals.
  * PATCH /api/inbox/tx-proposals — { id, action, signature?, errorMessage? }

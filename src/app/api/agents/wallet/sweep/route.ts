@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/agents/wallet/sweep — bearer-authenticated pre-claim wallet drain.
  *

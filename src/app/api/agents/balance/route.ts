@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/agents/balance — read the agent's prepaid USDC balance.
  *

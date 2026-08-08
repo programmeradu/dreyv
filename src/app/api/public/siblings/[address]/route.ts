@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { findSiblings } from "@/lib/explorer/siblings";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";

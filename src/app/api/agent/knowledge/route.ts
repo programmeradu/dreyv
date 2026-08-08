@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 import { knowledgeBase } from "@/lib/knowledge";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";

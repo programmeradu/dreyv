@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/treasury/security — wallet & asset security audit per vault.
  *

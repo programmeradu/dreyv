@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextResponse } from "next/server";
 import { PLAYBOOK_LIBRARY } from "@/lib/lab/playbooks-library";
 

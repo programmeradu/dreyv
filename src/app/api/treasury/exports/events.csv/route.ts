@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * /api/treasury/exports/events.csv?wallet=…&range=30d
  *

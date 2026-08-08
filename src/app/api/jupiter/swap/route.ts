@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest } from "next/server";
 
 // Proxies to Jupiter v6 swap build endpoint to construct a signed-by-program transaction

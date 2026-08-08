@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/agent/deliverables
  *   Lists the signed-in user's agent deliverables (most recent first).

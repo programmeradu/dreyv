@@ -65,7 +65,6 @@ function shortAddr(s?: string | null) {
   return s.length > 14 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s;
 }
 
-export const runtime = "edge";
 export default async function PublicReportPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const r = await fetchReport(token);

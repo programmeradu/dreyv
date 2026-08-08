@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * REST dispatcher: GET/POST /api/v1/<capability/path>
  *

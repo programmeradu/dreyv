@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * Minimal QR-code SVG renderer.
  *

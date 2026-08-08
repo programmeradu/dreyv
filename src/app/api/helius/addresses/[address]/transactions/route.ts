@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/helius/addresses/[address]/transactions?limit=100&before=<signature>&until=<signature>&startTime=<unix>&endTime=<unix>&page=<n>

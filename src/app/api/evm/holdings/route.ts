@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * GET /api/evm/holdings?address=0x…&chain=ethereum|base|arbitrum|polygon|bsc
  *

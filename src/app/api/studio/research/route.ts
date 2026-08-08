@@ -1,4 +1,3 @@
-export const runtime = "edge";
 /**
  * POST /api/studio/research — 4-gun MERGE pipeline (no fallback).
  *
