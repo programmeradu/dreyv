@@ -213,10 +213,17 @@ export function useWallet(): WalletAdapterShape {
 
 export function useConnection(): { connection: Connection } {
   const { endpoint } = useNetwork();
-  const connection = useMemo(
-    () => new Connection(endpoint, "confirmed"),
-    [endpoint]
-  );
+  const connection = useMemo(() => {
+    const defaultWss = "wss://mainnet.helius-rpc.com/?api-key=db37b6d5-ae87-48d0-85e7-69a95445ea9d";
+    const wsEndpoint =
+      typeof process !== "undefined" && process.env.NEXT_PUBLIC_SOLANA_WSS
+        ? process.env.NEXT_PUBLIC_SOLANA_WSS
+        : defaultWss;
+    return new Connection(endpoint, {
+      commitment: "confirmed",
+      wsEndpoint,
+    });
+  }, [endpoint]);
   return { connection };
 }
 
