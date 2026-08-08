@@ -28,10 +28,28 @@ function sanitizeNeonHttpUrl(rawUrl: string): string {
 
 /**
  * Creates or retrieves the cached Drizzle ORM instance for Neon Postgres.
+ * Dynamically resolves process.env.DATABASE_URL and inspects incoming x-dreyv-database-url request headers.
  * Always returns a valid Drizzle client with `.select()`, `.insert()`, `.update()`, and `.query`.
  */
 export function getDb(): DrizzleDb {
-  const envUrl = sanitizeNeonHttpUrl(process.env.DATABASE_URL || '');
+  let envUrl = sanitizeNeonHttpUrl(process.env.DATABASE_URL || '');
+
+  // Hydrate from request headers if unconfigured in Node.js isolate context
+  if (!envUrl && typeof window === 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { headers } = require('next/headers');
+      const h = headers();
+      const headerUrl = typeof h.get === 'function' ? h.get('x-dreyv-database-url') : null;
+      if (headerUrl) {
+        envUrl = sanitizeNeonHttpUrl(headerUrl);
+        process.env.DATABASE_URL = envUrl;
+      }
+    } catch {
+      // Ignore if headers() is called outside request context (e.g. background scripts)
+    }
+  }
+
   const url = envUrl || FALLBACK_URL;
 
   if (_cachedDb && _cachedUrl === url) {
