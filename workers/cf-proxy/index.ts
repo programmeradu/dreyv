@@ -2,7 +2,7 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
- * and proxies non-redirect requests to the Next.js container binding over HTTP with runtime secrets.
+ * forwards Worker runtime secrets to the container, and proxies non-redirect requests over HTTP.
  */
 
 export interface Env {
@@ -29,9 +29,29 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
+      // Collect Worker runtime secrets
+      const secrets: Record<string, string> = {};
+      if (env) {
+        for (const [k, v] of Object.entries(env)) {
+          if (typeof v === "string" && k !== "NEXT_APP") {
+            secrets[k] = v;
+          }
+        }
+      }
+
+      const proxyHeaders = new Headers(request.headers);
+      proxyHeaders.set("x-container-env", JSON.stringify(secrets));
+
+      const proxyReq = new Request(request.url, {
+        method: request.method,
+        headers: proxyHeaders,
+        body: request.body,
+        duplex: "half" as any,
+      });
+
       const id = env.NEXT_APP.idFromName("next-app");
       const stub = env.NEXT_APP.get(id);
-      return await stub.fetch(request);
+      return await stub.fetch(proxyReq);
     } catch (err: any) {
       console.error("CF Proxy main fetch error:", err);
       return new Response(`Proxy Worker Error: ${err?.stack || err?.message || String(err)}`, {
@@ -43,7 +63,7 @@ export default {
 };
 
 export class NextAppContainer {
-  constructor(private readonly state: DurableObjectState, private readonly env: Record<string, any>) {}
+  constructor(private readonly state: DurableObjectState) {}
 
   async fetch(request: Request): Promise<Response> {
     try {
@@ -52,17 +72,16 @@ export class NextAppContainer {
         return new Response("Container binding not available on Durable Object state", { status: 500 });
       }
 
+      let containerEnv: Record<string, string> = {};
+      const envHeader = request.headers.get("x-container-env");
+      if (envHeader) {
+        try {
+          containerEnv = JSON.parse(envHeader);
+        } catch {}
+      }
+
       if (!container.running) {
         try {
-          // Pass Worker runtime secrets down to container process.env
-          const containerEnv: Record<string, string> = {};
-          if (this.env) {
-            for (const [k, v] of Object.entries(this.env)) {
-              if (typeof v === "string" && k !== "NEXT_APP") {
-                containerEnv[k] = v;
-              }
-            }
-          }
           await container.start({ enableInternet: true, env: containerEnv });
         } catch (startErr: any) {
           const msg = String(startErr?.message || startErr);
@@ -74,10 +93,20 @@ export class NextAppContainer {
 
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
 
+      // Clean internal header before passing to container
+      const containerHeaders = new Headers(request.headers);
+      containerHeaders.delete("x-container-env");
+
       // Cloudflare Container TCP sockets expect http:// requests, not https://
       const url = new URL(request.url);
       url.protocol = "http:";
-      const containerReq = new Request(url.toString(), request);
+
+      const containerReq = new Request(url.toString(), {
+        method: request.method,
+        headers: containerHeaders,
+        body: request.body,
+        duplex: "half" as any,
+      });
 
       return await target.fetch(containerReq);
     } catch (err: any) {
