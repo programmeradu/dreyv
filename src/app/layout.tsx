@@ -9,9 +9,6 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { WebMCPProvider } from "@/components/agent/WebMCPProvider";
 import { RootJsonLd } from "@/components/seo/JsonLd";
 import { getSiteUrl } from "@/lib/seo/site";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-
 const siteUrl = getSiteUrl();
 const siteOrigin = siteUrl.origin;
 
@@ -185,8 +182,6 @@ export default function RootLayout({
         <VisualEditsMessenger />
         <ToastContainer />
         <CookieBanner />
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );
