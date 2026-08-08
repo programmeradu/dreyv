@@ -7,7 +7,7 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import { switchPort } from "cloudflare:containers";
+
 
 export interface Env {
   NEXT_APP: DurableObjectNamespace;
@@ -92,12 +92,29 @@ export class NextAppContainer extends DurableObject {
         }
       }
 
-      // Route through official Cloudflare Containers switchPort helper to force plain HTTP on port 8080
+      const target = container.getTcpPort(8080);
+
+      // Use pure http:// string URL so the TCP port fetcher never sees an https:// scheme
+      const reqUrl = new URL(request.url);
+      const targetUrl = `http://127.0.0.1:8080${reqUrl.pathname}${reqUrl.search}`;
+
+      const containerHeaders = new Headers(request.headers);
+      containerHeaders.delete("cf-visitor");
+      containerHeaders.set("x-forwarded-proto", "https");
+      if (!containerHeaders.has("x-forwarded-host")) {
+        containerHeaders.set("x-forwarded-host", "dreyv.com");
+      }
+
+      const fetchInit: RequestInit = { method: request.method, headers: containerHeaders };
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        fetchInit.body = request.body;
+        (fetchInit as any).duplex = "half";
+      }
+
       let lastErr: any = null;
       for (let attempt = 0; attempt < 15; attempt++) {
         try {
-          const httpReq = typeof switchPort === "function" ? switchPort(request, 8080) : request;
-          return await container.fetch(httpReq);
+          return await target.fetch(targetUrl, fetchInit);
         } catch (fetchErr: any) {
           lastErr = fetchErr;
           const msg = String(fetchErr?.message || fetchErr);
