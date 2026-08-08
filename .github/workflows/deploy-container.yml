@@ -12,6 +12,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to Cloudflare Containers
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
