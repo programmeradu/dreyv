@@ -5,8 +5,22 @@
   "compatibility_date": "2024-09-23",
   "containers": [
     {
-      "binding": "NEXT_APP",
+      "class_name": "NextAppContainer",
       "image": "./Dockerfile"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "NEXT_APP",
+        "class_name": "NextAppContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["NextAppContainer"]
     }
   ],
   "routes": [

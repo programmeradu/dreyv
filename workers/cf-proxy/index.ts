@@ -5,13 +5,26 @@
  */
 
 export interface Env {
-  NEXT_APP: {
-    fetch: (request: Request) => Promise<Response>;
-  };
+  NEXT_APP: DurableObjectNamespace;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return env.NEXT_APP.fetch(request);
+    const id = env.NEXT_APP.idFromName("next-app");
+    return env.NEXT_APP.get(id).fetch(request);
   },
 };
+
+export class NextAppContainer {
+  constructor(private readonly state: DurableObjectState) {}
+
+  fetch(request: Request): Promise<Response> {
+    const container = this.state.container;
+    if (!container) {
+      return Promise.resolve(new Response("Container binding not available", { status: 500 }));
+    }
+
+    container.start({ enableInternet: true });
+    return container.getTcpPort(8080).fetch(request);
+  }
+}
