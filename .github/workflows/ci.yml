@@ -1,4 +1,3 @@
-# Production hosting is Vercel only — this workflow validates build/lint on GitHub (no Netlify/Cloudflare deploy steps).
 name: CI
 
 on:
@@ -18,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
