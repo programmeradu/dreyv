@@ -7,6 +7,10 @@
   "observability": {
     "enabled": true
   },
+  "vars": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_APP_URL": "https://dreyv.com"
+  },
   "containers": [
     {
       "class_name": "NextAppContainer",
