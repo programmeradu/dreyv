@@ -3,7 +3,7 @@
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
  * passes edge runtime secrets to container via request headers,
- * and proxies traffic directly to DO container TCP port using pure HTTP string URLs and headers.
+ * and proxies traffic directly to DO container using official Cloudflare Containers localhost URL format.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -32,12 +32,12 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Format pure HTTP URL string for DO stub
-      const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
+      // Format canonical http://localhost URL for DO stub
+      const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.delete("cf-visitor");
-      proxyHeaders.set("x-forwarded-proto", "http");
+      proxyHeaders.set("x-forwarded-proto", "https");
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
@@ -60,8 +60,7 @@ export default {
         (init as any).duplex = "half";
       }
 
-      // Pass string URL directly to stub.fetch to prevent V8 Request HTTPS inheritance
-      const id = env.NEXT_APP.idFromName("dreyv_container_v6");
+      const id = env.NEXT_APP.idFromName("dreyv_container_v7");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(httpUrl, init);
     } catch (err: any) {
@@ -97,15 +96,15 @@ export class NextAppContainer extends DurableObject {
         }
       }
 
-      const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
-
-      // Format pure HTTP URL string for container TCP port (http://127.0.0.1:8080/path)
+      // Format canonical http://localhost URL for Cloudflare Containers proxy
       const url = new URL(request.url);
-      const httpUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
+      const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
       containerHeaders.delete("cf-visitor");
-      containerHeaders.set("x-forwarded-proto", "http");
+      if (!containerHeaders.has("x-forwarded-proto")) {
+        containerHeaders.set("x-forwarded-proto", "https");
+      }
       if (!containerHeaders.has("x-forwarded-host")) {
         containerHeaders.set("x-forwarded-host", "dreyv.com");
       }
@@ -120,15 +119,15 @@ export class NextAppContainer extends DurableObject {
         (init as any).duplex = "half";
       }
 
-      // Poll container TCP port 8080 until Next.js server.js completes cold start
+      // Poll container until Next.js server.js completes cold start
       let lastErr: any = null;
       for (let attempt = 0; attempt < 15; attempt++) {
         try {
-          return await target.fetch(httpUrl, init);
+          return await container.fetch(httpUrl, init);
         } catch (fetchErr: any) {
           lastErr = fetchErr;
           const msg = String(fetchErr?.message || fetchErr);
-          if (attempt < 14 && (msg.includes("Network connection lost") || msg.includes("refused") || msg.includes("reset"))) {
+          if (attempt < 14 && (msg.includes("Network connection lost") || msg.includes("refused") || msg.includes("reset") || msg.includes("not ready"))) {
             await new Promise((r) => setTimeout(r, 1000));
             continue;
           }
