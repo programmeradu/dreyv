@@ -20,6 +20,7 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 const fallbackConfig = createConfig({
   chains,
+  ssr: true,
   transports: {
     [mainnet.id]: http(),
     [base.id]: http(),
