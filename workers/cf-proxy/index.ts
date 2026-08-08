@@ -2,7 +2,7 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
- * rewrites internal protocol to http:// for container DO binding compatibility,
+ * rewrites request URL to http://127.0.0.1:8080 for TCP container binding,
  * and passes x-forwarded-proto/x-forwarded-host to Next.js.
  */
 
@@ -44,11 +44,17 @@ export default {
       proxyHeaders.set("x-container-env", JSON.stringify(secrets));
       proxyHeaders.set("x-forwarded-proto", "https");
       proxyHeaders.set("x-forwarded-host", host);
+      if (!proxyHeaders.has("host")) {
+        proxyHeaders.set("host", host);
+      }
 
-      // Cloudflare Containers internal Durable Object bindings require http:// protocol
-      url.protocol = "http:";
+      // Format URL specifically for Cloudflare Container TCP proxying (http://127.0.0.1:8080)
+      const proxyUrl = new URL(request.url);
+      proxyUrl.protocol = "http:";
+      proxyUrl.hostname = "127.0.0.1";
+      proxyUrl.port = "8080";
 
-      const proxyReq = new Request(url.toString(), {
+      const proxyReq = new Request(proxyUrl.toString(), {
         method: request.method,
         headers: proxyHeaders,
         body: request.body,
@@ -106,11 +112,13 @@ export class NextAppContainer {
         containerHeaders.set("x-forwarded-proto", "https");
       }
 
-      // Cloudflare Container TCP sockets expect http:// requests, not https://
-      const url = new URL(request.url);
-      url.protocol = "http:";
+      // Format URL specifically for Cloudflare Container TCP socket (http://127.0.0.1:8080)
+      const containerUrl = new URL(request.url);
+      containerUrl.protocol = "http:";
+      containerUrl.hostname = "127.0.0.1";
+      containerUrl.port = "8080";
 
-      const containerReq = new Request(url.toString(), {
+      const containerReq = new Request(containerUrl.toString(), {
         method: request.method,
         headers: containerHeaders,
         body: request.body,
