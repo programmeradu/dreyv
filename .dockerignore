@@ -6,7 +6,8 @@ node_modules
 *.md
 .vercel
 .open-next
-scripts
+scripts/*
+!scripts/generate-sdk-types.ts
 contracts
 programs
 mini-apps
