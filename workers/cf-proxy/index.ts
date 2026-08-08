@@ -34,7 +34,17 @@ export class NextAppContainer {
         return new Response("Container binding not available on Durable Object state", { status: 500 });
       }
 
-      await container.start({ enableInternet: true });
+      if (!container.running) {
+        try {
+          await container.start({ enableInternet: true });
+        } catch (startErr: any) {
+          const msg = String(startErr?.message || startErr);
+          if (!msg.includes("already running")) {
+            throw startErr;
+          }
+        }
+      }
+
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
       return await target.fetch(request);
     } catch (err: any) {
