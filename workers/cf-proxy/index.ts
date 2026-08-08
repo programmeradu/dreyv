@@ -2,8 +2,7 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
- * rewrites request URL to pure http://localhost:8080 without V8 Request inheritance,
- * and proxies traffic to the Next.js container TCP port.
+ * passes edge runtime secrets as HTTP headers to container, and proxies traffic to DO container TCP port.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -40,6 +39,14 @@ export default {
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
+      }
+
+      // Pass essential secrets as request headers so warm container processes always hydrate env vars
+      if (env.DATABASE_URL) {
+        proxyHeaders.set("x-dreyv-database-url", String(env.DATABASE_URL));
+      }
+      if (env.JWT_SECRET) {
+        proxyHeaders.set("x-dreyv-jwt-secret", String(env.JWT_SECRET));
       }
 
       const init: RequestInit = {
