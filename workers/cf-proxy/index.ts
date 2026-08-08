@@ -1,10 +1,12 @@
 /**
  * Cloudflare Containers proxy Worker.
  *
- * Receives incoming HTTP requests, performs canonical redirects to https://dreyv.com,
- * rewrites request URL to http://127.0.0.1:8080 for TCP container binding,
- * and passes x-forwarded-proto/x-forwarded-host to Next.js.
+ * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
+ * rewrites request URL to pure http://localhost:8080 without V8 Request inheritance,
+ * and proxies traffic to the Next.js container TCP port.
  */
+
+import { DurableObject } from "cloudflare:workers";
 
 export interface Env {
   NEXT_APP: DurableObjectNamespace;
@@ -30,38 +32,29 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Collect Worker runtime secrets
-      const secrets: Record<string, string> = {};
-      if (env) {
-        for (const [k, v] of Object.entries(env)) {
-          if (typeof v === "string" && k !== "NEXT_APP") {
-            secrets[k] = v;
-          }
-        }
-      }
+      // Format pure HTTP URL for DO stub to avoid workerd C++ HTTPS error
+      const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
-      proxyHeaders.set("x-container-env", JSON.stringify(secrets));
       proxyHeaders.set("x-forwarded-proto", "https");
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
       }
 
-      // Format URL specifically for Cloudflare Container TCP proxying (http://127.0.0.1:8080)
-      const proxyUrl = new URL(request.url);
-      proxyUrl.protocol = "http:";
-      proxyUrl.hostname = "127.0.0.1";
-      proxyUrl.port = "8080";
-
-      const proxyReq = new Request(proxyUrl.toString(), {
+      const init: RequestInit = {
         method: request.method,
         headers: proxyHeaders,
-        body: request.body,
-        duplex: "half" as any,
-      });
+      };
 
-      const id = env.NEXT_APP.idFromName("next-app");
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        init.body = request.body;
+        (init as any).duplex = "half";
+      }
+
+      const proxyReq = new Request(httpUrl, init);
+
+      const id = env.NEXT_APP.idFromName("default");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(proxyReq);
     } catch (err: any) {
@@ -74,56 +67,50 @@ export default {
   },
 };
 
-export class NextAppContainer {
-  constructor(private readonly state: DurableObjectState) {}
-
+export class NextAppContainer extends DurableObject {
   async fetch(request: Request): Promise<Response> {
     try {
-      const container = (this.state as any).container;
+      const container = (this.ctx as any).container || (this as any).state?.container;
       if (!container) {
-        return new Response("Container binding not available on Durable Object state", { status: 500 });
-      }
-
-      let containerEnv: Record<string, string> = {};
-      const envHeader = request.headers.get("x-container-env");
-      if (envHeader) {
-        try {
-          containerEnv = JSON.parse(envHeader);
-        } catch {}
+        return new Response("Container binding not available on Durable Object context", { status: 500 });
       }
 
       if (!container.running) {
         try {
-          await container.start({ enableInternet: true, env: containerEnv });
+          await container.start({ enableInternet: true });
         } catch (startErr: any) {
           const msg = String(startErr?.message || startErr);
           if (!msg.includes("already running")) {
-            throw startErr;
+            console.warn("Container start warning:", msg);
           }
         }
       }
 
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
 
-      // Clean internal header before passing to container
+      // Format pure HTTP URL for container TCP port (http://localhost:8080/path)
+      const url = new URL(request.url);
+      const httpUrl = `http://localhost:8080${url.pathname}${url.search}`;
+
       const containerHeaders = new Headers(request.headers);
-      containerHeaders.delete("x-container-env");
       if (!containerHeaders.has("x-forwarded-proto")) {
         containerHeaders.set("x-forwarded-proto", "https");
       }
+      if (!containerHeaders.has("x-forwarded-host")) {
+        containerHeaders.set("x-forwarded-host", "dreyv.com");
+      }
 
-      // Format URL specifically for Cloudflare Container TCP socket (http://127.0.0.1:8080)
-      const containerUrl = new URL(request.url);
-      containerUrl.protocol = "http:";
-      containerUrl.hostname = "127.0.0.1";
-      containerUrl.port = "8080";
-
-      const containerReq = new Request(containerUrl.toString(), {
+      const init: RequestInit = {
         method: request.method,
         headers: containerHeaders,
-        body: request.body,
-        duplex: "half" as any,
-      });
+      };
+
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        init.body = request.body;
+        (init as any).duplex = "half";
+      }
+
+      const containerReq = new Request(httpUrl, init);
 
       return await target.fetch(containerReq);
     } catch (err: any) {
