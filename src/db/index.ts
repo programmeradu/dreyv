@@ -2,46 +2,37 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@/db/schema';
 
-type DrizzleSchemaDb = ReturnType<typeof drizzle<typeof schema>>;
+export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
+
+const globalForDb = globalThis as unknown as {
+  drizzleDb?: DrizzleDb;
+};
 
 /**
- * Neon Postgres connection via HTTP (serverless-friendly).
- * Dynamic getter prevents module-scope null locking if process.env.DATABASE_URL
- * is set or refreshed after container process initialization.
+ * Creates or retrieves the cached Drizzle ORM instance for Neon Postgres.
  */
-let _cachedDb: DrizzleSchemaDb | null = null;
-let _cachedUrl: string | null = null;
+export function getDb(): DrizzleDb {
+  if (globalForDb.drizzleDb) {
+    return globalForDb.drizzleDb;
+  }
 
-export function getDb(): DrizzleSchemaDb | null {
-  const url = process.env.DATABASE_URL?.replace(/['"\r\n]/g, '').trim();
+  const url = (process.env.DATABASE_URL || '').replace(/['"\r\n]/g, '').trim();
   if (!url) {
-    return null;
+    // If DATABASE_URL is unconfigured at cold start, use fallback client so imports don't crash
+    const dummySql = neon('postgresql://unconfigured:unconfigured@ep-dummy.neon.tech/neondb');
+    return drizzle(dummySql, { schema });
   }
-  if (_cachedDb && _cachedUrl === url) {
-    return _cachedDb;
-  }
-  _cachedUrl = url;
+
   const sql = neon(url);
-  _cachedDb = drizzle(sql, { schema });
-  return _cachedDb;
+  const instance = drizzle(sql, { schema });
+  globalForDb.drizzleDb = instance;
+  return instance;
 }
 
 /**
- * Dynamic Proxy wrapper for `db`.
- * Allows `import { db } from "@/db"` to work transparently while dynamically
- * evaluating process.env.DATABASE_URL on every query access with full schema typing.
+ * Primary database export — standard Drizzle instance (no Proxy collisions).
  */
-export const db: DrizzleSchemaDb = new Proxy({} as any, {
-  get(_target, prop) {
-    const instance = getDb();
-    if (!instance) {
-      return undefined;
-    }
-    const val = Reflect.get(instance, prop, instance);
-    return typeof val === 'function' ? val.bind(instance) : val;
-  },
-});
-
+export const db: DrizzleDb = getDb();
 export type Database = typeof db;
 
 /**

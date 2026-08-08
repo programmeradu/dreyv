@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { db, getDb } from "@/db";
 import { oauthAuthCodes, oauthConsents } from "@/db/schema";
 import { getClient, redirectUriAllowed } from "@/lib/oauth/clients";
 import { parseScopeString, scopesEqual, type OAuthScope } from "@/lib/oauth/scopes";
@@ -94,8 +94,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Already-consented? Auto-approve.
-    if (db) {
-      const [existing] = await db
+    const database = getDb();
+    if (database) {
+      const [existing] = await database
         .select()
         .from(oauthConsents)
         .where(and(eq(oauthConsents.userId, user.id), eq(oauthConsents.clientId, clientId)))
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
 
       if (existing && scopes.every((s) => existing.scopes.includes(s))) {
         const code = `doa_${randomBytes(32).toString("base64url")}`;
-        await db.insert(oauthAuthCodes).values({
+        await database.insert(oauthAuthCodes).values({
           codeHash: hashToken(code),
           clientId,
           userId: user.id,
@@ -175,10 +176,11 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    if (!db) return htmlError(500, "Database unavailable.");
+    const database = getDb();
+    if (!database) return htmlError(500, "Database unavailable.");
 
     // Persist consent for next time.
-    await db
+    await database
       .insert(oauthConsents)
       .values({
         userId: user.id,
@@ -191,7 +193,7 @@ export async function POST(req: NextRequest) {
       });
 
     const code = `doa_${randomBytes(32).toString("base64url")}`;
-    await db.insert(oauthAuthCodes).values({
+    await database.insert(oauthAuthCodes).values({
       codeHash: hashToken(code),
       clientId: pending.client_id,
       userId: user.id,

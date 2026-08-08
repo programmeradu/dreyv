@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, getDb } from "@/db";
 import { oauthClients, oauthRegistrationAttempts } from "@/db/schema";
 import { OAUTH_SCOPES, type OAuthScope } from "@/lib/oauth/scopes";
 
@@ -81,16 +81,17 @@ function isValidRedirectUri(raw: string, allowLoopback: boolean): boolean {
 const REGISTRATION_DAILY_CAP = 50;
 
 export async function bumpRegistrationCounter(ip: string): Promise<number> {
-  if (!db) return 0;
+  const database = getDb();
+  if (!database) return 0;
   const today = new Date().toISOString().slice(0, 10);
-  await db
+  await database
     .insert(oauthRegistrationAttempts)
     .values({ ip, day: today, count: 1 })
     .onConflictDoUpdate({
       target: [oauthRegistrationAttempts.ip, oauthRegistrationAttempts.day],
       set: { count: sql`${oauthRegistrationAttempts.count} + 1` },
     });
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(oauthRegistrationAttempts)
     .where(
@@ -107,7 +108,8 @@ export async function registerClient(
   req: RegistrationRequest,
   meta: { ip: string; createdByUserId?: string | null },
 ): Promise<{ ok: true; client: RegisteredClient } | { ok: false; error: string; description: string }> {
-  if (!db) return { ok: false, error: "server_error", description: "Database unavailable" };
+  const database = getDb();
+  if (!database) return { ok: false, error: "server_error", description: "Database unavailable" };
 
   if (!Array.isArray(req.redirect_uris) || req.redirect_uris.length === 0) {
     return { ok: false, error: "invalid_redirect_uri", description: "redirect_uris is required" };
@@ -166,7 +168,7 @@ export async function registerClient(
       ? req.client_name.trim().slice(0, 160)
       : "Untitled MCP Client";
 
-  await db.insert(oauthClients).values({
+  await database.insert(oauthClients).values({
     clientId,
     clientSecretHash: clientSecret ? hash(clientSecret) : null,
     clientName,
@@ -204,8 +206,9 @@ export async function registerClient(
 }
 
 export async function getClient(clientId: string) {
-  if (!db) return null;
-  const [row] = await db
+  const database = getDb();
+  if (!database) return null;
+  const [row] = await database
     .select()
     .from(oauthClients)
     .where(eq(oauthClients.clientId, clientId))
