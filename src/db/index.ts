@@ -4,35 +4,44 @@ import * as schema from '@/db/schema';
 
 export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
-const globalForDb = globalThis as unknown as {
-  drizzleDb?: DrizzleDb;
-};
+let _cachedDb: DrizzleDb | null = null;
+let _cachedUrl: string | null = null;
 
 /**
  * Creates or retrieves the cached Drizzle ORM instance for Neon Postgres.
+ * Dynamically re-evaluates process.env.DATABASE_URL if updated after process boot.
  */
 export function getDb(): DrizzleDb {
-  if (globalForDb.drizzleDb) {
-    return globalForDb.drizzleDb;
-  }
-
   const url = (process.env.DATABASE_URL || '').replace(/['"\r\n]/g, '').trim();
   if (!url) {
-    // If DATABASE_URL is unconfigured at cold start, use fallback client so imports don't crash
+    // Return dummy client if unconfigured to prevent module load crash
     const dummySql = neon('postgresql://unconfigured:unconfigured@ep-dummy.neon.tech/neondb');
     return drizzle(dummySql, { schema });
   }
 
+  if (_cachedDb && _cachedUrl === url) {
+    return _cachedDb;
+  }
+
   const sql = neon(url);
-  const instance = drizzle(sql, { schema });
-  globalForDb.drizzleDb = instance;
-  return instance;
+  _cachedDb = drizzle(sql, { schema });
+  _cachedUrl = url;
+  return _cachedDb;
 }
 
 /**
- * Primary database export — standard Drizzle instance (no Proxy collisions).
+ * Primary database export — dynamic Proxy wrapping a function target.
+ * Resolves process.env.DATABASE_URL dynamically per query while remaining 100%
+ * compatible with Webpack bundling, `.select()`, `.insert()`, and `.query`.
  */
-export const db: DrizzleDb = getDb();
+export const db: DrizzleDb = new Proxy(function () {} as any, {
+  get(_target, prop) {
+    const realDb = getDb();
+    const val = (realDb as any)[prop];
+    return typeof val === 'function' ? val.bind(realDb) : val;
+  },
+});
+
 export type Database = typeof db;
 
 /**
