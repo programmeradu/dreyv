@@ -16,7 +16,6 @@ import { requireTeamMember } from "@/lib/media-studio/access";
 import { brandSystemPrompt, DREYV_BRAND, type Channel, type AssetKind } from "@/lib/media-studio/brand";
 import { chatJson } from "@/lib/media-studio/ai";
 
-export const runtime = "edge";
 export const maxDuration = 60;
 
 const SCHEMA = {

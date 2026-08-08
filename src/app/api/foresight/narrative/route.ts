@@ -12,7 +12,6 @@ import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface NarrativeBody {

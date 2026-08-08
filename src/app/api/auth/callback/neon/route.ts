@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth/server';
-export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
     const { origin } = new URL(request.url);

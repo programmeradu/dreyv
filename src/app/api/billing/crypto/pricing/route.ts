@@ -7,7 +7,6 @@
  */
 import { NextResponse } from "next/server";
 import { usdPriceFor } from "@/lib/billing/crypto-pricing";
-export const runtime = "edge";
 
 export async function GET() {
     return NextResponse.json({

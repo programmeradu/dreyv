@@ -3,7 +3,6 @@ import { desc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { artifactFailures } from "@/db/schema";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /**

@@ -16,7 +16,6 @@ import { maybeDraftSniperBuy } from "@/lib/agents/dacs/sniper";
 import type { HeliusEnhancedTx } from "@/lib/agents/artifacts/helius";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 function classify(tx: any): ChainEvent["type"] {
   const t = String(tx?.type || "").toUpperCase();

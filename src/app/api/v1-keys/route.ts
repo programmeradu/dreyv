@@ -20,7 +20,6 @@ import {
 } from "@/lib/api-keys/public-keys";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser(req);

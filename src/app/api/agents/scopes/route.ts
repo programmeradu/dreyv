@@ -27,7 +27,6 @@ import {
 } from "@/lib/api-keys/public-keys";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const VALID = new Set<string>(ALL_SCOPES as readonly string[]);
 

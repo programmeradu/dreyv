@@ -10,7 +10,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getHandoff } from "@/lib/mcp/handoff-store";
 import { getSiteOrigin } from "@/lib/seo/site";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

@@ -11,7 +11,6 @@ import { agentApiKeys } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { mintAgentKey } from "@/lib/agent/api-keys";
 
-export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
     const user = await getAuthUser(req);

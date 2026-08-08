@@ -17,7 +17,6 @@ import { resolveUserIdFromWallet, insertTxProposal } from "@/lib/agents/brains/s
 import { getAuthUser } from "@/lib/auth-utils";
 import type { NextRequest } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface Recipient { address: string; amount: number; label?: string }

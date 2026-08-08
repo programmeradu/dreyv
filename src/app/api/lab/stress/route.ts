@@ -3,7 +3,6 @@ import { resolveAddressPositions } from "@/lib/lab/positions";
 import { runStress } from "@/lib/lab/engine";
 import type { LabScenario, LabScenarioKind } from "@/lib/lab/types";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const PRESETS: Record<string, LabScenario> = {

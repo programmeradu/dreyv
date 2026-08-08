@@ -9,7 +9,6 @@ import { users } from "@/db/schema";
 import { verifyAccessToken } from "@/lib/oauth/tokens";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   const h = req.headers.get("authorization");

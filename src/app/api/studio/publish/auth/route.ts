@@ -8,7 +8,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
-export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
   const rateLimit = await checkRouteLimit(request, "marketplace_listings");

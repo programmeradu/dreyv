@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-export const runtime = "edge";
 
 // GET /api/helius/addresses/[address]/transactions?limit=100&before=<signature>&until=<signature>&startTime=<unix>&endTime=<unix>&page=<n>
 // Proxies to Helius Parsed Transaction History API:

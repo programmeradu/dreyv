@@ -8,7 +8,6 @@ import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 import { waitlistSubmissionSchema } from "@/lib/waitlist/schema";
 import { sendWaitlistConfirmationEmail } from "@/lib/email-service";
 
-export const runtime = "edge";
 
 function hashIp(req: NextRequest): string {
   const ip =

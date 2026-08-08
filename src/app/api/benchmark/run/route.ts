@@ -17,7 +17,6 @@ import { runJudge, scoreDeterministic } from "@/lib/benchmark/judge";
 import { BENCHMARK_TOOLS } from "@/lib/benchmark/tools";
 import { buildLiveVaultSnapshot, renderVaultContext } from "@/lib/benchmark/vault-live";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

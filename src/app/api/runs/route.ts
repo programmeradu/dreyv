@@ -6,7 +6,6 @@ import { randomBytes } from 'crypto';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
 import { checkRouteLimit } from '@/lib/rate-limit-middleware';
 import { jwtVerify } from 'jose';
-export const runtime = "edge";
 
 function generateShortId(): string {
   const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

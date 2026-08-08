@@ -13,7 +13,6 @@ import { db } from "@/db";
 import { agentPayments, cryptoInvoices } from "@/db/schema";
 import { extractBearer, resolveAgentKey } from "@/lib/agent/api-keys";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(

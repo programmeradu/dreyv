@@ -6,7 +6,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { revokeByToken } from "@/lib/oauth/tokens";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();

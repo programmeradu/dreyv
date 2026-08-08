@@ -4,7 +4,6 @@ import { sql } from "drizzle-orm";
 import { protocolFees, users } from "@/db/schema";
 import { jwtVerify } from "jose";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getAdminToken(req: NextRequest) {

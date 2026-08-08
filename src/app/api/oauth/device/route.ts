@@ -13,7 +13,6 @@ import { hashToken } from "@/lib/oauth/tokens";
 import { getSiteOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 function userCode(): string {

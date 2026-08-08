@@ -16,7 +16,6 @@ import { db } from "@/db";
 import { rateLimits, users } from "@/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

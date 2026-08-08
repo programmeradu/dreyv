@@ -14,7 +14,6 @@ import { neon } from "@neondatabase/serverless";
 import { getAuthUser } from "@/lib/auth-utils";
 import type { NextRequest } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RANGE_DAYS: Record<string, number> = {

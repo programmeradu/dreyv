@@ -9,7 +9,6 @@ import { db } from "@/db";
 import { agentApiKeys, agentDeliverables, agentPayments } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(

@@ -14,7 +14,6 @@ import { and, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 import { errors } from "@/lib/api-error";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 async function loadOwnedVault(userId: string, address: string) {

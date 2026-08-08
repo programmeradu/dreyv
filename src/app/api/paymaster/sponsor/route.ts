@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { sponsorTransaction, getPaymasterInfo } from "@/lib/paymaster/kora";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /**

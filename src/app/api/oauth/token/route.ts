@@ -17,7 +17,6 @@ import { verifyS256 } from "@/lib/oauth/pkce";
 import { consumeRefreshToken, hashToken, issueTokens } from "@/lib/oauth/tokens";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

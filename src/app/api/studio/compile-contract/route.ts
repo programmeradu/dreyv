@@ -11,7 +11,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-export const runtime = "edge";
 
 async function getExecAsync() {
   const childProcess = await import("node:child_process").catch(() => null);

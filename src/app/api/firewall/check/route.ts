@@ -24,7 +24,6 @@ import { DEFAULT_POLICY, FirewallBlockedError, evaluate } from "@/lib/firewall/p
 import { scoreAddresses, worstOfMap, isWebacyEnabled } from "@/lib/webacy/service";
 import { VersionedTransaction } from "@solana/web3.js";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {

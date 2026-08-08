@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { learnInputs, learnKeywords, learnSuggestions, learnClicks } from '@/db/schema';
 import { eq, gte } from 'drizzle-orm';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
-export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {

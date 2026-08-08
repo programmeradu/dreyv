@@ -5,7 +5,6 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { isValidBillingEmail } from "@/lib/billing-email";
 import { getPaystackSecret, paystackInitializeOneTime } from "@/lib/paystack";
-export const runtime = "edge";
 
 /**
  * POST /api/billing/topup/paystack

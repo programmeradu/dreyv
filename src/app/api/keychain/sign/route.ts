@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { sign, type KeychainBackend } from "@/lib/keychain";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_BACKENDS: KeychainBackend[] = ["custodial", "turnkey", "squads"];

@@ -13,7 +13,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Channel } from "@/lib/media-studio/brand";
 
-export const runtime = "edge";
 export const maxDuration = 60;
 
 type Pose = "greet" | "think" | "celebrate" | "alert";

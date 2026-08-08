@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { pdf } from "@/lib/cloudflare/cf-browser";
-export const runtime = "edge";
 
 const KEYSTONE_FOOTER = `
 <div style="font-size:8px; color:#666; width:100%; text-align:center; padding:5px 0;">

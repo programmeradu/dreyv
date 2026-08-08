@@ -21,7 +21,6 @@ import {
   type DnsAidRecord,
 } from "@/lib/dns-aid/records";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const CF_BASE = "https://api.cloudflare.com/client/v4";

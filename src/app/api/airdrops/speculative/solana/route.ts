@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-export const runtime = "edge";
 
 const SOURCE_URL = "https://airdrops.io/speculative/solana/";
 

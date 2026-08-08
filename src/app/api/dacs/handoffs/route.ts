@@ -13,7 +13,6 @@ import { and, desc, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 import type { NextRequest } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

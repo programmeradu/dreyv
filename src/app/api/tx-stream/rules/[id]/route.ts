@@ -8,7 +8,6 @@ import { txCategoryRules } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const PatchBody = z.object({

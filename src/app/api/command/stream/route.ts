@@ -17,7 +17,6 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import { getAuthUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const POLL_INTERVAL_MS = 4_000;
 const MAX_DURATION_MS = 50_000; // serverless safe

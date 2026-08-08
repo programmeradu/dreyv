@@ -4,7 +4,6 @@ import { jwtVerify } from "jose";
 import { db } from "@/db";
 import { vaults, teamMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-export const runtime = "edge";
 
 const SIWS_COOKIE = "keystone-siws-session";
 const NEON_AUTH_COOKIE_NAMES = [

@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-export const runtime = "edge";
 
 // Lightweight proxy to DefiLlama Yields API without using @defillama/sdk
 // Docs/reference endpoints:

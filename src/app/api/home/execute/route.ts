@@ -21,7 +21,6 @@ import { lovableJson } from "@/lib/lovable-ai-proxy";
  * and a `requires_auth` flag indicating which buttons should gate sign-in.
  */
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

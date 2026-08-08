@@ -3,7 +3,6 @@ import { resolveAddressPositions, fetchCurrentApys } from "@/lib/lab/positions";
 import { fetchManyHistories } from "@/lib/lab/prices";
 import { computeHindsight } from "@/lib/lab/engine";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

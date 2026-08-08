@@ -11,7 +11,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { EVM_ENABLED } from "@/lib/feature-flags";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

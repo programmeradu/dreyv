@@ -13,7 +13,6 @@ import { getOrCreateColdWallet } from "@/lib/agent/cold-wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { getWalletBalances } from "@/lib/agent/wallet";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

@@ -10,7 +10,6 @@ import { db } from "@/db";
 import { mediaStudioAssets } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
-export const runtime = "edge";
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const gate = await requireTeamMember(req);

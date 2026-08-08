@@ -3,7 +3,6 @@ import { db } from "@/db/index";
 import { teamActivityLog, users, vaults, teamMembers } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { jwtVerify } from "jose";
-export const runtime = "edge";
 
 async function getAuthUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('keystone-siws-session')?.value;

@@ -23,7 +23,6 @@ import {
 import { getMcpHandler } from "@/lib/mcp/server";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 // MCP messages can be up to a few MB once tools/list is included.
 export const maxDuration = 60;
 

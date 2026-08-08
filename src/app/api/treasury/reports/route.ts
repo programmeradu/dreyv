@@ -21,7 +21,6 @@ import { resolveUserIdFromWallet } from "@/lib/agents/brains/storage";
 import { getAuthUser } from "@/lib/auth-utils";
 import { requireTier } from "@/lib/billing/require-tier";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function newToken() {

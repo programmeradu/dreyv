@@ -6,7 +6,6 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { getProvider } from "@/lib/dreyv-gateway/providers";
 import { openSecrets } from "@/lib/dreyv-gateway/secrets-store";
 import { checkRate } from "@/lib/dreyv-gateway/rate-limit";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

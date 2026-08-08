@@ -10,7 +10,6 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { agentPayments, cryptoInvoices } from "@/db/schema";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(

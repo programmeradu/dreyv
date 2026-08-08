@@ -12,7 +12,6 @@ import { getAuthUser } from "@/lib/auth-utils";
 import { CAPABILITIES } from "@/lib/capabilities/registry";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const REGISTRY = new Map(CAPABILITIES.map((c) => [c.id, c]));
 

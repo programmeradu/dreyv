@@ -10,7 +10,6 @@
 
 import { NextResponse } from "next/server";
 
-export const runtime = "edge";
 export const revalidate = 0;
 
 let cache: { ts: number; payload: any } | null = null;

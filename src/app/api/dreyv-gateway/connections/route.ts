@@ -5,7 +5,6 @@ import { dreyvConnections } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { getProvider, listProvidersPublic } from "@/lib/dreyv-gateway/providers";
 import { sealSecrets } from "@/lib/dreyv-gateway/secrets-store";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

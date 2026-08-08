@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPaymasterInfo } from "@/lib/paymaster/kora";
 import { getSiteOrigin } from "@/lib/seo/site";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

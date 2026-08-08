@@ -22,7 +22,6 @@ import {
   sendOnboardingDay7Email,
 } from '@/lib/email-service';
 
-export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

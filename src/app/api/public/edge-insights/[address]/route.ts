@@ -21,7 +21,6 @@ import { buildFeaturePack } from "@/lib/explorer/feature-pack";
 import { getEnhancedTransactions, type EnhancedTx } from "@/lib/explorer/helius-tx";
 import { getCurrentPricesUsd, getSolUsdPrice } from "@/lib/explorer/jupiter-price";
 import { lookupSolanaLabel } from "@/lib/explorer/labels";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

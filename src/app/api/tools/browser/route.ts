@@ -28,7 +28,6 @@ import {
     cancelCrawl,
 } from "@/lib/cloudflare/cf-browser";
 
-export const runtime = "edge";
 
 export const maxDuration = 60;
 

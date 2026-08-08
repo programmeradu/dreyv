@@ -17,7 +17,6 @@ import { eq, desc } from "drizzle-orm";
 import { resolveUserIdFromWallet } from "@/lib/agents/brains/storage";
 import { publicRateLimitOrResponse } from "@/lib/public-rate-limit";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

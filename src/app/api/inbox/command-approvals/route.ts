@@ -21,7 +21,6 @@ import { capabilityRegistry } from "@/lib/agents/capabilities/registry";
 import type { CapabilityContext, ExecutionState } from "@/lib/agents/capabilities/types";
 import type { Plan, RouteDecision } from "@/lib/agents/dacs/types";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const TABLE_MISSING = /relation .*command_approvals.* does not exist/i;

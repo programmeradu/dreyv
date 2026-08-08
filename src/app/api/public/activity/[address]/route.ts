@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEnhancedTransactions } from "@/lib/explorer/helius-tx";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

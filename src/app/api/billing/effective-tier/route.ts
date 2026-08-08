@@ -10,7 +10,6 @@ import { getUserTier } from "@/lib/agents/policy/tier-gate";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

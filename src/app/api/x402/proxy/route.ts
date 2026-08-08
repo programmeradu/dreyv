@@ -50,7 +50,6 @@ import {
   MIN_SOL_LAMPORTS_FOR_TX,
 } from "@/lib/agent/wallet";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

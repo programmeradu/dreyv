@@ -7,7 +7,6 @@ import { decryptKeypair } from "@/lib/keypair-envelope";
 import bs58 from "bs58";
 import { Keypair } from "@solana/web3.js";
 import { sendExecutionNotification, getSplTokenBalance } from "@/lib/dca/notify";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes max execution time

@@ -9,7 +9,6 @@ import {
     verifyPaystackWebhookSignature,
 } from "@/lib/paystack";
 
-export const runtime = "edge";
 
 const HANDLED = new Set([
     "charge.success",

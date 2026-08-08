@@ -8,7 +8,6 @@ import { db } from "@/db";
 import { monitors } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const Body = z.object({

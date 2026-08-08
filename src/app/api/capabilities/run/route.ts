@@ -9,7 +9,6 @@
 import { NextResponse } from "next/server";
 import { getCapability } from "@/lib/agents/capabilities/registry";
 import type { CapabilityContext } from "@/lib/agents/capabilities/types";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

@@ -15,7 +15,6 @@ import { dacsHandoffs } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { jwtVerify } from "jose";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 async function requireAdmin(req: NextRequest) {

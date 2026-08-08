@@ -14,7 +14,6 @@ import {
   summarizeRecentActions,
 } from "@/lib/agents/capabilities/app-control";
 
-export const runtime = "edge";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,

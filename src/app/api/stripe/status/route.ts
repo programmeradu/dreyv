@@ -10,7 +10,6 @@ import { eq } from "drizzle-orm";
  *   and reconciles users.tier. Otherwise, looks up the Stripe customer by
  *   email and reports their highest active subscription tier.
  */
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 type Tier = "free" | "mini" | "max";

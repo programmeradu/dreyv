@@ -25,7 +25,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CAPABILITIES } from "@/lib/capabilities/registry";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // Default per-call billing — kept in sync with src/app/api/v1/[...slug]/route.ts.

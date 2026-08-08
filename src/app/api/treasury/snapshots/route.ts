@@ -19,7 +19,6 @@ import { resolveUserIdFromWallet } from "@/lib/agents/brains/storage";
 import { getAuthUser } from "@/lib/auth-utils";
 import type { NextRequest } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RANGE_MS: Record<string, number | null> = {

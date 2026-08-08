@@ -6,7 +6,6 @@ import { getAuthUser } from '@/lib/auth-utils';
 import { hasMinRole, isValidRole } from '@/lib/rbac';
 import { sendTeamInviteEmail } from '@/lib/email-service';
 import crypto from 'crypto';
-export const runtime = "edge";
 
 /**
  * POST /api/team/[id]/invite

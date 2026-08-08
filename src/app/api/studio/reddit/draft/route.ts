@@ -28,7 +28,6 @@ import { brandSystemPrompt } from "@/lib/media-studio/brand";
 import { DREYV_DEV_SURFACE } from "@/lib/media-studio/developers-context";
 import { chatJson } from "@/lib/media-studio/ai";
 
-export const runtime = "edge";
 export const maxDuration = 60;
 
 const SCHEMA = {

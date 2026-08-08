@@ -23,7 +23,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { irFromSimulation } from "@/lib/foresight/ir-adapter";
 import { DashboardIRSchema } from "@/lib/foresight/ir";
 
-export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   try {

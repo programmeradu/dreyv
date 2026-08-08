@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-utils';
 import { sendWelcomeEmail, sendTeamInviteEmail } from '@/lib/email-service';
-export const runtime = "edge";
 
 /**
  * POST /api/onboarding/complete-emails

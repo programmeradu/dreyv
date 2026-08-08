@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

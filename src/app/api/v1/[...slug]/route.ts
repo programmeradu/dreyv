@@ -27,7 +27,6 @@ import { CapabilityError } from "@/lib/capabilities/handlers";
 import { chargeAgentBalance, getAgentBalance, ensureStarterGrant, minorToUsd } from "@/lib/agent/balance";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 // Per-call price in USDC minor units (6 decimals). Defaults to $0.001/call.
 // Override per-capability via `cost` on the registry entry (also in minor units),

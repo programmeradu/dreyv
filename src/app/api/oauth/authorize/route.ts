@@ -23,7 +23,6 @@ import {
 import { getSiteOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 function errRedirect(redirectUri: string, error: string, description: string, state?: string) {
   const u = new URL(redirectUri);

@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMcpManifest } from "@/lib/mcp/server";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 export function GET(req: NextRequest) {
   const origin = new URL(req.url).origin;

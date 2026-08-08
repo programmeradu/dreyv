@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { jwtVerify } from 'jose';
-export const runtime = "edge";
 
 const SIWS_COOKIE = 'keystone-siws-session';
 

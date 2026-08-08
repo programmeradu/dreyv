@@ -24,7 +24,6 @@ import { extractBearer, resolvePublicKey } from "@/lib/api-keys/public-keys";
 import { getSiteOrigin } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 const CLAIM_TTL_SECONDS = 10 * 60;
 

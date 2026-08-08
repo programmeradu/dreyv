@@ -17,7 +17,6 @@ import { TX_STREAM_FUNCTIONS } from "@/lib/agents/tx-stream/functions";
 import { TREASURY_WATCHERS } from "@/lib/agents/treasury/watchers";
 import { studioVideoRender } from "@/lib/agents/studio-video";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

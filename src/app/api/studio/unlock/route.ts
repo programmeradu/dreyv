@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STUDIO_PASS_COOKIE, STUDIO_PASS_VALUE } from "@/lib/media-studio/access";
 
-export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json().catch(() => ({ password: "" }));

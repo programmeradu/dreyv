@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { alerts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { checkDatabaseAvailability } from '@/lib/db-utils';
-export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
   try {

@@ -23,7 +23,6 @@ import {
 } from "@/lib/api-keys/public-keys";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 function canManageKeys(scopes: string[]): boolean {
   // OAuth tokens get this when they include `mcp` (resolvePublicKey doesn't expand

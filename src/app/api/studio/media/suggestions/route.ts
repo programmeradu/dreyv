@@ -4,7 +4,6 @@ import { brandSystemPrompt } from "@/lib/media-studio/brand";
 import { chatJson } from "@/lib/media-studio/ai";
 import type { ContentSuggestion } from "@/lib/media-studio/types";
 
-export const runtime = "edge";
 export const maxDuration = 60;
 
 const FALLBACK_SUGGESTIONS: ContentSuggestion[] = [

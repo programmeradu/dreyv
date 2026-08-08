@@ -12,7 +12,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { jsonExtract } from "@/lib/cloudflare/cf-browser";
-export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
     try {

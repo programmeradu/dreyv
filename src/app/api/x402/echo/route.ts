@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSiteOrigin } from "@/lib/seo/site";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

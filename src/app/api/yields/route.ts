@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-export const runtime = "edge";
 
 // GET /api/yields?asset=USDC&chain=ethereum
 // Uses DeFiLlama Yields API and returns top pools for the asset/chain

@@ -16,7 +16,6 @@ import { db } from "@/db";
 import { teamInvitations, teamMembers, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
-export const runtime = "edge";
 
 const CONNECTION = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("mainnet-beta"));
 

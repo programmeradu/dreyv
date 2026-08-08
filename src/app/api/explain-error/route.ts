@@ -5,7 +5,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { explainError } from "@/lib/llm/error-explainer";
 
-export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   try {

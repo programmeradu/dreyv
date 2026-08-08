@@ -5,7 +5,6 @@ import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
 import { sendNotificationEmail } from '@/lib/email-service';
 import { fanOutNotification } from '@/lib/notification-delivery';
-export const runtime = "edge";
 
 /**
  * POST /api/notifications/send

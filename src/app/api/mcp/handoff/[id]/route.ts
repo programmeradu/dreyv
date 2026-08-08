@@ -7,7 +7,6 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getHandoff, markHandoffSigned, rejectHandoff } from "@/lib/mcp/handoff-store";
-export const runtime = "edge";
 
 export const dynamic = "force-dynamic";
 

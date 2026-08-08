@@ -10,7 +10,6 @@ import {
 } from '@/lib/email-service';
 import { stampSent } from '@/lib/email-eligibility';
 
-export const runtime = "edge";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;

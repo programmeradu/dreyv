@@ -23,7 +23,6 @@ import { db } from "@/db";
 import { userAgentPolicy } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface Suggestion {

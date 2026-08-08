@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { ATLAS_TOOL_MANIFEST } from "@/lib/atlas-tool-manifest";
 import { checkRouteLimit } from "@/lib/rate-limit-middleware";
 import { saveConversation, type AtlasMessage } from "@/lib/atlas-session";
-export const runtime = "edge";
 
 // Helper function to call the underlying AI provider and handle responses
 async function callLLM(origin: string, prompt: string, provider: "groq" | "github") {

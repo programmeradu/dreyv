@@ -4,7 +4,6 @@ import { neon } from '@neondatabase/serverless';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-export const runtime = "edge";
 
 const COOKIE_NAME = 'keystone-siws-session';
 const OAUTH_STATE_COOKIE = 'keystone-oauth-state';

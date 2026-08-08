@@ -11,7 +11,6 @@ import { agentDeliverables } from "@/db/schema";
 import { getAuthUser } from "@/lib/auth-utils";
 import { resendDeliverableEmail } from "@/lib/agent/deliverables";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function POST(

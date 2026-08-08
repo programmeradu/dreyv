@@ -12,7 +12,6 @@ import {
 } from '@solana/spl-token';
 import { getConnection } from '@/lib/solana-rpc';
 
-export const runtime = "edge";
 
 interface DelegationRequest {
   walletAddress: string;

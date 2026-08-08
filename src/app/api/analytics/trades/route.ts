@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 // Convert URLSearchParams to a plain JSON object

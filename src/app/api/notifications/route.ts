@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { notifications } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth-utils';
-export const runtime = "edge";
 
 /**
  * GET /api/notifications

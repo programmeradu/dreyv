@@ -20,7 +20,6 @@ import { findJupiterEarnMarket, earnApyPct } from "@/lib/agents/capabilities/jup
 import { getAuthUser } from "@/lib/auth-utils";
 import type { NextRequest } from "next/server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const RPC =

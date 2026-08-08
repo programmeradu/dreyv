@@ -19,7 +19,6 @@ import {
   type UpsertPolicyInput,
 } from "@/lib/agents/dacs/policy-store";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

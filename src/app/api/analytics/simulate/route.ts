@@ -4,7 +4,6 @@ import { enrichIRWithScenarioAssets } from "@/lib/foresight/token-market";
 import { db } from "@/db";
 import { treasurySnapshots } from "@/db/schema";
 import { and, eq, gte } from "drizzle-orm";
-export const runtime = "edge";
 
 /**
  * /api/analytics/simulate

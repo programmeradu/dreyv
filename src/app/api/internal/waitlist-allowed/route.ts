@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { users, waitlistEntries } from "@/db/schema";
 import { checkDatabaseAvailability } from "@/lib/db-utils";
 
-export const runtime = "edge";
 
 /**
  * GET /api/internal/waitlist-allowed?email=...

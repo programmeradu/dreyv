@@ -8,7 +8,6 @@ import { randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { publicApiStatusPages, publicApiStatusSubscribers } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-export const runtime = "edge";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

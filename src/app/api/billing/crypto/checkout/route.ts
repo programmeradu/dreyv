@@ -9,7 +9,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUser } from "@/lib/auth-utils";
 import { mintCryptoInvoice } from "@/lib/billing/crypto-invoice";
-export const runtime = "edge";
 
 const Body = z.object({
     tier: z.enum(["mini", "max"]),

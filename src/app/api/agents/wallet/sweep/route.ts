@@ -19,7 +19,6 @@ import { sweepHostedWallet } from "@/lib/agent/wallet";
 import { tokenFor } from "@/lib/billing/crypto-config";
 import { decryptKeypair } from "@/lib/keypair-envelope";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

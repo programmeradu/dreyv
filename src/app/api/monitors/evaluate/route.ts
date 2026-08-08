@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { monitors, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-export const runtime = "edge";
 
 const TOKEN_MINTS: Record<string, string> = {
   SOL: "So11111111111111111111111111111111111111112",

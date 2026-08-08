@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-export const runtime = "edge";
 
 // Solana-native NLP parser for Strategy Lab
 // Maps natural language → { action, amount, asset, venue, confidence }
