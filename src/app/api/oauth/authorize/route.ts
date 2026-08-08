@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 
     // Render consent. Persist the full request in a signed cookie keyed by id.
     const requestId = `req_${randomBytes(12).toString("base64url")}`;
-    const { cookie } = await signPendingRequest({
+    const { cookie } = await signPendingRequest(req, {
       request_id: requestId,
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const decision = String(form.get("decision") ?? "deny");
     const cookieValue = req.cookies.get(PENDING_REQUEST_COOKIE)?.value;
-    const pending = await readPendingRequest(cookieValue);
+    const pending = await readPendingRequest(req, cookieValue);
     if (!pending) return htmlError(400, "Authorization request expired. Please start over from your MCP client.");
 
     const user = await getOAuthUser();

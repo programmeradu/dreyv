@@ -13,8 +13,9 @@ import { SignJWT, jwtVerify } from "jose";
 const COOKIE_NAME = "dreyv-oauth-req";
 const TTL_SECONDS = 600;
 
-function secret(): Uint8Array {
-  const s = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "dreyv-oauth-secret-fallback-2026";
+function secret(req?: Request): Uint8Array {
+  const headerSecret = req?.headers.get("x-dreyv-jwt-secret");
+  const s = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "dreyv-oauth-secret-fallback-2026";
   return new TextEncoder().encode(s);
 }
 
@@ -31,7 +32,7 @@ export interface PendingAuthRequest {
   created_at: number;
 }
 
-export async function signPendingRequest(payload: PendingAuthRequest): Promise<{
+export async function signPendingRequest(req: Request, payload: PendingAuthRequest): Promise<{
   cookie: { name: string; value: string; maxAge: number };
 }> {
   const jwt = await new SignJWT({ ...payload })
@@ -39,17 +40,17 @@ export async function signPendingRequest(payload: PendingAuthRequest): Promise<{
     .setIssuedAt()
     .setExpirationTime(`${TTL_SECONDS}s`)
     .setIssuer("dreyv-oauth")
-    .sign(secret());
+    .sign(secret(req));
 
   return {
     cookie: { name: COOKIE_NAME, value: jwt, maxAge: TTL_SECONDS },
   };
 }
 
-export async function readPendingRequest(raw: string | undefined): Promise<PendingAuthRequest | null> {
+export async function readPendingRequest(req: Request, raw: string | undefined): Promise<PendingAuthRequest | null> {
   if (!raw) return null;
   try {
-    const { payload } = await jwtVerify(raw, secret(), { issuer: "dreyv-oauth" });
+    const { payload } = await jwtVerify(raw, secret(req), { issuer: "dreyv-oauth" });
     if (
       typeof payload.request_id === "string" &&
       typeof payload.client_id === "string" &&
