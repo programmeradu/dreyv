@@ -1,7 +1,7 @@
 /**
  * Cloudflare Containers proxy Worker.
  *
- * Receives incoming HTTP requests and proxies them to the Next.js container binding.
+ * Receives incoming HTTP requests and proxies them to the Next.js container binding over HTTP.
  */
 
 export interface Env {
@@ -46,7 +46,13 @@ export class NextAppContainer {
       }
 
       const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
-      return await target.fetch(request);
+      
+      // Cloudflare Container TCP sockets expect http:// requests, not https://
+      const url = new URL(request.url);
+      url.protocol = "http:";
+      const containerReq = new Request(url.toString(), request);
+
+      return await target.fetch(containerReq);
     } catch (err: any) {
       console.error("NextAppContainer fetch error:", err);
       return new Response(`Container Proxy Error: ${err?.stack || err?.message || String(err)}`, {
