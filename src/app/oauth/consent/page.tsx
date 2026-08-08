@@ -6,7 +6,7 @@
  * Submit posts back to POST /api/oauth/authorize.
  */
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getClient } from "@/lib/oauth/clients";
 import { SCOPE_LABELS, type OAuthScope } from "@/lib/oauth/scopes";
@@ -17,7 +17,9 @@ export const dynamic = "force-dynamic";
 
 export default async function ConsentPage() {
   const jar = await cookies();
-  const pending = await readPendingRequest(jar.get(PENDING_REQUEST_COOKIE)?.value);
+  const headersList = await headers();
+  const dummyReq = { headers: headersList } as unknown as Request;
+  const pending = await readPendingRequest(dummyReq, jar.get(PENDING_REQUEST_COOKIE)?.value);
   if (!pending) {
     return (
       <ConsentShell>
