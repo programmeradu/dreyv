@@ -133,23 +133,20 @@ export async function POST(request: NextRequest) {
         const stateCookie = request.cookies.get(OAUTH_STATE_COOKIE)?.value;
         let initiatedAt: number = Math.floor(Date.now() / 1000) - 600; // default: 10 min ago
 
-        // Hard-block: state cookie is REQUIRED — proves the OAuth flow originated from our app.
-        if (!stateCookie) {
-            return NextResponse.json(
-                { error: 'Missing OAuth state cookie. Please re-initiate sign-in.' },
-                { status: 401 },
-            );
-        }
-        try {
-            const payload = await jwtVerify(stateCookie, getJwtSecret(), {
-                issuer: 'keystone-treasury-os',
-            });
-            initiatedAt = (payload.payload.iat as number) || initiatedAt;
-        } catch {
-            return NextResponse.json(
-                { error: 'Invalid or expired OAuth state. Please re-initiate sign-in.' },
-                { status: 401 },
-            );
+        // Soft-warn only: cross-origin OAuth redirects (Google → dreyv.com) can drop
+        // SameSite=None cookies in some browsers. Strategy 2 (DB query) independently
+        // validates a real OAuth session was just created, so missing cookie is not fatal.
+        if (stateCookie) {
+            try {
+                const payload = await jwtVerify(stateCookie, getJwtSecret(), {
+                    issuer: 'keystone-treasury-os',
+                });
+                initiatedAt = (payload.payload.iat as number) || initiatedAt;
+            } catch {
+                console.warn('[Exchange Session] Invalid or expired OAuth state cookie — falling through to DB validation');
+            }
+        } else {
+            console.warn('[Exchange Session] Missing OAuth state cookie — falling through to DB validation');
         }
 
         let user: { id: string; email: string; name: string } | null = null;
