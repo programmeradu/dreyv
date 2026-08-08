@@ -59,8 +59,8 @@ export default {
         (init as any).duplex = "half";
       }
 
-      // Pass string URL directly to stub.fetch to prevent V8 Request HTTPS inheritance
-      const id = env.NEXT_APP.idFromName("dreyv_container_v5");
+      // Bump versioned ID to dreyv_container_v6 to evict stored container instance settings
+      const id = env.NEXT_APP.idFromName("dreyv_container_v6");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(httpUrl, init);
     } catch (err: any) {
