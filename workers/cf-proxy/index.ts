@@ -113,10 +113,7 @@ export class NextAppContainer extends DurableObject {
         try {
           await container.start({ enableInternet: true, env: containerEnv });
         } catch (startErr: any) {
-          const msg = String(startErr?.message || startErr);
-          if (!msg.includes("already running")) {
-            console.warn("Container start warning:", msg);
-          }
+          console.warn("Container start info:", String(startErr?.message || startErr));
         }
       }
 
