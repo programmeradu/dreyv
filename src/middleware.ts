@@ -63,7 +63,7 @@ async function getInviteAllowEmail(request: NextRequest): Promise<string | null>
     if (!token) return null;
 
     try {
-        const { payload } = await jwtVerify(token, getJwtSecret(), { issuer: 'keystone-treasury-os' });
+        const { payload } = await jwtVerify(token, getJwtSecret(request), { issuer: 'keystone-treasury-os' });
         if (payload.purpose !== 'waitlist-app-access') return null;
         return typeof payload.email === 'string' ? payload.email.toLowerCase() : null;
     } catch {
