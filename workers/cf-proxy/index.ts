@@ -36,6 +36,7 @@ export default {
       const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
+      proxyHeaders.delete("cf-visitor");
       proxyHeaders.set("x-forwarded-proto", "http");
       proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
@@ -103,6 +104,7 @@ export class NextAppContainer extends DurableObject {
       const httpUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
+      containerHeaders.delete("cf-visitor");
       containerHeaders.set("x-forwarded-proto", "http");
       if (!containerHeaders.has("x-forwarded-host")) {
         containerHeaders.set("x-forwarded-host", "dreyv.com");
