@@ -4,20 +4,18 @@ import * as schema from '@/db/schema';
 
 export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 
+const FALLBACK_URL = 'postgresql://unconfigured:unconfigured@ep-dummy.neon.tech/neondb';
+
 let _cachedDb: DrizzleDb | null = null;
 let _cachedUrl: string | null = null;
 
 /**
  * Creates or retrieves the cached Drizzle ORM instance for Neon Postgres.
- * Dynamically re-evaluates process.env.DATABASE_URL if updated after process boot.
+ * Always returns a valid Drizzle client with `.select()`, `.insert()`, `.update()`, and `.query`.
  */
 export function getDb(): DrizzleDb {
-  const url = (process.env.DATABASE_URL || '').replace(/['"\r\n]/g, '').trim();
-  if (!url) {
-    // Return dummy client if unconfigured to prevent module load crash
-    const dummySql = neon('postgresql://unconfigured:unconfigured@ep-dummy.neon.tech/neondb');
-    return drizzle(dummySql, { schema });
-  }
+  const envUrl = process.env.DATABASE_URL?.replace(/['"\r\n]/g, '').trim();
+  const url = envUrl || FALLBACK_URL;
 
   if (_cachedDb && _cachedUrl === url) {
     return _cachedDb;
