@@ -2,7 +2,8 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
- * passes edge runtime secrets as HTTP headers to container, and proxies traffic to DO container TCP port.
+ * passes edge runtime secrets to container at startup and on every request,
+ * and proxies traffic to DO container TCP port.
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -31,17 +32,27 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
+      // Collect all Worker runtime secrets
+      const secrets: Record<string, string> = {};
+      if (env) {
+        for (const [k, v] of Object.entries(env)) {
+          if (typeof v === "string" && k !== "NEXT_APP") {
+            secrets[k] = v;
+          }
+        }
+      }
+
       // Format pure HTTP URL for DO stub to avoid workerd C++ HTTPS error
       const httpUrl = `http://localhost${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.set("x-forwarded-proto", "https");
       proxyHeaders.set("x-forwarded-host", host);
+      proxyHeaders.set("x-container-env", JSON.stringify(secrets));
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
       }
 
-      // Pass essential secrets as request headers so warm container processes always hydrate env vars
       if (env.DATABASE_URL) {
         proxyHeaders.set("x-dreyv-database-url", String(env.DATABASE_URL));
       }
@@ -62,7 +73,7 @@ export default {
       const proxyReq = new Request(httpUrl, init);
 
       // Versioned ID forces Cloudflare to instantiate a fresh Durable Object & boot the new container image
-      const id = env.NEXT_APP.idFromName("dreyv_container_v3");
+      const id = env.NEXT_APP.idFromName("dreyv_container_v4");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(proxyReq);
     } catch (err: any) {
@@ -83,6 +94,14 @@ export class NextAppContainer extends DurableObject {
         return new Response("Container binding not available on Durable Object context", { status: 500 });
       }
 
+      let containerEnv: Record<string, string> = {};
+      const envHeader = request.headers.get("x-container-env");
+      if (envHeader) {
+        try {
+          containerEnv = JSON.parse(envHeader);
+        } catch {}
+      }
+
       // Force restart container if explicit force-reboot header is provided
       if (request.headers.has("x-force-reboot") && container.running) {
         try {
@@ -92,7 +111,7 @@ export class NextAppContainer extends DurableObject {
 
       if (!container.running) {
         try {
-          await container.start({ enableInternet: true });
+          await container.start({ enableInternet: true, env: containerEnv });
         } catch (startErr: any) {
           const msg = String(startErr?.message || startErr);
           if (!msg.includes("already running")) {
@@ -108,6 +127,7 @@ export class NextAppContainer extends DurableObject {
       const httpUrl = `http://localhost:8080${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
+      containerHeaders.delete("x-container-env");
       if (!containerHeaders.has("x-forwarded-proto")) {
         containerHeaders.set("x-forwarded-proto", "https");
       }
