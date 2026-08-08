@@ -3,6 +3,7 @@
   "name": "dreyv",
   "main": "workers/cf-proxy/index.ts",
   "compatibility_date": "2024-09-23",
+  "workers_dev": true,
   "containers": [
     {
       "class_name": "NextAppContainer",
