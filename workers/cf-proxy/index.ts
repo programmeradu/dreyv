@@ -61,7 +61,8 @@ export default {
 
       const proxyReq = new Request(httpUrl, init);
 
-      const id = env.NEXT_APP.idFromName("default");
+      // Versioned ID forces Cloudflare to instantiate a fresh Durable Object & boot the new container image
+      const id = env.NEXT_APP.idFromName("dreyv_container_v3");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(proxyReq);
     } catch (err: any) {
@@ -80,6 +81,13 @@ export class NextAppContainer extends DurableObject {
       const container = (this.ctx as any).container || (this as any).state?.container;
       if (!container) {
         return new Response("Container binding not available on Durable Object context", { status: 500 });
+      }
+
+      // Force restart container if explicit force-reboot header is provided
+      if (request.headers.has("x-force-reboot") && container.running) {
+        try {
+          await container.stop();
+        } catch {}
       }
 
       if (!container.running) {
