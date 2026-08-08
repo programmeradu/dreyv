@@ -1,5 +1,3 @@
-import * as Babel from '@babel/standalone';
-
 export interface CompilationResult {
   code: string;
   error?: {
@@ -8,8 +6,9 @@ export interface CompilationResult {
   };
 }
 
-export const compileCode = (sourceCode: string): CompilationResult => {
+export const compileCode = async (sourceCode: string): Promise<CompilationResult> => {
   try {
+    const Babel = await import('@babel/standalone');
     const result = Babel.transform(sourceCode, {
       filename: 'MiniApp.tsx',
       presets: [

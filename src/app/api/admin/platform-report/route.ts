@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { transactionCache, dcaExecutions, purchases } from "@/db/schema";
-import jsPDF from "jspdf";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -255,6 +254,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (format === "pdf") {
+            const { default: jsPDF } = await import("jspdf");
             const doc = new jsPDF({ unit: "pt", format: "a4" });
             const W = doc.internal.pageSize.getWidth();
             let y = 56;
