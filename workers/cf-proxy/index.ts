@@ -59,7 +59,7 @@ export default {
         (init as any).duplex = "half";
       }
 
-      // Bump versioned ID to dreyv_container_v6 to evict stored container instance settings
+      // Pass string URL directly to stub.fetch to prevent V8 Request HTTPS inheritance
       const id = env.NEXT_APP.idFromName("dreyv_container_v6");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(httpUrl, init);
@@ -118,8 +118,22 @@ export class NextAppContainer extends DurableObject {
         (init as any).duplex = "half";
       }
 
-      // Pass string URL directly to target.fetch to prevent V8 Request HTTPS state inheritance
-      return await target.fetch(httpUrl, init);
+      // Poll container TCP port 8080 until Next.js server.js completes cold start
+      let lastErr: any = null;
+      for (let attempt = 0; attempt < 15; attempt++) {
+        try {
+          return await target.fetch(httpUrl, init);
+        } catch (fetchErr: any) {
+          lastErr = fetchErr;
+          const msg = String(fetchErr?.message || fetchErr);
+          if (attempt < 14 && (msg.includes("Network connection lost") || msg.includes("refused") || msg.includes("reset"))) {
+            await new Promise((r) => setTimeout(r, 1000));
+            continue;
+          }
+          throw fetchErr;
+        }
+      }
+      throw lastErr;
     } catch (err: any) {
       console.error("NextAppContainer fetch error:", err);
       return new Response(`Container Proxy Error: ${err?.stack || err?.message || String(err)}`, {
