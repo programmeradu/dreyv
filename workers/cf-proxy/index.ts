@@ -3,10 +3,11 @@
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
  * passes edge runtime secrets to container via request headers,
- * and proxies traffic to container TCP port using pure HTTP Request objects without V8 URL inheritance.
+ * and proxies traffic to container using official switchPort helper from cloudflare:containers.
  */
 
 import { DurableObject } from "cloudflare:workers";
+import { switchPort } from "cloudflare:containers";
 
 export interface Env {
   NEXT_APP: DurableObjectNamespace;
@@ -32,13 +33,7 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Format pure HTTP URL string for DO stub
-      const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
-
       const proxyHeaders = new Headers(request.headers);
-      proxyHeaders.delete("cf-visitor");
-      proxyHeaders.set("x-forwarded-proto", "https");
-      proxyHeaders.set("x-forwarded-host", host);
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
       }
@@ -60,6 +55,7 @@ export default {
         (init as any).duplex = "half";
       }
 
+      const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
       const id = env.NEXT_APP.idFromName("dreyv_container_v7");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(httpUrl, init);
@@ -96,38 +92,12 @@ export class NextAppContainer extends DurableObject {
         }
       }
 
-      const target = typeof container.getTcpPort === "function" ? container.getTcpPort(8080) : container;
-
-      // Construct pure HTTP Request targeted at 127.0.0.1:8080 without V8 request inheritance
-      const url = new URL(request.url);
-      const targetUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
-
-      const containerHeaders = new Headers(request.headers);
-      containerHeaders.delete("cf-visitor");
-      if (!containerHeaders.has("x-forwarded-proto")) {
-        containerHeaders.set("x-forwarded-proto", "https");
-      }
-      if (!containerHeaders.has("x-forwarded-host")) {
-        containerHeaders.set("x-forwarded-host", "dreyv.com");
-      }
-
-      const init: RequestInit = {
-        method: request.method,
-        headers: containerHeaders,
-      };
-
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        init.body = request.body;
-        (init as any).duplex = "half";
-      }
-
-      const pureReq = new Request(targetUrl, init);
-
-      // Poll container TCP port 8080 until Next.js server.js completes cold start
+      // Route through official Cloudflare Containers switchPort helper to force plain HTTP on port 8080
       let lastErr: any = null;
       for (let attempt = 0; attempt < 15; attempt++) {
         try {
-          return await target.fetch(pureReq);
+          const httpReq = typeof switchPort === "function" ? switchPort(request, 8080) : request;
+          return await container.fetch(httpReq);
         } catch (fetchErr: any) {
           lastErr = fetchErr;
           const msg = String(fetchErr?.message || fetchErr);
