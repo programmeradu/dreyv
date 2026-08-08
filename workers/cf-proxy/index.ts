@@ -2,7 +2,7 @@
  * Cloudflare Containers proxy Worker.
  *
  * Receives incoming HTTP requests, performs canonical edge 301 redirects to https://dreyv.com,
- * passes edge runtime secrets to container at startup and on every request,
+ * passes edge runtime secrets to container via request headers,
  * and proxies traffic directly to DO container TCP port using pure HTTP string URLs.
  */
 
@@ -32,23 +32,12 @@ export default {
         return Response.redirect(url.toString(), 301);
       }
 
-      // Collect all Worker runtime secrets
-      const secrets: Record<string, string> = {};
-      if (env) {
-        for (const [k, v] of Object.entries(env)) {
-          if (typeof v === "string" && k !== "NEXT_APP") {
-            secrets[k] = v;
-          }
-        }
-      }
-
       // Format pure HTTP URL string for DO stub to avoid workerd C++ HTTPS error
       const httpUrl = `http://127.0.0.1${url.pathname}${url.search}`;
 
       const proxyHeaders = new Headers(request.headers);
       proxyHeaders.set("x-forwarded-proto", "https");
       proxyHeaders.set("x-forwarded-host", host);
-      proxyHeaders.set("x-container-env", JSON.stringify(secrets));
       if (!proxyHeaders.has("host")) {
         proxyHeaders.set("host", host);
       }
@@ -71,7 +60,7 @@ export default {
       }
 
       // Pass string URL directly to stub.fetch to prevent V8 Request HTTPS inheritance
-      const id = env.NEXT_APP.idFromName("dreyv_container_v4");
+      const id = env.NEXT_APP.idFromName("dreyv_container_v5");
       const stub = env.NEXT_APP.get(id);
       return await stub.fetch(httpUrl, init);
     } catch (err: any) {
@@ -92,14 +81,6 @@ export class NextAppContainer extends DurableObject {
         return new Response("Container binding not available on Durable Object context", { status: 500 });
       }
 
-      let containerEnv: Record<string, string> = {};
-      const envHeader = request.headers.get("x-container-env");
-      if (envHeader) {
-        try {
-          containerEnv = JSON.parse(envHeader);
-        } catch {}
-      }
-
       // Force restart container if explicit force-reboot header is provided
       if (request.headers.has("x-force-reboot") && container.running) {
         try {
@@ -109,7 +90,7 @@ export class NextAppContainer extends DurableObject {
 
       if (!container.running) {
         try {
-          await container.start({ enableInternet: true, env: containerEnv });
+          await container.start({ enableInternet: true });
         } catch (startErr: any) {
           console.warn("Container start info:", String(startErr?.message || startErr));
         }
@@ -122,7 +103,6 @@ export class NextAppContainer extends DurableObject {
       const httpUrl = `http://127.0.0.1:8080${url.pathname}${url.search}`;
 
       const containerHeaders = new Headers(request.headers);
-      containerHeaders.delete("x-container-env");
       if (!containerHeaders.has("x-forwarded-proto")) {
         containerHeaders.set("x-forwarded-proto", "https");
       }
@@ -140,7 +120,7 @@ export class NextAppContainer extends DurableObject {
         (init as any).duplex = "half";
       }
 
-      // Pass string URL directly to target.fetch to prevent V8 Request HTTPS inheritance
+      // Pass string URL directly to target.fetch to prevent V8 Request HTTPS state inheritance
       return await target.fetch(httpUrl, init);
     } catch (err: any) {
       console.error("NextAppContainer fetch error:", err);
