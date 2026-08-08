@@ -5,7 +5,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify, importJWK, type JWTPayload } from "jose";
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { oauthTokens } from "@/db/schema";
 import { getActiveSigner, getVerifierKeys } from "@/lib/oauth/keys";
 import { getSiteOrigin } from "@/lib/seo/site";
@@ -39,7 +39,8 @@ export interface IssuedTokenSet {
 }
 
 export async function issueTokens(input: IssueTokensInput): Promise<IssuedTokenSet> {
-  if (!db) throw new Error("Database unavailable");
+  const database = getDb();
+  if (!database) throw new Error("Database unavailable");
   const origin = getSiteOrigin();
   const signer = await getActiveSigner();
 
@@ -63,7 +64,7 @@ export async function issueTokens(input: IssueTokensInput): Promise<IssuedTokenS
     .sign(signer.privateKey);
 
   const accessHash = hashToken(accessToken);
-  await db.insert(oauthTokens).values({
+  await database.insert(oauthTokens).values({
     tokenHash: accessHash,
     tokenType: "access",
     clientId: input.clientId,
@@ -81,7 +82,7 @@ export async function issueTokens(input: IssueTokensInput): Promise<IssuedTokenS
   if (input.userId) {
     refreshToken = `dor_${randomToken(36)}`;
     refreshExpiresAt = new Date(Date.now() + REFRESH_TTL_SECONDS * 1000);
-    await db.insert(oauthTokens).values({
+    await database.insert(oauthTokens).values({
       tokenHash: hashToken(refreshToken),
       tokenType: "refresh",
       clientId: input.clientId,
@@ -140,9 +141,10 @@ export async function verifyAccessToken(raw: string): Promise<VerifiedAccessToke
   if (!payload) return null;
 
   // Check our hash table for revocation.
-  if (!db) return null;
+  const database = getDb();
+  if (!database) return null;
   const tokenHash = hashToken(raw);
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(oauthTokens)
     .where(and(eq(oauthTokens.tokenHash, tokenHash), eq(oauthTokens.tokenType, "access")))
@@ -183,9 +185,10 @@ export async function consumeRefreshToken(
   raw: string,
   presentedClientId: string,
 ): Promise<RefreshTokenRecord | { reuseDetected: true; chainRoot: string }> {
-  if (!db) throw new Error("Database unavailable");
+  const database = getDb();
+  if (!database) throw new Error("Database unavailable");
   const tokenHash = hashToken(raw);
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(oauthTokens)
     .where(and(eq(oauthTokens.tokenHash, tokenHash), eq(oauthTokens.tokenType, "refresh")))
@@ -205,7 +208,7 @@ export async function consumeRefreshToken(
     // Reuse detected — revoke the entire chain rooted at this token's parent
     // (or this token if it's the root).
     const root = row.parentRefreshHash ?? row.tokenHash;
-    await db
+    await database
       .update(oauthTokens)
       .set({ revokedAt: new Date() })
       .where(
@@ -214,7 +217,7 @@ export async function consumeRefreshToken(
           isNull(oauthTokens.revokedAt),
         ),
       );
-    await db
+    await database
       .update(oauthTokens)
       .set({ revokedAt: new Date() })
       .where(and(eq(oauthTokens.tokenHash, root), isNull(oauthTokens.revokedAt)));
@@ -222,7 +225,7 @@ export async function consumeRefreshToken(
   }
 
   // Mark consumed (revoked). Caller will mint a replacement linked to chain.
-  await db
+  await database
     .update(oauthTokens)
     .set({ revokedAt: new Date() })
     .where(eq(oauthTokens.tokenHash, row.tokenHash));
@@ -239,9 +242,10 @@ export async function consumeRefreshToken(
 }
 
 export async function revokeByToken(raw: string): Promise<boolean> {
-  if (!db) return false;
+  const database = getDb();
+  if (!database) return false;
   const tokenHash = hashToken(raw);
-  const result = await db
+  const result = await database
     .update(oauthTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(oauthTokens.tokenHash, tokenHash), isNull(oauthTokens.revokedAt)))
@@ -261,9 +265,10 @@ export async function introspectToken(raw: string): Promise<
       token_type: "Bearer";
     }
 > {
-  if (!db) return { active: false };
+  const database = getDb();
+  if (!database) return { active: false };
   const tokenHash = hashToken(raw);
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(oauthTokens)
     .where(eq(oauthTokens.tokenHash, tokenHash))

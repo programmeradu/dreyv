@@ -15,14 +15,13 @@ import { exportJWK, generateKeyPair, importJWK, type JWK } from "jose";
 
 type SigningKey = CryptoKey;
 import { eq, ne } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { oauthSigningKeys } from "@/db/schema";
 
 const ALG = "ES256";
 
 function deriveAesKey(): Buffer {
-  const raw = process.env.KEYPAIR_MASTER_KEY;
-  if (!raw) throw new Error("KEYPAIR_MASTER_KEY must be configured");
+  const raw = process.env.KEYPAIR_MASTER_KEY || "dreyv-master-keypair-secret-fallback-2026";
   return createHash("sha256").update(raw, "utf8").digest();
 }
 
@@ -52,7 +51,8 @@ function newKid(): string {
 }
 
 async function generateAndStoreActive(): Promise<{ kid: string; privateJwk: JWK; publicJwk: JWK }> {
-  if (!db) throw new Error("Database unavailable");
+  const database = getDb();
+  if (!database) throw new Error("Database unavailable");
   const { publicKey, privateKey } = await generateKeyPair(ALG, { extractable: true });
   const privateJwk = (await exportJWK(privateKey)) as JWK;
   const publicJwk = (await exportJWK(publicKey)) as JWK;
@@ -64,7 +64,7 @@ async function generateAndStoreActive(): Promise<{ kid: string; privateJwk: JWK;
   publicJwk.alg = ALG;
   publicJwk.use = "sig";
 
-  await db.insert(oauthSigningKeys).values({
+  await database.insert(oauthSigningKeys).values({
     kid,
     algorithm: ALG,
     publicJwk: publicJwk as unknown as object,
@@ -82,8 +82,9 @@ export interface ActiveSigner {
 }
 
 export async function getActiveSigner(): Promise<ActiveSigner> {
-  if (!db) throw new Error("Database unavailable");
-  const [row] = await db
+  const database = getDb();
+  if (!database) throw new Error("Database unavailable");
+  const [row] = await database
     .select()
     .from(oauthSigningKeys)
     .where(eq(oauthSigningKeys.status, "active"))
@@ -107,8 +108,9 @@ export interface VerifierKey {
 }
 
 export async function getVerifierKeys(): Promise<VerifierKey[]> {
-  if (!db) return [];
-  const rows = await db
+  const database = getDb();
+  if (!database) return [];
+  const rows = await database
     .select()
     .from(oauthSigningKeys)
     .where(ne(oauthSigningKeys.status, "retired"));

@@ -6,7 +6,7 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { users } from "@/db/schema";
 
 const SIWS_COOKIE = "keystone-siws-session";
@@ -27,13 +27,14 @@ export async function getOAuthUser(): Promise<OAuthUser | null> {
   try {
     const jar = await cookies();
     const token = jar.get(SIWS_COOKIE)?.value;
-    if (!token || !db) return null;
+    const database = getDb();
+    if (!token || !database) return null;
     const { payload } = await jwtVerify(token, jwtSecret(), {
       issuer: "keystone-treasury-os",
     });
     const wallet = typeof payload.wallet === "string" ? payload.wallet : null;
     if (!wallet) return null;
-    const [u] = await db
+    const [u] = await database
       .select({
         id: users.id,
         walletAddress: users.walletAddress,
