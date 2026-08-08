@@ -15,6 +15,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 # Cloudflare Containers proxy traffic to port 8080 by default
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
