@@ -76,6 +76,13 @@ export default {
 };
 
 export class NextAppContainer extends DurableObject {
+  env: Env;
+
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.env = env;
+  }
+
   async fetch(request: Request): Promise<Response> {
     try {
       const container = (this.ctx as any).container || (this as any).state?.container;
@@ -89,7 +96,15 @@ export class NextAppContainer extends DurableObject {
 
       if (!container.running) {
         try {
-          await container.start({ enableInternet: true });
+          // Pass the worker's env bindings as OS environment variables to the Docker container
+          // Filter out DO namespaces and non-string bindings to ensure only valid env vars are passed
+          const containerEnv: Record<string, string> = {};
+          for (const key of Object.keys(this.env || {})) {
+            if (typeof this.env[key] === "string") {
+              containerEnv[key] = this.env[key];
+            }
+          }
+          await container.start({ enableInternet: true, env: containerEnv });
         } catch (startErr: any) {
           console.warn("Container start info:", String(startErr?.message || startErr));
         }
