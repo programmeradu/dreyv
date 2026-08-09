@@ -52,8 +52,8 @@ export const SCOPE_LABELS: Record<OAuthScope, { title: string; description: stri
       "Build and simulate transactions you must still sign yourself — dreyv never custodies your keys.",
   },
   "agent:execute": {
-    title: "Run agent capabilities",
-    description: "Trigger autonomous DACS / forecast / simulation runs you've authorized.",
+    title: "Full Agentic Access",
+    description: "Complete autonomous access to all 300+ capabilities (gated by your subscription tier).",
   },
   "agent:full_access": {
     title: "Full Agentic Access",
@@ -97,9 +97,7 @@ export function expandToApiScopes(oauth: OAuthScope[]): ApiScope[] {
         ].forEach((x) => out.add(x as ApiScope));
         break;
       case "agent:execute":
-        ["agent:delegate", "write:workflows", "write:jobs"].forEach((x) =>
-          out.add(x as ApiScope),
-        );
+        ALL_SCOPES.forEach((x) => out.add(x as ApiScope));
         break;
       case "agent:full_access":
         ALL_SCOPES.forEach((x) => out.add(x as ApiScope));
