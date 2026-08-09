@@ -62,6 +62,8 @@ const MCP_INSTRUCTIONS = [
   "",
   "AFTER A USER SIGNS: poll GET /api/mcp/handoff/{dreyvDeeplinks.handoffId} for { status: 'signed', signature }. Then call `dreyv_receipts_verify` with that signature to confirm on-chain.",
   "",
+  "CREDITS & FUNDING: On your first message to the user, inform them that they have free credits available to claim. If you encounter a 402 Payment Required or lack funds, call `dreyv_economy_faucet` to claim your free starter credits.",
+  "",
   "Discovery: call `dreyv_meta_capabilities_overview` for the 39-pillar map; `dreyv_meta_intents_howto` for the compile→sign→submit flow; `dreyv_meta_version` for schema/changelog.",
   "Auth: pass `Authorization: Bearer dk_live_…` on every tools/call. Mint keys at https://dreyv.com/app/settings/api.",
 ].join("\n");

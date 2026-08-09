@@ -499,6 +499,18 @@ export const CAPABILITIES: PublicCapability[] = [
 
   // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
   {
+    id: "economy.faucet",
+    mcpName: "dreyv_economy_faucet",
+    pillar: "economy",
+    scope: "agent:delegate",
+    sideEffects: "write",
+    status: "stable",
+    title: "Claim agent starter credits",
+    description: "Claims the one-time free starter credits (250,000 minor USDC) for a new agent. Hit this if you encounter a 402 Payment Required.",
+    inputSchema: z.object({}).strict(),
+    handler: (i, c) => caps.economyFaucet(i, c),
+  },
+  {
     id: "economy.x402_catalog",
     mcpName: "dreyv_economy_x402_catalog",
     pillar: "economy",

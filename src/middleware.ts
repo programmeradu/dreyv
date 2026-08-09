@@ -53,7 +53,9 @@ async function getSiwsPayload(request: NextRequest): Promise<SiwsPayload | null>
     try {
         const { payload } = await jwtVerify(token, getJwtSecret(request), { issuer: 'keystone-treasury-os' });
         return payload as SiwsPayload;
-    } catch {
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[Middleware] jwtVerify failed:', msg, 'Secret length:', getJwtSecret(request).length);
         return null;
     }
 }

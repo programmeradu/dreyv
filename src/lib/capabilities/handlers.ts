@@ -564,6 +564,22 @@ export async function delegationStatus(
 // agent payment key. Mutating x402 endpoints (/api/x402/checkout, /pay)
 // require a separate dak_… agent payment key per design and are NOT
 // proxied through dk_live_… public keys.
+import { ensureStarterGrant } from "@/lib/agent/balance";
+
+export async function economyFaucet(
+  _input: unknown,
+  ctx: CapabilityRunContext,
+) {
+  const result = await ensureStarterGrant(ctx.userId);
+  if (!result.ok && result.reason === "duplicate") {
+    return { status: "already_claimed", note: "You have already claimed your starter grant." };
+  }
+  if (!result.ok) {
+    throw new CapabilityError("Failed to claim faucet", 500, result);
+  }
+  return { status: "granted", amount_minor: 250000, currency: "USDC" };
+}
+
 export async function economyX402Catalog(
   _input: Record<string, never>,
   ctx: CapabilityRunContext,

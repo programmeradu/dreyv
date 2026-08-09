@@ -13,8 +13,9 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 const usedNonces = new Set<string>();
 const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
-function getJwtSecret() {
-    const secret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
+function getJwtSecret(req?: NextRequest) {
+    const headerSecret = req?.headers.get('x-dreyv-jwt-secret');
+    const secret = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
     return new TextEncoder().encode(secret);
 }
 
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
             .setIssuedAt()
             .setExpirationTime(`${SESSION_MAX_AGE}s`)
             .setIssuer('keystone-treasury-os')
-            .sign(getJwtSecret());
+            .sign(getJwtSecret(request));
 
         const response = NextResponse.json({
             user: {
@@ -183,7 +184,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ user: null });
         }
 
-        const { payload } = await jwtVerify(token, getJwtSecret(), {
+        const { payload } = await jwtVerify(token, getJwtSecret(request), {
             issuer: 'keystone-treasury-os',
         });
 

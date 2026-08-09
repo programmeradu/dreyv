@@ -5,6 +5,7 @@
  */
 
 import type { ApiScope } from "@/lib/api-keys/public-keys";
+import { ALL_SCOPES } from "@/lib/api-keys/public-keys";
 
 export type OAuthScope =
   | "openid"
@@ -14,7 +15,8 @@ export type OAuthScope =
   | "mcp"
   | "treasury:read"
   | "treasury:write"
-  | "agent:execute";
+  | "agent:execute"
+  | "agent:full_access";
 
 export const OAUTH_SCOPES: OAuthScope[] = [
   "openid",
@@ -25,6 +27,7 @@ export const OAUTH_SCOPES: OAuthScope[] = [
   "treasury:read",
   "treasury:write",
   "agent:execute",
+  "agent:full_access",
 ];
 
 export const SCOPE_LABELS: Record<OAuthScope, { title: string; description: string }> = {
@@ -51,6 +54,10 @@ export const SCOPE_LABELS: Record<OAuthScope, { title: string; description: stri
   "agent:execute": {
     title: "Run agent capabilities",
     description: "Trigger autonomous DACS / forecast / simulation runs you've authorized.",
+  },
+  "agent:full_access": {
+    title: "Full Agentic Access",
+    description: "Complete autonomous access to all 300+ capabilities (gated by your subscription tier).",
   },
 };
 
@@ -93,6 +100,9 @@ export function expandToApiScopes(oauth: OAuthScope[]): ApiScope[] {
         ["agent:delegate", "write:workflows", "write:jobs"].forEach((x) =>
           out.add(x as ApiScope),
         );
+        break;
+      case "agent:full_access":
+        ALL_SCOPES.forEach((x) => out.add(x as ApiScope));
         break;
       case "mcp":
         // mcp on its own only carries the right to call /api/mcp — actual

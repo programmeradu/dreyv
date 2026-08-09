@@ -12,6 +12,7 @@ import { getClient } from "@/lib/oauth/clients";
 import { SCOPE_LABELS, type OAuthScope } from "@/lib/oauth/scopes";
 import { getOAuthUser } from "@/lib/oauth/session";
 import { PENDING_REQUEST_COOKIE, readPendingRequest } from "@/lib/oauth/pending-request";
+import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +21,17 @@ export default async function ConsentPage() {
   const headersList = await headers();
   const dummyReq = { headers: headersList } as unknown as Request;
   const pending = await readPendingRequest(dummyReq, jar.get(PENDING_REQUEST_COOKIE)?.value);
+  
   if (!pending) {
     return (
       <ConsentShell>
-        <h1 className="text-2xl font-semibold text-slate-900">No pending authorization</h1>
-        <p className="mt-3 text-slate-600">
-          This screen only loads when an MCP client (Claude, ChatGPT, Cursor, etc.) sends you here as
-          part of an OAuth flow. Start the connection from your client and you&apos;ll be brought back
-          here automatically.
-        </p>
+        <div className="flex flex-col items-center justify-center text-center">
+          <DreyvMascot pose="think" size={96} />
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">No pending authorization</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500">
+            This screen only loads when an MCP client sends you here as part of an OAuth flow. Start the connection from your client and you&apos;ll be brought back here automatically.
+          </p>
+        </div>
       </ConsentShell>
     );
   }
@@ -42,11 +45,13 @@ export default async function ConsentPage() {
   if (!client) {
     return (
       <ConsentShell>
-        <h1 className="text-2xl font-semibold text-slate-900">Unknown client</h1>
-        <p className="mt-3 text-slate-600">
-          The application that initiated this request is no longer registered. Ask its developer to
-          re-register via <code className="font-mono">/api/oauth/register</code>.
-        </p>
+        <div className="flex flex-col items-center justify-center text-center">
+          <DreyvMascot pose="think" size={96} />
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">Unknown client</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500">
+            The application that initiated this request is no longer registered. Ask its developer to re-register.
+          </p>
+        </div>
       </ConsentShell>
     );
   }
@@ -55,96 +60,94 @@ export default async function ConsentPage() {
 
   return (
     <ConsentShell>
-      <div className="flex items-start gap-4">
-        {client.logoUri ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={client.logoUri}
-            alt=""
-            className="h-12 w-12 rounded-2xl border border-violet-100 object-contain"
-          />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-lg font-semibold text-violet-700">
-            {client.clientName.slice(0, 1).toUpperCase()}
+      {/* Visual Connection Diagram */}
+      <div className="mb-8 flex items-center justify-center gap-6">
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-[2rem] border border-slate-100 bg-white p-3 shadow-sm ring-1 ring-black/5">
+          {client.logoUri ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={client.logoUri} alt={client.clientName} className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-2xl font-bold tracking-tight text-slate-800">
+              {client.clientName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full bg-violet-400"></span>
+            <span className="h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.2s_infinite] rounded-full bg-violet-500"></span>
+            <span className="h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.4s_infinite] rounded-full bg-violet-600"></span>
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium uppercase tracking-wide text-violet-700">
-            Authorize application
-          </p>
-          <h1 className="mt-1 break-words text-2xl font-semibold text-slate-900">
-            {client.clientName}
-          </h1>
-          {client.clientUri ? (
-            <p className="mt-1 break-all text-sm text-slate-500">{client.clientUri}</p>
-          ) : null}
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500">Connect</span>
+        </div>
+
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-[2rem] border border-violet-100 bg-violet-50/50 p-2 shadow-sm ring-1 ring-violet-500/10">
+          <DreyvMascot pose="greet" size={64} />
         </div>
       </div>
 
-      <p className="mt-6 text-sm leading-6 text-slate-700">
-        <span className="font-medium text-slate-900">{client.clientName}</span> wants to access your
-        dreyv account
-        {user?.email ? (
-          <>
-            {" "}as <span className="font-medium text-slate-900">{user.email}</span>
-          </>
-        ) : (
-          <>
-            {" "}as wallet{" "}
-            <span className="font-mono text-xs text-slate-900">{user?.walletAddress}</span>
-          </>
-        )}
-        . Review what they&apos;re asking for:
-      </p>
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Authorize <span className="text-violet-600">{client.clientName}</span>
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          This application would like to connect to your Dreyv account
+          {user?.email ? (
+            <>{" "}as <span className="font-medium text-slate-900">{user.email}</span></>
+          ) : (
+            <>{" "}as wallet <span className="font-mono text-xs text-slate-900">{user?.walletAddress}</span></>
+          )}.
+        </p>
+      </div>
 
-      <ul className="mt-5 divide-y divide-violet-100 overflow-hidden rounded-2xl border border-violet-100 bg-white">
-        {scopes.map((s) => {
-          const label = SCOPE_LABELS[s] ?? { title: s, description: "" };
-          return (
-            <li key={s} className="flex items-start gap-3 p-4">
-              <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l4 4 6.6-6.6a1 1 0 011.4 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium text-slate-900">{label.title}</p>
-                <p className="mt-0.5 break-words text-sm leading-5 text-slate-600">
-                  {label.description}
-                </p>
-                <p className="mt-1 font-mono text-[11px] text-slate-400">{s}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold text-slate-900">Requested Permissions</h2>
+        <ul className="mt-3 flex flex-col gap-3">
+          {scopes.map((s) => {
+            const label = SCOPE_LABELS[s] ?? { title: s, description: "" };
+            return (
+              <li key={s} className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 transition-all hover:border-violet-100 hover:shadow-sm">
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-50/0 to-violet-50/0 transition-all group-hover:from-violet-50/50"></div>
+                <div className="relative flex items-start gap-4">
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l4 4 6.6-6.6a1 1 0 011.4 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{label.title}</p>
+                    <p className="mt-1 text-sm leading-snug text-slate-500">{label.description}</p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
-      <p className="mt-4 break-all text-xs text-slate-500">
-        After approval you&apos;ll be redirected to{" "}
-        <span className="font-mono text-slate-700">{pending.redirect_uri}</span>. Dreyv never shares
-        your private keys — every signing action still happens in your wallet.
-      </p>
+      <div className="mt-8 rounded-2xl bg-slate-50 p-4">
+        <p className="text-xs leading-relaxed text-slate-500 text-center">
+          Dreyv never shares your private keys. Every on-chain signing action will still happen securely in your own wallet. You will be redirected to <span className="font-mono text-slate-700">{pending.redirect_uri}</span>.
+        </p>
+      </div>
 
-      <form method="POST" action="/api/oauth/authorize" className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <form method="POST" action="/api/oauth/authorize" className="mt-8 flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
           name="decision"
           value="deny"
-          className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          className="inline-flex h-12 flex-1 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
         >
-          Deny
+          Cancel
         </button>
         <button
           type="submit"
           name="decision"
           value="allow"
-          className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-700"
+          className="inline-flex h-12 flex-1 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-600 focus:ring-offset-2"
         >
-          Allow access
+          Authorize Application
         </button>
       </form>
     </ConsentShell>
@@ -153,16 +156,22 @@ export default async function ConsentPage() {
 
 function ConsentShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-violet-50/40 to-white">
-      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-5 py-12">
-        <div className="rounded-3xl border border-violet-100 bg-white p-7 shadow-[0_30px_90px_-40px_rgba(124,58,237,0.35)] sm:p-8">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
+      {/* Decorative background blobs */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute -left-[10%] -top-[10%] h-[500px] w-[500px] rounded-full bg-violet-400/20 blur-[100px]" />
+        <div className="absolute -right-[10%] bottom-[10%] h-[400px] w-[400px] rounded-full bg-fuchsia-400/10 blur-[80px]" />
+      </div>
+      
+      <div className="relative z-10 w-full max-w-lg">
+        <div className="overflow-hidden rounded-[2.5rem] border border-white/60 bg-white/80 p-8 shadow-2xl shadow-violet-900/5 backdrop-blur-xl sm:p-10">
           {children}
         </div>
-        <p className="mt-6 text-center text-xs text-slate-400">
-          Dreyv OAuth · <a className="underline-offset-2 hover:underline" href="/legal/terms">Terms</a>
-          {" · "}
-          <a className="underline-offset-2 hover:underline" href="/legal/privacy">Privacy</a>
-        </p>
+        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <span className="font-semibold text-slate-500">Dreyv</span>
+          <a href="/legal/terms" className="transition hover:text-slate-600 hover:underline">Terms</a>
+          <a href="/legal/privacy" className="transition hover:text-slate-600 hover:underline">Privacy</a>
+        </div>
       </div>
     </main>
   );
