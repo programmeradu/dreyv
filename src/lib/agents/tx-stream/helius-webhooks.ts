@@ -20,10 +20,9 @@ function getKey(): string {
 
 function getWebhookUrl(): string {
     const base = (
-        process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+        process.env.NEXT_PUBLIC_APP_URL || ""
     ).replace(/\/$/, "");
-    if (!base) throw new Error("NEXT_PUBLIC_APP_URL or VERCEL_URL must be set for Helius webhook target");
+    if (!base) throw new Error("NEXT_PUBLIC_APP_URL must be set for Helius webhook target");
     return `${base}/api/webhooks/helius`;
 }
 

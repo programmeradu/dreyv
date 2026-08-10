@@ -159,8 +159,7 @@ const foresight_simulation = defineCapability({
     let ir: SimulationIR | null = null;
     try {
       const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+        process.env.NEXT_PUBLIC_APP_URL || "";
       if (baseUrl) {
         const planRes = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/foresight/plan`, {
           method: "POST",
@@ -234,8 +233,7 @@ const foresight_simulation = defineCapability({
       let critique: { verdict: "approved" | "amend"; rationale: string; followUps: string[] } | null = null;
       try {
         const baseUrl =
-          process.env.NEXT_PUBLIC_APP_URL ||
-          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+          process.env.NEXT_PUBLIC_APP_URL || "";
         if (baseUrl) {
           const cr = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/foresight/critique`, {
             method: "POST",

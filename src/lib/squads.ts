@@ -72,8 +72,13 @@ export class SquadsClient {
                 return await fn();
             } catch (error) {
                 lastErr = error;
-                if (!isRateLimitLike(error) || i === attempts - 1) throw error;
-                console.warn(`[Squads] ${label} rate-limited. retry ${i + 1}/${attempts} after ${delay}ms`);
+                if (isRateLimitLike(error)) {
+                    // web3.js already retries 429s internally. If it bubbles up to here, 
+                    // we've truly hit the limit. Throw immediately to avoid a retry storm.
+                    throw error;
+                }
+                if (i === attempts - 1) throw error;
+                console.warn(`[Squads] ${label} failed. retry ${i + 1}/${attempts} after ${delay}ms`);
                 await sleep(Math.min(delay, RPC_RETRY_MAX_MS));
                 delay *= 2;
             }

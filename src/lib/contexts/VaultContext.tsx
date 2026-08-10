@@ -295,7 +295,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
                 sqClient.getVaultTokens(activeVault),
                 sqClient.getProposals(activeVault),
                 sqClient.getVault(activeVault),
-                sqClient.getRecentTransactions(activeVault, 50),
+                sqClient.getRecentTransactions(activeVault, 12),
                 // Fetch native stake accounts (delegated SOL)
                 (async () => {
                     const vaultPubkey = new PublicKey(activeVault);

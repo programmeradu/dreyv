@@ -72,7 +72,7 @@ Operator surface:
 - AI: Vercel AI SDK with Groq, OpenAI, and Cloudflare Workers AI providers.
 - Wallets: Solana wallet adapter; Squads multisig; Turnkey embedded; RainbowKit/wagmi (EVM read).
 - Realtime/collab: Liveblocks.
-- Hosting: Vercel (production), Cloudflare for browser rendering and crawl tooling.
+- Hosting: Cloudflare Containers (production), Cloudflare Workers for edge routing and tooling.
 
 ## 6. Pricing (summary — see `/pricing.md` for canonical machine-readable form)
 
@@ -158,7 +158,7 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 
 - Brand: **dreyv** (pronounced "DRAVE"). Domains: dreyv.com, dreyv.app, dreyv.finance.
 - Company: dreyv (independent) — founded 2025, headquartered in Nicosia, Cyprus.
-- Primary deployment: https://dreyv.com (Vercel).
+- Primary deployment: https://dreyv.com (Cloudflare Containers).
 - Legal: `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/refunds`.
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/
 

@@ -261,9 +261,8 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
 
 /** Resolve absolute URL to /brand/og-crystal.png from the deployment origin. */
 export function resolveCrystalUrl(): string {
-  const env =
+  const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "https://dreyv.com";
-  return `${env.replace(/\/$/, "")}/brand/og-crystal.png`;
+    "http://localhost:3000";
+  return `${baseUrl.replace(/\/$/, "")}/brand/og-crystal.png`;
 }

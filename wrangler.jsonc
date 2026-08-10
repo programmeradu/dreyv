@@ -8,7 +8,8 @@
     "enabled": true
   },
   "vars": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DREYV_AGENT_WORKER_URL": "https://dreyv-treasury-agent.samueladu1970.workers.dev"
   },
   "containers": [
     {
