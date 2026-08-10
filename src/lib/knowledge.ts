@@ -34,11 +34,6 @@ export class KnowledgeBase {
         const tavilyKey = process.env.TAVILY_API_KEY || "";
         const jinaKey = process.env.JINA_API_KEY || "";
         const firecrawlKey = process.env.FIRECRAWL_API_KEY || "";
-
-        if (!tavilyKey) console.warn("KnowledgeBase: Missing TAVILY_API_KEY");
-        if (!jinaKey) console.warn("KnowledgeBase: Missing JINA_API_KEY");
-        if (!firecrawlKey) console.warn("KnowledgeBase: Missing FIRECRAWL_API_KEY");
-
         this.tavily = new TavilyClient(tavilyKey);
         this.jina = new JinaClient(jinaKey);
         this.firecrawl = new FirecrawlClient(firecrawlKey);
