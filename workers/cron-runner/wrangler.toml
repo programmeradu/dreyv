@@ -13,7 +13,12 @@ compatibility_flags = ["nodejs_compat"]
 crons = [
   "*/15 * * * *",  # → /api/cron/anomaly-alerts   (every 15 min)
   "15 * * * *",    # → /api/cron/agent-insights   (every hour at :15)
-  "30 * * * *"     # → /api/cron/opportunities    (every hour at :30)
+  "30 * * * *",    # → /api/cron/opportunities    (every hour at :30)
+  "*/1 * * * *",   # → /api/internal/background (sweep1m, tick10s)
+  "*/2 * * * *",   # → /api/internal/background (jitoMevPoll)
+  "*/5 * * * *",   # → /api/internal/background (deep5m, txProposalReconciler)
+  "*/10 * * * *",  # → /api/internal/background (txProposalReaper)
+  "0 * * * *"      # → /api/internal/background (reflect1h)
 ]
 
 [vars]

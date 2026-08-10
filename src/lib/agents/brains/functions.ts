@@ -291,40 +291,28 @@ export const reflectorListener = inngest.createFunction(
  * Expire queued tx proposals past their TTL. Runs every 10 minutes alongside
  * the sub-agent reaper so stale "approve me" cards drop out of the inbox.
  */
-export const txProposalReaper = inngest.createFunction(
-  { id: "brains-tx-proposal-reaper", name: "Brains • Tx proposal reaper" },
-  { cron: "*/10 * * * *" },
-  async ({ step }) => {
-    const expired = await step.run("expire-tx", () => expireStaleTxProposals());
-    return { expired };
-  },
-);
+export async function handleTxProposalReaper() {
+  const expired = await expireStaleTxProposals();
+  return { expired };
+}
 
 /**
  * Reconcile `submitted` tx proposals against on-chain status every 5 min so
  * rows don't get stranded when the user closes the tab mid-confirmation.
  */
-export const txProposalReconciler = inngest.createFunction(
-  { id: "brains-tx-proposal-reconciler", name: "Brains • Tx proposal reconciler" },
-  { cron: "*/5 * * * *" },
-  async ({ step }) => {
-    return await step.run("reconcile-tx", () => reconcileSubmittedTxProposals());
-  },
-);
+export async function handleTxProposalReconciler() {
+  return await reconcileSubmittedTxProposals();
+}
 
 /**
  * Jito MEV poller — every 2 minutes, samples Jito tip-floor stats and
  * surfaces an `agent.opportunity.surfaced` if MEV pressure is unusual.
  * Cheap (one HTTP call) and complements the Helius webhook stream.
  */
-export const jitoMevPoll = inngest.createFunction(
-  { id: "jito-mev-poll-2m", name: "Jito MEV poll (2m)" },
-  { cron: "*/2 * * * *" },
-  async ({ step }) => {
-    const surfaced = await step.run("poll-jito", () => pollJitoOnce());
-    return { surfaced };
-  },
-);
+export async function handleJitoMevPoll() {
+  const surfaced = await pollJitoOnce();
+  return { surfaced };
+}
 
 export const BRAIN_FUNCTIONS = [
   opportunityRouter,
@@ -333,7 +321,4 @@ export const BRAIN_FUNCTIONS = [
   subAgentTick,
   treasuryWatch5m,
   reflectorListener,
-  txProposalReaper,
-  txProposalReconciler,
-  jitoMevPoll,
 ];

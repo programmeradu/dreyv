@@ -21,19 +21,31 @@ export interface Env {
   CRON_SECRET: string;
 }
 
-// cron expression → Vercel cron route. Keep in sync with wrangler.toml.
-const ROUTES: Record<string, string> = {
-  "*/15 * * * *": "/api/cron/anomaly-alerts",
-  "15 * * * *": "/api/cron/agent-insights",
-  "30 * * * *": "/api/cron/opportunities",
+// cron expression → Vercel cron route config. Keep in sync with wrangler.toml.
+interface RouteConfig {
+  path: string;
+  method?: string;
+  action?: string;
+}
+
+const ROUTES: Record<string, RouteConfig> = {
+  "*/15 * * * *": { path: "/api/cron/anomaly-alerts" },
+  "15 * * * *": { path: "/api/cron/agent-insights" },
+  "30 * * * *": { path: "/api/cron/opportunities" },
+  "*/1 * * * *": { path: "/api/internal/background", method: "POST", action: "1m_pulse" },
+  "*/2 * * * *": { path: "/api/internal/background", method: "POST", action: "jitoMevPoll" },
+  "*/5 * * * *": { path: "/api/internal/background", method: "POST", action: "txProposalReconciler" },
+  "*/10 * * * *": { path: "/api/internal/background", method: "POST", action: "txProposalReaper" },
+  "0 * * * *": { path: "/api/internal/background", method: "POST", action: "reflect1h" },
 };
 
 async function dispatch(cron: string, env: Env): Promise<void> {
-  const path = ROUTES[cron];
-  if (!path) {
+  const routeConfig = ROUTES[cron];
+  if (!routeConfig) {
     console.error("[cron-runner] unmapped cron expression", { cron });
     return;
   }
+  const { path, method = "GET", action } = routeConfig;
   if (!env.CRON_SECRET) {
     console.error("[cron-runner] CRON_SECRET secret not set — refusing to fire", { cron, path });
     return;
@@ -46,13 +58,18 @@ async function dispatch(cron: string, env: Env): Promise<void> {
   const url = `${base}${path}`;
   const startedAt = Date.now();
   try {
-    const r = await fetch(url, {
-      method: "GET",
+    const fetchInit: RequestInit = {
+      method,
       headers: {
         Authorization: `Bearer ${env.CRON_SECRET}`,
-        "User-Agent": "dreyv-cron-runner/1.0 (+cloudflare-worker)",
+        "User-Agent": "dreyv-cron-runner/1.1 (+cloudflare-worker)",
       },
-    });
+    };
+    if (method === "POST" && action) {
+      fetchInit.headers = { ...fetchInit.headers, "Content-Type": "application/json" };
+      fetchInit.body = JSON.stringify({ action });
+    }
+    const r = await fetch(url, fetchInit);
     const elapsedMs = Date.now() - startedAt;
     const bodySnippet = (await r.text().catch(() => "")).slice(0, 500);
     if (!r.ok) {
