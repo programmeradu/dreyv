@@ -21,7 +21,7 @@ export const processWalletTx = inngest.createFunction(
     {
         id: "tx-stream-process-wallet-tx",
         name: "tx-stream: process wallet.tx.observed",
-        concurrency: { limit: 50 },
+        concurrency: { limit: 5 },
         retries: 3,
     },
     { event: "wallet.tx.observed" },

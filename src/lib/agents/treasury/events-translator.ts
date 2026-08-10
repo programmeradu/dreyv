@@ -128,7 +128,7 @@ export const translateTxToTreasuryEvent = inngest.createFunction(
   {
     id: "treasury-events-translator",
     name: "Treasury · tx_events → treasury_events translator",
-    concurrency: { limit: 25 },
+    concurrency: { limit: 5 },
     retries: 2,
   },
   { event: "wallet.tx.observed" },
