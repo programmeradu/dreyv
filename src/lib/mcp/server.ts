@@ -363,13 +363,6 @@ export function getMcpManifest(origin: string) {
     transport: "streamable-http",
     endpoint: `${origin}/api/mcp`,
     instructions: MCP_INSTRUCTIONS,
-    authentication: {
-      type: "bearer",
-      scheme: "Bearer",
-      docs: `${origin}/developers/mcp`,
-      keyMintUrl: `${origin}/app/settings/api`,
-      keyPrefix: "dk_live_",
-    },
     capabilityCount: CAPABILITIES.length,
     pillars: Array.from(new Set(CAPABILITIES.map((c) => c.pillar))).sort(),
     scopes: Array.from(new Set(CAPABILITIES.map((c) => c.scope))).sort(),
