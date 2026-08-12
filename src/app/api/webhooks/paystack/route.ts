@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, rentContributions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
     getPaystackSecret,
@@ -85,6 +85,24 @@ export async function POST(req: NextRequest) {
             await creditAgentBalance({ userId: topupUserId, amountMinor, reason: "topup_paystack", ref });
         } catch (err) {
             console.error("[Paystack] balance top-up credit failed:", err);
+        }
+    }
+
+    // Rent Contributions (Paystack)
+    if (event === "charge.success" && data?.metadata?.rent_contribution === "true") {
+        try {
+            // Paystack amounts are typically in minor units if passing through standard checkout,
+            // but the payload might have the original `amount_eur` we set in metadata.
+            const amountEur = data?.metadata?.amount_eur || (data?.amount ? data.amount / 100 : 50);
+            await db.insert(rentContributions).values({
+                provider: "paystack",
+                amountEur: amountEur.toString(),
+                status: "paid",
+            });
+            // Early return for pure rent contributions to skip tier logic
+            return NextResponse.json({ ok: true, event, rent_contribution: true });
+        } catch (err) {
+            console.error("[Paystack] Failed to insert rent contribution:", err);
         }
     }
 

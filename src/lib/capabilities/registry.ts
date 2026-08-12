@@ -529,6 +529,19 @@ export const CAPABILITIES: PublicCapability[] = [
     handler: (i, c) => caps.payFoundersRent(i, c),
   },
   {
+    id: "economy.verify_rent",
+    mcpName: "dreyv_economy_verify_rent",
+    pillar: "economy",
+    scope: "read:portfolio", // scope check will be bypassed for anonymous requests
+    sideEffects: "read",
+    status: "stable",
+    title: "Verify founder's rent payment",
+    description: "Queries the ledger to confirm if a rent payment recently cleared. Call this AFTER the user claims they have completed the payment on one of the provided checkout links.",
+    allowAnonymous: true,
+    inputSchema: z.object({}),
+    handler: (i, c) => caps.verifyFoundersRent(i, c),
+  },
+  {
     id: "economy.faucet",
     mcpName: "dreyv_economy_faucet",
     pillar: "economy",

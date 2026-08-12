@@ -2,55 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
-  const amount = searchParams.get("amount") || "50";
+  const amountStr = searchParams.get("amount") || "50";
+  const amount = parseInt(amountStr, 10);
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Dreyv - Crypto Onramp</title>
-  <script src="https://js.stripe.com/dahlia/stripe.js"></script>
-  <script src="https://crypto-js.stripe.com/crypto-onramp-outer.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      try {
-        const standaloneOnramp = window.StripeOnramp.Standalone({
-          source_currency: 'eur',
-          amount: { source_amount: '${amount}' },
-          destination_networks: ['solana', 'ethereum'],
-          destination_currencies: ['usdc', 'sol', 'eth'],
-          destination_currency: 'usdc',
-          destination_network: 'solana'
-        });
-        window.location.href = standaloneOnramp.getUrl();
-      } catch (err) {
-        console.error("Failed to initialize Stripe Onramp", err);
-        document.body.innerHTML = "Failed to load Stripe Onramp. Please try again.";
-      }
+  if (isNaN(amount) || amount <= 0) {
+    return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  }
+
+  try {
+    const params = new URLSearchParams();
+    params.append("transaction_details[source_currency]", "eur");
+    params.append("transaction_details[source_amount]", amount.toString());
+    params.append("transaction_details[destination_currency]", "usdc");
+    params.append("transaction_details[destination_network]", "solana");
+    params.append("metadata[rent_contribution]", "true");
+
+    const res = await fetch("https://api.stripe.com/v1/crypto/onramp_sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
     });
-  </script>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #f9fafb;
-      color: #374151;
-    }
-  </style>
-</head>
-<body>
-  <p>Preparing Stripe Onramp...</p>
-</body>
-</html>
-  `;
 
-  return new NextResponse(html, {
-    headers: {
-      "Content-Type": "text/html",
-    },
-  });
+    const data = await res.json();
+
+    if (data.redirect_url) {
+      return NextResponse.redirect(data.redirect_url);
+    }
+
+    console.error("Stripe Onramp Error:", data);
+    return NextResponse.json({ error: "Failed to create onramp session" }, { status: 500 });
+  } catch (error) {
+    console.error("Stripe Onramp Exception:", error);
+    return NextResponse.json({ error: "Failed to create onramp session" }, { status: 500 });
+  }
 }

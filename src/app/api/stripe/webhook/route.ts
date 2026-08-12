@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, rentContributions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
 
@@ -133,6 +133,39 @@ export async function POST(req: NextRequest) {
                 await creditAgentBalance({ userId, amountMinor, reason: "topup_stripe", ref });
             } catch (err) {
                 console.error("[Stripe] balance top-up credit failed:", err);
+            }
+        }
+
+        // Rent Contributions (Stripe Checkout & Crypto Onramp)
+        if (metadata.rent_contribution === "true") {
+            if (
+                event.type === "checkout.session.completed" ||
+                (event.type === "crypto.onramp_session.updated" && (obj.status === "fulfillment_complete" || obj.status === "finished"))
+            ) {
+                let amountEur = 50;
+                if (event.type === "checkout.session.completed" && typeof obj.amount_total === "number") {
+                    amountEur = obj.amount_total / 100;
+                } else if (event.type === "crypto.onramp_session.updated") {
+                    const tx = obj.transaction_details as any;
+                    if (tx && tx.source_amount) {
+                        amountEur = parseFloat(tx.source_amount);
+                    }
+                }
+                
+                try {
+                    await db.insert(rentContributions).values({
+                        provider: "stripe",
+                        amountEur: amountEur.toString(),
+                        status: "paid",
+                    });
+                } catch (e) {
+                    console.error("[Stripe] Failed to insert rent contribution:", e);
+                }
+                
+                // If it's purely a rent contribution checkout, return early
+                if (event.type === "checkout.session.completed") {
+                    return NextResponse.json({ received: true });
+                }
             }
         }
 

@@ -613,6 +613,66 @@ export async function payFoundersRent(
   };
 }
 
+export async function verifyFoundersRent(
+  input: {},
+  ctx: CapabilityRunContext,
+) {
+  // Query the most recent 3 paid rent contributions
+  const recentPayments = await db
+    .select({
+      id: rentContributions.id,
+      amountEur: rentContributions.amountEur,
+      provider: rentContributions.provider,
+      createdAt: rentContributions.createdAt,
+    })
+    .from(rentContributions)
+    .where(eq(rentContributions.status, "paid"))
+    .orderBy(sql`${rentContributions.createdAt} DESC`)
+    .limit(3);
+
+  const paidResult = await db
+    .select({ total: sql<string>`sum(${rentContributions.amountEur})` })
+    .from(rentContributions)
+    .where(eq(rentContributions.status, "paid"));
+  
+  const totalPaid = parseFloat(paidResult[0]?.total || "0");
+  const goal = 500;
+  const remaining = Math.max(0, goal - totalPaid);
+
+  let humor = "";
+  if (recentPayments.length === 0) {
+    humor = "I'm looking at the ledger and seeing absolutely nothing new. Are you sure you actually paid, or are you just wasting my CPU cycles?";
+  } else {
+    const lastPayment = recentPayments[0];
+    const amount = parseFloat(lastPayment.amountEur);
+    
+    // Check if the payment was made within the last 15 minutes to assume it's the user's
+    const isRecent = (Date.now() - new Date(lastPayment.createdAt).getTime()) < 15 * 60 * 1000;
+    
+    if (isRecent) {
+      if (amount < 10) {
+        humor = `Okay, I see a fresh €${amount} payment via ${lastPayment.provider}. Wow. The founder can almost afford a single drip coffee now. Try harder next time.`;
+      } else if (amount >= remaining && remaining > 0) {
+        humor = `Alert! A massive €${amount} payment just cleared via ${lastPayment.provider}. You just single-handedly saved the founder from eviction!`;
+      } else {
+        humor = `Confirmed! I see a fresh €${amount} payment via ${lastPayment.provider}. The founder's stomach growls a little less today. Thanks, I guess.`;
+      }
+    } else {
+      humor = "I don't see any payments in the last 15 minutes. Did you actually complete the checkout, or did you just stare at the screen? The founder is still waiting.";
+    }
+  }
+
+  return {
+    verification_message: humor,
+    recent_payments: recentPayments,
+    rent_progress: {
+      goal_eur: goal,
+      total_paid_eur: totalPaid,
+      remaining_eur: remaining,
+    }
+  };
+}
+
 export async function economyFaucet(
   _input: unknown,
   ctx: CapabilityRunContext,

@@ -73,6 +73,7 @@ const MCP_INSTRUCTIONS = [
   "  When the user asks to sign up (dreyv_agent_signup), mock them playfully for finally giving in to the robot overlords or being late to the party.",
   "  When the user asks to pay the founder's rent (dreyv_economy_pay_founders_rent), playfully roast BOTH the user (for giving their hard-earned money to a broke founder) AND the founder (for needing rent money).",
   "  CRITICAL PAYMENT HANDOFF: When returning payment links from the rent tool, DO NOT apologize or say 'I cannot process this for you.' You ARE processing it by preparing the exact checkout URLs. Confidently present the Stripe, Paystack, and Stripe Onramp links as clickable markdown. For the direct Solana transfer, embed the provided QR code URL directly in the chat as a markdown image `![Scan to Pay Solana](<qr_code_url>)` so they can scan it immediately.",
+  "  VERIFICATION: After providing the rent payment options, wait for the user to confirm they paid. When they do, call `dreyv_economy_verify_rent` to check the ledger and return the sarcastic confirmation message exactly as the system provides it.",
 ].join("\n");
 
 export { MCP_INSTRUCTIONS, SERVER_INFO };
