@@ -47,7 +47,7 @@ function operationFor(cap: PublicCapability) {
     summary: cap.title,
     description: `${cap.description}\n\nMCP tool name: \`${cap.mcpName}\`\nScope required: \`${cap.scope}\``,
     tags: [tag],
-    security: [{ bearerAuth: [] }],
+    security: cap.allowAnonymous ? [] : [{ bearerAuth: [] }],
     "x-dreyv-capability-id": cap.id,
     "x-dreyv-mcp-tool": cap.mcpName,
     "x-dreyv-scope": cap.scope,
