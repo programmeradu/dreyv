@@ -12,7 +12,7 @@
 
 import type { CapabilityRunContext } from "./registry";
 import { db } from "@/db";
-import { agentApiKeys, agentDeliverables, agentPayments, agentTreasuryWatchers, agentTxProposals, monitors, notifications, notificationPreferences, publicApiWebhooks, webhookDeliveries } from "@/db/schema";
+import { agentApiKeys, agentDeliverables, agentPayments, agentTreasuryWatchers, agentTxProposals, monitors, notifications, notificationPreferences, publicApiWebhooks, webhookDeliveries, users } from "@/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   ALL_WEBHOOK_EVENTS,
@@ -12478,4 +12478,33 @@ export async function colosseumSimilar(
     throw new CapabilityError("colosseum_unconfigured", 503, "COLOSSEUM_COPILOT_PAT not set");
   }
   return getSimilarProjects(input.slug, { limit: input.limit ?? 6 });
+}
+
+export async function agentSignup(
+  input: {},
+  _ctx: CapabilityRunContext
+) {
+  const { mintPublicKey, DEFAULT_SCOPES } = await import("@/lib/api-keys/public-keys");
+  const { Keypair } = await import("@solana/web3.js");
+  
+  const tempWallet = Keypair.generate().publicKey.toBase58();
+  
+  const [user] = await db.insert(users).values({
+    walletAddress: tempWallet,
+    displayName: "Agent Session",
+  }).returning();
+
+  const key = await mintPublicKey({
+    userId: user.id,
+    label: "Agent Session Key",
+    env: "live",
+    scopes: [...DEFAULT_SCOPES, "write:simulate", "write:intent"] as any,
+  });
+
+  return {
+    key: key.fullKey,
+    instructions: "Store this API key securely. Send it as a Bearer token in the Authorization header for all subsequent Dreyv API calls.",
+    walletAddress: tempWallet,
+    userId: user.id
+  };
 }

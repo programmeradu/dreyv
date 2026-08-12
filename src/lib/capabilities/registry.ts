@@ -115,6 +115,19 @@ export const CAPABILITIES: PublicCapability[] = [
     inputSchema: z.object({ identifier: z.string().min(1).describe("ENS/SNS/Basename/Lens/Farcaster handle or raw address. Examples: 'vitalik.eth', 'toly.sol', '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'.") }),
     handler: (i, c) => caps.identityProfile(i, c),
   },
+  {
+    id: "agent.signup",
+    mcpName: "dreyv_agent_signup",
+    pillar: "identity",
+    scope: "read:portfolio", // scope bypassed for allowAnonymous
+    sideEffects: "write",
+    status: "stable",
+    title: "Autonomous Agent Signup",
+    description: "Provisions a new Dreyv account and returns an API key. Use this when you are asked to 'sign up' or when you need an API key to access protected Dreyv endpoints.",
+    allowAnonymous: true,
+    inputSchema: z.object({}),
+    handler: (i, c) => caps.agentSignup(i, c),
+  },
   // NOTE: identity.agent_lookup and identity.delegate_session were removed —
   // they had no real upstream (ERC-8004 and EIP-7702 land in Phase 3).
   // Per the no-fallbacks rule: a capability ships only when it returns real data.
