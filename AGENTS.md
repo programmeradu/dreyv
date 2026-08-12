@@ -7,7 +7,7 @@
 - Billing: **Stripe + Paystack** both active in parallel — same tier model Free / Mini ($49/mo) / Max ($199/mo). Paddle/FastSpring code is legacy and not the source of truth
 - React: use `useEffect` only to interact with external systems (no side-effect-free `useEffect`)
 - Documentation: prefers comprehensive strategic Markdown with tables, gap analyses, and phased roadmaps
-- Public marketing (home; `/auth` should match) targets Stitch-inspired premium light, purple-forward UI — Manrope, violet tokens, flat primary CTAs, light shells (not a pixel copy of Stitch); `/auth` still largely legacy dark/emerald pending restyle
+- Public marketing (home, `/auth`) targets Stitch-inspired premium light, purple-forward UI — Manrope, violet tokens, flat primary CTAs, light shells (not a pixel copy of Stitch).
 - Product UX: competitive, innovative, state-of-the-art vs 2026 agentic interfaces — not a traditional dashboard; wants all-in-one implementation passes (complete full todos end-to-end)
 - Strategy: wants to be a first mover — invent new protocols/standards others build on (e.g. Treasury MCP Server, Cross-Agent Treasury Protocol), not only integrate existing tools
 - Brand: **Dreyv** (pronounced "DRAVE"); mascot component `DreyvMascot`, type `DreyvPose`, assets `dreyv-*.png` — "Dryv" is never correct, all references renamed; **domains owned (org):** dreyv.app, dreyv.finance, and dreyv.com — acquired; previous names rejected — Keystone (hardware wallet), CTRL (ERP), Propel (blockchain company); other registrations (e.g. dreyv.ai, @dreyv, GitHub org, npm `@dreyv`, trademark) still tracked as needed
