@@ -40,10 +40,14 @@ export function getDb(): DrizzleDb {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { headers } = require('next/headers');
       const h = headers();
-      const headerUrl = typeof h.get === 'function' ? h.get('x-dreyv-database-url') : null;
-      if (headerUrl) {
-        envUrl = sanitizeNeonHttpUrl(headerUrl);
-        process.env.DATABASE_URL = envUrl;
+      // Next.js 15 returns a Promise for headers(). We cannot await it here synchronously.
+      // If it's a Promise, we skip reading from headers to prevent DynamicServerError crashes.
+      if (h && typeof h.then !== 'function') {
+        const headerUrl = typeof h.get === 'function' ? h.get('x-dreyv-database-url') : null;
+        if (headerUrl) {
+          envUrl = sanitizeNeonHttpUrl(headerUrl);
+          process.env.DATABASE_URL = envUrl;
+        }
       }
     } catch {
       // Ignore if headers() is called outside request context (e.g. background scripts)
