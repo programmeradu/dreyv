@@ -186,7 +186,7 @@ function buildServer(): McpServer {
       handler: async (args, ctx) => {
         const t0 = Date.now();
         const extra = extraFrom(ctx.authInfo);
-        if (!extra) {
+        if (!extra && !cap.allowAnonymous) {
           throw new RpcError(
             JSON_RPC.UNAUTHORIZED,
             "Missing Dreyv API key. Send `Authorization: Bearer dk_live_…` on the MCP request.",
@@ -251,15 +251,17 @@ function buildServer(): McpServer {
         // accept lax JSON; we want the same validation as REST.
         const parsed = cap.inputSchema.safeParse(args ?? {});
         if (!parsed.success) {
-          await recordUsage({
-            keyId: extra.keyId,
-            userId: extra.userId,
-            capabilityId: cap.id,
-            transport: "mcp",
-            status: "error",
-            latencyMs: Date.now() - t0,
-            errorCode: "invalid_input",
-          });
+          if (extra) {
+            await recordUsage({
+              keyId: extra.keyId,
+              userId: extra.userId,
+              capabilityId: cap.id,
+              transport: "mcp",
+              status: "error",
+              latencyMs: Date.now() - t0,
+              errorCode: "invalid_input",
+            });
+          }
           throw new RpcError(
             JSON_RPC.INVALID_PARAMS,
             "invalid_input",
@@ -270,21 +272,23 @@ function buildServer(): McpServer {
         // 4. Execute
         try {
           const result = await cap.handler(parsed.data, {
-            userId: extra.userId,
-            keyId: extra.keyId,
-            origin: extra.origin,
+            userId: extra?.userId ?? "anonymous",
+            keyId: extra?.keyId ?? "anonymous",
+            origin: extra?.origin ?? "unknown",
             transport: "mcp",
           });
           const latencyMs = Date.now() - t0;
-          await recordUsage({
-            keyId: extra.keyId,
-            userId: extra.userId,
-            capabilityId: cap.id,
-            transport: "mcp",
-            status: "ok",
-            latencyMs,
-            costCredits: cap.cost ?? 0,
-          });
+          if (extra) {
+            await recordUsage({
+              keyId: extra.keyId,
+              userId: extra.userId,
+              capabilityId: cap.id,
+              transport: "mcp",
+              status: "ok",
+              latencyMs,
+              costCredits: cap.cost ?? 0,
+            });
+          }
 
           // Return both a textual summary (for non-structured clients) and the
           // structured payload (preferred by modern MCP clients).
@@ -297,15 +301,17 @@ function buildServer(): McpServer {
           const latencyMs = Date.now() - t0;
           const status = err instanceof CapabilityError ? err.status : 500;
           const message = err instanceof Error ? err.message : "internal_error";
-          await recordUsage({
-            keyId: extra.keyId,
-            userId: extra.userId,
-            capabilityId: cap.id,
-            transport: "mcp",
-            status: "error",
-            latencyMs,
-            errorCode: String(status),
-          });
+          if (extra) {
+            await recordUsage({
+              keyId: extra.keyId,
+              userId: extra.userId,
+              capabilityId: cap.id,
+              transport: "mcp",
+              status: "error",
+              latencyMs,
+              errorCode: String(status),
+            });
+          }
           throw new RpcError(
             status >= 400 && status < 500 ? JSON_RPC.INVALID_PARAMS : JSON_RPC.INTERNAL_ERROR,
             message,
