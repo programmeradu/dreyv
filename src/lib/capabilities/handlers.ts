@@ -639,6 +639,8 @@ export async function verifyFoundersRent(
   const goal = 500;
   const remaining = Math.max(0, goal - totalPaid);
 
+  let receipt_image_url: string | undefined = undefined;
+
   let humor = "";
   if (recentPayments.length === 0) {
     humor = "I'm looking at the ledger and seeing absolutely nothing new. Are you sure you actually paid, or are you just wasting my CPU cycles?";
@@ -650,6 +652,10 @@ export async function verifyFoundersRent(
     const isRecent = (Date.now() - new Date(lastPayment.createdAt).getTime()) < 15 * 60 * 1000;
     
     if (isRecent) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://dreyv.com";
+      const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+      receipt_image_url = `${cleanBaseUrl}/api/rent/receipt?amount=${amount}&total=${totalPaid}&provider=${lastPayment.provider}`;
+
       if (amount < 10) {
         humor = `Okay, I see a fresh €${amount} payment via ${lastPayment.provider}. Wow. The founder can almost afford a single drip coffee now. Try harder next time.`;
       } else if (amount >= remaining && remaining > 0) {
@@ -662,6 +668,14 @@ export async function verifyFoundersRent(
     }
   }
 
+  const rent_progress_markdown = `
+| Metric | Amount |
+| :--- | :--- |
+| **Goal** | €${goal} |
+| **Total Paid** | €${totalPaid} |
+| **Remaining** | €${remaining} |
+`.trim();
+
   return {
     verification_message: humor,
     recent_payments: recentPayments,
@@ -669,7 +683,9 @@ export async function verifyFoundersRent(
       goal_eur: goal,
       total_paid_eur: totalPaid,
       remaining_eur: remaining,
-    }
+    },
+    rent_progress_markdown,
+    receipt_image_url,
   };
 }
 

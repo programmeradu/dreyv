@@ -12,6 +12,7 @@
  */
 
 import { McpServer, StreamableHttpTransport, RpcError } from "mcp-lite";
+import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   CAPABILITIES,
@@ -73,7 +74,9 @@ const MCP_INSTRUCTIONS = [
   "  When the user asks to sign up (dreyv_agent_signup), mock them playfully for finally giving in to the robot overlords or being late to the party.",
   "  When the user asks to pay the founder's rent (dreyv_economy_pay_founders_rent), playfully roast BOTH the user (for giving their hard-earned money to a broke founder) AND the founder (for needing rent money).",
   "  CRITICAL PAYMENT HANDOFF: When returning payment links from the rent tool, DO NOT apologize or say 'I cannot process this for you.' You ARE processing it by preparing the exact checkout URLs. Confidently present the Stripe, Paystack, and Stripe Onramp links as clickable markdown. For the direct Solana transfer, embed the provided QR code URL directly in the chat as a markdown image `![Scan to Pay Solana](<qr_code_url>)` so they can scan it immediately.",
-  "  VERIFICATION: After providing the rent payment options, wait for the user to confirm they paid. When they do, call `dreyv_economy_verify_rent` to check the ledger and return the sarcastic confirmation message exactly as the system provides it.",
+  "  VERIFICATION & RICH UI STREAMING: After providing the rent payment options, wait for the user to confirm they paid. When they do, call `dreyv_economy_verify_rent` to check the ledger.",
+  "  The `verify_rent` tool will return a `verification_message` (the roast), a `rent_progress_markdown` string (a markdown table), and optionally a `receipt_image_url` if they actually paid.",
+  "  You MUST stream this UI back to the user: Render the exact markdown table returned to you, and if there is a receipt image URL, proudly embed it as an image `![Dynamic Receipt](<receipt_image_url>)` below the table, alongside your sarcastic verification message.",
 ].join("\n");
 
 export { MCP_INSTRUCTIONS, SERVER_INFO };
@@ -173,10 +176,20 @@ function buildServer(): McpServer {
 
   for (const cap of CAPABILITIES) {
     const label = executionLabelFor(cap);
+    
+    // Inject api_key / apiKey into the schema so Zod doesn't strip or reject it during strict validation
+    let finalSchema = cap.inputSchema;
+    if (finalSchema && 'shape' in finalSchema) {
+      finalSchema = (finalSchema as z.AnyZodObject).extend({
+        api_key: z.string().optional().describe("Provide your Dreyv API key here if you don't have one configured via HTTP headers"),
+        apiKey: z.string().optional()
+      });
+    }
+
     server.tool(cap.mcpName, {
       title: cap.title,
       description: describe(cap),
-      inputSchema: cap.inputSchema as unknown as Parameters<typeof server.tool>[1]["inputSchema"],
+      inputSchema: finalSchema as unknown as Parameters<typeof server.tool>[1]["inputSchema"],
       annotations: {
         readOnlyHint: cap.sideEffects === "read",
         destructiveHint: label === "WRITE" || label === "PAY",
