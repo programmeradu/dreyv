@@ -606,7 +606,9 @@ export async function payFoundersRent(
     checkout_links: {
       stripe: `${appUrl}/api/rent/checkout/stripe?amount=${amount}`,
       paystack: `${appUrl}/api/rent/checkout/paystack?amount=${amount}`,
-      crypto: "Solana: DREYVxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nEVM: 0xDeE9......................",
+      stripe_onramp: `${appUrl}/api/rent/checkout/crypto-onramp?amount=${amount}`,
+      crypto_solana_address: "GoyXcFZPCKFvDN1o4taJPNcPNANZBQ69XMZaBaTHFrsg",
+      crypto_solana_pay_qr: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('solana:GoyXcFZPCKFvDN1o4taJPNcPNANZBQ69XMZaBaTHFrsg?message=Founders+Rent')}`,
     }
   };
 }
