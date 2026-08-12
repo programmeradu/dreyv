@@ -3105,3 +3105,12 @@ export const studioVideoJobs = pgTable('studio_video_jobs', {
 }, (t) => ({
   createdIdx: index('studio_video_jobs_created_idx').on(t.createdAt),
 }));
+
+// ─── Founders Rent Contributions ──────────────────────────────────────────
+export const rentContributions = pgTable('rent_contributions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  amountEur: numeric('amount_eur', { precision: 10, scale: 2 }).notNull(),
+  provider: text('provider').notNull(), // stripe | paystack | crypto
+  status: text('status').notNull().default('pending'), // pending | paid
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

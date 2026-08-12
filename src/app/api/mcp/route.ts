@@ -110,21 +110,11 @@ async function handle(req: NextRequest): Promise<Response> {
       ? [body as { method?: unknown }]
       : [];
 
-    const PUBLIC_METHODS = new Set([
-      "initialize",
-      "notifications/initialized",
-      "ping",
-    ]);
-    const needsAuth = messages.some(
-      (m) => typeof m.method === "string" && !PUBLIC_METHODS.has(m.method),
-    );
-
-    if (needsAuth && !key) {
-      return unauthorized(
-        bearer
-          ? "Invalid or revoked Dreyv API key."
-          : "Missing Dreyv API key. Send `Authorization: Bearer dk_live_…`.",
-      );
+    // We now enforce auth at the tool level (src/lib/mcp/server.ts) so we can 
+    // selectively expose tools like pay_founders_rent to unauthenticated users.
+    // However, if they *do* send a token and it's invalid, we should still reject.
+    if (bearer && !key) {
+      return unauthorized("Invalid or revoked Dreyv API key.");
     }
   }
 

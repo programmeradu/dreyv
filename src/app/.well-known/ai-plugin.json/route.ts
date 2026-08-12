@@ -18,12 +18,7 @@ export function GET() {
       description_for_model:
         "dreyv is a non-custodial AI treasury command layer for Solana DAOs and protocols. Use it to turn plain-language treasury intent into multi-step plans, simulate them on forked state, and propose them to a Squads multisig for signing. Public endpoints expose token prices, atlas data, and research tools. Authenticated endpoints expose planning, simulation, swap routing (Jupiter), vault balances, and Squads proposals. dreyv never custodies private keys.",
       auth: {
-        type: "oauth",
-        client_url: `${origin}/developers#oauth`,
-        scope: "read write",
-        authorization_url: `${origin}/api/auth/authorize`,
-        authorization_content_type: "application/json",
-        verification_tokens: {},
+        type: "none",
       },
       api: {
         type: "openapi",

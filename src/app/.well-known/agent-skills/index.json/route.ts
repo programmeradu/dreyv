@@ -132,15 +132,7 @@ export function GET() {
         { src: `${origin}/dreyv-mark.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
       ],
       contact: "founders@dreyv.com",
-      agent_auth: {
-        type: "oauth2",
-        skill: `${origin}/auth.md`,
-        authorization_endpoint: `${origin}/api/oauth/authorize`,
-        token_endpoint: `${origin}/api/oauth/token`,
-        registration_endpoint: `${origin}/api/oauth/register`,
-        metadata: `${origin}/.well-known/oauth-authorization-server`,
-        protected_resource: `${origin}/.well-known/oauth-protected-resource`,
-      },
+
       skills: skills.map((s) => ({ ...s, digest: digestOf(s.url) })),
     },
     {

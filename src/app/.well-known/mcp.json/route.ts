@@ -27,11 +27,7 @@ export function GET(req: NextRequest) {
       manifest: `${origin}/api/mcp/manifest`,
       docs: `${origin}/developers/mcp`,
       tools: getMcpToolCount(),
-      authentication: {
-        type: "bearer",
-        keyMintUrl: `${origin}/app/settings/api`,
-        keyPrefix: "dk_live_",
-      },
+
     },
     {
       headers: {

@@ -193,7 +193,8 @@ function buildServer(): McpServer {
           );
         }
 
-        // 1. Scope
+        if (extra) {
+          // 1. Scope
         if (!hasScope(extra.key, cap.scope)) {
           await recordUsage({
             keyId: extra.keyId,
@@ -242,6 +243,8 @@ function buildServer(): McpServer {
             `Rate limit exceeded. Retry in ${Math.ceil(rl.retryAfterMs / 1000)}s. Limit: ${extra.key.rateLimitRpm} rpm.`,
             { retryAfterMs: rl.retryAfterMs, limitRpm: extra.key.rateLimitRpm },
           );
+        }
+
         }
 
         // 3. Re-validate input with the canonical zod schema. mcp-lite may

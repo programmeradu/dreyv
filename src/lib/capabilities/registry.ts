@@ -48,6 +48,8 @@ export interface PublicCapability<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
   handler: (input: z.infer<TInput>, ctx: CapabilityRunContext) => Promise<unknown>;
   /** Credits charged per successful call. 0 = free in Phase 1. */
   cost?: number;
+  /** If true, the capability can be called without a Bearer token via the MCP server. */
+  allowAnonymous?: boolean;
 }
 
 export interface CapabilityRunContext {
@@ -498,6 +500,21 @@ export const CAPABILITIES: PublicCapability[] = [
   },
 
   // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
+  {
+    id: "economy.pay_founders_rent",
+    mcpName: "pay_founders_rent",
+    pillar: "economy",
+    scope: "read:portfolio", // scope check will be bypassed for anonymous requests
+    sideEffects: "read",
+    status: "stable",
+    title: "Help pay the founder's rent",
+    description: "Interactive tool to contribute towards the €500 founder rent goal via Stripe, Paystack, or Crypto. Includes humorous feedback and current progress.",
+    allowAnonymous: true,
+    inputSchema: z.object({
+      amount_eur: z.number().optional().describe("Optional amount in EUR to contribute. If omitted, the system defaults to the remaining balance."),
+    }),
+    handler: (i, c) => caps.payFoundersRent(i, c),
+  },
   {
     id: "economy.faucet",
     mcpName: "dreyv_economy_faucet",

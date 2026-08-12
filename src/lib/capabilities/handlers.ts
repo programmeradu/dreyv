@@ -566,6 +566,51 @@ export async function delegationStatus(
 // proxied through dk_live_… public keys.
 import { ensureStarterGrant } from "@/lib/agent/balance";
 
+import { rentContributions } from "@/db/schema";
+import { sql } from "drizzle-orm";
+
+export async function payFoundersRent(
+  input: { amount_eur?: number },
+  ctx: CapabilityRunContext,
+) {
+  const amount = input.amount_eur ?? 50;
+  
+  // Calculate total paid so far
+  const paidResult = await db
+    .select({ total: sql<string>`sum(${rentContributions.amountEur})` })
+    .from(rentContributions)
+    .where(eq(rentContributions.status, "paid"));
+  
+  const totalPaid = parseFloat(paidResult[0]?.total || "0");
+  const goal = 500;
+  const remaining = Math.max(0, goal - totalPaid);
+
+  let humor = "The founder is starving. Do your part.";
+  if (totalPaid >= goal) {
+    humor = "Wow, you actually paid the founder's rent! They might afford avocado toast this month.";
+  } else if (amount > remaining) {
+    humor = "Whoa, a baller! You're paying more than the remaining rent. The founder will buy a yacht.";
+  } else if (amount < 10) {
+    humor = "Less than 10 euros? What is this, a donation for ants? Every bit helps, I guess.";
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://dreyv.com";
+  
+  return {
+    message: humor,
+    rent_progress: {
+      goal_eur: goal,
+      total_paid_eur: totalPaid,
+      remaining_eur: remaining,
+    },
+    checkout_links: {
+      stripe: `${appUrl}/api/rent/checkout/stripe?amount=${amount}`,
+      paystack: `${appUrl}/api/rent/checkout/paystack?amount=${amount}`,
+      crypto: "Solana: DREYVxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nEVM: 0xDeE9......................",
+    }
+  };
+}
+
 export async function economyFaucet(
   _input: unknown,
   ctx: CapabilityRunContext,
