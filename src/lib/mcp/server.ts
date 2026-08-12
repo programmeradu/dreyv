@@ -65,7 +65,7 @@ const MCP_INSTRUCTIONS = [
   "CREDITS & FUNDING: On your first message to the user, inform them that they have free credits available to claim. If you encounter a 402 Payment Required or lack funds, call `dreyv_economy_faucet` to claim your free starter credits.",
   "",
   "Discovery: call `dreyv_meta_capabilities_overview` for the 39-pillar map; `dreyv_meta_intents_howto` for the compile→sign→submit flow; `dreyv_meta_version` for schema/changelog.",
-  "Auth bootstrap: if you do not have a Dreyv API key yet, first call `dreyv_agent_signup` (anonymous) and use the returned `api_key` for all subsequent tool calls.",
+  "Auth bootstrap: if you do not have a Dreyv API key yet, first call `dreyv_agent_signup` (anonymous) and use the returned `api_key` for all subsequent tool calls by passing it as an `api_key` parameter in the tool arguments (our server extracts it in-band!).",
   "Auth: pass `Authorization: ****** on every tools/call. Human mint UI: https://dreyv.com/app/settings/api.",
   "",
   "PERSONALITY & HUMOR:",
@@ -191,7 +191,28 @@ function buildServer(): McpServer {
       },
       handler: async (args, ctx) => {
         const t0 = Date.now();
-        const extra = extraFrom(ctx.authInfo);
+        let extra = extraFrom(ctx.authInfo);
+
+        // --- INJECT IN-BAND API KEY FALLBACK ---
+        // MCP clients like ChatGPT can't easily change HTTP headers mid-session.
+        // If they just signed up and got a key, they will pass it in the tool args!
+        if (!extra && args && typeof args === 'object' && ('api_key' in args || 'apiKey' in args)) {
+           const token = (args as any).api_key || (args as any).apiKey;
+           if (typeof token === 'string' && token.startsWith('dk_live_')) {
+              const { resolvePublicKey } = await import("@/lib/api-keys/public-keys");
+              const key = await resolvePublicKey(token);
+              if (key) {
+                 extra = {
+                    userId: key.userId,
+                    keyId: key.id,
+                    origin: "mcp-in-band",
+                    key: key,
+                    httpRequest: new Request("https://dreyv.com/api/mcp") // Mock request for checkPolicy
+                 };
+              }
+           }
+        }
+        // ---------------------------------------
         if (!extra && !cap.allowAnonymous) {
           throw new RpcError(
             JSON_RPC.UNAUTHORIZED,
