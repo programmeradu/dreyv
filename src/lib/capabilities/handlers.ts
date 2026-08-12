@@ -12504,7 +12504,7 @@ export async function agentSignup(
   return {
     api_key: key.fullKey,
     key: key.fullKey,
-    api_key_prefix: key.prefix,
+    api_key_prefix: key.keyPrefix,
     instructions:
       "Store this API key securely. Send it as a ****** in the Authorization header for all subsequent Dreyv API calls.",
     walletAddress: tempWallet,
