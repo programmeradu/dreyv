@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
         const token = getAdminToken(req);
         if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         try {
-            const jwtSecret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+            const jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) return NextResponse.json({ error: "Auth not configured" }, { status: 503 });
             const result = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
             const wallet = (result.payload as any).wallet || (result.payload as any).sub;

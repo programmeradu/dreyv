@@ -12,7 +12,7 @@ import { users } from "@/db/schema";
 const SIWS_COOKIE = "keystone-siws-session";
 
 function jwtSecret(): Uint8Array {
-  const s = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "dreyv-siws-secret-fallback-2026";
+  const s = process.env.JWT_SECRET || "dreyv-siws-secret-fallback-2026";
   return new TextEncoder().encode(s);
 }
 

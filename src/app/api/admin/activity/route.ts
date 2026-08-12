@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "",
+      process.env.JWT_SECRET || "",
     );
     if (!secret.length)
       return NextResponse.json({ error: "Auth not configured" }, { status: 503 });

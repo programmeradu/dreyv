@@ -34,7 +34,7 @@ async function requireAdmin(req: NextRequest) {
   const token = getAdminToken(req);
   if (!token) return { ok: false as const, status: 401, error: "Unauthorized" };
   try {
-    const jwtSecret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) return { ok: false as const, status: 503, error: "Auth not configured" };
     const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
     const wallet = (payload as any).wallet || payload.sub;

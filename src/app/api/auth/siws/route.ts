@@ -15,7 +15,7 @@ const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
 function getJwtSecret(req?: NextRequest) {
     const headerSecret = req?.headers.get('x-dreyv-jwt-secret');
-    const secret = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
+    const secret = headerSecret || process.env.JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
     return new TextEncoder().encode(secret);
 }
 

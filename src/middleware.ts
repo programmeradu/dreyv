@@ -42,7 +42,7 @@ function hasNeonAuthCookieHint(request: NextRequest): boolean {
 
 function getJwtSecret(request: NextRequest) {
     const headerSecret = request.headers.get('x-dreyv-jwt-secret');
-    const secret = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
+    const secret = headerSecret || process.env.JWT_SECRET || 'dreyv-siws-secret-fallback-2026';
     return new TextEncoder().encode(secret);
 }
 
@@ -249,7 +249,7 @@ async function isWaitlistAllowed(request: NextRequest, email: string | null): Pr
     const cached = WAITLIST_ALLOW_CACHE.get(key);
     if (cached && cached.expiresAt > now) return cached.allowed;
 
-    const secret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+    const secret = process.env.JWT_SECRET;
     if (!secret) return false;
 
     try {
@@ -277,7 +277,7 @@ async function isWaitlistAllowed(request: NextRequest, email: string | null): Pr
 async function isWalletWaitlistAllowed(request: NextRequest, wallet: string | null): Promise<boolean> {
     if (!wallet) return false;
 
-    const secret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+    const secret = process.env.JWT_SECRET;
     if (!secret) return false;
 
     try {

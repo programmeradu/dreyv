@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const token = getAdminToken(req);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "");
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
     if (!secret.length) return NextResponse.json({ error: "Auth not configured" }, { status: 503 });
     const { payload } = await jwtVerify(token, secret);
     const wallet = (payload as any).wallet || (payload as any).sub;

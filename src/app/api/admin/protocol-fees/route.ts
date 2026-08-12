@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
-      const jwtSecret = process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET;
+      const jwtSecret = process.env.JWT_SECRET;
       if (!jwtSecret) return NextResponse.json({ error: "Auth not configured" }, { status: 503 });
       const secret = new TextEncoder().encode(jwtSecret);
       const result = await jwtVerify(token, secret);

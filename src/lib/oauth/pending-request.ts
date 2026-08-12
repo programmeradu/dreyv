@@ -15,7 +15,7 @@ const TTL_SECONDS = 600;
 
 function secret(req?: Request): Uint8Array {
   const headerSecret = req?.headers.get("x-dreyv-jwt-secret");
-  const s = headerSecret || process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || "dreyv-oauth-secret-fallback-2026";
+  const s = headerSecret || process.env.JWT_SECRET || "dreyv-oauth-secret-fallback-2026";
   return new TextEncoder().encode(s);
 }
 

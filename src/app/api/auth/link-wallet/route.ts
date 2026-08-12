@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-utils';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -26,11 +26,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify the user has an active session
-        const supabase = await createSupabaseServerClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        // Verify the user has an active session via the unified auth util
+        const authUser = await getAuthUser(request);
 
-        if (authError || !user) {
+        if (!authUser) {
             return NextResponse.json(
                 { error: 'Not authenticated. Sign in first.' },
                 { status: 401 }
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
                 .where(eq(users.walletAddress, walletAddress))
                 .limit(1);
 
-            if (existingWallet.length > 0 && existingWallet[0].supabaseUserId !== user.id) {
+            if (existingWallet.length > 0 && existingWallet[0].id !== authUser.id) {
                 return NextResponse.json(
                     { error: 'This wallet is already linked to another account.' },
                     { status: 409 }
@@ -72,17 +71,15 @@ export async function POST(request: NextRequest) {
             }
 
             // Update the social user's record with the real wallet address
+            // This replaces their placeholder neon_id wallet address with the real Phantom one
             await db
                 .update(users)
                 .set({
                     walletAddress,
                 })
-                .where(eq(users.supabaseUserId, user.id));
+                .where(eq(users.id, authUser.id));
 
-            // Also update Supabase user metadata
-            await supabase.auth.updateUser({
-                data: { wallet_address: walletAddress },
-            });
+            // We no longer update Supabase metadata, Neon Auth doesn't require mirroring
         }
 
         return NextResponse.json({
