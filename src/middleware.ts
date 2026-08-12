@@ -312,6 +312,10 @@ export async function middleware(request: NextRequest) {
     if (headerJwt && !process.env.JWT_SECRET) {
         process.env.JWT_SECRET = headerJwt;
     }
+    const headerStripe = request.headers.get('x-dreyv-stripe-secret');
+    if (headerStripe && !process.env.STRIPE_SECRET_KEY) {
+        process.env.STRIPE_SECRET_KEY = headerStripe;
+    }
 
     // ─── App construction gate (must run first) ─────────────────────
     if (

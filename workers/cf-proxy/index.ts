@@ -53,6 +53,9 @@ export default {
       if (env.JWT_SECRET) {
         cleanHeaders.set("x-dreyv-jwt-secret", String(env.JWT_SECRET));
       }
+      if (env.STRIPE_SECRET_KEY) {
+        cleanHeaders.set("x-dreyv-stripe-secret", String(env.STRIPE_SECRET_KEY));
+      }
 
       // Sterile Request — DO NOT use new Request(request, overrides); that carries C++ TLS slots
       const sterileRequest = new Request(targetUrl, {
