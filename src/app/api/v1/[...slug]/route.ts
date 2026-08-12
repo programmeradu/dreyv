@@ -56,7 +56,7 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
 
   const bearer = extractBearer(req);
   const key = await resolvePublicKey(bearer);
-  if (!key) {
+  if (!key && !cap.allowAnonymous) {
     return NextResponse.json(
       {
         error: "unauthorized",
@@ -67,54 +67,58 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
     );
   }
 
-  if (!hasScope(key, cap.scope)) {
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "denied",
-      latencyMs: Date.now() - t0,
-      errorCode: "missing_scope",
-    });
-    return NextResponse.json(
-      { error: "missing_scope", required: cap.scope, granted: key.scopes },
-      { status: 403 },
-    );
-  }
+  let rlRemaining = "100";
+  if (key) {
+    if (!hasScope(key, cap.scope)) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "denied",
+        latencyMs: Date.now() - t0,
+        errorCode: "missing_scope",
+      });
+      return NextResponse.json(
+        { error: "missing_scope", required: cap.scope, granted: key.scopes },
+        { status: 403 },
+      );
+    }
 
-  const policy = checkPolicy(key, cap.id, req);
-  if (!policy.ok) {
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "denied",
-      latencyMs: Date.now() - t0,
-      errorCode: policy.code,
-    });
-    return NextResponse.json(
-      { error: policy.code, message: policy.message, ...(policy.detail ?? {}) },
-      { status: 403 },
-    );
-  }
+    const policy = checkPolicy(key, cap.id, req);
+    if (!policy.ok) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "denied",
+        latencyMs: Date.now() - t0,
+        errorCode: policy.code,
+      });
+      return NextResponse.json(
+        { error: policy.code, message: policy.message, ...(policy.detail ?? {}) },
+        { status: 403 },
+      );
+    }
 
-  const rl = checkRateLimit(key);
-  if (!rl.ok) {
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "rate_limited",
-      latencyMs: Date.now() - t0,
-      errorCode: "rate_limited",
-    });
-    return NextResponse.json(
-      { error: "rate_limited", retryAfterMs: rl.retryAfterMs, limitRpm: key.rateLimitRpm },
-      { status: 429, headers: { "Retry-After": Math.ceil(rl.retryAfterMs / 1000).toString() } },
-    );
+    const rl = checkRateLimit(key);
+    rlRemaining = String(rl.remaining);
+    if (!rl.ok) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "rate_limited",
+        latencyMs: Date.now() - t0,
+        errorCode: "rate_limited",
+      });
+      return NextResponse.json(
+        { error: "rate_limited", retryAfterMs: rl.retryAfterMs, limitRpm: key.rateLimitRpm },
+        { status: 429, headers: { "Retry-After": Math.ceil(rl.retryAfterMs / 1000).toString() } },
+      );
+    }
   }
 
   // Parse input from query (GET) or body (POST).
@@ -140,15 +144,17 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
 
   const parsed = (cap as PublicCapability).inputSchema.safeParse(raw);
   if (!parsed.success) {
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "error",
-      latencyMs: Date.now() - t0,
-      errorCode: "invalid_input",
-    });
+    if (key) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "error",
+        latencyMs: Date.now() - t0,
+        errorCode: "invalid_input",
+      });
+    }
     return NextResponse.json(
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
@@ -158,7 +164,7 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
   // Charge prepaid agent balance per call (skip if priced at 0).
   const priceMinor = priceMinorFor(cap);
   let balanceAfterMinor: bigint | null = null;
-  if (priceMinor > BigInt(0)) {
+  if (key && priceMinor > BigInt(0)) {
     // Per-call ref MUST be unique — the ledger has UNIQUE(reason, ref).
     // Reusing key.id here would either silently skip the second charge
     // (free calls) or raise a constraint error and 500 the request.
@@ -216,28 +222,30 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
   const origin = new URL(req.url).origin;
   try {
     const result = await cap.handler(parsed.data, {
-      userId: key.userId,
-      keyId: key.id,
+      userId: key?.userId ?? "anonymous",
+      keyId: key?.id ?? "anonymous",
       origin,
       transport: "rest",
     });
     const latencyMs = Date.now() - t0;
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "ok",
-      latencyMs,
-      costCredits: Number(priceMinor),
-    });
+    if (key) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "ok",
+        latencyMs,
+        costCredits: Number(priceMinor),
+      });
+    }
     return NextResponse.json(
       {
         ok: true,
         capability: cap.id,
         latencyMs,
         data: result,
-        billing: priceMinor > BigInt(0)
+        billing: key && priceMinor > BigInt(0)
           ? {
               charged_usd: minorToUsd(priceMinor),
               charged_minor: priceMinor.toString(),
@@ -245,22 +253,24 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
             }
           : { charged_usd: "0.00", charged_minor: "0", balance_after_usd: null },
       },
-      { headers: { "x-dreyv-capability": cap.id, "x-dreyv-rate-remaining": String(rl.remaining) } },
+      { headers: { "x-dreyv-capability": cap.id, "x-dreyv-rate-remaining": rlRemaining } },
     );
 
   } catch (err) {
     const latencyMs = Date.now() - t0;
     const status = err instanceof CapabilityError ? err.status : 500;
     const message = err instanceof Error ? err.message : "Internal error";
-    await recordUsage({
-      keyId: key.id,
-      userId: key.userId,
-      capabilityId: cap.id,
-      transport: "rest",
-      status: "error",
-      latencyMs,
-      errorCode: String(status),
-    });
+    if (key) {
+      await recordUsage({
+        keyId: key.id,
+        userId: key.userId,
+        capabilityId: cap.id,
+        transport: "rest",
+        status: "error",
+        latencyMs,
+        errorCode: String(status),
+      });
+    }
     return NextResponse.json(
       { error: "capability_failed", message, capability: cap.id },
       { status: status >= 400 && status < 600 ? status : 502 },
