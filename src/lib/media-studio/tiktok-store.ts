@@ -5,15 +5,7 @@
  * the studio (the studio is already gated by `requireTeamMember`).
  */
 
-import { createClient } from "@supabase/supabase-js";
 import type { TikTokPerformanceRow } from "./intelligence";
-
-function adminClient() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 type Row = {
   video_id: string;
@@ -37,31 +29,8 @@ function toNumber(v: number | string | null | undefined): number {
 }
 
 export async function loadTikTokRows(accountId = "default"): Promise<TikTokPerformanceRow[]> {
-  const sb = adminClient();
-  if (!sb) return [];
-  const { data, error } = await sb
-    .from("studio_video_performance")
-    .select("video_id, caption, posted_at, view_count, like_count, comment_count, share_count, avg_watch_sec, full_watch_rate, duration_sec, share_url")
-    .eq("account_id", accountId)
-    .order("posted_at", { ascending: false })
-    .limit(50);
-  if (error) {
-    console.warn("[tiktok-store] load failed:", error.message);
-    return [];
-  }
-  return (data ?? []).map((r: Row) => ({
-    videoId: r.video_id,
-    caption: r.caption,
-    postedAt: r.posted_at,
-    viewCount: toNumber(r.view_count),
-    likeCount: toNumber(r.like_count),
-    commentCount: toNumber(r.comment_count),
-    shareCount: toNumber(r.share_count),
-    avgWatchSec: r.avg_watch_sec == null ? null : toNumber(r.avg_watch_sec),
-    fullWatchRate: r.full_watch_rate == null ? null : toNumber(r.full_watch_rate),
-    durationSec: r.duration_sec,
-    shareUrl: r.share_url,
-  }));
+  console.warn("[tiktok-store] Supabase has been purged. TikTok row loading is temporarily disabled until migrated to Neon.");
+  return [];
 }
 
 export type UpsertRow = {
@@ -81,28 +50,6 @@ export type UpsertRow = {
 };
 
 export async function upsertTikTokRows(rows: UpsertRow[]): Promise<number> {
-  const sb = adminClient();
-  if (!sb) throw new Error("Supabase service-role not configured.");
-  if (rows.length === 0) return 0;
-  const payload = rows.map((r) => ({
-    account_id: r.accountId,
-    video_id: r.videoId,
-    caption: r.caption,
-    posted_at: r.postedAt,
-    duration_sec: r.durationSec,
-    view_count: r.viewCount,
-    like_count: r.likeCount,
-    comment_count: r.commentCount,
-    share_count: r.shareCount,
-    avg_watch_sec: r.avgWatchSec,
-    full_watch_rate: r.fullWatchRate,
-    share_url: r.shareUrl,
-    cover_url: r.coverUrl,
-    fetched_at: new Date().toISOString(),
-  }));
-  const { error } = await sb
-    .from("studio_video_performance")
-    .upsert(payload, { onConflict: "account_id,video_id" });
-  if (error) throw new Error(`tiktok upsert failed: ${error.message}`);
-  return payload.length;
+  console.warn("[tiktok-store] Supabase has been purged. TikTok row upsert is temporarily disabled until migrated to Neon.");
+  return 0;
 }

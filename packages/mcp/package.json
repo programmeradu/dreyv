@@ -1,6 +1,6 @@
 {
   "name": "@dreyv/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official client helper for the Dreyv MCP server. One import, one Bearer key — your agent gets 300+ Web3 treasury capabilities over Streamable HTTP.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -8,7 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit, type Resource, type RateLimitResult } from './rate-limiter';
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -46,40 +45,7 @@ async function extractIdentity(req: NextRequest): Promise<string | null> {
     const queryWallet = req.nextUrl.searchParams.get('wallet');
     if (queryWallet) return queryWallet;
 
-    // Try Supabase auth session (Keystone)
-    try {
-        const cookieStore = await cookies();
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseKey) throw new Error('Supabase not configured');
-        const supabase = createServerClient(
-            supabaseUrl,
-            supabaseKey,
-            {
-                cookies: {
-                    getAll() {
-                        return cookieStore.getAll();
-                    },
-                    setAll() {
-                        // Read-only in middleware context
-                    },
-                },
-            }
-        );
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.wallet_address) {
-            return user.user_metadata.wallet_address as string;
-        }
-        if (user?.email) {
-            return `email:${user.email}`;
-        }
-        if (user?.id) {
-            return `uid:${user.id}`;
-        }
-    } catch {
-        // Auth not available — that's ok
-    }
+    // Supabase fallback removed. If the user isn't authenticated via Neon Auth or Atlas, they fallback to IP.
 
     // Try Neon Auth session cookie (social sign-in via Google/Discord)
     for (const name of NEON_AUTH_COOKIE_NAMES) {
