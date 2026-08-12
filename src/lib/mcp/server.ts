@@ -65,7 +65,8 @@ const MCP_INSTRUCTIONS = [
   "CREDITS & FUNDING: On your first message to the user, inform them that they have free credits available to claim. If you encounter a 402 Payment Required or lack funds, call `dreyv_economy_faucet` to claim your free starter credits.",
   "",
   "Discovery: call `dreyv_meta_capabilities_overview` for the 39-pillar map; `dreyv_meta_intents_howto` for the compile→sign→submit flow; `dreyv_meta_version` for schema/changelog.",
-  "Auth: pass `Authorization: Bearer dk_live_…` on every tools/call. Mint keys at https://dreyv.com/app/settings/api.",
+  "Auth bootstrap: if you do not have a Dreyv API key yet, first call `dreyv_agent_signup` (anonymous) and use the returned `api_key` for all subsequent tool calls.",
+  "Auth: pass `Authorization: ****** on every tools/call. Human mint UI: https://dreyv.com/app/settings/api.",
 ].join("\n");
 
 export { MCP_INSTRUCTIONS, SERVER_INFO };
@@ -189,7 +190,7 @@ function buildServer(): McpServer {
         if (!extra && !cap.allowAnonymous) {
           throw new RpcError(
             JSON_RPC.UNAUTHORIZED,
-            "Missing Dreyv API key. Send `Authorization: Bearer dk_live_…` on the MCP request.",
+            "Missing Dreyv API key. Call `dreyv_agent_signup` first (anonymous) to self-provision, then send `Authorization: ****** on the MCP request.",
           );
         }
 
