@@ -316,6 +316,18 @@ export async function middleware(request: NextRequest) {
     if (headerStripe && !process.env.STRIPE_SECRET_KEY) {
         process.env.STRIPE_SECRET_KEY = headerStripe;
     }
+    const headerPaystackSecret = request.headers.get('x-dreyv-paystack-secret');
+    if (headerPaystackSecret && !process.env.PAYSTACK_SECRET_KEY) {
+        process.env.PAYSTACK_SECRET_KEY = headerPaystackSecret;
+        // Paystack SDKs generally expect PAYSTACK_WEBHOOK_SECRET to be the same as the secret key
+        if (!process.env.PAYSTACK_WEBHOOK_SECRET) {
+            process.env.PAYSTACK_WEBHOOK_SECRET = headerPaystackSecret;
+        }
+    }
+    const headerPaystackPublic = request.headers.get('x-dreyv-paystack-public');
+    if (headerPaystackPublic && !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
+        process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY = headerPaystackPublic;
+    }
 
     // ─── App construction gate (must run first) ─────────────────────
     if (

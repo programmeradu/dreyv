@@ -56,6 +56,12 @@ export default {
       if (env.STRIPE_SECRET_KEY) {
         cleanHeaders.set("x-dreyv-stripe-secret", String(env.STRIPE_SECRET_KEY));
       }
+      if (env.PAYSTACK_SECRET_KEY) {
+        cleanHeaders.set("x-dreyv-paystack-secret", String(env.PAYSTACK_SECRET_KEY));
+      }
+      if (env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
+        cleanHeaders.set("x-dreyv-paystack-public", String(env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY));
+      }
 
       // Sterile Request — DO NOT use new Request(request, overrides); that carries C++ TLS slots
       const sterileRequest = new Request(targetUrl, {
