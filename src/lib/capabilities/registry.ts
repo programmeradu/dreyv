@@ -502,7 +502,7 @@ export const CAPABILITIES: PublicCapability[] = [
   // ─── Pillar I — x402 Economy primitives (Phase 3) ────────────────────
   {
     id: "economy.pay_founders_rent",
-    mcpName: "pay_founders_rent",
+    mcpName: "dreyv_economy_pay_founders_rent",
     pillar: "economy",
     scope: "read:portfolio", // scope check will be bypassed for anonymous requests
     sideEffects: "read",
