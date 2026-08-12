@@ -61,7 +61,7 @@ async function handle(req: NextRequest, context: { params: Promise<{ slug: strin
       {
         error: "unauthorized",
         message:
-          "Missing or invalid Dreyv API key. Pass `Authorization: Bearer dk_live_…` (mint one at /app/settings/api).",
+          "Missing or invalid Dreyv API key. For autonomous setup, call POST /api/agents/signup (or /api/v1/agent/signup) to self-provision and retrieve `api_key`, then pass `Authorization: ******",
       },
       { status: 401 },
     );

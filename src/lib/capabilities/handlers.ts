@@ -12502,9 +12502,14 @@ export async function agentSignup(
   });
 
   return {
+    api_key: key.fullKey,
     key: key.fullKey,
-    instructions: "Store this API key securely. Send it as a Bearer token in the Authorization header for all subsequent Dreyv API calls.",
+    api_key_prefix: key.prefix,
+    instructions:
+      "Store this API key securely. Send it as a ****** in the Authorization header for all subsequent Dreyv API calls.",
     walletAddress: tempWallet,
-    userId: user.id
+    userId: user.id,
+    notice:
+      "This self-signup key is shown once. Use it to call protected tools, then claim starter credits with dreyv_economy_faucet.",
   };
 }
