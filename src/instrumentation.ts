@@ -1,14 +1,11 @@
-import { registerOTel } from '@vercel/otel';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-
+/**
+ * Runtime instrumentation hook.
+ *
+ * The Vercel OTel exporter was removed as part of the Cloudflare migration —
+ * `@vercel/otel` relies on Vercel-only runtime globals and pulls Node-only
+ * OTLP transports that do not build on Workers. Tracing on Cloudflare is
+ * handled by the platform (Workers Logs / Tail Workers) instead.
+ */
 export function register() {
-  registerOTel({
-    serviceName: 'dreyv-app',
-    traceExporter: new OTLPTraceExporter({
-      url: 'https://nexus.bugbybug.com/v1/traces',
-      headers: {
-        'x-api-key': 'bbb_fqsAW8FwCCUpNP4f3IgGWV3cBSWedYzP'
-      }
-    })
-  });
+  // no-op
 }
