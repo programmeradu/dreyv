@@ -679,14 +679,69 @@ export default function AuthPage() {
     return (
         <Suspense
             fallback={
-                <div className="flex h-dvh overflow-hidden items-center justify-center bg-white font-manrope">
-                    <div className="flex flex-col items-center gap-5">
-                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-600">
-                            <DreyvMark size={28} className="text-white" />
-                        </span>
-                        <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
-                            Preparing sign-in…
-                        </p>
+                <div className="flex h-dvh overflow-hidden bg-white font-manrope">
+                    {/* Left violet panel — mirrors BrandPanel atmosphere */}
+                    <div className="relative hidden overflow-hidden bg-violet-600 lg:flex lg:w-[46%] xl:w-[48%]">
+                        {/* Ambient glow orbs */}
+                        <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-violet-400/30 blur-3xl animate-pulse-glow" />
+                        <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-violet-800/40 blur-3xl animate-pulse-glow" style={{ animationDelay: "1.5s" }} />
+                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
+                        {/* Wordmark */}
+                        <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 xl:p-14">
+                            <span className={cn(wordmark.className, "text-2xl font-semibold tracking-tight text-white/95 lowercase leading-none antialiased")}>
+                                dreyv
+                            </span>
+                            {/* Bottom text */}
+                            <div className="space-y-2">
+                                <div className="h-2 w-48 rounded-full bg-white/15 animate-shimmer" />
+                                <div className="h-2 w-32 rounded-full bg-white/10 animate-shimmer" style={{ animationDelay: "0.3s" }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right panel — auth form skeleton */}
+                    <div className="flex h-full flex-1 flex-col items-center justify-center px-5 py-6 sm:px-8">
+                        <div className="w-full max-w-[400px] space-y-8">
+                            {/* Mobile wordmark (shown only on mobile) */}
+                            <div className="flex justify-center lg:hidden">
+                                <span className={cn(wordmark.className, "text-3xl font-semibold tracking-tight text-violet-700 lowercase leading-none antialiased animate-pulse-glow")}>
+                                    dreyv
+                                </span>
+                            </div>
+
+                            {/* Heading skeleton */}
+                            <div className="space-y-3">
+                                <div className="h-8 w-52 rounded-xl bg-slate-100 animate-shimmer" />
+                                <div className="h-4 w-72 rounded-lg bg-slate-100 animate-shimmer" style={{ animationDelay: "0.15s" }} />
+                                <div className="h-4 w-60 rounded-lg bg-slate-100 animate-shimmer" style={{ animationDelay: "0.25s" }} />
+                            </div>
+
+                            {/* Wallet button skeletons */}
+                            <div className="space-y-3">
+                                <div className="h-14 w-full rounded-2xl bg-violet-50 border border-violet-100 animate-shimmer" style={{ animationDelay: "0.1s" }} />
+                                <div className="h-14 w-full rounded-2xl bg-slate-50 border border-slate-100 animate-shimmer" style={{ animationDelay: "0.2s" }} />
+                                <div className="h-14 w-full rounded-2xl bg-slate-50 border border-slate-100 animate-shimmer" style={{ animationDelay: "0.3s" }} />
+                            </div>
+
+                            {/* Divider skeleton */}
+                            <div className="flex items-center gap-3">
+                                <div className="h-px flex-1 bg-violet-100" />
+                                <div className="h-3 w-24 rounded bg-slate-100 animate-shimmer" />
+                                <div className="h-px flex-1 bg-violet-100" />
+                            </div>
+
+                            {/* Social button skeletons */}
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="h-11 rounded-xl bg-slate-50 border border-slate-100 animate-shimmer" style={{ animationDelay: "0.1s" }} />
+                                <div className="h-11 rounded-xl bg-slate-50 border border-slate-100 animate-shimmer" style={{ animationDelay: "0.2s" }} />
+                                <div className="h-11 rounded-xl bg-slate-50 border border-slate-100 animate-shimmer" style={{ animationDelay: "0.3s" }} />
+                            </div>
+
+                            {/* Subtle loading label */}
+                            <p className="text-center text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-300 animate-pulse-glow">
+                                Preparing secure sign-in…
+                            </p>
+                        </div>
                     </div>
                 </div>
             }
