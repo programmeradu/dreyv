@@ -17,7 +17,7 @@ const wordmark = Urbanist({
 import { authClient } from "@/lib/auth/client";
 import { getPhantomPortalOrigin, getPhantomRedirectUrl } from "@/lib/wallet/phantom-auth-config";
 import {
-    Shield,
+
     Wallet,
     PenLine,
     Loader2,
@@ -665,10 +665,7 @@ function AuthPageContent() {
                         </div>
                     )}
 
-                    <div className="mt-8 flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                        <Shield className="h-3.5 w-3.5 shrink-0" />
-                        <span className="text-center leading-snug">Non-custodial · zero-trust architecture</span>
-                    </div>
+
                 </div>
             </main>
         </div>
