@@ -5,6 +5,15 @@ import { useWallet, useWalletModal } from "@/lib/wallet/compat";
 import { useConnect } from "@phantom/react-sdk";
 import { useKeystoneAuth } from "@/hooks/useKeystoneAuth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Urbanist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const wordmark = Urbanist({
+  subsets: ["latin"],
+  weight: "600",
+  display: "swap",
+  adjustFontFallback: true,
+});
 import { authClient } from "@/lib/auth/client";
 import { getPhantomPortalOrigin, getPhantomRedirectUrl } from "@/lib/wallet/phantom-auth-config";
 import {
@@ -20,7 +29,7 @@ import {
 } from "lucide-react";
 
 import { DreyvMark } from "@/components/brand/dreyv-mark";
-import { DreyvLogoLight } from "@/components/brand/dreyv-logo-light";
+
 import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { marketingPrimaryCta } from "@/components/home/marketing-styles";
@@ -49,12 +58,14 @@ function BrandPanel() {
 
             <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 xl:p-14">
                 <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-                        <DreyvMark size={22} className="text-white" />
-                    </span>
-                    <span className="text-[11px] font-extrabold uppercase tracking-[0.32em] text-white/80">
-                        TreasuryOS
-                    </span>
+                    <a href="/" aria-label="dreyv home" className="flex items-center group rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40">
+                        <span className={cn(
+                            wordmark.className,
+                            "text-2xl font-semibold tracking-tight text-white/95 lowercase leading-none group-hover:text-white transition-colors antialiased",
+                        )}>
+                            dreyv
+                        </span>
+                    </a>
                 </div>
 
                 <div className="min-h-0 py-6">
@@ -467,19 +478,23 @@ function AuthPageContent() {
     );
 
     return (
-        <div className="flex min-h-svh bg-white font-manrope text-slate-900">
+        <div className="flex h-dvh overflow-hidden bg-white font-manrope text-slate-900">
             <BrandPanel />
 
-            <main className="flex min-h-svh flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
+            <main className="flex h-full flex-1 flex-col items-center justify-center px-5 py-6 sm:px-8 sm:py-10">
                 <div className="w-full max-w-[400px]">
                     <h1 className="sr-only">Sign in to dreyv</h1>
 
                     {/* Mobile brand lockup */}
                     <div className="mb-8 flex flex-col items-center lg:hidden">
-                        <DreyvLogoLight variant="auth" priority />
-                        <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.3em] text-violet-600">
-                            TreasuryOS
-                        </p>
+                        <a href="/" aria-label="dreyv home" className="flex items-center group rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500/40">
+                            <span className={cn(
+                                wordmark.className,
+                                "text-3xl font-semibold tracking-tight text-violet-700 lowercase leading-none group-hover:text-violet-600 transition-colors antialiased",
+                            )}>
+                                dreyv
+                            </span>
+                        </a>
                     </div>
 
                     <Steps step={currentStep} />
@@ -664,7 +679,7 @@ export default function AuthPage() {
     return (
         <Suspense
             fallback={
-                <div className="flex min-h-svh items-center justify-center bg-white font-manrope">
+                <div className="flex h-dvh overflow-hidden items-center justify-center bg-white font-manrope">
                     <div className="flex flex-col items-center gap-5">
                         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-600">
                             <DreyvMark size={28} className="text-white" />
