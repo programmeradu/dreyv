@@ -146,16 +146,6 @@ export default function RootLayout({
         <RootJsonLd />
         <ErrorReporter />
         <Script
-          src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts//route-messenger.js"
-          strategy="afterInteractive"
-          data-target-origin="*"
-          data-message-type="ROUTE_CHANGE"
-          data-include-search-params="true"
-          data-only-in-iframe="true"
-          data-debug={process.env.NODE_ENV === "development" ? "true" : "false"}
-          data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
-        />
-        <Script
           src="https://plugin.jup.ag/plugin-v1.js"
           strategy="afterInteractive"
         />
