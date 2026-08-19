@@ -2,7 +2,7 @@
  * /api/foresight/narrative
  *
  * Streams a plain-English explanation of a Monte Carlo foresight result via
- * the Lovable AI Gateway. The client passes the projection summary + the
+ * the unified AI gateway. The client passes the projection summary + the
  * user's original what-if prompt; we return SSE chunks that the Analytics
  * page renders progressively.
  *
