@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { knowledgeBase } from "@/lib/knowledge";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 interface ClarifyQuestion {
   id: string;
@@ -81,8 +81,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
   }
 
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) {
+  if (!aiConfigured()) {
     return NextResponse.json({ questions: fallbackQuestions(prompt), researchContext: "" });
   }
 
@@ -94,34 +93,23 @@ export async function POST(req: NextRequest) {
       ? `User prompt:\n${prompt.slice(0, 1000)}\n\n---\nResearch context (use to ground your questions in real APIs/SDKs):\n${researchContext}`
       : `User prompt:\n${prompt.slice(0, 1000)}`;
 
-    const res = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 700,
-        temperature: 0.3,
-      }),
+    const out = await aiComplete({
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      timeoutMs: 25_000,
     });
 
-    if (!res.ok) {
-      console.warn("[clarify] Lovable AI failed:", res.status);
+    if (!out) {
       return NextResponse.json({ questions: fallbackQuestions(prompt), researchContext });
     }
 
-    const data = await res.json();
-    const raw = data?.choices?.[0]?.message?.content || "{}";
     let parsed: { questions?: ClarifyQuestion[] };
     try {
-      parsed = JSON.parse(raw);
+      parsed = typeof out === "string" ? JSON.parse(out) : out;
     } catch {
       return NextResponse.json({ questions: fallbackQuestions(prompt), researchContext });
     }
