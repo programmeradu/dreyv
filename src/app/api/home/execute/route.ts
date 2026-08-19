@@ -75,10 +75,9 @@ async function getPrice(origin: string, sym: string): Promise<number | null> {
 }
 
 /**
- * Generic Lovable AI helper used by simulations that need real reasoning
- * (what_if projections, agent/mini-app blueprints, clarifications). Routes
- * through the Supabase edge proxy so LOVABLE_API_KEY never lives on Vercel.
- * Returns a parsed JSON object or null if the gateway is unavailable.
+ * Generic AI helper used by simulations that need real reasoning
+ * (what_if projections, agent/mini-app blueprints, clarifications).
+ * Returns a parsed JSON object or null when no provider is available.
  */
 async function llmJson(system: string, user: string, schema?: any): Promise<any | null> {
   return aiJson(system, user, schema);
