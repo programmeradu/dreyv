@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildFeaturePack } from "@/lib/explorer/feature-pack";
 import { checkPublicRateLimit } from "@/lib/public-rate-limit";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
 export const dynamic = "force-dynamic";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const SYSTEM_SUGGESTIONS = `You are Dreyv's wallet advisor. Given the supplied facts, return STRICT JSON:
+{"suggestions":[{"title":"...", "detail":"...", "intent":"stake|consolidate|yield|swap|hedge|fee_optimize|close_dust|automate_dca|alerts|watch"}]}
+Return 2 to 4 suggestions, ONLY ones the facts directly support. Prefer suggestions tied to a concrete dollar impact.
+Each title <= 60 chars, action-led. Each detail <= 120 chars, with concrete numbers from the facts.
+Voice: calm, founder-to-founder. Friendly to non-technical readers. Banned words: revolutionize, game-changer, synergy, disrupt, next-gen, leverage, supercharge.
+If no suggestion is supported, return {"suggestions":[]}.`;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ address: string }> }) {
   const { address } = await params;
@@ -15,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
   if (!rl.allowed) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   const pack = await buildFeaturePack(address);
 
-  // Deterministic baseline suggestions from raw facts — Lovable AI then refines wording.
+  // Deterministic baseline suggestions from raw facts — the model then refines wording.
   const baseline: Array<{ title: string; detail: string; intent: string }> = [];
   if (pack.idle.solUiAmount > 5) {
     const apr = pack.topYields.find((y) => /sol/i.test(y.symbol))?.apy ?? 7;
@@ -43,23 +48,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ addr
     });
   }
 
-  // If Lovable AI is available, refine wording; else return baseline.
-  if (SUPABASE_URL && ANON && baseline.length) {
+  // Refine wording when a model is available; otherwise return the baseline.
+  if (aiConfigured() && baseline.length) {
     try {
-      const r = await fetch(`${SUPABASE_URL}/functions/v1/public-narrative`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ANON}`, apikey: ANON },
-        body: JSON.stringify({ mode: "suggestions", featurePack: pack }),
-      });
-      if (r.ok) {
-        const j = await r.json();
-        if (Array.isArray(j?.suggestions) && j.suggestions.length) {
-          return NextResponse.json({ suggestions: j.suggestions });
-        }
+      const refined = (await aiComplete({
+        messages: [
+          { role: "system", content: SYSTEM_SUGGESTIONS },
+          { role: "user", content: JSON.stringify({ featurePack: pack, baseline }) },
+        ],
+        response_format: { type: "json_object" },
+        timeoutMs: 20_000,
+      })) as { suggestions?: Array<{ title: string; detail: string; intent: string }> } | null;
+      if (Array.isArray(refined?.suggestions) && refined.suggestions.length) {
+        return NextResponse.json({ suggestions: refined.suggestions });
       }
     } catch {
       // fall through to baseline
     }
   }
+
   return NextResponse.json({ suggestions: baseline });
 }

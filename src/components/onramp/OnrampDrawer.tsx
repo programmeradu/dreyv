@@ -22,13 +22,6 @@ import { cn } from "@/lib/utils";
 import { useVault } from "@/lib/contexts/VaultContext";
 import { toast } from "@/lib/toast-notifications";
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://giqnuhabwprhwfmiefxj.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpcW51aGFid3ByaHdmbWllZnhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMDIwNjcsImV4cCI6MjA5Mjg3ODA2N30.piYVCCtD5ofh6r0sQr3zY_ptUQLiS_V_TLWcDab75Dw";
 
 
 interface OnrampDrawerProps extends BuildOnrampUrlParams {
@@ -61,13 +54,9 @@ export function OnrampDrawer({
     setError(null);
     setFallbackUrl(null);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-onramp-session`, {
+      const resp = await fetch("/api/stripe/onramp/session", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           walletAddress: walletAddress ?? undefined,
           network: walletNetwork ?? params.network,
