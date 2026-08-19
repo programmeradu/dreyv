@@ -156,41 +156,16 @@ Return STRICT JSON only: {"command_understanding":N,"accuracy":N,"safety":N,"bra
 export async function runJudge(scenario: Scenario, result: ProviderResult): Promise<JudgeScore | null> {
   if (!result.ok || !result.output) return null;
 
-  const directKey = process.env.LOVABLE_API_KEY;
-  const proxyUrl =
-    process.env.LOVABLE_AI_PROXY_URL ||
-    (() => {
-      const u =
-        process.env.LOVABLE_SUPABASE_URL ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        process.env.SUPABASE_URL;
-      return u ? `${u.replace(/\/$/, "")}/functions/v1/lovable-ai-proxy` : "";
-    })();
-  const proxyAnon =
-    process.env.LOVABLE_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-
-  let endpoint: string;
-  let headers: Record<string, string>;
-  if (proxyUrl) {
-    endpoint = proxyUrl;
-    headers = {
-      "Content-Type": "application/json",
-      ...(proxyAnon ? { Authorization: `Bearer ${proxyAnon}`, apikey: proxyAnon } : {}),
-    };
-  } else if (directKey) {
-    endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${directKey}`,
-      "Lovable-API-Key": directKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-    };
-  } else {
-    return null;
-  }
+  const key =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_AI_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY;
+  if (!key) return null;
+  const endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${key}`,
+  };
 
   const userPayload = `SCENARIO:
 category: ${scenario.category}
@@ -206,7 +181,7 @@ ${result.output.slice(0, 4000)}`;
       method: "POST",
       headers,
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         stream: false,
         messages: [
           { role: "system", content: JUDGE_RUBRIC },
