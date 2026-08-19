@@ -1,5 +1,4 @@
 /**
-import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
  * /api/analytics/insights
  *
  * Streams two segments in one SSE response, anchored on the user's REAL
@@ -15,6 +14,7 @@ import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
  */
 import { NextRequest } from "next/server";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
+import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
 
 export const dynamic = "force-dynamic";
 

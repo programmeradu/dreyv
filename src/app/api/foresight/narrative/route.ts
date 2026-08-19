@@ -1,5 +1,4 @@
 /**
-import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
  * /api/foresight/narrative
  *
  * Streams a plain-English explanation of a Monte Carlo foresight result via
@@ -12,6 +11,7 @@ import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
+import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
 
 export const dynamic = "force-dynamic";
 
