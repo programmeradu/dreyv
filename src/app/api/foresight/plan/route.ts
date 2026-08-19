@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR, IRToken } from "@/lib/foresight/simulation-ir";
 import { getAuthUser } from "@/lib/auth-utils";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
 /**
  * /api/foresight/plan
  * ───────────────────
  * Turn ANY user what-if question + their live treasury snapshot into a strict
- * SimulationIR via Lovable AI (through the lovable-ai-proxy edge function in
- * the Lovable Cloud workspace — never direct from Vercel).
+ * SimulationIR via the unified AI gateway (Gemini → Groq → OpenAI).
  *
  * Returns:
  *   { ok: true, ir: SimulationIR, model: string }
@@ -91,26 +91,6 @@ function buildUserPrompt(body: PlanBody): string {
     .join("\n");
 }
 
-function resolveProxy(): { proxyUrl: string | null; anon: string | null; reason?: string } {
-  const lovableUrl = process.env.LOVABLE_SUPABASE_URL || process.env.LOVABLE_AI_PROXY_SUPABASE_URL;
-  const lovableAnon = process.env.LOVABLE_SUPABASE_ANON_KEY || process.env.LOVABLE_SUPABASE_PUBLISHABLE_KEY;
-  const explicit = process.env.LOVABLE_AI_PROXY_URL;
-  const supaUrl = lovableUrl || (!explicit ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL : undefined);
-  const supaAnon =
-    lovableAnon ||
-    (!explicit
-      ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-        process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-        process.env.SUPABASE_ANON_KEY
-      : undefined);
-  const proxyUrl = explicit ? explicit.replace(/\/+$/, "") : supaUrl ? `${supaUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy` : null;
-  if (!proxyUrl || !supaAnon) {
-    return { proxyUrl: null, anon: null, reason: "ai_gateway_not_configured" };
-  }
-  return { proxyUrl, anon: supaAnon };
-}
-
 function safeParseIR(raw: string): SimulationIR | null {
   try {
     // Strip code fences if present.
@@ -150,52 +130,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "tokens_required" }, { status: 400 });
   }
 
-  const { proxyUrl, anon, reason } = resolveProxy();
-  if (!proxyUrl || !anon) {
-    return NextResponse.json({ ok: false, error: reason || "ai_gateway_not_configured" }, { status: 503 });
+  if (!aiConfigured()) {
+    return NextResponse.json({ ok: false, error: "ai_gateway_not_configured" }, { status: 503 });
   }
 
-  const upstream = await fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${anon}`,
-      apikey: anon,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(body) },
-      ],
-      stream: false,
-      response_format: { type: "json_object" },
-    }),
-  }).catch((e) => {
-    console.error("[foresight/plan] proxy fetch failed", e);
-    return null;
+  const parsedIr = await aiComplete({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(body) },
+    ],
+    response_format: { type: "json_object" },
+    timeoutMs: 30_000,
   });
 
-  if (!upstream) {
-    return NextResponse.json({ ok: false, error: "proxy_unreachable" }, { status: 502 });
-  }
-  if (!upstream.ok) {
-    if (upstream.status === 429) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
-    if (upstream.status === 402) return NextResponse.json({ ok: false, error: "credits_required" }, { status: 402 });
-    const t = await upstream.text().catch(() => "");
-    console.error("[foresight/plan] gateway error", upstream.status, t);
+  if (!parsedIr) {
     return NextResponse.json({ ok: false, error: "ai_gateway_error" }, { status: 502 });
   }
 
-  const data = await upstream.json().catch(() => null);
-  const text: string | undefined = data?.choices?.[0]?.message?.content;
-  if (!text) {
-    return NextResponse.json({ ok: false, error: "empty_response" }, { status: 502 });
-  }
-  const ir = safeParseIR(text);
+  const ir = safeParseIR(typeof parsedIr === "string" ? parsedIr : JSON.stringify(parsedIr));
   if (!ir) {
-    console.error("[foresight/plan] failed to parse IR", text.slice(0, 500));
-    return NextResponse.json({ ok: false, error: "parse_failed", raw: text.slice(0, 500) }, { status: 502 });
+    console.error("[foresight/plan] failed to parse IR");
+    return NextResponse.json({ ok: false, error: "parse_failed" }, { status: 502 });
   }
 
   // Inject the live token snapshot as startState (planner only emits the
@@ -213,5 +169,5 @@ export async function POST(req: NextRequest) {
     usd: body.tokens.reduce((s, t) => s + (Number(t.amount) || 0) * (Number(t.price) || 0), 0),
   };
 
-  return NextResponse.json({ ok: true, ir, model: "google/gemini-3-flash-preview" });
+  return NextResponse.json({ ok: true, ir, model: "google/gemini-2.5-flash" });
 }

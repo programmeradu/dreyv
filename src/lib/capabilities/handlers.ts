@@ -1736,59 +1736,35 @@ export async function economyActionCodeStatus(
 
 
 // ─── Pillar N — Reasoning & Knowledge ─────────────────────────────────
-// LOVABLE_API_KEY is NEVER on Vercel (per project policy). All Lovable AI calls
-// go through the Supabase edge function `lovable-ai-proxy` which holds the key
-// in the Lovable Cloud workspace. Gemini API is used as a backup provider when
-// the proxy is unreachable or returns an error.
+// All model calls go through direct provider APIs. Order: Gemini → Groq → OpenAI.
 
-const LOVABLE_AI_DIRECT_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
-function resolveLovableProxyUrl(): string | null {
-  const direct = process.env.LOVABLE_AI_PROXY_URL?.trim();
-  if (direct) return direct;
-  const sbUrl = (
-    process.env.LOVABLE_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    ""
-  ).trim();
-  if (sbUrl) return `${sbUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
-  return null;
-}
+type AiAttempt = { ok: true; text: string } | { ok: false; status?: number; reason: string };
 
-function resolveLovableProxyAuth(): string | null {
-  return (
-    process.env.LOVABLE_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    null
-  )?.trim() || null;
-}
-
-async function tryProxy(opts: {
+interface AiOpts {
   system: string;
   user: string;
   model?: string;
   maxTokens?: number;
   temperature?: number;
   jsonMode?: boolean;
-}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
-  const url = resolveLovableProxyUrl();
-  const auth = resolveLovableProxyAuth();
-  if (!url || !auth) return { ok: false, reason: "proxy_unconfigured" };
+}
+
+async function tryOpenAiCompatible(
+  label: string,
+  url: string,
+  key: string | undefined,
+  model: string,
+  opts: AiOpts,
+): Promise<AiAttempt> {
+  if (!key) return { ok: false, reason: `no_${label}_key` };
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${auth}`,
-        apikey: auth,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: opts.model || "google/gemini-3-flash-preview",
-        stream: false,
+        model,
         messages: [
           { role: "system", content: opts.system },
           { role: "user", content: opts.user },
@@ -1801,52 +1777,34 @@ async function tryProxy(opts: {
     });
     if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
     if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
-    if (!res.ok) return { ok: false, status: res.status, reason: `proxy_http_${res.status}` };
+    if (!res.ok) return { ok: false, status: res.status, reason: `${label}_http_${res.status}` };
     const data = await res.json();
     const txt = data?.choices?.[0]?.message?.content ?? "";
     if (!txt) return { ok: false, reason: "empty_response" };
     return { ok: true, text: String(txt) };
   } catch (e) {
-    return { ok: false, reason: `proxy_error:${(e as Error).message?.slice(0, 80)}` };
+    return { ok: false, reason: `${label}_error:${(e as Error).message?.slice(0, 80)}` };
   }
 }
 
-async function tryDirect(opts: {
-  system: string;
-  user: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-  jsonMode?: boolean;
-}): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return { ok: false, reason: "no_direct_key" };
-  try {
-    const res = await fetch(LOVABLE_AI_DIRECT_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: opts.model || "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: opts.system },
-          { role: "user", content: opts.user },
-        ],
-        max_tokens: opts.maxTokens ?? 800,
-        temperature: opts.temperature ?? 0.3,
-        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (res.status === 429) return { ok: false, status: 429, reason: "rate_limited" };
-    if (res.status === 402) return { ok: false, status: 402, reason: "credits_exhausted" };
-    if (!res.ok) return { ok: false, status: res.status, reason: `direct_http_${res.status}` };
-    const data = await res.json();
-    const txt = data?.choices?.[0]?.message?.content ?? "";
-    if (!txt) return { ok: false, reason: "empty_response" };
-    return { ok: true, text: String(txt) };
-  } catch (e) {
-    return { ok: false, reason: `direct_error:${(e as Error).message?.slice(0, 80)}` };
-  }
+async function tryGroq(opts: AiOpts): Promise<AiAttempt> {
+  return tryOpenAiCompatible(
+    "groq",
+    "https://api.groq.com/openai/v1/chat/completions",
+    process.env.GROQ_API_KEY,
+    process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    opts,
+  );
+}
+
+async function tryOpenAI(opts: AiOpts): Promise<AiAttempt> {
+  return tryOpenAiCompatible(
+    "openai",
+    "https://api.openai.com/v1/chat/completions",
+    process.env.OPENAI_API_KEY,
+    process.env.OPENAI_MODEL || "gpt-4o-mini",
+    opts,
+  );
 }
 
 async function tryGemini(opts: {
@@ -1857,10 +1815,10 @@ async function tryGemini(opts: {
   temperature?: number;
   jsonMode?: boolean;
 }): Promise<{ ok: true; text: string } | { ok: false; status?: number; reason: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey =
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
   if (!apiKey) return { ok: false, reason: "no_gemini_key" };
-  // Map Lovable-style model name to a Gemini model id.
-  const raw = opts.model || "google/gemini-3-flash-preview";
+  const raw = opts.model || "google/gemini-2.5-flash";
   const id = raw.startsWith("google/") ? raw.slice("google/".length) : raw;
   // Conservative mapping — only flip preview/-3 to a known live id.
   const geminiModel =
@@ -1900,7 +1858,7 @@ async function tryGemini(opts: {
   }
 }
 
-async function callLovableAI(opts: {
+async function callAI(opts: {
   system: string;
   user: string;
   model?: string;
@@ -1909,7 +1867,7 @@ async function callLovableAI(opts: {
   jsonMode?: boolean;
 }): Promise<string> {
   const attempts: string[] = [];
-  for (const fn of [tryProxy, tryDirect, tryGemini]) {
+  for (const fn of [tryGemini, tryGroq, tryOpenAI]) {
     const r = await fn(opts);
     if (r.ok) return r.text;
     attempts.push(r.reason);
@@ -1918,7 +1876,7 @@ async function callLovableAI(opts: {
     if (r.status === 402) throw new CapabilityError("AI credits exhausted", 402, { attempts });
   }
   throw new CapabilityError(
-    "AI provider unavailable — proxy, direct gateway and Gemini fallback all failed",
+    "AI provider unavailable — Gemini, Groq and OpenAI all failed",
     503,
     { attempts },
   );
@@ -1951,7 +1909,7 @@ export async function reasoningAsk(
   const userMsg = groundedContext
     ? `Question:\n${input.question}\n\n---\nContext:\n${groundedContext.slice(0, 8000)}`
     : input.question;
-  const answer = await callLovableAI({
+  const answer = await callAI({
     system:
       "You are Dreyv's on-chain reasoning assistant. Be precise, cite numbers, never fabricate addresses or balances. If the context does not contain the answer, say so plainly.",
     user: userMsg,
@@ -1959,7 +1917,7 @@ export async function reasoningAsk(
     maxTokens: 900,
     temperature: 0.2,
   });
-  return { answer, sources, model: input.model || "google/gemini-3-flash-preview" };
+  return { answer, sources, model: input.model || "google/gemini-2.5-flash" };
 }
 
 export async function reasoningSummarize(
@@ -1969,7 +1927,7 @@ export async function reasoningSummarize(
   const style = input.style || "tldr";
   const maxWords = input.max_words ?? 120;
   const system = `You summarize text crisply for an agent caller. Style: ${style}. Hard cap: ${maxWords} words. No preamble.`;
-  const summary = await callLovableAI({
+  const summary = await callAI({
     system,
     user: input.text.slice(0, 16000),
     maxTokens: Math.min(800, maxWords * 6),
@@ -1983,7 +1941,7 @@ export async function reasoningClarify(
   _ctx: CapabilityRunContext,
 ) {
   const max = Math.min(Math.max(input.max_questions ?? 3, 1), 5);
-  const raw = await callLovableAI({
+  const raw = await callAI({
     system: `You are an agent-orchestration assistant. Given a vague intent, return ${max} targeted clarifying questions that would let an autonomous agent execute it. Prefer chip/radio options over free text. Respond ONLY as JSON: {"questions":[{"id":"snake_case","text":"...","options":["..."],"multi":false}]}`,
     user: input.intent.slice(0, 1500),
     jsonMode: true,

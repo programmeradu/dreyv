@@ -17,7 +17,7 @@ import { TavilyClient, TavilySearchResult } from "@/lib/tavily";
 import { JinaClient } from "@/lib/jina";
 import { FirecrawlClient } from "@/lib/firecrawl";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
-import { lovableAi } from "@/lib/lovable-ai-proxy";
+import { aiComplete } from "@/lib/ai-gateway";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 
 export const maxDuration = 60;
@@ -145,7 +145,7 @@ async function synthesize(protocol: string, prompt: string, chunks: ScrapeChunk[
   const sys = `You are a Solana SDK expert compiling a MERGED brief from multiple research sources. Combine complementary details across sources; do not discard information just because one source lacks it. Output a concise markdown brief on "${protocol}" with: (1) main JS/TS SDK package(s) with install command, (2) 2-3 real TypeScript signatures with imports, (3) one minimal end-to-end usage example, (4) gotchas. Cite package names verbatim from the notes. If a specific detail is not in the notes, omit it — never fabricate signatures.`;
 
   try {
-    const out = await lovableAi({
+    const out = await aiComplete({
       model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: sys },

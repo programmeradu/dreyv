@@ -1,7 +1,7 @@
 /**
  * Provider clients for the /benchmark stress test.
  *
- *   - lovable    → google/gemini-3-flash-preview via Supabase edge proxy
+ *   - gemini     → gemini-2.5-flash via the Gemini OpenAI-compatible API
  *   - groq       → llama-3.3-70b-versatile via api.groq.com
  *   - cloudflare → @cf/qwen/qwen2.5-coder-32b-instruct via Workers AI
  *                  (different family from the Llama used by Groq, so the
@@ -14,7 +14,7 @@
 
 import type { ToolDef } from "./tools";
 
-export type ProviderId = "lovable" | "groq" | "cloudflare";
+export type ProviderId = "gemini" | "groq" | "cloudflare";
 
 export interface ToolCall {
   name: string;
@@ -84,16 +84,21 @@ function parseToolCalls(raw: any): ToolCall[] | undefined {
   return out.length ? out : undefined;
 }
 
-// ─── Lovable AI ──────────────────────────────────────────────────────
-// Mirrors production order:
-//   1. LOVABLE_API_KEY present → call ai.gateway.lovable.dev directly (Vercel path)
-//   2. Otherwise → Supabase lovable-ai-proxy edge function (key lives there)
-async function callLovable(prompt: string, systemPrompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
+// ─── Google Gemini ───────────────────────────────────────────────────
+// Direct call to the Gemini OpenAI-compatible endpoint (GEMINI_API_KEY).
+async function callGemini(prompt: string, systemPrompt: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const t0 = Date.now();
-  const directKey = process.env.LOVABLE_API_KEY;
+  const key =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_AI_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY;
+
+  if (!key) {
+    return { provider: "gemini", ok: false, latencyMs: 0, output: "", errorMessage: "No GEMINI_API_KEY configured" };
+  }
 
   const body: Record<string, unknown> = {
-    model: "google/gemini-3-flash-preview",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     stream: false,
     messages: [
       { role: "system", content: systemPrompt },
@@ -102,65 +107,26 @@ async function callLovable(prompt: string, systemPrompt: string, tools?: ToolDef
   };
   if (tools && tools.length) body.tools = tools;
 
-  // Rule: Lovable AI is ALWAYS called via the Supabase edge proxy from Vercel.
-  // Vercel envs in this project: LOVABLE_AI_PROXY_URL (full URL) +
-  // LOVABLE_SUPABASE_URL / LOVABLE_SUPABASE_ANON_KEY. Fall back to generic
-  // SUPABASE_* names for local dev. Direct gateway only as last resort.
-  const proxyUrl =
-    process.env.LOVABLE_AI_PROXY_URL ||
-    (() => {
-      const u =
-        process.env.LOVABLE_SUPABASE_URL ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        process.env.SUPABASE_URL;
-      return u ? `${u.replace(/\/$/, "")}/functions/v1/lovable-ai-proxy` : "";
-    })();
-  const proxyAnon =
-    process.env.LOVABLE_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-
-  let endpoint: string;
-  let headers: Record<string, string>;
-  let via: "direct" | "proxy";
-
-  if (proxyUrl) {
-    endpoint = proxyUrl;
-    headers = {
-      "Content-Type": "application/json",
-      ...(proxyAnon ? { Authorization: `Bearer ${proxyAnon}`, apikey: proxyAnon } : {}),
-    };
-    via = "proxy";
-  } else if (directKey) {
-    endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${directKey}`,
-      "Lovable-API-Key": directKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-    };
-    via = "direct";
-  } else {
-    return { provider: "lovable", ok: false, latencyMs: 0, output: "", errorMessage: "No LOVABLE_AI_PROXY_URL / LOVABLE_SUPABASE_URL / LOVABLE_API_KEY configured" };
-  }
-
   try {
     const res = await withTimeout(
-      fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) }),
+      fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+      }),
       TIMEOUT_MS,
     );
     const latencyMs = Date.now() - t0;
     const status = res.status;
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return { provider: "lovable", ok: false, latencyMs, output: "", status, errorMessage: `${via} HTTP ${status}: ${text.slice(0, 200)}` };
+      return { provider: "gemini", ok: false, latencyMs, output: "", status, errorMessage: `HTTP ${status}: ${text.slice(0, 200)}` };
     }
     const json: any = await res.json();
     const msg = json?.choices?.[0]?.message;
     const output = msg?.content || "";
     return {
-      provider: "lovable",
+      provider: "gemini",
       ok: true,
       latencyMs,
       output: typeof output === "string" ? output : JSON.stringify(output),
@@ -170,7 +136,7 @@ async function callLovable(prompt: string, systemPrompt: string, tools?: ToolDef
       completionTokens: json?.usage?.completion_tokens,
     };
   } catch (err) {
-    return { provider: "lovable", ok: false, latencyMs: Date.now() - t0, output: "", errorMessage: (err as Error).message };
+    return { provider: "gemini", ok: false, latencyMs: Date.now() - t0, output: "", errorMessage: (err as Error).message };
   }
 }
 
@@ -285,15 +251,15 @@ async function callCloudflare(prompt: string, systemPrompt: string, tools?: Tool
 
 export async function runProvider(provider: ProviderId, prompt: string, vaultContext: string, tools?: ToolDef[]): Promise<ProviderResult> {
   const systemPrompt = buildSystemPrompt(vaultContext);
-  if (provider === "lovable") return callLovable(prompt, systemPrompt, tools);
+  if (provider === "gemini") return callGemini(prompt, systemPrompt, tools);
   if (provider === "groq") return callGroq(prompt, systemPrompt, tools);
   return callCloudflare(prompt, systemPrompt, tools);
 }
 
-export const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
+export const PROVIDERS: ProviderId[] = ["gemini", "groq", "cloudflare"];
 
 export const PROVIDER_LABEL: Record<ProviderId, string> = {
-  lovable: "Lovable AI · gemini-3-flash",
+  gemini: "Google · gemini-2.5-flash",
   groq: "Groq · llama-3.3-70b",
   cloudflare: "Cloudflare · qwen2.5-coder-32b",
 };

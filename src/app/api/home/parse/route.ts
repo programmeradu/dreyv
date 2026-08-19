@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lovableJson } from "@/lib/lovable-ai-proxy";
+import { aiJson } from "@/lib/ai-gateway";
 
 /**
  * Public landing-page command parser.
@@ -123,7 +123,7 @@ function regexFallback(text: string): { tool_id: string; parameters: Record<stri
 }
 
 async function callLovableAI(prompt: string, system: string) {
-  return lovableJson(system, prompt);
+  return aiJson(system, prompt);
 }
 
 export async function POST(req: NextRequest) {

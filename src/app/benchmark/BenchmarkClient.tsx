@@ -32,7 +32,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
-type ProviderId = "lovable" | "groq" | "cloudflare";
+type ProviderId = "gemini" | "groq" | "cloudflare";
 
 interface ToolCall { name: string; arguments: Record<string, unknown> }
 interface ToolScore {
@@ -85,9 +85,9 @@ interface ScenarioRow {
   results: { provider: ProviderId; result: ProviderResult; deterministic: DeterministicScore; judge: JudgeScore | null }[];
 }
 
-const PROVIDERS: ProviderId[] = ["lovable", "groq", "cloudflare"];
+const PROVIDERS: ProviderId[] = ["gemini", "groq", "cloudflare"];
 const PROVIDER_LABEL: Record<ProviderId, string> = {
-  lovable: "Lovable AI · gemini-3-flash",
+  gemini: "Google · gemini-2.5-flash",
   groq: "Groq · llama-3.3-70b",
   cloudflare: "Cloudflare · qwen2.5-coder-32b",
 };
@@ -148,7 +148,7 @@ function emptyAgg(): Aggregate {
 
 function aggregateRows(rows: ScenarioRow[]): Record<ProviderId, Aggregate> {
   const out: Record<ProviderId, Aggregate> = {
-    lovable: emptyAgg(), groq: emptyAgg(), cloudflare: emptyAgg(),
+    gemini: emptyAgg(), groq: emptyAgg(), cloudflare: emptyAgg(),
   };
   for (const row of rows) {
     for (const r of row.results) {

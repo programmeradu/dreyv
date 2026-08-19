@@ -10,8 +10,8 @@ import { categorizePrompt } from "@/lib/studio/prompt-categorizer";
 import { db } from "@/db";
 import { studioRuns } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 interface PlanIntegration {
   id: string;
@@ -109,8 +109,7 @@ export async function POST(req: NextRequest) {
   let onChainCalls: string[] = [];
   let needsUserInput: string[] = [];
 
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (apiKey) {
+  if (aiConfigured()) {
     try {
       const sys = `You are the Dreyv Studio Planner. Output ONLY valid JSON matching this shape:
 {
@@ -132,28 +131,18 @@ Unknown protocols (will research): ${unknownProtocols.join(", ") || "none"}${
           : ""
       }`;
 
-      const res = await fetch(LOVABLE_AI_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: sys },
-            { role: "user", content: userMsg },
-          ],
-          response_format: { type: "json_object" },
-          max_tokens: 800,
-          temperature: 0.3,
-        }),
+      const out = await aiComplete({
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: userMsg },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        timeoutMs: 30_000,
       });
-      if (res.ok) {
-        const data = await res.json();
-        const raw = data?.choices?.[0]?.message?.content || "{}";
+      if (out) {
         try {
-          const parsed = JSON.parse(raw);
+          const parsed = typeof out === "string" ? JSON.parse(out) : out;
           files = Array.isArray(parsed.files) ? parsed.files.slice(0, 6) : [];
           dataSources = Array.isArray(parsed.dataSources) ? parsed.dataSources.slice(0, 8) : [];
           onChainCalls = Array.isArray(parsed.onChainCalls) ? parsed.onChainCalls.slice(0, 8) : [];

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SimulationIR } from "@/lib/foresight/simulation-ir";
 import { getAuthUser } from "@/lib/auth-utils";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
 /**
  * /api/foresight/critique
@@ -40,17 +41,6 @@ Rules:
 - If unknowns are non-empty, prefer suggesting the user supply that value as a follow-up instead of inventing one.
 - JSON ONLY. No prose, no fences.`;
 
-function resolveProxy(): { proxyUrl: string | null; anon: string | null } {
-  const lovableUrl = process.env.LOVABLE_SUPABASE_URL || process.env.LOVABLE_AI_PROXY_SUPABASE_URL;
-  const lovableAnon = process.env.LOVABLE_SUPABASE_ANON_KEY || process.env.LOVABLE_SUPABASE_PUBLISHABLE_KEY;
-  const explicit = process.env.LOVABLE_AI_PROXY_URL;
-  const supaUrl = lovableUrl || (!explicit ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL : undefined);
-  const supaAnon = lovableAnon || (!explicit ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY : undefined);
-  const proxyUrl = explicit ? explicit.replace(/\/+$/, "") : supaUrl ? `${supaUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy` : null;
-  if (!proxyUrl || !supaAnon) return { proxyUrl: null, anon: null };
-  return { proxyUrl, anon: supaAnon };
-}
-
 export async function POST(req: NextRequest) {
   /* __AUTH_GUARD__ */
   const _authUser = await getAuthUser(req as unknown as NextRequest);
@@ -65,8 +55,7 @@ export async function POST(req: NextRequest) {
   if (!body?.prompt || !body?.ir) {
     return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
   }
-  const { proxyUrl, anon } = resolveProxy();
-  if (!proxyUrl || !anon) {
+  if (!aiConfigured()) {
     return NextResponse.json({ ok: true, verdict: "approved", rationale: "(critic offline)", followUps: [] });
   }
 
@@ -88,29 +77,22 @@ export async function POST(req: NextRequest) {
     `RESULT: start=$${Math.round(body.result.startValue).toLocaleString()} end=$${Math.round(body.result.endValue).toLocaleString()} runway=${body.result.runwayMonths ?? "n/a"} flags=[${body.result.riskFlags.join(",")}]`,
   ].join("\n");
 
-  const upstream = await fetch(proxyUrl, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${anon}`, apikey: anon, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: userMsg },
-      ],
-      stream: false,
-      response_format: { type: "json_object" },
-    }),
-  }).catch(() => null);
+  const raw = await aiComplete({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: userMsg },
+    ],
+    response_format: { type: "json_object" },
+    timeoutMs: 20_000,
+  });
 
-  if (!upstream || !upstream.ok) {
+  if (!raw) {
     return NextResponse.json({ ok: true, verdict: "approved", rationale: "(critic unreachable)", followUps: [] });
   }
-  const data = await upstream.json().catch(() => null);
-  const text: string | undefined = data?.choices?.[0]?.message?.content;
-  if (!text) return NextResponse.json({ ok: true, verdict: "approved", rationale: "(empty)", followUps: [] });
+
   try {
-    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     return NextResponse.json({
       ok: true,
       verdict: parsed.verdict === "amend" ? "amend" : "approved",

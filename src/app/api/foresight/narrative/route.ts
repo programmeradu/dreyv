@@ -2,7 +2,7 @@
  * /api/foresight/narrative
  *
  * Streams a plain-English explanation of a Monte Carlo foresight result via
- * the Lovable AI Gateway. The client passes the projection summary + the
+ * the unified AI gateway. The client passes the projection summary + the
  * user's original what-if prompt; we return SSE chunks that the Analytics
  * page renders progressively.
  *
@@ -11,6 +11,7 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { summarizeYieldForLLM, fetchLiveLstRates } from "@/lib/foresight/lst-yield";
+import { aiConfigured, aiStreamResponse } from "@/lib/ai-gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -66,27 +67,8 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "summary_required" }), { status: 400 });
   }
 
-  // Per project rule: all Lovable AI calls go through the Supabase edge
-  // function `lovable-ai-proxy` in the LOVABLE CLOUD workspace (NOT the
-  // user's own NEXT_PUBLIC_SUPABASE_URL on Vercel). Require explicit
-  // LOVABLE_* envs; only fall back to NEXT_PUBLIC_* in single-project dev.
-  const lovableUrl = process.env.LOVABLE_SUPABASE_URL || process.env.LOVABLE_AI_PROXY_SUPABASE_URL;
-  const lovableAnon =
-    process.env.LOVABLE_SUPABASE_ANON_KEY ||
-    process.env.LOVABLE_SUPABASE_PUBLISHABLE_KEY;
-  const proxyUrlExplicit = process.env.LOVABLE_AI_PROXY_URL;
-  const supabaseUrl = lovableUrl || (!proxyUrlExplicit ? (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL) : undefined);
-  const supabaseAnon = lovableAnon || (!proxyUrlExplicit ? (
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY
-  ) : undefined);
-  const proxyUrl = proxyUrlExplicit
-    ? proxyUrlExplicit.replace(/\/+$/, "")
-    : (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy` : null);
-  if (!proxyUrl || !supabaseAnon) {
-    return new Response(JSON.stringify({ error: "ai_gateway_not_configured", hint: "Set LOVABLE_SUPABASE_URL + LOVABLE_SUPABASE_ANON_KEY (Lovable Cloud project) on Vercel." }), { status: 503 });
+  if (!aiConfigured()) {
+    return new Response(JSON.stringify({ error: "ai_gateway_not_configured", hint: "Set GEMINI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY." }), { status: 503 });
   }
 
   let yieldLine: string | undefined;
@@ -109,41 +91,21 @@ export async function POST(req: NextRequest) {
 
   const userPrompt = buildUserPrompt(body) + (yieldLine ? `\n${yieldLine}` : "");
 
-  const upstream = await fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${supabaseAnon}`,
-      apikey: supabaseAnon,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      stream: true,
-    }),
+  const streamed = await aiStreamResponse({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
   });
 
-  if (!upstream.ok) {
-    if (upstream.status === 429) {
-      return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429 });
-    }
-    if (upstream.status === 402) {
-      return new Response(JSON.stringify({ error: "credits_required" }), { status: 402 });
-    }
-    const t = await upstream.text().catch(() => "");
-    console.error("[foresight/narrative] gateway error", upstream.status, t);
+  if (!streamed) {
+    console.error("[foresight/narrative] all AI providers failed");
     return new Response(JSON.stringify({ error: "ai_gateway_error" }), { status: 502 });
   }
 
-  return new Response(upstream.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-store",
-    },
-  });
+  return streamed;
+
 }
 
 function fmtUsd(n: number): string {

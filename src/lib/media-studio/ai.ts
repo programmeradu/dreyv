@@ -4,17 +4,12 @@
  * Provider strategy (first match wins):
  *   1. GEMINI_API_KEY (or GOOGLE_AI_API_KEY / GOOGLE_GENAI_API_KEY) → Google AI
  *      Studio direct. Primary path on Vercel when set.
- *   2. LOVABLE_AI_PROXY_URL (or NEXT_PUBLIC_SUPABASE_URL) → Supabase edge
- *      function `lovable-ai-proxy` which forwards to the Lovable AI Gateway
- *      using the managed LOVABLE_API_KEY in the Lovable Cloud workspace.
- *      This lets Vercel use Lovable AI WITHOUT putting LOVABLE_API_KEY on Vercel.
- *   3. LOVABLE_API_KEY → Lovable AI Gateway direct. Only works in environments
- *      that have the key locally (e.g. dev with .env.local).
+ *   2. GROQ_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / Cloudflare Workers AI
+ *      as text fallbacks (image generation requires Gemini).
  *
  * We keep one place to swap models, retry, or log usage.
  */
 
-const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // Vertex AI global publisher endpoint — accepts API keys via x-goog-api-key
 // header and bills usage to the Cloud project (so GenAI App Builder / free-trial
 // credits apply). Set GEMINI_USE_AI_STUDIO=1 to fall back to the AI Studio
@@ -29,8 +24,6 @@ export type ChatMessage = { role: "system" | "user" | "assistant"; content: stri
 
 type Provider =
   | "gemini"
-  | "lovable-proxy"
-  | "lovable"
   | "groq"
   | "openai"
   | "anthropic"
@@ -38,28 +31,13 @@ type Provider =
 
 type ProviderEntry =
   | { provider: "gemini"; key: string }
-  | { provider: "lovable-proxy"; proxyUrl: string }
-  | { provider: "lovable"; key: string }
   | { provider: "groq"; key: string; model: string }
   | { provider: "openai"; key: string; model: string }
   | { provider: "anthropic"; key: string; model: string }
   | { provider: "cloudflare"; accountId: string; token: string; model: string };
 
-/** Resolve the Supabase edge-function URL for the lovable-ai-proxy, if available. */
-function resolveProxyUrl(): string | null {
-  const explicit = process.env.LOVABLE_AI_PROXY_URL;
-  if (explicit) return explicit.replace(/\/+$/, "");
-  const supa =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL;
-  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
-  return null;
-}
-
 /**
- * Build a provider chain. The Studio works as long as ANY of these are set —
- * Lovable AI is preferred but not required.
+ * Build a provider chain. The Studio works as long as ANY of these are set.
  */
 function buildProviderChain(): ProviderEntry[] {
   const chain: ProviderEntry[] = [];
@@ -69,13 +47,6 @@ function buildProviderChain(): ProviderEntry[] {
     process.env.GOOGLE_AI_API_KEY ||
     process.env.GOOGLE_GENAI_API_KEY;
   if (gem) chain.push({ provider: "gemini", key: gem });
-
-  const proxyUrl = resolveProxyUrl();
-  if (proxyUrl) chain.push({ provider: "lovable-proxy", proxyUrl });
-
-  if (process.env.LOVABLE_API_KEY) {
-    chain.push({ provider: "lovable", key: process.env.LOVABLE_API_KEY });
-  }
 
   if (process.env.GROQ_API_KEY) {
     chain.push({
@@ -114,7 +85,7 @@ function pickProvider(): ProviderEntry {
   const chain = buildProviderChain();
   if (chain.length === 0) {
     throw new Error(
-      "No AI provider configured. Set one of: GEMINI_API_KEY, LOVABLE_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN. The lovable-ai-proxy edge function is auto-detected when SUPABASE_URL is set.",
+      "No AI provider configured. Set one of: GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN.",
     );
   }
   return chain[0]!;
@@ -193,8 +164,7 @@ async function googleChatJson<T>(opts: {
 }
 
 /**
- * Shared body builder for the OpenAI-compatible chat-completions schema used by
- * both the Lovable AI Gateway and the lovable-ai-proxy edge function.
+ * Shared body builder for the OpenAI-compatible chat-completions schema.
  */
 function buildChatBody(opts: {
   model?: string;
@@ -203,7 +173,7 @@ function buildChatBody(opts: {
   temperature?: number;
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    model: opts.model ?? "google/gemini-3-flash-preview",
+    model: opts.model ?? "google/gemini-2.5-flash",
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
     stream: false,
@@ -231,51 +201,6 @@ function parseChatJsonResponse<T>(data: unknown, hasSchema: boolean): T {
   throw new Error("AI gateway returned no content");
 }
 
-async function lovableChatJson<T>(opts: {
-  model?: string;
-  apiKey: string;
-  messages: ChatMessage[];
-  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
-  temperature?: number;
-}): Promise<T> {
-  const res = await fetch(LOVABLE_GATEWAY_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(buildChatBody(opts)),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
-    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
-    throw new Error(`AI gateway ${res.status}: ${text.slice(0, 300)}`);
-  }
-  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
-}
-
-async function proxyChatJson<T>(opts: {
-  model?: string;
-  proxyUrl: string;
-  messages: ChatMessage[];
-  schema?: { name: string; description?: string; parameters: Record<string, unknown> };
-  temperature?: number;
-}): Promise<T> {
-  const res = await fetch(opts.proxyUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildChatBody(opts)),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("Lovable AI is rate limited. Please try again shortly.");
-    if (res.status === 402) throw new Error("Lovable AI credits are exhausted. Add credits in Workspace Usage.");
-    throw new Error(`Lovable AI proxy ${res.status}: ${text.slice(0, 300)}`);
-  }
-  return parseChatJsonResponse<T>(await res.json(), Boolean(opts.schema));
-}
-
-/**
- * OpenAI-compatible JSON chat (used by Groq, OpenAI, Cloudflare Workers AI).
- */
 async function openaiCompatChatJson<T>(opts: {
   baseUrl: string;
   apiKey: string;
@@ -365,16 +290,12 @@ async function callOne<T>(entry: ProviderEntry, opts: {
   switch (entry.provider) {
     case "gemini":
       return googleChatJson<T>({
-        model: opts.model ?? "google/gemini-3-flash-preview",
+        model: opts.model ?? "google/gemini-2.5-flash",
         apiKey: entry.key,
         messages: opts.messages,
         schema: opts.schema,
         temperature: opts.temperature,
       });
-    case "lovable-proxy":
-      return proxyChatJson<T>({ ...opts, proxyUrl: entry.proxyUrl });
-    case "lovable":
-      return lovableChatJson<T>({ ...opts, apiKey: entry.key });
     case "groq":
       return openaiCompatChatJson<T>({
         baseUrl: "https://api.groq.com/openai/v1/chat/completions",
@@ -460,11 +381,11 @@ export async function generateImage(opts: {
   referenceImages?: Array<{ buffer: Buffer; mime: string }>;
 }): Promise<{ buffer: Buffer; mime: string }> {
   const chain = buildProviderChain().filter(
-    (e) => e.provider === "gemini" || e.provider === "lovable-proxy" || e.provider === "lovable",
+    (e) => e.provider === "gemini",
   );
   if (chain.length === 0) {
     throw new Error(
-      "Image generation needs Gemini (GEMINI_API_KEY) or Lovable AI (LOVABLE_API_KEY / lovable-ai-proxy). Text providers like Groq/OpenAI/Anthropic can't generate images here.",
+      "Image generation needs Gemini (GEMINI_API_KEY). Text providers like Groq/OpenAI/Anthropic can't generate images here.",
     );
   }
   const refs = opts.referenceImages ?? [];
@@ -504,42 +425,6 @@ export async function generateImage(opts: {
         throw new Error("Gemini returned no image");
       }
 
-      const isProxy = picked.provider === "lovable-proxy";
-      const endpoint = isProxy ? picked.proxyUrl : LOVABLE_GATEWAY_URL;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (!isProxy && picked.provider === "lovable") headers.Authorization = `Bearer ${picked.key}`;
-
-      const model = opts.model ?? "google/gemini-3.1-flash-image-preview";
-      const userContent: Array<Record<string, unknown>> = [{ type: "text", text: opts.prompt }];
-      for (const r of refs) {
-        userContent.push({
-          type: "image_url",
-          image_url: { url: `data:${r.mime};base64,${r.buffer.toString("base64")}` },
-        });
-      }
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: refs.length > 0 ? userContent : opts.prompt }],
-          modalities: ["image", "text"],
-          stream: false,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Lovable AI image ${res.status}: ${text.slice(0, 300)}`);
-      }
-      const data = await res.json();
-      const images = data?.choices?.[0]?.message?.images;
-      const url: string | undefined = images?.[0]?.image_url?.url;
-      if (!url) throw new Error("Lovable AI returned no image");
-      const m = /^data:([^;]+);base64,(.+)$/.exec(url);
-      if (!m) throw new Error("Lovable AI image was not a base64 data URL");
-      const mime = m[1] ?? "image/png";
-      const buffer = Buffer.from(m[2] ?? "", "base64");
-      return { buffer, mime };
     } catch (e) {
       lastErr = e;
       continue;

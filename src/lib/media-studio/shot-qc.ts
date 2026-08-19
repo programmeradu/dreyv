@@ -26,6 +26,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import ffmpegStaticPath from "ffmpeg-static";
+import { aiComplete } from "@/lib/ai-gateway";
 
 export type ShotObservation = {
   ok: boolean;
@@ -51,7 +52,6 @@ export type ShotObservation = {
   };
 };
 
-const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 function ffmpegBin(): string {
   if (ffmpegStaticPath && existsSync(ffmpegStaticPath)) return ffmpegStaticPath;
@@ -160,13 +160,13 @@ async function extractFramePng(inFile: string, cwd: string, atSec: string, name:
 }
 
 async function transcribeAudio(mp3: Buffer): Promise<string | null> {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) return null;
   try {
     const fd = new FormData();
-    fd.append("model", "openai/gpt-4o-mini-transcribe");
+    fd.append("model", process.env.OPENAI_STT_MODEL || "gpt-4o-mini-transcribe");
     fd.append("file", new Blob([new Uint8Array(mp3)], { type: "audio/mpeg" }), "shot.mp3");
-    const res = await fetch(`${LOVABLE_GATEWAY}/audio/transcriptions`, {
+    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: fd,
@@ -187,8 +187,7 @@ async function describeFrames(frames: Array<{ png: Buffer; label: string }>): Pr
   lastAction: string | null;
   settingFingerprint: string | null;
 }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key || frames.length === 0) return { lastAction: null, settingFingerprint: null };
+  if (frames.length === 0) return { lastAction: null, settingFingerprint: null };
   try {
     const content: Array<Record<string, unknown>> = [
       { type: "text", text: [
@@ -205,24 +204,14 @@ async function describeFrames(frames: Array<{ png: Buffer; label: string }>): Pr
         image_url: { url: `data:image/png;base64,${f.png.toString("base64")}` },
       });
     }
-    const res = await fetch(`${LOVABLE_GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content }],
-        response_format: { type: "json_object" },
-        temperature: 0.2,
-      }),
-    });
-    if (!res.ok) {
-      console.warn("[shot-qc] vision failed:", res.status, (await res.text()).slice(0, 200));
-      return { lastAction: null, settingFingerprint: null };
-    }
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = json.choices?.[0]?.message?.content?.trim();
-    if (!raw) return { lastAction: null, settingFingerprint: null };
-    const parsed = JSON.parse(raw) as { lastAction?: string; settingFingerprint?: string };
+    const parsed = (await aiComplete({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content }],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      timeoutMs: 30_000,
+    })) as { lastAction?: string; settingFingerprint?: string } | null;
+    if (!parsed) return { lastAction: null, settingFingerprint: null };
     return {
       lastAction: parsed.lastAction?.trim() || null,
       settingFingerprint: parsed.settingFingerprint?.trim() || null,

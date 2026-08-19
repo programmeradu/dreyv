@@ -543,11 +543,11 @@ function AuthPageContent() {
                                 <span className="h-px flex-1 bg-violet-100" />
                             </div>
 
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <SocialRow name="Google" domain="google.com" onClick={() => handleSocialLogin("google")} loading={socialLoading === "google"} />
-                                <SocialRow name="Phantom · Google" domain="phantom.app" onClick={() => handlePhantomSocial("google")} loading={socialLoading === "phantom-google"} />
-                                <SocialRow name="Phantom · Apple" domain="apple.com" onClick={() => handlePhantomSocial("apple")} loading={socialLoading === "phantom-apple"} />
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <SocialRow name="Google" domain="google.com" onClick={() => handleSocialLogin("google")} loading={socialLoading === "google" || socialLoading === "phantom-google"} />
+                                <SocialRow name="Apple" domain="apple.com" onClick={() => handlePhantomSocial("apple")} loading={socialLoading === "phantom-apple"} />
                             </div>
+
                         </div>
                     )}
 

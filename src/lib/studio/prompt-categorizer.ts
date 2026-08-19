@@ -1,3 +1,5 @@
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
+
 /**
  * Lightweight prompt categorizer using Lovable AI Gateway.
  * Falls back to keyword heuristics if no API key is present.
@@ -33,41 +35,27 @@ export function categorizeByKeyword(prompt: string): PromptCategory {
 }
 
 /**
- * Use Lovable AI Gateway to tag the prompt category. Falls back to keyword heuristic.
+ * Use the unified AI gateway to tag the prompt category. Falls back to keyword heuristic.
  */
 export async function categorizePrompt(prompt: string): Promise<PromptCategory> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return categorizeByKeyword(prompt);
+  if (!aiConfigured()) return categorizeByKeyword(prompt);
 
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+  const out = await aiComplete({
+    messages: [
+      {
+        role: "system",
+        content:
+          "You categorize app-build prompts into one of: staking, swap, dao, nft, payments, analytics, social, other. Return ONLY the single category word, nothing else.",
       },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You categorize app-build prompts into one of: staking, swap, dao, nft, payments, analytics, social, other. Return ONLY the single category word, nothing else.",
-          },
-          { role: "user", content: prompt.slice(0, 500) },
-        ],
-        max_tokens: 10,
-        temperature: 0,
-      }),
-    });
-    if (!res.ok) return categorizeByKeyword(prompt);
-    const data = await res.json();
-    const raw = (data?.choices?.[0]?.message?.content || "").trim().toLowerCase();
-    const valid: PromptCategory[] = [
-      "staking", "swap", "dao", "nft", "payments", "analytics", "social", "other",
-    ];
-    return (valid.find((v) => raw.includes(v)) as PromptCategory) || categorizeByKeyword(prompt);
-  } catch {
-    return categorizeByKeyword(prompt);
-  }
+      { role: "user", content: prompt.slice(0, 500) },
+    ],
+    temperature: 0,
+    timeoutMs: 15_000,
+  });
+
+  const raw = String(typeof out === "string" ? out : out ? JSON.stringify(out) : "").trim().toLowerCase();
+  const valid: PromptCategory[] = [
+    "staking", "swap", "dao", "nft", "payments", "analytics", "social", "other",
+  ];
+  return (valid.find((v) => raw.includes(v)) as PromptCategory) || categorizeByKeyword(prompt);
 }
