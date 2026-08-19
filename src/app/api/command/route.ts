@@ -38,46 +38,29 @@ const CLOUDFLARE_FALLBACK_MODELS = [
   "@cf/meta/llama-3.1-8b-instruct",
 ];
 
-// Lovable AI Gateway — auto-provisioned (LOVABLE_API_KEY set by Lovable Cloud).
-// OpenAI-compatible, supports streaming + tool calls.
-const lovableApiKey = process.env.LOVABLE_API_KEY;
-const lovableProvider = lovableApiKey
+// Google Gemini via the OpenAI-compatible endpoint — tertiary fallback.
+const geminiApiKey =
+  process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+const geminiProvider = geminiApiKey
   ? createOpenAICompatible({
-      name: "lovable",
-      apiKey: lovableApiKey,
-      baseURL: "https://ai.gateway.lovable.dev/v1",
+      name: "gemini",
+      apiKey: geminiApiKey,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
     })
   : null;
 
-// Lovable AI via Supabase edge-function proxy — lets Vercel use Lovable AI
-// WITHOUT placing LOVABLE_API_KEY on Vercel. The proxy forwards to the gateway
-// using the managed key in the Lovable Cloud workspace.
-function resolveLovableProxyBase(): string | null {
-  const explicit = process.env.LOVABLE_AI_PROXY_URL;
-  if (explicit) return explicit.replace(/\/+$/, "");
-  const supa =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL;
-  if (supa) return `${supa.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`;
-  return null;
-}
-const lovableProxyBase = resolveLovableProxyBase();
-const lovableProxyProvider = lovableProxyBase
+// OpenAI — last-resort fallback.
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openaiProvider = openaiApiKey
   ? createOpenAICompatible({
-      name: "lovable-proxy",
-      // The edge function reads LOVABLE_API_KEY server-side; no auth needed
-      // from the client. We pass a placeholder because the SDK requires one.
-      apiKey: "supabase-edge-managed",
-      baseURL: lovableProxyBase,
+      name: "openai",
+      apiKey: openaiApiKey,
+      baseURL: "https://api.openai.com/v1",
     })
   : null;
 
-const LOVABLE_FALLBACK_MODELS = [
-  "google/gemini-3-flash-preview",
-  "google/gemini-2.5-flash",
-  "openai/gpt-5-mini",
-];
+const GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const OPENAI_FALLBACK_MODELS = ["gpt-4o-mini"];
 
 // Rate-limit cooldown cache — skip providers that recently returned 429
 const rateLimitCooldown: Record<string, number> = {};
@@ -503,8 +486,8 @@ export async function POST(req: Request) {
     // Model chain order (per product decision):
     //   1. Groq (primary — fastest + cheapest at scale)
     //   2. Cloudflare Workers AI (secondary — high free tier, good 70B fallback)
-    //   3. Lovable AI via Supabase proxy (tertiary on Vercel — uses managed key, no Vercel secrets)
-    //   4. Lovable AI Gateway direct (last-resort — only when LOVABLE_API_KEY is local)
+    //   3. Google Gemini (tertiary)
+    //   4. OpenAI (last resort)
     const modelChain: { name: string; model: Parameters<typeof streamText>[0]["model"]; maxChars: number }[] = [];
     if (process.env.GROQ_API_KEY) {
       modelChain.push({
@@ -523,22 +506,22 @@ export async function POST(req: Request) {
         });
       }
     }
-    if (lovableProxyProvider) {
-      for (const modelId of LOVABLE_FALLBACK_MODELS) {
-        const modelName = `lovable-proxy/${modelId}`;
+    if (geminiProvider) {
+      for (const modelId of GEMINI_FALLBACK_MODELS) {
+        const modelName = `gemini/${modelId}`;
         modelChain.push({
           name: modelName,
-          model: lovableProxyProvider.chatModel(modelId),
-          maxChars: estimateCompatibilityBudget(`lovable/${modelId}`),
+          model: geminiProvider.chatModel(modelId),
+          maxChars: estimateCompatibilityBudget(modelName),
         });
       }
     }
-    if (lovableProvider) {
-      for (const modelId of LOVABLE_FALLBACK_MODELS) {
-        const modelName = `lovable/${modelId}`;
+    if (openaiProvider) {
+      for (const modelId of OPENAI_FALLBACK_MODELS) {
+        const modelName = `openai/${modelId}`;
         modelChain.push({
           name: modelName,
-          model: lovableProvider.chatModel(modelId),
+          model: openaiProvider.chatModel(modelId),
           maxChars: estimateCompatibilityBudget(modelName),
         });
       }
@@ -546,7 +529,7 @@ export async function POST(req: Request) {
 
     if (modelChain.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No AI provider configured. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN, NEXT_PUBLIC_SUPABASE_URL (for the lovable-ai-proxy edge function), or LOVABLE_API_KEY." }),
+        JSON.stringify({ error: "No AI provider configured. Set GROQ_API_KEY, CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN, GEMINI_API_KEY, or OPENAI_API_KEY." }),
         { status: 503, headers: { "Content-Type": "application/json" } },
       );
     }
