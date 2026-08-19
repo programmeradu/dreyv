@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -179,26 +180,7 @@ async function buildSnapshot(address: string | null, origin: string): Promise<Sn
 }
 
 export async function GET(req: NextRequest) {
-  const lovableUrl = process.env.LOVABLE_SUPABASE_URL || process.env.LOVABLE_AI_PROXY_SUPABASE_URL;
-  const lovableAnon = process.env.LOVABLE_SUPABASE_ANON_KEY || process.env.LOVABLE_SUPABASE_PUBLISHABLE_KEY;
-  const proxyUrlExplicit = process.env.LOVABLE_AI_PROXY_URL;
-  const supabaseUrl =
-    lovableUrl || (!proxyUrlExplicit ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL : undefined);
-  const supabaseAnon =
-    lovableAnon ||
-    (!proxyUrlExplicit
-      ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-        process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-        process.env.SUPABASE_ANON_KEY
-      : undefined);
-  const proxyUrl = proxyUrlExplicit
-    ? proxyUrlExplicit.replace(/\/+$/, "")
-    : supabaseUrl
-    ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/lovable-ai-proxy`
-    : null;
-
-  if (!proxyUrl || !supabaseAnon) {
+  if (!aiConfigured()) {
     return Response.json(
       {
         insight: null,
@@ -222,47 +204,20 @@ export async function GET(req: NextRequest) {
     ? `Treasury snapshot (variation seed ${seed}):\n${JSON.stringify(snapshot, null, 2)}\n\nAnalyze and return the JSON.`
     : `No treasury connected yet (variation seed ${seed}). Set "insight" to null and return 5 generic-but-useful starter to-dos covering fees, yield, and risk.`;
 
-  const upstream = await fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${supabaseAnon}`,
-      apikey: supabaseAnon,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      stream: false,
-      temperature: address ? 0.55 : 0.9,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMsg },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  const parsed = await aiComplete({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMsg },
+    ],
+    response_format: { type: "json_object" },
+    temperature: address ? 0.55 : 0.9,
+    timeoutMs: 25_000,
   });
 
-  if (!upstream.ok) {
+  if (!parsed) {
     return Response.json(
       { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "ai_gateway_error" },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  const data = (await upstream.json().catch(() => null)) as any;
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) {
-    return Response.json(
-      { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "no_content" },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  let parsed: any;
-  try {
-    parsed = typeof content === "string" ? JSON.parse(content) : content;
-  } catch {
-    return Response.json(
-      { insight: null, prompts: CURATED_FALLBACK_PROMPTS, analyzed: false, snapshot: null, fallback: "parse_error" },
       { headers: { "Cache-Control": "no-store" } },
     );
   }
