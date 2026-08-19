@@ -148,3 +148,43 @@ export async function aiJson(system: string, user: string, schema?: any): Promis
 export function aiConfigured(): boolean {
   return Boolean(geminiKey() || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
 }
+
+/**
+ * Streaming variant: returns an SSE `Response` (OpenAI-compatible chunk format)
+ * ready to hand back to the browser, or `null` when no provider is configured
+ * or every provider failed.
+ */
+export async function aiStreamResponse(opts: AiCallOptions): Promise<Response | null> {
+  const chain: Array<{ label: string; url: string; key: string; provider: "gemini" | "groq" | "openai" }> = [];
+  const gem = geminiKey();
+  if (gem) chain.push({ label: "gemini", url: GEMINI_OPENAI_URL, key: gem, provider: "gemini" });
+  const groq = process.env.GROQ_API_KEY?.trim();
+  if (groq) chain.push({ label: "groq", url: GROQ_URL, key: groq, provider: "groq" });
+  const openai = process.env.OPENAI_API_KEY?.trim();
+  if (openai) chain.push({ label: "openai", url: OPENAI_URL, key: openai, provider: "openai" });
+
+  for (const entry of chain) {
+    try {
+      const upstream = await fetch(entry.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${entry.key}` },
+        body: JSON.stringify({
+          model: resolveModel(opts.model, entry.provider),
+          messages: opts.messages,
+          stream: true,
+          ...(typeof opts.temperature === "number" ? { temperature: opts.temperature } : {}),
+        }),
+      });
+      if (!upstream.ok || !upstream.body) {
+        console.warn(`[ai-gateway:${entry.label}:stream] non-ok`, upstream.status);
+        continue;
+      }
+      return new Response(upstream.body, {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
+      });
+    } catch (e) {
+      console.warn(`[ai-gateway:${entry.label}:stream] error`, (e as Error)?.message);
+    }
+  }
+  return null;
+}
