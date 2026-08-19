@@ -545,8 +545,9 @@ function AuthPageContent() {
 
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                 <SocialRow name="Google" domain="google.com" onClick={() => handleSocialLogin("google")} loading={socialLoading === "google"} />
-                                <SocialRow name="Phantom · Google" domain="phantom.app" onClick={() => handlePhantomSocial("google")} loading={socialLoading === "phantom-google"} />
-                                <SocialRow name="Phantom · Apple" domain="apple.com" onClick={() => handlePhantomSocial("apple")} loading={socialLoading === "phantom-apple"} />
+                                <SocialRow name="Apple" domain="apple.com" onClick={() => handlePhantomSocial("apple")} loading={socialLoading === "phantom-apple"} />
+                                <SocialRow name="Wallet · Google" domain="phantom.app" onClick={() => handlePhantomSocial("google")} loading={socialLoading === "phantom-google"} />
+
                             </div>
                         </div>
                     )}
