@@ -12,6 +12,7 @@ import { z } from "zod";
 import { defineCapability, type AnyCapability } from "./types";
 import { resolveTokenMint, isSolSymbol, TOKEN_MINTS } from "./tokens";
 import { estimateUsdValue } from "./usd-pricing";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
 /** Period in seconds for Streamflow stream cadence. */
 const PERIOD_SECONDS: Record<"daily" | "weekly" | "biweekly" | "monthly", number> = {
@@ -269,25 +270,14 @@ interface ExtractedInvoice {
   fieldConfidence: Record<string, number>;
 }
 
-async function callLovableAI(payload: Record<string, unknown>, timeoutMs = 25_000): Promise<Response> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured — cannot run invoice OCR.");
-  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-}
-
-async function extractViaLovableAI(content: Array<Record<string, unknown>> | string): Promise<ExtractedInvoice> {
+async function extractViaAI(content: Array<Record<string, unknown>> | string): Promise<ExtractedInvoice> {
   const messages = [
     { role: "system", content: EXTRACTION_PROMPT },
     { role: "user", content: typeof content === "string" ? content : content },
   ];
-  const res = await callLovableAI({
-    model: "google/gemini-3-flash-preview",
-    messages,
+  const extracted = (await aiComplete({
+    messages: messages as any,
+    timeoutMs: 25_000,
     tools: [{
       type: "function",
       function: {
@@ -297,16 +287,9 @@ async function extractViaLovableAI(content: Array<Record<string, unknown>> | str
       },
     }],
     tool_choice: { type: "function", function: { name: "extract_invoice" } },
-  });
-  if (!res.ok) {
-    if (res.status === 429) throw new Error("Rate limited by Lovable AI. Retry shortly.");
-    if (res.status === 402) throw new Error("Lovable AI credits exhausted.");
-    throw new Error(`Lovable AI ${res.status}: ${await res.text().catch(() => "")}`);
-  }
-  const json = await res.json();
-  const toolCall = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!toolCall) throw new Error("Lovable AI returned no tool call — extraction failed.");
-  return JSON.parse(toolCall) as ExtractedInvoice;
+  })) as ExtractedInvoice | null;
+  if (!extracted) throw new Error("AI provider returned no structured invoice — extraction failed.");
+  return extracted;
 }
 
 async function extractFromUrl(url: string): Promise<ExtractedInvoice> {
@@ -324,7 +307,7 @@ async function extractFromUrl(url: string): Promise<ExtractedInvoice> {
   }
   const html = await fetch(url, { signal: AbortSignal.timeout(15_000) }).then((r) => r.text());
   const stripped = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").slice(0, 30_000);
-  return extractViaLovableAI(`Source URL: ${url}\n\nHTML:\n${stripped}`);
+  return extractViaAI(`Source URL: ${url}\n\nHTML:\n${stripped}`);
 }
 
 function postProcess(extracted: ExtractedInvoice): { extracted: ExtractedInvoice; warnings: string[]; overallConfidence: number } {
@@ -379,12 +362,12 @@ const invoice_extract = defineCapability({
       if (input.url) {
         raw = await extractFromUrl(input.url);
       } else if (input.imageDataUrl) {
-        raw = await extractViaLovableAI([
+        raw = await extractViaAI([
           { type: "text", text: "Extract invoice fields from this document." },
           { type: "image_url", image_url: { url: input.imageDataUrl } },
         ]);
       } else {
-        raw = await extractViaLovableAI(input.text!);
+        raw = await extractViaAI(input.text!);
       }
       const { extracted, warnings, overallConfidence } = postProcess(raw);
       return {
@@ -968,16 +951,15 @@ function heuristicCategory(fact: {
 
 async function llmTagExpenses(rows: Array<{ idx: number; counterparty: string | null; symbol: string | null; amount: number; type: string | null; source: string | null }>): Promise<Array<{ idx: number; category: PnlCategory; confidence: number; rationale: string }>> {
   if (rows.length === 0) return [];
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) {
+  if (!aiConfigured()) {
     return rows.map(r => ({ idx: r.idx, category: "other" as PnlCategory, confidence: 0.2, rationale: "LLM unavailable" }));
   }
   const sys = `You are a treasury bookkeeper. Classify each outgoing on-chain transfer into ONE P&L category from: ${PNL_CATEGORIES.join(", ")}. Use counterparty + token + amount + program source. Return a confidence in [0,1].`;
   const user = JSON.stringify(rows);
   try {
-    const res = await callLovableAI({
-      model: "google/gemini-3-flash-preview",
+    const parsed = (await aiComplete({
       messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+      timeoutMs: 30_000,
       tools: [{
         type: "function",
         function: {
@@ -1005,11 +987,7 @@ async function llmTagExpenses(rows: Array<{ idx: number; counterparty: string | 
         },
       }],
       tool_choice: { type: "function", function: { name: "tag_expenses" } },
-    }, 30_000);
-    if (!res.ok) throw new Error(`AI ${res.status}`);
-    const json = await res.json();
-    const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    const parsed = args ? JSON.parse(args) : null;
+    })) as { tags?: Array<{ idx: number; category: PnlCategory; confidence: number; rationale: string }> } | null;
     const tags: Array<{ idx: number; category: PnlCategory; confidence: number; rationale: string }> = parsed?.tags ?? [];
     return tags;
   } catch (err) {
@@ -1022,7 +1000,7 @@ const expense_categorize = defineCapability({
   id: "expense_categorize",
   domain: "payments",
   description:
-    "Categorize outgoing transactions from the last N days into a P&L taxonomy using Helius enhanced transactions + heuristics + Lovable AI. Returns per-tx tags and category totals.",
+    "Categorize outgoing transactions from the last N days into a P&L taxonomy using Helius enhanced transactions + heuristics + AI. Returns per-tx tags and category totals.",
   inputSchema: z.object({
     lookbackDays: z.number().int().min(1).max(365).optional().default(30),
     walletOverride: z.string().optional(),
