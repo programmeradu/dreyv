@@ -24,8 +24,8 @@ import { knowledgeBase } from "@/lib/knowledge";
 import { knowledgeMemory } from "@/lib/knowledge-memory";
 import { renderResearchBriefPdf } from "../artifacts/research-brief-pdf";
 import { uploadArtifact } from "../artifacts/storage";
+import { aiComplete, aiConfigured } from "@/lib/ai-gateway";
 
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 interface BriefStructured {
   summary: string;
@@ -70,10 +70,9 @@ async function synthesizeBrief(args: {
   walletSummary: string;
 }): Promise<BriefStructured> {
   const clean = sanitizeScrape(args.rawMarkdown);
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!lovableKey || !clean) {
+  if (!aiConfigured() || !clean) {
     return {
-      summary: `Research on ${args.protocol} was collected but the synthesis model was not available, so no executive summary was written. Sources are listed below — open them directly, or retry once LOVABLE_API_KEY is configured.`,
+      summary: `Research on ${args.protocol} was collected but the synthesis model was not available, so no executive summary was written. Sources are listed below — open them directly, or retry once an AI provider key is configured.`,
       insights: [],
       suggestions: [],
       synthesized: false,
@@ -99,25 +98,19 @@ must say "once your wallet is connected" rather than hallucinating amounts.`;
   });
 
   try {
-    const res = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: user },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "emit_research_brief",
-              description: "Return the structured research brief.",
-              parameters: {
+    const parsed = (await aiComplete({
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: user },
+      ],
+      timeoutMs: 30_000,
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "emit_research_brief",
+            description: "Return the structured research brief.",
+            parameters: {
                 type: "object",
                 properties: {
                   summary: { type: "string", description: "2-4 sentence executive summary in your own words. Never quote raw scraped text." },
@@ -150,18 +143,9 @@ must say "once your wallet is connected" rather than hallucinating amounts.`;
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "emit_research_brief" } },
-      }),
-    });
-    if (!res.ok) {
-      console.warn("[research_brief] LLM synthesis failed:", res.status);
-      return failure(`returned HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    const call = data?.choices?.[0]?.message?.tool_calls?.[0];
-    const argsStr = call?.function?.arguments;
-    if (typeof argsStr === "string") {
-      const parsed = JSON.parse(argsStr) as Partial<BriefStructured>;
+      tool_choice: { type: "function", function: { name: "emit_research_brief" } },
+    })) as Partial<BriefStructured> | null;
+    if (parsed) {
       const summary = (parsed.summary ?? "").trim();
       // Reject summaries that are obviously raw scrape leaking through
       const looksLikeScrape =
@@ -174,7 +158,7 @@ must say "once your wallet is connected" rather than hallucinating amounts.`;
         synthesized: true,
       };
     }
-    return failure("did not emit a tool call");
+    return failure("did not return a structured brief");
   } catch (err) {
     console.warn("[research_brief] synth error:", err);
     return failure("threw an error");
