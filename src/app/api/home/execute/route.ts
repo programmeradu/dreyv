@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lovableJson } from "@/lib/lovable-ai-proxy";
+import { aiJson } from "@/lib/ai-gateway";
 
 /**
  * Public landing-page simulation dispatcher.
@@ -81,7 +81,7 @@ async function getPrice(origin: string, sym: string): Promise<number | null> {
  * Returns a parsed JSON object or null if the gateway is unavailable.
  */
 async function llmJson(system: string, user: string, schema?: any): Promise<any | null> {
-  return lovableJson(system, user, schema);
+  return aiJson(system, user, schema);
 }
 
 /**

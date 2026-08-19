@@ -18,7 +18,7 @@ import { TavilyClient } from "@/lib/tavily";
 import { JinaClient } from "@/lib/jina";
 import { FirecrawlClient } from "@/lib/firecrawl";
 import { markdown as cfMarkdown } from "@/lib/cloudflare/cf-browser";
-import { lovableAi } from "@/lib/lovable-ai-proxy";
+import { aiComplete } from "@/lib/ai-gateway";
 
 export const maxDuration = 60;
 
@@ -166,7 +166,7 @@ async function runDebug(topic: string) {
   let synth: unknown = null;
   let synthError: string | undefined;
   try {
-    synth = await lovableAi({
+    synth = await aiComplete({
       model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: `You are a Solana SDK expert. From the research notes below, write a concise markdown brief on "${topic}" covering: main SDK packages, key TypeScript signatures with imports, one minimal usage example, and any gotchas. If notes are insufficient, say so plainly — never fabricate.` },
