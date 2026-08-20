@@ -2,6 +2,7 @@
 
 ## Core
 Brand color is SOLID violet only (`violet-600` / `#7c3aed` aka `aurora-violet`). NEVER use fuchsia, pink, or gradients (no `from-violet-* to-fuchsia-*`, no `bg-gradient-*`). Solid fills only.
+FONTS: Inter / Inter Tight are BANNED everywhere (too thin, spaced-out, "AI slop"). UI sans = **Geist** (`--font-sans`, `.font-label` for eyebrows/labels at weight 600, tracking ≤0.16em); display/marketing = Manrope; mono = JetBrains Mono. Never reintroduce Inter in web UI (bundled Inter OTFs in server-side PDF renderers are the only exception).
 DEFAULT THEME for every new public/marketing/dev page = Stitch-inspired premium LIGHT (white bg, Manrope, solid violet accents, ambient violet-400/300 glows, violet-200 borders). NEVER ship a dark/generic first draft and wait for the user to ask for a redesign — match `/pricing` aesthetic from the first pass.
 For "premium icons" the user wants custom generated/illustrated marks (e.g. 3D violet crystal renders via imagegen), not stock Lucide/Heroicons reused across the app. No common stock iconography on marketing pages.
 Pricing tiers: Free $0, Mini $49/mo, Max $199/mo (FastSpring MoR). Keep marketing pricing in sync with this.
