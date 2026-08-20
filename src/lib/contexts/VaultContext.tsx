@@ -496,25 +496,27 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
             // Calculate Weighted 24h Change.
             // Newly-launched / illiquid tokens routinely report absurd 24h moves
-            // (e.g. +4,000,000%). Feeding those raw into a value-weighted average
-            // produces a nonsense headline number, so we winsorize each token's
-            // move to a plausible band and only average over tokens that actually
-            // reported a usable figure (weights renormalized across those).
+            // (e.g. +4,000,000%), and dust positions carry unreliable pricing.
+            // Both would poison a naive value-weighted average, so we only average
+            // over positions that are (a) materially sized and (b) reporting a
+            // plausible move, renormalizing the weights across those.
             let weightedChange: number | null = null;
             if (totalValue > 0) {
-                const CHANGE_FLOOR = -95;   // a token can lose at most ~all of its value
-                const CHANGE_CEIL = 300;    // anything beyond is treated as an outlier print
+                const PLAUSIBLE_MOVE = 100;                        // |%| beyond this is an outlier print
+                const MIN_POSITION = Math.max(50, totalValue * 0.0005); // ignore dust / mispriced dust
                 let weightBase = 0;
                 let acc = 0;
                 for (const t of allTokens) {
                     const raw = typeof t.change24h === "number" ? t.change24h : NaN;
-                    if (!Number.isFinite(raw) || t.value <= 0) continue;
-                    const clamped = Math.min(CHANGE_CEIL, Math.max(CHANGE_FLOOR, raw));
-                    acc += clamped * t.value;
+                    if (!Number.isFinite(raw)) continue;
+                    if (t.value < MIN_POSITION) continue;
+                    if (Math.abs(raw) > PLAUSIBLE_MOVE) continue;
+                    acc += raw * t.value;
                     weightBase += t.value;
                 }
                 if (weightBase > 0) weightedChange = acc / weightBase;
             }
+
 
 
 
