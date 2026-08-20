@@ -210,17 +210,26 @@ function TrendRibbon({
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         />
 
-        {/* min / max markers */}
+        {/* min / max markers — labels are kept inside the viewBox and pushed
+            clear of the floating 7d chip in the top-right corner */}
         {[geom.minIdx, geom.maxIdx].map((idx, k) => {
           const p = geom.pts[idx];
           const isMax = k === 1;
+          const nearLeft = p.x < 28;
+          const nearRight = p.x > geom.w - 28;
+          const anchor = nearLeft ? "start" : nearRight ? "end" : "middle";
+          const labelX = nearLeft ? Math.max(2, p.x - 4) : nearRight ? Math.min(geom.w - 2, p.x + 4) : p.x;
+          // The 7d chip floats over the top-right; drop the "high" label below
+          // the point when it would collide with it.
+          const collidesWithChip = isMax && nearRight && p.y - 8 < geom.padTop + 16;
+          const labelY = isMax ? (collidesWithChip ? p.y + 14 : p.y - 8) : Math.min(geom.h - 3, p.y + 14);
           return (
             <g key={`mm-${k}`}>
               <circle cx={p.x} cy={p.y} r={3} fill="white" stroke="#7c3aed" strokeWidth={1.5} />
               <text
-                x={p.x}
-                y={isMax ? p.y - 8 : p.y + 14}
-                textAnchor="middle"
+                x={labelX}
+                y={labelY}
+                textAnchor={anchor}
                 fontSize="9"
                 className="fill-slate-500"
               >
@@ -229,6 +238,7 @@ function TrendRibbon({
             </g>
           );
         })}
+
 
         {/* hover crosshair */}
         {hp && (
