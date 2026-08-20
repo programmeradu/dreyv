@@ -494,14 +494,29 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
             const totalValue = allTokens.reduce((acc, t) => acc + t.value, 0);
 
-            // Calculate Weighted 24h Change
-            let weightedChange = 0;
+            // Calculate Weighted 24h Change.
+            // Newly-launched / illiquid tokens routinely report absurd 24h moves
+            // (e.g. +4,000,000%). Feeding those raw into a value-weighted average
+            // produces a nonsense headline number, so we winsorize each token's
+            // move to a plausible band and only average over tokens that actually
+            // reported a usable figure (weights renormalized across those).
+            let weightedChange: number | null = null;
             if (totalValue > 0) {
-                weightedChange = allTokens.reduce((acc, t) => {
-                    const weight = t.value / totalValue;
-                    return acc + (t.change24h * weight);
-                }, 0);
+                const CHANGE_FLOOR = -95;   // a token can lose at most ~all of its value
+                const CHANGE_CEIL = 300;    // anything beyond is treated as an outlier print
+                let weightBase = 0;
+                let acc = 0;
+                for (const t of allTokens) {
+                    const raw = typeof t.change24h === "number" ? t.change24h : NaN;
+                    if (!Number.isFinite(raw) || t.value <= 0) continue;
+                    const clamped = Math.min(CHANGE_CEIL, Math.max(CHANGE_FLOOR, raw));
+                    acc += clamped * t.value;
+                    weightBase += t.value;
+                }
+                if (weightBase > 0) weightedChange = acc / weightBase;
             }
+
+
 
             // Guard: if a newer refresh started while we were awaiting, discard this result
             if (version !== refreshVersionRef.current) {
