@@ -222,7 +222,7 @@ function TrendRibbon({
           // The 7d chip floats over the top-right; drop the "high" label below
           // the point when it would collide with it.
           const collidesWithChip = isMax && nearRight && p.y - 8 < geom.padTop + 16;
-          const labelY = isMax ? (collidesWithChip ? p.y + 14 : p.y - 8) : Math.min(geom.h - 3, p.y + 14);
+          const labelY = isMax ? (collidesWithChip ? p.y + 22 : p.y - 8) : Math.min(geom.h - 3, p.y + 14);
           return (
             <g key={`mm-${k}`}>
               <circle cx={p.x} cy={p.y} r={3} fill="white" stroke="#7c3aed" strokeWidth={1.5} />
