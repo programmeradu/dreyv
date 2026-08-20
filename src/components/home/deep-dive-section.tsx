@@ -104,7 +104,7 @@ function StudioMockUI() {
 
         {/* Preview panel */}
         <div className="p-4">
-          <div className="text-[9px] font-mono uppercase tracking-wider text-slate-300 mb-3">Preview</div>
+          <div className="text-[9px] font-label uppercase tracking-[0.14em] text-slate-300 mb-3">Preview</div>
           <div className="rounded-lg border border-violet-200/35 bg-violet-50/40 p-4">
             <div className="text-xs font-semibold text-slate-500 mb-3">Rebalance Bot</div>
             <div className="space-y-2">
@@ -246,7 +246,7 @@ function ForesightMockUI() {
           ].map((metric) => (
             <div key={metric.label} className="rounded-lg bg-white/70 border border-white/[0.03] p-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[8px] font-mono uppercase tracking-wider text-slate-300">{metric.label}</span>
+                <span className="text-[8px] font-label uppercase tracking-[0.14em] text-slate-300">{metric.label}</span>
                 <span className={`text-[9px] ${metric.accent}`}>{metric.trend}</span>
               </div>
               <div className={`text-sm font-bold ${metric.accent} tracking-tight`}>{metric.value}</div>
@@ -257,7 +257,7 @@ function ForesightMockUI() {
 
         {/* Suggested actions — pill style */}
         <div className="mt-4 flex items-center gap-3 border-t border-violet-200/35 pt-4">
-          <span className="text-[8px] font-mono uppercase tracking-wider text-slate-300 shrink-0">Actions</span>
+          <span className="text-[8px] font-label uppercase tracking-[0.14em] text-slate-300 shrink-0">Actions</span>
           <div className="flex gap-2 overflow-x-auto">
             {[
               { label: "Hedge 20% → USDC", urgency: "high" },
@@ -312,7 +312,7 @@ export function DeepDiveSection() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mb-14"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-slate-400 mb-5">
             Deep Dive
           </p>
           <h2

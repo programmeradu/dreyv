@@ -61,7 +61,7 @@ export function CTASection() {
             </a>
           </div>
 
-          <p className="mt-12 text-[10px] font-mono uppercase tracking-[0.3em] text-slate-300">
+          <p className="mt-12 text-[10px] font-label uppercase tracking-[0.16em] text-slate-300">
             Non-custodial · Simulation-first · Multisig-native
           </p>
         </motion.div>

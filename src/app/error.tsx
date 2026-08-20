@@ -64,7 +64,7 @@ export default function GlobalError({
           <DreyvMascot pose="alert" size={140} priority />
         </div>
 
-        <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-700/90 mb-4">
+        <p className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-700/90 mb-4">
           Something interrupted the flow
         </p>
         <h1 className="text-3xl md:text-[2.5rem] font-bold tracking-[-0.02em] leading-[1.1] text-slate-900">
@@ -78,7 +78,7 @@ export default function GlobalError({
         {/* Diagnostic block — quiet, optional */}
         {(error?.message || error?.digest) && (
           <details className="mt-8 mx-auto max-w-md text-left rounded-xl border border-violet-200/50 bg-white/80 backdrop-blur-sm overflow-hidden">
-            <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.2em] text-slate-500 hover:text-violet-700 transition-colors">
+            <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between text-[11px] font-label uppercase tracking-[0.16em] text-slate-500 hover:text-violet-700 transition-colors">
               <span>Diagnostic</span>
               <span className="text-violet-500">↓</span>
             </summary>
@@ -113,7 +113,7 @@ export default function GlobalError({
           </Link>
         </div>
 
-        <p className="mt-10 text-[10px] font-mono uppercase tracking-[0.3em] text-slate-400">
+        <p className="mt-10 text-[10px] font-label uppercase tracking-[0.16em] text-slate-400">
           Non-custodial · Simulation-first · Multisig-native
         </p>
       </div>

@@ -75,7 +75,7 @@ export function WarRoomSection() {
             animate={inView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-600 mb-6">
+            <p className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-600 mb-6">
               Multiplayer Finance
             </p>
             <h2
@@ -299,7 +299,7 @@ export function WarRoomSection() {
                         <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-200/35 bg-white/60">
                           <div className="flex items-center gap-2">
                             <Sparkles size={13} className="text-violet-600" />
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-violet-700 font-semibold">Transaction Preview</span>
+                            <span className="text-[10px] font-label uppercase tracking-[0.14em] text-violet-700 font-semibold">Transaction Preview</span>
                           </div>
                           <span className="text-[9px] font-mono text-slate-400">#TXN-0847</span>
                         </div>

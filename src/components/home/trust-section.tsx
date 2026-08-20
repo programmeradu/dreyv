@@ -38,7 +38,7 @@ export function TrustSection() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mb-16"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-600 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-600 mb-5">
             Security
           </p>
           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-[-0.02em]">
@@ -79,7 +79,7 @@ export function TrustSection() {
           <div className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-white/[0.03]">
             <div className="flex items-center gap-3">
               <span className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
-              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400">Simulation Firewall</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.14em] text-slate-400">Simulation Firewall</span>
             </div>
             <span className="text-[10px] font-mono text-slate-300">real-time</span>
           </div>
@@ -88,7 +88,7 @@ export function TrustSection() {
             <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-0">
               {/* Proposed TXN */}
               <div className="md:flex-1 rounded-xl border border-white/[0.04] bg-white/[0.015] p-5">
-                <div className="text-[9px] font-mono uppercase tracking-widest text-slate-400 mb-3">Proposed</div>
+                <div className="text-[9px] font-label uppercase tracking-[0.14em] text-slate-400 mb-3">Proposed</div>
                 <div className="space-y-2 font-mono text-[11px]">
                   <div className="flex justify-between"><span className="text-slate-400">Type</span><span className="text-slate-500">Swap</span></div>
                   <div className="flex justify-between items-center"><span className="text-slate-400">Amount</span><span className="inline-flex items-center gap-1.5 text-slate-500"><img src="/logos/token-sol.png" alt="" className="h-3 w-3 rounded-full" />500 SOL</span></div>
@@ -107,7 +107,7 @@ export function TrustSection() {
                 <div className="absolute -inset-4 bg-violet-500/[0.08] blur-3xl rounded-full pointer-events-none" />
                 <div className="relative rounded-xl border border-violet-300/50 bg-violet-500/[0.06] p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-[9px] font-mono uppercase tracking-widest text-violet-600">Scanning</span>
+                    <span className="text-[9px] font-label uppercase tracking-[0.14em] text-violet-600">Scanning</span>
                     <span className="text-[10px] font-mono text-violet-600/90">50+ vectors</span>
                   </div>
 
@@ -152,7 +152,7 @@ export function TrustSection() {
 
               {/* Executed */}
               <div className="md:flex-1 rounded-xl border border-violet-200/45 bg-violet-500/[0.06] p-5">
-                <div className="text-[9px] font-mono uppercase tracking-widest text-violet-600/85 mb-3">Executed</div>
+                <div className="text-[9px] font-label uppercase tracking-[0.14em] text-violet-600/85 mb-3">Executed</div>
                 <div className="text-center py-3">
                   <motion.div
                     initial={{ scale: 0, opacity: 0 }}

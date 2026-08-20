@@ -35,7 +35,7 @@ export function EcosystemSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-10"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400 mb-4">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-slate-400 mb-4">
             Ecosystem
           </p>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-[-0.02em]">
@@ -63,7 +63,7 @@ export function EcosystemSection() {
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
                 <span className="font-semibold text-slate-500">{item.name}</span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-label uppercase tracking-[0.14em] text-slate-400">
                   {item.category}
                 </span>
               </div>
@@ -80,7 +80,7 @@ export function EcosystemSection() {
                   <div className="text-sm font-medium text-slate-500">{proof.title}</div>
                   <div className="text-[11px] text-slate-400 font-mono">{proof.detail}</div>
                 </div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-violet-600/90">
+                <span className="text-[10px] font-label uppercase tracking-[0.14em] text-violet-600/90">
                   {proof.status}
                 </span>
               </div>

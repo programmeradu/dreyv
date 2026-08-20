@@ -134,7 +134,7 @@ export function AtlasSection() {
             transition={{ duration: 0.6 }}
             className="max-w-2xl"
           >
-            <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-cyan-400/40 mb-5">
+            <p className="text-[11px] font-label uppercase tracking-[0.16em] text-cyan-400/40 mb-5">
               Free Public Good
             </p>
             <h2

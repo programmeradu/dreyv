@@ -22,7 +22,7 @@ export function FaqSection() {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-14"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-600 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-600 mb-5">
             FAQ
           </p>
           <h2 id="faq-heading" className="text-3xl md:text-4xl font-bold text-slate-900 tracking-[-0.02em]">
