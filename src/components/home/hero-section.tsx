@@ -52,7 +52,7 @@ export function HeroSection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
-          className="text-center font-label text-[11px] uppercase tracking-[0.28em] text-violet-700/90 mb-8"
+          className="text-center font-label text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-700 mb-8"
         >
           The Sovereign OS for Digital Assets
           {solPrice && (
