@@ -52,7 +52,7 @@ export function HeroSection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
-          className="text-center font-inter-label text-[11px] uppercase tracking-[0.28em] text-violet-700/90 mb-8"
+          className="text-center font-label text-[11px] uppercase tracking-[0.28em] text-violet-700/90 mb-8"
         >
           The Sovereign OS for Digital Assets
           {solPrice && (
@@ -113,7 +113,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 font-inter-label"
+          className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 font-label"
         >
           <a href="/waitlist" className={marketingPrimaryCtaSm}>
             <span className="relative font-semibold tracking-wide">Join the waitlist</span>
@@ -128,7 +128,7 @@ export function HeroSection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.75 }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-inter-label text-xs tracking-wide text-slate-400"
+          className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-label text-xs tracking-wide text-slate-400"
         >
           <span>2,847+ TPS</span>
           <span className="hidden sm:block h-3 w-px bg-violet-200/80" aria-hidden />

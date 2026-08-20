@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-white font-inter-label text-slate-800">
+    <div className="min-h-screen bg-white font-label text-slate-800">
       <header className="border-b border-violet-100">
         <div className="mx-auto max-w-5xl px-6 py-5 flex items-center justify-between">
           <Link href="/" className="text-base font-semibold tracking-tight text-slate-900">

@@ -65,7 +65,7 @@ const legalLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="relative border-t border-violet-200 bg-white font-inter-label">
+    <footer className="relative border-t border-violet-200 bg-white font-label">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid gap-8 md:grid-cols-7">
           <div className="md:col-span-1">

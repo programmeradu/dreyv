@@ -46,7 +46,7 @@ export function SiteHeader() {
             </span>
           </a>
 
-          <nav aria-label="Primary" className="hidden md:flex items-center gap-0.5 font-inter-label">
+          <nav aria-label="Primary" className="hidden md:flex items-center gap-0.5 font-label">
             {navLinks.map((link) => (
               <a
                 key={link.href}
@@ -63,7 +63,7 @@ export function SiteHeader() {
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-3 font-inter-label">
+          <div className="hidden md:flex items-center gap-3 font-label">
             <Button variant="ghost" size="sm" asChild className="text-slate-600 hover:text-violet-700 hover:bg-violet-50/60">
               <a href="/atlas">Try Atlas</a>
             </Button>
@@ -89,7 +89,7 @@ export function SiteHeader() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white/95 backdrop-blur-xl border-t border-violet-200/40 font-inter-label"
+            className="md:hidden bg-white/95 backdrop-blur-xl border-t border-violet-200/40 font-label"
           >
             <div className="px-4 py-4 space-y-1">
               {navLinks.map((link) => (
