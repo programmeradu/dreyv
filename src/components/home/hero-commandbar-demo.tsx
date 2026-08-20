@@ -83,7 +83,7 @@ export function HeroCommandbarDemo() {
           </button>
         </div>
         <div className="flex items-center justify-between gap-2 px-1.5 pt-2">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.28em] text-slate-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-label uppercase tracking-[0.16em] text-slate-400">
             <ShieldCheck className="h-3 w-3 text-violet-500" />
             Read-only · no signature
           </span>
@@ -104,7 +104,7 @@ export function HeroCommandbarDemo() {
       </form>
 
       <div className="relative mt-6">
-        <p className="text-center text-[10px] font-mono uppercase tracking-[0.28em] text-slate-400 mb-3">
+        <p className="text-center text-[10px] font-label uppercase tracking-[0.16em] text-slate-400 mb-3">
           Replaces 10+ tabs
         </p>
         <div className="relative flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">

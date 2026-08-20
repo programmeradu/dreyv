@@ -45,7 +45,7 @@ export function ProblemSection() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-amber-400/50 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-amber-400/50 mb-5">
             The Problem
           </p>
           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-[-0.02em]">
@@ -65,7 +65,7 @@ export function ProblemSection() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="bg-white/92 p-6 md:p-8 rounded-2xl border border-violet-200/30 marketing-shadow-float"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-red-400/40 mb-5">
+            <p className="text-[10px] font-label uppercase tracking-[0.16em] text-red-400/40 mb-5">
               Before — 8+ tabs open
             </p>
 
@@ -131,7 +131,7 @@ export function ProblemSection() {
             transition={{ duration: 0.6, delay: 0.35 }}
             className="bg-white/92 p-6 md:p-8 rounded-2xl border border-violet-200/30 marketing-shadow-float"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-violet-600 mb-5">
+            <p className="text-[10px] font-label uppercase tracking-[0.16em] text-violet-600 mb-5">
               After — One dreyv
             </p>
 

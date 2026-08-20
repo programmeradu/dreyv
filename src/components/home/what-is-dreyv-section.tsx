@@ -62,7 +62,7 @@ export function WhatIsDreyvSection() {
               animate={inView ? { opacity: 1, y: 0 } : reduceMotion ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: reduceMotion ? 0 : 0.45 }}
             >
-              <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-violet-600/90 mb-4">
+              <p className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-600/90 mb-4">
                 What is dreyv?
               </p>
               <h2
@@ -158,7 +158,7 @@ export function WhatIsDreyvSection() {
               />
             </div>
             <div className="relative rounded-2xl border border-violet-200/45 bg-white/92 p-5 md:p-6 marketing-shadow-float">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-violet-600/90 mb-4">Live preview</p>
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-violet-600/90 mb-4">Live preview</p>
 
               <div className="rounded-xl border border-violet-200/40 bg-violet-50/50 p-3 font-mono text-[11px] leading-relaxed text-slate-600">
                 <span className="text-violet-600 font-semibold">$ </span>
@@ -166,7 +166,7 @@ export function WhatIsDreyvSection() {
               </div>
 
               <div className="mt-4 rounded-xl border border-violet-200/35 bg-white/90 p-4">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-3">Impact summary</p>
+                <p className="text-[10px] font-label uppercase tracking-[0.14em] text-slate-400 mb-3">Impact summary</p>
                 <ul className="space-y-2 text-xs text-slate-600">
                   <li className="flex gap-2">
                     <span className="text-violet-500 shrink-0">·</span>

@@ -64,7 +64,7 @@ export function PillarsSection() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mb-16"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-slate-400 mb-5">
             Architecture
           </p>
           <h2
@@ -87,7 +87,7 @@ export function PillarsSection() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="md:col-span-2 md:row-span-2 bg-white/92 p-8 md:p-10 flex flex-col"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-violet-600 mb-6">
+            <p className="text-[10px] font-label uppercase tracking-[0.16em] text-violet-600 mb-6">
               Command Layer
             </p>
             <div className="relative rounded-xl border border-violet-200/40 bg-violet-50/60 p-5 font-mono overflow-hidden">
@@ -145,7 +145,7 @@ export function PillarsSection() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="bg-white/92 p-8"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-600/70 mb-5">
+            <p className="text-[10px] font-label uppercase tracking-[0.16em] text-cyan-600/70 mb-5">
               Solana Atlas
             </p>
             <div className="relative h-20 w-full rounded-lg border border-cyan-500/10 bg-cyan-500/[0.04] p-2.5 mb-4 overflow-hidden">
@@ -169,7 +169,7 @@ export function PillarsSection() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="bg-white/92 p-8"
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-violet-600/70 mb-5">
+            <p className="text-[10px] font-label uppercase tracking-[0.16em] text-violet-600/70 mb-5">
               dreyv Studio
             </p>
             <div className="relative rounded-lg border border-violet-200/40 bg-white/[0.015] p-4 mb-4 overflow-hidden">

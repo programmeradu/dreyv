@@ -48,7 +48,7 @@ export function HowItWorksSection() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mb-16"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-slate-400 mb-5">
             How It Works
           </p>
           <h2

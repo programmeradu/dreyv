@@ -60,7 +60,7 @@ export default function WaitlistPage() {
               Onboarding window: <span className="text-violet-700 font-medium">{COHORT_WINDOW}</span>.
             </p>
 
-            <p className="mt-8 text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400">
+            <p className="mt-8 text-[11px] font-label uppercase tracking-[0.16em] text-slate-400">
               Non-custodial · Simulation-first · Multisig-native
             </p>
           </div>
@@ -113,7 +113,7 @@ export default function WaitlistPage() {
               },
             ].map((s) => (
               <li key={s.step} className="rounded-xl border border-violet-200 bg-white p-5">
-                <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-violet-600">
+                <span className="text-[11px] font-label uppercase tracking-[0.16em] text-violet-600">
                   {s.step}
                 </span>
                 <p className="mt-2 text-base font-semibold text-slate-900">{s.title}</p>

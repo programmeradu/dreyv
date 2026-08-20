@@ -239,7 +239,7 @@ export function HomeCommandbar() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mx-auto mb-10 text-center"
         >
-          <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-slate-400 mb-5">
+          <p className="text-[11px] font-label uppercase tracking-[0.16em] text-slate-400 mb-5">
             Live · No wallet required
           </p>
           <h2 id="demo-heading" className="text-3xl md:text-5xl font-bold text-slate-900 tracking-[-0.02em]">
@@ -379,7 +379,7 @@ export function HomeCommandbar() {
 function LoadingCard() {
   return (
     <div className="rounded-2xl bg-white ring-1 ring-slate-200/80 p-6">
-      <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-slate-400">
+      <div className="flex items-center gap-2 text-[11px] font-label uppercase tracking-[0.14em] text-slate-400">
         <Loader2 className="h-3 w-3 animate-spin text-violet-600" />
         Parsing intent · running simulation
       </div>
@@ -408,7 +408,7 @@ function ResultCard({
     <div className="rounded-2xl bg-white ring-1 ring-slate-200/80 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.18)] overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
         <div>
-          <p className={`text-[10px] font-mono uppercase tracking-[0.28em] text-${accent}-600 mb-1`}>
+          <p className={`text-[10px] font-label uppercase tracking-[0.16em] text-${accent}-600 mb-1`}>
             {labelText}
           </p>
           <h3 className="text-base font-semibold text-slate-900">{result.title}</h3>
@@ -565,7 +565,7 @@ function AuthGate({ intent, onClose }: { intent: Action; onClose: () => void }) 
         className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden"
       >
         <div className="p-6">
-          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-violet-600">
+          <div className="flex items-center gap-2 text-[11px] font-label uppercase tracking-[0.14em] text-violet-600">
             <DreyvStar size={14} className="text-violet-600" />
             One step away
           </div>
