@@ -1024,11 +1024,19 @@ body {
 }
 
 
-/* Label/eyebrow type: Geist, heavier and tighter than the old Inter labels. */
+/*
+ * Premium UI labels and marketing eyebrows.
+ * Keep these compact and substantial: the previous all-caps, tracked-out
+ * treatment made even Geist read like the thin generic style we removed.
+ * These declarations intentionally override legacy Tailwind uppercase and
+ * tracking utilities still attached to older labels across the product.
+ */
 .font-label {
   font-family: var(--font-label-family);
-  font-weight: 600;
+  font-weight: 650;
   font-feature-settings: "ss01", "cv01";
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* --------------------------------------------------------------------------
