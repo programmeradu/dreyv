@@ -1030,3 +1030,24 @@ body {
   font-weight: 600;
   font-feature-settings: "ss01", "cv01";
 }
+
+/* --------------------------------------------------------------------------
+   Inter quarantine.
+
+   @coinbase/onchainkit ships its own Tailwind preflight (styles.css) which
+   sets `html { font-family: Inter, sans-serif }` and `--default-font-family:
+   "Inter", sans-serif` globally, and pulls two Inter weights from Google.
+   That leaks Inter into every page, not just OnchainKit widgets. Inter is
+   banned in this product's UI, so we re-assert our own stack with a higher
+   specificity selector (`html body`) that wins regardless of stylesheet
+   order, and remap their default-font token to Geist so OnchainKit's own
+   components inherit the right face too.
+   -------------------------------------------------------------------------- */
+:root,
+:host {
+  --default-font-family: var(--font-sans);
+}
+
+html body {
+  font-family: var(--font-sans);
+}
