@@ -151,7 +151,7 @@
   --color-studio-violet: var(--studio-violet);
   --color-studio-violet-soft: var(--studio-violet-soft);
   --font-manrope: var(--font-manrope);
-  --font-label: var(--font-label);
+  --font-label: var(--font-label-family);
 }
 
 :root {
@@ -184,7 +184,7 @@
 
   --font-sans: 'Geist', 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --font-manrope: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-label: "Geist", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-label-family: "Geist", "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --marketing-bg: #fdf7ff;
   --marketing-bg-low: #f8f1ff;
@@ -1026,7 +1026,7 @@ body {
 
 /* Label/eyebrow type: Geist, heavier and tighter than the old Inter labels. */
 .font-label {
-  font-family: var(--font-label);
+  font-family: var(--font-label-family);
   font-weight: 600;
   font-feature-settings: "ss01", "cv01";
 }
