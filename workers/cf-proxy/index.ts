@@ -147,17 +147,35 @@ export class NextAppContainer extends DurableObject {
         redirect: "manual",
       });
 
-      // Retry loop for cold-start — server.js takes a few seconds to open port 8080
+      // Retry loop for cold-start — server.js takes a while to open port 8080 inside the container.
+      // The container reports "not listening in the TCP address ..." until Next.js standalone boots,
+      // so that message MUST be treated as transient or the very first request after a cold start 500s.
       let lastErr: any = null;
-      for (let attempt = 0; attempt < 15; attempt++) {
+      const MAX_ATTEMPTS = 40; // ~60s of cold-start budget with the backoff below
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
           return await target.fetch(sterileRequest.clone());
         } catch (fetchErr: any) {
           lastErr = fetchErr;
-          const msg = String(fetchErr?.message || fetchErr);
-          const isTransient = msg.includes("Network connection lost") || msg.includes("refused") || msg.includes("reset") || msg.includes("not ready");
-          if (attempt < 14 && isTransient) {
-            await new Promise((r) => setTimeout(r, 1000));
+          const msg = String(fetchErr?.message || fetchErr).toLowerCase();
+          const isTransient =
+            msg.includes("not listening") ||
+            msg.includes("network connection lost") ||
+            msg.includes("refused") ||
+            msg.includes("reset") ||
+            msg.includes("not ready") ||
+            msg.includes("could not connect") ||
+            msg.includes("container is not running") ||
+            msg.includes("internal error");
+
+          if (attempt < MAX_ATTEMPTS - 1 && isTransient) {
+            // If the container died during boot, try to bring it back up.
+            if (msg.includes("container is not running") && !container.running) {
+              try { await container.start({ enableInternet: true }); } catch {}
+            }
+            // 500ms ramping to 2s
+            const delay = Math.min(2000, 500 + attempt * 125);
+            await new Promise((r) => setTimeout(r, delay));
             continue;
           }
           throw fetchErr;
