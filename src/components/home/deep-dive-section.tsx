@@ -49,7 +49,7 @@ function TreasuryMockUI() {
   return (
     <div className="rounded-xl border border-violet-200/40 overflow-hidden bg-white">
       <Image
-        src="/images/treasury.png"
+        src="/images/treasury-light-v2.png"
         alt="dreyv Sovereign Treasury dashboard showing live valuation, composition breakdown and agent prompts"
         width={1600}
         height={1104}
