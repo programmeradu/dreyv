@@ -47,12 +47,13 @@ const tabs = [
 
 function TreasuryMockUI() {
   return (
-    <div className="rounded-xl border border-violet-200/40 overflow-hidden">
+    <div className="rounded-xl border border-violet-200/40 overflow-hidden bg-white">
       <Image
         src="/images/treasury.png"
-        alt="dreyv Treasury Dashboard"
-        width={800}
-        height={600}
+        alt="dreyv Sovereign Treasury dashboard showing live valuation, composition breakdown and agent prompts"
+        width={1600}
+        height={1104}
+        sizes="(max-width: 768px) 100vw, 800px"
         className="w-full h-auto"
       />
     </div>
