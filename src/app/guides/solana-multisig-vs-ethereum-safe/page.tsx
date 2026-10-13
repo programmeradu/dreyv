@@ -42,9 +42,9 @@ export default function Page() {
         <p>
           If your team and assets are mostly on Solana, use <strong>Squads
           v4</strong>. If they are mostly on Ethereum or an EVM L2, use{" "}
-          <strong>Safe</strong>. If they are split, run both — one per chain,
+          <strong>Safe</strong>. If they are split, run both: one per chain,
           with a shared signer policy and shared reporting on top. The
-          interesting question is rarely &quot;which one wins&quot; — it is
+          interesting question is rarely &quot;which one wins&quot;: it is
           which trade-offs each one forces on you.
         </p>
 
@@ -54,8 +54,7 @@ export default function Page() {
           <li><strong>Safe (Ethereum mainnet):</strong> each approval and execution is a real transaction with real gas. A multi-signer approval on a congested day can run into tens of dollars per signer. On L2s (Base, Arbitrum, Optimism) this drops to cents.</li>
         </ul>
         <p>
-          For high-frequency treasury ops — payroll, DCA, frequent rebalancing
-          — Solana is meaningfully cheaper. For low-frequency cold storage,
+          For high-frequency treasury ops (payroll, DCA, frequent rebalancing) Solana is meaningfully cheaper. For low-frequency cold storage,
           mainnet fees are a rounding error.
         </p>
 
@@ -67,13 +66,13 @@ export default function Page() {
         <p>
           Neither is great out of the box at showing signers <em>what they are
           actually approving</em> in human terms. That gap is why simulation
-          layers exist — see{" "}
+          layers exist: see{" "}
           <Link href="/guides/intent-driven-treasury-solana">intent-driven treasury on Solana</Link>.
         </p>
 
-        <h2>Integrations and ecosystem</h2>
+        <h2>Integrations</h2>
         <ul>
-          <li><strong>Squads:</strong> deep coverage of Solana-native protocols — Jupiter, Marinade, Jito, Kamino, marginfi, Drift. Treasury tooling on Solana (dreyv included) usually expects Squads as the default vault.</li>
+          <li><strong>Squads:</strong> deep coverage of Solana-native protocols: Jupiter, Marinade, Jito, Kamino, marginfi, Drift. Treasury tooling on Solana (dreyv included) usually expects Squads as the default vault.</li>
           <li><strong>Safe:</strong> the universal multisig for EVM. Coverage spans Aave, Lido, Uniswap, Curve, Pendle, every L2 bridge, every governance system. The integration surface is the largest in crypto.</li>
         </ul>
 
@@ -90,7 +89,7 @@ export default function Page() {
 
         <h2>Recovery</h2>
         <ul>
-          <li><strong>Squads:</strong> recovery means adding or removing signers via an onchain proposal that meets the current threshold. There is no &quot;forgot password&quot; — losing too many signer keys at once can lock the vault permanently.</li>
+          <li><strong>Squads:</strong> recovery means adding or removing signers via an onchain proposal that meets the current threshold. There is no &quot;forgot password&quot;: losing too many signer keys at once can lock the vault permanently.</li>
           <li><strong>Safe:</strong> same fundamental model; some teams add a delayed-recovery module (Zodiac) that lets a backup address propose signer changes after a timelock. Useful, but adds complexity and its own risk surface.</li>
         </ul>
         <p>
@@ -105,13 +104,13 @@ export default function Page() {
           is tooling:
         </p>
         <ul>
-          <li><strong>Ethereum:</strong> the longest history of accounting tools (Multis, Den, Utopia Labs lineage, Coinbase Prime), strong block-explorer coverage, mature subgraph ecosystem.</li>
+          <li><strong>Ethereum:</strong> the longest history of accounting tools (Multis, Den, Utopia Labs lineage, Coinbase Prime), strong block-explorer coverage, mature subgraph tooling.</li>
           <li><strong>Solana:</strong> newer accounting stack, but the transaction model (single fee, atomic execution, no nonce queueing) is meaningfully simpler to reason about per transaction. See <Link href="/guides/solana-treasury-accounting-guide">Solana treasury accounting</Link>.</li>
         </ul>
 
         <h2>When to run both</h2>
         <p>
-          Many teams end up multi-chain whether they planned to or not — a
+          Many teams end up multi-chain whether they planned to or not: a
           grant arrives in ETH, a partnership pays in SOL, a vendor invoices in
           USDC on Base. Running both Squads and Safe is fine as long as:
         </p>
@@ -131,8 +130,7 @@ export default function Page() {
 
         <h2>Where dreyv fits</h2>
         <p>
-          dreyv sits on top of your Solana multisig as the intelligence layer —
-          plan in language, simulate before signing, get human-readable
+          dreyv sits on top of your Solana multisig as the intelligence layer: plan in language, simulate before signing, get human-readable
           approvals into Squads. If you need the same workflow on the EVM side,
           start with{" "}
           <Link href="/guides/best-solana-multisig-tools">best Solana multisig tools</Link>{" "}

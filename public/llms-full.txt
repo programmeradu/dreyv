@@ -1,6 +1,6 @@
-# dreyv — Full Agent Context
+# dreyv: Full Agent Context
 
-> Non-custodial AI treasury workspace for Web3 teams. Solana-native. Intent → Plan → Simulate → Sign.
+> A non-custodial treasury workspace for teams on Solana. Say what you want, see it simulated, sign it in your multisig.
 
 This file is the single-request, full-context document for AI agents and LLM crawlers.
 For canonical site map and short overview, see `/llms.txt`. For machine-readable pricing, see `/pricing.md`.
@@ -9,36 +9,36 @@ For canonical site map and short overview, see `/llms.txt`. For machine-readable
 
 ## 1. Product overview
 
-**dreyv** is a non-custodial AI treasury command layer for Solana DAOs, protocols, and Web3 teams.
-Treasury teams normally juggle 8+ disconnected tools (wallets, DEX aggregators, analytics dashboards,
-multisigs, chat, spreadsheets). dreyv replaces that fragmented workflow with a single workspace where
-operators express intent in plain language and get an auditable, simulated, signable plan.
+**dreyv** is a non-custodial treasury workspace for Solana DAOs, protocols and crypto teams.
+Treasury teams usually juggle many separate tools (wallets, swap sites, dashboards, multisigs, chat,
+spreadsheets). dreyv puts that work in one place: you write what you want in plain language and get a
+plan that has been simulated, can be checked, and is ready to sign.
 
 Pipeline:
-1. **Intent** — operator types or speaks an intent (e.g. "rebalance 25% of USDC into mSOL over 5 days").
-2. **Plan** — dreyv compiles the intent into a multi-step execution plan with route, fees, and risks.
-3. **Simulate** — each plan runs against a forked state (Foresight Simulator) producing human-readable
+1. **Intent**: operator types or speaks an intent (e.g. "rebalance 25% of USDC into mSOL over 5 days").
+2. **Plan**: dreyv compiles the intent into a multi-step execution plan with route, fees, and risks.
+3. **Simulate**: each plan runs against a forked state (Foresight Simulator) producing human-readable
    impact: balance deltas, slippage, MEV exposure, counterparty risk, and approver-friendly summaries.
-4. **Sign** — the plan is proposed to the multisig (e.g. Squads). dreyv never custodies keys.
+4. **Sign**: the plan is proposed to the multisig (e.g. Squads). dreyv never custodies keys.
 
 Operator surface:
-- **CommandBar** — natural-language treasury control (Vercel AI SDK + Groq + Cloudflare Workers AI).
-- **Foresight Simulator** — fork-based "what-if" with explainable outputs.
-- **Solana Atlas** — public intelligence surface: token pages, MEV scanner, rug detector, DCA, holders.
-- **dreyv Studio** — in-browser IDE + AI Architect for building treasury mini-apps and agents.
-- **Marketplace** — publish/install treasury agents and mini-apps (Anchor program on devnet, 80/20 split).
-- **Simulation Firewall** — blocks plans whose simulated outcome violates policy.
-- **Persistent Knowledge Memory** — vector + GraphRAG memory across sessions and teammates.
+- **CommandBar**: natural-language treasury control (Vercel AI SDK + Groq + Cloudflare Workers AI).
+- **Foresight Simulator**: fork-based "what-if" with explainable outputs.
+- **Solana Atlas**: free public tools: token pages, MEV scanner, rug detector, DCA, holders.
+- **dreyv Studio**: in-browser IDE + AI Architect for building treasury mini-apps and agents.
+- **Marketplace**: publish/install treasury agents and mini-apps (Anchor program on devnet, 80/20 split).
+- **Simulation Firewall**: blocks plans whose simulated outcome violates policy.
+- **Persistent Knowledge Memory**: vector + GraphRAG memory across sessions and teammates.
 
 ## 2. Use cases
 
-- **DAO treasury management** — propose, simulate, and execute multisig actions with human-readable diffs.
-- **Non-custodial crypto treasury management platform** — keys stay in user wallets / Squads multisig.
-- **Intent-driven DCA & rebalancing** — recurring buys, glide-path rebalances, with on-chain proof.
-- **Multisig coordination** — Squads-native proposals with simulation attached.
-- **Onchain research & due diligence** — Atlas tokens, rug-pull detector, MEV scanner, holder insights.
-- **Yield routing** — Marinade, Jito, BlazeStake, Orca, Raydium with risk-scored comparisons.
-- **Agent automation** — build and run treasury agents via Studio + Marketplace.
+- **DAO treasury management**: propose, simulate, and execute multisig actions with human-readable diffs.
+- **Non-custodial crypto treasury management platform**: keys stay in user wallets / Squads multisig.
+- **Intent-driven DCA & rebalancing**: recurring buys, glide-path rebalances, with on-chain proof.
+- **Multisig coordination**: Squads-native proposals with simulation attached.
+- **Onchain research & due diligence**: Atlas tokens, rug-pull detector, MEV scanner, holder insights.
+- **Yield routing**: Marinade, Jito, BlazeStake, Orca, Raydium with risk-scored comparisons.
+- **Agent automation**: build and run treasury agents via Studio + Marketplace.
 
 ## 3. Key capabilities
 
@@ -74,13 +74,13 @@ Operator surface:
 - Realtime/collab: Liveblocks.
 - Hosting: Cloudflare Containers (production), Cloudflare Workers for edge routing and tooling.
 
-## 6. Pricing (summary — see `/pricing.md` for canonical machine-readable form)
+## 6. Pricing (summary: see `/pricing.md` for canonical machine-readable form)
 
-- **Free** — $0/mo. 1 multisig vault, 2 teammates, 3 mini-apps, 10 agent runs/day, 60 API calls/hr, 1 GB.
-- **Mini** — $49/mo. 5 vaults, 10 teammates/vault, more agent capacity, advanced simulation.
-- **Max** — $199/mo. Unlimited vaults, priority models, dedicated firewall policies, SLA support.
+- **Free**: $0/mo. 1 multisig vault, 2 teammates, 3 mini-apps, 10 agent runs/day, 60 API calls/hr, 1 GB.
+- **Mini**: $49/mo. 5 vaults, 10 teammates/vault, more agent capacity, advanced simulation.
+- **Max**: $199/mo. Unlimited vaults, priority models, dedicated firewall policies, SLA support.
 
-Billed via Stripe (global cards) and Paystack (cards, mobile money, bank — Africa-first). Taxes shown at checkout.
+Billed via Stripe (global cards) and Paystack (cards, mobile money, bank: Africa-first). Taxes shown at checkout.
 
 ## 7. MCP server (the headline integration)
 
@@ -102,17 +102,17 @@ Authorization: Bearer dk_live_YOUR_KEY
 ```
 
 Tool naming: REST capability `foo.bar` → MCP tool `dreyv_foo_bar`. Same scopes, same rate limits,
-same metering across both transports — no drift.
+same metering across both transports: no drift.
 
 ## 8. REST API surface (canonical: `/openapi.json`, mirrored at `/api/mcp/manifest`)
 
 Public/agent-relevant endpoint families (require auth via SIWS JWT or API key unless noted public):
 
-- `GET  /api/health` — liveness (public)
-- `GET  /api/price?token=SOL` — token price (public)
-- `GET  /api/atlas/tokens` — token directory (public)
-- `GET  /api/atlas/tokens/{symbol}` — token details (public)
-- `GET  /api/mcp/manifest` — every MCP tool with input schemas (public)
+- `GET  /api/health`: liveness (public)
+- `GET  /api/price?token=SOL`: token price (public)
+- `GET  /api/atlas/tokens`: token directory (public)
+- `GET  /api/atlas/tokens/{symbol}`: token details (public)
+- `GET  /api/mcp/manifest`: every MCP tool with input schemas (public)
 - `/api/v1/identity/*`, `/api/v1/portfolio/*`, `/api/v1/treasury/*`
 - `/api/v1/market/*`, `/api/v1/swap/*`, `/api/v1/bridge/*`, `/api/v1/gas/*`
 - `/api/v1/risk/*`, `/api/v1/wallet/*`, `/api/v1/tax/*`, `/api/v1/foresight/*`
@@ -132,32 +132,32 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 
 ## 9. Discovery & agent-ready endpoints
 
-- `/.well-known/mcp.json` — MCP server discovery
-- `/api/mcp/manifest` — full MCP tool catalog (public)
-- `/.well-known/ai-plugin.json` — OpenAI plugin manifest
-- `/.well-known/acp.json` — Agentic Commerce Protocol descriptor
-- `/.well-known/ucp` — Universal Commerce Protocol profile
-- `/.well-known/api-catalog` — RFC 9727 catalog
-- `/.well-known/x402` — x402 payment capability (advertised)
-- `/openapi.json` — OpenAPI 3.1 spec
-- `/llms.txt` — short canonical context
-- `/llms-full.txt` — this file (full single-request context)
-- `/api/llms.txt`, `/developers/llms.txt` — scoped agent contexts
-- `/pricing.md` — machine-readable pricing
-- `/index.md` — markdown homepage fallback
-- `/developers` — developer portal
-- `/developers/mcp` — MCP setup + client snippets
-- `/developers/api` — REST reference
-- `/developers/agents` — agent integration matrix (Claude, Cursor, elizaOS, Continue, custom)
-- `/developers/docs/[openapi|ai-plugin|acp|ucp|api-catalog|x402|llms-txt|llms-full|pricing-md]` — one page per spec
-- `/compare` — competitive comparison
+- `/.well-known/mcp.json`: MCP server discovery
+- `/api/mcp/manifest`: full MCP tool catalog (public)
+- `/.well-known/ai-plugin.json`: OpenAI plugin manifest
+- `/.well-known/acp.json`: Agentic Commerce Protocol descriptor
+- `/.well-known/ucp`: Universal Commerce Protocol profile
+- `/.well-known/api-catalog`: RFC 9727 catalog
+- `/.well-known/x402`: x402 payment capability (advertised)
+- `/openapi.json`: OpenAPI 3.1 spec
+- `/llms.txt`: short canonical context
+- `/llms-full.txt`: this file (full single-request context)
+- `/api/llms.txt`, `/developers/llms.txt`: scoped agent contexts
+- `/pricing.md`: machine-readable pricing
+- `/index.md`: markdown homepage fallback
+- `/developers`: developer portal
+- `/developers/mcp`: MCP setup + client snippets
+- `/developers/api`: REST reference
+- `/developers/agents`: agent integration matrix (Claude, Cursor, elizaOS, Continue, custom)
+- `/developers/docs/[openapi|ai-plugin|acp|ucp|api-catalog|x402|llms-txt|llms-full|pricing-md]`: one page per spec
+- `/compare`: competitive comparison
 
 
 
 ## 10. Brand & legal
 
 - Brand: **dreyv** (pronounced "DRAVE"). Domains: dreyv.com, dreyv.app, dreyv.finance.
-- Company: dreyv (independent) — founded 2025, headquartered in Nicosia, Cyprus.
+- Company: dreyv (independent): founded 2025, headquartered in Nicosia, Cyprus.
 - Primary deployment: https://dreyv.com (Cloudflare Containers).
 - Legal: `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/refunds`.
 - Social: https://x.com/dreyvapp · https://www.linkedin.com/company/dreyv/

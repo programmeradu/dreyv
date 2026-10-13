@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Agent Payments (x402) | dreyv",
         description:
-            "x402-style payments for autonomous agents — USDC on Solana, single-use receipt tokens, per-key spend caps.",
+            "x402-style payments for autonomous agents: USDC on Solana, single-use receipt tokens, per-key spend caps.",
         url: "/developers/agents",
         type: "article",
     },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "Agent Payments (x402) | dreyv",
         description:
-            "x402-style payments for autonomous agents — USDC on Solana, single-use receipts.",
+            "x402-style payments for autonomous agents: USDC on Solana, single-use receipts.",
     },
 };
 
@@ -68,8 +68,8 @@ export default function AgentPaymentsPage() {
                         Agent payments on dreyv
                     </h1>
                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
-                        Let an autonomous agent — Claude, GPT, a LangGraph worker, anything
-                        with an HTTP client and a wallet — pay for dreyv calls in USDC on
+                        Let an autonomous agent (Claude, GPT, a LangGraph worker, anything
+                        with an HTTP client and a wallet) pay for dreyv calls in USDC on
                         Solana. Per-key spend caps, single-use receipt tokens, instant
                         settlement.
                     </p>
@@ -97,7 +97,7 @@ export default function AgentPaymentsPage() {
                 <section className="mt-12 rounded-3xl border border-violet-100 bg-white p-6 md:p-8">
                     <h2 className="text-lg font-semibold text-slate-900">Which path should my agent use?</h2>
                     <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-                        Agents don&apos;t need a &quot;card skill&quot; — they pay over HTTP. Pick the path that matches what your agent has access to. All three return the same single-use <code className="font-mono text-[12px]">rcpt_…</code> receipt token.
+                        Agents don&apos;t need a &quot;card skill&quot;: they pay over HTTP. Pick the path that matches what your agent has access to. All three return the same single-use <code className="font-mono text-[12px]">rcpt_…</code> receipt token.
                     </p>
                     <div className="mt-5 overflow-x-auto">
                         <table className="w-full min-w-[720px] text-left text-sm">
@@ -112,25 +112,25 @@ export default function AgentPaymentsPage() {
                             <tbody className="divide-y divide-violet-100 text-slate-700">
                                 <tr>
                                     <td className="py-3 pr-4">An <strong>API key only</strong> (no wallet, no browser)</td>
-                                    <td className="py-3 pr-4"><strong className="text-violet-700">Hosted wallet</strong> — <code className="font-mono text-[12px]">POST /api/x402/pay</code></td>
+                                    <td className="py-3 pr-4"><strong className="text-violet-700">Hosted wallet</strong>: <code className="font-mono text-[12px]">POST /api/x402/pay</code></td>
                                     <td className="py-3 pr-4">1</td>
                                     <td className="py-3 pr-4">No (after one-time funding)</td>
                                 </tr>
                                 <tr>
                                     <td className="py-3 pr-4">Its own <strong>Solana keypair</strong> (Privy/Turnkey/Crossmint/wallet-as-a-service)</td>
-                                    <td className="py-3 pr-4">BYO wallet — <code className="font-mono text-[12px]">/checkout</code> → sign + send → <code className="font-mono text-[12px]">/verify</code></td>
+                                    <td className="py-3 pr-4">BYO wallet: <code className="font-mono text-[12px]">/checkout</code> → sign + send → <code className="font-mono text-[12px]">/verify</code></td>
                                     <td className="py-3 pr-4">2-3</td>
                                     <td className="py-3 pr-4">No</td>
                                 </tr>
                                 <tr>
                                     <td className="py-3 pr-4">A <strong>browser tool</strong> (Cursor, Computer Use, Operator)</td>
-                                    <td className="py-3 pr-4">Card rail — open <code className="font-mono text-[12px]">checkout_url</code></td>
+                                    <td className="py-3 pr-4">Card rail: open <code className="font-mono text-[12px]">checkout_url</code></td>
                                     <td className="py-3 pr-4">2 + checkout</td>
                                     <td className="py-3 pr-4">Often yes (card form)</td>
                                 </tr>
                                 <tr>
                                     <td className="py-3 pr-4">A <strong>backend caller</strong> surfacing to a human</td>
-                                    <td className="py-3 pr-4">Card rail — return <code className="font-mono text-[12px]">checkout_url</code> to user</td>
+                                    <td className="py-3 pr-4">Card rail: return <code className="font-mono text-[12px]">checkout_url</code> to user</td>
                                     <td className="py-3 pr-4">2 + checkout</td>
                                     <td className="py-3 pr-4">Yes (by design)</td>
                                 </tr>
@@ -149,7 +149,7 @@ export default function AgentPaymentsPage() {
                             <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
                                 Path 1 · zero-setup autonomous
                             </p>
-                            <h2 className="mt-2 text-xl font-semibold text-slate-900">Hosted agent wallet — one call, no human</h2>
+                            <h2 className="mt-2 text-xl font-semibold text-slate-900">Hosted agent wallet: one call, no human</h2>
                             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
                                 Every dreyv user gets a custodial Solana wallet at{" "}
                                 <Link href="/app/settings" className="font-medium text-violet-700 underline-offset-4 hover:underline">Settings → API keys</Link>.
@@ -159,14 +159,14 @@ export default function AgentPaymentsPage() {
                     </div>
 
                     <div className="mt-6 space-y-4 text-sm text-slate-700">
-                        <p><strong>1. Fund the wallet once</strong> — open Settings, copy the address (or scan the QR), send USDC + ~0.01 SOL from any Solana wallet.</p>
-                        <p><strong>2. Hand the agent its key</strong> — same <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">dak_…</code> key as the other paths.</p>
+                        <p><strong>1. Fund the wallet once</strong>: open Settings, copy the address (or scan the QR), send USDC + ~0.01 SOL from any Solana wallet.</p>
+                        <p><strong>2. Hand the agent its key</strong>: same <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">dak_…</code> key as the other paths.</p>
                         <p><strong>3. Pay in one call:</strong></p>
                         <Code>{`curl -X POST https://dreyv.com/api/x402/pay \\
   -H "Authorization: Bearer dak_…" \\
   -H "Content-Type: application/json" \\
   -d '{"sku":"dreyv.treasury.snapshot"}'`}</Code>
-                        <p>Successful response — signature confirmed on-chain, receipt minted, balance debited:</p>
+                        <p>Successful response: signature confirmed on-chain, receipt minted, balance debited:</p>
                         <Code>{`{
   "payment_id": "8f4c…",
   "status": "paid",
@@ -207,14 +207,14 @@ export default function AgentPaymentsPage() {
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white ring-2 ring-violet-200">
                             <Wallet className="h-4 w-4 text-violet-700" />
                         </span>
-                        <h2 className="text-xl font-semibold text-slate-900">Path 2 — Bring your own Solana wallet</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">Path 2: Bring your own Solana wallet</h2>
                     </div>
                     <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
                         Already have a keypair (or using a wallet-as-a-service like{" "}
                         <a href="https://privy.io" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Privy server wallets</a>,{" "}
                         <a href="https://turnkey.com" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Turnkey</a>, or{" "}
                         <a href="https://crossmint.com" target="_blank" rel="noreferrer" className="text-violet-700 underline-offset-4 hover:underline">Crossmint</a>)?
-                        Use the classic x402 dance — request → 402 → sign + send → verify.
+                        Use the classic x402 dance: request → 402 → sign + send → verify.
                     </p>
 
                     <div className="mt-6 space-y-6">
@@ -228,7 +228,7 @@ export default function AgentPaymentsPage() {
                         </p>
                     </Step>
 
-                    <Step n={2} title="Request a SKU — receive a 402">
+                    <Step n={2} title="Request a SKU: receive a 402">
                         <p>The agent calls the checkout endpoint with its bearer token and the SKU it wants.</p>
                         <Code>{`curl -X POST https://dreyv.com/api/x402/checkout \\
   -H "Authorization: Bearer dak_…" \\
@@ -280,7 +280,7 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
                             Open <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">checkout_url</code> in
                             the agent&apos;s browser (or hand it to a human). On successful
                             payment the provider webhook settles the row server-side and
-                            mints the receipt — no verify call needed. Poll <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">poll_url</code> until <code className="font-mono text-[12px]">status: &quot;paid&quot;</code> and the
+                            mints the receipt: no verify call needed. Poll <code className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[12px] text-violet-700">poll_url</code> until <code className="font-mono text-[12px]">status: &quot;paid&quot;</code> and the
                             response includes <code className="font-mono text-[12px]">receipt_token</code>.
                         </p>
                     </Step>
@@ -329,7 +329,7 @@ X-Payment-Memo: DRYV-3F2A8B1C4D5E
                             <thead className="text-xs uppercase tracking-wide text-slate-500">
                                 <tr className="border-b border-violet-100">
                                     <th className="py-3 pr-4 font-medium">SKU</th>
-                                    <th className="py-3 pr-4 font-medium">What it unlocks</th>
+                                    <th className="py-3 pr-4 font-medium">What it gives you</th>
                                     <th className="py-3 pr-4 font-medium text-right">Price</th>
                                 </tr>
                             </thead>

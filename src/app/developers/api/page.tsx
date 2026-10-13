@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { listPublicCapabilities, type Pillar } from "@/lib/capabilities/registry";
-// Phase 28 — Pillar AL ("insights") added to PILLAR_LABEL / PILLAR_ORDER below.
+// Phase 28: Pillar AL ("insights") added to PILLAR_LABEL / PILLAR_ORDER below.
 import { ArrowUpRight, KeyRound } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { CodeBlock } from "@/components/ui/code-block";
@@ -11,13 +11,13 @@ import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import commandStar from "@/assets/command-star-violet.png";
 
 export const metadata: Metadata = {
-  title: "dreyv Web3 API — REST reference",
+  title: "dreyv Web3 API: REST reference",
   description:
-    "REST reference for the dreyv Web3 API. Identity, portfolio, treasury, market, simulation, intents, forensics, agentic and economy primitives — one Bearer key, generated from a typed capability registry.",
+    "REST reference for the dreyv Web3 API. Identity, portfolio, treasury, market, simulation, intents, forensics, agentic and economy primitives: one Bearer key, generated from a typed capability registry.",
   alternates: { canonical: "/developers/api" },
   openGraph: {
-    title: "dreyv Web3 API — REST reference",
-    description: "Typed REST surface for every corner of Web3 with dreyv's signature simulation, forensics, and agentic layers.",
+    title: "dreyv Web3 API: REST reference",
+    description: "Typed REST endpoints for Solana treasury work, with simulation, forensics and agent tools behind one key.",
     url: "/developers/api",
   },
 };
@@ -56,7 +56,7 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   marketplace: "Marketplace & catalog",
   sla: "SLA & status pages",
   contracts: "Data contracts & schema registry",
-  observability: "Observability — traces, spans & metrics",
+  observability: "Observability: traces, spans & metrics",
   limits: "Rate limits & quotas",
   residency: "Data residency & region pinning",
   digests: "Digests & multi-channel fan-out",
@@ -93,7 +93,7 @@ export default function DevelopersApiPage() {
                 <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">dreyv API · v1 · {caps.length}+ capabilities</span>
               </div>
               <h1 className="mt-3 text-[40px] sm:text-[56px] leading-[1.04] font-semibold tracking-[-0.02em]">
-                One typed Bearer key for <span className="italic font-light text-violet-600">every corner of Web3</span>.
+                One Bearer key for <span className="italic font-light text-violet-600">the whole dreyv API</span>.
               </h1>
               <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
                 REST at <code className="font-mono text-violet-700">{`/api/v1/{capability}`}</code>. Every capability is generated from the same typed registry that powers our MCP server, so REST and MCP never drift. Authenticate with <code className="font-mono text-violet-700">Authorization: Bearer dk_live_…</code>.
@@ -197,9 +197,9 @@ export default function DevelopersApiPage() {
           <section className="mt-16 rounded-3xl border border-violet-100 bg-white p-6">
             <h3 className="text-[16px] font-semibold text-slate-900">Roadmap</h3>
             <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">
-              Phases 1–31 shipped pillars A through AO (identity, portfolio, market, execution, forensics, agentic,
+              Phases 1 to 31 shipped pillars A through AO (identity, portfolio, market, execution, forensics, agentic,
               storage, jobs, exports, tags, flags, inbox, teams, billing, insights, marketplace, SLA, contracts).
-              Phases 32–39 add pillars AP–AX: observability with OTel-style traces and metrics, a hash-chained
+              Phases 32 to 39 add pillars AP to AX: observability with OTel-style traces and metrics, a hash-chained
               audit log with SOC2/GDPR evidence bundles, configurable rate-limit policies, data residency and
               region pinning, multi-channel digests (Slack/Telegram/email/webhook) with quiet hours,
               cross-entity full-text search with saved queries, a workflow DAG engine with topologically

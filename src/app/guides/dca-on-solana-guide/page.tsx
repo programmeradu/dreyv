@@ -32,8 +32,8 @@ export default function Page() {
       <GuideShell topic="DCA" guide={GUIDE}>
         <h2>Why treasuries DCA</h2>
         <p>
-          Dollar-cost averaging — buying a fixed dollar amount of an asset on a fixed
-          schedule — is one of the few strategies that actually works for treasuries
+          Dollar-cost averaging, buying a fixed dollar amount of an asset on a fixed
+          schedule, is one of the few strategies that actually works for treasuries
           without market-timing skill. For Solana DAOs, DCA is most commonly used to
           convert <Link href="/atlas/tokens/usdc">USDC</Link> reserves into{" "}
           <Link href="/atlas/tokens/sol">SOL</Link> over weeks or months without spiking
@@ -51,7 +51,7 @@ export default function Page() {
             and tighter slippage on larger sizes.
           </li>
           <li>
-            <strong>Custom keeper bots:</strong> only sensible at scale — you take on
+            <strong>Custom keeper bots:</strong> only sensible at scale: you take on
             operational and security burden.
           </li>
         </ul>

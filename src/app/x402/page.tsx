@@ -5,14 +5,14 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-    title: "dreyv for x402 — the buyer-side companion to the agent payments standard",
+    title: "dreyv for x402: the buyer-side companion to the agent payments standard",
     description:
-        "Give any AI agent a wallet, a per-run budget, and a full audit trail for every x402 payment. Works with Cloudflare Monetization Gateway, Coinbase-facilitated APIs, and any x402-compliant seller.",
+        "Give an agent a wallet, a budget for each run, and a record of every x402 payment. Works with Cloudflare Monetization Gateway, Coinbase-facilitated APIs, and any x402-compliant seller.",
     alternates: { canonical: "https://dreyv.com/x402" },
     openGraph: {
         title: "dreyv for x402",
         description:
-            "The buyer-side companion to x402. Wallet + budget + audit trail for every agent payment.",
+            "A wallet, a budget and a record of every payment, for agents that pay over x402.",
         type: "website",
         url: "https://dreyv.com/x402",
     },
@@ -38,7 +38,7 @@ const pillars = [
             "Set per-call and per-run caps. If a seller quotes over the cap, the SDK refuses the payment. Prepaid balance means an empty wallet returns 402, never overdrafts.",
     },
     {
-        title: "An audit trail your CFO will read",
+        title: "A record your finance lead can read",
         body:
             "Every settlement returns a signed receipt, a Solscan link, memo, resource hash, and the amount in USDC minor units. Streamed into the dreyv ledger, exportable to CSV.",
     },
@@ -65,15 +65,15 @@ export default function X402Page() {
                 <div className="relative mx-auto max-w-6xl px-6 pb-24 pt-28 sm:pt-32">
                     <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-xs font-medium text-violet-700 backdrop-blur">
                         <DreyvStar className="h-3 w-3 text-violet-600" />
-                        dreyv × x402 — buyer-side companion
+                        dreyv × x402: buyer-side companion
                     </div>
                     <h1 className="max-w-4xl text-balance text-5xl font-semibold leading-[1.05] tracking-tight text-slate-950 sm:text-6xl">
-                        The seller side of agent payments just got a default.
-                        <span className="block text-violet-600">The buyer side is still open.</span>
+                        Sellers can now charge agents over x402.
+                        <span className="block text-violet-600">Agents still need a wallet and a budget.</span>
                     </h1>
                     <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
                         Cloudflare just made x402 a one-checkbox toll booth for any API on the internet.
-                        That&apos;s good — it means every agent will pay per call in stablecoins. Someone
+                        That&apos;s good: it means every agent will pay per call in stablecoins. Someone
                         still has to give that agent a wallet, a budget, and a paper trail. That&apos;s
                         dreyv.
                     </p>
@@ -107,7 +107,7 @@ export default function X402Page() {
                             What dreyv gives the buyer
                         </p>
                         <h2 className="max-w-2xl text-4xl font-semibold tracking-tight text-slate-950">
-                            A wallet, a budget, and an audit trail — for every agent, on every seller.
+                            A wallet, a budget, and an audit trail: for every agent, on every seller.
                         </h2>
                     </div>
                 </div>
@@ -132,7 +132,7 @@ export default function X402Page() {
                         Works with every x402 seller
                     </p>
                     <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950">
-                        dreyv is neutral on who runs the toll booth.
+                        dreyv works with whoever runs the paywall.
                     </h2>
                     <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
                         The SDK issues the request, catches the 402, negotiates the cheapest quote below
@@ -199,8 +199,8 @@ console.log("spent so far:", dreyv.spent);`}</code>
                 <div className="mx-auto max-w-6xl px-6 py-24">
                     <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-white to-violet-50 p-12 sm:p-16">
                         <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950">
-                            The protocol is open. The edge is Cloudflare&apos;s.
-                            <span className="block text-violet-600">The agent&apos;s wallet is still up for grabs.</span>
+                            x402 is an open protocol.
+                            <span className="block text-violet-600">dreyv gives the agent its wallet.</span>
                         </h2>
                         <div className="mt-10 flex flex-wrap items-center gap-4">
                             <Link

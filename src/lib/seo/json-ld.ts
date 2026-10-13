@@ -84,7 +84,7 @@ export function buildRootJsonLd(): Record<string, unknown> {
 
 /**
  * Homepage JSON-LD: WebPage (route-specific @id) + FAQPage.
- * Render this only on `/` — the FAQ content lives there.
+ * Render this only on `/`: the FAQ content lives there.
  */
 export function buildHomeJsonLd(): Record<string, unknown> {
   const origin = getSiteOrigin().replace(/\/$/, "");
@@ -123,7 +123,7 @@ export function buildHomeJsonLd(): Record<string, unknown> {
   };
 }
 
-/** Article / long-form guide (rich results–friendly when content is substantive). */
+/** Article / long-form guide (rich results to friendly when content is substantive). */
 export function buildArticleJsonLd(opts: {
   headline: string;
   description: string;

@@ -47,11 +47,11 @@ export default function Page() {
         </p>
         <p>
           This is an honest comparison of the multisig and treasury tools Solana teams
-          actually use in 2026 — Squads v4, Snowflake Safe, and Mean Multisig — plus
-          where dreyv sits as the intelligence layer on top of any of them.
+          actually use in 2026 (Squads v4, Snowflake Safe, and Mean Multisig) plus
+          where dreyv fits on top of any of them.
         </p>
 
-        <h2>Squads v4 — the default</h2>
+        <h2>Squads v4: the default</h2>
         <p>
           Squads is the most-used multisig on Solana and the safe default for protocol
           treasuries, DAOs, and onchain companies. v4 added per-vault thresholds,
@@ -60,7 +60,7 @@ export default function Page() {
         <ul>
           <li><strong>Best for:</strong> protocol treasuries, DAOs, teams already on Solana.</li>
           <li><strong>Strengths:</strong> battle-tested, deep integrations, programmable signer policies, Jupiter / staking / lending coverage out of the box.</li>
-          <li><strong>Watch-outs:</strong> approval UX is functional, not delightful — signers see raw program calls unless paired with a simulation layer.</li>
+          <li><strong>Watch-outs:</strong> approval UX is functional, not delightful: signers see raw program calls unless paired with a simulation layer.</li>
         </ul>
         <p>
           New to Squads? Start with the{" "}
@@ -70,13 +70,13 @@ export default function Page() {
         <h2>Snowflake Safe</h2>
         <p>
           Snowflake Safe leans into scheduled and recurring transactions on top of the
-          multisig primitive — useful for teams that want payroll, vesting, or recurring
+          multisig primitive: useful for teams that want payroll, vesting, or recurring
           DCA without bolting on a second tool.
         </p>
         <ul>
           <li><strong>Best for:</strong> teams whose treasury cadence is calendar-driven.</li>
           <li><strong>Strengths:</strong> native scheduling, recurring transactions, time-locked approvals.</li>
-          <li><strong>Watch-outs:</strong> smaller ecosystem than Squads, fewer third-party integrations.</li>
+          <li><strong>Watch-outs:</strong> fewer apps built around it than Squads, fewer third-party integrations.</li>
         </ul>
 
         <h2>Mean Multisig</h2>
@@ -101,16 +101,16 @@ export default function Page() {
 
         <h2>Which one should you pick?</h2>
         <ul>
-          <li><strong>Most teams →</strong> Squads v4. Largest ecosystem, deepest integrations, safest default.</li>
+          <li><strong>Most teams →</strong> Squads v4. The most integrations and the safest default.</li>
           <li><strong>Calendar-heavy ops →</strong> Snowflake Safe.</li>
           <li><strong>Streaming-first payroll →</strong> Mean Multisig.</li>
         </ul>
 
-        <h2>The intelligence layer matters more than the vault</h2>
+        <h2>What sits on top of the vault matters more</h2>
         <p>
           A multisig holds the keys. It doesn&apos;t tell you whether the transaction
           you&apos;re about to sign is safe, whether it drains runway, or whether the
-          recipient address was swapped mid-flow. That&apos;s the intelligence layer.
+          recipient address was swapped mid-flow. That is the job of whatever sits on top of the vault.
         </p>
         <p>
           dreyv sits on top of whichever multisig you pick. You plan in language, dreyv

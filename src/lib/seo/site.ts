@@ -33,7 +33,7 @@ export function getRequestOrigin(req?: Request): string {
   return getSiteOrigin();
 }
 
-/** Extra Organization.sameAs URLs (GitHub, X, LinkedIn, etc.) — comma- or newline-separated. */
+/** Extra Organization.sameAs URLs (GitHub, X, LinkedIn, etc.): comma- or newline-separated. */
 export function getOrgSameAsFromEnv(): string[] {
   const raw = process.env.NEXT_PUBLIC_ORG_SAME_AS;
   if (!raw?.trim()) return [];

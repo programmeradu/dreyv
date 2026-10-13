@@ -1,5 +1,5 @@
 /**
- * /marketplace — Public Mini-App browse page.
+ * /marketplace: Public Mini-App browse page.
  * Server-rendered list of published apps. Light Stitch-inspired theme.
  */
 import type { Metadata } from "next";
@@ -15,16 +15,16 @@ import { ArrowUpRight, Search, Shield } from "lucide-react";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Marketplace — Mini-Apps for treasury workflows",
+  title: "Marketplace: Mini-Apps for treasury workflows",
   description:
-    "Browse production-ready dreyv Mini-Apps: swap, vault, payroll, analytics, and more. Built by the community, vetted by dreyv.",
+    "Browse dreyv Mini-Apps for swaps, vaults, payroll, analytics and more, and install them in one click.",
   alternates: { canonical: "/marketplace" },
   openGraph: {
     type: "website",
     url: "/marketplace",
     title: "Marketplace | dreyv Mini-Apps",
     description:
-      "Production-ready Mini-Apps for non-custodial treasury workflows.",
+      "Mini-Apps for non-custodial treasury work on Solana.",
     siteName: "dreyv",
   },
 };
@@ -102,12 +102,12 @@ export default async function MarketplacePage({
             Mini-App Marketplace
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-            Production-ready treasury apps,
+            Small treasury apps,
             <br />
-            <span className="text-violet-600">installable in one click.</span>
+            <span className="text-violet-600">installed in one click.</span>
           </h1>
           <p className="mt-5 text-base text-slate-600 leading-relaxed">
-            Swap, payroll, analytics, governance — built by the community,
+            Swap, payroll, analytics, governance: built by the community,
             audited by dreyv. 80/20 revenue split, on-chain Solana settlement.
           </p>
         </header>
@@ -227,7 +227,7 @@ function AppCard({
   const initials = app.name.slice(0, 2).toUpperCase();
   const wallet = app.creatorWallet
     ? `${app.creatorWallet.slice(0, 4)}…${app.creatorWallet.slice(-4)}`
-    : "—";
+    : "No wallet listed";
 
   return (
     <Link

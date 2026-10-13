@@ -1,5 +1,5 @@
 /**
- * /marketplace/[appId] — Mini-App detail page.
+ * /marketplace/[appId]: Mini-App detail page.
  */
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -33,7 +33,7 @@ export async function generateMetadata({
   const app = await getApp(appId);
   if (!app) return { title: "Mini-App not found" };
   return {
-    title: `${app.name} — dreyv Marketplace`,
+    title: `${app.name}: dreyv Marketplace`,
     description: app.description,
     alternates: { canonical: `/marketplace/${app.id}` },
     openGraph: {
@@ -130,7 +130,7 @@ export default async function MiniAppDetailPage({
           <Stat label="Installs" value={app.installs.toLocaleString()} icon={<Download size={14} />} />
           <Stat
             label="Rating"
-            value={rating != null ? rating.toFixed(2) : "—"}
+            value={rating != null ? rating.toFixed(2) : "No ratings yet"}
             icon={<Star size={14} />}
           />
           <Stat

@@ -5,7 +5,7 @@ import { getSiteOrigin } from "@/lib/seo/site";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 const path = "/solana-treasury-tracker";
-const title = "Solana treasury tracker — non-custodial, multisig-native | dreyv";
+const title = "Solana treasury tracker: non-custodial, multisig-native | dreyv";
 const description =
   "Track your Solana treasury in real time: balances across SPL tokens, LSTs, lending and LP positions, plus simulation before every signature. Non-custodial, Squads-native.";
 
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const features = [
   {
     label: "Live multi-vault balances",
-    body: "Group Squads vaults, hot wallets and program-owned treasuries into one view. SPL tokens, LSTs (jitoSOL, mSOL, bSOL), Kamino/MarginFi/Drift positions and LP shares — priced and attributed automatically.",
+    body: "Group Squads vaults, hot wallets and program-owned treasuries into one view. SPL tokens, LSTs (jitoSOL, mSOL, bSOL), Kamino/MarginFi/Drift positions and LP shares: priced and attributed automatically.",
   },
   {
     label: "PnL, attribution, drift",
@@ -32,12 +32,12 @@ const features = [
   },
   {
     label: "Simulation firewall",
-    body: "Every proposed transaction is dry-run against live state — slippage, MEV exposure, oracle staleness, program upgrade risk — before any signer touches it.",
+    body: "Every proposed transaction is dry-run against live state (slippage, MEV exposure, oracle staleness, program upgrade risk) before any signer touches it.",
   },
 ];
 const competitorRow = [
   { what: "Solana-native (Squads, Jupiter, Helius)", us: true, generic: false },
-  { what: "Non-custodial — you keep the keys", us: true, generic: true },
+  { what: "Non-custodial: you keep the keys", us: true, generic: true },
   { what: "Simulation before signature", us: true, generic: false },
   { what: "Plain-language treasury intent", us: true, generic: false },
   { what: "DeFi position attribution (LSTs, lending, LP)", us: true, generic: true },
@@ -86,7 +86,7 @@ export default function SolanaTreasuryTrackerPage() {
           </h1>
           <p className="text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl">
             dreyv is the non-custodial, multisig-native treasury layer for DAOs and protocols on Solana.
-            Live balances, DeFi attribution, and a simulation firewall on every signature — built around Squads.
+            Live balances, DeFi attribution, and a simulation firewall on every signature: built around Squads.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -133,8 +133,8 @@ export default function SolanaTreasuryTrackerPage() {
                 {competitorRow.map((r, i) => (
                   <tr key={r.what} className={i % 2 ? "bg-violet-50/30" : ""}>
                     <td className="px-4 py-3 text-slate-700">{r.what}</td>
-                    <td className="px-4 py-3 text-center font-bold text-violet-600">{r.us ? "Yes" : "—"}</td>
-                    <td className="px-4 py-3 text-center text-slate-500">{r.generic ? "Yes" : "—"}</td>
+                    <td className="px-4 py-3 text-center font-bold text-violet-600">{r.us ? "Yes" : "No"}</td>
+                    <td className="px-4 py-3 text-center text-slate-500">{r.generic ? "Yes" : "No"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -160,7 +160,7 @@ export default function SolanaTreasuryTrackerPage() {
 
         <section className="rounded-3xl border border-violet-200 bg-violet-600 p-8 md:p-10 text-white">
           <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-3">
-            Ready to run treasury on intent, not on spreadsheets?
+            Try it on your own treasury.
           </h2>
           <p className="text-sm md:text-base text-white/80 mb-6 max-w-xl">
             Start on the free plan with one wallet. No card needed.

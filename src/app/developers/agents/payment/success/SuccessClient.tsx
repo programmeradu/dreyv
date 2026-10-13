@@ -65,7 +65,7 @@ export default function SuccessClient({ paymentId }: { paymentId: string }) {
                         setState({ kind: "failed", data });
                         return;
                     }
-                    // pending — keep polling
+                    // pending: keep polling
                     setState({ kind: "pending", data });
                 } catch (err) {
                     if (attempt >= MAX_ATTEMPTS && !cancelled) {
@@ -78,7 +78,7 @@ export default function SuccessClient({ paymentId }: { paymentId: string }) {
                 }
                 await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
             }
-            // Hit max attempts while still pending — leave the user with the
+            // Hit max attempts while still pending: leave the user with the
             // last pending state but flip into a soft "still verifying" view.
             if (!cancelled && attempt >= MAX_ATTEMPTS) {
                 setState((prev) =>
@@ -151,7 +151,7 @@ export default function SuccessClient({ paymentId }: { paymentId: string }) {
 
             <p className="mt-6 text-center text-[12px] text-slate-500">
                 {state.kind === "paid"
-                    ? "You can safely close this tab — the agent will pick up the receipt on its next poll."
+                    ? "You can safely close this tab: the agent will pick up the receipt on its next poll."
                     : "Keep this tab open while we confirm the payment with the card network."}
             </p>
         </main>
@@ -208,7 +208,7 @@ function Body({ state, paymentId }: { state: PollState; paymentId: string }) {
                 {state.data.amount_usd
                     ? ` for $${state.data.amount_usd.toFixed(2)}`
                     : ""}
-                . The receipt is ready for your agent to claim — no further
+                . The receipt is ready for your agent to claim: no further
                 action is needed in the browser.
             </p>
         );

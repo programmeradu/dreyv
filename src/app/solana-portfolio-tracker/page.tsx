@@ -7,7 +7,7 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 const path = "/solana-portfolio-tracker";
 const title = "Solana portfolio tracker for treasuries & power users | dreyv";
 const description =
-  "A Solana portfolio tracker built for treasuries: SPL tokens, LSTs, Kamino/MarginFi/Drift positions, LP shares, attribution, drift and PnL — non-custodial and multisig-aware.";
+  "A Solana portfolio tracker built for treasuries: SPL tokens, LSTs, Kamino/MarginFi/Drift positions, LP shares, attribution, drift and PnL: non-custodial and multisig-aware.";
 
 export const metadata: Metadata = {
   title,
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const sections = [
   {
     h: "All of Solana, in one portfolio",
-    p: "SPL tokens, NFTs, LSTs (jitoSOL, mSOL, bSOL, INF), lending and borrowing on Kamino/MarginFi/Drift, LP shares, perps margin and locked/unlocked vesting — read straight from the chain via Helius.",
+    p: "SPL tokens, NFTs, LSTs (jitoSOL, mSOL, bSOL, INF), lending and borrowing on Kamino/MarginFi/Drift, LP shares, perps margin and locked and released vesting: read straight from the chain via Helius.",
   },
   {
     h: "Attribution that explains the move",
@@ -28,11 +28,11 @@ const sections = [
   },
   {
     h: "Drift vs target allocation",
-    p: "Set the allocation you want — by asset, by category, by venue. dreyv shows the drift in real time and proposes the smallest set of swaps to bring it back inside policy.",
+    p: "Set the allocation you want: by asset, by category, by venue. dreyv shows the drift in real time and proposes the smallest set of swaps to bring it back inside policy.",
   },
   {
     h: "Multi-wallet, multi-vault",
-    p: "Group hot wallets, Squads vaults and program-owned accounts under one workspace. Roles and approvals are first-class — read-only viewers, proposers, signers.",
+    p: "Group hot wallets, Squads vaults and program-owned accounts under one workspace. Roles and approvals are first-class: read-only viewers, proposers, signers.",
   },
 ];
 
@@ -58,7 +58,7 @@ export default function SolanaPortfolioTrackerPage() {
             name: "Is dreyv custodial?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "No. dreyv never holds your keys. All transactions are proposed, simulated and signed by your own wallets — typically through Squads multisig.",
+              text: "No. dreyv never holds your keys. All transactions are proposed, simulated and signed by your own wallets: typically through Squads multisig.",
             },
           },
           {
@@ -66,7 +66,7 @@ export default function SolanaPortfolioTrackerPage() {
             name: "Which Solana protocols does dreyv read?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Kamino, MarginFi, Drift, Jupiter, Marinade, Jito, Sanctum, Orca, Raydium and standard SPL/Token-2022 — with attribution per position.",
+              text: "Kamino, MarginFi, Drift, Jupiter, Marinade, Jito, Sanctum, Orca, Raydium and standard SPL/Token-2022: with attribution per position.",
             },
           },
           {
@@ -74,7 +74,7 @@ export default function SolanaPortfolioTrackerPage() {
             name: "Can I use dreyv as a personal portfolio tracker?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes — the Free tier supports a single wallet. Treasury features (multisig, approvals, policies) unlock on Mini and Max.",
+              text: "Yes: the Free tier supports a single wallet. Treasury features (multisig, approvals, policies) come with Mini and Max.",
             },
           },
         ],
@@ -101,7 +101,7 @@ export default function SolanaPortfolioTrackerPage() {
             A Solana portfolio tracker that understands DeFi.
           </h1>
           <p className="text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl">
-            Read every position across the Solana stack — LSTs, lending, perps, LPs — with attribution,
+            Read every position across the Solana stack (LSTs, lending, perps, LPs) with attribution,
             drift and PnL that actually explain the number. Built for treasuries; works for power users too.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">

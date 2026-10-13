@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
     title: "Payment cancelled · dreyv x402",
-    description: "The card checkout was cancelled. The original 402 challenge is still valid — your agent can retry on any rail.",
+    description: "The card checkout was cancelled. The original 402 challenge is still valid: your agent can retry on any rail.",
     robots: { index: false, follow: false },
 };
 
@@ -31,8 +31,7 @@ export default async function X402PaymentCancelPage({
                     Checkout cancelled
                 </h1>
                 <p className="mt-3 text-[15px] leading-relaxed text-slate-600">
-                    No charge was made. The original 402 challenge is still valid —
-                    your agent can retry on any available rail (Solana USDC, Stripe,
+                    No charge was made. The original 402 challenge is still valid: your agent can retry on any available rail (Solana USDC, Stripe,
                     or Paystack).
                 </p>
 

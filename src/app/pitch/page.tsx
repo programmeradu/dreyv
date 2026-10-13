@@ -6,9 +6,9 @@ import { ArrowDownToLine, ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-  title: "Pitch Deck — dreyv",
+  title: "Pitch Deck: dreyv",
   description:
-    "dreyv pitch deck — the AI Operating System for on-chain treasury. Simulate, validate, and execute safely.",
+    "The dreyv pitch deck: treasury operations for teams on Solana, simulated before anyone signs.",
   alternates: { canonical: "/pitch" },
   robots: { index: false, follow: false },
 };
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 const TOTAL = 16;
 const slides = Array.from({ length: TOTAL }, (_, i) => {
   const n = String(i + 1).padStart(2, "0");
-  return { n, src: `/pitch/slide-${n}.jpg`, alt: `dreyv pitch deck — slide ${i + 1} of ${TOTAL}` };
+  return { n, src: `/pitch/slide-${n}.jpg`, alt: `dreyv pitch deck: slide ${i + 1} of ${TOTAL}` };
 });
 
 export default function PitchPage() {
@@ -36,14 +36,14 @@ export default function PitchPage() {
           </div>
 
           <h1 className="max-w-4xl text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
-            The AI Operating System
+            Treasury operations,
             <br />
-            for on-chain treasury.
+            simulated before anyone signs.
           </h1>
 
           <p className="max-w-2xl text-lg leading-relaxed text-slate-600 md:text-xl">
-            dreyv lets treasury teams type intent in plain English, simulate every outcome,
-            and execute on-chain — safely, non-custodially, end-to-end.
+            dreyv lets a treasury team say what it wants in plain English, see the simulated result,
+            and sign it in their own multisig. dreyv never holds the keys.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -122,7 +122,7 @@ export default function PitchPage() {
             </h2>
             <p className="mt-3 text-slate-600">
               We&rsquo;re raising incubation support to acquire our first 10 high-quality treasury users
-              and build distribution. Reach out — founder-to-founder.
+              and build distribution. Reach out: founder-to-founder.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

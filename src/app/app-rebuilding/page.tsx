@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * `/app-rebuilding` — public placeholder shown while the new generative
+ * `/app-rebuilding`: public placeholder shown while the new generative
  * app shell is being built. Anyone who tries to reach `/app/*` while
  * `DREYV_APP_CONSTRUCTION_MODE=true` lands here.
  */
@@ -47,10 +47,10 @@ export default function AppRebuildingPage() {
           </span>
         </Link>
         <Link
-          href="/waitlist"
+          href="/auth?redirect=/app"
           className="text-sm font-medium text-slate-600 transition-colors hover:text-violet-700"
         >
-          Join the waitlist →
+          Start free
         </Link>
       </header>
 
@@ -96,17 +96,16 @@ export default function AppRebuildingPage() {
           </h1>
 
           <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
-            Dreyv is getting a quieter, smarter, more generative interface — one that hides
-            the technical noise and just tells you what your treasury is doing. We’ll be back
-            shortly with something we’re proud of.
+            dreyv is getting a quieter interface that leaves out the technical noise and tells
+            you plainly what your treasury is doing. It will be back shortly.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
-              href="/waitlist"
+              href="/auth?redirect=/app"
               className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700 active:scale-[0.98]"
             >
-              Get notified when we’re live
+              Start free
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link

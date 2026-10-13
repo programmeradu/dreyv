@@ -153,7 +153,7 @@ export default async function ResourceDocPage({
               <Link href="/developers" className="text-violet-700 underline-offset-4 hover:underline">
                 developers overview
               </Link>{" "}
-              has the full stack — OpenAPI, ACP, x402, and the agent wallet — in one place.
+              has the full stack (OpenAPI, ACP, x402, and the agent wallet) in one place.
             </p>
           </section>
         )}

@@ -32,10 +32,10 @@ export default function Page() {
       <GuideShell topic="Liquid Staking" guide={GUIDE}>
         <h2>Why treasuries care about LSTs</h2>
         <p>
-          Native SOL staking yields roughly 6–7% but locks capital for an
-          epoch (~2–3 days) on unstake. Liquid staking tokens (LSTs) solve
-          that by giving you a transferable receipt token — JitoSOL, mSOL,
-          bSOL — that earns staking yield while remaining usable as
+          Native SOL staking yields roughly 6 to 7% but locks capital for an
+          epoch (~2 to 3 days) on unstake. Liquid staking tokens (LSTs) solve
+          that by giving you a transferable receipt token (JitoSOL, mSOL,
+          bSOL) that earns staking yield while remaining usable as
           collateral, swap liquidity, or treasury reserve.
         </p>
         <p>
@@ -87,9 +87,9 @@ export default function Page() {
           A typical Solana DAO treasury splits its SOL bucket roughly:
         </p>
         <ul>
-          <li>10–20% liquid SOL (operational, fast exits).</li>
-          <li>50–70% in one or two LSTs (JitoSOL ± mSOL).</li>
-          <li>10–20% native staked (lowest smart-contract risk, longest unbond).</li>
+          <li>10 to 20% liquid SOL (operational, fast exits).</li>
+          <li>50 to 70% in one or two LSTs (JitoSOL ± mSOL).</li>
+          <li>10 to 20% native staked (lowest smart-contract risk, longest unbond).</li>
         </ul>
         <p>
           See the{" "}

@@ -94,7 +94,7 @@ export function InstallButton({ app }: { app: MiniAppLite }) {
             version: app.version,
           }}
           onSuccess={() => {
-            toast.success("Purchase complete — app installed.");
+            toast.success("Purchase complete: app installed.");
             setPurchaseOpen(false);
           }}
         />

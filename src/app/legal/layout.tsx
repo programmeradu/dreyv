@@ -11,7 +11,7 @@ const legalLinks = [
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="dreyv-marketing-root relative min-h-dvh w-full scroll-smooth font-manrope bg-white text-slate-900">
-      {/* Ambient violet light — solid hues only */}
+      {/* Ambient violet light: solid hues only */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-[-12%] left-[-10%] h-[620px] w-[620px] rounded-full bg-violet-400/[0.10] blur-[130px]" />
         <div className="absolute top-[20%] right-[-6%] h-[520px] w-[520px] rounded-full bg-violet-300/[0.08] blur-[120px]" />

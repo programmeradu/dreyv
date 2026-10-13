@@ -45,7 +45,7 @@ const tiers: Tier[] = [
     name: "Free",
     tagline: "Solo operators",
     price: "$0",
-    blurb: "Everything a solo operator needs to compose, simulate, and sign.",
+    blurb: "Enough for one person to plan, simulate and sign.",
     features: [
       "1 multisig vault",
       "Up to 2 teammates",
@@ -58,9 +58,9 @@ const tiers: Tier[] = [
   },
   {
     name: "Mini",
-    tagline: "Growing squads",
+    tagline: "Small teams",
     price: "$49",
-    blurb: "More vaults, more seats, and the AI capacity busy treasuries need.",
+    blurb: "More vaults, more seats and more agent runs.",
     features: [
       "Up to 5 multisig vaults",
       "10 teammates per vault",
@@ -76,7 +76,7 @@ const tiers: Tier[] = [
     name: "Max",
     tagline: "Larger treasuries",
     price: "$199",
-    blurb: "Unlimited capacity, white-glove onboarding, and bespoke RPCs.",
+    blurb: "No caps, help getting set up, and your own RPC endpoints.",
     features: [
       "Unlimited vaults and teammates",
       "Unlimited mini-apps and agent runs",
@@ -96,11 +96,11 @@ const guarantees = [
   },
   {
     title: "Simulate before you sign",
-    body: "Every intent runs on a fork first, with readable impact for every approver.",
+    body: "Every plan runs on a copy of mainnet first, and every approver sees the result in plain words.",
   },
   {
-    title: "Built for squads",
-    body: "Roles, approvals, and audit trails designed for the way real treasuries operate.",
+    title: "Made for teams",
+    body: "Roles, approvals and a record of who did what.",
   },
 ];
 
@@ -110,7 +110,7 @@ export default function PricingPage() {
       <PageHero
         art="pricing"
         title="Pricing"
-        sub="Every tier ships the same core loop: compose treasury intent, simulate on a fork, show approvers readable impact, then execute under your multisig. Upgrade for more vaults, seats, and AI capacity."
+        sub="Every plan works the same way: say what you want, see it simulated, then sign it in your multisig. Paid plans add vaults, seats and agent runs."
         actions={
           <Link href="/auth?redirect=/app" className="mk-btn mk-btn-solid">
             Start free
@@ -189,12 +189,11 @@ export default function PricingPage() {
             Need something custom?
           </h2>
           <p className="mk-lede mk-measure mk-center" style={{ marginTop: 24 }}>
-            Talk to us about dedicated infrastructure, bespoke integrations, or treasury advisory for funds, DAOs, and
-            protocols.
+            Write to us about dedicated infrastructure or custom integrations for funds, DAOs and protocols.
           </p>
           <div className="mk-actions mk-actions-center" style={{ marginTop: 36 }}>
             <a href="mailto:hello@dreyv.app?subject=dreyv%20enterprise" className="mk-btn mk-btn-light">
-              Contact sales
+              Email us
             </a>
           </div>
         </div>

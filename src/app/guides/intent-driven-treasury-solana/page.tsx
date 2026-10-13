@@ -35,7 +35,7 @@ export default function Page() {
           Treasury operators constantly switch context: a portfolio screen for balances,
           a DEX for swaps, a bridge UI for cross-chain moves, a multisig for approvals,
           and a spreadsheet for runway. Each hop introduces friction and risk. Worst case,
-          signers approve transactions they do not fully understand — classic{" "}
+          signers approve transactions they do not fully understand: classic{" "}
           <strong>blind signing</strong> behavior, even for sophisticated teams.
         </p>
         <p>
@@ -47,22 +47,22 @@ export default function Page() {
         <p>
           <strong>Intent-driven treasury</strong> flips the order: you state{" "}
           <strong>strategic intent</strong> in natural language (or structured commands),
-          and the system responds with a <strong>plan</strong> — steps, dependencies, and
-          expected outcomes — before anything touches chain. Execution becomes a{" "}
+          and the system responds with a <strong>plan</strong>: steps, dependencies, and
+          expected outcomes: before anything touches chain. Execution becomes a{" "}
           <strong>reviewable pipeline</strong>, not a sequence of isolated clicks.
         </p>
         <p>Typical flow:</p>
         <ol>
           <li>
-            <strong>Intent</strong> — &ldquo;Swap treasury SOL to USDC, keep exposure
+            <strong>Intent</strong>: &ldquo;Swap treasury SOL to USDC, keep exposure
             within policy, prefer lowest slippage.&rdquo;
           </li>
-          <li><strong>Plan</strong> — routes, venues, estimated fees, and impact on balances.</li>
+          <li><strong>Plan</strong>: routes, venues, estimated fees, and impact on balances.</li>
           <li>
-            <strong>Simulation</strong> — fork or dry-run style checks so the payload
+            <strong>Simulation</strong>: fork or dry-run style checks so the payload
             matches expectations.
           </li>
-          <li><strong>Sign</strong> — human approval with an impact summary, not a raw hex blob.</li>
+          <li><strong>Sign</strong>: human approval with an impact summary, not a raw hex blob.</li>
         </ol>
 
         <h2>Why simulation belongs in the loop</h2>
@@ -103,8 +103,7 @@ export default function Page() {
         <h2>Bottom line</h2>
         <p>
           This is not hype about &ldquo;AI replacing finance.&rdquo; It is a practical
-          standard: <strong>intent first, plan second, simulate third, sign last</strong>{" "}
-          — with keys and policy under your control. If that matches how you want to run
+          standard: <strong>intent first, plan second, simulate third, sign last</strong>{" "}: with keys and policy under your control. If that matches how you want to run
           treasury on Solana, dreyv is built to operationalize it.
         </p>
       </GuideShell>

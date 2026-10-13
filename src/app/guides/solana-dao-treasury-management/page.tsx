@@ -60,14 +60,14 @@ export default function Page() {
             <Link href="/atlas/tokens/msol">mSOL</Link> keeps it productive without locking it.
           </li>
           <li>
-            <strong>Strategic / speculative (capped):</strong> ecosystem tokens or memecoins
+            <strong>Strategic / speculative (capped):</strong> tokens from projects you back, or memecoins
             held with an explicit hard cap and quarterly review.
           </li>
         </ul>
 
         <h2>2. Use liquid staking, not idle SOL</h2>
         <p>
-          Holding raw SOL is a yield decision — and almost always the wrong one. JitoSOL
+          Holding raw SOL is a yield decision, and almost always the wrong one. JitoSOL
           captures both base staking yield and MEV rewards; mSOL distributes across a wide
           validator set for decentralization. dreyv routes stake intents to the right venue
           based on your stated preference.

@@ -5,7 +5,7 @@ import { getSiteOrigin } from "@/lib/seo/site";
 export const dynamic = "force-dynamic";
 
 /**
- * Markdown for Agents — content negotiation endpoint.
+ * Markdown for Agents: content negotiation endpoint.
  *
  * Spec: https://developers.cloudflare.com/fundamentals/reference/markdown-for-agents/
  *
@@ -29,7 +29,6 @@ const ALLOWED_PATHS = new Set<string>([
   "/case",
   "/atlas",
   "/compare",
-  "/waitlist",
   "/legal/privacy",
   "/legal/terms",
   "/legal/refunds",
@@ -44,7 +43,7 @@ function isAllowed(path: string) {
 }
 
 function approxTokens(text: string) {
-  // Cheap heuristic — 1 token ≈ 4 chars of English.
+  // Cheap heuristic: 1 token ≈ 4 chars of English.
   return Math.ceil(text.length / 4);
 }
 

@@ -57,7 +57,7 @@ export default function ComparePage() {
       <PageHero
         art="compare"
         title="dreyv vs Squads, Jupiter and Birdeye"
-        sub="One non-custodial workspace where you describe intent, preview outcomes and propose to your multisig."
+        sub="Say what you want, see the result, then send it to your multisig. One place, and your keys stay yours."
         actions={
           <>
             <Link href="/auth?redirect=/app" className="mk-btn mk-btn-solid">
@@ -76,8 +76,8 @@ export default function ComparePage() {
             Side by side
           </h2>
           <p className="mk-lede mk-measure mk-center" style={{ marginTop: 18, textAlign: "center" }}>
-            Most teams stitch together a multisig, a swap UI, an analytics dashboard and a chat channel. dreyv brings
-            that stack into one place.
+            Most teams juggle a multisig, a swap site, a dashboard and a group chat. dreyv puts that work in one
+            place.
           </p>
           <div className="mk-table-wrap" style={{ marginTop: "clamp(32px, 5vh, 48px)" }} tabIndex={0} aria-label="Capability comparison table">
             <table className="mk-table">
@@ -123,7 +123,7 @@ export default function ComparePage() {
         <div className="mk-wrap mk-two" style={{ alignItems: "start" }}>
           <div>
             <h2 id="wins" className="mk-h3">
-              Where dreyv wins
+              Where dreyv helps most
             </h2>
             <ul className="mk-list" style={{ marginTop: 20 }}>
               <li className="mk-body">Plain-language intent: describe a treasury plan in one sentence.</li>
@@ -155,10 +155,10 @@ export default function ComparePage() {
       <section className="mk-section mk-violet" aria-labelledby="cta">
         <div className="mk-wrap-narrow mk-center">
           <h2 id="cta" className="mk-h2">
-            Stop stitching tools. Start describing intent.
+            Try it on your next treasury move.
           </h2>
           <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
-            Connect a wallet, simulate a plan and propose it to your multisig, all from one non-custodial workspace.
+            Connect a wallet, simulate a plan and send it to your multisig. Free to start.
           </p>
           <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
             <Link href="/auth?redirect=/app" className="mk-btn mk-btn-light">

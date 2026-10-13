@@ -228,12 +228,12 @@ export default function DevelopersPage() {
         <div className="mk-wrap mk-split">
           <div className="mk-sticky">
             <h2 id="surfaces" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
-              Four surfaces. One registry.
+              Four ways in, one set of tools.
             </h2>
             <p className="mk-body" style={{ marginTop: 18 }}>
               {CAP_COUNT} typed capabilities in one Bearer key: identity, portfolio, market, execution, forensics,
               foresight, x402 payments and agent primitives. Shipped as a Streamable HTTP MCP server and a typed REST
-              API, generated from the same registry so they never drift.
+              API, built from the same list so the two always match.
             </p>
             <p className="mk-body" style={{ marginTop: 14 }}>
               Pick the transport that fits the agent you&rsquo;re building.
@@ -274,11 +274,11 @@ export default function DevelopersPage() {
         <div className="mk-wrap-narrow">
           <div className="mk-center" style={{ textAlign: "center" }}>
             <h2 id="prompts" className="mk-h2">
-              Copy. Paste. Your assistant is on dreyv.
+              Paste this into your assistant.
             </h2>
             <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
               Not technical? You don&rsquo;t need to be. Paste one of these into your assistant and tell it what you
-              want done. It figures out the rest.
+              want done.
             </p>
           </div>
           <div style={{ display: "grid", gap: 40, marginTop: "clamp(36px, 6vh, 56px)" }}>
@@ -293,10 +293,10 @@ export default function DevelopersPage() {
               </div>
             </div>
             <div>
-              <h3 className="mk-h3">Make any GPT your Web3 sidekick</h3>
+              <h3 className="mk-h3">Instructions for a Custom GPT</h3>
               <p className="mk-small" style={{ marginTop: 6 }}>
-                For a Custom GPT&rsquo;s instructions. It becomes a calm, capable analyst that handles wallets, payments
-                and research on its own.
+                Paste this into a Custom GPT&rsquo;s instructions. It can then look up wallets, handle payments and do
+                research for you.
               </p>
               <div style={{ marginTop: 16 }}>
                 <CopyCode code={sidekickPrompt} label="sidekick prompt" wrap />

@@ -34,7 +34,7 @@ export default function Page() {
         <p>
           A wire transfer is one row. A Solana swap can be a dozen inner
           instructions, three token transfers, a routing fee, a priority
-          fee, and a rent reclaim — all in a single transaction signature.
+          fee, and a rent reclaim: all in a single transaction signature.
           Treating every transfer as a separate event will give your
           auditor a heart attack and your PnL a fictional number.
         </p>
@@ -74,7 +74,7 @@ export default function Page() {
         <p>
           A common mistake: treating an LST mint as a swap. Staking SOL to
           receive JitoSOL is often best treated as a wrapping event (no
-          disposal), not a taxable swap — but rules differ by jurisdiction.
+          disposal), not a taxable swap, but rules differ by jurisdiction.
           Same for unwrapping. Get an explicit position from your
           accountant and codify it in your labeling rules.
         </p>
@@ -90,10 +90,10 @@ export default function Page() {
 
         <h2>Practical setup for a Solana treasury</h2>
         <ul>
-          <li>Maintain a wallet registry — every vault, signer, hot wallet, intermediate account.</li>
+          <li>Maintain a wallet registry: every vault, signer, hot wallet, intermediate account.</li>
           <li>Pull transactions via Helius or your own RPC indexer, not a third-party CSV export.</li>
           <li>Anchor valuations to a consistent price feed (Pyth is the typical Solana choice).</li>
-          <li>Run period-end reconciliations and lock the books — late edits destroy auditability.</li>
+          <li>Run period-end reconciliations and lock the books: late edits destroy auditability.</li>
         </ul>
 
         <h2>Where dreyv helps</h2>

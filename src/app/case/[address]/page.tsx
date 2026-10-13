@@ -1,5 +1,5 @@
 /**
- * /case/[address] — public, pitch-ready case study for a Solana treasury.
+ * /case/[address]: public, pitch-ready case study for a Solana treasury.
  *
  * Server-rendered: builds the report at request time using the same
  * live data sources as /v/[address]. Counterfactual framing is explicit
@@ -21,12 +21,12 @@ export async function generateMetadata({ params }: { params: Promise<{ address: 
   const featured = findFeatured(address);
   const label = featured?.label ?? `${address.slice(0, 4)}…${address.slice(-4)}`;
   return {
-    title: `${label} — dreyv case study`,
-    description: `Counterfactual analysis: what dreyv would have caught on ${label}. Live on-chain data — idle yield, fee leak, concentration risk, approval hygiene.`,
+    title: `${label}: dreyv case study`,
+    description: `What dreyv would have flagged on ${label}, from live on-chain data: idle yield, fees, concentration and approvals.`,
     alternates: { canonical: `/case/${address}` },
     openGraph: {
-      title: `${label} — dreyv case study`,
-      description: "Counterfactual treasury analysis on live public on-chain data.",
+      title: `${label}: dreyv case study`,
+      description: "What dreyv would have flagged, from live public on-chain data.",
     },
     robots: { index: true, follow: true },
   };

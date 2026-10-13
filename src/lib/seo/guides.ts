@@ -1,5 +1,5 @@
 /**
- * Long-form SEO guides — registry powers programmatic sitemap entries
+ * Long-form SEO guides: registry powers programmatic sitemap entries
  * and an internal "more guides" footer block on each guide page.
  */
 
@@ -7,7 +7,7 @@ export type GuideEntry = {
   slug: string;
   title: string;
   description: string;
-  /** ISO date — affects datePublished in JSON-LD and freshness sorting. */
+  /** ISO date: affects datePublished in JSON-LD and freshness sorting. */
   publishedAt: string;
   /** Estimated read time in minutes (shown in header). */
   readMinutes: number;
@@ -34,33 +34,33 @@ export const GUIDES: GuideEntry[] = [
     publishedAt: "2026-04-22",
     readMinutes: 10,
     teaser:
-      "Runway buckets, LST yield, Squads approvals, simulation-first signing — the 2026 DAO treasury stack.",
+      "Runway buckets, LST yield, Squads approvals, simulation-first signing: the 2026 DAO treasury stack.",
   },
   {
     slug: "squads-multisig-setup-guide",
     title: "Squads Multisig Setup Guide (Solana, v4)",
     description:
-      "Step-by-step walkthrough for setting up a Squads v4 multisig vault on Solana — signer policy, thresholds, and connecting to dreyv for simulation.",
+      "Step-by-step walkthrough for setting up a Squads v4 multisig vault on Solana: signer policy, thresholds, and connecting to dreyv for simulation.",
     publishedAt: "2026-04-22",
     readMinutes: 9,
     teaser:
-      "From zero to a production-ready Squads v4 vault — thresholds, signer hygiene, and dreyv integration.",
+      "From zero to a production-ready Squads v4 vault: thresholds, signer hygiene, and dreyv integration.",
   },
   {
     slug: "crypto-treasury-management-solana",
     title: "Crypto Treasury Management on Solana: A 2026 Guide",
     description:
-      "How crypto-native teams run treasury management on Solana — non-custodial vaults, yield, accounting, approvals, and AI-driven planning. Built for protocol, DAO, and onchain-company finance leads.",
+      "How crypto-native teams run treasury management on Solana: non-custodial vaults, yield, accounting, approvals, and AI-driven planning. Built for protocol, DAO, and onchain-company finance leads.",
     publishedAt: "2026-05-10",
     readMinutes: 11,
     teaser:
-      "Non-custodial vaults, yield, accounting, approvals, AI planning — the Solana-native crypto treasury stack.",
+      "Non-custodial vaults, yield, accounting, approvals, AI planning: the Solana-native crypto treasury stack.",
   },
   {
     slug: "ai-agent-treasury-management",
     title: "AI Agent Treasury Management: Patterns for 2026",
     description:
-      "How AI agents are starting to plan, simulate, and propose treasury actions — the architecture, the guardrails, and why simulation-before-signing is non-negotiable.",
+      "How AI agents are starting to plan, simulate, and propose treasury actions: the architecture, the guardrails, and why simulation-before-signing is non-negotiable.",
     publishedAt: "2026-05-10",
     readMinutes: 9,
     teaser:
@@ -70,7 +70,7 @@ export const GUIDES: GuideEntry[] = [
     slug: "dca-on-solana-guide",
     title: "Dollar-Cost Averaging on Solana: Programs, Risks, and Setup",
     description:
-      "How DCA programs work on Solana via Jupiter and other venues — funding, frequency, slippage controls, and how to run them from a multisig.",
+      "How DCA programs work on Solana via Jupiter and other venues: funding, frequency, slippage controls, and how to run them from a multisig.",
     publishedAt: "2026-04-22",
     readMinutes: 9,
     teaser:
@@ -78,33 +78,33 @@ export const GUIDES: GuideEntry[] = [
   },
   {
     slug: "best-solana-multisig-tools",
-    title: "Best Solana Multisig Tools in 2026: Squads, Snowflake & the Intelligence Layer",
+    title: "Best Solana Multisig Tools in 2026: Squads, Snowflake and Mean",
     description:
-      "An honest comparison of the top Solana multisig and treasury tools — Squads v4, Snowflake Safe, Mean Multisig — and where intent-driven intelligence sits on top.",
+      "An honest comparison of the top Solana multisig and treasury tools (Squads v4, Snowflake Safe, Mean Multisig) and where intent-driven intelligence sits on top.",
     publishedAt: "2026-06-13",
     readMinutes: 10,
     teaser:
-      "Squads vs Snowflake vs Mean — which multisig fits your team, and why the intelligence layer matters more than the vault.",
+      "Squads vs Snowflake vs Mean: which multisig fits your team, and what to put on top of the vault.",
   },
   {
     slug: "solana-liquid-staking-treasury",
     title: "Solana Liquid Staking for Treasuries: JitoSOL, mSOL, bSOL Compared",
     description:
-      "How Solana treasuries use liquid staking tokens (LSTs) for yield without losing liquidity — JitoSOL, mSOL, bSOL trade-offs, validator risk, and unstake mechanics.",
+      "How Solana treasuries use liquid staking tokens (LSTs) for yield without losing liquidity: JitoSOL, mSOL, bSOL trade-offs, validator risk, and unstake mechanics.",
     publishedAt: "2026-06-13",
     readMinutes: 9,
     teaser:
-      "JitoSOL vs mSOL vs bSOL — which LST fits a treasury, and how to size the allocation without breaking runway.",
+      "JitoSOL vs mSOL vs bSOL: which LST fits a treasury, and how to size the allocation without breaking runway.",
   },
   {
     slug: "solana-treasury-yield-strategies",
     title: "Solana Treasury Yield Strategies: From USDC Reserves to Onchain Income",
     description:
-      "A practical map of yield strategies for Solana treasuries — money markets (Kamino, marginfi, Drift), LSTs, delta-neutral, and where each one breaks.",
+      "A practical map of yield strategies for Solana treasuries: money markets (Kamino, marginfi, Drift), LSTs, delta-neutral, and where each one breaks.",
     publishedAt: "2026-06-13",
     readMinutes: 11,
     teaser:
-      "Money markets, LSTs, delta-neutral — a sober walk through what actually yields for a Solana treasury in 2026.",
+      "Money markets, LSTs, delta-neutral: a sober walk through what actually yields for a Solana treasury in 2026.",
   },
   {
     slug: "non-custodial-treasury-explained",
@@ -114,17 +114,17 @@ export const GUIDES: GuideEntry[] = [
     publishedAt: "2026-06-13",
     readMinutes: 8,
     teaser:
-      "Custodial, MPC, non-custodial — what the words actually mean, and the questions every treasury team should ask.",
+      "Custodial, MPC, non-custodial: what the words actually mean, and the questions every treasury team should ask.",
   },
   {
     slug: "solana-treasury-accounting-guide",
     title: "Solana Treasury Accounting: Cost Basis, PnL, and Audit Trails",
     description:
-      "How to keep clean books for a Solana treasury — cost basis methods, realized vs unrealized PnL, transfers vs swaps, and what auditors actually want to see.",
+      "How to keep clean books for a Solana treasury: cost basis methods, realized vs unrealized PnL, transfers vs swaps, and what auditors actually want to see.",
     publishedAt: "2026-06-13",
     readMinutes: 10,
     teaser:
-      "Cost basis, PnL, transfers vs swaps, audit trails — the accounting layer most Solana treasuries skip until it's too late.",
+      "Cost basis, PnL, transfers vs swaps, audit trails: the accounting layer most Solana treasuries skip until it's too late.",
   },
   {
     slug: "what-is-a-digital-asset-treasury",
@@ -140,41 +140,41 @@ export const GUIDES: GuideEntry[] = [
     slug: "how-to-create-solana-multisig-wallet",
     title: "How to Create a Solana Multisig Wallet (Step by Step)",
     description:
-      "A practical walkthrough for creating a Solana multisig wallet — picking signers, choosing a threshold, deploying via Squads v4, funding the vault, and signing the first transaction.",
+      "A practical walkthrough for creating a Solana multisig wallet: picking signers, choosing a threshold, deploying via Squads v4, funding the vault, and signing the first transaction.",
     publishedAt: "2026-06-19",
     readMinutes: 9,
     teaser:
-      "From zero to a funded Solana multisig — signers, thresholds, Squads v4 deploy, first transaction.",
+      "From zero to a funded Solana multisig: signers, thresholds, Squads v4 deploy, first transaction.",
   },
   {
     slug: "crypto-treasury-management-startup-playbook",
     title: "Crypto Treasury Management for Startups: A 2026 Playbook",
     description:
-      "A founder-grade playbook for managing a crypto treasury at a startup — runway buckets, stablecoin reserves, yield without idiocy, approvals, and the reporting your investors expect.",
+      "A founder-grade playbook for managing a crypto treasury at a startup: runway buckets, stablecoin reserves, yield without idiocy, approvals, and the reporting your investors expect.",
     publishedAt: "2026-06-19",
     readMinutes: 11,
     teaser:
-      "Runway buckets, stablecoin reserves, sensible yield, approvals, investor reporting — the 2026 startup playbook.",
+      "Runway buckets, stablecoin reserves, sensible yield, approvals, investor reporting: the 2026 startup playbook.",
   },
   {
     slug: "solana-multisig-vs-ethereum-safe",
     title: "Solana Multisig vs Ethereum Safe: Which Fits Your Treasury",
     description:
-      "Squads v4 on Solana vs Safe on Ethereum — fees, signer UX, integrations, recovery, and how to pick (or run both) for your treasury in 2026.",
+      "Squads v4 on Solana vs Safe on Ethereum: fees, signer UX, integrations, recovery, and how to pick (or run both) for your treasury in 2026.",
     publishedAt: "2026-06-19",
     readMinutes: 10,
     teaser:
-      "Squads vs Safe — fees, signer UX, integrations, recovery, and when running both actually makes sense.",
+      "Squads vs Safe: fees, signer UX, integrations, recovery, and when running both actually makes sense.",
   },
   {
     slug: "solana-multisig-treasury-management",
-    title: "Solana Multisig Treasury Management: From Click-Ops to Command-Ops",
+    title: "Solana Multisig Treasury Management: A Practical Operating Model",
     description:
-      "How Solana DAOs, protocols, and crypto funds run multisig treasury operations in 2026 — moving from click-ops to command-ops with simulation, risk modeling, and intent-driven workflows on Squads.",
+      "How Solana DAOs, protocols, and crypto funds run multisig treasury operations in 2026, with plain-language intents, simulation before signing, and approvals people can read on Squads.",
     publishedAt: "2026-06-19",
     readMinutes: 11,
     teaser:
-      "Click-ops to command-ops — running a Solana multisig treasury with simulation, risk modeling, and intent-driven approvals.",
+      "How to run a Solana multisig treasury with simulation, risk checks and approvals your signers can read.",
   },
 ];
 

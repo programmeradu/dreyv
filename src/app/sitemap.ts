@@ -8,8 +8,8 @@ import { GUIDES } from "@/lib/seo/guides";
 /**
  * Public, indexable routes (aligned with robots.ts + middleware noindex rules).
  * Includes programmatic SEO surfaces:
- *   - /atlas/tokens/[symbol]  — one entry per supported token
- *   - /guides/[slug]          — one entry per long-form guide
+ *   - /atlas/tokens/[symbol], one entry per supported token
+ *   - /guides/[slug], one entry per long-form guide
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = getSiteOrigin();
@@ -30,7 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/solana-treasury-tracker", changeFrequency: "weekly", priority: 0.9 },
     { path: "/solana-portfolio-tracker", changeFrequency: "weekly", priority: 0.9 },
     { path: "/compare", changeFrequency: "monthly", priority: 0.8 },
-    // Developer + MCP surface — promoted aggressively for AI crawlers.
+    // Developer + MCP surface: promoted aggressively for AI crawlers.
     { path: "/developers", changeFrequency: "weekly", priority: 0.95 },
     { path: "/developers/mcp", changeFrequency: "weekly", priority: 0.95 },
     { path: "/developers/api", changeFrequency: "weekly", priority: 0.9 },

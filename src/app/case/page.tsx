@@ -1,5 +1,5 @@
 /**
- * /case — index of featured case studies.
+ * /case: index of featured case studies.
  */
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -10,9 +10,9 @@ import { FEATURED_CASES } from "@/lib/case-study/featured";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
 
 export const metadata: Metadata = {
-  title: "Case studies — dreyv",
+  title: "Case studies: dreyv",
   description:
-    "Counterfactual analysis on real, public Solana treasuries. What dreyv would have caught — quantified from live on-chain data.",
+    "What dreyv would have flagged on real, public Solana treasuries, worked out from live on-chain data.",
   alternates: { canonical: "/case" },
 };
 
@@ -31,10 +31,10 @@ export default function CaseIndexPage() {
             Case Studies
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
-            What dreyv would have caught — on treasuries you can verify.
+            What dreyv would have flagged, on treasuries you can check yourself.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-600">
-            Counterfactual analysis on real, public Solana treasuries. Every figure pulled live from Helius and Jupiter — open on Solscan, sourced in every card, fabricated in none.
+            Counterfactual analysis on real, public Solana treasuries. Every figure pulled live from Helius and Jupiter: open on Solscan, sourced in every card, fabricated in none.
           </p>
         </div>
       </section>

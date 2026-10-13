@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Cookie Policy",
-  description: "dreyv cookie policy — what cookies we use and why.",
+  description: "dreyv cookie policy: what cookies we use and why.",
   alternates: { canonical: "/legal/cookies" },
 };
 

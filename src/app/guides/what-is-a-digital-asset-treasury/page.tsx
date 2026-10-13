@@ -41,7 +41,7 @@ export default function Page() {
       <GuideShell topic="Treasury 101" guide={GUIDE}>
         <h2>The short definition</h2>
         <p>
-          A <strong>digital asset treasury</strong> — often shortened to DAT — is
+          A <strong>digital asset treasury</strong>: often shortened to DAT: is
           the balance-sheet position a company, DAO, protocol, or fund holds in
           crypto assets, together with the wallets, controls, and processes used
           to operate it. It is the crypto equivalent of a corporate cash and
@@ -51,8 +51,8 @@ export default function Page() {
         <p>
           When people say &quot;digital asset treasury company&quot; or
           &quot;bitcoin treasury company,&quot; they usually mean a public or
-          private company whose balance sheet meaningfully holds crypto — often
-          BTC, ETH, or SOL — as a reserve asset, not just as inventory for an
+          private company whose balance sheet meaningfully holds crypto (often
+          BTC, ETH, or SOL) as a reserve asset, not just as inventory for an
           exchange or as customer custody.
         </p>
 
@@ -86,7 +86,7 @@ export default function Page() {
         <ul>
           <li><strong>Transparency:</strong> every position is verifiable onchain. Investors and auditors can see the wallet without trusting a statement PDF.</li>
           <li><strong>Composability:</strong> the same vault can stake, lend, and pay vendors. A bank account can only move dollars.</li>
-          <li><strong>Operational surface:</strong> wrong address, wrong program, MEV — the failure modes are different and require different controls.</li>
+          <li><strong>Operational surface:</strong> wrong address, wrong program, MEV: the failure modes are different and require different controls.</li>
           <li><strong>Reporting:</strong> you can produce a real-time balance sheet, but you also need cost-basis tooling that understands swaps, transfers, and yield. See <Link href="/guides/solana-treasury-accounting-guide">Solana treasury accounting</Link>.</li>
         </ul>
 

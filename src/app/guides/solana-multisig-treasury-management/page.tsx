@@ -19,7 +19,6 @@ export const metadata: Metadata = {
     "dao treasury solana",
     "squads multisig",
     "non-custodial treasury",
-    "command-ops treasury",
   ],
   openGraph: {
     title: `${GUIDE.title} | dreyv`,
@@ -40,49 +39,49 @@ export default function Page() {
         datePublished={`${GUIDE.publishedAt}T12:00:00.000Z`}
       />
       <GuideShell topic="Treasury Ops" guide={GUIDE}>
-        <h2>Click-ops is killing your treasury</h2>
+        <h2>Clicking through approvals is the risky part</h2>
         <p>
           Most Solana multisig treasuries are still run by clicking. Someone in
           the Discord proposes a transfer, a contributor builds it in the
           Squads UI, signers open the proposal, eyeball a list of program
           calls they can&apos;t read, and click approve. It works until it
-          doesn&apos;t — wrong address, wrong amount, wrong program, a Jupiter
+          doesn&apos;t: wrong address, wrong amount, wrong program, a Jupiter
           route that quietly burns 30 bps to MEV, or a Marinade unstake
           someone forgot has a cooldown.
         </p>
         <p>
-          The teams that survive this cycle have moved to{" "}
-          <strong>command-ops</strong>: intent expressed in language,
-          simulated on a fork before signing, executed through the multisig
-          with human-readable approvals. This guide is the operating model.
+          The teams that come through this well work differently: they write
+          the intent in plain language, simulate it on a fork before signing,
+          and execute through the multisig with approvals people can read.
+          This guide walks through how that works.
         </p>
 
         <h2>What &quot;multisig treasury management&quot; actually covers</h2>
         <ul>
-          <li><strong>Vault structure</strong> — how many vaults, what sits in each, who can move what.</li>
-          <li><strong>Signer policy</strong> — who signs, what threshold, how recovery works when someone leaves.</li>
-          <li><strong>Proposal flow</strong> — how an idea becomes a transaction that lands in the vault for signing.</li>
-          <li><strong>Risk modeling</strong> — what each transaction does to balances, runway, concentration, and yield assumptions.</li>
-          <li><strong>Execution surface</strong> — Jupiter, Marinade, Jito, Kamino, marginfi, Drift, payroll streams.</li>
-          <li><strong>Books and reporting</strong> — cost basis, PnL, transfers vs swaps, audit trail.</li>
+          <li><strong>Vault structure</strong>: how many vaults, what sits in each, who can move what.</li>
+          <li><strong>Signer policy</strong>: who signs, what threshold, how recovery works when someone leaves.</li>
+          <li><strong>Proposal flow</strong>: how an idea becomes a transaction that lands in the vault for signing.</li>
+          <li><strong>Risk modeling</strong>: what each transaction does to balances, runway, concentration, and yield assumptions.</li>
+          <li><strong>Execution surface</strong>: Jupiter, Marinade, Jito, Kamino, marginfi, Drift, payroll streams.</li>
+          <li><strong>Books and reporting</strong>: cost basis, PnL, transfers vs swaps, audit trail.</li>
         </ul>
 
-        <h2>The command-ops loop</h2>
+        <h2>The loop, step by step</h2>
         <ol>
           <li><strong>Intent.</strong> A treasurer or contributor describes the goal in plain language: <em>&quot;Stake 40% of the strategic reserve via JitoSOL, keep 6 months of runway in USDC, rebalance weekly if drift exceeds 5%.&quot;</em></li>
-          <li><strong>Plan.</strong> The intent is decomposed into concrete transactions — swaps, stakes, transfers — with the venues, slippage, and order specified.</li>
+          <li><strong>Plan.</strong> The intent is decomposed into concrete transactions (swaps, stakes, transfers) with the venues, slippage, and order specified.</li>
           <li><strong>Simulate.</strong> The plan runs on a fork of mainnet. Signers see exact balance deltas, fees, MEV exposure, and any program-level surprises before anyone signs.</li>
-          <li><strong>Propose.</strong> The simulated bundle lands in the Squads vault with a human-readable summary attached — recipient verification, amount, expected slippage, runway impact.</li>
+          <li><strong>Propose.</strong> The simulated bundle lands in the Squads vault with a human-readable summary attached: recipient verification, amount, expected slippage, runway impact.</li>
           <li><strong>Sign.</strong> Each signer reviews the summary, optionally re-simulates from their own wallet, and signs from a hardware device.</li>
           <li><strong>Execute &amp; book.</strong> The transaction lands. Cost basis, PnL, and approval log update automatically.</li>
         </ol>
 
         <h2>Vault structure for a serious DAO or protocol</h2>
         <ul>
-          <li><strong>Operating vault</strong> — stables for payroll, grants, vendors. Lower threshold (e.g. 2-of-4), higher-frequency approvals.</li>
-          <li><strong>Strategic reserve vault</strong> — majors and LSTs. Higher threshold (e.g. 4-of-6), separate signer list where possible.</li>
-          <li><strong>Token treasury vault</strong> — your own token. Governed separately, never counted as runway at peak prices.</li>
-          <li><strong>Yield vault (optional)</strong> — explicit allocations to money markets and LSTs, sized so a depeg or validator slash does not threaten runway.</li>
+          <li><strong>Operating vault</strong>: stables for payroll, grants, vendors. Lower threshold (e.g. 2-of-4), higher-frequency approvals.</li>
+          <li><strong>Strategic reserve vault</strong>: majors and LSTs. Higher threshold (e.g. 4-of-6), separate signer list where possible.</li>
+          <li><strong>Token treasury vault</strong>: your own token. Governed separately, never counted as runway at peak prices.</li>
+          <li><strong>Yield vault (optional)</strong>: explicit allocations to money markets and LSTs, sized so a depeg or validator slash does not threaten runway.</li>
         </ul>
         <p>
           The full setup walkthrough is in{" "}
@@ -101,26 +100,25 @@ export default function Page() {
 
         <h2>Risk modeling for every proposal</h2>
         <p>
-          The default Squads UI shows program calls. That is not risk modeling
-          — it is hexadecimal. A serious treasury attaches the following to
+          The default Squads UI shows program calls. That is not risk modeling: it is hexadecimal. A serious treasury attaches the following to
           every proposal before it goes to signers:
         </p>
         <ul>
           <li><strong>Balance deltas</strong> per asset, per vault, in USD and native units.</li>
-          <li><strong>Runway impact</strong> — how many months of stables remain after this transaction at the current burn.</li>
-          <li><strong>Concentration impact</strong> — change in exposure to any single token, protocol, or custodian.</li>
+          <li><strong>Runway impact</strong>: how many months of stables remain after this transaction at the current burn.</li>
+          <li><strong>Concentration impact</strong>: change in exposure to any single token, protocol, or custodian.</li>
           <li><strong>Slippage and MEV expectations</strong> for swaps and DCA.</li>
-          <li><strong>Counterparty / program audit status</strong> — is the target program audited, who audited, when.</li>
-          <li><strong>Recipient verification</strong> — for transfers, is the destination address on the known-good list or new.</li>
+          <li><strong>Counterparty / program audit status</strong>: is the target program audited, who audited, when.</li>
+          <li><strong>Recipient verification</strong>: for transfers, is the destination address on the known-good list or new.</li>
         </ul>
 
         <h2>The execution surface on Solana in 2026</h2>
         <ul>
-          <li><strong>Jupiter</strong> — swaps and DCA. Multisig-compatible; route quality matters more than venue choice.</li>
-          <li><strong>Marinade / Jito</strong> — liquid staking via mSOL / JitoSOL. See <Link href="/guides/solana-liquid-staking-treasury">Solana liquid staking for treasuries</Link>.</li>
-          <li><strong>Kamino / marginfi / Drift</strong> — lending and money markets for stablecoin yield.</li>
-          <li><strong>Streamflow / Mean</strong> — recurring payments, payroll, vesting from the vault.</li>
-          <li><strong>Squads v4</strong> — the multisig substrate the rest of this stack signs through.</li>
+          <li><strong>Jupiter</strong>: swaps and DCA. Multisig-compatible; route quality matters more than venue choice.</li>
+          <li><strong>Marinade / Jito</strong>: liquid staking via mSOL / JitoSOL. See <Link href="/guides/solana-liquid-staking-treasury">Solana liquid staking for treasuries</Link>.</li>
+          <li><strong>Kamino / marginfi / Drift</strong>: lending and money markets for stablecoin yield.</li>
+          <li><strong>Streamflow / Mean</strong>: recurring payments, payroll, vesting from the vault.</li>
+          <li><strong>Squads v4</strong>: the multisig substrate the rest of this stack signs through.</li>
         </ul>
 
         <h2>Books that don&apos;t embarrass you</h2>
@@ -132,13 +130,13 @@ export default function Page() {
         </p>
         <p>
           Cost basis, transfers vs swaps, realized vs unrealized PnL, audit
-          trails — covered end-to-end in{" "}
+          trails: covered end-to-end in{" "}
           <Link href="/guides/solana-treasury-accounting-guide">Solana treasury accounting</Link>.
         </p>
 
         <h2>Where dreyv fits</h2>
         <p>
-          dreyv is the command-ops layer on top of Squads. You plan in
+          dreyv sits on top of Squads. You plan in
           language, dreyv simulates the plan on a fork, every proposal lands
           in your vault pre-loaded with balance deltas, runway impact,
           concentration changes, and recipient verification. Signers approve

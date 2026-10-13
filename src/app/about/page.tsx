@@ -6,7 +6,7 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { getSiteOrigin } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
-  title: "About dreyv: the treasury command layer for Solana teams",
+  title: "About dreyv: a treasury workspace for teams on Solana",
   description:
     "dreyv is an independent software company building a non-custodial treasury workspace for Solana DAOs, protocols and crypto-native teams. Founded 2025, based in Nicosia, Cyprus.",
   alternates: { canonical: `${getSiteOrigin()}/about` },
@@ -32,8 +32,6 @@ const facts = [
 const contacts = [
   { k: "General", v: "hello@dreyv.app" },
   { k: "Samuel", v: "samuel@dreyv.com" },
-  { k: "Privacy", v: "privacy@dreyv.com" },
-  { k: "Press", v: "press@dreyv.com" },
 ];
 
 const ships = [
@@ -60,7 +58,7 @@ export default function AboutPage() {
     <MarketingShell header={<SiteHeader overlay current="/about" />}>
       <PageHero
         art="about"
-        title="The treasury command layer for Solana teams."
+        title="A treasury workspace for teams on Solana."
         sub={
           <>
             dreyv (pronounced &ldquo;drave&rdquo;) is a non-custodial treasury workspace for Solana DAOs, protocols
@@ -97,8 +95,8 @@ export default function AboutPage() {
             Samuel Adu-Berekorang builds dreyv from Nicosia.
           </h2>
           <p className="mk-lede mk-measure mk-center" style={{ marginTop: 24 }}>
-            Builder and operator focused on developer tools for AI agents and onchain finance. He leads product,
-            engineering, and go-to-market for dreyv.
+            He works on developer tools for AI agents and onchain finance, and does the product, the engineering and
+            the selling for dreyv himself.
           </p>
           <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
             <a

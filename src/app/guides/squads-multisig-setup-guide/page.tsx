@@ -41,12 +41,12 @@ export default function Page() {
         <h2>Before you start</h2>
         <ul>
           <li>Pick 3-5 signers. More signers = more resilient, harder to coordinate.</li>
-          <li>Each signer must control their own private key — no shared seed phrases.</li>
+          <li>Each signer must control their own private key: no shared seed phrases.</li>
           <li>Hardware wallets (Ledger, Keystone) for at least the threshold count.</li>
           <li>A funded Solana wallet to pay vault creation fees (a fraction of a SOL).</li>
         </ul>
 
-        <h2>Step 1 — Create the vault</h2>
+        <h2>Step 1: Create the vault</h2>
         <ol>
           <li>Visit <a href="https://app.squads.so" target="_blank" rel="noopener noreferrer">app.squads.so</a> and connect a wallet.</li>
           <li>Click <strong>Create new Squad</strong>.</li>
@@ -55,30 +55,29 @@ export default function Page() {
           <li>Confirm and sign the creation transaction.</li>
         </ol>
 
-        <h2>Step 2 — Choose your threshold</h2>
+        <h2>Step 2: Choose your threshold</h2>
         <p>Threshold is a tradeoff between safety and operational speed:</p>
         <ul>
           <li><strong>2-of-3:</strong> small teams, fast moves, single point-of-coordination risk.</li>
-          <li><strong>3-of-5:</strong> the standard for protocol treasuries — balances resilience with speed.</li>
+          <li><strong>3-of-5:</strong> the standard for protocol treasuries: balances resilience with speed.</li>
           <li><strong>4-of-7:</strong> larger DAOs, slower moves, very strong against single-signer compromise.</li>
         </ul>
 
-        <h2>Step 3 — Fund the vault</h2>
+        <h2>Step 3: Fund the vault</h2>
         <p>
           Send a small amount of SOL first to confirm the address. Verify the receive
           address character-by-character against the Squads UI before sending any real value.
         </p>
 
-        <h2>Step 4 — Connect to dreyv for simulation</h2>
+        <h2>Step 4: Connect to dreyv for simulation</h2>
         <p>
           Approving transactions inside Squads is safer when each proposal arrives with a
           human-readable impact preview. Connect your Squads vault inside{" "}
-          <Link href="/app">dreyv</Link>, and every intent — swap, stake, payroll, rebalance
-          — generates a Squads proposal pre-loaded with simulation output.
+          <Link href="/app">dreyv</Link>, and every intent (swap, stake, payroll, rebalance) generates a Squads proposal pre-loaded with simulation output.
         </p>
         <p>Signers see balance deltas, recipient addresses, and program calls before they sign.</p>
 
-        <h2>Step 5 — Signer hygiene</h2>
+        <h2>Step 5: Signer hygiene</h2>
         <ul>
           <li>Every signer uses a hardware wallet for the multisig role.</li>
           <li>Rotate a signer immediately if a device is lost or a team member leaves.</li>

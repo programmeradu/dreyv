@@ -48,7 +48,7 @@ export default function Page() {
           investor without flinching.
         </p>
         <p>
-          This is the operating playbook — what to hold, how to hold it, and
+          This is the operating playbook: what to hold, how to hold it, and
           what to report.
         </p>
 
@@ -59,9 +59,9 @@ export default function Page() {
           shape is consistent:
         </p>
         <ol>
-          <li><strong>Operating reserve (3–6 months of burn).</strong> 100% stablecoins. USDC primary, USDT secondary if you need redundancy. This is payroll, vendors, taxes. It does not earn yield. It does not move.</li>
-          <li><strong>Working capital (3–9 months).</strong> Stablecoins, optionally in a blue-chip money market (Kamino, marginfi) for low-single-digit yield. Liquid in under 24 hours.</li>
-          <li><strong>Strategic reserve (12+ months).</strong> A mix of stables and majors (SOL, BTC, ETH). This is the bucket that can earn meaningful yield via liquid staking — see <Link href="/guides/solana-liquid-staking-treasury">Solana liquid staking for treasuries</Link>.</li>
+          <li><strong>Operating reserve (3 to 6 months of burn).</strong> 100% stablecoins. USDC primary, USDT secondary if you need redundancy. This is payroll, vendors, taxes. It does not earn yield. It does not move.</li>
+          <li><strong>Working capital (3 to 9 months).</strong> Stablecoins, optionally in a blue-chip money market (Kamino, marginfi) for low-single-digit yield. Liquid in under 24 hours.</li>
+          <li><strong>Strategic reserve (12+ months).</strong> A mix of stables and majors (SOL, BTC, ETH). This is the bucket that can earn meaningful yield via liquid staking: see <Link href="/guides/solana-liquid-staking-treasury">Solana liquid staking for treasuries</Link>.</li>
           <li><strong>Token treasury (if you have a token).</strong> Your own token. Separate accounting, separate signer policy, never counted toward runway at market price.</li>
         </ol>
 
@@ -92,7 +92,7 @@ export default function Page() {
 
         <h2>Approvals that survive an incident</h2>
         <ol>
-          <li><strong>Threshold first, speed second.</strong> Pick a multisig threshold you can reach in 24 hours on a normal weekday — and not lower.</li>
+          <li><strong>Threshold first, speed second.</strong> Pick a multisig threshold you can reach in 24 hours on a normal weekday, and not lower.</li>
           <li><strong>Signer hygiene.</strong> Hardware wallets, individual humans (not roles), documented off-boarding for every signer.</li>
           <li><strong>Spending tiers.</strong> Small payments out of the operating multisig with the standard threshold; anything over a stated USD limit requires the strategic-reserve threshold. Write it down.</li>
           <li><strong>Simulation before signing.</strong> Every meaningful transaction is simulated on a fork so signers see balance deltas, not raw program calls. Why: <Link href="/guides/intent-driven-treasury-solana">intent-driven treasury on Solana</Link>.</li>
@@ -107,8 +107,8 @@ export default function Page() {
           <li><strong>Total runway in months,</strong> calculated at conservative valuations (e.g. 30-day average, not spot).</li>
           <li><strong>Bucket-by-bucket balances</strong> with the wallet addresses listed once and re-referenced.</li>
           <li><strong>Realized PnL and yield</strong> for the period, separated from unrealized mark-to-market.</li>
-          <li><strong>Concentration risk</strong> — exposure to any single token, protocol, or custodian above a set threshold.</li>
-          <li><strong>Approvals log</strong> — what moved, who signed, why.</li>
+          <li><strong>Concentration risk</strong>: exposure to any single token, protocol, or custodian above a set threshold.</li>
+          <li><strong>Approvals log</strong>: what moved, who signed, why.</li>
         </ul>
         <p>
           The accounting side (cost basis, transfers vs swaps, audit trails)

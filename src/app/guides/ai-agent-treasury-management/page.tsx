@@ -70,8 +70,8 @@ export default function Page() {
             DeFi background.
           </li>
           <li>
-            Watching for anomalies — sudden depeg, sharp concentration shift, runway
-            crossing a threshold — and proposing a response.
+            Watching for anomalies (sudden depeg, sharp concentration shift, runway
+            crossing a threshold) and proposing a response.
           </li>
         </ul>
 
@@ -96,7 +96,7 @@ export default function Page() {
           <li>Hard caps on per-transaction notional and per-day notional.</li>
           <li>
             A whitelist of allowed programs (Squads, Jupiter, Marinade, Jito,
-            Kamino, marginfi, Drift) — refuse anything else.
+            Kamino, marginfi, Drift): refuse anything else.
           </li>
           <li>
             Mandatory simulation before every proposal. No simulation, no signature

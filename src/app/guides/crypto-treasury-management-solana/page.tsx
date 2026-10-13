@@ -32,8 +32,8 @@ export default function Page() {
       <GuideShell topic="Treasury" guide={GUIDE}>
         <h2>What crypto treasury management actually means in 2026</h2>
         <p>
-          The phrase covers two very different jobs. The legacy version — pioneered by
-          Fireblocks, Bitwave, Fortris, and Request — is custody, accounting, and
+          The phrase covers two very different jobs. The legacy version (pioneered by
+          Fireblocks, Bitwave, Fortris, and Request) is custody, accounting, and
           fiat on/off ramps for companies that hold crypto on their balance sheet. The
           newer version, the one this guide is about, is <em>operating</em> a treasury
           on a fast L1: paying contributors, earning yield, rebalancing, and approving
@@ -50,28 +50,28 @@ export default function Page() {
         <p>A working stack in 2026 has five layers:</p>
         <ol>
           <li>
-            <strong>Custody — Squads v4 multisig.</strong> Non-custodial, programmable
+            <strong>Custody: Squads v4 multisig.</strong> Non-custodial, programmable
             thresholds, hardware-wallet friendly. See the{" "}
             <Link href="/guides/squads-multisig-setup-guide">Squads setup guide</Link>.
           </li>
           <li>
-            <strong>Yield — liquid staking + curated DeFi.</strong> JitoSOL and mSOL
+            <strong>Yield: liquid staking + curated DeFi.</strong> JitoSOL and mSOL
             for SOL exposure; Kamino, marginfi, and Drift for stablecoin yield with
             published risk parameters.
           </li>
           <li>
-            <strong>Execution — Jupiter aggregator.</strong> Best-route swaps with
+            <strong>Execution: Jupiter aggregator.</strong> Best-route swaps with
             simulated price impact before signing. DCA programs from a multisig where
             the funding window matters more than the entry price.
           </li>
           <li>
-            <strong>Accounting — onchain history + tagged labels.</strong> The chain
+            <strong>Accounting: onchain history + tagged labels.</strong> The chain
             already has the ledger; the work is labelling vendors, grants, and inter-
             vault transfers so a CFO can read it. Most teams export to a spreadsheet
             or a tool like Bitwave.
           </li>
           <li>
-            <strong>Planning — AI + simulation.</strong> The newest layer. Agents that
+            <strong>Planning: AI + simulation.</strong> The newest layer. Agents that
             translate intent (&quot;rebalance to 60/30/10, keep 6 months runway in
             USDC&quot;) into a concrete plan, simulate it on a forked state, and hand
             it to humans to sign. This is what dreyv does.
@@ -100,7 +100,7 @@ export default function Page() {
           </li>
         </ul>
 
-        <h2>Where AI fits — and where it shouldn&apos;t</h2>
+        <h2>Where AI fits, and where it shouldn&apos;t</h2>
         <p>
           AI is good at the <em>planning</em> step: turning a goal into a candidate
           set of transactions, sizing them against current balances, and explaining

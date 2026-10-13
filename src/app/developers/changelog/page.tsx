@@ -31,7 +31,7 @@ const ENTRIES: Entry[] = [
           <code className="rounded bg-violet-50 px-1.5 py-0.5 text-[13px] text-violet-700">
             https://dreyv.com/api/mcp
           </code>
-          {" "}— 343 tools across research, treasury, execution, forensics, and governance,
+          {" "}: 343 tools across research, treasury, execution, forensics, and governance,
           authenticated with a single <code className="rounded bg-violet-50 px-1.5 py-0.5 text-[13px] text-violet-700">dk_live_</code> Bearer key.
         </li>
         <li>
@@ -74,7 +74,7 @@ export default function DevelopersChangelogPage() {
           What we shipped
         </h1>
         <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-slate-600">
-          Release notes for dreyv&apos;s public developer surface — SDKs, MCP endpoints, and
+          Release notes for dreyv&apos;s public developer surface: SDKs, MCP endpoints, and
           protocol updates. For product changes, see{" "}
           <Link href="/developers" className="text-violet-700 underline underline-offset-2">
             /developers

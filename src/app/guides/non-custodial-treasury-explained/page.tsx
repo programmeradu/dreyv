@@ -33,8 +33,8 @@ export default function Page() {
         <h2>What &quot;non-custodial&quot; actually means</h2>
         <p>
           Non-custodial means the keys that can move funds never leave the
-          wallets your team controls. No third party — including the
-          software vendor you signed in with — can sign a transaction on
+          wallets your team controls. No third party, including the
+          software vendor you signed in with, can sign a transaction on
           your behalf or freeze your assets. If the vendor disappeared
           tomorrow, you would still control every dollar.
         </p>
@@ -71,7 +71,7 @@ export default function Page() {
           <li>
             <strong>Insider risk.</strong> A custodial or MPC vendor
             employee with the wrong access can move funds. Multisig means
-            no single party — internal or external — can act alone.
+            no single party, internal or external, can act alone.
           </li>
           <li>
             <strong>Regulatory clarity.</strong> Non-custodial software is
@@ -92,7 +92,7 @@ export default function Page() {
         <h2>Where the line gets blurry</h2>
         <p>
           A non-custodial tool can still hold <em>data</em> about your
-          treasury — balances, labels, simulation history — without
+          treasury (balances, labels, simulation history) without
           holding keys. That&apos;s fine. The custody test is signing
           authority, not data access. The risk to watch is &quot;agentic&quot;
           products that quietly take a signing key &quot;to automate&quot;.

@@ -6,7 +6,7 @@ import { DNS_AID_RECORDS, DNS_AID_ZONE, svcbValue } from "@/lib/dns-aid/records"
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-  title: "DNS-AID publisher — dreyv",
+  title: "DNS-AID publisher: dreyv",
   description:
     "One-click publish of the six DNS-AID SVCB records for dreyv.com to Cloudflare. Team-only.",
   robots: { index: false, follow: false },
@@ -27,7 +27,7 @@ export default function DnsAidAdminPage() {
         <p className="mt-4 max-w-2xl text-base text-slate-600">
           This is the one-click version of the manual Cloudflare flow. It calls the Cloudflare API
           with the project&apos;s scoped <code className="rounded bg-violet-50 px-1.5 py-0.5 text-xs">Zone:DNS:Edit</code> token and
-          idempotently upserts the six SVCB records below. Safe to re-run — existing records that
+          idempotently upserts the six SVCB records below. Safe to re-run: existing records that
           already match are left untouched, stale duplicates are removed.
         </p>
 
@@ -36,7 +36,7 @@ export default function DnsAidAdminPage() {
           <p className="mt-4 text-xs text-slate-600">
             Requires <code>CLOUDFLARE_API_TOKEN</code> and <code>CLOUDFLARE_ZONE_ID</code> set as
             project secrets. SVCB records are written with proxy <strong>off</strong> (DNS-only,
-            grey cloud) — Cloudflare&apos;s orange-cloud proxy doesn&apos;t support SVCB.
+            grey cloud): Cloudflare&apos;s orange-cloud proxy doesn&apos;t support SVCB.
           </p>
         </section>
 

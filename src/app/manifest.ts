@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "dreyv — AI treasury workspace",
+    name: "dreyv: AI treasury workspace",
     short_name: "dreyv",
     description:
       "Non-custodial treasury workspace: intent, simulation, and multisig signing on Solana.",
