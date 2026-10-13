@@ -4,8 +4,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { FEATURED_CASES } from "@/lib/case-study/featured";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";

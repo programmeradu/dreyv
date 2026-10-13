@@ -19,13 +19,13 @@ export const metadata: Metadata = {
     title: `${pricingTitle} | dreyv: Free, Mini, Max`,
     description: pricingDescription,
     siteName: "dreyv",
-    images: [{ url: "/og/pricing.png", width: 1200, height: 630, alt: "dreyv pricing" }],
+    images: [{ url: "/og/pricing.jpg", width: 1200, height: 630, alt: "dreyv pricing" }],
   },
   twitter: {
     card: "summary_large_image",
     title: `${pricingTitle} | dreyv: Free, Mini, Max`,
     description: pricingDescription,
-    images: ["/og/pricing.png"],
+    images: ["/og/pricing.jpg"],
   },
 };
 

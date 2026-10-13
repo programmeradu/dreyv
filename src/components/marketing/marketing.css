@@ -1420,3 +1420,13 @@ a:hover .mk-arrow {
 .mk-anchor {
   scroll-margin-top: 24px;
 }
+
+/* Header and footer used on pages that keep their older body styles. */
+.mk.mk-chrome {
+  min-height: 0;
+  background: transparent;
+}
+.mk.mk-chrome .mk-header {
+  background: var(--mk-paper);
+  border-bottom: 1px solid var(--mk-rule);
+}

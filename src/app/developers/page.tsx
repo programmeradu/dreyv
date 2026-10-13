@@ -34,13 +34,13 @@ export const metadata: Metadata = {
     description: `${CAP_COUNT} typed capabilities. One Bearer key. REST and MCP, OpenAPI, x402, ACP, UCP, ai-plugin, llms.txt.`,
     url: "/developers",
     type: "website",
-    images: [{ url: "/og/developers.png", width: 1200, height: 630, alt: "dreyv developers" }],
+    images: [{ url: "/og/developers.jpg", width: 1200, height: 630, alt: "dreyv developers" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "dreyv: MCP server and REST API",
     description: `${CAP_COUNT} Web3 tools in one MCP server. Connect Claude, Cursor or any agent.`,
-    images: ["/og/developers.png"],
+    images: ["/og/developers.jpg"],
   },
 };
 

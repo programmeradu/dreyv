@@ -10,8 +10,7 @@ import { notFound } from "next/navigation";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { buildCaseStudy } from "@/lib/case-study/builder";
 import { findFeatured } from "@/lib/case-study/featured";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { CaseStudyReportView } from "@/components/case-study/CaseStudyReportView";
 
 export const dynamic = "force-dynamic";

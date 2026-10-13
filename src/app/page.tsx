@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: "dreyv",
     images: [
       {
-        url: "/og/dreyv-og.png",
+        url: "/og/dreyv-og.jpg",
         width: 1200,
         height: 630,
         alt: "Know what you\u2019re signing. Three violet wax seals on paper, two pressed and one waiting.",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: ogTitle,
     description,
-    images: ["/og/dreyv-og.png"],
+    images: ["/og/dreyv-og.jpg"],
   },
 };
 

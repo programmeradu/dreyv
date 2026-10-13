@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { listPublicCapabilities, type Pillar } from "@/lib/capabilities/registry";
 // Phase 28 — Pillar AL ("insights") added to PILLAR_LABEL / PILLAR_ORDER below.
 import { ArrowUpRight, KeyRound } from "lucide-react";

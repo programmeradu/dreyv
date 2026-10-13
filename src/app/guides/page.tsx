@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: `${TITLE} | dreyv`,
     description: DESCRIPTION,
     type: "website",
-    images: [{ url: "/og/guides.png", width: 1200, height: 630, alt: "dreyv guides" }],
+    images: [{ url: "/og/guides.jpg", width: 1200, height: 630, alt: "dreyv guides" }],
   },
 };
 

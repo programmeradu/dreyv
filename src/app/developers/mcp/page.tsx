@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     title: "dreyv MCP server",
     description: "Streamable HTTP MCP server with simulation, forensics, intents and agent primitives across chains.",
     url: "/developers/mcp",
-    images: [{ url: "/og/developers.png", width: 1200, height: 630, alt: "dreyv MCP server" }],
+    images: [{ url: "/og/developers.jpg", width: 1200, height: 630, alt: "dreyv MCP server" }],
   },
 };
 

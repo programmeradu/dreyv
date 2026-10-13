@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: "dreyv compared with Squads, Jupiter and Birdeye",
     description: "Side by side: plain-language intent, simulation before signing, non-custodial, multisig-native.",
     url: "/compare",
-    images: [{ url: "/og/compare.png", width: 1200, height: 630, alt: "dreyv compared" }],
+    images: [{ url: "/og/compare.jpg", width: 1200, height: 630, alt: "dreyv compared" }],
   },
 };
 

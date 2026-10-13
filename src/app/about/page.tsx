@@ -16,7 +16,7 @@ export const metadata: Metadata = {
       "Independent software company building a non-custodial treasury workspace for Solana teams. Founded 2025, Nicosia, Cyprus.",
     url: `${getSiteOrigin()}/about`,
     type: "website",
-    images: [{ url: "/og/about.png", width: 1200, height: 630, alt: "About dreyv" }],
+    images: [{ url: "/og/about.jpg", width: 1200, height: 630, alt: "About dreyv" }],
   },
   robots: { index: true, follow: true },
 };

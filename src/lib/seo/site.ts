@@ -24,9 +24,10 @@ export function getSiteOrigin(): string {
 export function getRequestOrigin(req?: Request): string {
   if (req) {
     const fHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
-    const fProto = req.headers.get("x-forwarded-proto") || "https";
     if (fHost && !fHost.includes("0.0.0.0") && !fHost.includes("127.0.0.1") && !fHost.includes("localhost")) {
-      return `${fProto}://${fHost}`;
+      // Public hosts are always served over TLS. The container proxy forwards plain http
+      // internally, so never trust x-forwarded-proto here: discovery URLs must be https.
+      return `https://${fHost}`;
     }
   }
   return getSiteOrigin();

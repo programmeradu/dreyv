@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: `${getSiteOrigin()}/waitlist`,
     type: "website",
-    images: [{ url: "/og/waitlist.png", width: 1200, height: 630, alt: "Join the dreyv waitlist" }],
+    images: [{ url: "/og/waitlist.jpg", width: 1200, height: 630, alt: "Join the dreyv waitlist" }],
   },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/og/waitlist.png"] },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/og/waitlist.jpg"] },
 };
 
 const steps = [

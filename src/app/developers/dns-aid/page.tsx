@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { DnsAidPublishButton } from "@/components/developers/DnsAidPublishButton";
 import { DNS_AID_RECORDS, DNS_AID_ZONE, svcbValue } from "@/lib/dns-aid/records";
 import { DreyvStar } from "@/components/studio/DreyvStar";
