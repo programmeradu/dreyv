@@ -783,7 +783,6 @@
 .hx-caption {
   margin: 14px 0 0;
   font-family: var(--mk-serif), Georgia, serif;
-  font-style: italic;
   font-size: 15px;
   line-height: 1.4;
   color: var(--mk-ink-3);
@@ -818,19 +817,17 @@
   padding: 0;
 }
 .hx-quotes li {
-  font-family: var(--mk-serif), Georgia, serif;
-  font-variation-settings: "opsz" 60;
-  font-style: italic;
-  font-weight: 350;
-  font-size: clamp(26px, 3.4vw, 46px);
-  line-height: 1.18;
+  font-family: var(--mk-sans), system-ui, sans-serif;
+  font-weight: 500;
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.4;
   letter-spacing: -0.01em;
   color: var(--mk-violet);
   text-indent: -0.42em;
   padding-left: 0.42em;
 }
 .hx-quotes li + li {
-  margin-top: 0.22em;
+  margin-top: 0.5em;
 }
 
 /* Proof */
