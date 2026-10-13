@@ -56,9 +56,7 @@ export default function DevelopersMcpPage() {
         title="Connect your agent to dreyv over MCP."
         sub={
           <>
-            dreyv&rsquo;s MCP server speaks Streamable HTTP at /api/mcp and exposes all {CAP_COUNT} capabilities from our
-            typed registry as MCP tools: identity, portfolio, treasury, market, execution, forensics, simulation,
-            intents, x402 and foresight.
+            Streamable HTTP at /api/mcp. All {CAP_COUNT} capabilities from our typed registry, exposed as MCP tools.
           </>
         }
         actions={
@@ -109,6 +107,7 @@ export default function DevelopersMcpPage() {
               Tools exposed
             </h2>
             <p className="mk-body" style={{ marginTop: 18 }}>
+              Identity, portfolio, treasury, market, execution, forensics, simulation, intents, x402 and foresight.{" "}
               <span className="mk-tnum">{caps.length}</span> tools, each with its scope. The same list is public at{" "}
               <a href="/api/mcp/manifest" className="mk-link">
                 /api/mcp/manifest

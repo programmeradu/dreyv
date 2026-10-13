@@ -19,20 +19,20 @@ export const PAGE_ART: Record<ArtKey, ArtInfo> = {
     bg: "#e3dcd2",
   },
   developers: {
-    alt: "A neat coil of violet braided cable ending in a brass connector, lying on cotton paper.",
-    bg: "#eeeae2",
+    alt: "A small coil of violet braided cable with a brass connector at its centre, on cotton paper.",
+    bg: "#edece8",
   },
   compare: {
-    alt: "Two ivory envelopes side by side on cotton paper, the right one crossed by a violet ribbon.",
-    bg: "#eae5d8",
+    alt: "Two folded ivory letters side by side on cotton paper, the right one crossed by a violet ribbon.",
+    bg: "#eceae4",
   },
   waitlist: {
     alt: "A single ivory envelope closed with a violet wax seal on cotton paper.",
-    bg: "#f0ece3",
+    bg: "#efebe2",
   },
   guides: {
     alt: "An open book with blank ivory pages and a violet ribbon bookmark.",
-    bg: "#ded4c2",
+    bg: "#dad5cc",
   },
 };
 

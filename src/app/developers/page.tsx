@@ -202,7 +202,7 @@ export default function DevelopersPage() {
       <PageHero
         art="developers"
         title="Connect your agent to dreyv."
-        sub={`${CAP_COUNT} typed capabilities behind one Bearer key: identity, portfolio, market, execution, forensics, foresight, x402 payments and agent primitives. Served as a Streamable HTTP MCP server and a typed REST API, generated from the same registry so they never drift.`}
+        sub={`${CAP_COUNT} typed capabilities behind one Bearer key, served as an MCP server and a typed REST API.`}
         actions={
           <>
             <Link href="/developers/mcp" className="mk-btn mk-btn-solid">
@@ -231,8 +231,12 @@ export default function DevelopersPage() {
               Four surfaces. One registry.
             </h2>
             <p className="mk-body" style={{ marginTop: 18 }}>
-              Pick the transport that fits the agent you&rsquo;re building. Every surface speaks the same typed
-              capability registry, so REST and MCP never drift.
+              {CAP_COUNT} typed capabilities in one Bearer key: identity, portfolio, market, execution, forensics,
+              foresight, x402 payments and agent primitives. Shipped as a Streamable HTTP MCP server and a typed REST
+              API, generated from the same registry so they never drift.
+            </p>
+            <p className="mk-body" style={{ marginTop: 14 }}>
+              Pick the transport that fits the agent you&rsquo;re building.
             </p>
           </div>
           <ul className="mk-list">

@@ -45,7 +45,7 @@ export default function WaitlistPage() {
       <PageHero
         art="waitlist"
         title="Join the waitlist."
-        sub="dreyv is the non-custodial treasury workspace for teams that want intent, plan, simulation and signing in one place. We onboard in small cohorts so every account gets a real walkthrough. Tell us about your stack and we\u2019ll send a seat when your slot opens."
+        sub="We onboard in small cohorts so every account gets a real walkthrough. Tell us about your stack and we\u2019ll send a seat when your slot opens."
         actions={
           <a href="#request" className="mk-btn mk-btn-solid">
             Request your seat
@@ -60,8 +60,9 @@ export default function WaitlistPage() {
             <h2 id="request-h" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
               Request your seat
             </h2>
-            <p className="mk-body" style={{ marginTop: 14 }}>
-              A few details so we can place you in the right cohort.
+            <p className="mk-body mk-measure mk-center" style={{ marginTop: 14 }}>
+              dreyv is the non-custodial treasury workspace for teams that want intent, plan, simulation and signing in
+              one place. A few details so we can place you in the right cohort.
             </p>
           </div>
           <div style={{ marginTop: "clamp(32px, 5vh, 48px)" }}>
