@@ -1,51 +1,47 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
-import { CodeBlock } from "@/components/ui/code-block";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { PageHero } from "@/components/marketing/page-hero";
+import { CopyCode } from "@/components/marketing/copy-code";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";
-import { ArrowUpRight, KeyRound, Terminal } from "lucide-react";
-import { DreyvStar } from "@/components/studio/DreyvStar";
-import { DreyvMascot } from "@/components/brand/dreyv-mascot";
-import devCrystal from "@/assets/dev-crystal.png";
+
+const CAP_COUNT = listPublicCapabilities().length;
 
 export const metadata: Metadata = {
-  title: "Dreyv MCP server — connect any AI agent to Web3",
-  description:
-    "Dreyv exposes the entire Web3 capability surface as an MCP server over Streamable HTTP. Drop it into Claude Desktop, Cursor, or any MCP-aware agent with one Bearer key.",
+  title: "dreyv MCP server: connect any agent to Web3",
+  description: `dreyv exposes ${CAP_COUNT} Web3 tools as an MCP server over Streamable HTTP. Add it to Claude Desktop, Cursor or any MCP-aware agent with one Bearer key.`,
   alternates: { canonical: "/developers/mcp" },
   openGraph: {
-    title: "Dreyv MCP server",
-    description: "Streamable HTTP MCP server with simulation, forensics, intents, and agentic primitives across chains.",
+    title: "dreyv MCP server",
+    description: "Streamable HTTP MCP server with simulation, forensics, intents and agent primitives across chains.",
     url: "/developers/mcp",
+    images: [{ url: "/og/developers.jpg", width: 1200, height: 630, alt: "dreyv MCP server" }],
   },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://dreyv.com/" },
+    { "@type": "ListItem", position: 2, name: "Developers", item: "https://dreyv.com/developers" },
+    { "@type": "ListItem", position: 3, name: "MCP server", item: "https://dreyv.com/developers/mcp" },
+  ],
 };
 
 export default function DevelopersMcpPage() {
   const caps = listPublicCapabilities();
 
   const claude = JSON.stringify(
-    {
-      mcpServers: {
-        dreyv: {
-          url: "https://dreyv.com/api/mcp",
-          headers: { Authorization: "Bearer dk_live_YOUR_KEY" },
-        },
-      },
-    },
+    { mcpServers: { dreyv: { url: "https://dreyv.com/api/mcp", headers: { Authorization: "Bearer dk_live_YOUR_KEY" } } } },
     null,
     2,
   );
-
   const cursor = JSON.stringify(
     {
       mcpServers: {
-        dreyv: {
-          url: "https://dreyv.com/api/mcp",
-          transport: "http",
-          headers: { Authorization: "Bearer dk_live_YOUR_KEY" },
-        },
+        dreyv: { url: "https://dreyv.com/api/mcp", transport: "http", headers: { Authorization: "Bearer dk_live_YOUR_KEY" } },
       },
     },
     null,
@@ -53,121 +49,110 @@ export default function DevelopersMcpPage() {
   );
 
   return (
-    <div className="dreyv-marketing-root relative min-h-dvh w-full font-manrope bg-white text-slate-900">
-      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-        <div className="absolute -top-32 -right-40 h-[520px] w-[520px] rounded-full bg-violet-300/30 blur-3xl" />
-        <div className="absolute top-1/3 -left-40 h-[440px] w-[440px] rounded-full bg-violet-400/15 blur-3xl" />
-      </div>
+    <MarketingShell header={<SiteHeader overlay current="/developers" />}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <PageHero
+        art="developers"
+        title="Connect your agent to dreyv over MCP."
+        sub={
+          <>
+            Streamable HTTP at /api/mcp. All {CAP_COUNT} capabilities from our typed registry, exposed as MCP tools.
+          </>
+        }
+        actions={
+          <>
+            <Link href="/auth?redirect=/app/developer" className="mk-btn mk-btn-solid">
+              Mint a key
+            </Link>
+            <Link href="/developers/api" className="mk-btn mk-btn-outline">
+              REST reference
+            </Link>
+          </>
+        }
+      />
 
-      <div className="relative z-10">
-        <SiteHeader />
-
-        <main className="mx-auto max-w-5xl px-5 sm:px-8 py-16 sm:py-24">
-          <header className="mb-12 grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-8 items-center">
+      <section className="mk-section" aria-labelledby="install">
+        <div className="mk-wrap">
+          <h2 id="install" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)", textAlign: "center" }}>
+            Install
+          </h2>
+          <div className="mk-two" style={{ marginTop: "clamp(32px, 5vh, 48px)" }}>
             <div>
-              <div className="flex items-center gap-2.5">
-                <DreyvStar size={11} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv MCP server · {caps.length}+ tools</span>
+              <h3 className="mk-h4">Claude Desktop</h3>
+              <div style={{ marginTop: 12 }}>
+                <CopyCode code={claude} label="Claude Desktop configuration" />
               </div>
-              <h1 className="mt-3 text-[40px] sm:text-[56px] leading-[1.04] font-semibold tracking-[-0.02em]">
-                Plug any agent into <span className="italic font-light text-violet-600">all of Web3</span>.
-              </h1>
-              <p className="mt-4 text-[15px] text-slate-600 max-w-2xl leading-relaxed">
-                Dreyv's MCP server speaks Streamable HTTP at <code className="font-mono text-violet-700">/api/mcp</code> and
-                exposes every capability from our typed registry as an MCP tool — identity, portfolio, treasury, market,
-                execution, forensics, simulation, intents, x402, and agentic foresight.
+              <p className="mk-small" style={{ marginTop: 12 }}>
+                Paste into <code className="mk-mono">~/Library/Application Support/Claude/claude_desktop_config.json</code>{" "}
+                and restart Claude.
               </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Link
-                  href="/auth?redirect=/app/developer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition"
-                >
-                  <KeyRound size={13} /> Mint a key
-                </Link>
-                <Link
-                  href="/developers/api"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 text-[12px] font-semibold transition"
-                >
-                  REST reference <ArrowUpRight size={13} />
-                </Link>
-              </div>
             </div>
-            <div className="hidden lg:flex justify-end relative">
-              <Image src={devCrystal} alt="" width={200} height={200} className="opacity-90" />
-              <div className="absolute -bottom-2 -left-2">
-                <DreyvMascot pose="greet" size={120} alt="Dreyv mascot" />
+            <div>
+              <h3 className="mk-h4">Cursor</h3>
+              <div style={{ marginTop: 12 }}>
+                <CopyCode code={cursor} label="Cursor configuration" />
               </div>
+              <p className="mk-small" style={{ marginTop: 12 }}>
+                In Cursor, open Settings, then MCP, then Add server, and paste the JSON above.
+              </p>
             </div>
-          </header>
+          </div>
+        </div>
+      </section>
 
-          {/* Install */}
-          <section className="grid md:grid-cols-2 gap-4 mb-14">
-            <div className="rounded-3xl border border-violet-100 bg-white overflow-hidden">
-              <div className="px-6 py-4 border-b border-violet-100 flex items-center gap-2.5">
-                <Terminal size={14} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Claude Desktop</span>
-              </div>
-              <div className="p-5">
-                <CodeBlock language="json" wrap dense>{claude}</CodeBlock>
-                <p className="mt-3 text-[11px] text-slate-500">
-                  Paste into <code className="font-mono text-violet-700">~/Library/Application Support/Claude/claude_desktop_config.json</code> and restart Claude.
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-violet-100 bg-white overflow-hidden">
-              <div className="px-6 py-4 border-b border-violet-100 flex items-center gap-2.5">
-                <Terminal size={14} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Cursor</span>
-              </div>
-              <div className="p-5">
-                <CodeBlock language="json" wrap dense>{cursor}</CodeBlock>
-                <p className="mt-3 text-[11px] text-slate-500">
-                  Cursor → Settings → MCP → Add server, paste the JSON above.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Tools */}
-          <section className="mb-12">
-            <h2 className="text-[22px] sm:text-[24px] font-semibold tracking-[-0.01em] text-slate-900 mb-4">
+      <section className="mk-section mk-bg-light" aria-labelledby="tools">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="tools" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
               Tools exposed
             </h2>
-            <div className="grid gap-3">
-              {caps.map((c) => (
-                <div key={c.id} className="rounded-2xl border border-violet-100 bg-white p-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <code className="font-mono text-[12px] font-semibold text-violet-700 break-all">
-                        {c.mcpName}
-                      </code>
-                      <h3 className="mt-2 text-[15px] font-semibold text-slate-900">{c.title}</h3>
-                      <p className="mt-1 text-[12.5px] text-slate-600 leading-relaxed">{c.description}</p>
-                    </div>
-                    <code className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full border border-violet-100 bg-violet-50/60 text-violet-700 text-[10px] font-mono">
-                      scope: {c.scope}
-                    </code>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-violet-100 bg-white p-6">
-            <h3 className="text-[16px] font-semibold text-slate-900">Transport notes</h3>
-            <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">
-              The Dreyv MCP server speaks Streamable HTTP per the MCP spec. POST requests must include
-              <code className="font-mono text-violet-700"> Accept: application/json, text/event-stream</code>. Rate
-              limits, scope enforcement, and per-key usage metering are identical to the REST surface — both
-              transports share the same typed capability registry.
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              Identity, portfolio, treasury, market, execution, forensics, simulation, intents, x402 and foresight.{" "}
+              <span className="mk-tnum">{caps.length}</span> tools, each with its scope. The same list is public at{" "}
+              <a href="/api/mcp/manifest" className="mk-link">
+                /api/mcp/manifest
+              </a>
+              .
             </p>
-          </section>
-        </main>
+          </div>
+          <ul className="mk-list">
+            {caps.map((c) => (
+              <li key={c.id} className="mk-row">
+                <span>
+                  <code className="mk-mono" style={{ color: "var(--mk-violet)", fontSize: 14, fontWeight: 600, display: "block" }}>
+                    {c.mcpName}
+                  </code>
+                  <span className="mk-small" style={{ display: "block", marginTop: 4 }}>
+                    scope: {c.scope}
+                  </span>
+                </span>
+                <span>
+                  <span className="mk-h4" style={{ display: "block" }}>
+                    {c.title}
+                  </span>
+                  <span className="mk-body" style={{ display: "block", fontSize: 15.5, marginTop: 4 }}>
+                    {c.description}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
-        <SiteFooter />
-      </div>
-    </div>
+      <section className="mk-section mk-night" aria-labelledby="transport">
+        <div className="mk-wrap-text mk-center">
+          <h2 id="transport" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+            Transport notes
+          </h2>
+          <p className="mk-lede" style={{ marginTop: 20 }}>
+            The dreyv MCP server speaks Streamable HTTP per the MCP spec. POST requests must include{" "}
+            <code className="mk-mono">Accept: application/json, text/event-stream</code>. Rate limits, scope enforcement
+            and per-key usage metering are identical to the REST surface. Both transports share the same typed
+            capability registry.
+          </p>
+        </div>
+      </section>
+    </MarketingShell>
   );
 }

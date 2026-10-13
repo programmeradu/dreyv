@@ -1,7 +1,7 @@
 "use client";
 
 import { DreyvLogoLight } from "@/components/brand/dreyv-logo-light";
-import { FaDiscord, FaGithub, FaLinkedin, FaTwitter } from "react-icons/fa6";
+import { FaLinkedin, FaTwitter } from "react-icons/fa6";
 import { SiCrunchbase } from "react-icons/si";
 import { marketingSectionDivider } from "./marketing-styles";
 
@@ -53,7 +53,7 @@ const developerLinks = [
 const companyLinks = [
   { label: "About", href: "/about" },
   { label: "Documentation", href: "/developers/docs" },
-  { label: "Contact", href: "mailto:hello@dreyv.com" },
+  { label: "Contact", href: "mailto:hello@dreyv.app" },
 ];
 
 const legalLinks = [
@@ -77,13 +77,19 @@ export function SiteFooter() {
               <DreyvLogoLight variant="footer" className="hover:opacity-90 transition-opacity" />
             </a>
             <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
-              Treasury command layer for Solana teams — intent, simulation, readable impact, then multisig sign.
-              Non-custodial.
+              Treasury operations for teams on Solana, simulated before anyone signs. Non-custodial.
             </p>
             <address className="not-italic mt-4 text-xs text-slate-500 leading-relaxed max-w-xs">
               <div className="font-semibold text-slate-700">dreyv</div>
               <div>Nicosia, Cyprus</div>
               <div className="mt-1">
+                General:{" "}
+                <a href="mailto:hello@dreyv.app" className="hover:text-violet-700 transition-colors">
+                  hello@dreyv.app
+                </a>
+              </div>
+              <div>
+                Samuel:{" "}
                 <a href="mailto:samuel@dreyv.com" className="hover:text-violet-700 transition-colors">
                   samuel@dreyv.com
                 </a>
@@ -202,27 +208,6 @@ export function SiteFooter() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div
-              className="rounded-xl border border-violet-200/50 bg-gradient-to-b from-white/85 to-violet-50/40 p-2 shadow-[0_2px_14px_-4px_rgba(91,33,182,0.18)] backdrop-blur-sm ring-1 ring-violet-100/40 dark:border-violet-500/20 dark:from-slate-900/80 dark:to-violet-950/30 dark:ring-violet-500/10"
-            >
-              <a
-                href="https://www.producthunt.com/products/dreyv?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-dreyv"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex shrink-0 rounded-lg transition-[opacity,transform] hover:opacity-95 active:scale-[0.99]"
-                aria-label="dreyv on Product Hunt — featured badge"
-              >
-                <img
-                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1126334&theme=dark&t=1776453903138"
-                  alt="dreyv - Manage your web3 treasury like you are texting your friend. | Product Hunt"
-                  width={250}
-                  height={54}
-                  className="h-auto w-[250px] max-w-full rounded-md"
-                />
-              </a>
-            </div>
-
-            <a href="https://thankjohn.com" target="_blank"><img src="https://thankjohn.com/badge.png" alt="THANK JOHN AI Tools" height="54" /></a>
 
           <div className="flex items-center gap-4">
             <a
@@ -242,24 +227,6 @@ export function SiteFooter() {
               className="text-slate-400 hover:text-violet-600 transition-colors"
             >
               <FaLinkedin size={14} />
-            </a>
-            <a
-              href="https://discord.gg/keystone"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="dreyv Discord"
-              className="text-slate-400 hover:text-violet-600 transition-colors"
-            >
-              <FaDiscord size={14} />
-            </a>
-            <a
-              href="https://github.com/keystone-org"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="dreyv on GitHub"
-              className="text-slate-400 hover:text-violet-600 transition-colors"
-            >
-              <FaGithub size={14} />
             </a>
             <a
               href="https://www.crunchbase.com/organization/dreyv"

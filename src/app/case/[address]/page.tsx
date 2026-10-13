@@ -10,8 +10,7 @@ import { notFound } from "next/navigation";
 import { isValidSolanaAddress } from "@/lib/atlas-utils";
 import { buildCaseStudy } from "@/lib/case-study/builder";
 import { findFeatured } from "@/lib/case-study/featured";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { CaseStudyReportView } from "@/components/case-study/CaseStudyReportView";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ address: 
   const featured = findFeatured(address);
   const label = featured?.label ?? `${address.slice(0, 4)}…${address.slice(-4)}`;
   return {
-    title: `${label} — Dreyv case study`,
-    description: `Counterfactual analysis: what Dreyv would have caught on ${label}. Live on-chain data — idle yield, fee leak, concentration risk, approval hygiene.`,
+    title: `${label} — dreyv case study`,
+    description: `Counterfactual analysis: what dreyv would have caught on ${label}. Live on-chain data — idle yield, fee leak, concentration risk, approval hygiene.`,
     alternates: { canonical: `/case/${address}` },
     openGraph: {
-      title: `${label} — Dreyv case study`,
+      title: `${label} — dreyv case study`,
       description: "Counterfactual treasury analysis on live public on-chain data.",
     },
     robots: { index: true, follow: true },

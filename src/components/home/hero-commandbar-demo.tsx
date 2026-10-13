@@ -51,7 +51,7 @@ export function HeroCommandbarDemo() {
       <form
         onSubmit={onSubmit}
         toolname="preview-solana-wallet"
-        tooldescription="Open a read-only Dreyv portfolio preview for any Solana wallet address."
+        tooldescription="Open a read-only dreyv portfolio preview for any Solana wallet address."
         toolautosubmit="false"
         className="relative rounded-2xl bg-white ring-1 ring-slate-200/80 marketing-shadow-float p-2.5"
       >

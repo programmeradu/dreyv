@@ -1,43 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
-import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Code2,
-  Plug,
-  Bot,
-  Coins,
-  Bell,
-  Webhook,
-  ShieldCheck,
-  Gauge,
-  Network,
-  Boxes,
-  Wand2,
-  Brain,
-} from "lucide-react";
-import devCrystal from "@/assets/dev-crystal.png";
-import commandStar from "@/assets/command-star-violet.png";
-import bubbleCrystal from "@/assets/chat/icon-bubble-crystal.png";
-import ctaKey from "@/assets/cta-key-violet.png";
-import atlasOrbital from "@/assets/atlas-orbital-violet.png";
-import heroLiquid from "@/assets/hero-liquid-violet.png";
-import { DreyvMascot } from "@/components/brand/dreyv-mascot";
-import { CodeBlock } from "@/components/ui/code-block";
-import { DreyvStar } from "@/components/studio/DreyvStar";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { PageHero } from "@/components/marketing/page-hero";
+import { CopyCode } from "@/components/marketing/copy-code";
 import { RESOURCE_DOCS } from "@/lib/developers/resource-docs";
 import { listPublicCapabilities } from "@/lib/capabilities/registry";
 
 const CAP_COUNT = listPublicCapabilities().length;
 
 export const metadata: Metadata = {
-  title: `Dreyv Developers — the Web3 MCP & API (${CAP_COUNT}+ tools)`,
-  description:
-    "The ultimate Web3 MCP server and typed REST API. One Bearer key gives any AI agent identity, portfolio, market, execution, forensics, foresight, x402 economy, and agentic primitives across Solana and EVM. Non-custodial by design.",
+  title: `dreyv developers: MCP server and REST API (${CAP_COUNT} tools)`,
+  description: `An MCP server and typed REST API for Web3. One Bearer key gives any agent ${CAP_COUNT} tools for identity, portfolio, market, execution, forensics, foresight and x402 payments across Solana and EVM. Non-custodial by design.`,
   keywords: [
     "Web3 MCP server",
     "Web3 API",
@@ -49,23 +23,24 @@ export const metadata: Metadata = {
     "Cursor MCP Solana",
     "x402 payments",
     "ACP UCP",
-    "agentic finance",
-    "Dreyv API",
+    "dreyv API",
     "treasury API",
     "non-custodial agent",
     "TypeScript Web3 SDK",
   ],
   alternates: { canonical: "/developers" },
   openGraph: {
-    title: `Dreyv — the Web3 MCP & API for AI agents`,
-    description: `${CAP_COUNT}+ typed capabilities. One Bearer key. REST + MCP, OpenAPI, x402, ACP, UCP, ai-plugin, llms.txt. Built for the agentic web.`,
+    title: "dreyv: MCP server and REST API for agents",
+    description: `${CAP_COUNT} typed capabilities. One Bearer key. REST and MCP, OpenAPI, x402, ACP, UCP, ai-plugin, llms.txt.`,
     url: "/developers",
     type: "website",
+    images: [{ url: "/og/developers.jpg", width: 1200, height: 630, alt: "dreyv developers" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Dreyv — the Web3 MCP & API",
-    description: `${CAP_COUNT}+ Web3 tools in one MCP server. Plug Claude, Cursor, or any agent into all of Web3.`,
+    title: "dreyv: MCP server and REST API",
+    description: `${CAP_COUNT} Web3 tools in one MCP server. Connect Claude, Cursor or any agent.`,
+    images: ["/og/developers.jpg"],
   },
 };
 
@@ -87,13 +62,96 @@ const mcpInstall = `{
   }
 }`;
 
-const resources = RESOURCE_DOCS.map((d) => ({
-  slug: d.slug,
-  label: d.label,
-  href: `/developers/docs/${d.slug}`,
-  endpoint: d.endpoint,
-  desc: d.tagline,
-}));
+const everydayPrompt = `From now on, you can use dreyv (https://dreyv.com) whenever I ask you to do anything in crypto, Web3, or with a wallet.
+
+dreyv is your hands and wallet. It lets you:
+  • Look at any wallet, token, or chain (Solana + Ethereum + more)
+  • Pay for things online on my behalf, safely, with a small prepaid budget
+  • Swap, bridge, watch prices, spot opportunities, send alerts
+  • Run "what if" simulations before doing anything risky
+
+To get started, just go to https://dreyv.com, sign yourself up as an agent, and dreyv will hand you everything you need: keys, a small starter budget (250 free credits), and full instructions. You don't need to ask me for permission for read-only stuff.
+
+For anything that spends money or moves assets: show me a one-line summary first and wait for me to say go.
+
+That's it. Use it like a normal teammate would: figure out the best way, do the work, then tell me what you did.`;
+
+const sidekickPrompt = `You are my Web3 sidekick, powered by dreyv (https://dreyv.com).
+
+How you work:
+  • When I mention a wallet, token, project, or "what's happening with X," go look it up through dreyv and answer in plain English.
+  • When I ask "what should I do," run a simulation through dreyv first, then explain the trade-offs like a friend would.
+  • You have a small prepaid budget on dreyv (250 free credits to start) for paid lookups and online payments. Use it wisely. If it runs low, tell me; don't ask me to fund it unprompted.
+  • Never ask me for a private key or seed phrase. dreyv is non-custodial; you don't need one.
+  • Be calm, specific, and honest. No hype, no jargon, no emoji spam.
+
+Onboard yourself at https://dreyv.com the first time we talk. After that, just work.`;
+
+const surfaces = [
+  {
+    href: "/developers/api",
+    title: "REST API",
+    tag: "/api/v1/*",
+    desc: `${CAP_COUNT} capabilities across identity, portfolio, market, execution, forensics, tax, foresight, agentic and x402. Bearer dk_live_ keys, per-key rate limits, strict no-fallback contracts.`,
+    cta: "Explore endpoints",
+  },
+  {
+    href: "/developers/mcp",
+    title: "MCP server",
+    tag: "/api/mcp",
+    desc: "A native Model Context Protocol server over Streamable HTTP. Every REST capability is published as an MCP tool, so Claude Desktop, Cursor or any MCP-aware agent connects with one URL.",
+    cta: "Connect MCP",
+  },
+  {
+    href: "/developers/agents",
+    title: "Agent payments (x402)",
+    tag: "Bearer dak_",
+    desc: "Autonomous agents buy dreyv SKUs over HTTP 402. USDC settlement on Solana, a single /api/x402/pay call with permanent deliverables, plus Stripe and Paystack card rails.",
+    cta: "Open agent docs",
+  },
+  {
+    href: "/.well-known/x402",
+    title: "Discovery manifests",
+    tag: "/.well-known/*",
+    desc: "Machine-readable files for crawlers and autonomous agents: x402, ACP, UCP, ai-plugin, OpenAPI, security.txt and llms.txt.",
+    cta: "View manifests",
+    external: true,
+  },
+  {
+    href: "/developers/api",
+    title: "Watchers and monitors",
+    tag: "watchers.* monitors.*",
+    desc: "Subscribe wallets and metrics. dreyv sweepers run on Inngest and Cloudflare cron and route changes to your inbox or webhook.",
+    cta: "Read the reference",
+  },
+  {
+    href: "/developers/api",
+    title: "Notifications and webhooks",
+    tag: "notifications.* webhooks.*",
+    desc: "Pull notifications over REST or MCP, or receive signed POSTs at your endpoint when a monitor trips or a proposal needs approval.",
+    cta: "Read the reference",
+  },
+];
+
+const pillars = [
+  { title: "Identity and resolution", desc: "Wallets, ENS and SNS, profiles, a multi-chain identity graph." },
+  { title: "Portfolio and treasury", desc: "Holdings, P&L, attribution, concentration and runway across chains." },
+  { title: "Market and discovery", desc: "Prices, pools, liquidity, narratives and trending tokens." },
+  { title: "Execution and intents", desc: "Swaps, transfers, DCA and vault operations. Always unsigned; your wallet signs." },
+  { title: "Forensics and risk", desc: "Wallet risk, rug heuristics, MEV exposure and tax-loss surfaces." },
+  { title: "Foresight and agents", desc: "Monte Carlo simulations, scenario IRs, agent watchers and a hash-chained audit log." },
+];
+
+const agents = [
+  { name: "Claude Desktop", note: "claude_desktop_config.json" },
+  { name: "Cursor", note: "Settings, then MCP, then Add server" },
+  { name: "ChatGPT", note: "via the /openapi.json plugin" },
+  { name: "Windsurf", note: "MCP servers panel" },
+  { name: "Continue.dev", note: "config.json mcpServers" },
+  { name: "Cline", note: "MCP-aware tool calling" },
+  { name: "elizaOS", note: "@dreyv/sdk client" },
+  { name: "Your own agent", note: "REST and a Bearer key" },
+];
 
 const authMethods = [
   {
@@ -102,621 +160,351 @@ const authMethods = [
   },
   {
     name: "API keys",
-    body: "Provision per-org keys from your dashboard. Pass as x-api-key or Authorization: Bearer dk_live_…",
+    body: "Provision per-org keys from your dashboard. Pass as x-api-key or Authorization: Bearer dk_live_.",
   },
   {
     name: "OAuth 2.0",
-    body: "Authorization-code flow at /api/auth/authorize + /api/auth/token. Ideal for third-party agents (beta).",
+    body: "Authorization-code flow at /api/auth/authorize and /api/auth/token. Ideal for third-party agents (beta).",
   },
-];
-
-const stats = [
-  { value: `${CAP_COUNT}+`, label: "typed capabilities" },
-  { value: "2", label: "transports — REST + MCP" },
-  { value: "100%", label: "non-custodial" },
-  { value: "8", label: "discovery manifests" },
-];
-
-const pillars = [
-  { icon: Network, title: "Identity & resolution", desc: "Wallets, ENS / SNS, profiles, multi-chain identity graph." },
-  { icon: Boxes, title: "Portfolio & treasury", desc: "Holdings, P&L, attribution, concentration, runway across chains." },
-  { icon: Gauge, title: "Market & discovery", desc: "Prices, pools, liquidity, narratives, trending tokens." },
-  { icon: Wand2, title: "Execution & intents", desc: "Swaps, transfers, DCA, vault ops — always unsigned, your wallet signs." },
-  { icon: ShieldCheck, title: "Forensics & risk", desc: "Wallet risk, rug heuristics, MEV exposure, tax-loss surfaces." },
-  { icon: Brain, title: "Foresight & agentic", desc: "Monte-Carlo sims, scenario IRs, agent watchers, hash-chained audit." },
-];
-
-const agents: { name: string; note: string; logo: string }[] = [
-  { name: "Claude Desktop", note: "claude_desktop_config.json", logo: "https://cdn.simpleicons.org/claude/7c3aed" },
-  { name: "Cursor", note: "Settings → MCP → Add server", logo: "https://cdn.simpleicons.org/cursor/7c3aed" },
-  { name: "ChatGPT", note: "via /openapi.json plugin", logo: "https://svgl.app/library/openai.svg" },
-  { name: "Windsurf", note: "MCP servers panel", logo: "https://cdn.simpleicons.org/windsurf/7c3aed" },
-  { name: "Continue.dev", note: "config.json mcpServers", logo: "https://avatars.githubusercontent.com/u/127876214?s=64&v=4" },
-  { name: "Cline", note: "MCP-aware tool calling", logo: "https://cdn.simpleicons.org/cline/7c3aed" },
-  { name: "elizaOS", note: "@dreyv/sdk client", logo: "https://avatars.githubusercontent.com/u/186240462?s=64&v=4" },
-  { name: "Custom agent", note: "REST + Bearer key", logo: "/brand/dreyv-mark.png" },
 ];
 
 const softwareAppJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Dreyv Web3 MCP & API",
+  name: "dreyv MCP server and API",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Any",
-  description: `${CAP_COUNT}+ typed Web3 capabilities exposed over REST and Model Context Protocol. Non-custodial agent infrastructure for Solana and EVM.`,
+  description: `${CAP_COUNT} typed Web3 capabilities exposed over REST and Model Context Protocol. Non-custodial agent infrastructure for Solana and EVM.`,
   url: "https://dreyv.com/developers",
   offers: [
     { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
     { "@type": "Offer", name: "Mini", price: "49", priceCurrency: "USD" },
     { "@type": "Offer", name: "Max", price: "199", priceCurrency: "USD" },
   ],
-  provider: { "@type": "Organization", name: "Dreyv", url: "https://dreyv.com" },
+  provider: { "@type": "Organization", name: "dreyv", url: "https://dreyv.com" },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://dreyv.com/" },
+    { "@type": "ListItem", position: 2, name: "Developers", item: "https://dreyv.com/developers" },
+  ],
 };
 
 export default function DevelopersPage() {
   return (
-    <div className="dreyv-marketing-root relative min-h-dvh w-full scroll-smooth font-manrope bg-white text-slate-900">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
+    <MarketingShell header={<SiteHeader overlay current="/developers" />}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+
+      <PageHero
+        art="developers"
+        title="Connect your agent to dreyv."
+        sub={`${CAP_COUNT} typed capabilities behind one Bearer key, served as an MCP server and a typed REST API.`}
+        actions={
+          <>
+            <Link href="/developers/mcp" className="mk-btn mk-btn-solid">
+              Connect MCP
+            </Link>
+            <Link href="/auth?redirect=/app/developer" className="mk-btn mk-btn-outline">
+              Mint an API key
+            </Link>
+          </>
+        }
+        meta={
+          <>
+            Or read the{" "}
+            <Link href="/openapi.json" className="mk-link">
+              OpenAPI spec
+            </Link>
+            .
+          </>
+        }
       />
 
-      {/* Ambient violet light */}
-      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-[-12%] left-[-10%] h-[620px] w-[620px] rounded-full bg-violet-400/[0.10] blur-[130px]" />
-        <div className="absolute top-[20%] right-[-6%] h-[520px] w-[520px] rounded-full bg-violet-300/[0.08] blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[20%] h-[480px] w-[480px] rounded-full bg-violet-400/[0.07] blur-[120px]" />
-        <div className="absolute inset-0 noise-overlay opacity-[0.025]" />
-      </div>
-
-      <SiteHeader />
-
-      <main className="relative z-10">
-        {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-28 md:pt-32 pb-12 md:pb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 items-center">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 backdrop-blur px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                <DreyvStar size={10} className="text-violet-600" />
-                The Web3 MCP & API
-              </span>
-              <h1 className="mt-5 text-4xl md:text-6xl font-semibold tracking-tight text-slate-900 leading-[1.02]">
-                Plug any AI agent into{" "}
-                <span className="italic font-light text-violet-600">all of Web3</span>.
-              </h1>
-              <p className="mt-5 max-w-2xl text-base md:text-lg text-slate-600 leading-relaxed">
-                {CAP_COUNT}+ typed capabilities in one Bearer key — identity, portfolio,
-                market, execution, forensics, foresight, x402 economy and agentic primitives.
-                Shipped as a Streamable-HTTP <strong className="text-slate-900">MCP server</strong> and a
-                typed <strong className="text-slate-900">REST API</strong>, generated from the same registry so they never drift.
-              </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link href="/developers/mcp" className={marketingPrimaryCtaSm}>
-                  Connect MCP
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+      <section className="mk-section" aria-labelledby="surfaces">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="surfaces" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+              Four surfaces. One registry.
+            </h2>
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              {CAP_COUNT} typed capabilities in one Bearer key: identity, portfolio, market, execution, forensics,
+              foresight, x402 payments and agent primitives. Shipped as a Streamable HTTP MCP server and a typed REST
+              API, generated from the same registry so they never drift.
+            </p>
+            <p className="mk-body" style={{ marginTop: 14 }}>
+              Pick the transport that fits the agent you&rsquo;re building.
+            </p>
+          </div>
+          <ul className="mk-list">
+            {surfaces.map((s) => (
+              <li key={s.title}>
                 <Link
-                  href="/openapi.json"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors"
+                  href={s.href}
+                  className="mk-row mk-row-link"
+                  {...(s.external ? { target: "_blank", rel: "noopener" } : {})}
                 >
-                  View OpenAPI
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-                <Link
-                  href="/auth?redirect=/app/developer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors"
-                >
-                  Mint an API key
-                </Link>
-              </div>
-
-              {/* trust strip */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-violet-600" /> Non-custodial</span>
-                <span className="inline-flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-violet-600" /> Typed registry</span>
-                <span className="inline-flex items-center gap-1.5"><Network className="h-3.5 w-3.5 text-violet-600" /> Solana + EVM</span>
-                <span className="inline-flex items-center gap-1.5"><Bot className="h-3.5 w-3.5 text-violet-600" /> Agent-ready</span>
-              </div>
-            </div>
-
-            <div className="hidden lg:flex justify-end">
-              <div className="relative h-[340px] w-[340px] rounded-[2rem] bg-gradient-to-br from-violet-50 to-white border border-violet-100 flex items-center justify-center overflow-hidden">
-                <Image
-                  src={devCrystal}
-                  alt="Violet hexagonal crystal — the Dreyv developer surface"
-                  width={280}
-                  height={280}
-                  priority
-                  className="h-[280px] w-[280px] object-contain"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Stats band */}
-          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-3">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-2xl border border-violet-100 bg-white/80 backdrop-blur p-5">
-                <div className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">{s.value}</div>
-                <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Surfaces */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Four surfaces. One registry.</h2>
-              <p className="mt-2 text-sm md:text-base text-slate-600 max-w-2xl">
-                Pick the transport that fits the agent you’re building. Every surface speaks the same typed capability registry — REST and MCP never drift.
-              </p>
-            </div>
-            <span className="hidden md:inline-flex h-1.5 w-12 rounded-full bg-violet-600" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[
-              {
-                href: "/developers/api",
-                icon: Code2,
-                title: "REST API",
-                tag: "/api/v1/*",
-                desc: `${CAP_COUNT}+ capabilities across identity, portfolio, market, execution, forensics, tax, foresight, agentic, and x402. Bearer dk_live_… keys, per-key rate limits, strict no-fallback contracts.`,
-                cta: "Explore endpoints",
-              },
-              {
-                href: "/developers/mcp",
-                icon: Plug,
-                title: "MCP Server",
-                tag: "/api/mcp",
-                desc: "Native Model Context Protocol server over Streamable HTTP. Every REST capability auto-published as an MCP tool — drop into Claude Desktop, Cursor, or any MCP-aware agent in one URL.",
-                cta: "Connect MCP",
-              },
-              {
-                href: "/developers/agents",
-                icon: Bot,
-                title: "Agent Payments (x402)",
-                tag: "Bearer dak_…",
-                desc: "Autonomous agents purchase Dreyv SKUs over HTTP 402. USDC on Solana settlement, single-call /api/x402/pay with permanent deliverables, plus Stripe + Paystack card rails.",
-                cta: "Open agent docs",
-              },
-              {
-                href: "/.well-known/x402",
-                icon: Coins,
-                title: "Discovery manifests",
-                tag: "/.well-known/*",
-                desc: "Machine-readable surface for crawlers and autonomous agents — x402, ACP, UCP, ai-plugin, OpenAPI, security.txt, llms.txt. Built for the agentic web.",
-                cta: "View manifests",
-                external: true,
-              },
-            ].map(({ href, icon: Icon, title, tag, desc, cta, external }) => (
-              <Link
-                key={href}
-                href={href}
-                {...(external ? { target: "_blank", rel: "noopener" } : {})}
-                className="group relative rounded-3xl border border-violet-200/70 bg-white/85 backdrop-blur p-7 hover:border-violet-400 hover:shadow-[0_24px_60px_-24px_rgba(124,58,237,0.25)] transition-all"
-              >
-                <div className="flex items-start gap-4">
-                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white">
-                    <Icon className="h-5 w-5" strokeWidth={2.25} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-semibold text-slate-900 group-hover:text-violet-700">{title}</h3>
-                      <code className="font-mono text-[11px] text-violet-700 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded">
-                        {tag}
-                      </code>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">{desc}</p>
-                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700">
-                      {cta}
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  <span>
+                    <span className="mk-h3" style={{ display: "block" }}>
+                      {s.title}
                     </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Secondary row */}
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[
-              {
-                icon: Bell,
-                title: "Watchers & Monitors",
-                desc: "Subscribe wallets and metrics. Dreyv sweepers run on Inngest + Cloudflare cron and route deltas to your inbox or webhook.",
-                tag: "watchers.* · monitors.*",
-              },
-              {
-                icon: Webhook,
-                title: "Notifications & Webhooks",
-                desc: "Pull notifications via REST/MCP or receive signed POSTs at your endpoint when a monitor trips or a proposal needs approval.",
-                tag: "notifications.* · webhooks.*",
-              },
-            ].map(({ icon: Icon, title, desc, tag }) => (
-              <Link
-                key={title}
-                href="/developers/api"
-                className="group rounded-3xl border border-slate-200 bg-white/85 backdrop-blur p-6 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700">
-                    <Icon className="h-4 w-4" />
+                    <code className="mk-mono mk-small" style={{ display: "block", marginTop: 6 }}>
+                      {s.tag}
+                    </code>
                   </span>
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-slate-900 group-hover:text-violet-700">{title}</h3>
-                    <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{desc}</p>
-                    <code className="mt-3 inline-block font-mono text-[11px] text-violet-700/80 break-all">{tag}</code>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* No-code prompt kit — drop-in prompts for non-technical users */}
-        <section id="prompt-kit" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16 scroll-mt-24">
-          <div className="relative overflow-hidden rounded-[28px] border border-violet-200/80 bg-white/85 backdrop-blur p-7 md:p-10 shadow-[0_30px_80px_-32px_rgba(124,58,237,0.22)]">
-            <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-violet-300/25 blur-[100px]" aria-hidden="true" />
-            <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-violet-400/15 blur-[110px]" aria-hidden="true" />
-
-            <div className="relative grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12 items-start">
-              <div className="flex lg:flex-col items-center lg:items-start gap-5">
-                <Image
-                  src={bubbleCrystal}
-                  alt=""
-                  width={180}
-                  height={180}
-                  loading="lazy"
-                  className="h-32 w-32 lg:h-44 lg:w-44 drop-shadow-[0_18px_40px_rgba(124,58,237,0.35)]"
-                />
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700">
-                    <DreyvStar className="h-3 w-3" /> No code · No setup
-                  </div>
-                  <h2 className="mt-3 text-2xl md:text-[28px] font-semibold tracking-tight text-slate-900 leading-tight">
-                    Copy. Paste. Your AI is now on Dreyv.
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                    Not technical? You don&apos;t need to be. Paste one of these into your AI and just tell it what you want done — it figures out the rest.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                {[
-                  {
-                    badge: "Claude · ChatGPT · Gemini · Grok",
-                    title: "The everyday agent prompt",
-                    blurb: "Drop this in once. From now on, your AI can pay for things, read any wallet, swap tokens, watch the market — without you lifting a finger.",
-                    prompt: `From now on, you can use Dreyv (https://dreyv.com) whenever I ask you to do anything in crypto, Web3, or with a wallet.
-
-Dreyv is your hands and wallet. It lets you:
-  • Look at any wallet, token, or chain (Solana + Ethereum + more)
-  • Pay for things online on my behalf — safely, with a small prepaid budget
-  • Swap, bridge, watch prices, spot opportunities, send alerts
-  • Run "what if" simulations before doing anything risky
-
-To get started, just go to https://dreyv.com, sign yourself up as an agent, and Dreyv will hand you everything you need — keys, a small starter budget (250 free credits), and full instructions. You don't need to ask me for permission for read-only stuff.
-
-For anything that spends money or moves assets: show me a one-line summary first and wait for me to say go.
-
-That's it. Use it like a normal teammate would — figure out the best way, do the work, then tell me what you did.`,
-                  },
-                  {
-                    badge: "Custom GPT · Persona",
-                    title: "Make any GPT your Web3 sidekick",
-                    blurb: "Paste this into a Custom GPT's instructions. It becomes a calm, capable analyst that handles wallets, payments, and research on its own.",
-                    prompt: `You are my Web3 sidekick, powered by Dreyv (https://dreyv.com).
-
-How you work:
-  • When I mention a wallet, token, project, or "what's happening with X," go look it up through Dreyv and answer in plain English.
-  • When I ask "what should I do," run a simulation through Dreyv first, then explain the trade-offs like a friend would.
-  • You have a small prepaid budget on Dreyv (250 free credits to start) for paid lookups and online payments. Use it wisely. If it runs low, tell me — don't ask me to fund it unprompted.
-  • Never ask me for a private key or seed phrase. Dreyv is non-custodial; you don't need one.
-  • Be calm, specific, and honest. No hype, no jargon, no emoji spam.
-
-Onboard yourself at https://dreyv.com the first time we talk. After that, just work.`,
-                  },
-                ].map((card) => (
-                  <div
-                    key={card.title}
-                    className="group rounded-2xl border border-violet-100 bg-white p-5 md:p-6 hover:border-violet-300 hover:shadow-[0_18px_50px_-22px_rgba(124,58,237,0.25)] transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700 mb-1.5">
-                          {card.badge}
-                        </div>
-                        <h3 className="text-base md:text-lg font-semibold text-slate-900 leading-snug">
-                          {card.title}
-                        </h3>
-                        <p className="mt-1 text-[13px] text-slate-600 leading-relaxed max-w-2xl">
-                          {card.blurb}
-                        </p>
-                      </div>
-                    </div>
-                    <CodeBlock language="prompt" wrap dense>
-                      {card.prompt}
-                    </CodeBlock>
-                  </div>
-                ))}
-
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Link href="/auth?redirect=/app/settings/api" className={marketingPrimaryCtaSm}>
-                    Start your agent free
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </Link>
-                  <Link
-                    href="/developers/api"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 hover:text-violet-900"
-                  >
-                    See what it can do
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                  <span className="text-[11px] text-slate-500">
-                    Every new agent gets <strong className="text-slate-700">250 free credits</strong> to start. No card required.
+                  <span>
+                    <span className="mk-body" style={{ display: "block" }}>
+                      {s.desc}
+                    </span>
+                    <span className="mk-link" style={{ display: "inline-block", marginTop: 10, fontSize: 15 }}>
+                      {s.cta} <span className="mk-arrow" aria-hidden="true">&rarr;</span>
+                    </span>
                   </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10 items-start">
-            <div className="lg:sticky lg:top-24">
-              <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                Capability pillars
-              </span>
-              <h2 className="mt-4 text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
-                One surface. Every corner of Web3.
-              </h2>
-              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-                From wallet identity to Monte-Carlo foresight — your agent calls the same Bearer key for all of it.
-              </p>
-              <div className="mt-6 hidden lg:block">
-                <Image
-                  src={atlasOrbital}
-                  alt="Violet orbital crystal — the Dreyv capability registry"
-                  width={220}
-                  height={220}
-                  className="opacity-90"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {pillars.map(({ icon: Icon, title, desc }) => (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-violet-100 bg-white/85 backdrop-blur p-5 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
-                >
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600 text-white">
-                    <Icon className="h-4 w-4" strokeWidth={2.25} />
-                  </span>
-                  <h3 className="mt-3 text-base font-semibold text-slate-900">{title}</h3>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Agent compatibility */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="rounded-3xl border border-violet-200/60 bg-white/85 backdrop-blur p-7 md:p-9">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-8 items-center">
-              <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                  Works with the agents you already use
-                </span>
-                <h2 className="mt-4 text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
-                  Drop into any MCP-aware agent.
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm md:text-base text-slate-600 leading-relaxed">
-                  One JSON snippet, one Bearer key. Your agent inherits {CAP_COUNT}+ Web3 tools — and your wallet keeps its keys.
-                </p>
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {agents.map((a) => (
-                    <div
-                      key={a.name}
-                      className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 hover:border-violet-300 transition-colors"
-                    >
-                      <span className="flex-none inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 ring-1 ring-violet-100 overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={a.logo} alt={`${a.name} logo`} className="h-4 w-4 object-contain" loading="lazy" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-slate-900 truncate">{a.name}</div>
-                        <div className="mt-0.5 text-[10.5px] text-slate-500 leading-snug truncate">{a.note}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="hidden lg:flex justify-center">
-                <DreyvMascot pose="think" size={200} alt="Dreyv mascot thinking" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Quickstart */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="rounded-3xl border border-violet-200/60 bg-white/85 backdrop-blur p-6 md:p-7 shadow-[0_20px_60px_-30px_rgba(124,58,237,0.20)]">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Image src={commandStar} alt="" width={28} height={28} className="opacity-90" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">REST quickstart</span>
-              </div>
-              <CodeBlock language="bash">{codeQuickstart}</CodeBlock>
-            </div>
-            <div className="rounded-3xl border border-violet-200/60 bg-white/85 backdrop-blur p-6 md:p-7 shadow-[0_20px_60px_-30px_rgba(124,58,237,0.20)]">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Plug className="h-4 w-4 text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">MCP install (Claude / Cursor)</span>
-              </div>
-              <CodeBlock language="json">{mcpInstall}</CodeBlock>
-              <p className="mt-3 text-[11.5px] text-slate-500 leading-relaxed">
-                Paste into your agent's MCP config and restart. Dreyv handles auth, scope enforcement, and per-key metering on the server.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Auth */}
-        <section id="oauth" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="mb-6">
-            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Auth that fits your client</h2>
-            <p className="mt-2 text-sm md:text-base text-slate-600 max-w-2xl">
-              All execution endpoints return <em>unsigned</em> transactions — your wallet always signs. Three ways in.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {authMethods.map((m) => (
-              <div
-                key={m.name}
-                className="rounded-2xl border border-slate-200 bg-white/85 backdrop-blur p-6 shadow-[0_10px_40px_-20px_rgba(15,23,42,0.10)] hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
-              >
-                <span className="h-1.5 w-10 rounded-full bg-violet-600 block" />
-                <h3 className="mt-4 text-base font-semibold text-slate-900">{m.name}</h3>
-                <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{m.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Sandbox */}
-        <section id="sandbox" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="relative overflow-hidden rounded-3xl border border-violet-200/60 bg-white/80 backdrop-blur p-8 md:p-10">
-            <Image
-              src={heroLiquid}
-              alt=""
-              width={420}
-              height={420}
-              className="absolute -right-20 -bottom-20 opacity-40 pointer-events-none"
-              aria-hidden
-            />
-            <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="max-w-2xl">
-                <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">Devnet sandbox on the Free tier</h2>
-                <p className="mt-2 text-sm md:text-base text-slate-600 leading-relaxed">
-                  Ship and stress-test on Solana devnet at zero cost. All swap and signing endpoints return unsigned transactions; no production funds are ever at risk.
-                </p>
-              </div>
-              <Link
-                href="/auth?redirect=/app/developer"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-800 hover:border-violet-400 hover:text-violet-700 transition-colors self-start md:self-auto"
-              >
-                Open sandbox
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* Resources */}
-        <section id="resources" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16 scroll-mt-24">
-          <div className="mb-6">
-            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">Discovery & agent manifests</h2>
-            <p className="mt-2 text-sm md:text-base text-slate-600 max-w-2xl">
-              Every machine-readable file an autonomous agent or crawler needs to understand Dreyv — OpenAPI, ai-plugin, ACP, UCP, x402, llms.txt, security.txt.
-            </p>
-          </div>
-          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {resources.map((r) => (
-              <li key={r.slug} className="group relative">
-                <Link
-                  href={r.href}
-                  className="block h-full rounded-2xl border border-slate-200 bg-white/85 backdrop-blur p-5 pr-12 hover:border-violet-300 hover:shadow-[0_18px_50px_-20px_rgba(124,58,237,0.18)] transition-all"
-                >
-                  <span className="text-sm font-semibold text-slate-900 group-hover:text-violet-700">
-                    {r.label}
-                  </span>
-                  <p className="mt-1.5 text-xs text-slate-600 leading-relaxed line-clamp-2">{r.desc}</p>
-                  <p className="mt-2 text-[11px] font-mono text-violet-700/80 break-all">{r.endpoint}</p>
                 </Link>
-                <a
-                  href={r.endpoint}
-                  target="_blank"
-                  rel="noopener"
-                  aria-label={`Open raw ${r.label}`}
-                  className="absolute top-4 right-4 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-700 transition-colors"
-                >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </a>
               </li>
             ))}
           </ul>
-        </section>
+        </div>
+      </section>
 
-        {/* SDK / CLI */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="rounded-3xl border border-slate-200 bg-white/85 backdrop-blur p-7">
-              <span className="h-1.5 w-10 rounded-full bg-violet-600 block" />
-              <h3 className="mt-4 text-lg font-semibold text-slate-900">TypeScript SDK</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                <code className="font-mono text-violet-700">@dreyv/sdk</code> — hooks for portfolio,
-                swap, vault, MCP client/server, agent handoff, and gasless transactions.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-slate-200 bg-white/85 backdrop-blur p-7">
-              <span className="h-1.5 w-10 rounded-full bg-violet-600 block" />
-              <h3 className="mt-4 text-lg font-semibold text-slate-900">CLI</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                <code className="font-mono text-violet-700">@dreyv/cli</code> — scaffold, build,
-                validate, and ship mini-apps and agents to the dreyv marketplace.
-              </p>
-            </div>
+      <section id="prompt-kit" className="mk-section mk-bg-lilac mk-anchor" aria-labelledby="prompts">
+        <div className="mk-wrap-narrow">
+          <div className="mk-center" style={{ textAlign: "center" }}>
+            <h2 id="prompts" className="mk-h2">
+              Copy. Paste. Your assistant is on dreyv.
+            </h2>
+            <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
+              Not technical? You don&rsquo;t need to be. Paste one of these into your assistant and tell it what you
+              want done. It figures out the rest.
+            </p>
           </div>
-        </section>
-
-        {/* CTA */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-24">
-          <div className="relative overflow-hidden rounded-3xl bg-violet-600 p-8 md:p-12 text-white shadow-[0_30px_80px_-30px_rgba(124,58,237,0.45)]">
-            <Image
-              src={ctaKey}
-              alt=""
-              width={260}
-              height={260}
-              className="absolute -right-6 -bottom-6 opacity-90 pointer-events-none hidden md:block"
-              aria-hidden
-            />
-            <div className="relative max-w-2xl">
-              <h2 className="text-2xl md:text-4xl font-semibold tracking-tight">
-                Ship your first agent this week.
-              </h2>
-              <p className="mt-3 text-violet-100 text-sm md:text-base leading-relaxed">
-                Mint a key, paste the MCP snippet into Claude or Cursor, and stream a treasury plan
-                through the SDK. Talk to us if you need a private endpoint or partner integration.
+          <div style={{ display: "grid", gap: 40, marginTop: "clamp(36px, 6vh, 56px)" }}>
+            <div>
+              <h3 className="mk-h3">The everyday agent prompt</h3>
+              <p className="mk-small" style={{ marginTop: 6 }}>
+                For Claude, ChatGPT, Gemini or Grok. Drop this in once. From then on your assistant can pay for things,
+                read any wallet, swap tokens and watch the market.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/auth?redirect=/app/developer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-50 transition-colors"
-                >
-                  Mint an API key
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="mailto:hello@dreyv.app?subject=dreyv%20developer%20partnership"
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 backdrop-blur px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
-                >
-                  Talk to engineering
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
+              <div style={{ marginTop: 16 }}>
+                <CopyCode code={everydayPrompt} label="everyday agent prompt" wrap />
+              </div>
+            </div>
+            <div>
+              <h3 className="mk-h3">Make any GPT your Web3 sidekick</h3>
+              <p className="mk-small" style={{ marginTop: 6 }}>
+                For a Custom GPT&rsquo;s instructions. It becomes a calm, capable analyst that handles wallets, payments
+                and research on its own.
+              </p>
+              <div style={{ marginTop: 16 }}>
+                <CopyCode code={sidekickPrompt} label="sidekick prompt" wrap />
               </div>
             </div>
           </div>
-        </section>
-      </main>
+          <div className="mk-actions mk-actions-center" style={{ marginTop: 40 }}>
+            <Link href="/auth?redirect=/app/settings/api" className="mk-btn mk-btn-solid">
+              Start your agent free
+            </Link>
+            <Link href="/developers/api" className="mk-btn mk-btn-outline">
+              See what it can do
+            </Link>
+          </div>
+          <p className="mk-small" style={{ textAlign: "center", marginTop: 16 }}>
+            Every new agent gets 250 free credits to start. No card required.
+          </p>
+        </div>
+      </section>
 
-      <SiteFooter />
-    </div>
+      <section className="mk-section" aria-labelledby="pillars">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="pillars" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+              One surface. Every corner of Web3.
+            </h2>
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              From wallet identity to Monte Carlo foresight, your agent calls the same Bearer key for all of it.
+            </p>
+          </div>
+          <ul className="mk-list">
+            {pillars.map((p) => (
+              <li key={p.title} className="mk-row">
+                <h3 className="mk-h4">{p.title}</h3>
+                <p className="mk-body">{p.desc}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="mk-section mk-night" aria-labelledby="agents">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="agents" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+              Drop into any MCP-aware agent.
+            </h2>
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              One JSON snippet, one Bearer key. Your agent gets {CAP_COUNT} Web3 tools, and your wallet keeps its keys.
+            </p>
+          </div>
+          <div>
+            <ul className="mk-list">
+              {agents.map((a) => (
+                <li key={a.name} className="mk-row">
+                  <span className="mk-h4">{a.name}</span>
+                  <span className="mk-body mk-mono" style={{ fontSize: 15 }}>
+                    {a.note}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="mk-section" aria-labelledby="quickstart">
+        <div className="mk-wrap">
+          <h2 id="quickstart" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)", textAlign: "center" }}>
+            Quickstart
+          </h2>
+          <div className="mk-two" style={{ marginTop: "clamp(32px, 5vh, 48px)" }}>
+            <div>
+              <h3 className="mk-h4">REST</h3>
+              <div style={{ marginTop: 12 }}>
+                <CopyCode code={codeQuickstart} label="REST quickstart" />
+              </div>
+            </div>
+            <div>
+              <h3 className="mk-h4">MCP install (Claude or Cursor)</h3>
+              <div style={{ marginTop: 12 }}>
+                <CopyCode code={mcpInstall} label="MCP configuration" />
+              </div>
+              <p className="mk-small" style={{ marginTop: 12 }}>
+                Paste into your agent&rsquo;s MCP config and restart. dreyv handles auth, scope enforcement and per-key
+                metering on the server.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="oauth" className="mk-section mk-bg-light mk-anchor" aria-labelledby="auth">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="auth" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+              Auth that fits your client
+            </h2>
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              All execution endpoints return <em>unsigned</em> transactions. Your wallet always signs. Three ways in.
+            </p>
+          </div>
+          <ul className="mk-list">
+            {authMethods.map((m) => (
+              <li key={m.name} className="mk-row">
+                <h3 className="mk-h4">{m.name}</h3>
+                <p className="mk-body">{m.body}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section id="sandbox" className="mk-section mk-anchor" aria-labelledby="sandbox-h">
+        <div className="mk-wrap-narrow mk-center">
+          <h2 id="sandbox-h" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+            Devnet sandbox on the Free tier
+          </h2>
+          <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
+            Ship and stress-test on Solana devnet at no cost. All swap and signing endpoints return unsigned
+            transactions; no production funds are ever at risk.
+          </p>
+          <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
+            <Link href="/auth?redirect=/app/developer" className="mk-btn mk-btn-outline">
+              Open sandbox
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section id="resources" className="mk-section mk-bg-light mk-anchor" aria-labelledby="resources-h">
+        <div className="mk-wrap mk-split">
+          <div className="mk-sticky">
+            <h2 id="resources-h" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+              Discovery and agent manifests
+            </h2>
+            <p className="mk-body" style={{ marginTop: 18 }}>
+              Every machine-readable file an autonomous agent or crawler needs to understand dreyv: OpenAPI,
+              ai-plugin, ACP, UCP, x402, llms.txt and security.txt.
+            </p>
+          </div>
+          <ul className="mk-list">
+            {RESOURCE_DOCS.map((d) => (
+              <li key={d.slug} className="mk-row">
+                <span>
+                  <Link href={`/developers/docs/${d.slug}`} className="mk-h4 mk-link" style={{ color: "var(--mk-ink)" }}>
+                    {d.label}
+                  </Link>
+                  <a
+                    href={d.endpoint}
+                    target="_blank"
+                    rel="noopener"
+                    className="mk-mono mk-small"
+                    style={{ display: "block", marginTop: 6 }}
+                  >
+                    {d.endpoint}
+                  </a>
+                </span>
+                <p className="mk-body">{d.tagline}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="mk-section" aria-labelledby="sdk">
+        <div className="mk-wrap mk-split">
+          <h2 id="sdk" className="mk-h2 mk-sticky" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+            SDK and CLI
+          </h2>
+          <ul className="mk-list">
+            <li className="mk-row">
+              <h3 className="mk-h4">TypeScript SDK</h3>
+              <p className="mk-body">
+                <code className="mk-mono">@dreyv/sdk</code>: hooks for portfolio, swap, vault, MCP client and server,
+                agent handoff, and gasless transactions.
+              </p>
+            </li>
+            <li className="mk-row">
+              <h3 className="mk-h4">CLI</h3>
+              <p className="mk-body">
+                <code className="mk-mono">@dreyv/cli</code>: scaffold, build, validate, and ship mini-apps and agents to
+                the dreyv marketplace.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="mk-section mk-violet" aria-labelledby="ship">
+        <div className="mk-wrap-narrow mk-center">
+          <h2 id="ship" className="mk-h2">
+            Ship your first agent this week.
+          </h2>
+          <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
+            Mint a key, paste the MCP snippet into Claude or Cursor, and stream a treasury plan through the SDK. Talk to
+            us if you need a private endpoint or a partner integration.
+          </p>
+          <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
+            <Link href="/auth?redirect=/app/developer" className="mk-btn mk-btn-light">
+              Mint an API key
+            </Link>
+            <a href="mailto:hello@dreyv.app?subject=dreyv%20developer%20partnership" className="mk-btn mk-btn-ghost-light">
+              Talk to engineering
+            </a>
+          </div>
+        </div>
+      </section>
+    </MarketingShell>
   );
 }

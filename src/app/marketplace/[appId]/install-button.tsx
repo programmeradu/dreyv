@@ -77,7 +77,7 @@ export function InstallButton({ app }: { app: MiniAppLite }) {
         href={`/app/marketplace/${app.id}`}
         className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-violet-700 hover:text-violet-900 border border-violet-200 hover:border-violet-400 bg-white"
       >
-        Open in Dreyv <ExternalLink size={12} />
+        Open in dreyv <ExternalLink size={12} />
       </a>
 
       {!isFree && (

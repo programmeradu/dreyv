@@ -117,7 +117,7 @@ export default function Page() {
           a forked Solana state, and hands you a Squads proposal with a human-readable
           impact summary. Keys never leave your wallets. Try the{" "}
           <Link href="/atlas">Solana Atlas</Link> for read-only intelligence, or{" "}
-          <Link href="/waitlist">join the waitlist</Link> for the full workspace.
+          <Link href="/auth?redirect=/app">start free</Link> for the full workspace.
         </p>
       </GuideShell>
     </>

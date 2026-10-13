@@ -69,7 +69,7 @@ export default function PrivacyPage() {
           dreyv<br />
           Nicosia, Cyprus<br />
           Email: <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a><br />
-          General inquiries: <a href="mailto:hello@dreyv.com">hello@dreyv.com</a>
+          General inquiries: <a href="mailto:hello@dreyv.app">hello@dreyv.app</a>
         </p>
 
 

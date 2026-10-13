@@ -101,7 +101,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.55 }}
             className="relative hidden lg:flex items-center justify-center"
           >
-            {/* Mascot — Dreyv greets, floats above the demo card */}
+            {/* Mascot — dreyv greets, floats above the demo card */}
             <div className="pointer-events-none absolute -top-10 -right-4 z-20">
               <DreyvMascot pose="greet" size={120} priority />
             </div>
@@ -115,8 +115,8 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 font-label"
         >
-          <a href="/waitlist" className={marketingPrimaryCtaSm}>
-            <span className="relative font-semibold tracking-wide">Join the waitlist</span>
+          <a href="/auth?redirect=/app" className={marketingPrimaryCtaSm}>
+            <span className="relative font-semibold tracking-wide">Start free</span>
             <ArrowRight className="relative h-3.5 w-3.5 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
           </a>
           <a href="#demo" className={marketingGhostLink}>

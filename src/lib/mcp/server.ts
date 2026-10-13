@@ -40,7 +40,7 @@ const SERVER_INFO = {
  * caller signs). Keep short; deeper docs live in `meta.intents_howto`.
  */
 const MCP_INSTRUCTIONS = [
-  "Dreyv exposes 300+ tools spanning portfolio analytics, on-chain forensics, DeFi routing, agent commerce, governance, and observability.",
+  "Dreyv exposes 347 tools spanning portfolio analytics, on-chain forensics, DeFi routing, agent commerce, governance, and observability.",
   "",
   "BEFORE YOU SIGN ANYTHING — ASK FOR THE WALLET:",
   "  Any [UNSIGNED-TX] tool requires `userPublicKey` (the Solana wallet that will sign).",

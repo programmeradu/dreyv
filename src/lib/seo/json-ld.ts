@@ -5,6 +5,7 @@ const DEFAULT_ORG_SAME_AS = [
   "https://www.producthunt.com/products/dreyv",
   "https://x.com/dreyvapp",
   "https://www.linkedin.com/company/dreyv/",
+  "https://www.crunchbase.com/organization/dreyv",
 ];
 
 function organizationSameAs(): string[] {
@@ -32,7 +33,7 @@ export function buildRootJsonLd(): Record<string, unknown> {
         legalName: "dreyv",
         alternateName: ["dreyv atlas", "dreyv.com"],
         url: origin,
-        slogan: "Treasury command layer for Solana teams — AI-native, non-custodial.",
+        slogan: "Know what you\u2019re signing.",
         sameAs,
         logo: {
           "@type": "ImageObject",
@@ -44,9 +45,9 @@ export function buildRootJsonLd(): Record<string, unknown> {
           addressLocality: "Nicosia",
           addressCountry: "CY",
         },
-        email: "hello@dreyv.com",
+        email: "hello@dreyv.app",
         description:
-          "dreyv is the AI-powered, non-custodial treasury command layer for Solana teams: plain-language intent, simulation before signing, human-readable impact for approvers, and multisig-native workflows (e.g. Squads). dreyv atlas is the Solana intelligence surface inside the product.",
+          "dreyv is a non-custodial treasury workspace for teams on Solana: plain-language intent, simulation before signing, human-readable impact for approvers, and multisig-native workflows such as Squads. dreyv atlas is the free Solana intelligence surface inside the product.",
       },
       {
         "@type": "WebSite",
@@ -57,7 +58,7 @@ export function buildRootJsonLd(): Record<string, unknown> {
         publisher: { "@id": orgId },
         inLanguage: "en-US",
         description:
-          "Official site for dreyv — AI treasury workspace and dreyv atlas for Solana DAOs and protocols.",
+          "Official site for dreyv, the treasury workspace and dreyv atlas for Solana DAOs and protocols.",
       },
       {
         "@type": "SoftwareApplication",
@@ -70,10 +71,10 @@ export function buildRootJsonLd(): Record<string, unknown> {
           "@type": "Offer",
           price: "0",
           priceCurrency: "USD",
-          description: "Free tier available; paid plans for teams.",
+          description: "Free plan, no card. Mini is $49 a month and Max is $199 a month.",
         },
         description:
-          "Treasury command layer for Solana: describe intent in natural language, review fork simulation and human-readable impact, coordinate multisig signing. Includes dreyv atlas, Studio, and agent-ready automation paths. Free tier available.",
+          "Treasury operations for teams on Solana: describe intent in plain language, review a fork simulation and human-readable impact, then sign in your multisig. Includes dreyv atlas, Studio and an MCP server with 347 tools. Free plan available.",
         url: origin,
         provider: { "@id": orgId },
       },
@@ -96,10 +97,10 @@ export function buildHomeJsonLd(): Record<string, unknown> {
         "@type": "WebPage",
         "@id": `${url}#webpage`,
         url,
-        name: "dreyv — AI treasury for Solana & Web3 teams",
+        name: "dreyv: Solana treasury operations, simulated before anyone signs",
         isPartOf: { "@id": `${origin}/#website` },
         inLanguage: "en-US",
-        primaryImageOfPage: { "@type": "ImageObject", url: `${origin}/opengraph-image` },
+        primaryImageOfPage: { "@type": "ImageObject", url: `${origin}/og/dreyv-og.jpg` },
         speakable: {
           "@type": "SpeakableSpecification",
           cssSelector: ["h1", "[data-speakable]", ".hero-tagline", ".hero-subtitle"],

@@ -20,12 +20,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const doc = getResourceDoc(slug);
-  if (!doc) return { title: "Resource not found · Dreyv" };
+  if (!doc) return { title: "Resource not found · dreyv" };
   return {
-    title: `${doc.label} · Dreyv developers`,
+    title: `${doc.label} · dreyv developers`,
     description: doc.tagline,
     openGraph: {
-      title: `${doc.label} · Dreyv developers`,
+      title: `${doc.label} · dreyv developers`,
       description: doc.tagline,
     },
   };

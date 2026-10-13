@@ -12,8 +12,8 @@ import SuccessClient from "./SuccessClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Payment status · Dreyv x402",
-    description: "Verifying your card payment with Dreyv's x402 settlement layer.",
+    title: "Payment status · dreyv x402",
+    description: "Verifying your card payment with dreyv's x402 settlement layer.",
     robots: { index: false, follow: false },
 };
 

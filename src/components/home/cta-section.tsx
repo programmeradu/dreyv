@@ -52,12 +52,12 @@ export function CTASection() {
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center items-center gap-6 font-label">
-            <a href="/waitlist" className={marketingPrimaryCta}>
-              <span className="relative font-semibold tracking-wide">Join the waitlist</span>
+            <a href="/auth?redirect=/app" className={marketingPrimaryCta}>
+              <span className="relative font-semibold tracking-wide">Start free</span>
               <ArrowRight className="relative h-4 w-4 text-white/90 transition-transform duration-300 group-hover:translate-x-0.5" />
             </a>
-            <a href="/auth?redirect=/app" className={marketingGhostLink}>
-              or open the app &rarr;
+            <a href="/pricing" className={marketingGhostLink}>
+              or see pricing &rarr;
             </a>
           </div>
 

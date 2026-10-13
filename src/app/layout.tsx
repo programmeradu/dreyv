@@ -12,12 +12,12 @@ import { getSiteUrl } from "@/lib/seo/site";
 const siteUrl = getSiteUrl();
 const siteOrigin = siteUrl.origin;
 
-const titleDefault = "dreyv | AI treasury for Solana & Web3 teams";
+const titleDefault = "dreyv | Solana treasury operations, simulated before anyone signs";
 const description =
-  "Non-custodial AI treasury for Solana DAOs & protocols. Plain-language intent, simulation before you sign, multisig-native (Squads).";
+  "Non-custodial treasury workspace for Solana DAOs and protocols. Plain-language intent, simulation before anyone signs, multisig-native with Squads.";
 
 export const viewport: Viewport = {
-  themeColor: "#fdf7ff",
+  themeColor: "#efebe2",
   colorScheme: "light",
 };
 
@@ -68,10 +68,10 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: new URL("/opengraph-image", siteUrl).toString(),
+        url: new URL("/og/dreyv-og.jpg", siteUrl).toString(),
         width: 1200,
         height: 630,
-        alt: "dreyv — AI treasury command layer for Solana teams",
+        alt: "Know what you\u2019re signing. Three violet wax seals on paper, two pressed and one waiting.",
       },
     ],
   },
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: titleDefault,
     description,
-    images: [new URL("/opengraph-image", siteUrl).toString()],
+    images: [new URL("/og/dreyv-og.jpg", siteUrl).toString()],
   },
   robots: {
     index: true,

@@ -120,11 +120,11 @@ export default function AppRebuildingPage() {
           <div className="pt-8 text-xs text-slate-500">
             Need to reach us?{" "}
             <a
-              href="mailto:hello@dreyv.com"
+              href="mailto:hello@dreyv.app"
               className="inline-flex items-center gap-1 font-medium text-violet-700 hover:text-violet-800"
             >
               <Mail className="h-3 w-3" />
-              hello@dreyv.com
+              hello@dreyv.app
             </a>
           </div>
         </motion.div>

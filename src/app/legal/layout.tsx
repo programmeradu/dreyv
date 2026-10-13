@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 
 const legalLinks = [
   { href: "/legal/privacy", label: "Privacy" },

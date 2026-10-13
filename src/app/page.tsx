@@ -1,11 +1,11 @@
-// Replace with a minimal Server Component that renders the client subcomponent
 import type { Metadata } from "next";
-import { HomeClient } from "@/components/home/home-client";
+import { HomePage } from "@/components/marketing/home/home-page";
 import { HomeJsonLd } from "@/components/seo/JsonLd";
 
-const title = "AI Treasury Operating System for Web3";
+const title = "Solana treasury operations, simulated before anyone signs";
 const description =
-  "Non-custodial treasury workspace: natural-language intent, simulation before you sign, Solana-native intelligence.";
+  "dreyv is a non-custodial treasury workspace for teams on Solana. Say what you want, see the simulated result, then sign in your Squads multisig. Free plan, no card.";
+const ogTitle = "Know what you\u2019re signing. | dreyv";
 
 export const metadata: Metadata = {
   title,
@@ -14,14 +14,23 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    title: `${title} | dreyv`,
+    title: ogTitle,
     description,
     siteName: "dreyv",
+    images: [
+      {
+        url: "/og/dreyv-og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Know what you\u2019re signing. Three violet wax seals on paper, two pressed and one waiting.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${title} | dreyv`,
+    title: ogTitle,
     description,
+    images: ["/og/dreyv-og.jpg"],
   },
 };
 
@@ -29,7 +38,7 @@ export default function Home() {
   return (
     <>
       <HomeJsonLd />
-      <HomeClient />
+      <HomePage />
     </>
   );
 }

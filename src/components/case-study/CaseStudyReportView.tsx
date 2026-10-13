@@ -57,7 +57,7 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
       <div className="border-b border-violet-100 bg-violet-50/40">
         <div className="mx-auto max-w-5xl px-6 py-3 text-[12px] text-slate-600">
           <span className="font-semibold text-violet-700">Counterfactual analysis on public on-chain data.</span>
-          {" "}This treasury is not affiliated with Dreyv. Every figure is sourced from live mainnet data — Helius, Jupiter, and Solana RPC.
+          {" "}This treasury is not affiliated with dreyv. Every figure is sourced from live mainnet data — Helius, Jupiter, and Solana RPC.
         </div>
       </div>
 
@@ -93,13 +93,13 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
           </div>
 
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
-            What Dreyv would have caught on this treasury — quantified, sourced, and ready to act on.
+            What dreyv would have caught on this treasury — quantified, sourced, and ready to act on.
           </p>
 
           {/* Headline numbers */}
           <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-3xl border border-violet-200 bg-white p-6">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">Annual upside Dreyv unlocks</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">Annual upside dreyv unlocks</div>
               <div className="mt-2 text-4xl font-bold tracking-tight">{fmtUsd(report.headline.totalAnnualUsd, true)}</div>
               <div className="mt-1 text-xs text-slate-500">Recurring — idle yield + fee leak recovered every year</div>
             </div>
@@ -139,7 +139,7 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
         <div className="mx-auto max-w-5xl px-6 py-16">
           <div className="mb-8 flex items-center gap-2 text-violet-700">
             <DreyvStar size={10} />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">What Dreyv caught</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">What dreyv caught</span>
           </div>
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
             {report.findings.length} findings on a treasury that looks fine from the outside.
@@ -147,7 +147,7 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
 
           {report.findings.length === 0 ? (
             <p className="mt-8 text-slate-500">
-              No findings surfaced. This treasury is either dormant or already running with policies tighter than Dreyv's defaults — rare, and worth a conversation.
+              No findings surfaced. This treasury is either dormant or already running with policies tighter than dreyv's defaults — rare, and worth a conversation.
             </p>
           ) : (
             <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -197,7 +197,7 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
         <div className="mx-auto max-w-5xl px-6 py-16">
           <div className="mb-8 flex items-center gap-2 text-violet-700">
             <DreyvStar size={10} />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">What Dreyv would do</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">What dreyv would do</span>
           </div>
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
             Six concrete moves. All non-custodial. All proposed before they execute.
@@ -231,7 +231,7 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-100">Total addressable upside on this treasury</div>
                 <div className="mt-1 text-3xl font-bold tracking-tight">{fmtUsd(totalUpside, true)}</div>
               </div>
-              <Link href="/waitlist" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-50">
+              <Link href="/auth?redirect=/app" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-50">
                 Run this on my treasury <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -273,10 +273,10 @@ export function CaseStudyReportView({ report }: { report: CaseStudyReport }) {
         <div className="mx-auto flex max-w-5xl flex-col items-start gap-4 px-6 py-16 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Want this report on your treasury?</h2>
-            <p className="mt-2 text-slate-600">Dreyv runs this analysis live, every 15 minutes, with policy-gated execution.</p>
+            <p className="mt-2 text-slate-600">dreyv runs this analysis live, every 15 minutes, with policy-gated execution.</p>
           </div>
-          <Link href="/waitlist" className={marketingPrimaryCtaSm}>
-            Join the waitlist <ArrowRight className="h-4 w-4" />
+          <Link href="/auth?redirect=/app" className={marketingPrimaryCtaSm}>
+            Start free <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>

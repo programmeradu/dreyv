@@ -84,8 +84,8 @@ Billed via Stripe (global cards) and Paystack (cards, mobile money, bank — Afr
 
 ## 7. MCP server (the headline integration)
 
-Dreyv exposes the entire capability registry as a **Streamable HTTP MCP server** at `/api/mcp`. One
-Bearer key, 100+ typed tools, simulation-first, non-custodial. Drop-in for Claude Desktop, Cursor,
+dreyv exposes the entire capability registry as a **Streamable HTTP MCP server** at `/api/mcp`. One
+Bearer key, 347 typed tools, simulation-first, non-custodial. Drop-in for Claude Desktop, Cursor,
 Windsurf, Cline, Continue.dev, elizaOS, and any MCP-aware agent.
 
 - Endpoint: `POST https://dreyv.com/api/mcp`  (Streamable HTTP per MCP 2025-06-18 spec)
@@ -166,4 +166,4 @@ Auth: `Authorization: Bearer <jwt|api_key>`. OAuth2 + API key flow documented at
 
 - Product: founders@dreyv.com
 - Security: security@dreyv.com
-- Press / partnerships: hello@dreyv.com
+- Press / partnerships: hello@dreyv.app

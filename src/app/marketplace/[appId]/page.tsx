@@ -7,8 +7,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { miniApps } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { ArrowLeft, Shield, Download, Star, ExternalLink } from "lucide-react";
 import { InstallButton } from "./install-button";
@@ -34,13 +33,13 @@ export async function generateMetadata({
   const app = await getApp(appId);
   if (!app) return { title: "Mini-App not found" };
   return {
-    title: `${app.name} — Dreyv Marketplace`,
+    title: `${app.name} — dreyv Marketplace`,
     description: app.description,
     alternates: { canonical: `/marketplace/${app.id}` },
     openGraph: {
       type: "website",
       url: `/marketplace/${app.id}`,
-      title: `${app.name} | Dreyv Mini-App`,
+      title: `${app.name} | dreyv Mini-App`,
       description: app.description,
       siteName: "dreyv",
     },
@@ -153,7 +152,7 @@ export default async function MiniAppDetailPage({
           </h2>
           <p className="font-mono text-sm text-slate-700 break-all">{app.creatorWallet}</p>
           <p className="mt-2 text-xs text-slate-500">
-            Settlement on Solana. 80% to creator, 20% to Dreyv. No platform fees beyond split.
+            Settlement on Solana. 80% to creator, 20% to dreyv. No platform fees beyond split.
           </p>
         </section>
 

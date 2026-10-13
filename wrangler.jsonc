@@ -29,6 +29,24 @@
       }
     ]
   },
+  "previews": {
+    "containers": [
+      {
+        "class_name": "NextAppContainer",
+        "image": "./Dockerfile",
+        "instance_type": "standard-1",
+        "max_instances": 2
+      }
+    ],
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "NEXT_APP",
+          "class_name": "NextAppContainer"
+        }
+      ]
+    }
+  },
   "migrations": [
     {
       "tag": "v1",

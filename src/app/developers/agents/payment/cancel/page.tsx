@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Payment cancelled · Dreyv x402",
+    title: "Payment cancelled · dreyv x402",
     description: "The card checkout was cancelled. The original 402 challenge is still valid — your agent can retry on any rail.",
     robots: { index: false, follow: false },
 };

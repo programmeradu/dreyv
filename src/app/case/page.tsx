@@ -4,16 +4,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { SiteHeader, SiteFooter } from "@/components/marketing/legacy-chrome";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 import { FEATURED_CASES } from "@/lib/case-study/featured";
 import { marketingPrimaryCtaSm } from "@/components/home/marketing-styles";
 
 export const metadata: Metadata = {
-  title: "Case studies — Dreyv",
+  title: "Case studies — dreyv",
   description:
-    "Counterfactual analysis on real, public Solana treasuries. What Dreyv would have caught — quantified from live on-chain data.",
+    "Counterfactual analysis on real, public Solana treasuries. What dreyv would have caught — quantified from live on-chain data.",
   alternates: { canonical: "/case" },
 };
 
@@ -32,7 +31,7 @@ export default function CaseIndexPage() {
             Case Studies
           </div>
           <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
-            What Dreyv would have caught — on treasuries you can verify.
+            What dreyv would have caught — on treasuries you can verify.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-600">
             Counterfactual analysis on real, public Solana treasuries. Every figure pulled live from Helius and Jupiter — open on Solscan, sourced in every card, fabricated in none.
@@ -71,8 +70,8 @@ export default function CaseIndexPage() {
                 Same analysis, run live every 15 minutes, with policy-gated execution.
               </p>
             </div>
-            <Link href="/waitlist" className={marketingPrimaryCtaSm}>
-              Join the waitlist <ArrowRight className="h-4 w-4" />
+            <Link href="/auth?redirect=/app" className={marketingPrimaryCtaSm}>
+              Start free <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>

@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
-import { SiteHeader } from "@/components/home/site-header";
-import { SiteFooter } from "@/components/home/site-footer";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { PageHero } from "@/components/marketing/page-hero";
 import { GUIDES } from "@/lib/seo/guides";
-import { marketingPrimaryCta } from "@/components/home/marketing-styles";
-import guidesCrystal from "@/assets/guides-crystal.png";
-import guidesBook from "@/assets/guides-book.png";
 
-const TITLE = "Guides — dreyv";
+const TITLE = "Guides";
 const DESCRIPTION =
-  "Practical guides for Solana treasury teams: intent-driven workflows, Squads multisig setup, DAO treasury playbooks, and DCA strategies.";
+  "Practical guides for Solana treasury teams: intent-driven workflows, Squads multisig setup, DAO treasury playbooks and DCA strategies.";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: "/guides" },
-  openGraph: { title: TITLE, description: DESCRIPTION, type: "website" },
+  openGraph: {
+    title: `${TITLE} | dreyv`,
+    description: DESCRIPTION,
+    type: "website",
+    images: [{ url: "/og/guides.jpg", width: 1200, height: 630, alt: "dreyv guides" }],
+  },
 };
 
 const TOPIC_TAG: Record<string, string> = {
@@ -26,186 +28,99 @@ const TOPIC_TAG: Record<string, string> = {
   "dca-on-solana-guide": "DCA",
 };
 
-// Custom hand-drawn arrow mark (not a stock icon)
-function ArrowMark({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M4 12 L12 4" />
-      <path d="M6 4 L12 4 L12 10" />
-    </svg>
-  );
-}
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://dreyv.com/" },
+    { "@type": "ListItem", position: 2, name: "Guides", item: "https://dreyv.com/guides" },
+  ],
+};
 
 export default function GuidesIndexPage() {
-  const sorted = [...GUIDES].sort((a, b) =>
-    b.publishedAt.localeCompare(a.publishedAt),
-  );
+  const sorted = [...GUIDES].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   const [featured, ...rest] = sorted;
 
   return (
-    <div className="relative min-h-dvh w-full bg-marketing-bg-low text-slate-900 antialiased">
-      {/* Solid violet ambient wash — no gradients between colors, single hue */}
-      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
-        <div className="absolute -top-40 -left-40 h-[640px] w-[640px] rounded-full bg-violet-400/20 blur-[140px]" />
-        <div className="absolute top-[10%] -right-24 h-[520px] w-[520px] rounded-full bg-violet-300/25 blur-[130px]" />
-      </div>
+    <MarketingShell header={<SiteHeader overlay />}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <PageHero
+        art="guides"
+        title="Practical guides for Solana treasury teams"
+        sub="Multisig setup, treasury structure, DCA programs, and the case for intent-driven workflows. Written for operators, not maximalists."
+      />
 
-      <SiteHeader />
-
-      <main className="relative z-10 pt-28 md:pt-32 pb-20">
-        {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 backdrop-blur-sm px-3 py-1 mb-6 shadow-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
-                <span className="text-[11px] font-semibold text-violet-700 uppercase tracking-wider">
-                  dreyv guides
-                </span>
-              </div>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-[1.05] mb-6">
-                Practical guides for{" "}
-                <span className="text-violet-600">Solana treasury teams</span>
-              </h1>
-              <p className="text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl">
-                Multisig setup, treasury structure, DCA programs, and the case for
-                intent-driven workflows. Written for operators, not maximalists.
-              </p>
-            </div>
-            <div className="hidden md:block">
-              <Image
-                src={guidesCrystal}
-                alt=""
-                width={220}
-                height={220}
-                priority
-                className="drop-shadow-[0_20px_40px_rgba(124,58,237,0.35)]"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Featured guide */}
-        {featured && (
-          <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-12 md:mt-16">
-            <Link
-              href={`/guides/${featured.slug}`}
-              className="group relative block overflow-hidden rounded-3xl border border-violet-200 bg-white p-8 md:p-12 shadow-[0_8px_40px_-12px_rgba(124,58,237,0.18)] hover:shadow-[0_12px_50px_-12px_rgba(124,58,237,0.28)] hover:border-violet-300 transition-all"
-            >
-              <div className="absolute -top-16 -right-10 opacity-90 pointer-events-none">
-                <Image
-                  src={guidesBook}
-                  alt=""
-                  width={220}
-                  height={220}
-                  loading="lazy"
-                  className="drop-shadow-[0_15px_30px_rgba(124,58,237,0.25)]"
-                />
-              </div>
-              <div className="relative grid md:grid-cols-[1fr_auto] gap-6 items-end">
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                      Featured
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      {featured.publishedAt} · {featured.readMinutes} min read
-                    </span>
-                  </div>
-                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 leading-tight mb-3">
-                    {featured.title}
-                  </h2>
-                  <p className="text-base text-slate-600 leading-relaxed">
-                    {featured.teaser}
-                  </p>
-                </div>
-                <div className="flex md:justify-end">
-                  <span className={marketingPrimaryCta}>
-                    Read guide
-                    <ArrowMark className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </span>
-                </div>
-              </div>
-            </Link>
-          </section>
-        )}
-
-        {/* Other guides grid */}
-        {rest.length > 0 && (
-          <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-12 md:mt-16">
-            <div className="flex items-end justify-between mb-6">
-              <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                More guides
-              </h2>
-              <span className="text-xs text-slate-400">
-                {rest.length} {rest.length === 1 ? "article" : "articles"}
-              </span>
-            </div>
-            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {rest.map((guide) => (
-                <li key={guide.slug}>
-                  <Link
-                    href={`/guides/${guide.slug}`}
-                    className="group flex flex-col h-full rounded-2xl border border-violet-100 bg-white/80 backdrop-blur-sm hover:bg-white hover:border-violet-300 hover:shadow-[0_8px_30px_-12px_rgba(124,58,237,0.22)] p-6 transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-5">
-                      <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700">
-                        {TOPIC_TAG[guide.slug] ?? "Guide"}
-                      </span>
-                      <ArrowMark className="h-4 w-4 text-slate-300 group-hover:text-violet-600 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 leading-snug group-hover:text-violet-700 transition-colors">
-                      {guide.title}
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed mb-5 flex-1">
-                      {guide.teaser}
-                    </p>
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-[11px] text-slate-500">
-                      <span>{guide.publishedAt}</span>
-                      <span>{guide.readMinutes} min read</span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* CTA strip — solid violet, no gradient */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-20">
-          <div className="rounded-3xl bg-violet-600 p-8 md:p-12 text-white shadow-[0_12px_40px_-12px_rgba(124,58,237,0.45)]">
-            <div className="grid md:grid-cols-[1fr_auto] gap-6 items-center">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">
-                  Ready to put a guide into practice?
-                </h2>
-                <p className="text-violet-100 leading-relaxed max-w-xl">
-                  Open dreyv, describe what you want in plain English, simulate the
-                  impact, and approve from your multisig. Free to start.
-                </p>
-              </div>
-              <Link
-                href="/auth?redirect=/app"
-                className="group inline-flex items-center gap-2 font-semibold text-sm px-6 py-3 rounded-xl bg-white text-violet-700 hover:bg-violet-50 transition-colors active:scale-[0.98] justify-self-start md:justify-self-end"
-              >
-                Open dreyv
-                <ArrowMark className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+      {featured && (
+        <section className="mk-section mk-night" aria-labelledby="featured">
+          <div className="mk-wrap-narrow mk-center">
+            <p className="mk-small mk-tnum" style={{ color: "var(--mk-on-night-2)" }}>
+              Latest guide, {featured.publishedAt}, {featured.readMinutes} min read
+            </p>
+            <h2 id="featured" className="mk-h2" style={{ marginTop: 16 }}>
+              <Link href={`/guides/${featured.slug}`} style={{ textDecoration: "none" }}>
+                {featured.title}
+              </Link>
+            </h2>
+            <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
+              {featured.teaser}
+            </p>
+            <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
+              <Link href={`/guides/${featured.slug}`} className="mk-btn mk-btn-light">
+                Read the guide <span className="mk-arrow" aria-hidden="true">&rarr;</span>
               </Link>
             </div>
           </div>
         </section>
-      </main>
+      )}
 
-      <SiteFooter />
-    </div>
+      {rest.length > 0 && (
+        <section className="mk-section" aria-labelledby="more">
+          <div className="mk-wrap mk-split">
+            <div className="mk-sticky">
+              <h2 id="more" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)" }}>
+                More guides
+              </h2>
+              <p className="mk-body mk-tnum" style={{ marginTop: 14 }}>
+                {rest.length} {rest.length === 1 ? "article" : "articles"}
+              </p>
+            </div>
+            <ul className="mk-list">
+              {rest.map((g) => (
+                <li key={g.slug}>
+                  <Link href={`/guides/${g.slug}`} className="mk-row mk-row-link">
+                    <span>
+                      <span className="mk-h3" style={{ display: "block" }}>
+                        {g.title}
+                      </span>
+                      <span className="mk-small mk-tnum" style={{ display: "block", marginTop: 8 }}>
+                        {TOPIC_TAG[g.slug] ?? "Guide"}, {g.publishedAt}, {g.readMinutes} min read
+                      </span>
+                    </span>
+                    <span className="mk-body">{g.teaser}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      <section className="mk-section mk-violet" aria-labelledby="practice">
+        <div className="mk-wrap-narrow mk-center">
+          <h2 id="practice" className="mk-h2">
+            Ready to put a guide into practice?
+          </h2>
+          <p className="mk-lede mk-measure mk-center" style={{ marginTop: 20 }}>
+            Open dreyv, describe what you want in plain English, simulate the impact, and approve from your multisig.
+            Free to start.
+          </p>
+          <div className="mk-actions mk-actions-center" style={{ marginTop: 32 }}>
+            <Link href="/auth?redirect=/app" className="mk-btn mk-btn-light">
+              Open dreyv
+            </Link>
+          </div>
+        </div>
+      </section>
+    </MarketingShell>
   );
 }
