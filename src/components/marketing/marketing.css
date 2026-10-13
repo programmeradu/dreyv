@@ -42,12 +42,12 @@
   box-sizing: border-box;
 }
 
-.mk img {
+:where(.mk) img {
   max-width: 100%;
   height: auto;
 }
 
-.mk a {
+:where(.mk) a {
   color: inherit;
 }
 
@@ -489,6 +489,13 @@
   margin: clamp(10px, 1.6vh, 14px) 0 0;
   font-size: 13px;
   color: var(--mk-ink-2);
+}
+
+/* Tall source image: seals sit left of centre, pen on the right; crop more from the pen side. */
+@media (max-aspect-ratio: 6/5) {
+  .mk-hero-art img {
+    object-position: 28% 100%;
+  }
 }
 
 /* Short landscape screens (phones on their side): art becomes a strip along the bottom. */
