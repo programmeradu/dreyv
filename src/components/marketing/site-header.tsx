@@ -19,8 +19,9 @@ export function SiteHeader({ overlay = false, current }: Props) {
     <header className={overlay ? "mk-header mk-header-overlay" : "mk-header"}>
       <div className="mk-header-inner">
         <Link href="/" className="mk-logo" aria-label="dreyv home">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/art/dreyv-logo.webp" alt="dreyv" width={300} height={79} />
+          <span className="mk-wordmark" aria-hidden="true">
+            dreyv
+          </span>
         </Link>
         <nav className="mk-nav" aria-label="Primary">
           {NAV.map((l) => (

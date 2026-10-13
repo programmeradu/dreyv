@@ -6,29 +6,35 @@
 
 export type ArtKey = "pricing" | "about" | "developers" | "compare" | "guides";
 
-type ArtInfo = { alt: string; bg: string };
+/** box: the still life inside the photo as fractions [left, top, right, bottom], so the hero can frame it without cropping. */
+type ArtInfo = { alt: string; bg: string; box: [number, number, number, number] };
 
 /** bg is sampled from the top edge of each photograph so the copy area blends into it. */
 export const PAGE_ART: Record<ArtKey, ArtInfo> = {
   pricing: {
     alt: "Three short stacks of plain ivory and violet tokens on cotton paper in soft window light.",
     bg: "#cfc8b7",
+    box: [0.33, 0.61, 0.68, 0.89],
   },
   about: {
     alt: "A violet notebook, a fountain pen and a cup on a desk, with shutter shadows from a window on the wall.",
     bg: "#e3dcd2",
+    box: [0.49, 0.6, 0.92, 0.93],
   },
   developers: {
     alt: "A small coil of violet braided cable with a brass connector at its centre, on cotton paper.",
     bg: "#edece8",
+    box: [0.4, 0.54, 0.6, 0.89],
   },
   compare: {
     alt: "Two folded ivory letters side by side on cotton paper, the right one crossed by a violet ribbon.",
     bg: "#eceae4",
+    box: [0.24, 0.57, 0.75, 0.9],
   },
   guides: {
     alt: "An open book with blank ivory pages and a violet ribbon bookmark.",
     bg: "#dad5cc",
+    box: [0.29, 0.6, 0.68, 0.98],
   },
 };
 

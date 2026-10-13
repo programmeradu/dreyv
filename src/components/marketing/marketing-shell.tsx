@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { newsreader, inter } from "./fonts";
+import { newsreader, inter, urbanist } from "./fonts";
 import { SiteFooter } from "./site-footer";
 import "./marketing.css";
 
 /** Frame for every redesigned marketing page: fonts, skip link, main landmark, footer. */
 export function MarketingShell({ children, header }: { children: ReactNode; header?: ReactNode }) {
   return (
-    <div className={`mk ${newsreader.variable} ${inter.variable}`}>
+    <div className={`mk ${newsreader.variable} ${inter.variable} ${urbanist.variable}`}>
       <a href="#content" className="mk-skip">
         Skip to content
       </a>

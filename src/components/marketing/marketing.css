@@ -325,6 +325,21 @@
   height: 24px;
   width: auto;
 }
+/* Header wordmark: plain text "dreyv", as on the pre-redesign site (Urbanist 600, tight, violet-700). */
+.mk-wordmark {
+  font-family: var(--mk-wordmark), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  text-transform: lowercase;
+  color: #6d28d9;
+  padding: 4px 0 6px;
+  transition: color 160ms ease;
+}
+.mk-logo:hover .mk-wordmark {
+  color: #7c3aed;
+}
 .mk-nav {
   display: flex;
   gap: 28px;
@@ -421,249 +436,236 @@
   .mk-logo img {
     height: 22px;
   }
-}
-
-/* ---------- Home hero (seals) ---------- */
-.mk-hero {
-  position: relative;
-  height: 100vh;
-  height: 100svh;
-  overflow: hidden;
-  background: #efebe2;
-  isolation: isolate;
-}
-.mk-hero-art {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-}
-.mk-hero-art picture,
-.mk-hero-art img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.mk-hero-art img {
-  object-fit: cover;
-  object-position: 50% 100%;
-}
-.mk-hero-copy {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: calc(var(--mk-header-h) + clamp(10px, 5vh, 64px)) var(--mk-pad) 0;
-}
-.mk-hero .mk-pill {
-  margin-bottom: clamp(14px, 2.6vh, 26px);
-}
-.mk-hero .mk-h1 {
-  font-size: clamp(36px, min(12vw, 7.2vh), 52px);
-  max-width: 12ch;
-}
-@media (min-aspect-ratio: 6/5) {
-  .mk-hero .mk-h1 {
-    font-size: clamp(40px, min(7.4vw, 11.5vh), 112px);
-    max-width: none;
-    white-space: nowrap;
-  }
-}
-.mk-hero-sub {
-  margin: clamp(14px, 3.2vh, 34px) 0 0;
-  max-width: 34ch;
-  font-size: clamp(16px, min(4.4vw, 2.6vh), 20px);
-  line-height: 1.45;
-  color: var(--mk-ink-2);
-  text-wrap: balance;
-}
-@media (min-aspect-ratio: 6/5) {
-  .mk-hero-sub {
-    font-size: clamp(16px, min(1.5vw, 2.4vh), 20px);
-  }
-}
-.mk-hero .mk-btn {
-  margin-top: clamp(16px, 3vh, 26px);
-}
-.mk-hero-note {
-  margin: clamp(10px, 1.6vh, 14px) 0 0;
-  font-size: 13px;
-  color: var(--mk-ink-2);
-}
-
-/* Tall source image: seals sit left of centre, pen on the right; crop more from the pen side. */
-@media (max-aspect-ratio: 6/5) {
-  .mk-hero-art img {
-    object-position: 28% 100%;
+  .mk-wordmark {
+    font-size: 22px;
   }
 }
 
-/* Short landscape screens (phones on their side): art becomes a strip along the bottom. */
-@media (max-height: 560px) and (min-aspect-ratio: 3/2) {
-  .mk-hero-art {
-    top: auto;
-    height: 40%;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
-  }
-  .mk-hero-copy {
-    padding-top: calc(var(--mk-header-h) + 2px);
-  }
-  .mk-hero .mk-pill,
-  .mk-hero-note {
-    display: none;
-  }
-  .mk-hero .mk-h1 {
-    font-size: clamp(28px, 9.5vh, 56px);
-  }
-  .mk-hero-sub {
-    margin-top: 8px;
-    font-size: 15px;
-    max-width: 60ch;
-  }
-  .mk-hero .mk-btn {
-    margin-top: 12px;
-    min-height: 40px;
-  }
-}
-
-/* ---------- Page hero (stacked: copy on paper, art band below) ---------- */
+/* ---------- Heroes (home seals and inner pages) ----------
+ * Every hero is exactly one screen: 100svh (dvh, then vh, as fallbacks).
+ * Stacked, never overlaid: copy first, then an art area that takes the rest of the screen.
+ * The art area is a size container. Inside it the photograph covers the area while the
+ * still life stays fully in frame; when covering would crop the still life (very wide or very
+ * tall areas) it switches to contain and the edges fade into the paper.
+ * Checked with .harness/hero-fit.cjs: no rects intersect, hero height equals the viewport.
+ */
+.mk-hero,
 .mk-phero {
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   height: 100svh;
-  max-height: 1180px;
   overflow: hidden;
   background: var(--mk-hero-bg, var(--mk-paper));
+  isolation: isolate;
 }
+.mk-hero {
+  --mk-hero-bg: #ede9e1;
+}
+.mk-hero-copy,
 .mk-phero-copy {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: calc(var(--mk-header-h) + clamp(8px, 4vh, 56px)) var(--mk-pad) 0;
+  padding: calc(var(--mk-header-h) + clamp(4px, 3vh, 48px)) var(--mk-pad) 0;
+  padding: calc(var(--mk-header-h) + clamp(4px, 3svh, 48px)) var(--mk-pad) 0;
   position: relative;
   z-index: 1;
 }
-.mk-phero .mk-h1 {
-  font-size: clamp(30px, min(6vw, 9vh), 92px);
-  max-width: 18ch;
+.mk-hero .mk-pill {
+  margin-bottom: clamp(10px, 2.2vh, 24px);
+  margin-bottom: clamp(10px, 2.2svh, 24px);
 }
-@media (max-width: 400px) and (max-height: 700px) {
-  .mk-phero-copy {
-    padding-top: calc(var(--mk-header-h) + 4px);
-  }
-  .mk-phero-sub {
-    margin-top: 10px;
-    font-size: 15.5px;
-  }
-  .mk-phero .mk-actions {
-    margin-top: 14px;
-  }
-  .mk-phero .mk-btn {
-    min-height: 44px;
-  }
+.mk-hero .mk-h1 {
+  font-size: clamp(34px, min(11vw, 6.6vh), 56px);
+  font-size: clamp(34px, min(11vw, 6.6svh), 56px);
+  max-width: 11ch;
 }
+.mk-hero-sub,
 .mk-phero-sub {
-  margin: clamp(12px, 2.6vh, 26px) 0 0;
-  max-width: 54ch;
-  font-size: clamp(16px, min(1.4vw, 2.3vh), 19px);
-  line-height: 1.5;
+  margin: clamp(10px, 2.4vh, 28px) 0 0;
+  margin: clamp(10px, 2.4svh, 28px) 0 0;
+  font-size: clamp(15px, min(4.3vw, 2.4vh), 20px);
+  font-size: clamp(15px, min(4.3vw, 2.4svh), 20px);
+  line-height: 1.45;
   color: var(--mk-ink-2);
   text-wrap: balance;
 }
+.mk-hero-sub {
+  max-width: 32ch;
+}
+.mk-phero-sub {
+  max-width: 54ch;
+}
+.mk-hero .mk-btn,
 .mk-phero .mk-actions {
-  margin-top: clamp(16px, 3vh, 28px);
+  margin-top: clamp(14px, 2.8vh, 28px);
+  margin-top: clamp(14px, 2.8svh, 28px);
+}
+.mk-phero .mk-actions {
   justify-content: center;
 }
+.mk-hero-note,
 .mk-phero-meta {
-  margin: clamp(10px, 1.8vh, 16px) 0 0;
-  font-size: 14px;
-  color: var(--mk-ink-3);
+  margin: clamp(8px, 1.4vh, 14px) 0 0;
+  margin: clamp(8px, 1.4svh, 14px) 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--mk-ink-2);
 }
+.mk-phero .mk-h1 {
+  font-size: clamp(30px, min(9vw, 6.4vh), 56px);
+  font-size: clamp(30px, min(9vw, 6.4svh), 56px);
+  max-width: 16ch;
+}
+
+@media (min-aspect-ratio: 6/5) {
+  .mk-hero .mk-h1 {
+    font-size: clamp(36px, min(7vw, 10vh), 112px);
+    font-size: clamp(36px, min(7vw, 10svh), 112px);
+    max-width: none;
+    white-space: nowrap;
+  }
+  .mk-phero .mk-h1 {
+    font-size: clamp(32px, min(5.6vw, 8.4vh), 92px);
+    font-size: clamp(32px, min(5.6vw, 8.4svh), 92px);
+    max-width: 18ch;
+  }
+  .mk-hero-sub,
+  .mk-phero-sub {
+    font-size: clamp(15px, min(1.5vw, 2.3vh), 20px);
+    font-size: clamp(15px, min(1.5vw, 2.3svh), 20px);
+  }
+}
+
+/*
+ * Art area: whatever is left of the screen, as a size container.
+ * The photograph is sized from four numbers about it: --art-a (width / height), --art-top (top of the
+ * still life, 0 to 1), --art-sw (width of the still life, 0 to 1) and --art-cx (its centre, 0 to 1).
+ *   wide areas: as wide as the area, unless that would crop the top of the still life;
+ *   tall areas: taller than the area's width allows, so the still life fills the frame without cropping.
+ * It is anchored to the bottom and centred on the still life. The area fades in from the paper above.
+ */
+.mk-hero-art,
 .mk-phero-art {
+  --art-a: 1.7917;
+  --art-top: 0.6;
+  --art-sw: 0.4;
+  --art-cx: 0.5;
+  --art-d: max(
+    min(100cqw, 100cqh * var(--art-a) / (1.06 - var(--art-top))),
+    min(100cqh * var(--art-a), 100cqw / (var(--art-sw) + 0.12))
+  );
   position: relative;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
-  margin-top: clamp(4px, 1.5vh, 20px);
+  margin-top: clamp(8px, 2vh, 28px);
+  margin-top: clamp(8px, 2svh, 28px);
+  container-type: size;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 min(26%, 160px));
+  mask-image: linear-gradient(to bottom, transparent 0, #000 min(26%, 160px));
 }
+.mk-hero-art picture,
 .mk-phero-art picture {
-  display: block;
-  position: absolute;
-  inset: 0;
+  display: contents;
 }
+.mk-hero-art img,
 .mk-phero-art img {
+  position: absolute;
+  bottom: 0;
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 100%;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 24%);
+  max-width: none;
+  width: var(--art-d);
+  height: auto;
+  aspect-ratio: var(--art-a);
+  left: clamp(min(0px, 100cqw - var(--art-d)), 50cqw - var(--art-d) * var(--art-cx), max(0px, 100cqw - var(--art-d)));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20%);
 }
-/* Portrait screens: never crop the sides. Show the whole photograph at full width, anchored to the bottom. */
-@media (max-aspect-ratio: 6/5) {
-  .mk-phero {
-    height: auto;
-    max-height: none;
-  }
-  .mk-phero-art {
-    flex: none;
-  }
-  .mk-phero-art picture {
-    position: static;
-  }
+/* When the photograph is narrower than the area, fade its sides into the paper. */
+@container (min-aspect-ratio: 3.2) {
+  .mk-hero-art img,
   .mk-phero-art img {
-    height: auto;
-    object-fit: fill;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+      linear-gradient(to bottom, transparent 0, #000 20%);
+    mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+      linear-gradient(to bottom, transparent 0, #000 20%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
 }
+/* Home: wide photograph of the seals and pen (1252x768). */
+.mk-hero-art {
+  --art-a: 1.6302;
+  --art-top: 0.555;
+  --art-sw: 0.82;
+  --art-cx: 0.59;
+}
+/* Tall phones get the tall photograph (768x1376). */
+@media (max-aspect-ratio: 1/2) {
+  .mk-hero-art {
+    --art-a: 0.5581;
+    --art-top: 0.6;
+    --art-sw: 0.92;
+    --art-cx: 0.54;
+  }
+}
+
+/* Compact variant for long reading pages (single guides): a short band, not a full screen. */
 .mk-phero-compact {
   height: auto;
-  max-height: none;
 }
 .mk-phero-compact .mk-phero-art {
   flex: none;
-  height: clamp(150px, 32vh, 420px);
+  height: clamp(140px, 28vh, 380px);
+  height: clamp(140px, 28svh, 380px);
 }
-@media (max-aspect-ratio: 6/5) {
-  .mk-phero-compact .mk-phero-art {
-    height: auto;
+
+/* Short screens (phones on their side, small laptops): drop the small print. */
+@media (max-height: 560px) {
+  .mk-hero .mk-pill,
+  .mk-hero-note,
+  .mk-phero-meta {
+    display: none;
   }
-}
-@media (max-height: 560px) and (min-aspect-ratio: 3/2) {
-  .mk-phero {
-    max-height: none;
-  }
+  .mk-hero-copy,
   .mk-phero-copy {
     padding-top: calc(var(--mk-header-h) + 2px);
   }
+  .mk-hero .mk-btn,
+  .mk-phero .mk-btn {
+    min-height: 40px;
+  }
+}
+@media (max-height: 560px) and (min-aspect-ratio: 3/2) {
+  .mk-hero .mk-h1,
   .mk-phero .mk-h1 {
     font-size: clamp(26px, 8.5vh, 48px);
+    font-size: clamp(26px, 8.5svh, 48px);
   }
+  .mk-phero .mk-h1 {
+    max-width: 30ch;
+  }
+  .mk-hero-sub,
   .mk-phero-sub {
-    margin-top: 8px;
+    margin-top: 6px;
     font-size: 15px;
     max-width: 72ch;
+  }
+  .mk-phero-sub {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .mk-hero .mk-btn,
   .mk-phero .mk-actions {
     margin-top: 10px;
-  }
-  .mk-phero .mk-btn {
-    min-height: 38px;
-  }
-  .mk-phero-meta {
-    display: none;
-  }
-  .mk-phero-compact .mk-phero-art {
-    height: 90px;
   }
 }
 

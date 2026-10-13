@@ -17,3 +17,12 @@ export const inter = localFont({
   preload: true,
   fallback: ["system-ui", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
 });
+
+/** Urbanist 600, latin subset. Only for the header wordmark, matching the pre-redesign "dreyv" text logo. */
+export const urbanist = localFont({
+  src: [{ path: "./fonts/urbanist-600.woff2", weight: "600", style: "normal" }],
+  variable: "--mk-wordmark",
+  display: "swap",
+  preload: true,
+  fallback: ["system-ui", "Segoe UI", "Helvetica", "Arial", "sans-serif"],
+});

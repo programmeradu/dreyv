@@ -1,4 +1,4 @@
-import { newsreader, inter } from "./fonts";
+import { newsreader, inter, urbanist } from "./fonts";
 import { SiteHeader as Header } from "./site-header";
 import { SiteFooter as Footer } from "./site-footer";
 import "./marketing.css";
@@ -10,7 +10,7 @@ import "./marketing.css";
  */
 export function SiteHeader() {
   return (
-    <div className={`mk mk-chrome ${newsreader.variable} ${inter.variable}`}>
+    <div className={`mk mk-chrome ${newsreader.variable} ${inter.variable} ${urbanist.variable}`}>
       <Header />
     </div>
   );
@@ -18,7 +18,7 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <div className={`mk mk-chrome ${newsreader.variable} ${inter.variable}`}>
+    <div className={`mk mk-chrome ${newsreader.variable} ${inter.variable} ${urbanist.variable}`}>
       <Footer />
     </div>
   );

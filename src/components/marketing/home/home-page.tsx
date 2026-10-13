@@ -23,7 +23,7 @@ function SealsHero() {
         as="image"
         type="image/avif"
         href="/art/home-seals-tall-768.avif"
-        media="(max-aspect-ratio: 6/5)"
+        media="(max-aspect-ratio: 1/2)"
         fetchPriority="high"
       />
       <link
@@ -32,13 +32,26 @@ function SealsHero() {
         type="image/avif"
         imageSrcSet="/art/home-seals-800.avif 800w, /art/home-seals-1252.avif 1252w"
         imageSizes="100vw"
-        media="(min-aspect-ratio: 6/5)"
+        media="(min-aspect-ratio: 1/2)"
         fetchPriority="high"
       />
+      <div className="mk-hero-copy hero-copy">
+        <span className="mk-pill mk-rise">Beta</span>
+        <h1 id="hero-title" className="mk-h1 mk-rise">
+          Know what you&rsquo;re signing.
+        </h1>
+        <p className="mk-hero-sub mk-rise mk-rise-2">
+          Treasury operations for teams on Solana, simulated before anyone signs.
+        </p>
+        <Link href={START} className="mk-btn mk-btn-solid mk-rise mk-rise-3">
+          Start free
+        </Link>
+        <p className="mk-hero-note mk-rise mk-rise-3">Free plan, no card. Your keys stay yours.</p>
+      </div>
       <div className="mk-hero-art">
         <picture>
-          <source media="(max-aspect-ratio: 6/5)" type="image/avif" srcSet="/art/home-seals-tall-768.avif" />
-          <source media="(max-aspect-ratio: 6/5)" type="image/webp" srcSet="/art/home-seals-tall-768.webp" />
+          <source media="(max-aspect-ratio: 1/2)" type="image/avif" srcSet="/art/home-seals-tall-768.avif" />
+          <source media="(max-aspect-ratio: 1/2)" type="image/webp" srcSet="/art/home-seals-tall-768.webp" />
           <source
             type="image/avif"
             srcSet="/art/home-seals-800.avif 800w, /art/home-seals-1252.avif 1252w"
@@ -59,19 +72,6 @@ function SealsHero() {
             decoding="async"
           />
         </picture>
-      </div>
-      <div className="mk-hero-copy hero-copy">
-        <span className="mk-pill mk-rise">Beta</span>
-        <h1 id="hero-title" className="mk-h1 mk-rise">
-          Know what you&rsquo;re signing.
-        </h1>
-        <p className="mk-hero-sub mk-rise mk-rise-2">
-          Treasury operations for teams on Solana, simulated before anyone signs.
-        </p>
-        <Link href={START} className="mk-btn mk-btn-solid mk-rise mk-rise-3">
-          Start free
-        </Link>
-        <p className="mk-hero-note mk-rise mk-rise-3">Free plan, no card. Your keys stay yours.</p>
       </div>
     </section>
   );
