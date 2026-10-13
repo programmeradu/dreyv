@@ -325,7 +325,7 @@
   height: 24px;
   width: auto;
 }
-/* Header wordmark: plain text "dreyv", as on the pre-redesign site (Urbanist 600, tight, violet-700). */
+/* Header wordmark: plain text "dreyv", as on the pre-redesign site (Urbanist 600, tight), in the Start free button violet. */
 .mk-wordmark {
   font-family: var(--mk-wordmark), system-ui, sans-serif;
   font-weight: 600;
@@ -333,12 +333,12 @@
   line-height: 1;
   letter-spacing: -0.025em;
   text-transform: lowercase;
-  color: #6d28d9;
+  color: var(--mk-violet);
   padding: 4px 0 6px;
   transition: color 160ms ease;
 }
 .mk-logo:hover .mk-wordmark {
-  color: #7c3aed;
+  color: var(--mk-violet-hover);
 }
 .mk-nav {
   display: flex;
