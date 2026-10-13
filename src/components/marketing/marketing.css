@@ -549,8 +549,23 @@
   z-index: 1;
 }
 .mk-phero .mk-h1 {
-  font-size: clamp(34px, min(6vw, 9vh), 92px);
+  font-size: clamp(30px, min(6vw, 9vh), 92px);
   max-width: 18ch;
+}
+@media (max-width: 400px) and (max-height: 700px) {
+  .mk-phero-copy {
+    padding-top: calc(var(--mk-header-h) + 4px);
+  }
+  .mk-phero-sub {
+    margin-top: 10px;
+    font-size: 15.5px;
+  }
+  .mk-phero .mk-actions {
+    margin-top: 14px;
+  }
+  .mk-phero .mk-btn {
+    min-height: 44px;
+  }
 }
 .mk-phero-sub {
   margin: clamp(12px, 2.6vh, 26px) 0 0;
@@ -902,6 +917,7 @@
   border-color: rgba(255, 255, 255, 0.16);
 }
 .mk-row {
+  overflow-wrap: anywhere;
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: clamp(12px, 3vw, 48px);

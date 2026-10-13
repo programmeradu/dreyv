@@ -119,7 +119,7 @@ export default function DevelopersMcpPage() {
             {caps.map((c) => (
               <li key={c.id} className="mk-row">
                 <span>
-                  <code className="mk-mono" style={{ color: "var(--mk-violet)", fontSize: 14, fontWeight: 600 }}>
+                  <code className="mk-mono" style={{ color: "var(--mk-violet)", fontSize: 14, fontWeight: 600, display: "block" }}>
                     {c.mcpName}
                   </code>
                   <span className="mk-small" style={{ display: "block", marginTop: 4 }}>

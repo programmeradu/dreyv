@@ -57,7 +57,7 @@ export default function ComparePage() {
       <PageHero
         art="compare"
         title="dreyv vs Squads, Jupiter and Birdeye"
-        sub="Most teams stitch together a multisig, a swap UI, an analytics dashboard and a chat channel. dreyv brings that into one non-custodial workspace where you describe intent, preview outcomes and propose to your multisig."
+        sub="One non-custodial workspace where you describe intent, preview outcomes and propose to your multisig."
         actions={
           <>
             <Link href="/auth?redirect=/app" className="mk-btn mk-btn-solid">
@@ -75,6 +75,10 @@ export default function ComparePage() {
           <h2 id="matrix" className="mk-h2" style={{ fontSize: "clamp(34px, 4vw, 56px)", textAlign: "center" }}>
             Side by side
           </h2>
+          <p className="mk-lede mk-measure mk-center" style={{ marginTop: 18, textAlign: "center" }}>
+            Most teams stitch together a multisig, a swap UI, an analytics dashboard and a chat channel. dreyv brings
+            that stack into one place.
+          </p>
           <div className="mk-table-wrap" style={{ marginTop: "clamp(32px, 5vh, 48px)" }} tabIndex={0} aria-label="Capability comparison table">
             <table className="mk-table">
               <caption className="mk-sr">Capabilities of dreyv, Squads, Jupiter and Birdeye</caption>
