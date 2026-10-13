@@ -4,7 +4,7 @@
  * Files live in /public/art. Never stretch or outpaint: generate new art instead.
  */
 
-export type ArtKey = "pricing" | "about" | "developers" | "compare" | "waitlist" | "guides";
+export type ArtKey = "pricing" | "about" | "developers" | "compare" | "guides";
 
 type ArtInfo = { alt: string; bg: string };
 
@@ -25,10 +25,6 @@ export const PAGE_ART: Record<ArtKey, ArtInfo> = {
   compare: {
     alt: "Two folded ivory letters side by side on cotton paper, the right one crossed by a violet ribbon.",
     bg: "#eceae4",
-  },
-  waitlist: {
-    alt: "A single ivory envelope closed with a violet wax seal on cotton paper.",
-    bg: "#efebe2",
   },
   guides: {
     alt: "An open book with blank ivory pages and a violet ribbon bookmark.",

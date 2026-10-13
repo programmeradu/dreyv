@@ -115,7 +115,7 @@ export default function Page() {
           <Link href="/atlas">Solana Atlas</Link> intelligence, and hands the result
           to <Link href="/guides/squads-multisig-setup-guide">Squads</Link> for
           human signatures. Keys never leave your wallets.{" "}
-          <Link href="/waitlist">Join the waitlist</Link> to get early access.
+          <Link href="/auth?redirect=/app">Start free</Link>. The free plan needs no card.
         </p>
       </GuideShell>
     </>

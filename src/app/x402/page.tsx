@@ -5,18 +5,18 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-    title: "Dreyv for x402 — the buyer-side companion to the agent payments standard",
+    title: "dreyv for x402 — the buyer-side companion to the agent payments standard",
     description:
         "Give any AI agent a wallet, a per-run budget, and a full audit trail for every x402 payment. Works with Cloudflare Monetization Gateway, Coinbase-facilitated APIs, and any x402-compliant seller.",
     alternates: { canonical: "https://dreyv.com/x402" },
     openGraph: {
-        title: "Dreyv for x402",
+        title: "dreyv for x402",
         description:
             "The buyer-side companion to x402. Wallet + budget + audit trail for every agent payment.",
         type: "website",
         url: "https://dreyv.com/x402",
     },
-    twitter: { card: "summary_large_image", title: "Dreyv for x402" },
+    twitter: { card: "summary_large_image", title: "dreyv for x402" },
 };
 
 const sellers = [
@@ -30,7 +30,7 @@ const pillars = [
     {
         title: "A wallet, provisioned automatically",
         body:
-            "Every Dreyv API key gets a custodial USDC wallet on Solana. No seed phrases, no wallet adapters, no key material inside the agent runtime.",
+            "Every dreyv API key gets a custodial USDC wallet on Solana. No seed phrases, no wallet adapters, no key material inside the agent runtime.",
     },
     {
         title: "A budget you actually control",
@@ -40,7 +40,7 @@ const pillars = [
     {
         title: "An audit trail your CFO will read",
         body:
-            "Every settlement returns a signed receipt, a Solscan link, memo, resource hash, and the amount in USDC minor units. Streamed into the Dreyv ledger, exportable to CSV.",
+            "Every settlement returns a signed receipt, a Solscan link, memo, resource hash, and the amount in USDC minor units. Streamed into the dreyv ledger, exportable to CSV.",
     },
     {
         title: "One key, every rail",
@@ -65,7 +65,7 @@ export default function X402Page() {
                 <div className="relative mx-auto max-w-6xl px-6 pb-24 pt-28 sm:pt-32">
                     <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-xs font-medium text-violet-700 backdrop-blur">
                         <DreyvStar className="h-3 w-3 text-violet-600" />
-                        Dreyv × x402 — buyer-side companion
+                        dreyv × x402 — buyer-side companion
                     </div>
                     <h1 className="max-w-4xl text-balance text-5xl font-semibold leading-[1.05] tracking-tight text-slate-950 sm:text-6xl">
                         The seller side of agent payments just got a default.
@@ -75,7 +75,7 @@ export default function X402Page() {
                         Cloudflare just made x402 a one-checkbox toll booth for any API on the internet.
                         That&apos;s good — it means every agent will pay per call in stablecoins. Someone
                         still has to give that agent a wallet, a budget, and a paper trail. That&apos;s
-                        Dreyv.
+                        dreyv.
                     </p>
                     <div className="mt-10 flex flex-wrap items-center gap-4">
                         <Link
@@ -104,7 +104,7 @@ export default function X402Page() {
                     <div>
                         <p className="mb-3 flex items-center gap-2 text-sm font-medium text-violet-700">
                             <DreyvStar className="h-3 w-3 text-violet-600" />
-                            What Dreyv gives the buyer
+                            What dreyv gives the buyer
                         </p>
                         <h2 className="max-w-2xl text-4xl font-semibold tracking-tight text-slate-950">
                             A wallet, a budget, and an audit trail — for every agent, on every seller.
@@ -132,7 +132,7 @@ export default function X402Page() {
                         Works with every x402 seller
                     </p>
                     <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950">
-                        Dreyv is neutral on who runs the toll booth.
+                        dreyv is neutral on who runs the toll booth.
                     </h2>
                     <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
                         The SDK issues the request, catches the 402, negotiates the cheapest quote below

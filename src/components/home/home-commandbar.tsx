@@ -261,7 +261,7 @@ export function HomeCommandbar() {
           <form
             onSubmit={handleSubmit}
             toolname="dreyv-command"
-            tooldescription="Submit a natural-language treasury intent (e.g. 'swap 10 SOL to USDC'). Dreyv plans, simulates, and returns a step preview."
+            tooldescription="Submit a natural-language treasury intent (e.g. 'swap 10 SOL to USDC'). dreyv plans, simulates, and returns a step preview."
             toolautosubmit="false"
             className="relative rounded-2xl bg-white ring-1 ring-slate-200/80 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.18)]"
           >
@@ -359,7 +359,7 @@ export function HomeCommandbar() {
               <DreyvStar size={14} className="text-violet-500" />
               You've simulated {runs} commands. Ready to run them for real?
               <a href="/app" className="text-violet-700 font-semibold hover:text-violet-900">
-                Open Dreyv →
+                Open dreyv →
               </a>
             </motion.div>
           )}
@@ -542,9 +542,9 @@ const INTENT_COPY: Record<string, { headline: string; sub: string }> = {
   deploy_dca: { headline: "Sign in to deploy your DCA bot", sub: "Set the budget, cadence, and exit rules — pause anytime." },
   deploy_agent: { headline: "Sign in to deploy this agent", sub: "Bind tools, set risk envelope, run a 7-day backtest before going live." },
   scan_wallet: { headline: "Sign in to scan your wallet", sub: "We'll match your on-chain activity against every active airdrop program." },
-  open_studio: { headline: "Sign in to open Dreyv Studio", sub: "Browser IDE + AI Architect — ship a mini-app in minutes." },
+  open_studio: { headline: "Sign in to open dreyv Studio", sub: "Browser IDE + AI Architect — ship a mini-app in minutes." },
   open_foresight: { headline: "Sign in to model your real treasury", sub: "Connect your vault and run scenarios against live balances." },
-  open_app: { headline: "Open Dreyv", sub: "Sign in to access your treasury, agents, and strategies." },
+  open_app: { headline: "Open dreyv", sub: "Sign in to access your treasury, agents, and strategies." },
 };
 
 function AuthGate({ intent, onClose }: { intent: Action; onClose: () => void }) {

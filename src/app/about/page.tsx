@@ -30,7 +30,7 @@ const facts = [
 ];
 
 const contacts = [
-  { k: "General", v: "hello@dreyv.com" },
+  { k: "General", v: "hello@dreyv.app" },
   { k: "Samuel", v: "samuel@dreyv.com" },
   { k: "Privacy", v: "privacy@dreyv.com" },
   { k: "Press", v: "press@dreyv.com" },
@@ -176,7 +176,7 @@ export default function AboutPage() {
             <Link href="/developers" className="mk-btn mk-btn-ghost-light">
               Developer hub
             </Link>
-            <a href="mailto:hello@dreyv.com" className="mk-btn mk-btn-ghost-light">
+            <a href="mailto:hello@dreyv.app" className="mk-btn mk-btn-ghost-light">
               Contact us
             </a>
           </div>

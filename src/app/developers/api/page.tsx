@@ -11,13 +11,13 @@ import { DreyvMascot } from "@/components/brand/dreyv-mascot";
 import commandStar from "@/assets/command-star-violet.png";
 
 export const metadata: Metadata = {
-  title: "Dreyv Web3 API — REST reference",
+  title: "dreyv Web3 API — REST reference",
   description:
-    "REST reference for the Dreyv Web3 API. Identity, portfolio, treasury, market, simulation, intents, forensics, agentic and economy primitives — one Bearer key, generated from a typed capability registry.",
+    "REST reference for the dreyv Web3 API. Identity, portfolio, treasury, market, simulation, intents, forensics, agentic and economy primitives — one Bearer key, generated from a typed capability registry.",
   alternates: { canonical: "/developers/api" },
   openGraph: {
-    title: "Dreyv Web3 API — REST reference",
-    description: "Typed REST surface for every corner of Web3 with Dreyv's signature simulation, forensics, and agentic layers.",
+    title: "dreyv Web3 API — REST reference",
+    description: "Typed REST surface for every corner of Web3 with dreyv's signature simulation, forensics, and agentic layers.",
     url: "/developers/api",
   },
 };
@@ -90,7 +90,7 @@ export default function DevelopersApiPage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <DreyvStar size={11} className="text-violet-600" />
-                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">Dreyv API · v1 · {caps.length}+ capabilities</span>
+                <span className="text-[10px] tracking-[0.24em] uppercase font-semibold text-violet-700">dreyv API · v1 · {caps.length}+ capabilities</span>
               </div>
               <h1 className="mt-3 text-[40px] sm:text-[56px] leading-[1.04] font-semibold tracking-[-0.02em]">
                 One typed Bearer key for <span className="italic font-light text-violet-600">every corner of Web3</span>.
@@ -123,7 +123,7 @@ export default function DevelopersApiPage() {
             <div className="hidden lg:flex justify-end relative">
               <Image src={commandStar} alt="" width={180} height={180} className="opacity-90" />
               <div className="absolute -bottom-2 -left-2">
-                <DreyvMascot pose="celebrate" size={120} alt="Dreyv mascot" />
+                <DreyvMascot pose="celebrate" size={120} alt="dreyv mascot" />
               </div>
             </div>
           </header>

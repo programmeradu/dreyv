@@ -27,7 +27,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/atlas/methodology", changeFrequency: "monthly", priority: 0.7 },
     { path: "/atlas/strategy-lab", changeFrequency: "weekly", priority: 0.75 },
     { path: "/guides", changeFrequency: "weekly", priority: 0.85 },
-    { path: "/waitlist", changeFrequency: "weekly", priority: 0.95 },
     { path: "/solana-treasury-tracker", changeFrequency: "weekly", priority: 0.9 },
     { path: "/solana-portfolio-tracker", changeFrequency: "weekly", priority: 0.9 },
     { path: "/compare", changeFrequency: "monthly", priority: 0.8 },

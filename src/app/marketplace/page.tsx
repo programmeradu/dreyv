@@ -17,12 +17,12 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Marketplace — Mini-Apps for treasury workflows",
   description:
-    "Browse production-ready Dreyv Mini-Apps: swap, vault, payroll, analytics, and more. Built by the community, vetted by Dreyv.",
+    "Browse production-ready dreyv Mini-Apps: swap, vault, payroll, analytics, and more. Built by the community, vetted by dreyv.",
   alternates: { canonical: "/marketplace" },
   openGraph: {
     type: "website",
     url: "/marketplace",
-    title: "Marketplace | Dreyv Mini-Apps",
+    title: "Marketplace | dreyv Mini-Apps",
     description:
       "Production-ready Mini-Apps for non-custodial treasury workflows.",
     siteName: "dreyv",
@@ -108,7 +108,7 @@ export default async function MarketplacePage({
           </h1>
           <p className="mt-5 text-base text-slate-600 leading-relaxed">
             Swap, payroll, analytics, governance — built by the community,
-            audited by Dreyv. 80/20 revenue split, on-chain Solana settlement.
+            audited by dreyv. 80/20 revenue split, on-chain Solana settlement.
           </p>
         </header>
 
@@ -180,7 +180,7 @@ export default async function MarketplacePage({
             Ship a Mini-App. Keep 80% of revenue.
           </h2>
           <p className="mt-4 text-slate-600 max-w-xl mx-auto">
-            Scaffold, build, and publish from Dreyv Studio. Settlement and
+            Scaffold, build, and publish from dreyv Studio. Settlement and
             payouts on Solana, no marketplace fees beyond the 20% platform
             share.
           </p>

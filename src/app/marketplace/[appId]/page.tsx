@@ -33,13 +33,13 @@ export async function generateMetadata({
   const app = await getApp(appId);
   if (!app) return { title: "Mini-App not found" };
   return {
-    title: `${app.name} — Dreyv Marketplace`,
+    title: `${app.name} — dreyv Marketplace`,
     description: app.description,
     alternates: { canonical: `/marketplace/${app.id}` },
     openGraph: {
       type: "website",
       url: `/marketplace/${app.id}`,
-      title: `${app.name} | Dreyv Mini-App`,
+      title: `${app.name} | dreyv Mini-App`,
       description: app.description,
       siteName: "dreyv",
     },
@@ -152,7 +152,7 @@ export default async function MiniAppDetailPage({
           </h2>
           <p className="font-mono text-sm text-slate-700 break-all">{app.creatorWallet}</p>
           <p className="mt-2 text-xs text-slate-500">
-            Settlement on Solana. 80% to creator, 20% to Dreyv. No platform fees beyond split.
+            Settlement on Solana. 80% to creator, 20% to dreyv. No platform fees beyond split.
           </p>
         </section>
 

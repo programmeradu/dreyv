@@ -21,11 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ address: 
   const featured = findFeatured(address);
   const label = featured?.label ?? `${address.slice(0, 4)}…${address.slice(-4)}`;
   return {
-    title: `${label} — Dreyv case study`,
-    description: `Counterfactual analysis: what Dreyv would have caught on ${label}. Live on-chain data — idle yield, fee leak, concentration risk, approval hygiene.`,
+    title: `${label} — dreyv case study`,
+    description: `Counterfactual analysis: what dreyv would have caught on ${label}. Live on-chain data — idle yield, fee leak, concentration risk, approval hygiene.`,
     alternates: { canonical: `/case/${address}` },
     openGraph: {
-      title: `${label} — Dreyv case study`,
+      title: `${label} — dreyv case study`,
       description: "Counterfactual treasury analysis on live public on-chain data.",
     },
     robots: { index: true, follow: true },

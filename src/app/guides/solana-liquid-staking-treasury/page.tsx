@@ -116,7 +116,7 @@ export default function Page() {
           concentration, and routes the proposal to your{" "}
           <Link href="/guides/squads-multisig-setup-guide">Squads multisig</Link>.
           Keys never leave your wallets.{" "}
-          <Link href="/waitlist">Join the waitlist</Link> for early access.
+          <Link href="/auth?redirect=/app">Start free</Link>. The free plan needs no card.
         </p>
       </GuideShell>
     </>

@@ -65,7 +65,9 @@ export function SiteFooter() {
             <address className="mk-small" style={{ fontStyle: "normal", marginTop: 14 }}>
               Nicosia, Cyprus
               <br />
-              <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a>
+              General: <a href="mailto:hello@dreyv.app">hello@dreyv.app</a>
+              <br />
+              Samuel: <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a>
             </address>
           </div>
         </div>

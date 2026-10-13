@@ -6,7 +6,7 @@ import { DNS_AID_RECORDS, DNS_AID_ZONE, svcbValue } from "@/lib/dns-aid/records"
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-  title: "DNS-AID publisher — Dreyv",
+  title: "DNS-AID publisher — dreyv",
   description:
     "One-click publish of the six DNS-AID SVCB records for dreyv.com to Cloudflare. Team-only.",
   robots: { index: false, follow: false },

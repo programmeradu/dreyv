@@ -6,9 +6,9 @@ import { ArrowDownToLine, ArrowUpRight } from "lucide-react";
 import { DreyvStar } from "@/components/studio/DreyvStar";
 
 export const metadata: Metadata = {
-  title: "Pitch Deck — Dreyv",
+  title: "Pitch Deck — dreyv",
   description:
-    "Dreyv pitch deck — the AI Operating System for on-chain treasury. Simulate, validate, and execute safely.",
+    "dreyv pitch deck — the AI Operating System for on-chain treasury. Simulate, validate, and execute safely.",
   alternates: { canonical: "/pitch" },
   robots: { index: false, follow: false },
 };
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 const TOTAL = 16;
 const slides = Array.from({ length: TOTAL }, (_, i) => {
   const n = String(i + 1).padStart(2, "0");
-  return { n, src: `/pitch/slide-${n}.jpg`, alt: `Dreyv pitch deck — slide ${i + 1} of ${TOTAL}` };
+  return { n, src: `/pitch/slide-${n}.jpg`, alt: `dreyv pitch deck — slide ${i + 1} of ${TOTAL}` };
 });
 
 export default function PitchPage() {
@@ -42,7 +42,7 @@ export default function PitchPage() {
           </h1>
 
           <p className="max-w-2xl text-lg leading-relaxed text-slate-600 md:text-xl">
-            Dreyv lets treasury teams type intent in plain English, simulate every outcome,
+            dreyv lets treasury teams type intent in plain English, simulate every outcome,
             and execute on-chain — safely, non-custodially, end-to-end.
           </p>
 
@@ -131,7 +131,7 @@ export default function PitchPage() {
               Download PDF
             </a>
             <a
-              href="mailto:samuel@dreyv.com?subject=Dreyv%20pitch%20follow-up"
+              href="mailto:samuel@dreyv.com?subject=dreyv%20pitch%20follow-up"
               className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 transition hover:border-violet-400 hover:text-violet-700"
             >
               Email the founder

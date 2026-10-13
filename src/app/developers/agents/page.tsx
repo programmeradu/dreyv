@@ -3,12 +3,12 @@ import Link from "next/link";
 import { ArrowUpRight, Bot, Coins, KeyRound, ShieldCheck, Wallet, Globe, Rocket } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Agent Payments (x402) | Dreyv Developers",
+    title: "Agent Payments (x402) | dreyv Developers",
     description:
-        "Let autonomous agents pay for Dreyv calls in USDC on Solana. Mint an agent API key, settle a 402 payment, and claim a single-use receipt token.",
+        "Let autonomous agents pay for dreyv calls in USDC on Solana. Mint an agent API key, settle a 402 payment, and claim a single-use receipt token.",
     alternates: { canonical: "/developers/agents" },
     openGraph: {
-        title: "Agent Payments (x402) | Dreyv",
+        title: "Agent Payments (x402) | dreyv",
         description:
             "x402-style payments for autonomous agents — USDC on Solana, single-use receipt tokens, per-key spend caps.",
         url: "/developers/agents",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "Agent Payments (x402) | Dreyv",
+        title: "Agent Payments (x402) | dreyv",
         description:
             "x402-style payments for autonomous agents — USDC on Solana, single-use receipts.",
     },
@@ -65,11 +65,11 @@ export default function AgentPaymentsPage() {
                         <Bot className="h-3.5 w-3.5" /> x402 · agent-native
                     </p>
                     <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
-                        Agent payments on Dreyv
+                        Agent payments on dreyv
                     </h1>
                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                         Let an autonomous agent — Claude, GPT, a LangGraph worker, anything
-                        with an HTTP client and a wallet — pay for Dreyv calls in USDC on
+                        with an HTTP client and a wallet — pay for dreyv calls in USDC on
                         Solana. Per-key spend caps, single-use receipt tokens, instant
                         settlement.
                     </p>
@@ -151,7 +151,7 @@ export default function AgentPaymentsPage() {
                             </p>
                             <h2 className="mt-2 text-xl font-semibold text-slate-900">Hosted agent wallet — one call, no human</h2>
                             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                                Every Dreyv user gets a custodial Solana wallet at{" "}
+                                Every dreyv user gets a custodial Solana wallet at{" "}
                                 <Link href="/app/settings" className="font-medium text-violet-700 underline-offset-4 hover:underline">Settings → API keys</Link>.
                                 Fund it once with USDC (and a tiny SOL float for fees); from then on, agents pay invoices in a single HTTP call.
                             </p>
@@ -196,7 +196,7 @@ export default function AgentPaymentsPage() {
   "retry_after_funding": true
 }`}</Code>
                         <p className="text-[12px] text-slate-500">
-                            <strong>How it works:</strong> Dreyv generates a Solana keypair per user, encrypts it at rest with AES-256-GCM, and uses it solely to settle invoices for that user&apos;s API keys. Same spend caps, same receipt tokens. <Link href="/legal/terms" className="text-violet-700 underline-offset-4 hover:underline">Custodial terms apply.</Link>
+                            <strong>How it works:</strong> dreyv generates a Solana keypair per user, encrypts it at rest with AES-256-GCM, and uses it solely to settle invoices for that user&apos;s API keys. Same spend caps, same receipt tokens. <Link href="/legal/terms" className="text-violet-700 underline-offset-4 hover:underline">Custodial terms apply.</Link>
                         </p>
                     </div>
                 </section>

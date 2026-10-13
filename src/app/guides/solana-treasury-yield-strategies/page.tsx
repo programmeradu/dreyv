@@ -120,7 +120,7 @@ export default function Page() {
           finds the venue, simulates the deposit, shows post-trade
           concentration and runway, and ships the proposal to your{" "}
           <Link href="/guides/squads-multisig-setup-guide">Squads multisig</Link>.{" "}
-          <Link href="/waitlist">Join the waitlist</Link>.
+          <Link href="/auth?redirect=/app">Start free</Link>.
         </p>
       </GuideShell>
     </>

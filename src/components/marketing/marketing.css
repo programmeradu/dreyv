@@ -1149,7 +1149,7 @@ a:hover .mk-arrow {
   color: var(--mk-ink-3);
 }
 
-/* ---------- Forms (waitlist) ---------- */
+/* ---------- Forms ---------- */
 .mk-form {
   display: grid;
   gap: 22px;

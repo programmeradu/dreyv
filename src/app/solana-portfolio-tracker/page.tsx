@@ -106,10 +106,10 @@ export default function SolanaPortfolioTrackerPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/waitlist"
+              href="/auth?redirect=/app"
               className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-bold text-white hover:bg-violet-700 transition"
             >
-              Get early access <ArrowRight className="h-4 w-4" />
+              Start free <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/atlas"
@@ -146,13 +146,13 @@ export default function SolanaPortfolioTrackerPage() {
             See your Solana portfolio the way operators do.
           </h2>
           <p className="text-sm md:text-base text-white/80 mb-6 max-w-xl">
-            dreyv is invite-only while we onboard design partners. Free tier covers a single wallet.
+            The free plan covers a single wallet. No card needed.
           </p>
           <Link
-            href="/waitlist"
+            href="/auth?redirect=/app"
             className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-violet-700 hover:bg-violet-50 transition"
           >
-            Apply to the waitlist <ArrowRight className="h-4 w-4" />
+            Start free <ArrowRight className="h-4 w-4" />
           </Link>
         </section>
       </main>

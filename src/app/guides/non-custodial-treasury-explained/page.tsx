@@ -107,7 +107,7 @@ export default function Page() {
           <Link href="/guides/squads-multisig-setup-guide">Squads multisig</Link>.
           Your team signs from your own hardware wallets. dreyv is read +
           plan + simulate. Signing stays with you.{" "}
-          <Link href="/waitlist">Join the waitlist</Link>.
+          <Link href="/auth?redirect=/app">Start free</Link>.
         </p>
       </GuideShell>
     </>

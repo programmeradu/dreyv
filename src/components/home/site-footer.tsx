@@ -53,7 +53,7 @@ const developerLinks = [
 const companyLinks = [
   { label: "About", href: "/about" },
   { label: "Documentation", href: "/developers/docs" },
-  { label: "Contact", href: "mailto:hello@dreyv.com" },
+  { label: "Contact", href: "mailto:hello@dreyv.app" },
 ];
 
 const legalLinks = [
@@ -83,6 +83,13 @@ export function SiteFooter() {
               <div className="font-semibold text-slate-700">dreyv</div>
               <div>Nicosia, Cyprus</div>
               <div className="mt-1">
+                General:{" "}
+                <a href="mailto:hello@dreyv.app" className="hover:text-violet-700 transition-colors">
+                  hello@dreyv.app
+                </a>
+              </div>
+              <div>
+                Samuel:{" "}
                 <a href="mailto:samuel@dreyv.com" className="hover:text-violet-700 transition-colors">
                   samuel@dreyv.com
                 </a>

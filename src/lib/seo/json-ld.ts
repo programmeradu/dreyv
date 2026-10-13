@@ -45,7 +45,7 @@ export function buildRootJsonLd(): Record<string, unknown> {
           addressLocality: "Nicosia",
           addressCountry: "CY",
         },
-        email: "hello@dreyv.com",
+        email: "hello@dreyv.app",
         description:
           "dreyv is a non-custodial treasury workspace for teams on Solana: plain-language intent, simulation before signing, human-readable impact for approvers, and multisig-native workflows such as Squads. dreyv atlas is the free Solana intelligence surface inside the product.",
       },

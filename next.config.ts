@@ -41,6 +41,11 @@ const nextConfig: NextConfig = {
         destination: "/guides/intent-driven-treasury-solana",
         permanent: true,
       },
+      {
+        source: "/waitlist",
+        destination: "/auth?redirect=/app",
+        permanent: true,
+      },
     ];
   },
   async headers() {

@@ -103,7 +103,7 @@ export default function Page() {
           transaction, tracks cost basis, and exports a clean ledger for
           your accountant. Yield events, swaps, internal transfers, and
           fees are labeled automatically so your books match the chain.{" "}
-          <Link href="/waitlist">Join the waitlist</Link> for early access.
+          <Link href="/auth?redirect=/app">Start free</Link>. The free plan needs no card.
         </p>
       </GuideShell>
     </>

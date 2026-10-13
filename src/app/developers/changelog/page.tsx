@@ -5,9 +5,9 @@ import { DreyvStar } from "@/components/studio/DreyvStar";
 import { ArrowUpRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Dreyv Developer Changelog",
+  title: "dreyv Developer Changelog",
   description:
-    "Shipping notes for the Dreyv MCP server, x402 client, and public developer surface.",
+    "Shipping notes for the dreyv MCP server, x402 client, and public developer surface.",
   alternates: { canonical: "/developers/changelog" },
 };
 
@@ -27,7 +27,7 @@ const ENTRIES: Entry[] = [
       <ul className="space-y-3 text-[15px] leading-relaxed text-slate-700">
         <li>
           <strong className="text-slate-900">@dreyv/mcp@0.1.0</strong> published to npm. One-line
-          client for the Dreyv Streamable HTTP MCP server at{" "}
+          client for the dreyv Streamable HTTP MCP server at{" "}
           <code className="rounded bg-violet-50 px-1.5 py-0.5 text-[13px] text-violet-700">
             https://dreyv.com/api/mcp
           </code>
@@ -54,7 +54,7 @@ const ENTRIES: Entry[] = [
         </li>
         <li>
           Legacy <code className="rounded bg-violet-50 px-1.5 py-0.5 text-[13px] text-violet-700">@keystone-os/cli</code> deprecated on npm.
-          Dreyv&apos;s public surface is now <strong>@dreyv/mcp</strong> + <strong>@dreyv/x402-client</strong> only.
+          dreyv&apos;s public surface is now <strong>@dreyv/mcp</strong> + <strong>@dreyv/x402-client</strong> only.
         </li>
       </ul>
     ),
@@ -74,7 +74,7 @@ export default function DevelopersChangelogPage() {
           What we shipped
         </h1>
         <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-slate-600">
-          Release notes for Dreyv&apos;s public developer surface — SDKs, MCP endpoints, and
+          Release notes for dreyv&apos;s public developer surface — SDKs, MCP endpoints, and
           protocol updates. For product changes, see{" "}
           <Link href="/developers" className="text-violet-700 underline underline-offset-2">
             /developers
