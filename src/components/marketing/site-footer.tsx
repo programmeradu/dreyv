@@ -39,41 +39,76 @@ const SOCIALS = [
   { label: "Crunchbase", href: "https://www.crunchbase.com/organization/dreyv" },
 ];
 
+/*
+ * Footer: hand-inked vignettes on a dotted path (people at work and rest,
+ * dreyv agents as small violet robots carrying the work between them).
+ * Desktop uses one wide drawing pinned to the bottom edge; phones use a top
+ * piece, a repeating dotted-line tile down the left edge and a bottom piece.
+ * All art is decorative and hidden from assistive tech.
+ */
 export function SiteFooter() {
   return (
     <footer className="mk-footer">
-      <div className="mk-footer-top">
-        <div className="mk-footer-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="mk-footer-mascot"
-            src="/art/mascot-greet.webp"
-            alt="The dreyv mascot, a violet fox, waving"
-            width={291}
-            height={360}
-            loading="lazy"
-            decoding="async"
-          />
-          <div>
-            <Link href="/" className="mk-logo" aria-label="dreyv home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/art/dreyv-logo.webp" alt="dreyv" width={300} height={79} loading="lazy" />
-            </Link>
-            <p className="mk-small" style={{ marginTop: 14, maxWidth: "32ch" }}>
-              Treasury operations for teams on Solana, simulated before anyone signs.
-            </p>
-            <address className="mk-small" style={{ fontStyle: "normal", marginTop: 14 }}>
-              Nicosia, Cyprus
-              <br />
-              General: <a href="mailto:hello@dreyv.app">hello@dreyv.app</a>
-              <br />
-              Samuel: <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a>
-            </address>
-          </div>
+      {/* eslint-disable @next/next/no-img-element */}
+      <picture className="mk-ft-art mk-ft-art-d" aria-hidden="true">
+        <source
+          type="image/avif"
+          srcSet="/art/footer-ink-1440.avif 1440w, /art/footer-ink-2400.avif 2400w"
+          sizes="100vw"
+        />
+        <source
+          type="image/webp"
+          srcSet="/art/footer-ink-1440.webp 1440w, /art/footer-ink-2400.webp 2400w"
+          sizes="100vw"
+        />
+        <img
+          src="/art/footer-ink-1440.webp"
+          alt=""
+          width={2400}
+          height={1018}
+          loading="lazy"
+          decoding="async"
+        />
+      </picture>
+      <picture className="mk-ft-art mk-ft-art-m mk-ft-art-m-top" aria-hidden="true">
+        <source type="image/avif" srcSet="/art/footer-ink-m-top.avif" />
+        <img
+          src="/art/footer-ink-m-top.webp"
+          alt=""
+          width={768}
+          height={460}
+          loading="lazy"
+          decoding="async"
+        />
+      </picture>
+      <div className="mk-ft-art mk-ft-art-m mk-ft-art-m-mid" aria-hidden="true" />
+      <picture className="mk-ft-art mk-ft-art-m mk-ft-art-m-bot" aria-hidden="true">
+        <source type="image/avif" srcSet="/art/footer-ink-m-bottom.avif" />
+        <img
+          src="/art/footer-ink-m-bottom.webp"
+          alt=""
+          width={768}
+          height={416}
+          loading="lazy"
+          decoding="async"
+        />
+      </picture>
+
+      <div className="mk-ft-inner">
+        <div className="mk-ft-brand">
+          <Link href="/" className="mk-ft-logo" aria-label="dreyv home">
+            <img src="/art/dreyv-logo.webp" alt="dreyv" width={300} height={79} loading="lazy" />
+          </Link>
+          {/* eslint-enable @next/next/no-img-element */}
+          <p className="mk-ft-tag">
+            Treasury operations for teams on Solana, simulated before anyone signs.
+          </p>
+          <p className="mk-ft-place">Nicosia, Cyprus</p>
         </div>
-        <div className="mk-footer-cols">
+
+        <nav className="mk-ft-cols" aria-label="Footer">
           {COLS.map((c) => (
-            <div key={c.title}>
+            <div className="mk-ft-col" key={c.title}>
               <h2>{c.title}</h2>
               <ul>
                 {c.links.map((l) => (
@@ -84,19 +119,39 @@ export function SiteFooter() {
               </ul>
             </div>
           ))}
+          <div className="mk-ft-col">
+            <h2>Contact</h2>
+            <address className="mk-ft-mail">
+              <dl>
+                <div>
+                  <dt>General</dt>
+                  <dd>
+                    <a href="mailto:hello@dreyv.app">hello@dreyv.app</a>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Samuel</dt>
+                  <dd>
+                    <a href="mailto:samuel@dreyv.com">samuel@dreyv.com</a>
+                  </dd>
+                </div>
+              </dl>
+            </address>
+          </div>
+        </nav>
+
+        <div className="mk-ft-bar">
+          <ul className="mk-socials" aria-label="dreyv on social media">
+            {SOCIALS.map((s) => (
+              <li key={s.href}>
+                <a href={s.href} target="_blank" rel="noopener noreferrer">
+                  {s.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="mk-ft-copy">&copy; {new Date().getFullYear()} dreyv</p>
         </div>
-      </div>
-      <div className="mk-footer-bottom">
-        <span>&copy; {new Date().getFullYear()} dreyv</span>
-        <ul className="mk-socials">
-          {SOCIALS.map((s) => (
-            <li key={s.href}>
-              <a href={s.href} target="_blank" rel="noopener noreferrer">
-                {s.label}
-              </a>
-            </li>
-          ))}
-        </ul>
       </div>
     </footer>
   );

@@ -1616,47 +1616,96 @@ a:hover .mk-arrow {
   color: var(--mk-ink);
 }
 
-/* ---------- Footer ---------- */
+/* ---------- Footer (round 2, concept B: vignettes on a dotted path) ---------- */
 .mk-footer {
-  background: var(--mk-paper-deep);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   color: var(--mk-ink);
-  padding: clamp(56px, 9vh, 96px) var(--mk-pad) 32px;
+  background:
+    radial-gradient(110% 80% at 50% 0%, rgba(250, 248, 242, 0.85), rgba(250, 248, 242, 0) 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .3  0 0 0 0 .22  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    var(--mk-paper);
+  /* The drawing is 2400x1018 and pinned to the bottom edge. Its centre band
+     (27% to 73% of the width) is clear above ~45% of its height, so the text
+     column stays inside that band and the bottom padding keeps it above. */
+  padding: clamp(56px, 5vw, 80px) var(--mk-pad) calc(24vw + 16px);
 }
-.mk-footer-top {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(32px, 6vw, 96px);
-  max-width: var(--mk-max);
-  margin: 0 auto;
+.mk-ft-art {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+  mix-blend-mode: multiply;
 }
-.mk-footer-brand {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-.mk-footer-mascot {
-  width: 72px;
+.mk-ft-art img {
+  display: block;
+  width: 100%;
   height: auto;
 }
-.mk-footer-cols {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+.mk-ft-art-d {
+  bottom: 0;
 }
-.mk-footer-cols h2 {
+.mk-ft-art-m {
+  display: none;
+}
+.mk-ft-inner {
+  position: relative;
+  z-index: 1;
+  max-width: min(720px, 46vw);
+  margin: 0 auto;
+  text-align: center;
+}
+.mk-ft-brand {
+  display: grid;
+  justify-items: center;
+}
+.mk-ft-logo img {
+  display: block;
+  width: 132px;
+  height: auto;
+}
+.mk-ft-tag {
+  font-family: var(--mk-serif), Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  margin: 18px 0 0;
+  max-width: 34ch;
+  color: var(--mk-ink);
+  text-wrap: pretty;
+}
+.mk-ft-place {
+  margin: 12px 0 0;
   font-size: 14px;
-  font-weight: 600;
+  color: var(--mk-ink-3);
+}
+.mk-ft-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+  gap: 32px;
+  text-align: left;
+  margin: 38px auto 0;
+  max-width: 680px;
+}
+.mk-ft-col h2 {
+  font-family: var(--mk-serif), Georgia, serif;
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.005em;
   margin: 0 0 12px;
   color: var(--mk-ink);
 }
-.mk-footer-cols ul,
+.mk-ft-col ul,
 .mk-socials {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.mk-footer-cols ul {
+.mk-ft-col ul {
   display: grid;
   gap: 9px;
 }
@@ -1670,32 +1719,99 @@ a:hover .mk-arrow {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.mk-footer-bottom {
-  max-width: var(--mk-max);
-  margin: clamp(40px, 6vh, 64px) auto 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--mk-rule);
+.mk-ft-mail {
+  font-style: normal;
+}
+.mk-ft-mail dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+.mk-ft-mail dl > div {
+  display: grid;
+  gap: 1px;
+}
+.mk-ft-mail dt {
+  font-size: 12.5px;
+  color: var(--mk-ink-3);
+}
+.mk-ft-mail dd {
+  margin: 0;
+}
+.mk-ft-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 24px;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  font-size: 14px;
-  color: var(--mk-ink-3);
+  gap: 12px 28px;
+  margin-top: 34px;
 }
 .mk-socials {
   display: flex;
-  gap: 20px;
   flex-wrap: wrap;
+  gap: 20px;
 }
-@media (max-width: 860px) {
-  .mk-footer-top {
-    grid-template-columns: minmax(0, 1fr);
+.mk-footer .mk-socials a {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--mk-ink);
+}
+.mk-ft-copy {
+  margin: 0;
+  font-size: 13px;
+  color: var(--mk-ink-3);
+}
+/* Tablet and small laptop: same drawing, links in a 2x2 grid so the column
+   stays inside the clear centre band. */
+@media (max-width: 1199px) {
+  .mk-ft-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 24px;
+    max-width: 440px;
+  }
+  .mk-ft-tag {
+    font-size: 21px;
   }
 }
-@media (max-width: 520px) {
-  .mk-footer-cols {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Phones: top piece, dotted line down the left edge, bottom piece. */
+@media (max-width: 700px) {
+  .mk-footer {
+    padding: 45vw 22px 54vw max(66px, calc(9.4vw + 30px));
+  }
+  .mk-ft-art-d {
+    display: none;
+  }
+  .mk-ft-art-m {
+    display: block;
+  }
+  .mk-ft-art-m-top {
+    top: 0;
+  }
+  .mk-ft-art-m-bot {
+    bottom: 0;
+  }
+  .mk-ft-art-m-mid {
+    top: 59.8vw;
+    bottom: 54.1vw;
+    background: url("/art/footer-ink-m-mid.png") 0 0 / 100% auto repeat-y;
+  }
+  .mk-ft-inner {
+    max-width: none;
+    text-align: left;
+  }
+  .mk-ft-brand {
+    justify-items: start;
+  }
+  .mk-ft-cols {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 32px 18px;
+    margin-top: 34px;
+    max-width: none;
+  }
+  .mk-ft-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
   }
 }
 
