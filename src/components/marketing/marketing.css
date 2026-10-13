@@ -740,7 +740,7 @@
 /* ---------- Home v2: editorial sections after the hero ----------
  * Each section has its own generated still life and its own layout family:
  * split with a bleeding image (intent, team), offset split (proof), book plate (statement),
- * full-screen dark chapter (signing, agents), full-bleed band with an overlapping panel (Atlas),
+ * dark chapter with a rounded plate (signing, agents), wide band with an overlapping panel (Atlas),
  * large sentence (pricing), two-column questions, full-screen brand colour (close).
  * Mobile first (375): every section stacks copy, then image, with the image edge to edge.
  */
@@ -791,9 +791,7 @@
 /* Images that run to the screen edge on phones. */
 .hx-intent-art,
 .hx-proof-art picture,
-.hx-sign-art,
 .hx-team-art,
-.hx-agents-art,
 .hx-price-art {
   margin-left: calc(-1 * var(--mk-pad));
   margin-right: calc(-1 * var(--mk-pad));
@@ -869,7 +867,6 @@
   color: var(--mk-on-night);
   display: grid;
   gap: clamp(32px, 5vh, 56px);
-  padding-bottom: 0;
 }
 .hx-sign .hx-h2,
 .hx-agents .hx-h2 {
@@ -879,10 +876,11 @@
 .hx-agents .hx-body {
   color: var(--mk-on-night-2);
 }
+/* On the dark chapters the paper flat-lay sits as a clean rounded plate. */
 .hx-sign-art img,
 .hx-agents-art img {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 18%);
+  border-radius: clamp(14px, 1.6vw, 24px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 40px 80px -36px rgba(0, 0, 0, 0.65);
 }
 
 /* Team */
@@ -923,7 +921,6 @@
   color: var(--mk-on-night);
   display: grid;
   gap: clamp(32px, 5vh, 56px);
-  padding-bottom: 0;
 }
 .hx-code {
   margin: clamp(24px, 4vh, 40px) 0 clamp(24px, 4vh, 36px);
@@ -987,13 +984,28 @@
   text-wrap: balance;
 }
 
+/* Phones: tighter crops so the flat-lay objects read at small sizes. */
+@media (max-width: 899px) {
+  .hx-intent-art img {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: 96% 50%;
+  }
+  .hx-atlas-art img {
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    object-position: 58% 50%;
+  }
+  .hx-atlas-panel {
+    margin-top: -12px;
+  }
+}
+
 /* ---------- Home v2, wide screens ---------- */
 @media (min-width: 900px) {
   .hx-intent-art,
   .hx-proof-art picture,
-  .hx-sign-art,
   .hx-team-art,
-  .hx-agents-art,
   .hx-price-art {
     margin-left: 0;
     margin-right: 0;
@@ -1014,9 +1026,14 @@
     justify-self: end;
     width: 100%;
   }
+  /* Paper flat-lays that bleed off one side: the other three edges melt into the section. */
   .hx-intent-art img {
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10%);
-    mask-image: linear-gradient(to right, transparent 0, #000 10%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
   .hx-sign,
   .hx-agents {
@@ -1025,38 +1042,22 @@
   }
   .hx-sign,
   .hx-agents {
-    padding-top: 0;
-    padding-bottom: 0;
-    align-items: stretch;
-  }
-  .hx-sign-copy,
-  .hx-agents-copy {
-    align-self: center;
-    padding: clamp(72px, 12vh, 160px) 0;
+    align-items: center;
+    padding-right: max(var(--mk-pad), 5vw);
   }
   .hx-sign-art,
   .hx-agents-art {
-    position: relative;
-    min-height: 100%;
-  }
-  .hx-sign-art img,
-  .hx-agents-art img {
-    position: absolute;
-    inset: 0;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 72% 62%;
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 26%);
-    mask-image: linear-gradient(to right, transparent 0, #000 26%);
-  }
-  .hx-agents-art img {
-    object-position: 85% 70%;
+    max-width: 820px;
   }
   /* Paper photos on wide screens: fade the edge that meets the copy, and soften the plate. */
   .hx-team-art img {
-    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 10%);
-    mask-image: linear-gradient(to left, transparent 0, #000 10%);
+    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to left, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
   .hx-price-art img {
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 88%, transparent 100%),
@@ -1083,8 +1084,12 @@
     padding-left: var(--mk-pad);
   }
   .hx-proof-art img {
-    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 8%);
-    mask-image: linear-gradient(to left, transparent 0, #000 8%);
+    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to left, transparent 0, #000 14%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
   .hx-proof-copy {
     order: 2;
@@ -1127,6 +1132,19 @@
 
   .hx-atlas {
     padding-bottom: clamp(80px, 14vh, 180px);
+  }
+  /* The map sits right of centre so the panel never covers the tablet. */
+  .hx-atlas-art {
+    width: 72%;
+    margin-left: auto;
+  }
+  .hx-atlas-art img {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 16%),
+      linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
   .hx-atlas-panel {
     position: absolute;

@@ -126,10 +126,10 @@ export function HomePage() {
         <Still
           className="hx-intent-art"
           name="home-intent"
-          w={1264}
-          h={848}
+          w={1600}
+          h={1067}
           sizes={HALF}
-          alt="A cream ledger slip with three lines of loose violet handwriting, a fountain pen resting beside it on cotton paper."
+          alt="A tablet above a white keyboard on cotton paper. The screen shows the sentence Rebalance to 60% USDC with a blinking cursor and a small voice waveform."
         />
       </section>
 
@@ -138,12 +138,12 @@ export function HomePage() {
         <figure className="hx-proof-art">
           <Still
             name="home-proof"
-            w={1264}
-            h={848}
+            w={1600}
+            h={1067}
             sizes={HALF}
-            alt="A sheet of tissue paper lifted at one corner over a violet test stamp on cream card, with a brass loupe beside it."
+            alt="A tablet resting on a sheet of tissue paper beside a violet glass bead. The screen shows a ring chart marked Simulated: 60% USDC, from 42%."
           />
-          <figcaption className="hx-caption">A test stamp on tissue, before the real one goes down.</figcaption>
+          <figcaption className="hx-caption">The simulated result, before anything moves.</figcaption>
         </figure>
         <div className="hx-proof-copy">
           <h2 id="s-sim" className="hx-h2">
@@ -171,17 +171,17 @@ export function HomePage() {
           <div className="hx-plate-mat">
             <Still
               name="home-statement"
-              w={1200}
-              h={896}
+              w={1600}
+              h={1067}
               sizes={PLATE}
-              alt="A cream statement folded in thirds and partly opened, tied loosely with a violet silk ribbon."
+              alt="A phone beside a cream notebook with a violet ribbon. The screen reads USDC 42% to 60%, SOL 58% to 40%, one swap, fee 0.000005 SOL."
             />
           </div>
           <figcaption className="hx-caption">What a signer reads before they sign.</figcaption>
         </figure>
       </section>
 
-      {/* Signing: one dark chapter. The photo is shot on violet linen so it becomes the section. */}
+      {/* Signing: one dark chapter, the flat-lay sits on it as a rounded plate. */}
       <section className="hx hx-sign" aria-labelledby="s-sign">
         <div className="hx-sign-copy">
           <h2 id="s-sign" className="hx-h2">
@@ -194,11 +194,11 @@ export function HomePage() {
         </div>
         <Still
           className="hx-sign-art"
-          name="home-signet"
-          w={1200}
-          h={896}
-          sizes={HALF}
-          alt="A gold signet ring beside a freshly pressed violet wax seal on a square of cream paper, on violet linen."
+          name="home-sign"
+          w={1600}
+          h={1067}
+          sizes={PLATE}
+          alt="A phone connected by a violet braided cable to a grey hardware wallet. The screen shows 2 of 3 signed, with two filled dots and one empty."
         />
       </section>
 
@@ -206,11 +206,11 @@ export function HomePage() {
       <section className="hx hx-team" aria-labelledby="s-team">
         <Still
           className="hx-team-art"
-          name="home-namecards"
-          w={1264}
-          h={848}
+          name="home-together"
+          w={1600}
+          h={1067}
           sizes={HALF}
-          alt="Three folded name cards in a row on an oak desk: one ticked, one marked with a violet wax dot, one still blank."
+          alt="Three phones and a tablet laid out together. The tablet shows a ticked plan, Rebalance to 60% USDC; the phones read Looks right, Route checked and Approved."
         />
         <div className="hx-team-copy">
           <h2 id="s-team" className="hx-h2">
@@ -223,15 +223,15 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Atlas: the map runs edge to edge, a paper panel overlaps its lower edge. */}
+      {/* Atlas: a wide band, the map sits to the right and a paper panel overlaps its lower left. */}
       <section className="hx-atlas" aria-labelledby="s-atlas">
         <Still
           className="hx-atlas-art"
-          name="home-map"
-          w={1376}
-          h={768}
-          sizes="100vw"
-          alt="A folded paper map opened flat, pale contour lines with a thin violet route between three violet dots, a brass compass on one corner."
+          name="home-atlas"
+          w={1600}
+          h={900}
+          sizes="(min-width: 900px) 72vw, 100vw"
+          alt="A tablet titled Solana Atlas showing a network map of Solana tokens, each node a token logo: SOL, JUP, BONK, RAY, mSOL and JTO. A magnifying glass enlarges the USDC logo."
         />
         <div className="hx-atlas-panel">
           <h2 id="s-atlas" className="hx-h2">
@@ -247,7 +247,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Agents: dark split, the config set as type, the key on night paper. */}
+      {/* Agents: dark split, the config set as type, the flat-lay as a rounded plate. */}
       <section className="hx hx-agents" aria-labelledby="s-agents">
         <div className="hx-agents-copy">
           <h2 id="s-agents" className="hx-h2">
@@ -266,11 +266,11 @@ export function HomePage() {
         </div>
         <Still
           className="hx-agents-art"
-          name="home-key"
-          w={1200}
-          h={896}
+          name="home-agent"
+          w={1600}
+          h={1067}
           sizes={PLATE}
-          alt="An old brass key with a blank cream tag on violet string, beside a coil of violet braided cable with a brass connector."
+          alt="A tablet with a white keyboard and a violet cable. The screen shows a grid of violet squares above dreyv.com/api/mcp and 347 tools, one key."
         />
       </section>
 
