@@ -53,7 +53,6 @@ export const WAITLIST_REFERRAL_SOURCES = [
 
 export type WaitlistStatus = "pending" | "invited" | "onboarded" | "rejected";
 
-export const COHORT_LABEL = "Cohort 03";
-export const COHORT_WINDOW = "rolling — invites sent weekly";
+export const COHORT_WINDOW = "rolling, invites sent weekly";
 
 export const INVITE_EXPIRY_DAYS = 14;
