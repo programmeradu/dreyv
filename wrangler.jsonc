@@ -16,6 +16,7 @@
       "class_name": "NextAppContainer",
       "image": "./Dockerfile",
       "instance_type": "standard-1",
+      "max_instances": 3,
       "ssh": {
         "enabled": true
       }
